@@ -14,6 +14,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { assertConfigArchivable } from "back-end/src/services/constants";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(context: ApiReqContext, config: ConfigInterface) {
@@ -44,9 +45,10 @@ async function setArchivedState(
     return buildResponse(context, config);
   }
 
-  // Block archiving a still-referenced config or one with live children.
-  // Unarchiving is always allowed.
+  // Block archiving a still-referenced config or one with live children, or a
+  // locked one (archiving advances live state). Unarchiving is always allowed.
   if (archived) {
+    assertConfigNotLocked(config);
     await assertConfigArchivable(context, config);
   }
 

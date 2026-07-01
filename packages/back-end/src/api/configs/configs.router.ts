@@ -4,6 +4,8 @@ import { postConfig } from "./postConfig";
 import { getConfig } from "./getConfig";
 import { updateConfig } from "./updateConfig";
 import { archiveConfig, unarchiveConfig } from "./archiveConfig";
+import { lockConfig } from "./postConfigLock";
+import { unlockConfig } from "./postConfigUnlock";
 import { deleteConfig } from "./deleteConfig";
 import { getConfigReferences } from "./getConfigReferences";
 import { getConfigLineage } from "./getConfigLineage";
@@ -44,6 +46,8 @@ export const configsRoutes: OpenApiRoute[] = [
   updateConfig,
   archiveConfig,
   unarchiveConfig,
+  lockConfig,
+  unlockConfig,
   deleteConfig,
 
   // `latest` MUST precede the `:version` route below; otherwise its int param

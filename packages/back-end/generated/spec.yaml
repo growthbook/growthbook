@@ -19677,6 +19677,94 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs/checkout-flow/unarchive' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs/{key}/lock:
+    post:
+      operationId: lockConfig
+      summary: Lock a config at its current published revision
+      description: >-
+        Freezes the config at its current published (merged) revision. While
+        locked, no change can be published past that revision — publish,
+        revert-to-publish, direct update, scheduled publish, and archive are all
+        blocked (drafts may still be created and edited). The pinned revision is
+        returned as `lockedRevision` for reproducible build pinning. Unlocking
+        requires the `bypassApprovalChecks` permission.
+      tags:
+        - configs
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the config
+          schema:
+            description: The key of the config
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: Optional note explaining why the config was locked.
+                  type: string
+                  maxLength: 10000
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    $ref: '#/components/schemas/Config'
+                required:
+                  - config
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs/checkout-flow/lock' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs/{key}/unlock:
+    post:
+      operationId: unlockConfig
+      summary: Unlock a config
+      description: >-
+        Clears the lock so changes can be published again. Requires the
+        `bypassApprovalChecks` permission on the config's project.
+      tags:
+        - configs
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the config
+          schema:
+            description: The key of the config
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    $ref: '#/components/schemas/Config'
+                required:
+                  - config
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/configs/checkout-flow/unlock' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs-revisions/{key}:
     get:
       operationId: getConfigRevisions
@@ -43158,6 +43246,35 @@ components:
               - rule
               - message
             additionalProperties: false
+        locked:
+          description: >-
+            Whether this config is locked: frozen at a published revision. While
+            locked no change can be published past that revision until it is
+            unlocked (which requires the `bypassApprovalChecks` permission).
+            Drafts may still be created and edited.
+          type: boolean
+        lockedRevision:
+          description: >-
+            The pinned published revision (present only when `locked`). Fetch it
+            via `GET /configs-revisions/:key/:version` for a value guaranteed
+            not to disappear or mutate — use it to pin reproducible builds.
+          type: object
+          properties:
+            id:
+              type: string
+            version:
+              type: number
+          required:
+            - id
+            - version
+          additionalProperties: false
+        lockedBy:
+          description: Id of the user who locked the config (when `locked`).
+          type: string
+        dateLocked:
+          format: date-time
+          description: When the config was locked (when `locked`).
+          type: string
         dateCreated:
           format: date-time
           type: string

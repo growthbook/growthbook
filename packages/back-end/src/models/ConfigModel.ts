@@ -13,6 +13,7 @@ import {
   findSiblingSchemaConflicts,
   fieldsToJsonSchema,
   storedInvariantsToApi,
+  isConfigLocked,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
@@ -366,6 +367,14 @@ export class ConfigModel extends BaseClass {
       // Cross-field validation rules, with `rule` as the canonical JSONLogic
       // object. Omitted when the config has none.
       invariants: storedInvariantsToApi(config.schema?.invariants),
+      // Lock / reproducibility pin. `lockedRevision` is the immutable pinned
+      // revision; fetch it via GET /configs-revisions/:key/:version for builds.
+      locked: isConfigLocked(config),
+      lockedRevision: config.lock
+        ? { id: config.lock.revisionId, version: config.lock.version }
+        : undefined,
+      lockedBy: config.lock?.lockedBy,
+      dateLocked: config.lock?.dateLocked?.toISOString(),
       dateCreated: config.dateCreated.toISOString(),
       dateUpdated: config.dateUpdated.toISOString(),
     };

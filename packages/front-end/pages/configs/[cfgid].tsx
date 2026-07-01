@@ -35,7 +35,13 @@ import {
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
+import {
+  PiPlusBold,
+  PiCaretDown,
+  PiCheckBold,
+  PiCopy,
+  PiLockSimple,
+} from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
@@ -85,6 +91,7 @@ import {
 import { useConstantRevision } from "@/hooks/useConstantRevision";
 import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
+import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
@@ -277,6 +284,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lockConfirm, setLockConfirm] = useState<"lock" | "unlock" | null>(
+    null,
+  );
   const [showOverrides, setShowOverrides] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [composeAdding, setComposeAdding] = useState(false);
@@ -729,6 +739,24 @@ export default function ConfigDetailPage(): React.ReactElement {
       { method: "PUT", body: JSON.stringify({}) },
     );
     if (res?.revision) await onRevisionCreated(res.revision);
+  };
+
+  const handleLock = async (reason?: string) => {
+    await apiCall(`/configs/${config.id}/lock`, {
+      method: "POST",
+      body: JSON.stringify(reason ? { reason } : {}),
+    });
+    await mutate();
+    mutateDefinitions();
+  };
+
+  const handleUnlock = async () => {
+    await apiCall(`/configs/${config.id}/unlock`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    await mutate();
+    mutateDefinitions();
   };
 
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
@@ -1301,6 +1329,28 @@ export default function ConfigDetailPage(): React.ReactElement {
                   {displayedConfig.archived && (
                     <Badge label="Archived" color="gray" />
                   )}
+                  {config.lock && (
+                    <Tooltip
+                      body={`Locked at v${config.lock.version}${
+                        config.lock.reason ? ` — ${config.lock.reason}` : ""
+                      }. Unlock to publish.`}
+                    >
+                      <Badge
+                        color="orange"
+                        label={
+                          <>
+                            <PiLockSimple
+                              style={{
+                                marginRight: 4,
+                                verticalAlign: "-2px",
+                              }}
+                            />
+                            {`Locked · v${config.lock.version}`}
+                          </>
+                        }
+                      />
+                    </Tooltip>
+                  )}
                 </Flex>
                 {parentKey && (
                   <Metadata
@@ -1357,6 +1407,33 @@ export default function ConfigDetailPage(): React.ReactElement {
                       Audit history
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
+                  {((!config.lock && canUpdate) ||
+                    (config.lock && canBypassApproval)) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        {!config.lock ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setMenuOpen(false);
+                              setLockConfirm("lock");
+                            }}
+                          >
+                            Lock…
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setMenuOpen(false);
+                              setLockConfirm("unlock");
+                            }}
+                          >
+                            Unlock…
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuGroup>
+                    </>
+                  )}
                   {(canEditNow || canDeleteNow) && (
                     <>
                       <DropdownMenuSeparator />
@@ -1719,6 +1796,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                 requiresApproval={selectedRevisionRequiresApproval}
                 canEditEntity={canUpdate}
                 canBypassApproval={canBypassApproval}
+                publishBlockedReason={
+                  config.lock
+                    ? `Locked at v${config.lock.version}. Unlock to publish.`
+                    : undefined
+                }
                 selectRevision={selectRevision}
                 onPublish={handlePublish}
                 onDiscard={handleDiscard}
@@ -1849,6 +1931,30 @@ export default function ConfigDetailPage(): React.ReactElement {
             });
             await mutateRevisions();
           }}
+        />
+      )}
+
+      {lockConfirm === "lock" && (
+        <ConfigLockModal
+          configName={config.name}
+          onConfirm={async (reason) => {
+            await handleLock(reason);
+            setLockConfirm(null);
+          }}
+          close={() => setLockConfirm(null)}
+        />
+      )}
+
+      {lockConfirm === "unlock" && (
+        <ConfirmDialog
+          title={`Unlock "${config.name}"?`}
+          content="Changes can be published again."
+          yesText="Unlock"
+          onConfirm={async () => {
+            await handleUnlock();
+            setLockConfirm(null);
+          }}
+          onCancel={() => setLockConfirm(null)}
         />
       )}
 

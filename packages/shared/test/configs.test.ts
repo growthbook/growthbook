@@ -19,6 +19,7 @@ import {
   findIncompatibleConfigValueKeys,
   resolveConfigChain,
   computeConfigReconciliationPreview,
+  isConfigLocked,
   ConfigChainNode,
 } from "../src/util/configs";
 import { SimpleSchema, SchemaField } from "../types/feature";
@@ -34,6 +35,18 @@ const field = (key: string): SchemaField => ({
 const objSchema = (...keys: string[]): SimpleSchema => ({
   type: "object",
   fields: keys.map(field),
+});
+
+describe("isConfigLocked", () => {
+  it("is false when lock is absent", () => {
+    expect(isConfigLocked({})).toBe(false);
+  });
+  it("is false when lock is null (explicit unlocked sentinel)", () => {
+    expect(isConfigLocked({ lock: null })).toBe(false);
+  });
+  it("is true when a lock object is present", () => {
+    expect(isConfigLocked({ lock: { version: 3 } })).toBe(true);
+  });
 });
 
 describe("ensureConfigBacking", () => {

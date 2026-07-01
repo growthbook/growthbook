@@ -15,6 +15,7 @@ import {
 import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -26,6 +27,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   if (!config) {
     throw new NotFoundError("Could not find config");
   }
+
+  // Locked config: block before any merge is claimed. Unlock to publish.
+  assertConfigNotLocked(config);
 
   const revision = await loadRevisionByVersion(
     req.context,

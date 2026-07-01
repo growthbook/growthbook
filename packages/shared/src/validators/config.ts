@@ -24,6 +24,22 @@ export const schemaProjectionValidator = z
   })
   .strict();
 
+// Freeze a config at a specific published revision. While locked, no publish path
+// may advance the live state past `revisionId`/`version`; only an explicit unlock
+// (requires `bypassApprovalChecks`) clears it. `null`/absent = unlocked. Set solely
+// via the lock/unlock endpoints — deliberately kept out of `configUpdatableFieldsSchema`
+// so a revision merge can never touch it.
+export const configLockSchema = z
+  .object({
+    // The pinned published (merged) revision at lock time.
+    revisionId: z.string(),
+    version: z.number(),
+    lockedBy: z.string(),
+    dateLocked: z.date(),
+    reason: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  })
+  .strict();
+
 export const configValidator = z
   .object({
     id: z.string(),
@@ -50,6 +66,8 @@ export const configValidator = z
     renderProjections: z
       .record(z.string(), schemaProjectionValidator)
       .optional(),
+    // Edit-protection / reproducibility pin (see configLockSchema). `null` = unlocked.
+    lock: configLockSchema.nullable().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -302,6 +320,28 @@ export const apiConfigValidator = namedSchema(
         .describe(
           "Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish.",
         )
+        .optional(),
+      locked: z
+        .boolean()
+        .describe(
+          "Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited.",
+        )
+        .optional(),
+      lockedRevision: z
+        .object({ id: z.string(), version: z.number() })
+        .strict()
+        .describe(
+          "The pinned published revision (present only when `locked`). Fetch it via `GET /configs-revisions/:key/:version` for a value guaranteed not to disappear or mutate — use it to pin reproducible builds.",
+        )
+        .optional(),
+      lockedBy: z
+        .string()
+        .describe("Id of the user who locked the config (when `locked`).")
+        .optional(),
+      dateLocked: z
+        .string()
+        .meta({ format: "date-time" })
+        .describe("When the config was locked (when `locked`).")
         .optional(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
@@ -711,6 +751,44 @@ export const deleteConfigValidator = {
   tags: ["configs"],
   method: "delete" as const,
   path: "/configs/:key",
+  exampleRequest: { params: { key: "checkout-flow" } },
+};
+
+export const lockConfigValidator = {
+  bodySchema: z
+    .object({
+      reason: z
+        .string()
+        .max(MAX_DESCRIPTION_LENGTH)
+        .describe("Optional note explaining why the config was locked.")
+        .optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: configKeyParams,
+  responseSchema: apiConfigResponse,
+  summary: "Lock a config at its current published revision",
+  description:
+    "Freezes the config at its current published (merged) revision. While locked, no change can be published past that revision — publish, revert-to-publish, direct update, scheduled publish, and archive are all blocked (drafts may still be created and edited). The pinned revision is returned as `lockedRevision` for reproducible build pinning. Unlocking requires the `bypassApprovalChecks` permission.",
+  operationId: "lockConfig",
+  tags: ["configs"],
+  method: "post" as const,
+  path: "/configs/:key/lock",
+  exampleRequest: { params: { key: "checkout-flow" } },
+};
+
+export const unlockConfigValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: configKeyParams,
+  responseSchema: apiConfigResponse,
+  summary: "Unlock a config",
+  description:
+    "Clears the lock so changes can be published again. Requires the `bypassApprovalChecks` permission on the config's project.",
+  operationId: "unlockConfig",
+  tags: ["configs"],
+  method: "post" as const,
+  path: "/configs/:key/unlock",
   exampleRequest: { params: { key: "checkout-flow" } },
 };
 

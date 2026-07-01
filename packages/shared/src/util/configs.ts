@@ -14,6 +14,16 @@ export function getConfigParentKey(config: { parent?: string }): string | null {
   return config.parent || null;
 }
 
+// Whether a config is locked (frozen at a published revision). Locking blocks every
+// publish path until an explicit unlock; drafts may still be created/edited. `null`
+// or absent means unlocked. Shared by the front-end (badge/gating) and back-end
+// (publish guards); typed structurally to stay free of a validator import cycle.
+export function isConfigLocked(config: {
+  lock?: { version: number } | null;
+}): boolean {
+  return (config.lock ?? null) !== null;
+}
+
 // Every base config key for a config, in precedence order: the `parent` spine
 // first, then each `extends` mixin in array order. Deduped, order-preserving.
 // These become the `@config:` `$extends` entries — later overrides earlier, and

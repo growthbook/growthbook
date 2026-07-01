@@ -17,6 +17,7 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -85,6 +86,12 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   const strategy =
     req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
+
+  // A publish-strategy revert advances live state, so block it while locked
+  // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
+  if (isPublish) {
+    assertConfigNotLocked(config);
+  }
 
   // A historical value may predate the current schema; ensure the post-revert
   // state still conforms (against current ancestors).

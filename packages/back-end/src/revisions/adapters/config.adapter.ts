@@ -20,6 +20,7 @@ import {
   assertConfigInvariantsValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
@@ -248,6 +249,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     desiredState: Record<string, unknown>,
   ): Promise<void> {
+    // Pre-merge lock gate for the shared publishRevision action (auto-publish on
+    // approval, scheduled-publish poller). Throwing here — before the merge is
+    // claimed — leaves the draft open instead of stranding it "merged".
+    assertConfigNotLocked(entity);
+
     const filteredChanges: Record<string, unknown> = {};
     for (const key of Object.keys(desiredState)) {
       if (!UPDATABLE_FIELDS.has(key)) continue;

@@ -638,6 +638,28 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
+   * The most-recently-published (merged) revision for the entity — the one whose
+   * post-merge state is currently live. A merged revision is terminal, so its
+   * `dateUpdated` reflects the merge time; sort by it (then version/id) to pick the
+   * latest publish even if drafts were published out of creation order. Used to
+   * capture the pinned revision when locking a config.
+   */
+  async getLatestMergedByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ) {
+    const results = await this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: "merged",
+      } as Record<string, unknown>,
+      { sort: { dateUpdated: -1, version: -1, id: -1 }, limit: 1 },
+    );
+    return results[0] ?? null;
+  }
+
+  /**
    * Paginated revisions for a single entity. Mirrors `getByTargetTypePaginated`
    * but adds an entity-id filter and optional author/mine filters used by the
    * per-entity list endpoint.

@@ -19,6 +19,7 @@ import {
   assertConfigDescendantsReconcilable,
 } from "back-end/src/services/configReconcile";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
 
@@ -189,6 +190,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         ...(warnings.length ? { warnings } : {}),
       };
     }
+
+    // A direct update publishes immediately, so block it while locked (a no-op
+    // update short-circuits above and is unaffected). Unlock to publish changes.
+    assertConfigNotLocked(config);
 
     // Re-validate the value against the effective schema if anything affecting
     // conformance changed.

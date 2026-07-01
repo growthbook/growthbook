@@ -3,6 +3,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -23,6 +24,11 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
   const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } =
     req.body;
   const isCancel = scheduledPublishAt === null;
+
+  // Arming a future publish is blocked while locked; canceling a schedule is not.
+  if (!isCancel) {
+    assertConfigNotLocked(config);
+  }
 
   let parsedDate: Date | null = null;
   if (!isCancel) {

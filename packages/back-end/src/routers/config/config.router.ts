@@ -60,6 +60,21 @@ router.put(
   configController.putConfig,
 );
 
+router.post(
+  "/:id/lock",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z.object({ reason: z.string().optional() }).strict(),
+  }),
+  configController.lockConfig,
+);
+
+router.post(
+  "/:id/unlock",
+  validateRequestMiddleware({ params: idParams }),
+  configController.unlockConfig,
+);
+
 router.delete(
   "/:id",
   validateRequestMiddleware({ params: idParams }),

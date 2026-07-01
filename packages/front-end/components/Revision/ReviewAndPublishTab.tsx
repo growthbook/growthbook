@@ -146,6 +146,10 @@ export interface ReviewAndPublishTabProps<T> {
   canEditEntity: boolean;
   // The viewer can bypass the approval requirement (admin).
   canBypassApproval: boolean;
+  // When set, publishing is blocked and this reason is shown (e.g. the entity is
+  // locked/frozen at a published revision). Drafts, edits, review requests, and
+  // discarding stay available — only paths that advance the live state are hidden.
+  publishBlockedReason?: string;
   selectRevision: (revision: Revision | null) => void;
   onPublish: (revisionId: string) => Promise<void>;
   onDiscard: (revisionId: string) => Promise<void>;
@@ -187,6 +191,7 @@ function ReviewAndPublishRevision<T>({
   requiresApproval,
   canEditEntity,
   canBypassApproval,
+  publishBlockedReason,
   selectRevision,
   onPublish,
   onDiscard,
@@ -1141,7 +1146,12 @@ function ReviewAndPublishRevision<T>({
                 autoPublishArmed={revisionAutoPublishArmed}
                 autoPublishScheduled={scheduledPending}
                 canReviewerPublish={canEditEntity}
-                publishBlocked={!mergeSuccess || !hasChanges || mustRebase}
+                publishBlocked={
+                  !mergeSuccess ||
+                  !hasChanges ||
+                  mustRebase ||
+                  !!publishBlockedReason
+                }
                 isBlockedContributor={!!isBlockedContributor}
                 storageKey={`review-comment:${revision.target.type}:${revision.id}`}
                 onSuccess={() => {}}
@@ -1196,8 +1206,10 @@ function ReviewAndPublishRevision<T>({
 
             {/* Auto-publish / scheduled-publish arming (also works post-request).
                 Mirrors the feature publish section: directly under the
-                divergence notice, above the admin-bypass + Publish button. */}
-            {isActiveDraft && (
+                divergence notice, above the admin-bypass + Publish button.
+                Hidden when publishing is blocked (e.g. a locked config) — a
+                schedule would just fail to fire. */}
+            {isActiveDraft && !publishBlockedReason && (
               <ScheduledPublishControl
                 revision={revision}
                 pending={isScheduledPublishPending(revision)}
@@ -1214,7 +1226,7 @@ function ReviewAndPublishRevision<T>({
               />
             )}
 
-            {adminBypassAvailable && (
+            {adminBypassAvailable && !publishBlockedReason && (
               <Box mb="3">
                 <Checkbox
                   label={
@@ -1230,6 +1242,7 @@ function ReviewAndPublishRevision<T>({
             )}
 
             {!scheduleBlocksPublish &&
+              !publishBlockedReason &&
               (state.submitAction === "publish" || adminBypassAvailable) && (
                 <Button
                   onClick={
@@ -1253,6 +1266,13 @@ function ReviewAndPublishRevision<T>({
               )}
 
             <Flex direction="column" gap="2" mt="3">
+              {/* Entity-level publish lock (e.g. a locked config). */}
+              {publishBlockedReason && (
+                <Callout status="warning" size="sm">
+                  {publishBlockedReason}
+                </Callout>
+              )}
+
               {/* A sibling draft's committed lock-others schedule freezes publish. */}
               {featureLockedBySchedule && !adminPublish && (
                 <Callout status="warning" size="sm">

@@ -55,6 +55,10 @@ import {
   assertConfigValueValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
+import {
+  assertConfigNotLocked,
+  resolveConfigLockTarget,
+} from "back-end/src/services/configLock";
 import { PlanDoesNotAllowError } from "back-end/src/util/errors";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
@@ -650,6 +654,15 @@ export const putConfig = async (
     org.settings,
   );
 
+  // Block publishing past a locked config's pinned revision (creating/editing
+  // drafts stays allowed). Guard before creating or claiming a merge so a blocked
+  // publish leaves nothing behind. Unlock (bypassApprovalChecks) to publish.
+  const willPublish =
+    wantsMerge && (!approvalRequired || bypassApproval || autoPublish);
+  if (willPublish) {
+    assertConfigNotLocked(existing);
+  }
+
   const forceCreate = wantsMerge || forceCreateRevision;
 
   let revision = await createOrUpdateRevision(
@@ -784,4 +797,73 @@ export const deleteConfig = async (
   await assertConfigDeletable(context, existing);
   await context.models.configs.delete(existing);
   return res.status(200).json({ status: 200 });
+};
+
+// Freeze the config at its current published revision. Locking needs only edit
+// authority (the asymmetry: unlocking is gated). The lock lives outside the
+// revision merge allowlist, so write it directly after the auth check.
+export const lockConfig = async (
+  req: AuthRequest<{ reason?: string }, { id: string }>,
+  res: Response<{ status: 200; config: ConfigInterface }>,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
+  if (!context.permissions.canUpdateConfig(config, config)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Idempotent: keep the existing pin if already locked.
+  let result = config;
+  if (!config.lock) {
+    const { revisionId, version } = await resolveConfigLockTarget(
+      context,
+      config,
+    );
+    result = await context.models.configs.dangerousUpdateBypassPermission(
+      config,
+      {
+        lock: {
+          revisionId,
+          version,
+          lockedBy: context.userId,
+          dateLocked: new Date(),
+          ...(req.body?.reason ? { reason: req.body.reason } : {}),
+        },
+      },
+    );
+  }
+  return res.status(200).json({ status: 200, config: result });
+};
+
+// Clear the lock so changes can be published again. Requires the elevated
+// bypassApprovalChecks permission — the same trust that skips the review queue.
+export const unlockConfig = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; config: ConfigInterface }>,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
+  if (
+    !context.permissions.canBypassApprovalChecks({
+      project: config.project || "",
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // `null` clears the lock (a `$set`, since updates can't `$unset`).
+  let result = config;
+  if (config.lock) {
+    result = await context.models.configs.dangerousUpdateBypassPermission(
+      config,
+      { lock: null },
+    );
+  }
+  return res.status(200).json({ status: 200, config: result });
 };
