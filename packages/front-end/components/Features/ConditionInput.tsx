@@ -1135,6 +1135,9 @@ function ConditionAndGroupInput({
         } else if (attribute.enum === ALL_COUNTRY_CODES) {
           displayType = "isoCountryCode";
         } else if (attribute.enum.length) {
+          // Load-bearing: this must be checked before the array-field branch so
+          // enum-constrained lists get the restricted picker. Relies on
+          // useAttributeMap populating `enum` for `[]` datatypes.
           displayType = "enum";
         } else if (listOperators.includes(operator)) {
           displayType = "array-field";
