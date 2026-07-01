@@ -152,6 +152,19 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   const changedEnvEnabled: Record<string, boolean> = {};
+  // Per-env default value overrides, tracked through the revision's
+  // `environmentDefaults` map, which is a COMPLETE snapshot (full-map-replace).
+  // A provided value is validated and MERGED onto the live overrides so envs
+  // the caller didn't mention keep their existing override. This SET/UPDATE-only
+  // path never removes an override (removal is via the dedicated unset endpoint).
+  // `mergedEnvDefaults` is the full snapshot to publish; `changedEnvDefaults`
+  // tracks whether any env actually changed.
+  const mergedEnvDefaults: Record<string, string> = Object.fromEntries(
+    Object.entries(feature.environmentSettings ?? {})
+      .filter(([, val]) => val?.defaultValue !== undefined)
+      .map(([env, val]) => [env, val.defaultValue as string]),
+  );
+  const changedEnvDefaults: Record<string, string> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {
       if (
@@ -159,6 +172,13 @@ export const updateFeatureV2 = createApiRequestHandler(
         s.enabled !== feature.environmentSettings?.[env]?.enabled
       ) {
         changedEnvEnabled[env] = s.enabled;
+      }
+      if (s.defaultValue !== undefined) {
+        const nextVal = validateFeatureValue(feature, s.defaultValue);
+        mergedEnvDefaults[env] = nextVal;
+        if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
+          changedEnvDefaults[env] = nextVal;
+        }
       }
     }
   }
@@ -236,12 +256,14 @@ export const updateFeatureV2 = createApiRequestHandler(
     (inboundFlatRules != null &&
       !isEqual(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
+  const hasEnvDefaultChanges = Object.keys(changedEnvDefaults).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
+    hasEnvDefaultChanges ||
     hasRuleChanges ||
     hasMetadataChanges ||
     hasPrereqChanges ||
@@ -252,6 +274,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
+        : {}),
+      ...(hasEnvDefaultChanges
+        ? { environmentDefaults: mergedEnvDefaults }
         : {}),
       ...(hasRuleChanges || hasEnvEnabledChanges
         ? {

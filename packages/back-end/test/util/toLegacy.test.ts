@@ -385,6 +385,35 @@ describe("toLegacyFeature", () => {
       expect(v1.environmentSettings?.production?.rules).toEqual([]);
     });
 
+    it("preserves a per-env defaultValue override (and omits it where absent)", () => {
+      const v2: FeatureInterface = {
+        ...BASE_FEATURE,
+        environmentSettings: {
+          dev: { enabled: true, defaultValue: "dev-override" },
+          production: { enabled: true },
+        },
+        rules: [],
+        prerequisites: [],
+      } as unknown as FeatureInterface;
+
+      const v1 = toLegacyFeature(v2, ORG_ENVS);
+      // The override survives the v2 -> v1 projection.
+      expect(
+        (
+          v1.environmentSettings?.dev as unknown as {
+            defaultValue?: string;
+          }
+        ).defaultValue,
+      ).toBe("dev-override");
+      // An env with no override does not gain a defaultValue key.
+      expect(
+        v1.environmentSettings?.production as unknown as Record<
+          string,
+          unknown
+        >,
+      ).not.toHaveProperty("defaultValue");
+    });
+
     it("retains entries for non-applicable envs if they exist in envSettings", () => {
       const envs: Environment[] = [
         { id: "dev", description: "" },
@@ -744,6 +773,31 @@ describe("toLegacyFeature -> migrateRawFeatureToV2 shape round-trip", () => {
     expect(roundTripped.rules).toHaveLength(1);
     expect(roundTripped.rules[0].id).toBe("r1");
     expect(roundTripped.rules[0].allEnvironments).toBe(true);
+  });
+
+  it("preserves a per-env defaultValue override through the v2 -> v1 -> v2 round-trip", () => {
+    const v2: FeatureInterface = {
+      ...BASE_FEATURE,
+      environmentSettings: {
+        dev: { enabled: true, defaultValue: "dev-override" },
+        production: { enabled: true },
+      },
+      rules: [],
+      prerequisites: [],
+    } as unknown as FeatureInterface;
+
+    const v1 = toLegacyFeature(v2, ORG_ENVS);
+    const roundTripped = migrateRawFeatureToV2(
+      v1 as unknown as V1FeatureInterface,
+      mockContext(),
+    );
+    // The override survives both directions and stays scoped to its env.
+    expect(roundTripped.environmentSettings?.dev?.defaultValue).toBe(
+      "dev-override",
+    );
+    expect(
+      roundTripped.environmentSettings?.production?.defaultValue,
+    ).toBeUndefined();
   });
 
   // Pending v2 rules carry an empty `environments: []` footprint — the user

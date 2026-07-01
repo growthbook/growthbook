@@ -160,4 +160,92 @@ describe("revertFeatureCore empty-diff guard", () => {
       defaultValue: "old-default",
     });
   });
+
+  it("restores the target revision's per-env default overrides", async () => {
+    // Live feature has prod overridden to "live-prod"; the target revision had
+    // it set to "old-prod". Revert should restore the old override.
+    mockGetFeature.mockResolvedValue(
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "live-prod" },
+          dev: { enabled: true },
+        },
+      }),
+    );
+    mockGetRevision.mockResolvedValue({
+      version: 3,
+      status: "published",
+      defaultValue: "live-default",
+      rules: [],
+      environmentDefaults: { production: "old-prod" },
+    } as never);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6 } as never,
+      updatedFeature: makeFeature({ version: 6 }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      environmentDefaults: { production: "old-prod" },
+    });
+  });
+
+  it("clears an override the target revision did not have (full-map-replace)", async () => {
+    // Live feature has prod overridden, but the target revision had no override
+    // for prod. Revert carries the COMPLETE target snapshot ({}), so publishing
+    // full-replaces and clears prod's override (inherit the base default again).
+    mockGetFeature.mockResolvedValue(
+      makeFeature({
+        environmentSettings: {
+          production: { enabled: true, defaultValue: "live-prod" },
+          dev: { enabled: true },
+        },
+      }),
+    );
+    mockGetRevision.mockResolvedValue({
+      version: 3,
+      status: "published",
+      defaultValue: "live-default",
+      rules: [],
+      // Field present but no override for production — the clear case.
+      environmentDefaults: {},
+    } as never);
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6 } as never,
+      updatedFeature: makeFeature({ version: 6 }),
+    });
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
+    const passedChanges = mockCreateAndPublish.mock.calls[0][0].changes;
+    // The complete (empty) snapshot — no tombstone keys.
+    expect(passedChanges).toEqual({
+      environmentDefaults: {},
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        passedChanges?.environmentDefaults ?? {},
+        "production",
+      ),
+    ).toBe(false);
+  });
 });

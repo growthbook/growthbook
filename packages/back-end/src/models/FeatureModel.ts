@@ -1561,18 +1561,54 @@ export function computeRevisionMergeChanges(
     hasChanges = true;
   }
 
-  if (result.environmentsEnabled) {
+  if (result.environmentsEnabled || result.environmentDefaults) {
     const envs = getEnvironmentIdsFromOrg(context.org);
-    const nextEnvSettings = cloneDeep(feature.environmentSettings || {});
+    // Start from any env settings already staged (e.g. enabled changes) so the
+    // enabled and per-env defaultValue mappings compose onto one object.
+    const nextEnvSettings = cloneDeep(
+      changes.environmentSettings || feature.environmentSettings || {},
+    );
     let envChanged = false;
-    envs.forEach((env) => {
-      const desired = result.environmentsEnabled?.[env];
-      if (desired === undefined) return;
-      const current = nextEnvSettings[env] || { enabled: false };
-      // Skip no-op writes so we don't invalidate the SDK payload cache.
-      if (current.enabled !== desired) envChanged = true;
-      nextEnvSettings[env] = { ...current, enabled: desired };
-    });
+
+    if (result.environmentsEnabled) {
+      envs.forEach((env) => {
+        const desired = result.environmentsEnabled?.[env];
+        if (desired === undefined) return;
+        const current = nextEnvSettings[env] || { enabled: false };
+        // Skip no-op writes so we don't invalidate the SDK payload cache.
+        if (current.enabled !== desired) envChanged = true;
+        nextEnvSettings[env] = { ...current, enabled: desired };
+      });
+    }
+
+    // Map per-env default value overrides onto environmentSettings[env].defaultValue.
+    // `result.environmentDefaults` is the AUTHORITATIVE COMPLETE snapshot of the
+    // draft's overrides, so we FULL-REPLACE across every org/feature env: set
+    // the override where the env has a key in the snapshot, and DELETE it where
+    // the env is absent (inherit base again). This composes onto nextEnvSettings
+    // alongside the enabled mapping above and never touches other env settings
+    // (enabled, prerequisites, rules).
+    if (result.environmentDefaults) {
+      const snapshot = result.environmentDefaults;
+      envs.forEach((env) => {
+        const desired = snapshot[env];
+        const current = nextEnvSettings[env] || { enabled: false };
+        if (desired === undefined) {
+          // Absent from the complete snapshot — unset the env defaultValue.
+          if (current.defaultValue !== undefined) {
+            envChanged = true;
+            const next = { ...current };
+            delete next.defaultValue;
+            nextEnvSettings[env] = next;
+          }
+          return;
+        }
+        // Skip no-op writes so we don't invalidate the SDK payload cache.
+        if (current.defaultValue !== desired) envChanged = true;
+        nextEnvSettings[env] = { ...current, defaultValue: desired };
+      });
+    }
+
     if (envChanged) {
       changes.environmentSettings = nextEnvSettings;
       hasChanges = true;
@@ -2517,12 +2553,15 @@ export async function createAndPublishRevision({
   } as FeatureRevisionInterface;
 
   // Synthetic revision for the review check; caller-supplied rules replace
-  // the live array wholesale (same as autoMerge).
+  // the live array wholesale (same as autoMerge). `changes.environmentDefaults`
+  // is a complete snapshot when provided; otherwise fall back to live's.
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveBase,
     ...(changes ?? {}),
     rules: changes?.rules ?? liveBase.rules ?? [],
-  };
+    environmentDefaults:
+      changes?.environmentDefaults ?? liveBase.environmentDefaults,
+  } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveBase,
@@ -2553,12 +2592,25 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
+  // When the caller supplies `environmentDefaults`, it is the authoritative
+  // COMPLETE snapshot of per-env overrides (full-map-replace semantics). An
+  // empty snapshot `{}` (e.g. clearing the last override) is dropped by
+  // Mongoose's default `minimize` on the Mixed `environmentDefaults` path, so
+  // the persisted+reloaded revision comes back with it `undefined`. That would
+  // make `autoMerge` see "no change" and silently skip the clear. Restore the
+  // caller's authoritative snapshot on the revision passed to the merge so the
+  // full-replace (including clears) is honored.
+  const mergeRevision: FeatureRevisionInterface =
+    changes && "environmentDefaults" in changes
+      ? { ...revision, environmentDefaults: changes.environmentDefaults }
+      : revision;
+
   // Merge the new revision against the live-feature baseline. base === live
   // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
     liveBase,
     liveBase,
-    revision,
+    mergeRevision,
     allEnvironments,
     {},
   );

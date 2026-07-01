@@ -221,6 +221,11 @@ export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    // Optional per-environment override of the feature's base `defaultValue`.
+    // A string conforming to the feature's `valueType`. When set, it takes
+    // precedence over the base `defaultValue` for this environment (but rules
+    // still take precedence over it).
+    defaultValue: z.string().optional(),
   })
   .strict();
 
@@ -577,6 +582,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     rules: revisionRulesSchema,
     // Revision envelopes — only present when explicitly changed
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    // Sparse map of per-environment default value overrides (env name ->
+    // override value). Mirrors `environmentsEnabled`; only present when
+    // explicitly changed in the draft.
+    environmentDefaults: z.record(z.string(), z.string()).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: revisionMetadataSchema.optional(),
@@ -640,6 +649,7 @@ export const revisionChangesSchema = featureRevisionInterface
     rules: true,
     baseVersion: true,
     environmentsEnabled: true,
+    environmentDefaults: true,
     prerequisites: true,
     archived: true,
     metadata: true,
@@ -1133,6 +1143,12 @@ export const apiFeatureRevisionValidator = namedSchema(
           "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
         )
         .optional(),
+      environmentDefaults: z
+        .record(z.string(), z.string())
+        .describe(
+          "Per-environment default value overrides captured in this revision (only present when a per-environment override is set)",
+        )
+        .optional(),
       envPrerequisites: z
         .record(z.string(), z.array(apiRevisionPrerequisite))
         .describe(
@@ -1341,6 +1357,16 @@ const postFeatureRule = z.union([
 const postFeatureEnvironment = z.object({
   enabled: z.boolean(),
   rules: z.array(postFeatureRule),
+  // Optional per-environment override of the feature's base `defaultValue`.
+  // A string conforming to the feature's `valueType`. When set, it takes
+  // precedence over the base `defaultValue` for this environment (rules still
+  // take precedence over it). Omit to use the base default.
+  defaultValue: z
+    .string()
+    .describe(
+      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win).",
+    )
+    .optional(),
   definition: z
     .string()
     .describe(
@@ -1351,6 +1377,12 @@ const postFeatureEnvironment = z.object({
     .object({
       enabled: z.boolean().optional(),
       rules: z.array(postFeatureRule),
+      defaultValue: z
+        .string()
+        .describe(
+          "Per-environment override of the feature's base default value for this draft. Type must match `valueType`.",
+        )
+        .optional(),
       definition: z
         .string()
         .describe(
@@ -1657,6 +1689,64 @@ export const revertFeatureValidator = {
   method: "post" as const,
   path: "/features/:id/revert",
   exampleRequest: { body: { revision: 3, comment: "Bug found" } },
+};
+
+// Per-environment default value override — dedicated set/unset endpoints.
+// The override takes precedence over the feature's base `defaultValue` for that
+// single environment (rules still take precedence over the override). These
+// auto-publish through a revision, mirroring the general v1 feature update.
+const idEnvironmentParams = z
+  .object({
+    id: z.string().describe("The id of the feature"),
+    environment: z
+      .string()
+      .describe("The environment whose default-value override is targeted"),
+  })
+  .strict();
+
+export const setFeatureEnvironmentDefaultValidator = {
+  bodySchema: z
+    .object({
+      environment: z
+        .string()
+        .describe("The environment to set the default-value override for"),
+      value: z
+        .string()
+        .describe(
+          "The override value (serialized as a string, like the feature's base defaultValue). Validated against the feature's value type / JSON schema.",
+        ),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: featureResponseSchema,
+  summary: "Set a per-environment default value override",
+  description:
+    "Sets (or updates) the per-environment default value override for a single environment and immediately publishes the change through a new revision. The override takes precedence over the feature's base `defaultValue` for that environment only; rules still take precedence over the override. Other environments' overrides are preserved (this never removes them — use [DELETE /features/:id/default-value-per-environment/:environment](#operation/unsetFeatureEnvironmentDefault) to remove one).\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for the environment and the org setting \"REST API always bypasses approval requirements\" is off.\n",
+  operationId: "setFeatureEnvironmentDefault",
+  tags: ["features"],
+  method: "post" as const,
+  path: "/features/:id/default-value-per-environment",
+  exampleRequest: {
+    body: { environment: "production", value: "true" },
+  },
+};
+
+export const unsetFeatureEnvironmentDefaultValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idEnvironmentParams,
+  responseSchema: featureResponseSchema,
+  summary: "Remove a per-environment default value override",
+  description:
+    "Removes the per-environment default value override for a single environment and immediately publishes the change through a new revision. The environment then inherits the feature's base `defaultValue` again. Other environments' overrides are preserved.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for the environment and the org setting \"REST API always bypasses approval requirements\" is off.\n",
+  operationId: "unsetFeatureEnvironmentDefault",
+  tags: ["features"],
+  method: "delete" as const,
+  path: "/features/:id/default-value-per-environment/:environment",
+  exampleRequest: {
+    params: { id: "abc123", environment: "production" },
+  },
 };
 
 export const getFeatureRevisionsValidator = {

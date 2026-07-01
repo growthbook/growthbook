@@ -52,6 +52,7 @@ export const revisionToFeatureRevisionDiffInput = (
     defaultValue: r.defaultValue,
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    environmentDefaults: r.environmentDefaults ?? fallback?.environmentDefaults,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
@@ -64,16 +65,23 @@ export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {
   const environmentsEnabled: Record<string, boolean> = {};
+  const environmentDefaults: Record<string, string> = {};
   for (const [envId, env] of Object.entries(
     feature.environmentSettings || {},
   )) {
     environmentsEnabled[envId] = env.enabled;
+    // Sparse: only record an entry when this env actually overrides the base
+    // default value (absence means "inherit the base").
+    if (env.defaultValue !== undefined) {
+      environmentDefaults[envId] = env.defaultValue;
+    }
   }
 
   return {
     defaultValue: feature.defaultValue,
     rules: feature.rules ?? [],
     environmentsEnabled,
+    environmentDefaults,
     prerequisites: feature.prerequisites,
     archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
@@ -114,6 +122,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "defaultValue"
   | "rules"
   | "environmentsEnabled"
+  | "environmentDefaults"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -309,6 +318,52 @@ export function useFeatureRevisionDiff({
       }
     });
 
+    // 2b. Per-environment default value overrides. Sparse on both sides:
+    // an env entry means "override the base default for this env"; absence
+    // means "inherit the base default". Emit one row per env whose override
+    // value actually changed (added, removed, or modified). Rendered with the
+    // same renderer as the base default value so boolean/number/string/json
+    // all display consistently.
+    const currentEnvDefaults = current.environmentDefaults || {};
+    const draftEnvDefaults = draft.environmentDefaults || {};
+    const envDefaultKeys = new Set([
+      ...Object.keys(currentEnvDefaults),
+      ...Object.keys(draftEnvDefaults),
+    ]);
+    envDefaultKeys.forEach((envId) => {
+      const currentOverride = currentEnvDefaults[envId];
+      const draftOverride = draftEnvDefaults[envId];
+      const aParsed = parseDefaultValue(currentOverride ?? "");
+      const bParsed = parseDefaultValue(draftOverride ?? "");
+      // Only diff when the resolved override values differ. Use isEqual so an
+      // unchanged JSON override doesn't churn just from formatting.
+      if (currentOverride === draftOverride || isEqual(aParsed, bParsed)) {
+        return;
+      }
+      diffs.push({
+        key: `environmentDefaults.${envId}`,
+        title: `Default value (${envId})`,
+        a:
+          typeof aParsed === "string"
+            ? aParsed
+            : JSON.stringify(aParsed, null, 2),
+        b:
+          typeof bParsed === "string"
+            ? bParsed
+            : JSON.stringify(bParsed, null, 2),
+        customRender: renderFeatureDefaultValue(
+          currentOverride ?? null,
+          draftOverride ?? "",
+        ),
+        badges: [
+          {
+            label: `Edit default value (${envId})`,
+            action: `edit default value ${envId}`,
+          },
+        ],
+      });
+    });
+
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
       const currentPrereqs = current.prerequisites || [];
@@ -433,6 +488,14 @@ export function mergeResultToDiffInput(
     rules: result.rules ?? current.rules,
     ...(result.environmentsEnabled !== undefined
       ? { environmentsEnabled: result.environmentsEnabled }
+      : {}),
+    ...(result.environmentDefaults !== undefined
+      ? {
+          // `result.environmentDefaults` is the complete authoritative snapshot
+          // of per-env overrides (full-map-replace), so use it directly as the
+          // post-state map (cleared envs are simply absent).
+          environmentDefaults: result.environmentDefaults,
+        }
       : {}),
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }

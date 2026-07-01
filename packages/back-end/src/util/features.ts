@@ -405,6 +405,9 @@ export function getSDKPayloadKeysByDiff(
     }
 
     // Otherwise, if the environment settings are not equal
+    // (this includes a change to the per-env `defaultValue` override, which
+    // lives on `environmentSettings[e]` and so invalidates ONLY this env —
+    // unlike the base `feature.defaultValue` which invalidates all envs above).
     if (!isEqual(oldSettings, newSettings)) {
       environments.add(e);
     }
@@ -574,9 +577,34 @@ export function getFeatureDefinition({
     return null;
   }
 
-  const defaultValue = revision
-    ? (revision.defaultValue ?? feature.defaultValue)
-    : feature.defaultValue;
+  // Resolution precedence for the per-environment default value.
+  //
+  // When a `revision` carrying a per-env override snapshot is passed (draft
+  // preview / "test this feature" / archetype eval), that snapshot is the
+  // AUTHORITATIVE complete picture for the revision: a present key is the
+  // override, an ABSENT key means the revision has NO override for that env and
+  // must inherit the revision's (or feature's) base — it must NOT silently fall
+  // back to the published per-env override. Otherwise a draft that CLEARED an
+  // env's override would still preview the stale published override (the
+  // override would appear un-clearable in preview).
+  //
+  //   revision passed WITH a snapshot (revision.environmentDefaults !== undefined):
+  //     1. revision.environmentDefaults[env]  (present key = override)
+  //     2. revision.defaultValue              (absent key = inherit revision base)
+  //     3. feature.defaultValue
+  //
+  //   live serving (no revision) OR a legacy revision without the field:
+  //     1. feature.environmentSettings[env].defaultValue  (published override)
+  //     2. revision.defaultValue
+  //     3. feature.defaultValue
+  const defaultValue =
+    revision?.environmentDefaults !== undefined
+      ? (revision.environmentDefaults[environment] ??
+        revision.defaultValue ??
+        feature.defaultValue)
+      : (feature.environmentSettings?.[environment]?.defaultValue ??
+        revision?.defaultValue ??
+        feature.defaultValue);
 
   // For `json` features, parse the default value once so rules flagged `sparse`
   // can merge their partial object onto it. Null when the default isn't a plain

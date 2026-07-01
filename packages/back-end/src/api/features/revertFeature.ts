@@ -71,6 +71,12 @@ export async function revertFeatureCore(
     throw new Error("Can only revert to previously published revisions");
   }
 
+  // Revert copies concrete values from a published target revision. Per-env
+  // default overrides use full-map-replace semantics: `changes.environmentDefaults`
+  // carries the COMPLETE target snapshot (a present key is an override; an env
+  // absent from the snapshot has NO override and gets cleared on publish). There
+  // are no `undefined` tombstones — absence is the signal. See the snapshot
+  // assembly below.
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
@@ -110,7 +116,32 @@ export async function revertFeatureCore(
       changes.environmentsEnabled[env] = revision.environmentsEnabled[env];
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
+
+    // Per-env default value override — complete snapshot. Track which envs
+    // differ from live for permission gating; the actual full-map-replace
+    // snapshot is assembled below. Only acts when the revision carries the
+    // field; legacy revisions that predate it are left untouched.
+    if (revision.environmentDefaults !== undefined) {
+      const revDefault = revision.environmentDefaults[env];
+      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+      if (revDefault !== liveDefault) {
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+      }
+    }
   });
+  // Full-map-replace per-env defaults: when the target snapshot differs from
+  // the live overrides, carry the COMPLETE target snapshot so createRevision
+  // records exactly it (envs the target didn't override are absent → cleared).
+  if (revision.environmentDefaults !== undefined) {
+    const liveDefaults: Record<string, string> = Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val?.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    );
+    if (!isEqual(revision.environmentDefaults, liveDefaults)) {
+      changes.environmentDefaults = { ...revision.environmentDefaults };
+    }
+  }
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;
   }

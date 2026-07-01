@@ -175,6 +175,17 @@ export function mergeRevision(
     if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
       envSettings[env].enabled = revision.environmentsEnabled[env];
     }
+
+    // Per-env default overrides are a COMPLETE snapshot: a present key sets the
+    // override, an absent key clears it (inherit base). Only full-replace when
+    // the revision actually carries the field (legacy revisions omit it).
+    if (revision.environmentDefaults !== undefined) {
+      if (env in revision.environmentDefaults) {
+        envSettings[env].defaultValue = revision.environmentDefaults[env];
+      } else {
+        delete envSettings[env].defaultValue;
+      }
+    }
   });
 
   if (revision.prerequisites !== undefined) {
@@ -1038,10 +1049,18 @@ export interface MergeConflict {
   revision: string;
 }
 export type MergeStrategy = "" | "overwrite" | "discard";
+
 export type MergeResultChanges = {
   defaultValue?: string;
   rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
+  // Per-env default value overrides. This is the AUTHORITATIVE COMPLETE
+  // snapshot of the draft's per-env overrides whenever it is present: every
+  // env with an override appears as a present string, and an env that is
+  // ABSENT from the map has no override (inherit base). Publishing
+  // full-replaces `environmentSettings[env].defaultValue` from this snapshot
+  // (see computeRevisionMergeChanges). There are no `undefined` tombstones.
+  environmentDefaults?: Record<string, string>;
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
   metadata?: RevisionMetadata;
@@ -1064,6 +1083,7 @@ export type RevisionFields = Pick<
   | "rules"
   | "version"
   | "environmentsEnabled"
+  | "environmentDefaults"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -1086,6 +1106,18 @@ const revisionFieldFillers: Partial<{
         env,
         !!val.enabled,
       ]),
+    ),
+    ...(current ?? {}),
+  }),
+  // Fill missing envs from the live feature's per-env default overrides so new
+  // envs don't produce false diffs. The map is a COMPLETE snapshot of per-env
+  // overrides — only envs that actually have an override are included (absence
+  // means "no override"), mirroring `environmentSettings`.
+  environmentDefaults: (feature, current) => ({
+    ...Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
     ),
     ...(current ?? {}),
   }),
@@ -1142,6 +1174,13 @@ export function liveRevisionFromFeature(
         !!val.enabled,
       ]),
     ),
+    // Complete snapshot of per-env default overrides — only envs with an
+    // explicit override are included (absence means "no override").
+    environmentDefaults: Object.fromEntries(
+      Object.entries(feature.environmentSettings ?? {})
+        .filter(([, val]) => val.defaultValue !== undefined)
+        .map(([env, val]) => [env, val.defaultValue as string]),
+    ),
     archived: feature.archived ?? false,
     prerequisites: feature.prerequisites ?? [],
     holdout:
@@ -1171,6 +1210,9 @@ export function buildEffectiveDraft(
     rules: draftRevision.rules,
     ...(draftRevision.environmentsEnabled !== undefined && {
       environmentsEnabled: draftRevision.environmentsEnabled,
+    }),
+    ...(draftRevision.environmentDefaults !== undefined && {
+      environmentDefaults: draftRevision.environmentDefaults,
     }),
     ...(draftRevision.prerequisites !== undefined && {
       prerequisites: draftRevision.prerequisites,
@@ -1215,6 +1257,14 @@ export function draftDiffersFromLive(
   )
     return true;
   if (
+    envIds.some(
+      (env) =>
+        (draft.environmentDefaults?.[env] ?? undefined) !==
+        (filledLive.environmentDefaults?.[env] ?? undefined),
+    )
+  )
+    return true;
+  if (
     JSON.stringify(draft.prerequisites ?? []) !==
     JSON.stringify(filledLive.prerequisites ?? [])
   )
@@ -1248,6 +1298,10 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   // (including an explicit `[]` meaning "all rules deleted") is meaningful.
   if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  // environmentDefaults is a complete snapshot emitted only when it differs
+  // from base/live (including `{}` meaning "all overrides cleared"), so
+  // presence — not key count — signals a change.
+  if (r.environmentDefaults !== undefined) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;
   if ("holdout" in r) return true;
@@ -1295,6 +1349,17 @@ export function getLiveChangesSinceBase(
       changes.push({
         key: `environmentsEnabled.${env}`,
         name: `Env Enabled - ${env}`,
+      });
+    }
+  }
+
+  for (const env of environments) {
+    const liveVal = live.environmentDefaults?.[env];
+    const baseVal = base.environmentDefaults?.[env];
+    if (!isEqual(liveVal, baseVal)) {
+      changes.push({
+        key: `environmentDefaults.${env}`,
+        name: `Env Default Value - ${env}`,
       });
     }
   }
@@ -1778,6 +1843,18 @@ export function autoMerge(
       }
     }
 
+    // environmentDefaults (per-env default value overrides) — full-map-replace.
+    // The draft's `environmentDefaults` is the authoritative COMPLETE snapshot
+    // of per-env overrides. When it differs from base's snapshot, emit the
+    // whole draft map as the result so publishing full-replaces the per-env
+    // defaultValues (envs absent from the snapshot get their override cleared).
+    if (
+      revision.environmentDefaults &&
+      !isEqual(revision.environmentDefaults, base.environmentDefaults ?? {})
+    ) {
+      result.environmentDefaults = { ...revision.environmentDefaults };
+    }
+
     // prerequisites
     if (
       revision.prerequisites !== undefined &&
@@ -1912,6 +1989,68 @@ export function autoMerge(
         result.environmentsEnabled = result.environmentsEnabled || {};
         result.environmentsEnabled[env] = revVal;
       }
+    }
+  }
+
+  // environmentDefaults (per-env default value overrides) — full-map-replace.
+  // The draft's `environmentDefaults` is the authoritative COMPLETE snapshot:
+  // a present key is an override, an absent key means "no override" (inherit
+  // base). We do a 3-way merge per env (union of all three snapshots' keys,
+  // where an absent key resolves to `undefined` = no override) with conflict
+  // detection, then assemble the resulting COMPLETE snapshot. The result is
+  // emitted only when it differs from live (so publishing is a no-op otherwise).
+  if (
+    revision.environmentDefaults &&
+    !isEqual(revision.environmentDefaults, base.environmentDefaults ?? {})
+  ) {
+    const envKeys = new Set<string>([
+      ...Object.keys(revision.environmentDefaults),
+      ...Object.keys(base.environmentDefaults ?? {}),
+      ...Object.keys(live.environmentDefaults ?? {}),
+    ]);
+    // Start the resolved snapshot from live, then apply each env's resolution.
+    const resolved: Record<string, string> = {
+      ...(live.environmentDefaults ?? {}),
+    };
+    for (const env of envKeys) {
+      const revVal: string | undefined = revision.environmentDefaults[env];
+      const baseVal = base.environmentDefaults?.[env];
+      const liveVal = live.environmentDefaults?.[env];
+      // No change vs base, or the draft already matches live — keep live's value.
+      if (revVal === baseVal || revVal === liveVal) continue;
+
+      const setEnv = (val: string | undefined) => {
+        if (val === undefined) {
+          delete resolved[env];
+        } else {
+          resolved[env] = val;
+        }
+      };
+
+      if (liveVal !== baseVal && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: `Env Default Value - ${env}`,
+          key: `environmentDefaults.${env}`,
+          base: JSON.stringify(baseVal),
+          live: JSON.stringify(liveVal),
+          revision: JSON.stringify(revVal),
+          resolved: false,
+        };
+        const strategy = strategies[conflictInfo.key];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          setEnv(revVal);
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        setEnv(revVal);
+      }
+    }
+    // Only emit when the resolved complete snapshot actually differs from live.
+    if (!isEqual(resolved, live.environmentDefaults ?? {})) {
+      result.environmentDefaults = resolved;
     }
   }
 
@@ -2861,6 +3000,16 @@ export function getDraftAffectedEnvironments(
     ) {
       envs.add(env);
     }
+    // Per-env default value override. The map is a COMPLETE snapshot, so an env
+    // absent from the draft but present in base is a CLEARED override and must
+    // also be marked. Only compare when the draft carries the field at all.
+    if (
+      revision.environmentDefaults !== undefined &&
+      revision.environmentDefaults[env] !==
+        baseRevision.environmentDefaults?.[env]
+    ) {
+      envs.add(env);
+    }
   }
   // rampActions target a specific rule by ruleId; the environments that rule
   // is active in are affected by the ramp. Step patches can also widen the
@@ -3021,7 +3170,18 @@ export function checkIfRevisionNeedsReview({
     const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
       normalizeRuleForDiff,
     );
-    return !isEqual(revRules, baseRules);
+    if (!isEqual(revRules, baseRules)) return true;
+    // A per-env default value override is a served-value change, so it gates
+    // like a rule/value change (not like a kill switch). The snapshot is
+    // complete, so a cleared override (absent in draft, present in base) also
+    // gates. Only compare when the draft carries the field at all.
+    if (
+      revision.environmentDefaults !== undefined &&
+      revision.environmentDefaults[env] !==
+        baseRevision.environmentDefaults?.[env]
+    )
+      return true;
+    return false;
   });
   const envKillSwitchChanges = affected.filter(
     (env) =>

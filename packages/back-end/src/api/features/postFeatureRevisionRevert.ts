@@ -128,6 +128,19 @@ export async function revertFeatureRevision(
         targetRevision.environmentsEnabled[env];
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
+
+    // Per-env default value override — complete snapshot. Track which envs
+    // differ from live for permission gating here; the actual full-map-replace
+    // snapshot is assembled via revisionChanges.environmentDefaults below. Only
+    // acts when the revision carries the field; legacy revisions predating it
+    // are left untouched.
+    if (targetRevision.environmentDefaults !== undefined) {
+      const revDefault = targetRevision.environmentDefaults[env];
+      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+      if (revDefault !== liveDefault) {
+        if (!changedEnvs.includes(env)) changedEnvs.push(env);
+      }
+    }
   });
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;
@@ -234,6 +247,15 @@ export async function revertFeatureRevision(
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
+  }
+  if (targetRevision.environmentDefaults !== undefined) {
+    // The target revision's per-env overrides are a COMPLETE snapshot. Pass it
+    // through verbatim; createRevision treats it as authoritative (full-replace)
+    // so envs the target didn't override are absent → "no override", and on
+    // publish the live override for those envs is cleared (inherit base again).
+    revisionChanges.environmentDefaults = {
+      ...targetRevision.environmentDefaults,
+    };
   }
   if (targetRevision.prerequisites !== undefined) {
     revisionChanges.prerequisites = targetRevision.prerequisites;

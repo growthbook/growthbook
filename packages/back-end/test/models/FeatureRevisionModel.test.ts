@@ -357,6 +357,44 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.dateUpdated).toEqual(BASE_REVISION.dateCreated);
     });
   });
+
+  // The complete per-env override snapshot is preserved verbatim on read (the
+  // serving/precedence layer relies on `environmentDefaults` being authoritative,
+  // present-key = override / absent-key = inherit). Legacy revisions that predate
+  // the field stay `undefined` (the apply layer treats that as "don't touch").
+  describe("environmentDefaults (per-env override snapshot)", () => {
+    it("preserves a complete override snapshot through the read", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+        environmentDefaults: { production: "prod-override" },
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.environmentDefaults).toEqual({ production: "prod-override" });
+    });
+
+    it("preserves an empty (all-cleared) snapshot as {}", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+        environmentDefaults: {},
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.environmentDefaults).toEqual({});
+    });
+
+    it("leaves the field undefined for a legacy revision that predates it", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.environmentDefaults).toBeUndefined();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

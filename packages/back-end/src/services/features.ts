@@ -2057,6 +2057,9 @@ export function revisionToApiInterface(
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
     }),
+    ...(rev.environmentDefaults !== undefined && {
+      environmentDefaults: rev.environmentDefaults,
+    }),
     ...(rev.prerequisites !== undefined && {
       prerequisites: rev.prerequisites,
     }),
@@ -2128,6 +2131,9 @@ export function revisionToApiInterfaceV2(
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.environmentDefaults !== undefined && {
+      environmentDefaults: rev.environmentDefaults,
     }),
     ...(rev.prerequisites !== undefined && {
       // Strip internal condition field — v2 only exposes the flag ID.
@@ -2267,7 +2273,9 @@ export function getApiFeatureObjV2({
       safeRolloutMap,
       organization,
     });
-    featureEnvironments[env] = { enabled, defaultValue };
+    // Resolve the per-env default value override, falling back to the base.
+    const envDefaultValue = envSettings?.defaultValue ?? defaultValue;
+    featureEnvironments[env] = { enabled, defaultValue: envDefaultValue };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
@@ -2379,9 +2387,11 @@ export function getApiFeatureObj({
       organization,
     });
 
+    // Resolve the per-env default value override, falling back to the base.
+    const envDefaultValue = envSettings?.defaultValue ?? defaultValue;
     featureEnvironments[env] = {
       enabled,
-      defaultValue,
+      defaultValue: envDefaultValue,
       rules: rules as ApiFeatureRule[],
     };
     if (definition) {
@@ -2466,6 +2476,9 @@ export function getApiFeatureObj({
       defaultValue: rev.defaultValue,
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
+      }),
+      ...(rev.environmentDefaults !== undefined && {
+        environmentDefaults: rev.environmentDefaults,
       }),
       ...(rev.prerequisites !== undefined && {
         prerequisites: rev.prerequisites,
@@ -2860,6 +2873,16 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [e.id]: {
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
+        // Carry an optional per-env default value override, validated against
+        // the feature's valueType (+ jsonSchema) exactly like the base default.
+        ...(incomingEnvs?.[e.id]?.defaultValue !== undefined
+          ? {
+              defaultValue: validateFeatureValue(
+                feature,
+                incomingEnvs[e.id].defaultValue as string,
+              ),
+            }
+          : {}),
       },
     }),
     {} as Record<string, FeatureEnvironment>,
@@ -2871,10 +2894,25 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 ): FeatureInterface["environmentSettings"] => {
   const existing = feature.environmentSettings;
   return Object.keys(incomingEnvs).reduce((acc, k) => {
+    // Per-env default value override: a provided value is validated against the
+    // feature's valueType (+ jsonSchema) and set; omitting it leaves the
+    // current override in place. (Empty string is a valid value for string
+    // features, so it is NOT treated as a clear signal here.) Note: the v1
+    // `updateFeature` handler routes per-env defaults through the revision and
+    // strips/re-syncs this value afterwards, so it is only authoritative for
+    // callers that write `environmentSettings` directly.
+    let defaultValue = existing[k]?.defaultValue;
+    if (incomingEnvs[k].defaultValue !== undefined) {
+      defaultValue = validateFeatureValue(
+        feature,
+        incomingEnvs[k].defaultValue as string,
+      );
+    }
     return {
       ...acc,
       [k]: {
         enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
+        ...(defaultValue !== undefined ? { defaultValue } : {}),
       },
     };
   }, existing);
@@ -3280,6 +3318,30 @@ export async function getMergeResultPublishEnvs({
             ),
         );
   const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
+  // A per-env default value override is a served-value change for that env, so
+  // permission-check it like a rule/toggle change. `result.environmentDefaults`
+  // is a COMPLETE snapshot, so `Object.keys(...)` would over-broadly include
+  // envs whose override is unchanged AND miss CLEARED overrides (absent from
+  // the snapshot but present on the live feature). Diff the snapshot against the
+  // live per-env overrides instead — mirroring how checkIfRevisionNeedsReview /
+  // getDraftAffectedEnvironments compute changed envs — so only genuinely
+  // added/changed/cleared envs are permission-checked.
+  const changedDefaultEnvs: string[] =
+    result.environmentDefaults === undefined
+      ? []
+      : Array.from(
+          new Set([
+            ...Object.keys(result.environmentDefaults),
+            ...environmentIds.filter(
+              (env) =>
+                feature.environmentSettings?.[env]?.defaultValue !== undefined,
+            ),
+          ]),
+        ).filter(
+          (env) =>
+            result.environmentDefaults![env] !==
+            feature.environmentSettings?.[env]?.defaultValue,
+        );
   const holdoutEnvs = await collectHoldoutAffectedEnvs(
     context,
     feature,
@@ -3288,7 +3350,12 @@ export async function getMergeResultPublishEnvs({
   );
 
   const envScoped = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
+    new Set([
+      ...changedRuleEnvs,
+      ...changedToggleEnvs,
+      ...changedDefaultEnvs,
+      ...holdoutEnvs,
+    ]),
   );
   return envScoped.length > 0 ? envScoped : allEnabledEnvs;
 }

@@ -1512,6 +1512,12 @@ export default function ReviewAndPublish({
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        // `mergeResult.result.environmentDefaults`, when present, is the
+        // complete authoritative snapshot of per-env overrides; otherwise the
+        // overrides are unchanged from live.
+        environmentDefaults:
+          mergeResult.result.environmentDefaults ??
+          filledLive.environmentDefaults,
         rampActions: revision.rampActions,
       };
       effectiveBase = filledLive;
