@@ -117,21 +117,6 @@ export default function ContextualBanditDetailPage({
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
-  const numVariations = cb.variations.length;
-  const weightForIndex = (i: number): number => {
-    const fallback = numVariations > 0 ? 1 / numVariations : 0;
-    const variationId = cb.variations[i]?.id;
-    const match = cb.variationWeights?.find(
-      (w) => w.variationId === variationId,
-    );
-    return match?.weight ?? fallback;
-  };
-  const formatWeight = (w: number): string =>
-    new Intl.NumberFormat(undefined, {
-      style: "percent",
-      maximumFractionDigits: 0,
-    }).format(w);
-
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceName = datasource?.name ?? cb.datasource;
   const exposureQueryName =
@@ -481,7 +466,7 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Data Source">
                   {datasourceName || <em>none</em>}
                 </DetailSectionColumn>
-                <DetailSectionColumn label="Experiment Assignment Table">
+                <DetailSectionColumn label="Contextual Bandit Assignment Table">
                   {exposureQueryName || <em>none</em>}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Contextual Attributes">

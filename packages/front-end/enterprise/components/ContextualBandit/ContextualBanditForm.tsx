@@ -520,7 +520,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         inline={inline}
         backButton={true}
       >
-        <Page display="Settings">
+        <Page display="Overview">
           <div className="px-2">
             {currentProjectIsDemo && (
               <Callout status="warning" mb="3">
