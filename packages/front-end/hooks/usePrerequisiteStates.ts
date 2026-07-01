@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { useBackgroundRefreshError } from "@/services/BackgroundRefreshError";
 
 type PrerequisiteState = "deterministic" | "conditional" | "cyclic";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,6 +33,7 @@ export interface UsePrerequisiteStatesReturn {
   states: Record<string, PrerequisiteStateResult> | null;
   loading: boolean;
   error: Error | undefined;
+  refreshError: Error | undefined;
   mutate: () => void;
 }
 
@@ -54,15 +57,17 @@ export function usePrerequisiteStates({
   const queryString = params.toString();
   const url = `/feature/${featureId}/prerequisite-states${queryString ? `?${queryString}` : ""}`;
 
-  const { data, error, mutate } = useApi<PrerequisiteStatesResponse>(url, {
-    shouldRun: () => enabled && !!featureId,
-    refreshInterval: 5 * 60 * 1000, // 5 minutes
-  });
+  const { data, error, refreshError, mutate } =
+    useApi<PrerequisiteStatesResponse>(url, {
+      shouldRun: () => enabled && !!featureId,
+      refreshInterval: 5 * 60 * 1000, // 5 minutes
+    });
 
   return {
     states: data?.states || null,
     loading: !data && !error && enabled && !!featureId,
     error,
+    refreshError,
     mutate,
   };
 }
@@ -96,6 +101,7 @@ export interface UseBatchPrerequisiteStatesReturn {
   > | null;
   loading: boolean;
   error: Error | undefined;
+  refreshError: Error | undefined;
   mutate: () => void;
 }
 
@@ -107,6 +113,7 @@ export function useBatchPrerequisiteStates({
   isExperiment = false,
 }: UseBatchPrerequisiteStatesOptions): UseBatchPrerequisiteStatesReturn {
   const { apiCall, orgId } = useAuth();
+  const backgroundRefreshError = useBackgroundRefreshError();
 
   const key =
     enabled && environments.length && featureIds.length > 0
@@ -133,6 +140,29 @@ export function useBatchPrerequisiteStates({
     },
   );
 
+  // This hook uses `useSWR` directly (POST), so it doesn't inherit the
+  // stale-data handling in `useApi` — replicate it: keep stale data on a failed
+  // background refresh and surface the failure via the global toast.
+  const hasData = data !== undefined;
+  const refreshError = hasData ? error : undefined;
+
+  // Gate the effect on a stable boolean (not the per-failure Error identity) so it
+  // only runs when the presence of a background error toggles — see `useApi`.
+  const refreshErrorRef = useRef(refreshError);
+  refreshErrorRef.current = refreshError;
+  const hasRefreshError = refreshError !== undefined;
+
+  useEffect(() => {
+    if (!backgroundRefreshError || !key) return;
+    const err = refreshErrorRef.current;
+    if (hasRefreshError && err) {
+      backgroundRefreshError.report(key, err);
+    } else {
+      backgroundRefreshError.clear(key);
+    }
+    return () => backgroundRefreshError.clear(key);
+  }, [backgroundRefreshError, key, hasRefreshError]);
+
   return {
     results: data?.results || null,
     loading:
@@ -142,7 +172,8 @@ export function useBatchPrerequisiteStates({
       (!!baseFeatureId || isExperiment) &&
       environments.length > 0 &&
       featureIds.length > 0,
-    error,
+    error: hasData ? undefined : error,
+    refreshError,
     mutate,
   };
 }
