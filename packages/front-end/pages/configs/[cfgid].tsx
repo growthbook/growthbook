@@ -1798,7 +1798,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                       <Box mt="5">
                         <ConfigInvariantsEditor
                           invariants={ownSchema().invariants ?? []}
-                          fieldKeys={resolved.effectiveSchema.map((f) => f.key)}
+                          // All resolved keys (declared schema fields + value
+                          // keys), so rules can reference schema-less configs too.
+                          fieldKeys={resolved.fields.map((f) => f.key)}
                           resolvedValue={invariantValue}
                           canEdit={canEditInline}
                           onChange={(next) =>

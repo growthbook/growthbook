@@ -114,7 +114,6 @@ export default function ConfigInvariantsEditor({
   const [error, setError] = useState<string | null>(null);
 
   const currentRule = advanced ? safeParse(ruleText) : buildComparison(simple);
-  const canGoSimple = !advanced || toSimpleRule(safeParse(ruleText)) !== null;
 
   const open = (index: number) => {
     setError(null);
@@ -145,9 +144,10 @@ export default function ConfigInvariantsEditor({
       setRuleText(JSON.stringify(buildComparison(simple), null, 2));
       setAdvanced(true);
     } else {
+      // Load the JSON into the builder when it's a single comparison; otherwise
+      // keep the builder's current values so you can still author a simple rule.
       const s = toSimpleRule(safeParse(ruleText));
-      if (!s) return; // not representable simply — stay advanced
-      setSimple(s);
+      if (s) setSimple(s);
       setAdvanced(false);
     }
   };
@@ -155,6 +155,12 @@ export default function ConfigInvariantsEditor({
   const save = async () => {
     if (!name.trim()) return setError("Name is required.");
     if (!message.trim()) return setError("Message is required.");
+    if (!advanced) {
+      if (!simple.field) return setError("Choose a field for the rule.");
+      if (simple.rhsKind === "field" && !simple.rhs) {
+        return setError("Choose a field to compare to.");
+      }
+    }
     const rule = advanced ? safeParse(ruleText) : buildComparison(simple);
     if (!rule) return setError("Rule must be a JSONLogic object.");
     const next: ConfigInvariant = {
@@ -209,7 +215,6 @@ export default function ConfigInvariantsEditor({
           onChange={toggleAdvanced}
           label="Advanced (JSONLogic)"
           size="1"
-          disabled={advanced && !canGoSimple}
         />
       </Flex>
 
