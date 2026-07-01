@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
 
 export interface VariationLabelProps {
@@ -82,11 +82,7 @@ export default function VariationLabel({
 
   return (
     <Box ref={rootRef} minWidth="0">
-      <Tooltip
-        body={name}
-        shouldDisplay={hideName || isTruncated}
-        tipPosition="top"
-      >
+      <Tooltip content={name} enabled={hideName || isTruncated} side="top">
         {hideName ? variationNumber : content}
       </Tooltip>
     </Box>

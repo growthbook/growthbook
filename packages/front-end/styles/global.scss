@@ -1555,18 +1555,22 @@ main.main {
   }
   &[data-popper-placement^="top"] > .arrow {
     bottom: -4px;
+    margin-left: -4px;
   }
 
   &[data-popper-placement^="bottom"] > .arrow {
     top: -4px;
+    margin-left: -4px;
   }
 
   &[data-popper-placement^="left"] > .arrow {
     right: -4px;
+    margin-top: -4px;
   }
 
   &[data-popper-placement^="right"] > .arrow {
     left: -4px;
+    margin-top: -4px;
   }
 }
 

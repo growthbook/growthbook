@@ -1,13 +1,20 @@
-import { forwardRef } from "react";
+import { ComponentPropsWithoutRef, forwardRef } from "react";
 import { Box } from "@radix-ui/themes";
 import styles from "./VariationNumber.module.scss";
 
-export default forwardRef<HTMLDivElement, { number: number }>(
-  function VariationNumber({ number }, ref) {
+type VariationNumberProps = { number: number } & ComponentPropsWithoutRef<
+  typeof Box
+>;
+
+export default forwardRef<HTMLDivElement, VariationNumberProps>(
+  function VariationNumber({ number, className, ...rest }, ref) {
     return (
       <Box
         ref={ref}
-        className={`${styles.variation} ${styles[`variation${number}`]}`}
+        {...rest}
+        className={`${styles.variation} ${styles[`variation${number}`]}${
+          className ? ` ${className}` : ""
+        }`}
       >
         <Box as="span" className={styles.label}>
           {number}
