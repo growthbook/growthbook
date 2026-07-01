@@ -421,6 +421,20 @@ export async function testQueryValidity(
       )}`;
     }
 
+    // Validate column data types
+    const typeMap = new Map<string, FactTableColumnType>();
+    results.columns?.forEach((col) => {
+      if (col.dataType) typeMap.set(col.name, col.dataType);
+    });
+    determineColumnTypes(results.results, typeMap).forEach((col) => {
+      if (col.datatype) typeMap.set(col.column, col.datatype);
+    });
+
+    const timestampType = typeMap.get("timestamp");
+    if (timestampType && timestampType !== "date") {
+      return `Column "timestamp" must be date, but is ${timestampType} in experiment assignment query${query.name ? ` "${query.name}"` : ""}`;
+    }
+
     return undefined;
   } catch (e) {
     return e.message;
