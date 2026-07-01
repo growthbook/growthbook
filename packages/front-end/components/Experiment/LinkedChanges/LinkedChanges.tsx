@@ -127,7 +127,9 @@ export default function LinkedChanges({
                   }
                 />
               </Box>
-              <Separator size="4" my="6" />
+              {experiment.status !== "draft" && numLinkedChanges !== 0 && (
+                <Separator size="4" my="6" />
+              )}
             </>
           ) : null}
           {linkedFeatures.map((info) => (
