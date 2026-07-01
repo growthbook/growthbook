@@ -69,6 +69,26 @@ function describeNode(node: unknown, depth: number): string {
       if (op === "var")
         return typeof arg === "string" ? arg : describeNode(arg, depth + 1);
       if (op === "!") return `NOT ${describeNode(arg, depth + 1)}`;
+      // ¬X ∨ Y reads as an implication ("if X then Y") — friendlier than the
+      // raw `NOT X OR Y` for the common feature-dependency rules.
+      if (op === "or" && Array.isArray(arg) && arg.length === 2) {
+        const first = arg[0];
+        if (
+          first &&
+          typeof first === "object" &&
+          !Array.isArray(first) &&
+          Object.keys(first as object).length === 1 &&
+          "!" in (first as object)
+        ) {
+          const antecedent = describeNode(
+            (first as Record<string, unknown>)["!"],
+            depth + 1,
+          );
+          const consequent = describeNode(arg[1], depth + 1);
+          const s = `IF ${antecedent} THEN ${consequent}`;
+          return depth === 0 ? s : `(${s})`;
+        }
+      }
       if ((op === "and" || op === "or") && Array.isArray(arg)) {
         const inner = arg
           .map((a) => describeNode(a, depth + 1))

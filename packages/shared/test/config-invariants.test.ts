@@ -255,7 +255,7 @@ describe("describeInvariantRule", () => {
     ).toBe("max_concurrent_streams ≤ max_registered_devices");
   });
 
-  it("renders implication (pattern 1) without wrapping the top-level or", () => {
+  it("renders implication (pattern 1) as IF … THEN …", () => {
     expect(
       rule({
         or: [
@@ -263,7 +263,18 @@ describe("describeInvariantRule", () => {
           { "==": [{ var: "max_resolution" }, "4k"] },
         ],
       }),
-    ).toBe('NOT hdr_enabled OR max_resolution == "4k"');
+    ).toBe('IF hdr_enabled THEN max_resolution == "4k"');
+  });
+
+  it("renders a grouped antecedent as IF (… AND …) THEN …", () => {
+    expect(
+      rule({
+        or: [
+          { "!": { and: [{ var: "a" }, { ">=": [{ var: "b" }, 3] }] } },
+          { "==": [{ var: "c" }, "x"] },
+        ],
+      }),
+    ).toBe('IF (a AND b ≥ 3) THEN c == "x"');
   });
 
   it("parenthesizes a nested boolean group (pattern 4)", () => {
