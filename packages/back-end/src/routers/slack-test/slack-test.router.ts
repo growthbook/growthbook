@@ -26,4 +26,7 @@ router.post(
   slackTestController.postEventWebhook,
 );
 
+// Phase 2 POC: renders a sample results card as a PNG for eyeballing quality.
+router.get("/chart-preview", slackTestController.getChartPreview);
+
 export { router as slackTestRouter };

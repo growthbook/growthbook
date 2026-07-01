@@ -8,6 +8,10 @@ import {
   sendSlackEventWebhookTestEvent,
   SlackEventWebhookTestResult,
 } from "back-end/src/services/slackBot";
+import {
+  renderExperimentResultsCard,
+  sampleResultsCard,
+} from "back-end/src/services/slack/chartImage";
 
 type PostEventWebhookRequest = AuthRequest<{
   eventWebHookId: string;
@@ -52,4 +56,29 @@ export const postEventWebhook = async (
   });
 
   res.json(result);
+};
+
+type GetChartPreviewRequest = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>
+>;
+
+// Phase 2 POC: render a sample experiment-results card to PNG so the output
+// quality of the Satori + resvg pipeline can be eyeballed in a browser.
+export const getChartPreview = async (
+  req: GetChartPreviewRequest,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const png = await renderExperimentResultsCard(sampleResultsCard());
+
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(png);
 };
