@@ -10,6 +10,7 @@ import { PiEye, PiWarning } from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -493,7 +494,14 @@ export default function FeaturesHeader({
 
             <Box>
               <Text weight="medium">Type: </Text>
-              {feature.valueType || "unknown"}
+              {feature.valueType ? (
+                <FeatureValueTypeDisplay
+                  valueType={feature.valueType}
+                  defaultValue={feature.defaultValue}
+                />
+              ) : (
+                "unknown"
+              )}
             </Box>
 
             <Box>

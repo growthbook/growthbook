@@ -34,6 +34,8 @@ const openApiTags = [
   "saved-group-revisions",
   "constants",
   "constant-revisions",
+  "configs",
+  "config-revisions",
   "organizations",
   "members",
   "code-references",
@@ -157,6 +159,16 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Constant Revisions",
     description:
       'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  configs: {
+    display: "Configs",
+    description:
+      "Reusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves like a `json` constant, composed via `$extends`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Schema fields colliding with a published ancestor's key are stripped ('base wins').",
+  },
+  "config-revisions": {
+    display: "Config Revisions",
+    description:
+      'Draft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   members: {
     display: "Members",

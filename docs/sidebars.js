@@ -63,6 +63,7 @@ export default {
             "features/safe-rollouts", // Safe Rollouts
             "features/prerequisites", // Prerequisite Features
             "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
           ],
         },
         {

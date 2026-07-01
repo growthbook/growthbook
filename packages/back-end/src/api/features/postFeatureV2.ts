@@ -11,6 +11,7 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
+  assertFeatureValuesValid,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObjV2,
   getSavedGroupMap,
@@ -23,7 +24,11 @@ import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { validateEnvKeys } from "./postFeature";
-import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
+import {
+  assertConfigSchemaCompat,
+  assertValidProjectId,
+  mapV2ApiRuleToFeatureRule,
+} from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
@@ -119,7 +124,21 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       feature.valueType,
     );
     feature.jsonSchema = jsonSchema;
-    feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+    // Always normalize; enforce the schema unless explicitly skipped.
+    feature.defaultValue = validateFeatureValue(
+      req.context.skipSchemaValidation
+        ? { ...feature, jsonSchema: undefined }
+        : feature,
+      feature.defaultValue,
+      "Default value",
+    );
+    // `mapV2ApiRuleToFeatureRule` doesn't validate rule values — enforce here.
+    assertFeatureValuesValid(req.context, feature, { rules: feature.rules });
+
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      defaultValue: feature.defaultValue,
+    });
 
     if (
       !req.context.permissions.canPublishFeature(

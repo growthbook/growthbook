@@ -1,5 +1,7 @@
 export * from "./agreements";
 export * from "./base-model";
+export * from "./config";
+export * from "./config-revisions";
 export * from "./constant";
 export * from "./constant-revisions";
 export * from "./custom-fields";

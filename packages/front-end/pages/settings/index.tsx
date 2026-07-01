@@ -178,6 +178,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
       revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
+      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
       maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,

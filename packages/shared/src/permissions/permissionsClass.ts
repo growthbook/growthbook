@@ -29,6 +29,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
 import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
@@ -1332,6 +1333,35 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: constant.project ? [constant.project] : [] },
       "manageConstants",
+    );
+  };
+
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
+    );
+  };
+
+  public canUpdateConfig = (
+    existing: Pick<ConfigInterface, "project">,
+    updated: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageConfigs",
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: config.project ? [config.project] : [] },
+      "manageConfigs",
     );
   };
 

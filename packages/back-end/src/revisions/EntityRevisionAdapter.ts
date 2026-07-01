@@ -111,6 +111,24 @@ export interface EntityRevisionAdapter<
     options?: { isRevert?: boolean },
   ): Promise<void>;
 
+  /**
+   * Validate that `desiredState` (the changes a merge would apply) can be
+   * published, BEFORE the merge is claimed. Throwing here leaves the revision in
+   * its current open status — nothing is marked merged — so a publish that fails
+   * validation (e.g. a config value that violates a cross-field rule) errors
+   * cleanly and keeps the draft editable, instead of stranding it "merged" and
+   * relying on a post-merge reopen. Runs on every internal publish path,
+   * including admin/bypass-approval publishes (bypass skips approval, not
+   * validation). Optional: adapters without publish-time invariants can omit it.
+   */
+  assertPublishable?(
+    context: Context,
+    entity: TSnapshot,
+    desiredState: Record<string, unknown>,
+    revision: Revision,
+    options?: { isRevert?: boolean },
+  ): Promise<void>;
+
   // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
 
   /**

@@ -1175,7 +1175,10 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["cfg", { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) }],
+      [
+        "constant:cfg",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
     ]);
 
     const def = getFeatureDefinition({
@@ -1211,7 +1214,7 @@ describe("SDK Payloads", () => {
 
     const constantMap = new Map([
       [
-        "base",
+        "constant:base",
         { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
       ],
     ]);
@@ -1253,8 +1256,8 @@ describe("SDK Payloads", () => {
     ];
 
     const constantMap = new Map([
-      ["config-snippet", { type: "json" as const, value: '{"x":1}' }],
-      ["my-json", { type: "json" as const, value: '{"y":2}' }],
+      ["constant:config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["constant:my-json", { type: "json" as const, value: '{"y":2}' }],
     ]);
 
     const def = getFeatureDefinition({
@@ -1271,6 +1274,51 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([
       { force: { versions: [1, 2], ref: 3, x: 1, y: 2 } },
     ]);
+  });
+
+  it("deep-merges a sparse rule onto a config-backed feature default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Config-backed default that also layers `extra` on top of the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      extra: { x: 1 },
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Patches one leaf of `extra`; a shallow merge would drop `extra.x`.
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Deep: config field `cfg` and the default's `extra.x` both survive.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
   });
 
   // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
@@ -1558,7 +1606,9 @@ describe("SDK Payloads", () => {
       experimentMap,
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
-      constantMap: new Map([["name", { type: "string", value: "world" }]]),
+      constantMap: new Map([
+        ["constant:name", { type: "string", value: "world" }],
+      ]),
     });
     expect(def?.rules).toEqual([{ force: { greeting: "hi world" } }]);
   });
@@ -1585,7 +1635,10 @@ describe("SDK Payloads", () => {
       safeRolloutMap,
       capabilities: ["looseUnmarshalling"],
       constantMap: new Map([
-        ["cfg", { type: "json", value: JSON.stringify({ nested: [1, 2] }) }],
+        [
+          "constant:cfg",
+          { type: "json", value: JSON.stringify({ nested: [1, 2] }) },
+        ],
       ]),
     });
     expect(def?.rules).toEqual([{ force: { a: 0, nested: [1, 2], x: 1 } }]);

@@ -1,10 +1,38 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { postFeatureRuleV2 } from "shared/validators";
-import { validateScheduleRules } from "shared/util";
+import {
+  validateScheduleRules,
+  setConfigBacking,
+  getConfigBackingKey,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
+
+// A flag can't carry its own JSON schema while its default value is backed by a
+// config — the config's schema is authoritative, so the two would conflict.
+// Guards both directions: enabling a schema with a config-backed value, and
+// pointing the default value at a config while a schema is enabled. Pass the
+// *effective* post-update values (new value falling back to the existing one).
+export function assertConfigSchemaCompat({
+  jsonSchemaEnabled,
+  defaultValue,
+}: {
+  jsonSchemaEnabled: boolean | undefined;
+  defaultValue: string | undefined;
+}): void {
+  if (
+    jsonSchemaEnabled &&
+    defaultValue !== undefined &&
+    getConfigBackingKey(defaultValue) !== null
+  ) {
+    throw new BadRequestError(
+      "A flag cannot define its own JSON schema while its default value is backed by a config. " +
+        "The config's schema is authoritative — detach the config from the default value or remove the flag's jsonSchema.",
+    );
+  }
+}
 
 export type ApiRuleV2Input = z.infer<typeof postFeatureRuleV2>;
 
@@ -67,7 +95,12 @@ export function mapV2ApiRuleToFeatureRule(
       experimentId: ruleInput.experimentId,
       variations: ruleInput.variations.map((v) => ({
         variationId: v.variationId,
-        value: v.value,
+        // When `config` is supplied, `value` is an override patch; recompose it
+        // into the internal `$extends`-first value. null detaches any config.
+        value:
+          v.config !== undefined
+            ? setConfigBacking(v.config, v.value)
+            : v.value,
       })),
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
@@ -76,7 +109,10 @@ export function mapV2ApiRuleToFeatureRule(
     return {
       ...baseRule,
       type: "rollout" as const,
-      value: ruleInput.value,
+      value:
+        ruleInput.config !== undefined
+          ? setConfigBacking(ruleInput.config, ruleInput.value)
+          : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
@@ -112,7 +148,10 @@ export function mapV2ApiRuleToFeatureRule(
   return {
     ...baseRule,
     type: "force" as const,
-    value: ruleInput.value,
+    value:
+      ruleInput.config !== undefined
+        ? setConfigBacking(ruleInput.config, ruleInput.value)
+        : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
 }

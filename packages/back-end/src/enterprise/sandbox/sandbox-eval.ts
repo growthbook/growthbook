@@ -3,7 +3,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { ReqContextClass } from "back-end/src/services/context";
+import { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { runInSandbox } from "./sandbox-pool";
 
@@ -14,7 +14,7 @@ export async function runValidateFeatureHooks({
   feature,
   original,
 }: {
-  context: ReqContextClass;
+  context: Context;
   feature: FeatureInterface;
   original: FeatureInterface | null;
 }): Promise<void> {
@@ -34,7 +34,7 @@ export async function runValidateFeatureRevisionHooks({
   revision,
   original,
 }: {
-  context: ReqContextClass;
+  context: Context;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   original: FeatureRevisionInterface;
@@ -52,13 +52,80 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+// A config's publish-time content passed to config hooks. `key`/`project` drive
+// hook scoping (entity-scoped by key, project-scoped by project); the rest is
+// the config's own fields + staged value.
+type ConfigHookInput = {
+  key: string;
+  project?: string;
+} & Record<string, unknown>;
+
+export async function runValidateConfigHooks({
+  context,
+  config,
+  original,
+}: {
+  context: Context;
+  config: ConfigHookInput;
+  original: ConfigHookInput | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateConfig",
+    { config },
+    config.project ?? "",
+    config.key,
+    original ? { config: original } : undefined,
+  );
+}
+
+// The publish-time revision metadata passed to validateConfigRevision hooks:
+// review verdicts, status, author, and the change comment — enough to gate a
+// publish on approval policy (mirrors the feature revision hook's `revision`).
+export type ConfigRevisionHookInput = {
+  version?: number;
+  status: string;
+  title?: string;
+  comment?: string;
+  authorId: string;
+  contributors?: string[];
+  reviews: {
+    userId: string;
+    decision: string;
+    comment?: string;
+    stale?: boolean;
+    dateCreated: Date;
+  }[];
+};
+
+export async function runValidateConfigRevisionHooks({
+  context,
+  config,
+  revision,
+  original,
+}: {
+  context: Context;
+  config: ConfigHookInput;
+  revision?: ConfigRevisionHookInput;
+  original?: ConfigHookInput | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateConfigRevision",
+    revision !== undefined ? { config, revision } : { config },
+    config.project ?? "",
+    config.key,
+    original ? { config: original } : undefined,
+  );
+}
+
 // Private methods
 async function _runCustomHooks(
-  context: ReqContextClass,
+  context: Context,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
-  featureId: string = "",
+  entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
 ) {
   // Skip on cloud
@@ -81,7 +148,7 @@ async function _runCustomHooks(
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
     project,
-    featureId,
+    entityId,
   );
 
   const allWarnings: string[] = [];
@@ -104,7 +171,7 @@ async function _runCustomHooks(
 }
 
 async function _runCustomHook(
-  context: ReqContextClass,
+  context: Context,
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,

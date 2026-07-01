@@ -10,6 +10,7 @@ import {
   liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
+  getConfigBackingKey,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -2657,10 +2658,10 @@ export async function getFeatureMetaInfoById(
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
     environmentSettings: 1,
+    // Read server-side to derive `configBackingKey` (a small slug); the full
+    // value is only returned to the client when explicitly requested.
+    defaultValue: 1,
   };
-  if (includeDefaultValue) {
-    projection.defaultValue = 1;
-  }
 
   const features = await FeatureModel.find(query, projection);
 
@@ -2687,6 +2688,11 @@ export async function getFeatureMetaInfoById(
         (r) => (r.savedGroups?.length ?? 0) > 0,
       );
 
+      // Only JSON flags can be config-backed; derive the (small) backing key so
+      // the client doesn't need every feature's full default value.
+      const configBackingKey =
+        f.valueType === "json" ? getConfigBackingKey(f.defaultValue) : null;
+
       return {
         id: f.id,
         project: f.project,
@@ -2702,6 +2708,7 @@ export async function getFeatureMetaInfoById(
         neverStale: f.neverStale,
         hasPrerequisites,
         hasSavedGroups,
+        configBackingKey,
         revision: f.revision as FeatureMetaInfo["revision"],
         ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
       };

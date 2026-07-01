@@ -1198,6 +1198,9 @@ importers:
       '@stdlib/stats':
         specifier: ^0.1.1
         version: 0.1.1
+      '@types/json-logic-js':
+        specifier: ^2.0.8
+        version: 2.0.8
       ajv:
         specifier: ^8.18.0
         version: 8.18.0
@@ -1210,6 +1213,9 @@ importers:
       dirty-json:
         specifier: ^0.9.2
         version: 0.9.2
+      json-logic-js:
+        specifier: ^2.0.5
+        version: 2.0.5
       json-stringify-pretty-compact:
         specifier: ^3.0.0
         version: 3.0.0
@@ -6028,6 +6034,9 @@ packages:
   '@types/jsdom@20.0.1':
     resolution: {integrity: sha512-d0r18sZPmMQr1eG35u12FZfhIXNrnsPU/g5wvRKCUf/tOGilKKwYMYGqh33BNR6ba+2gkHw1EUiHoN3mn7E5IQ==}
 
+  '@types/json-logic-js@2.0.8':
+    resolution: {integrity: sha512-WgNsDPuTPKYXl0Jh0IfoCoJoAGGYZt5qzpmjuLSEg7r0cKp/kWtWp0HAsVepyPSPyXiHo6uXp/B/kW/2J1fa2Q==}
+
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -9756,6 +9765,9 @@ packages:
 
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
+
+  json-logic-js@2.0.5:
+    resolution: {integrity: sha512-rTT2+lqcuUmj4DgWfmzupZqQDA64AdmYqizzMPWj3DxGdfFNsxPpcNVSaTj4l8W2tG/+hg7/mQhxjU3aPacO6g==}
 
   json-parse-better-errors@1.0.2:
     resolution: {integrity: sha512-mrqyZKfX5EhL7hvqcV6WG1yYjnjeuYDzDhhcAAUrq8Po85NBQBJP+ZDUT75qZQ98IkUoBqdkExkukOU7Ts2wrw==}
@@ -19670,6 +19682,8 @@ snapshots:
       '@types/tough-cookie': 4.0.0
       parse5: 7.3.0
 
+  '@types/json-logic-js@2.0.8': {}
+
   '@types/json-schema@7.0.15': {}
 
   '@types/json5@0.0.29': {}
@@ -24237,6 +24251,8 @@ snapshots:
   json-bignum@0.0.3: {}
 
   json-buffer@3.0.1: {}
+
+  json-logic-js@2.0.5: {}
 
   json-parse-better-errors@1.0.2: {}
 

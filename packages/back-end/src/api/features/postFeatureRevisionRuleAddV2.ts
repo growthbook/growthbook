@@ -9,7 +9,7 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import { resetReviewOnChange, setConfigBacking } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
@@ -17,6 +17,7 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
   addIdsToFlatRules,
+  assertFeatureValuesValid,
 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -66,6 +67,19 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule as RuleCreateInputV2;
+
+  // Capture config-backing inputs before the experiment-ref variation backfill
+  // below rewrites `ruleInput.variations` (which would otherwise drop `config`).
+  // `value` is an override patch when a config is supplied; we recompose it into
+  // the internal `$extends`-first value after the rule is built.
+  const ruleLevelConfig =
+    "config" in ruleInput
+      ? (ruleInput as { config?: string | null }).config
+      : undefined;
+  const variationConfigs =
+    ruleInput.type === "experiment-ref"
+      ? ruleInput.variations.map((v) => v.config)
+      : [];
 
   if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
     throw new BadRequestError(
@@ -169,9 +183,31 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
+    // Recompose config-backing into the stored value(s). null detaches.
+    if (
+      (rule.type === "force" || rule.type === "rollout") &&
+      ruleLevelConfig !== undefined
+    ) {
+      rule.value = setConfigBacking(ruleLevelConfig, rule.value);
+    }
+    if (rule.type === "experiment-ref") {
+      rule.variations = rule.variations.map((rv, i) => {
+        const c = variationConfigs[i];
+        return c !== undefined
+          ? { ...rv, value: setConfigBacking(c, rv.value) }
+          : rv;
+      });
+    }
+
     // Backfill seed for rollout rules to ensure ramp-monitored payload
     // stability — consistent with the write-time backfill in addIdsToFlatRules.
     addIdsToFlatRules([rule as FeatureRule], feature.id);
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
 
     validateRuleConditions(rule);
     // Opt-in registered-attribute check before any side effects (safe-rollout

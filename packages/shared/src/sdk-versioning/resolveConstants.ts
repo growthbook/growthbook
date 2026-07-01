@@ -1,5 +1,11 @@
 import { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
+import { deepMergePatch, isUnsafeMergeKey } from "../util/deep-merge";
+
+// Which namespace an entry belongs to. References are namespaced (`@const:` vs
+// `@config:`) and the value map is keyed by `source:key`, so the two namespaces
+// are independent — a constant and a config may share a bare key.
+export type ConstantSource = "constant" | "config";
 
 // A constant's value resolved for a single target environment. `archived`
 // entries carry no usable value — references to them are scrubbed from the
@@ -7,7 +13,15 @@ import { CONSTANT_EXTENDS_KEY } from "../constants";
 // single project ("" = global); a reference from a feature in a different
 // project is also scrubbed (see `isScrubbed`).
 export type ConstantValueMapEntry = {
+  // Configs resolve identically to `json` and are coerced to `type: "json"`
+  // when merged into this map (see the resolution-universe loader), so only two
+  // surface types exist here.
   type: "string" | "json";
+  // The namespace this entry belongs to. The map is keyed by `source:key`
+  // (see mapKey/buildConstantValueMap), so the source also disambiguates a key
+  // shared by a constant and a config. Optional for hand-built maps; absent is
+  // treated as `"constant"`.
+  source?: ConstantSource;
   value: string;
   project?: string;
   archived?: boolean;
@@ -26,18 +40,34 @@ export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 // merges each referenced object (later refs override earlier) and then lets the
 // object's own keys override.
 const KEY = "[a-z0-9][a-z0-9_-]*";
-// The property name that carries the list of JSON constant references to merge.
+// Reference namespace: `@const:` (constants) or `@config:` (configs).
+const NS = "(?:const|config)";
+// The property name that carries the list of references to merge.
 export const EXTENDS_KEY = CONSTANT_EXTENDS_KEY;
 // A backtick-wrapped interpolation (escaped → literal) OR a bare interpolation.
+// For the bare form, group 2 = namespace, group 3 = key.
 const INTERP = new RegExp(
-  "`(\\{\\{\\s*@const:" +
+  "`(\\{\\{\\s*@" +
+    NS +
+    ":" +
     KEY +
-    "\\s*\\}\\})`|\\{\\{\\s*@const:(" +
+    "\\s*\\}\\})`|\\{\\{\\s*@(const|config):(" +
     KEY +
     ")\\s*\\}\\}",
   "g",
 );
-const PLACEHOLDER_KEY = new RegExp("^@const:(" + KEY + ")$");
+// Group 1 = namespace, group 2 = key.
+const PLACEHOLDER_KEY = new RegExp("^@(const|config):(" + KEY + ")$");
+
+const nsToSource = (ns: string): ConstantSource =>
+  ns === "config" ? "config" : "constant";
+
+// Value-map key: namespaced by source so a constant and a config may share a
+// bare key without colliding. `@const:foo` resolves `constant:foo` and
+// `@config:foo` resolves `config:foo` — the two namespaces never overwrite each
+// other in the map, even with identical keys.
+const mapKey = (source: ConstantSource, key: string): string =>
+  `${source}:${key}`;
 
 // Build the per-environment lookup: `environmentValues[env] ?? value`. A
 // constant with no value for the environment (and no default) is omitted, so
@@ -48,17 +78,19 @@ const PLACEHOLDER_KEY = new RegExp("^@const:(" + KEY + ")$");
 // left verbatim — archiving a constant should remove it from feature values,
 // not leak a stale value or a raw `{{ @const:... }}` template.
 export function buildConstantValueMap(
-  constants: Pick<
+  constants: (Pick<
     ConstantInterface,
     "key" | "type" | "value" | "environmentValues" | "archived" | "project"
-  >[],
+  > & { source?: ConstantSource })[],
   environment: string,
 ): ConstantValueMap {
   const map: ConstantValueMap = new Map();
   for (const c of constants) {
+    const source: ConstantSource = c.source ?? "constant";
     if (c.archived) {
-      map.set(c.key, {
+      map.set(mapKey(source, c.key), {
         type: c.type,
+        source,
         value: "",
         project: c.project || "",
         archived: true,
@@ -76,7 +108,13 @@ export function buildConstantValueMap(
         parsed = undefined;
       }
     }
-    map.set(c.key, { type: c.type, value, project: c.project || "", parsed });
+    map.set(mapKey(source, c.key), {
+      type: c.type,
+      source,
+      value,
+      project: c.project || "",
+      parsed,
+    });
   }
   return map;
 }
@@ -115,36 +153,42 @@ function resolveStringRefs(
   visited: Set<string>,
   ctx: ResolveContext,
 ): string {
-  return str.replace(INTERP, (full, escaped, key) => {
+  return str.replace(INTERP, (full, escaped, ns, key) => {
     if (escaped) return escaped;
-    const entry = ctx.map.get(key);
+    // The map is namespaced by source, so a `@const:`/`@config:` ref only ever
+    // finds a matching-source entry (no cross-namespace check needed).
+    const mk = mapKey(nsToSource(ns), key);
+    const entry = ctx.map.get(mk);
     if (!entry) return full;
     // Archived or out-of-project-scope: strip the reference entirely (any type)
     // rather than leaking a raw `{{ @const:... }}` template into the value.
     if (isScrubbed(entry, ctx)) return "";
     if (entry.type !== "string") return full;
-    if (visited.has(key)) {
+    if (visited.has(mk)) {
       ctx.onCycle?.(key);
       return full;
     }
-    const cached = ctx.cache.get(key);
+    const cached = ctx.cache.get(mk);
     if (cached !== undefined) return cached as string;
     // The constant's value may itself reference other string constants.
     const resolved = resolveStringRefs(
       entry.value,
-      new Set([...visited, key]),
+      new Set([...visited, mk]),
       ctx,
     );
-    ctx.cache.set(key, resolved);
+    ctx.cache.set(mk, resolved);
     return resolved;
   });
 }
 
-// If `ref` is a `@const:<key>` reference string, return the key; else null.
-function extendsRefKey(ref: unknown): string | null {
+// If `ref` is a `@const:<key>`/`@config:<key>` reference string, return its
+// namespace source + key; else null.
+function extendsRef(
+  ref: unknown,
+): { source: ConstantSource; key: string } | null {
   if (typeof ref !== "string") return null;
   const match = ref.match(PLACEHOLDER_KEY);
-  return match ? match[1] : null;
+  return match ? { source: nsToSource(match[1]), key: match[2] } : null;
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -169,16 +213,22 @@ function resolveValue(
     // resolved value. Returns null when unknown, not JSON, scrubbed
     // (archived/out-of-scope), part of a cycle, non-parseable, or not an object.
     // Memoized per pass.
-    const resolveExtendsRef = (key: string): Record<string, unknown> | null => {
-      const entry = ctx.map.get(key);
+    const resolveExtendsRef = (
+      source: ConstantSource,
+      key: string,
+    ): Record<string, unknown> | null => {
+      // The map is namespaced by source, so the lookup itself enforces that a
+      // `@config:` ref only resolves a config (and `@const:` only a constant).
+      const mk = mapKey(source, key);
+      const entry = ctx.map.get(mk);
       if (!entry || entry.type !== "json" || isScrubbed(entry, ctx))
         return null;
-      if (visited.has(key)) {
+      if (visited.has(mk)) {
         ctx.onCycle?.(key);
         return null;
       }
-      if (ctx.cache.has(key)) {
-        const cached = ctx.cache.get(key);
+      if (ctx.cache.has(mk)) {
+        const cached = ctx.cache.get(mk);
         return isPlainObject(cached) ? cached : null;
       }
       // Reuse the value parsed once at map-build time (buildConstantValueMap).
@@ -192,8 +242,14 @@ function resolveValue(
           return null;
         }
       }
-      const resolved = resolveValue(parsed, new Set([...visited, key]), ctx);
-      ctx.cache.set(key, resolved);
+      const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
+      // Memoize per pass. Caveat: if this node is first resolved while sitting
+      // beneath a cycle edge, the back-reference was cut (→ null) and the cached
+      // value is truncated; an independent, non-cyclic referrer in the same pass
+      // would then reuse that truncated value. Accepted: cycles are rejected at
+      // write time (assertNoReferenceCycle / ConfigModel.assertNoCycle), so a
+      // stored graph can't actually contain one. See resolveConstants.test.ts.
+      ctx.cache.set(mk, resolved);
       return isPlainObject(resolved) ? resolved : null;
     };
 
@@ -214,18 +270,27 @@ function resolveValue(
           if (isPlainObject(resolvedInline)) Object.assign(out, resolvedInline);
           continue;
         }
-        const key = extendsRefKey(ref);
-        if (key === null) continue;
-        const resolved = resolveExtendsRef(key);
+        const parsed = extendsRef(ref);
+        if (parsed === null) continue;
+        const resolved = resolveExtendsRef(parsed.source, parsed.key);
         if (resolved) Object.assign(out, resolved);
       }
     }
 
-    // Own keys override the merged base. Skip `$extends` itself when it was used
-    // as a merge directive (an array); otherwise treat it as a normal key.
+    // Own keys deep-merge (targeted patch) onto the merged base — a value
+    // restates only the leaves it changes. Skip `$extends` itself when used as a
+    // merge directive (an array); otherwise treat it as a normal key. A
+    // backtick-escaped reserved key (`` `$extends` ``) emits as the literal key
+    // it escapes, so a genuine data key named `$extends` is expressible. An own
+    // key whose value is itself a `$extends` chunk is applied wholesale (atomic).
+    const ESCAPED_EXTENDS_KEY = "`" + EXTENDS_KEY + "`";
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
-      out[k] = resolveValue(v, visited, ctx);
+      const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
+      if (isUnsafeMergeKey(outKey)) continue;
+      const resolved = resolveValue(v, visited, ctx);
+      const isChunk = isPlainObject(v) && EXTENDS_KEY in v;
+      out[outKey] = isChunk ? resolved : deepMergePatch(out[outKey], resolved);
     }
     return out;
   }

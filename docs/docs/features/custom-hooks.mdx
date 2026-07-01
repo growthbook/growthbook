@@ -25,6 +25,8 @@ You can create multiple hooks of the same type for flexible, granular validation
 
 Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
 
+The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
+
 ### Limits
 
 Custom Hooks are executed in a V8 Isolate, which provides a secure and efficient environment for running untrusted code. All modern JavaScript language features are supported (including async/await and fetch), but certain global objects like `process.env` are not available for security reasons.
@@ -241,5 +243,62 @@ if (revision.status === "published") {
   if (!approvals.some((r) => seniorReviewers.includes(r.userId))) {
     throw new Error("At least one approval must come from a senior reviewer.");
   }
+}
+```
+
+### validateConfig
+
+Called whenever a [config](/features/configs) is created or updated. Receives the config (its fields plus staged `value`) as input.
+
+Example: Require a config to have a name and a non-empty value.
+
+```js
+if (!config.name || !config.value) {
+  throw new Error("Configs must have a name and a value.");
+}
+```
+
+### validateConfigRevision
+
+Called on every config publish path (manual publish, direct REST update, auto-publish-on-approval, and scheduled publish), before the change is committed — so throwing blocks the publish and leaves the draft editable. Runs even for bypass-approval publishes, so it works as a hard gate. Receives:
+
+- `config` — the config's published content: `key`, `name`, `project`, staged `value`, `schema`, and lineage (`parent`/`extends`).
+- `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, and `reviews`. Each review is `{ userId, decision, comment, stale, dateCreated }` where `decision` is `"approve"` / `"request-changes"` / `"comment"` and `userId` is the reviewer's user ID (or the API key ID for a service account). `revision` is absent on direct (non-draft) writes.
+
+Example: Block publishing a value that exceeds a limit.
+
+```js
+const v = JSON.parse(config.value || "{}");
+if (v.maxItems > 100) {
+  throw new Error("maxItems cannot exceed 100.");
+}
+```
+
+Example: Enforce an approval policy — require a service-account approval plus at least one human (mirrors the feature-flag `validateFeatureRevision` gate). Disable **Incremental Changes Only** for this hook so it runs on every publish.
+
+```js
+if (revision) {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.decision === "approve" && !r.stale
+  );
+  if (!approvals.some((r) => r.userId === "key_abc123")) {
+    throw new Error("Publishing requires approval from the release-bot service account.");
+  }
+  if (!approvals.some((r) => r.userId !== "key_abc123")) {
+    throw new Error("Publishing requires at least one human approval.");
+  }
+}
+```
+
+Example: Require an external check to pass before publish.
+
+```js
+const res = await fetch("https://example.com/validate-config", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ key: config.key, value: config.value }),
+});
+if (!(await res.json()).isValid) {
+  throw new Error("External config validation failed.");
 }
 ```

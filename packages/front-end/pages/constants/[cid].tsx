@@ -89,7 +89,7 @@ function ConstantValueDisplay({
   return (
     <ValueDisplay
       value={value}
-      type={type}
+      type={type === "string" ? "string" : "json"}
       full
       showFullscreenButton
       fullscreenHeader="Constant Value"

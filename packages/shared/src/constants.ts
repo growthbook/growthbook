@@ -248,6 +248,7 @@ export const entityEvents = {
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
   constant: ["created", "updated", "deleted"],
+  config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],

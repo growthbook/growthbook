@@ -2,10 +2,16 @@ import {
   buildConstantValueMap,
   resolveConstantRefs,
   ConstantValueMap,
+  ConstantValueMapEntry,
 } from "../src/sdk-versioning/resolveConstants";
 
+// The value map is keyed by `source:key` (see mapKey/buildConstantValueMap), so
+// test maps mirror that. Source defaults to "constant".
 const mapOf = (
-  entries: Record<string, { type: "string" | "json"; value: string }>,
+  entries: Record<
+    string,
+    { type: "string" | "json"; value: string; source?: "constant" | "config" }
+  >,
 ): ConstantValueMap =>
   new Map(
     Object.entries(entries).map(([k, e]) => {
@@ -18,9 +24,14 @@ const mapOf = (
           parsed = undefined;
         }
       }
-      return [k, { ...e, parsed }];
+      const source = e.source ?? "constant";
+      return [`${source}:${k}`, { ...e, source, parsed }];
     }),
   );
+
+// Build a map from raw `[key, entry]` pairs, prefixing each key with its source.
+const nsMap = (entries: [string, ConstantValueMapEntry][]): ConstantValueMap =>
+  new Map(entries.map(([k, e]) => [`${e.source ?? "constant"}:${k}`, e]));
 
 describe("buildConstantValueMap", () => {
   it("uses the environment override when present, else the default value", () => {
@@ -32,13 +43,19 @@ describe("buildConstantValueMap", () => {
         environmentValues: { production: "prod.example.com" },
       },
     ];
-    expect(buildConstantValueMap(constants, "production").get("host")).toEqual({
+    expect(
+      buildConstantValueMap(constants, "production").get("constant:host"),
+    ).toEqual({
       type: "string",
+      source: "constant",
       value: "prod.example.com",
       project: "",
     });
-    expect(buildConstantValueMap(constants, "dev").get("host")).toEqual({
+    expect(
+      buildConstantValueMap(constants, "dev").get("constant:host"),
+    ).toEqual({
       type: "string",
+      source: "constant",
       value: "default.example.com",
       project: "",
     });
@@ -53,8 +70,9 @@ describe("buildConstantValueMap", () => {
         environmentValues: { dev: "" },
       },
     ];
-    expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
+    expect(buildConstantValueMap(constants, "dev").get("constant:x")).toEqual({
       type: "string",
+      source: "constant",
       value: "",
       project: "",
     });
@@ -64,7 +82,9 @@ describe("buildConstantValueMap", () => {
     const constants = [
       { key: "x", type: "string" as const, environmentValues: {} },
     ];
-    expect(buildConstantValueMap(constants, "dev").has("x")).toBe(false);
+    expect(buildConstantValueMap(constants, "dev").has("constant:x")).toBe(
+      false,
+    );
   });
 });
 
@@ -144,6 +164,12 @@ describe("resolveConstantRefs — $extends (JSON object merge)", () => {
     });
   });
 
+  it("emits a backtick-escaped `$extends` key as a literal $extends data key", () => {
+    expect(resolveConstantRefs({ "`$extends`": "@const:cfg" }, map)).toEqual({
+      $extends: "@const:cfg",
+    });
+  });
+
   it("interpolates string references inside JSON string leaves", () => {
     expect(
       resolveConstantRefs({ greeting: "hi {{ @const:name }}" }, map),
@@ -188,6 +214,22 @@ describe("resolveConstantRefs — $extends merge precedence", () => {
         map,
       ),
     ).toEqual({ wrapper: { a: 1, b: 2, extra: true } });
+  });
+
+  it("deep-merges own keys onto a nested object from the base (targeted patch)", () => {
+    const deepMap = mapOf({
+      base: {
+        type: "json",
+        value: '{"retry":{"timeouts":{"connect":1000,"read":5000}}}',
+      },
+    });
+    // Only `read` is restated; `connect` is inherited (shallow merge would drop it).
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:base"], retry: { timeouts: { read: 8000 } } },
+        deepMap,
+      ),
+    ).toEqual({ retry: { timeouts: { connect: 1000, read: 8000 } } });
   });
 
   it("merges across separate array elements", () => {
@@ -347,6 +389,69 @@ describe("resolveConstantRefs — nested constants and cycles", () => {
   });
 });
 
+describe("resolveConstantRefs — diamond graph + cycle/cache interaction", () => {
+  it("resolves a diamond (two paths to one base) consistently", () => {
+    // leaf $extends b and c; both b and c $extends the same base. The shared
+    // base is memoized per pass, so both paths see the same resolved object.
+    const map = mapOf({
+      base: { type: "json", value: '{"shared":1}' },
+      b: { type: "json", value: '{"$extends":["@const:base"],"fromB":2}' },
+      c: { type: "json", value: '{"$extends":["@const:base"],"fromC":3}' },
+    });
+    expect(
+      resolveConstantRefs({ $extends: ["@const:b", "@const:c"] }, map),
+    ).toEqual({ shared: 1, fromB: 2, fromC: 3 });
+  });
+
+  it("memoizes a fanned-out base so repeated paths agree", () => {
+    const map = mapOf({
+      base: { type: "json", value: '{"x":{"$extends":["@const:inner"]}}' },
+      inner: { type: "json", value: '{"y":1}' },
+    });
+    expect(
+      resolveConstantRefs(
+        {
+          one: { $extends: ["@const:base"] },
+          two: { $extends: ["@const:base"] },
+        },
+        map,
+      ),
+    ).toEqual({ one: { x: { y: 1 } }, two: { x: { y: 1 } } });
+  });
+
+  it("does not infinite-loop on a self-cycle and reports it via onCycle", () => {
+    const map = mapOf({
+      loop: { type: "json", value: '{"$extends":["@const:loop"],"k":1}' },
+    });
+    const cycles: string[] = [];
+    // The back-reference is cut (→ {} for the $extends), own keys survive.
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:loop"] },
+        map,
+        new Set(),
+        (key) => cycles.push(key),
+      ),
+    ).toEqual({ k: 1 });
+    expect(cycles).toEqual(["loop"]);
+  });
+
+  it("renders a mutual string cycle verbatim/truncated without looping", () => {
+    const map = mapOf({
+      a: { type: "string", value: "A{{ @const:b }}" },
+      b: { type: "string", value: "B{{ @const:a }}" },
+    });
+    const cycles: string[] = [];
+    // a → "A" + b → "AB" + a(cycle) left verbatim.
+    expect(
+      resolveConstantRefs("{{ @const:a }}", map, new Set(), (key) =>
+        cycles.push(key),
+      ),
+    ).toBe("AB{{ @const:a }}");
+    expect(cycles).toContain("a");
+  });
+});
+
 describe("buildConstantValueMap — archived", () => {
   it("marks archived constants so references are scrubbed", () => {
     const constants = [
@@ -357,8 +462,9 @@ describe("buildConstantValueMap — archived", () => {
         archived: true,
       },
     ];
-    expect(buildConstantValueMap(constants, "dev").get("x")).toEqual({
+    expect(buildConstantValueMap(constants, "dev").get("constant:x")).toEqual({
       type: "json",
+      source: "constant",
       value: "",
       archived: true,
       project: "",
@@ -367,7 +473,7 @@ describe("buildConstantValueMap — archived", () => {
 });
 
 describe("resolveConstantRefs — archived scrubbing", () => {
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     ["gone", { type: "string", value: "old", archived: true }],
     ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
     ["live", { type: "string", value: "here" }],
@@ -403,7 +509,7 @@ describe("resolveConstantRefs — archived scrubbing", () => {
   it("scrubs an archived constant referenced transitively through a live one", () => {
     // A live JSON constant whose body references an archived JSON constant, and
     // a live string constant whose value contains an archived string interp.
-    const nested: ConstantValueMap = new Map([
+    const nested: ConstantValueMap = nsMap([
       ["gone", { type: "string", value: "old", archived: true }],
       ["gone-json", { type: "json", value: '{"a":1}', archived: true }],
       [
@@ -428,7 +534,7 @@ describe("resolveConstantRefs — archived scrubbing", () => {
 });
 
 describe("resolveConstantRefs — project scoping", () => {
-  const map: ConstantValueMap = new Map([
+  const map: ConstantValueMap = nsMap([
     ["global-str", { type: "string", value: "G", project: "" }],
     ["proj-a-str", { type: "string", value: "A", project: "prj_a" }],
     ["proj-a-json", { type: "json", value: '{"a":1}', project: "prj_a" }],
@@ -492,6 +598,93 @@ describe("resolveConstantRefs — project scoping", () => {
         "prj_b",
       ),
     ).toEqual({ keep: 1 });
+  });
+});
+
+describe("resolveConstantRefs — @config namespace separation", () => {
+  // A config (source "config") and a constant (source "constant"), exercising
+  // that refs only resolve within their own namespace.
+  const map: ConstantValueMap = nsMap([
+    [
+      "base",
+      {
+        type: "json",
+        source: "config",
+        value: '{"a":1,"b":2}',
+        parsed: { a: 1, b: 2 },
+      },
+    ],
+    [
+      "cst",
+      { type: "json", source: "constant", value: '{"x":9}', parsed: { x: 9 } },
+    ],
+    ["greeting", { type: "string", source: "constant", value: "hi" }],
+  ]);
+
+  it("resolves a config via @config: $extends", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:base"] }, map)).toEqual({
+      a: 1,
+      b: 2,
+    });
+  });
+
+  it("does not resolve a config via the @const: namespace", () => {
+    expect(resolveConstantRefs({ $extends: ["@const:base"] }, map)).toEqual({});
+  });
+
+  it("does not resolve a constant via the @config: namespace", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:cst"] }, map)).toEqual({});
+  });
+
+  it("does not interpolate a constant string via @config:", () => {
+    expect(resolveConstantRefs("x={{ @config:greeting }}", map)).toBe(
+      "x={{ @config:greeting }}",
+    );
+  });
+
+  it("merges an override patch on top of a config base (own keys win)", () => {
+    expect(
+      resolveConstantRefs({ $extends: ["@config:base"], b: 99, c: 3 }, map),
+    ).toEqual({ a: 1, b: 99, c: 3 });
+  });
+});
+
+describe("resolveConstantRefs — config extends config", () => {
+  const map: ConstantValueMap = nsMap([
+    [
+      "root",
+      { type: "json", source: "config", value: '{"a":1}', parsed: { a: 1 } },
+    ],
+    [
+      "child",
+      {
+        type: "json",
+        source: "config",
+        value: '{"$extends":["@config:root"],"b":2}',
+        parsed: { $extends: ["@config:root"], b: 2 },
+      },
+    ],
+  ]);
+
+  it("flattens a config lineage through @config: refs", () => {
+    expect(resolveConstantRefs({ $extends: ["@config:child"] }, map)).toEqual({
+      a: 1,
+      b: 2,
+    });
+  });
+});
+
+describe("buildConstantValueMap — source tagging", () => {
+  it("tags entries with their source and defaults to constant", () => {
+    const map = buildConstantValueMap(
+      [
+        { key: "c", type: "json", value: "{}", source: "config" },
+        { key: "k", type: "string", value: "v" },
+      ],
+      "dev",
+    );
+    expect(map.get("config:c")?.source).toBe("config");
+    expect(map.get("constant:k")?.source).toBe("constant");
   });
 });
 

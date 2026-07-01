@@ -19,6 +19,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
+  assertFeatureValuesValid,
   getApiFeatureObjV2,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -34,6 +35,7 @@ import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
+  assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
   extractRevisionMetadata,
@@ -109,9 +111,34 @@ export const updateFeatureV2 = createApiRequestHandler(
     validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
   }
 
+  const jsonSchema =
+    feature.valueType !== "boolean" && (req.body.jsonSchema ?? null) !== null
+      ? parseApiJsonSchema(
+          req.organization,
+          req.body.jsonSchema,
+          feature.valueType,
+        )
+      : null;
+
+  // Validate values against the EFFECTIVE schema — the inbound `jsonSchema` when
+  // one is sent, else the flag's current schema — so a request that relaxes or
+  // tightens the schema is judged against the schema it's also setting.
+  const effectiveFeature = {
+    ...feature,
+    ...(jsonSchema !== null ? { jsonSchema } : {}),
+  };
+
   let defaultValue: string | undefined;
   if (req.body.defaultValue != null) {
-    defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+    // Always normalize (parse / dirty-json fixup), but only enforce the schema
+    // when not explicitly skipped.
+    defaultValue = validateFeatureValue(
+      req.context.skipSchemaValidation
+        ? { ...effectiveFeature, jsonSchema: undefined }
+        : effectiveFeature,
+      req.body.defaultValue,
+      "Default value",
+    );
   }
 
   const prerequisites =
@@ -124,14 +151,13 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   await assertValidHoldout(req.body.holdout, req.context);
 
-  const jsonSchema =
-    feature.valueType !== "boolean" && req.body.jsonSchema != null
-      ? parseApiJsonSchema(
-          req.organization,
-          req.body.jsonSchema,
-          feature.valueType,
-        )
-      : null;
+  // Block a config-backed default value coexisting with an enabled JSON schema
+  // (either inbound or already on the flag), using the effective post-update
+  // values.
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+    defaultValue: defaultValue ?? feature.defaultValue,
+  });
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
@@ -149,6 +175,11 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     addIdsToFlatRules(inboundFlatRules, feature.id);
+    // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
+    // here (against the effective schema, opt-out via ?skipSchemaValidation).
+    assertFeatureValuesValid(req.context, effectiveFeature, {
+      rules: inboundFlatRules,
+    });
   }
 
   const changedEnvEnabled: Record<string, boolean> = {};

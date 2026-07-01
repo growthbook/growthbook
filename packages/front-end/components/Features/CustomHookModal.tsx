@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  CustomHookInterface,
+  CustomHookType,
+  hookEntityType,
+} from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -81,6 +85,38 @@ const dummyRevision: FeatureRevisionInterface = {
   ],
 };
 
+const dummyConfig = {
+  key: "checkout_limits",
+  name: "Checkout limits",
+  project: "",
+  value: JSON.stringify({ maxItems: 50, currency: "USD" }),
+  schema: { type: "object", fields: [] },
+  extensible: true,
+};
+const dummyConfigRevision = {
+  version: 3,
+  status: "approved",
+  comment: "Raise the checkout item limit",
+  authorId: "user_123",
+  contributors: ["user_123"],
+  reviews: [
+    {
+      userId: "user_456",
+      decision: "approve",
+      comment: "",
+      stale: false,
+      dateCreated: new Date(),
+    },
+    {
+      userId: "key_abc123",
+      decision: "approve",
+      comment: "",
+      stale: false,
+      dateCreated: new Date(),
+    },
+  ],
+};
+
 export const hookTypes: Record<
   CustomHookType,
   {
@@ -92,6 +128,32 @@ export const hookTypes: Record<
     example: string;
   }
 > = {
+  validateConfig: {
+    label: "Validate Config",
+    availableArguments: {
+      config: {
+        description: "The config being validated (its fields + staged value)",
+        testValue: stringify(dummyConfig),
+      },
+    },
+    example: `\n// Block the save (hard error):\nif (!config.value) {\n  throw new Error("Config must have a value");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!config.name) {\n  addWarning("Consider naming this config");\n}`,
+  },
+  validateConfigRevision: {
+    label: "Validate Config Revision",
+    availableArguments: {
+      config: {
+        description:
+          "The config's published content (key, value, schema, lineage)",
+        testValue: stringify(dummyConfig),
+      },
+      revision: {
+        description:
+          "The revision being published (version, status, reviews) — for approval gating",
+        testValue: stringify(dummyConfigRevision),
+      },
+    },
+    example: `\n// Block the publish (hard error):\nconst v = JSON.parse(config.value || "{}");\nif (v.maxItems > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.decision === "approve" && !r.stale);\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
+  },
   validateFeature: {
     label: "Validate Feature",
     availableArguments: {
@@ -124,6 +186,7 @@ export default function CustomHookModal({
   onSave,
   feature,
   revision,
+  config,
 }: {
   close: () => void;
   current?: CustomHookInterface;
@@ -132,11 +195,24 @@ export default function CustomHookModal({
   feature?: FeatureInterface;
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
+  // When set, scopes the hook to this config and hides the Projects field.
+  config?: { key: string; project?: string; name?: string; value?: string };
 }) {
+  // The entity this modal is scoped to (feature or config), if any. Drives the
+  // hook-type options, the hidden Projects field, and the submit/test scope.
+  const scope: "feature" | "config" | null = feature
+    ? "feature"
+    : config
+      ? "config"
+      : null;
+  const defaultHook: CustomHookType =
+    current?.hook ||
+    (scope === "config" ? "validateConfigRevision" : "validateFeature");
+
   const form = useForm<CreateProps<CustomHookInterface>>({
     defaultValues: {
       name: current?.name || "",
-      hook: current?.hook || "validateFeature",
+      hook: defaultHook,
       code: current?.code || "",
       projects: current?.projects || [],
       incrementalChangesOnly: current?.incrementalChangesOnly ?? true,
@@ -150,6 +226,13 @@ export default function CustomHookModal({
   const hookType = form.watch("hook");
   const hookTypeData = hookTypes[hookType];
 
+  // Hook types offered: filtered to the scoped entity's types, else all.
+  const hookTypeOptions = Object.entries(hookTypes)
+    .filter(([value]) =>
+      scope ? hookEntityType[value as CustomHookType] === scope : true,
+    )
+    .map(([value, { label }]) => ({ value, label }));
+
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
       Object.entries(hookTypes[h].availableArguments).map(([k, v]) => [
@@ -158,12 +241,14 @@ export default function CustomHookModal({
           ? stringify(feature)
           : revision && k === "revision"
             ? stringify(revision)
-            : v.testValue,
+            : config && k === "config"
+              ? stringify(config)
+              : v.testValue,
       ]),
     );
 
   const [testValues, setTestValues] = useState<Record<string, string>>(
-    initialTestValues(current?.hook || "validateFeature"),
+    initialTestValues(defaultHook),
   );
   const [testResult, setTestResult] = useState<{
     status: "" | "success" | "error";
@@ -195,7 +280,9 @@ export default function CustomHookModal({
         ),
         ...(feature
           ? { entityType: "feature" as const, entityId: feature.id }
-          : {}),
+          : config
+            ? { entityType: "config" as const, entityId: config.key }
+            : {}),
       }),
     });
     setTestResult({
@@ -229,7 +316,13 @@ export default function CustomHookModal({
                 entityType: "feature" as const,
                 entityId: feature.id,
               }
-            : {}),
+            : config
+              ? {
+                  projects: [],
+                  entityType: "config" as const,
+                  entityId: config.key,
+                }
+              : {}),
         };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {
@@ -252,17 +345,14 @@ export default function CustomHookModal({
           <SelectField
             label="Hook Type"
             required
-            options={Object.entries(hookTypes).map(([value, { label }]) => ({
-              value,
-              label,
-            }))}
+            options={hookTypeOptions}
             value={hookType}
             onChange={(value) => {
               form.setValue("hook", value as CustomHookType);
               setTestValues(initialTestValues(value as CustomHookType));
             }}
           />
-          {!feature && (
+          {!scope && (
             <MultiSelectField
               label={"Projects"}
               placeholder="All projects"

@@ -82,10 +82,12 @@ export async function dispatchSavedGroupRevisionEvent(
           ...apiRevision,
           // Field-specific handlers pass the exact change; the generic
           // /revision controller omits it, so derive from the proposed changes.
-          // The cross-entity `change` union includes the constant-only "value";
-          // saved groups never emit it, so ignore it and re-derive.
+          // The cross-entity `change` union includes kinds saved groups never
+          // emit (constant "value", config "schema"); ignore those and re-derive.
           change:
-            action.change && action.change !== "value"
+            action.change &&
+            action.change !== "value" &&
+            action.change !== "schema"
               ? action.change
               : deriveChange(revision.target.proposedChanges),
         });

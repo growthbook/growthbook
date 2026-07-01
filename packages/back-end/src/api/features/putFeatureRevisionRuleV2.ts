@@ -1,5 +1,10 @@
 import isEqual from "lodash/isEqual";
-import { resetReviewOnChange } from "shared/util";
+import {
+  resetReviewOnChange,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  setConfigBacking,
+} from "shared/util";
 import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
@@ -10,7 +15,10 @@ import {
   RulePatchInputV2,
 } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
-import { toApiRevisionV2 } from "back-end/src/services/features";
+import {
+  assertFeatureValuesValid,
+  toApiRevisionV2,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -151,6 +159,48 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       (updatedRule as FeatureRule).allEnvironments = resolvedAllEnvs;
       (updatedRule as FeatureRule).environments = resolvedEnvs;
     }
+
+    // Recompose config-backing into the stored value(s). For force/rollout an
+    // omitted `config`/`value` is preserved from the existing rule; `config:
+    // null` detaches. Experiment-ref variations are replaced wholesale, so each
+    // variation's `config` is taken literally (omitted = plain value).
+    if (
+      (updatedRule.type === "force" || updatedRule.type === "rollout") &&
+      (oldRule.type === "force" || oldRule.type === "rollout") &&
+      (patch.config !== undefined || patch.value !== undefined)
+    ) {
+      const existingConfig = getConfigBackingKey(oldRule.value);
+      if (patch.config !== undefined || existingConfig !== null) {
+        const existingPatch =
+          existingConfig !== null
+            ? getConfigBackingPatch(oldRule.value)
+            : oldRule.value;
+        const newConfig =
+          patch.config !== undefined ? patch.config : existingConfig;
+        const newPatch =
+          patch.value !== undefined ? patch.value : existingPatch;
+        updatedRule.value = setConfigBacking(newConfig, newPatch);
+      }
+    }
+    if (
+      updatedRule.type === "experiment-ref" &&
+      patch.variations !== undefined
+    ) {
+      updatedRule.variations = patch.variations.map((v) => ({
+        variationId: v.variationId,
+        value:
+          v.config !== undefined
+            ? setConfigBacking(v.config, v.value)
+            : v.value,
+      }));
+    }
+
+    // Enforce the feature's JSON schema on the patched rule values (no-op for
+    // config-backed values, whose schema lives on the config). Opt out with
+    // ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, feature, {
+      rules: [updatedRule as FeatureRule],
+    });
 
     validateRuleConditions({
       condition:

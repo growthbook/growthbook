@@ -226,6 +226,32 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "config.created":
+      return buildSlackMessageForConfigCreatedEvent(event.data.object, eventId);
+
+    case "config.updated":
+      return buildSlackMessageForConfigUpdatedEvent(event.data.object, eventId);
+
+    case "config.deleted":
+      return buildSlackMessageForConfigDeletedEvent(event.data.object, eventId);
+
+    case "config.revision.created":
+    case "config.revision.updated":
+    case "config.revision.reviewRequested":
+    case "config.revision.approved":
+    case "config.revision.changesRequested":
+    case "config.revision.commented":
+    case "config.revision.discarded":
+    case "config.revision.rebased":
+    case "config.revision.published":
+    case "config.revision.reverted":
+    case "config.revision.reopened":
+      return buildSlackMessageForConfigRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -1061,6 +1087,189 @@ const buildSlackMessageForConstantRevisionEvent = (
 };
 
 // endregion Event-specific messages -> Constant
+
+// region Event-specific messages -> Config
+
+// The detail page is addressed by the config's `key`, not its internal id.
+export const getConfigUrlFormatted = (configKey: string): string =>
+  `\n• <${APP_ORIGIN}/configs/${configKey}|View Config>`;
+
+const buildSlackMessageForConfigCreatedEvent = async (
+  config: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The config ${config.name} has been created by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been created by ${eventUser}.` +
+            getConfigUrlFormatted(config.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForConfigUpdatedEvent = async (
+  config: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+  if (event?.data?.data && "changes" in event.data.data) {
+    const formattedDiff = formatDiffForSlack(
+      event.data.data.changes as DiffResult,
+      {
+        itemLabelFields: [
+          "name",
+          "value",
+          "description",
+          "project",
+          "schema",
+          "archived",
+        ],
+      },
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
+
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The config ${config.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "_Changes cannot be displayed here._" },
+      },
+    ];
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            getConfigUrlFormatted(config.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+      ...changeBlocks,
+    ],
+  };
+};
+
+const buildSlackMessageForConfigDeletedEvent = async (
+  config: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The config ${config.name} has been deleted by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The config *${config.name}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+type ConfigRevisionSlackData = {
+  version?: number;
+  baseConfig: { id: string; name: string; key: string };
+  change?: string;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+};
+
+const buildSlackMessageForConfigRevisionEvent = (
+  eventType: string,
+  data: ConfigRevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const name = `*${data.baseConfig.name}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "config.revision.created":
+      text = `Draft revision ${version} created for config ${name}`;
+      break;
+    case "config.revision.updated":
+      text = `Draft revision ${version} of config ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      break;
+    case "config.revision.reviewRequested":
+      text = `Review requested for revision ${version} of config ${name}`;
+      break;
+    case "config.revision.approved":
+      text = `Revision ${version} of config ${name} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.changesRequested":
+      text = `Changes requested on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.commented":
+      text = `Comment on revision ${version} of config ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "config.revision.discarded":
+      text = `Draft revision ${version} of config ${name} was discarded`;
+      break;
+    case "config.revision.rebased":
+      text = `Draft revision ${version} of config ${name} was rebased`;
+      break;
+    case "config.revision.published":
+      text = `Revision ${version} of config ${name} was published`;
+      break;
+    case "config.revision.reverted":
+      text = `Config ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
+      break;
+    case "config.revision.reopened":
+      text = `Draft revision ${version} of config ${name} was reopened`;
+      break;
+    default:
+      text = `Config ${name} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getConfigUrlFormatted(data.baseConfig.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Config
 
 // region Event-specific messages -> Experiment
 

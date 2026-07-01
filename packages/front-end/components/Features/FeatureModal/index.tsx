@@ -387,11 +387,13 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
-            // The feature doesn't exist yet, so scope the constant picker to the
-            // selected project instead of passing a `feature`.
+            // The feature doesn't exist yet, so scope the constant/config picker
+            // to the selected project instead of passing a `feature`.
+            project={selectedProject || undefined}
             constantContext={{ project: selectedProject || undefined }}
             useCodeInput={true}
             showFullscreenButton={true}
+            allowConfigBacking={valueType === "json"}
           />
         )}
 

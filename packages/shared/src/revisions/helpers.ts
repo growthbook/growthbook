@@ -97,6 +97,16 @@ export const CONSTANT_METADATA_FIELDS: ReadonlySet<string> = new Set([
   "archived",
 ]);
 
+// Config-only fields whose change affects the value the SDK resolves (so they
+// must require full review when approval is enabled, like `value`). Constants
+// never carry these, so they're inert for constant revisions.
+const CONFIG_CONTENT_FIELDS: ReadonlySet<string> = new Set([
+  "schema",
+  "parent",
+  "extends",
+  "extensible",
+]);
+
 /**
  * Returns true when every proposed change in the revision touches a constant
  * metadata field (per `CONSTANT_METADATA_FIELDS`). An empty proposed-changes
@@ -133,7 +143,16 @@ export const getConstantRevisionChange = (
     ops,
   ) as Pick<ConstantInterface, "value" | "environmentValues">;
 
-  const valueChanged = (snapshot.value ?? "") !== (patched.value ?? "");
+  // Config-only content fields that change what the SDK resolves, so they need
+  // full review when approval is enabled rather than metadata-only treatment:
+  // `schema` (field definitions) plus the lineage/extensibility fields, which
+  // shift the effective resolved value. Constants never carry these ops, so
+  // this is a no-op for them.
+  const contentChanged = ops.some((op) =>
+    CONFIG_CONTENT_FIELDS.has(op.path.split("/")[1]),
+  );
+  const valueChanged =
+    (snapshot.value ?? "") !== (patched.value ?? "") || contentChanged;
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};
@@ -158,7 +177,7 @@ const isSelfApprovalBlockedForEntity = (
   entityType: RevisionTargetType,
   revision: Pick<Revision, "target">,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     const snapshot = revision.target.snapshot as { project?: string };
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
@@ -200,7 +219,7 @@ export const isAutopublishOnApprovalEnabled = (
   // for entities that read from `approvalFlows`.
   project?: string,
 ): boolean => {
-  if (entityType === "constant") {
+  if (entityType === "constant" || entityType === "config") {
     return constantAutopublishOnApproval({ project }, settings);
   }
   return !!getApprovalFlowSettings(settings?.approvalFlows, entityType)
@@ -221,6 +240,8 @@ export const getRevisionKey = (
       return "saved-groups";
     case "constant":
       return "constants";
+    case "config":
+      return "configs";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -264,7 +285,11 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group" || entityType === "constant") {
+  if (
+    entityType === "saved-group" ||
+    entityType === "constant" ||
+    entityType === "config"
+  ) {
     // Anyone who can edit can review (except the author, checked above)
     return !!canEditEntity;
   }
@@ -400,8 +425,8 @@ export function checkMergeConflicts(
 
   // Helper to check if values are different
   const hasChanged = (val1: unknown, val2: unknown): boolean => {
-    if (val1 == null) return false;
-    if (val2 == null) return true;
+    if ((val1 ?? null) === null) return false;
+    if ((val2 ?? null) === null) return true;
     return !isEqual(val1, val2);
   };
 

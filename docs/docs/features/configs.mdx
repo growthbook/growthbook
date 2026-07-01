@@ -1,0 +1,110 @@
+---
+title: Configs
+description: Typed, validated, composable shapes you can enforce on your feature flags
+sidebar_label: Configs
+slug: /features/configs
+---
+
+Configs are **typed, validated, composable objects** you define once and reuse across feature flags. Where a [constant](/features/constants) is a reusable _value_, a config is a reusable _shape_: it carries both a value **and** a schema, so every flag (and every child config) built on it is validated against that schema.
+
+The main reasons to reach for a config:
+
+- **Type safety** — a config defines the fields it contains and their types. Anything that uses the config is checked against that definition.
+- **Validation** — values that don't match the schema are rejected at edit time, before they ever reach an SDK payload.
+- **Composability** — a config can extend another config, layering fields on top of an inherited base. You can then attach a config to a feature flag as the flag's value, so the config's shape is **enforced** on that flag.
+
+Secondary benefits:
+
+- **Import/export of values** — pull a config's value in or out as JSON.
+- **Import/export of type definitions** — pull a config's schema in or out as [JSON Schema](https://json-schema.org/) or TypeScript.
+
+## Anatomy of a config
+
+A config has:
+
+- A **key** — a slug auto-generated from the name (e.g. "Checkout Flow" → `checkout-flow`), used to reference it.
+- A **value** — a JSON object.
+- A **schema** — the field definitions (names, types, required/optional, bounds, enums, nullability) the value is validated against.
+- An optional **parent** — another config's key. The config inherits the parent's fields and value, then layers its own on top.
+
+Configs are **environment-agnostic**: a config has a single value, not per-environment overrides. If you need a value to differ by environment, use a [constant](/features/constants) (which supports per-environment values) as the value source.
+
+## Type safety and validation
+
+A config's **schema** is the source of truth for its shape. The editor builds it for you as you define fields, and validates the value against it on every save — a missing required field, a wrong type, an out-of-range number, or a value outside an allowed enum is rejected before it can be saved.
+
+By default a config is **closed** (extra keys not in the schema are rejected). A config can opt in to being **extensible** (allow extra keys), and your organization has a default for new configs. Even when extensible, the typed fields are still validated.
+
+## Composability and inheritance
+
+A config can name another config as its **parent**. The child inherits the parent's fields and value and layers its own on top — like extending a base type. Inheritance is resolved when the SDK payload is built, so children always reflect the latest parent.
+
+Precedence, lowest to highest:
+
+1. The parent chain, root first (each ancestor's value, then schema)
+2. The config's own value and schema
+
+When fields collide, the **closest base wins**: a child cannot redefine a field that a published ancestor already owns. This keeps a family's shape coherent — the base config governs the fields it declares, and children may only _add_ fields. Changing a base cascades down to its descendants automatically.
+
+Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk.
+
+You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
+
+## Using a config as a feature flag's value
+
+This is where configs pay off: attach a config to a JSON feature flag — as the flag's **default value** or on a specific **rule** — and the config's shape is enforced on that flag. The flag serves the resolved config value, and edits to the flag are validated against the config's schema.
+
+Because the config's schema is authoritative, a flag can't also define its own JSON schema while its value is backed by a config — detach the config or remove the flag's schema. The flag's value is stored as a small **override patch** layered on top of the config, so changing the config updates every flag that uses it.
+
+## Import and export
+
+A config's value and its type definition can move in and out of GrowthBook:
+
+- **Value** — import or export the config's JSON value.
+- **Schema** — import or export the type definition as **JSON Schema** or **TypeScript**, or infer a schema from an existing value. JSON Schema is the canonical interchange format.
+
+:::note The TypeScript option is a feature-limited convenience
+
+The TypeScript import/export is a convenience for round-tripping simple `type`/`interface` shapes — it is **not** a full TypeScript language parser. It understands the common building blocks (primitive fields, objects, arrays, simple unions/enums, optional and nullable fields) and ignores or rejects anything beyond that (generics, conditional/mapped types, imported types, functions, etc.). For anything non-trivial, use JSON Schema as the source of truth.
+
+:::
+
+## Keeping code and configs in sync at scale
+
+Configs are designed to be the **source of truth** for the configuration they describe. Rather than hand-maintaining the same shape in many codebases — where copies drift apart over time — define the config once in GrowthBook and have your services consume it. The schema and value live in one place; code reads them.
+
+A typical end-to-end workflow:
+
+1. **Define the config in GrowthBook** — author it in the UI, or import it once from an existing code definition (see [Import and export](#import-and-export)).
+2. **Generate types from the config.** Export the schema as TypeScript (or JSON Schema) and commit the generated types so your code is type-checked against the config's current shape. Regenerate when the config changes — the same pattern teams use for generated API clients or protobuf types.
+3. **Consume the resolved value at runtime** through a JSON feature flag backed by the config (see [Using a config as a feature flag's value](#using-a-config-as-a-feature-flags-value)). The SDK serves the resolved value; the generated types describe its shape.
+4. **Guard against drift in CI.** The schema **verify** endpoint checks whether the shape your code expects still matches the config in GrowthBook. It reports whether the two are in sync and, when they differ, a **categorized diff** — _contract_ changes (types, required-ness, enums, structure) separated from _documentation-only_ changes (descriptions) — so a CI step can fail the build on real contract drift while treating doc changes as informational.
+
+Because types are compile-time and values are served at runtime, follow the same forward/backward-compatibility hygiene as any API contract: ship new fields with **defaults** (so a valid value exists the moment the field appears), and **deprecate before removing**.
+
+### Named projections (per-source type names)
+
+When you import a config's schema from TypeScript and supply a **source** identifier (typically a service or codebase name), GrowthBook captures that source's named-type structure — for example, that the object at `http.retry` was declared as `RetryPolicy`. Exporting the schema with the same `source` reproduces those names instead of inlining the shapes:
+
+- **Without a source** — nested objects are inlined: `retry: { maxAttempts: number; … }`.
+- **With a source** — named interfaces are emitted: `interface RetryPolicy { … }` and `retry: RetryPolicy`.
+
+Projections are rendered against the config's **current** schema, so the captured names stay attached as the config evolves — an export never serves a stale snapshot. Different sources can each keep their own type names for the same config. Projections are presentation metadata only: they never affect validation, the canonical schema, or drift detection.
+
+## Editing and approvals
+
+Config changes go through the same draft → review → publish flow as features, governed by your organization's [require-reviews settings](/features/publishing-and-approval-flows) matched on the config's project. You can view past versions, compare revisions, and revert from the config's page.
+
+Some guardrails:
+
+- **Archiving** is blocked while a config is still referenced or while it has live child configs — resolve those first.
+- **Deleting** is blocked while other configs still inherit from it (it would dangle their parent link); delete or re-parent the children first.
+- **Cycles** in lineage or value references are rejected at save time.
+
+## REST API
+
+Configs and their revisions are fully manageable over the [REST API](/api/#tag/configs) — create, update, archive, delete, list references, fetch the full lineage, import/export value and schema, and drive the revision/approval flow programmatically. Webhook events (`config.*`, including `config.revision.*`) fire on every change, modeled after the feature and constant events.
+
+## Permissions
+
+Creating, editing, and deleting configs requires the **Manage Configs** permission (the `ConfigsFullAccess` policy), which is included in the Engineer, Experimenter, and Admin roles by default. Configs can be scoped to specific projects.

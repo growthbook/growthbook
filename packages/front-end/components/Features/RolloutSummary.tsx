@@ -1,8 +1,10 @@
 import { FeatureInterface } from "shared/types/feature";
+import { getConfigBackingKey } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
 import { AttributeBadge } from "./AttributeBadge";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -26,6 +28,10 @@ export default function RolloutSummary({
 }) {
   const displayCoverage = coverage;
   const type = feature.valueType;
+  // A config-backed feature's rule values always serve a config: an explicit ref
+  // on this value, else the feature default's config (the base it overrides).
+  const configKey =
+    getConfigBackingKey(value) ?? getConfigBackingKey(feature.defaultValue);
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">
@@ -82,21 +88,32 @@ export default function RolloutSummary({
           </Box>
         </Flex>
       </Box>
-      <Flex gap="3">
-        <Box>
-          <Text weight="medium">SERVE</Text>
-        </Box>
-        <Box flexGrow="1">
-          <ValueDisplay
-            value={value}
-            type={type}
-            showFullscreenButton={true}
-            sparse={sparse}
-            defaultValue={feature.defaultValue}
-          />
-        </Box>
-      </Flex>
-      <ValidateValue value={value} feature={feature} />
+      {configKey !== null ? (
+        <ConfigBackedSummary
+          value={value}
+          configKey={configKey}
+          feature={feature}
+          sparse={sparse}
+        />
+      ) : (
+        <>
+          <Flex gap="3">
+            <Box>
+              <Text weight="medium">SERVE</Text>
+            </Box>
+            <Box flexGrow="1">
+              <ValueDisplay
+                value={value}
+                type={type}
+                showFullscreenButton={true}
+                sparse={sparse}
+                defaultValue={feature.defaultValue}
+              />
+            </Box>
+          </Flex>
+          <ValidateValue value={value} feature={feature} />
+        </>
+      )}
     </Box>
   );
 }

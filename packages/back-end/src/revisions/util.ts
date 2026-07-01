@@ -149,6 +149,11 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
  * Convert a plain partial-update object into an array of JSON Patch `replace` operations.
  * Undefined/null values are skipped since they represent "no change".
  */
+// Always emits `replace` (not `add`) regardless of whether the path exists on
+// the base: buildPatchOps has no base snapshot to distinguish present from
+// absent, and our applier (`applyTopLevelPatchOps`) treats `add`/`replace`
+// identically for top-level fields. Strictly per RFC 6902 an absent path wants
+// `add`, but that distinction is moot for our top-level-only patches.
 export function buildPatchOps(
   changes: Record<string, unknown>,
 ): JsonPatchOperation[] {

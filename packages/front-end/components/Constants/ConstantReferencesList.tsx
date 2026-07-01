@@ -4,7 +4,7 @@ import ReferencesList, {
 } from "@/components/References/ReferencesList";
 import { ConstantReferences } from "@/hooks/useConstantReferences";
 
-// Features and constants that reference a constant via `@const:key`.
+// Features, constants, and configs that reference a constant via `@const:key`.
 const ConstantReferencesList: FC<ConstantReferences> = ({
   features = [],
   constants = [],
@@ -23,12 +23,26 @@ const ConstantReferencesList: FC<ConstantReferences> = ({
     {
       title: "Constants",
       resourceType: "constant",
-      items: constants.map((c) => ({
-        id: c.id,
-        label: c.name || c.key,
-        href: `/constants/${c.key}`,
-        projectIds: c.project ? [c.project] : undefined,
-      })),
+      items: constants
+        .filter((c) => !c.isConfig)
+        .map((c) => ({
+          id: c.id,
+          label: c.name || c.key,
+          href: `/constants/${c.key}`,
+          projectIds: c.project ? [c.project] : undefined,
+        })),
+    },
+    {
+      title: "Configs",
+      resourceType: "constant",
+      items: constants
+        .filter((c) => c.isConfig)
+        .map((c) => ({
+          id: c.id,
+          label: c.name || c.key,
+          href: `/configs/${c.key}`,
+          projectIds: c.project ? [c.project] : undefined,
+        })),
     },
   ];
 

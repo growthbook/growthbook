@@ -18,22 +18,40 @@ import {
   getValidation,
   stripDefaultsForSparse,
   expandSparseToFull,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  setConfigBacking,
+  getConfigParentKey,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCopy, PiBracketsCurly } from "react-icons/pi";
+import {
+  PiCheck,
+  PiCopy,
+  PiBracketsCurly,
+  PiCaretDownFill,
+} from "react-icons/pi";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+} from "@/ui/DropdownMenu";
 import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
+import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
@@ -70,6 +88,10 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
+  // Renders the "Insert constant" picker as a compact square IconButton beside
+  // the field (top-aligned) instead of on a label row above it, and hides the
+  // copy button. Used by the inline config field editor.
+  inlineConstantButton?: boolean;
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default
   // is a plain object, a "Sparse patch" toggle renders on the label row.
@@ -77,6 +99,20 @@ export interface Props {
   setSparse?: (sparse: boolean) => void;
   // Tighter sparse editor layout for embedded contexts (e.g. ramp step editors).
   condensed?: boolean;
+  // JSON features only. Offers a "Use a config" picker: instead of authoring the
+  // value directly, back it with a config (its base JSON + schema), with the
+  // value acting as an override patch. Serializes to an internal `@config:` ref.
+  allowConfigBacking?: boolean;
+  // When set, restricts the config-backing picker to these config keys (e.g. a
+  // rule may only override with the feature default's config or its children).
+  configBackingOptionKeys?: string[];
+  // Rule mode: keep the override-patch editor visible even when a config is
+  // selected (a rule layers its own patch on top of the chosen config). When
+  // false (default-value mode), selecting a config hides the editor.
+  configBackingShowPatch?: boolean;
+  // Rule mode: require a config (no "None" option) — a rule on a config-backed
+  // feature always serves the default's config or a compatible child.
+  lockConfigBacking?: boolean;
 }
 
 export default function FeatureValueField({
@@ -84,6 +120,7 @@ export default function FeatureValueField({
   label,
   value,
   setValue,
+  id,
   helpText,
   placeholder,
   feature,
@@ -96,11 +133,19 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
+  inlineConstantButton = false,
   sparse,
   setSparse,
   condensed = false,
+  allowConfigBacking = false,
+  configBackingOptionKeys,
+  configBackingShowPatch = false,
+  lockConfigBacking = false,
 }: Props) {
+  // Inline mode also suppresses the copy button.
+  const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
+  const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
@@ -196,6 +241,33 @@ export default function FeatureValueField({
     defaultCodeEditorToggledOn,
   );
 
+  // Local buffer for the config-backed override editor. The stored value
+  // round-trips through JSON parse/recompose (to inject the `@config:` ref),
+  // which would normalize/clobber in-progress text on every keystroke. The
+  // buffer preserves exactly what the user typed and is only re-derived when the
+  // stored value changes from outside this editor (e.g. switching configs).
+  const [configPatchDraft, setConfigPatchDraft] = useState<string | null>(null);
+  const lastComposedValueRef = useRef<string | null>(null);
+
+  // A config-backed default value serves the config as-is — this mode has no
+  // patch editor (configBackingShowPatch off). Strip any orphaned override keys
+  // left behind from JSON authored before a config was selected; otherwise they
+  // merge in invisibly (and fail the config's schema) with no way to clear them.
+  useEffect(() => {
+    if (valueType !== "json" || !allowConfigBacking || configBackingShowPatch) {
+      return;
+    }
+    const key = getConfigBackingKey(value);
+    if (!key) return;
+    const existingPatch = getConfigBackingPatch(value);
+    if (existingPatch === "{}" || existingPatch === "") return;
+    const cleaned = setConfigBacking(key, "{}");
+    if (cleaned !== value) {
+      lastComposedValueRef.current = cleaned;
+      setValue(cleaned);
+    }
+  }, [value, valueType, allowConfigBacking, configBackingShowPatch, setValue]);
+
   if (
     validationEnabled &&
     hasJsonValidator &&
@@ -266,6 +338,244 @@ export default function FeatureValueField({
     );
   }
 
+  if (valueType === "json" && allowConfigBacking) {
+    // Configs eligible to back this value: JSON-typed, in scope, not archived.
+    // A caller may further restrict the set (e.g. rules to the default's subtree).
+    const backingProject = project ?? feature?.project ?? "";
+    const optionKeySet = configBackingOptionKeys
+      ? new Set(configBackingOptionKeys)
+      : null;
+    const eligibleConfigs = configs.filter(
+      (c) =>
+        !c.archived &&
+        (!c.project || !backingProject || c.project === backingProject) &&
+        (!optionKeySet || optionKeySet.has(c.key)),
+    );
+    const backedKey = getConfigBackingKey(value);
+    // No live configs in scope (and not already backed) → skip the picker
+    // entirely and fall through to the plain JSON editor below.
+    if (eligibleConfigs.length > 0 || backedKey !== null) {
+      // When locked (rules), always resolve to a config: fall back to the first
+      // eligible (the feature default's config, which getConfigSubtree lists first).
+      const configKey =
+        backedKey ??
+        (lockConfigBacking ? (eligibleConfigs[0]?.key ?? null) : null);
+      const isBacked = configKey !== null;
+      // When backed, the value's own keys are an override patch on the config;
+      // otherwise the whole value is authored directly (and becomes the patch if a
+      // config is later attached). The extracted patch is compact JSON (storage
+      // form) — expand it for the editor so objects don't collapse onto one line.
+      const rawStoredPatch =
+        backedKey !== null ? getConfigBackingPatch(value) : value;
+      const storedPatch =
+        valueType === "json"
+          ? (formatJSON(rawStoredPatch) ?? rawStoredPatch)
+          : rawStoredPatch;
+      // Prefer the local draft while editing (preserves raw text through the
+      // recompose round-trip); fall back to the stored patch when the value
+      // changed from outside this editor.
+      const patch =
+        configPatchDraft !== null && value === lastComposedValueRef.current
+          ? configPatchDraft
+          : storedPatch;
+      // Compose the patch back with the config ref and emit, buffering raw text.
+      const emitPatch = (p: string) => {
+        setConfigPatchDraft(p);
+        const composed = isBacked ? setConfigBacking(configKey, p) : p;
+        lastComposedValueRef.current = composed;
+        setValue(composed);
+      };
+      // Rule mode keeps the patch editor visible alongside the config picker;
+      // default-value mode hides it once a config is chosen.
+      const showPatchEditor = configBackingShowPatch || !isBacked;
+
+      // Selecting a config wraps the current patch as the override; clearing it
+      // (unlocked only) unwraps the patch back into a plain value. In default-value
+      // mode (no patch editor) the config serves as-is, so drop any prior keys
+      // rather than stranding them as a hidden patch.
+      const selectConfig = (key: string | null) => {
+        const nextPatch = key && !configBackingShowPatch ? "{}" : patch;
+        const composed = key ? setConfigBacking(key, nextPatch) : patch;
+        lastComposedValueRef.current = composed;
+        setValue(composed);
+      };
+      const selectedConfig =
+        eligibleConfigs.find((c) => c.key === configKey) ?? null;
+
+      // Once a default value is linked to a config, warn/error when the choice
+      // drifts: removing it or switching to an unrelated lineage is an error;
+      // switching within the same lineage is a (non-blocking) warning. Only the
+      // default value carries this notion of an "original" config (rules are
+      // locked to the default's subtree).
+      const configByKey = new Map(configs.map((c) => [c.key, c]));
+      const rootOf = (key: string): string => {
+        let cur = key;
+        const seen = new Set<string>();
+        while (!seen.has(cur)) {
+          seen.add(cur);
+          const parent = getConfigParentKey(configByKey.get(cur) ?? {});
+          if (!parent) break;
+          cur = parent;
+        }
+        return cur;
+      };
+      const originalConfigKey = getConfigBackingKey(
+        feature?.defaultValue ?? "",
+      );
+      const originalName =
+        (originalConfigKey && configByKey.get(originalConfigKey)?.name) ||
+        originalConfigKey;
+      let configChangeNotice: {
+        status: "error" | "warning";
+        message: string;
+      } | null = null;
+      if (
+        originalConfigKey &&
+        !configBackingShowPatch &&
+        configKey !== originalConfigKey
+      ) {
+        if (configKey === null) {
+          configChangeNotice = {
+            status: "error",
+            message: `This value is linked to config "${originalName}". Removing it drops that config's values and schema.`,
+          };
+        } else if (rootOf(configKey) === rootOf(originalConfigKey)) {
+          configChangeNotice = {
+            status: "warning",
+            message: `Switching from "${originalName}" to another config in the same lineage — overrides may resolve differently.`,
+          };
+        } else {
+          configChangeNotice = {
+            status: "error",
+            message: `"${selectedConfig?.name ?? configKey}" isn't in the same lineage as "${originalName}". Its schema and fields may differ.`,
+          };
+        }
+      }
+
+      return (
+        <Box mb="4">
+          {label !== undefined && (
+            <Box mb="1" mt="3">
+              <Text as="label" weight="semibold">
+                {label}
+              </Text>
+            </Box>
+          )}
+          <Box
+            className={
+              configBackingShowPatch ? "bg-highlight rounded" : undefined
+            }
+            p={configBackingShowPatch ? "3" : undefined}
+          >
+            <Flex align="center" gap="2">
+              <Text as="label" weight="medium" mb="0">
+                Based on config:
+              </Text>
+              {disabled ? (
+                <Text>{selectedConfig?.name ?? "None"}</Text>
+              ) : (
+                <DropdownMenu
+                  trigger={
+                    <Link
+                      type="button"
+                      style={{ color: "var(--color-text-high)" }}
+                    >
+                      <Flex as="span" align="center" gap="1">
+                        <Text>{selectedConfig?.name ?? "None"}</Text>
+                        <PiCaretDownFill />
+                      </Flex>
+                    </Link>
+                  }
+                  menuPlacement="start"
+                  variant="soft"
+                >
+                  <DropdownMenuGroup>
+                    {!lockConfigBacking && (
+                      <DropdownMenuItem onClick={() => selectConfig(null)}>
+                        None
+                      </DropdownMenuItem>
+                    )}
+                    {eligibleConfigs.map((c) => (
+                      <DropdownMenuItem
+                        key={c.key}
+                        onClick={() => selectConfig(c.key)}
+                      >
+                        <Flex as="span" align="center" gap="2" width="100%">
+                          <span>{c.name}</span>
+                          <code
+                            style={{
+                              marginLeft: "auto",
+                              paddingLeft: "var(--space-5)",
+                              color: "var(--slate-12)",
+                            }}
+                          >
+                            {c.key}
+                          </code>
+                        </Flex>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              )}
+            </Flex>
+            {configChangeNotice && (
+              <Box mt="2">
+                <Callout status={configChangeNotice.status}>
+                  {configChangeNotice.message}
+                </Callout>
+              </Box>
+            )}
+            {showPatchEditor && (
+              <Box mt="3">
+                {isBacked && configKey && valueType === "json" ? (
+                  <>
+                    <Box mb="1">
+                      <Text as="label" weight="medium">
+                        Additional overrides
+                      </Text>
+                      <Text as="p" size="small" color="text-low" mb="0">
+                        Nested objects deep-merge onto the config; arrays and
+                        scalars replace.
+                      </Text>
+                    </Box>
+                    <ConfigOverrideEditor
+                      configKey={configKey}
+                      patch={patch}
+                      setPatch={emitPatch}
+                      constantContext={{
+                        project: pickerProject,
+                        excludeKeys: pickerExcludeKeys,
+                      }}
+                      disabled={disabled}
+                    />
+                  </>
+                ) : (
+                  <FeatureValueField
+                    valueType={valueType}
+                    value={patch}
+                    setValue={emitPatch}
+                    id={id}
+                    placeholder={placeholder}
+                    feature={feature}
+                    project={project}
+                    constantContext={constantContext}
+                    renderJSONInline={renderJSONInline}
+                    disabled={disabled}
+                    useCodeInput={useCodeInput}
+                    showFullscreenButton={showFullscreenButton}
+                    codeInputDefaultHeight={codeInputDefaultHeight}
+                    sparse={configBackingShowPatch ? sparse : undefined}
+                  />
+                )}
+              </Box>
+            )}
+          </Box>
+          {helpText && <small className="text-muted">{helpText}</small>}
+        </Box>
+      );
+    }
+  }
+
   if (valueType === "json") {
     // Sparse patch mode (JSON features): the value is a partial object merged
     // onto the default. We show a toggle on the label row and, when on,
@@ -276,7 +586,9 @@ export default function FeatureValueField({
     const isSparse = !!sparse;
 
     // Cursor-aware insertion targets the Ace editor (the code-editor path, or the
-    // sparse Edit tab — both Ace). It sits right-aligned on the label row.
+    // sparse Edit tab — both Ace). Rendered as a small text button on its own row
+    // above the editor (matching the feature value editors) — even in inline
+    // contexts — so the multi-line JSON editor keeps the full width.
     const insertConstantButton =
       showConstantPicker &&
       (isSparse || (useCodeInput && codeEditorToggledOn)) ? (
@@ -290,7 +602,14 @@ export default function FeatureValueField({
       ) : null;
 
     const sparseHeader = showSparseToggle ? (
-      <Flex align="center" justify="between" gap="3" mb="1" width="100%">
+      <Flex
+        align="center"
+        justify="between"
+        gap="3"
+        mb="1"
+        width="100%"
+        style={{ minHeight: "var(--space-6)" }}
+      >
         {label !== undefined ? (
           <Text as="label" weight="semibold" mb="0">
             {label}
@@ -343,14 +662,23 @@ export default function FeatureValueField({
     }
 
     // When the picker shows (or the sparse toggle owns the row), render the
-    // label row ourselves so the picker sits beside the label text rather than
-    // nested inside the editor's <label> element. Otherwise let the editor
-    // render its own label.
+    // label row ourselves so the button sits on its own row above the editor
+    // rather than nested inside the editor's <label> element. Otherwise let the
+    // editor render its own label.
     const editorLabel =
       showSparseToggle || insertConstantButton ? undefined : label;
     const jsonLabelRow =
       !showSparseToggle && insertConstantButton ? (
-        <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+        <Flex
+          align="center"
+          justify="between"
+          gap="3"
+          width="100%"
+          mb="1"
+          // Consistent row height so a label paired with a code editor lines up
+          // with sibling columns (e.g. the config JSON value/schema editors).
+          style={{ minHeight: "var(--space-6)" }}
+        >
           {label !== undefined ? (
             <Text as="label" weight="semibold" mb="0">
               {label}
@@ -361,6 +689,7 @@ export default function FeatureValueField({
           {insertConstantButton}
         </Flex>
       ) : null;
+
     const formatted = formatJSON(value);
 
     const codeEditorToggleButton = useCodeInput ? (
@@ -397,24 +726,51 @@ export default function FeatureValueField({
       </a>
     );
 
+    // Stack the editor CTAs (right-aligned, own row) above the help text + used-
+    // constant tags (full width). Side-by-side overlapped in narrow columns
+    // (e.g. the config JSON editor's two-column layout); stacking also gives the
+    // tags the full width to wrap into.
     const combinedHelpText = (
-      <Flex align="start" gap="3" width="100%">
-        <Box flexGrow="1" style={{ minWidth: 0 }}>
-          {helpText}
-          {usedConstantTags}
-        </Box>
-        <Flex gap="3" flexShrink="0">
+      <Box width="100%">
+        <Flex gap="3" justify="end" wrap="wrap" width="100%">
           {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
-      </Flex>
+        {(helpText || usedConstantTags) && (
+          <Box mt="1" style={{ minWidth: 0 }}>
+            {helpText}
+            {usedConstantTags}
+          </Box>
+        )}
+      </Box>
     );
 
     if (useCodeInput && codeEditorToggledOn) {
+      // In tabular/inline layouts, float the insert-constant button just above
+      // the editor (out of flow) so the editor's top lines up with the sibling
+      // grid cells (type select, actions) instead of being pushed down by the
+      // button row. Elsewhere the label row sits in flow above the editor.
+      const floatInsertButton = inlineConstantButton && !!insertConstantButton;
       return (
-        <Box mb="3">
+        <Box
+          mb="3"
+          style={floatInsertButton ? { position: "relative" } : undefined}
+        >
           {sparseHeader}
-          {jsonLabelRow}
+          {floatInsertButton ? (
+            <Box
+              style={{
+                position: "absolute",
+                bottom: "100%",
+                right: 0,
+                marginBottom: 2,
+              }}
+            >
+              {insertConstantButton}
+            </Box>
+          ) : (
+            jsonLabelRow
+          )}
           <CodeTextArea
             label={editorLabel}
             language="json"
@@ -425,8 +781,10 @@ export default function FeatureValueField({
             disabled={disabled}
             resizable={true}
             defaultHeight={codeInputDefaultHeight}
-            showCopyButton={true}
+            showCopyButton={!copyHidden}
             showFullscreenButton={showFullscreenButton}
+            fontSize="0.75rem"
+            slimGutter
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
           />
         </Box>
@@ -436,6 +794,7 @@ export default function FeatureValueField({
     return (
       <Box mb="3">
         {sparseHeader}
+        {jsonLabelRow}
         <JSONTextEditor
           label={editorLabel}
           value={value}
@@ -443,7 +802,7 @@ export default function FeatureValueField({
           helpText={combinedHelpText}
           placeholder={placeholder}
           disabled={disabled}
-          showCopyButton={true}
+          showCopyButton={!copyHidden}
           performCopy={performCopy}
           copySuccess={copySuccess}
         />
@@ -511,7 +870,7 @@ export default function FeatureValueField({
           {helpText}
           {usedConstantTags}
         </Box>
-        {!hideCopyButton && <Box flexShrink="0">{copyButton}</Box>}
+        {!copyHidden && <Box flexShrink="0">{copyButton}</Box>}
       </Flex>
     ) : (
       helpText
@@ -521,59 +880,78 @@ export default function FeatureValueField({
   // the field (only in a feature context) — rendered beside the label text, not
   // nested inside the field's <label> element.
   const showStringPicker = valueType === "string" && showConstantPicker;
-  const stringLabelRow = showStringPicker ? (
-    <Flex align="center" justify="between" gap="3" width="100%" mb="1">
-      {label !== undefined ? (
-        <Text as="label" weight="semibold" mb="0">
-          {label}
-        </Text>
-      ) : (
-        <Box />
-      )}
-      <InsertConstantButton
-        valueType="string"
-        project={pickerProject}
-        excludeKeys={pickerExcludeKeys}
-        onInsert={insertStringConstant}
-        disabled={disabled}
-      />
-    </Flex>
+  const stringInsertButton = showStringPicker ? (
+    <InsertConstantButton
+      valueType="string"
+      project={pickerProject}
+      excludeKeys={pickerExcludeKeys}
+      onInsert={insertStringConstant}
+      disabled={disabled}
+      iconOnly={inlineConstantButton}
+    />
   ) : null;
+  const stringLabelRow =
+    showStringPicker && !inlineConstantButton ? (
+      <Flex align="center" justify="between" gap="3" width="100%" mb="1">
+        {label !== undefined ? (
+          <Text as="label" weight="semibold" mb="0">
+            {label}
+          </Text>
+        ) : (
+          <Box />
+        )}
+        {stringInsertButton}
+      </Flex>
+    ) : null;
+
+  const field = (
+    <Field
+      ref={stringInputRef}
+      label={stringLabelRow ? undefined : label}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
+      {...(valueType === "number"
+        ? {
+            type: "number",
+            step: "any",
+            min: "any",
+            max: "any",
+          }
+        : valueType === "string"
+          ? {
+              textarea: true,
+              minRows: 1,
+            }
+          : {})}
+      helpText={combinedHelpTextForString}
+      style={
+        valueType === undefined
+          ? { width: 80 }
+          : valueType === "number"
+            ? { width: 120 }
+            : undefined
+      }
+      disabled={disabled}
+    />
+  );
+
+  // Inline layout: the picker rides to the right of the field, top-aligned.
+  if (inlineConstantButton && stringInsertButton) {
+    return (
+      <Flex align="start" gap="2" width="100%">
+        <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
+        <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
+      </Flex>
+    );
+  }
 
   return (
     <>
       {stringLabelRow}
-      <Field
-        ref={stringInputRef}
-        label={stringLabelRow ? undefined : label}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => {
-          setValue(e.target.value);
-        }}
-        {...(valueType === "number"
-          ? {
-              type: "number",
-              step: "any",
-              min: "any",
-              max: "any",
-            }
-          : valueType === "string"
-            ? {
-                textarea: true,
-                minRows: 1,
-              }
-            : {})}
-        helpText={combinedHelpTextForString}
-        style={
-          valueType === undefined
-            ? { width: 80 }
-            : valueType === "number"
-              ? { width: 120 }
-              : undefined
-        }
-        disabled={disabled}
-      />
+      {field}
     </>
   );
 }

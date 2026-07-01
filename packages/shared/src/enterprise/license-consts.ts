@@ -78,7 +78,8 @@ export type CommercialFeature =
   | "incremental-refresh"
   | "adv-presentations"
   | "ramp-schedules"
-  | "scheduled-revisions";
+  | "scheduled-revisions"
+  | "feature-configs";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -266,6 +267,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "incremental-refresh",
   "adv-presentations",
   "scheduled-revisions",
+  "feature-configs",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

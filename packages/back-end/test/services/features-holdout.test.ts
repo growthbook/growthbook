@@ -75,6 +75,9 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       constants: {
         getAll: jest.fn().mockResolvedValue([]),
       },
+      configs: {
+        getAll: jest.fn().mockResolvedValue([]),
+      },
     },
     userId: "test-user",
     email: "test@example.com",

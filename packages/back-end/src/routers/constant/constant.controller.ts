@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
@@ -29,7 +29,9 @@ import {
   ConstantReferences,
   loadConstantReferences,
   assertConstantArchivable,
+  assertKeyAvailable,
 } from "back-end/src/services/constants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
@@ -100,11 +102,15 @@ export const getConstantCyclicKeys = async (
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
-  const all = await context.models.constants.getAll();
+  // Constant cycles live entirely in the constant namespace, so scope the graph
+  // to constants and count only `@const:` references.
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === "constant",
+  );
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
-      getConstantReferenceKeys(c.value, c.environmentValues),
+      getConstantReferenceKeys(c.value, c.environmentValues, "constant"),
     ]),
   );
   const cyclicKeys = [
@@ -139,18 +145,25 @@ export const postConstant = async (
   }
 
   // JSON constants must hold parseable JSON (empty is allowed).
-  validateConstantValue(body.type, body.value ?? "");
+  validateResolvableValue({
+    type: body.type,
+    value: body.value ?? "",
+    refSource: "constant",
+  });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue(body.type, v, envId);
+    validateResolvableValue({
+      type: body.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-  // Keys are unique per org; pre-check for a friendly error rather than a raw
-  // duplicate-key failure from the unique index.
-  if (await context.models.constants.getByKey(body.key)) {
-    throw new Error(`A constant with key "${body.key}" already exists.`);
-  }
+  // Constant keys are unique within the constant namespace (a config may share
+  // the key — `@const:foo` and `@config:foo` are distinct).
+  await assertKeyAvailable(context, body.key, "constant");
 
   // Permission is enforced by the model's canCreate.
   const constant = await context.models.constants.create({
@@ -230,10 +243,19 @@ export const putConstant = async (
   // JSON constants must hold parseable JSON (empty is allowed). Type is
   // immutable, so validate incoming values against the existing type.
   if (typeof value !== "undefined") {
-    validateConstantValue(existing.type, value);
+    validateResolvableValue({
+      type: existing.type,
+      value,
+      refSource: "constant",
+    });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue(existing.type, v, envId);
+    validateResolvableValue({
+      type: existing.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path,
