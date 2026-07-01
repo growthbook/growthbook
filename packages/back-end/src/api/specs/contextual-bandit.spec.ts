@@ -49,7 +49,7 @@ export const contextualBanditApiSpec = {
     createBody: apiCreateContextualBanditBody,
     updateBody: apiUpdateContextualBanditBody,
   },
-  includeDefaultCrud: true,
+  crudActions: ["get", "create", "list", "update"],
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },

@@ -45,6 +45,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
@@ -130,9 +131,14 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  const resolvedExposureQuery = exposureQuery
-    ? { query: exposureQuery.query, userIdType: exposureQuery.userIdType }
-    : { query: "", userIdType: "" };
+  // Resolve the exposure query the same way the SQL builders used to internally:
+  // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
+  // exposure query, and an unknown id throws a clear error rather than generating
+  // an invalid query with an empty user id type.
+  const resolvedExposureQuery = getExposureQuery(
+    integration.datasource,
+    snapshotSettings.exposureQueryId || "",
+  );
 
   const snapshotDimensions: Dimension[] = (
     await Promise.all(

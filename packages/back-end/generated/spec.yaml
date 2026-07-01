@@ -28421,37 +28421,6 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-    delete:
-      operationId: deleteContextualBandit
-      summary: Delete a single contextualBandit
-      tags:
-        - ContextualBandits
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Resource deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  deletedId:
-                    type: string
-                required:
-                  - deletedId
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X DELETE
-            'https://api.growthbook.io/api/v1/contextual-bandits/{id}' \
-              -H 'Authorization: Bearer YOUR_API_KEY'
     put:
       operationId: updateContextualBandit
       summary: Update a single contextualBandit

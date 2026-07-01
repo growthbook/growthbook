@@ -563,7 +563,6 @@ export interface ExperimentAggregateUnitsQueryParams
 }
 
 export type DimensionSlicesQueryParams = {
-  exposureQueryId: string;
   exposureQuery: ResolvedExposureQuery;
   dimensions: ExperimentDimension[];
   lookbackDays: number;

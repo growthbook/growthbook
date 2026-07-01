@@ -23,11 +23,11 @@ export function getMetricAnalysisPopulationCTEs(
     segment: SegmentInterface | null;
   },
 ): string {
-  if (settings.populationType === "exposureQuery") {
+  if (settings.populationType === "exposureQuery" && populationExposureQuery) {
     return `
       __rawExperiment AS (
         ${compileSqlTemplate(
-          populationExposureQuery?.query ?? "",
+          populationExposureQuery.query,
           {
             startDate: settings.startDate,
             endDate: settings.endDate ?? undefined,
@@ -52,7 +52,6 @@ export function getMetricAnalysisPopulationCTEs(
   }
 
   if (settings.populationType === "segment" && segment) {
-    // TODO segment missing
     return `
       __segment as (${getSegmentCTE(
         dialect,
