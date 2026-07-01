@@ -1474,18 +1474,6 @@ export function draftHasChangesOutsideTargetRef(
   return false;
 }
 
-export function draftHasChangesOutsideExperiment(
-  draftRevision: RevisionFields,
-  filledLive: RevisionFields,
-  experimentId: string,
-): boolean {
-  return draftHasChangesOutsideTargetRef(
-    draftRevision,
-    filledLive,
-    (rule) =>
-      rule.type === "experiment-ref" && rule.experimentId === experimentId,
-  );
-}
 // Normalize a metadata field value for comparison.
 export function normalizeMetadataValue(
   k: keyof RevisionMetadata,

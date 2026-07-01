@@ -4530,19 +4530,9 @@ export function updateExperimentApiPayloadToInterface(
   return changes;
 }
 
-/** Narrow input shape for `getSettingsForSnapshotMetrics` so CB callers can pass a `ContextualBanditInterface`. */
-export type SnapshotMetricsLike = Pick<
-  ExperimentInterface,
-  | "goalMetrics"
-  | "activationMetric"
-  | "metricOverrides"
-  | "regressionAdjustmentEnabled"
-> &
-  Partial<Pick<ExperimentInterface, "secondaryMetrics" | "guardrailMetrics">>;
-
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  experiment: SnapshotMetricsLike,
+  experiment: ExperimentInterface,
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -4652,8 +4642,6 @@ export async function getRefLinkedFeatureInfo({
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  const filter = matchRule;
-
   const refRulesForEntity = (rules: unknown): FeatureRule[] =>
     naiveFlattenV1Rules(rules).filter(matchRule);
 
@@ -4661,10 +4649,18 @@ export async function getRefLinkedFeatureInfo({
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
-      const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveMatches = getMatchingRules(feature, matchRule, environments);
       const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
+      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
+      //      live — i.e. the draft is making changes to this experiment's
+      //      rule. Used to flip state to "draft" even when live already has
+      //      a matching rule.
+      //   2. (fallback) the first draft with any experiment-ref match for
+      //      this experiment, even if unchanged from live. Preserves the
+      //      legacy path where a draft is introducing the rule for the first
+      //      time (experiment not yet started).
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
@@ -4697,7 +4693,7 @@ export async function getRefLinkedFeatureInfo({
             (r) => r.status === "published" && r.version !== feature.version,
           )
           .sort((a, b) => b.version - a.version)
-          .map((r) => getMatchingRules(feature, filter, environments, r))
+          .map((r) => getMatchingRules(feature, matchRule, environments, r))
           .filter((matches) => matches.length > 0)[0] || [];
 
       let state: LinkedFeatureState = "discarded";
