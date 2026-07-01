@@ -20,7 +20,7 @@ import {
   getMetricWindowHours,
 } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Box, Separator } from "@radix-ui/themes";
+import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
@@ -50,7 +50,6 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
-import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
 import {
   getDefaultVariations,
@@ -102,7 +101,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const [step, setStep] = useState(initialStep || 0);
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
-  const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
   const {
     datasources,
@@ -586,22 +584,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                   setVariations={setCombinedVariations}
                 />
               </>
-            )}
-
-            {duplicate && (
-              <Box mb="4">
-                <Checkbox
-                  label="Use same randomization seed as original experiment"
-                  value={useSameSeedAsOriginal}
-                  setValue={(v) => setUseSameSeedAsOriginal(v)}
-                  error={
-                    useSameSeedAsOriginal
-                      ? "Can introduce bias if the original experiment influenced user behavior."
-                      : undefined
-                  }
-                  errorLevel="warning"
-                />
-              </Box>
             )}
 
             {!(isNewExperiment || duplicate) && (

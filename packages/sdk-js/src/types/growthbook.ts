@@ -48,13 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  isContextualBandit?: boolean;
-  attributesRequired?: string[];
-  contexts?: {
-    leafId: number;
-    condition: Record<string, unknown>;
-    weights: number[];
-  }[];
 };
 
 export interface FeatureDefinition<T = any> {
