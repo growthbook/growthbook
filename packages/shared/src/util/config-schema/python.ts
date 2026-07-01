@@ -14,17 +14,12 @@ import {
   SchemaWarning,
 } from "./types";
 
-// Python (Pydantic v2 / TypedDict) <-> SchemaField[], a thin layer over the JSON
-// Schema pivot — same strategy as the Go and Protobuf converters. Best-effort
-// parser for the common subset found in config-shaped classes: scalar fields,
-// `List[T]`, `Optional[T]`, `Dict[...]`, `Literal[...]` enums, and nested class
-// references. Anything outside that degrades to a permissive type WITH a warning
-// rather than failing.
+// Python (Pydantic v2 / TypedDict) <-> SchemaField[] over the JSON Schema pivot.
+// Best-effort: handles scalars, `List[T]`, `Optional[T]`, `Dict[...]`, `Literal[...]`
+// enums, and nested classes; anything else degrades to a permissive type with a warning.
 //
-// Python is indentation-based, so parsing splits on lines + indent depth instead
-// of brace-matching. A field is required unless it's `Optional[...]` or carries a
-// default (`= ...`). `Literal[...]` becomes a string enum; nested classes resolve
-// recursively and flatten by name.
+// Parsing is indentation-based (not brace-matching). A field is optional if it's
+// `Optional[...]` or carries a default (`= ...`).
 
 const MAX_NEST_DEPTH = 6;
 
@@ -42,9 +37,7 @@ function leadingSpaces(line: string): number {
   return m ? m[1].replace(/\t/g, "    ").length : 0;
 }
 
-// Strip `#` line comments (not inside strings) and triple-quoted docstring
-// blocks. Indentation-based parsing relies on clean lines, so comments and
-// docstrings are removed before any structural parsing.
+// Strip `#` line comments (not inside strings) and triple-quoted docstrings.
 function stripPythonComments(text: string): string {
   const withoutDocstrings = stripDocstrings(text);
   return withoutDocstrings.split("\n").map(stripLineComment).join("\n");
@@ -120,9 +113,7 @@ function stripLineComment(line: string): string {
   return line;
 }
 
-// Collect every class block, flattened by name (nested classes are treated as
-// their own top-level block for ref resolution). A class body is the contiguous
-// run of following lines indented MORE than the header.
+// Every class block, flattened by name (nested classes become their own block).
 function collectClasses(text: string): PyClass[] {
   const lines = text.split("\n");
   const out: PyClass[] = [];
@@ -149,11 +140,9 @@ function collectClasses(text: string): PyClass[] {
 type ParsedPyField = {
   annotation: string;
   key: string;
-  optional: boolean; // Optional[...] OR carries a default
+  optional: boolean;
 };
 
-// A field line within a class body: `name: Annotation` optionally `= default`.
-// Skips decorators, methods, nested class headers, and blanks.
 function parsePyField(line: string): ParsedPyField | null {
   const trimmed = line.trim();
   if (
@@ -173,8 +162,8 @@ function parsePyField(line: string): ParsedPyField | null {
   return { annotation, key, optional: isOptional || hasDefault };
 }
 
-// Only the field lines at the class body's shallowest indent. Deeper lines
-// belong to a nested class/def and are collected as their own block elsewhere.
+// Only field lines at the body's shallowest indent; deeper lines belong to a
+// nested class/def collected as its own block.
 function pyFieldLines(body: string[]): string[] {
   const nonBlank = body.filter((l) => l.trim() !== "");
   if (!nonBlank.length) return [];
@@ -189,8 +178,6 @@ function pyFieldLines(body: string[]): string[] {
   return out;
 }
 
-// Unwrap `Optional[T]` to T, flagging nullability via the surrounding optional
-// handling in the caller.
 function unwrapOptional(annotation: string): string {
   const m = annotation.match(/^Optional\s*\[(.+)\]$/);
   return m ? m[1].trim() : annotation;
@@ -319,7 +306,6 @@ function classBodyToNode(
   return schema;
 }
 
-// The class-ref token an annotation references, if any (strips Optional/List/Dict).
 function referencedClass(annotation: string): string | null {
   let t = unwrapOptional(annotation);
   const listMatch = t.match(/^(?:List|list)\s*\[(.+)\]$/);
@@ -339,7 +325,6 @@ function referencesIn(decl: PyClass, byName: Map<string, PyClass>): string[] {
   return refs;
 }
 
-// The root class is the one no other class references (top of the DAG).
 function selectRoot(
   classes: PyClass[],
   byName: Map<string, PyClass>,
@@ -350,8 +335,7 @@ function selectRoot(
   return classes.find((d) => !referenced.has(d.name)) ?? classes[0] ?? null;
 }
 
-// JSON-Pointer path -> the Python class name declared there (for round-trip
-// render). A `List[ClassRef]` field records under `/items`.
+// JSON-Pointer path -> the Python class name declared there, for round-trip render.
 function captureClassNames(
   body: string[],
   byName: Map<string, PyClass>,
@@ -438,18 +422,15 @@ export function pythonToFields(text: string): SchemaConversionResult {
   };
 }
 
-// =========================================================================
-// Export: SchemaField[] -> Python (Pydantic v2). Inverse of the import; lossy
-// where Python is more rigid than JSON Schema. Nested objects become generated
-// classes, emitted BEFORE the classes that use them (Python needs definition
+// Export: SchemaField[] -> Python (Pydantic v2). Lossy where Python is more rigid
+// than JSON Schema. Nested classes are emitted BEFORE their users (definition
 // order). Enums become `Literal[...]`.
-// =========================================================================
 
 type PyRenderCtx = {
   pointer: string;
   projection?: SchemaProjection;
   emitted: Set<string>;
-  imports: Set<string>; // typing names actually used: List, Literal, Optional
+  imports: Set<string>; // typing names used: List, Literal, Optional
 };
 
 function childCtx(ctx: PyRenderCtx, seg: string): PyRenderCtx {
@@ -461,8 +442,6 @@ function childCtx(ctx: PyRenderCtx, seg: string): PyRenderCtx {
   };
 }
 
-// The Python type for a node, generating nested classes into `nested`. Returns
-// the type token + an optional trailing comment (e.g. free-form object).
 function pyTypeFor(
   node: Record<string, unknown>,
   key: string,
@@ -480,7 +459,7 @@ function pyTypeFor(
   if (Array.isArray(node.enum) && node.enum.length) {
     const allowed = node.enum
       .filter((v) => v !== null)
-      .map((v) => JSON.stringify(String(v)))
+      .map((v) => JSON.stringify(v))
       .join(", ");
     ctx.imports.add("Literal");
     return { token: `Literal[${allowed}]` };
@@ -638,8 +617,8 @@ export function fieldsToPython(
     header.push(`from typing import ${typingNames.join(", ")}`);
   }
 
-  // Nested classes first (definition order), then the root.
-  return [header.join("\n"), ...nested.reverse(), root].join("\n\n");
+  // `nested` is already deepest-first — the definition order Python needs. Do NOT reverse.
+  return [header.join("\n"), ...nested, root].join("\n\n");
 }
 
 export const pythonConverter: SchemaConverter = {

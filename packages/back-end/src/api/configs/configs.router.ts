@@ -10,7 +10,6 @@ import { getConfigLineage } from "./getConfigLineage";
 import { getConfigSchema } from "./getConfigSchema";
 import { verifyConfigSchema } from "./verifyConfigSchema";
 
-// Revision routes
 import { listConfigRevisions } from "./listConfigRevisions";
 import { getConfigRevisions } from "./getConfigRevisions";
 import { getConfigRevisionLatest } from "./getConfigRevisionLatest";
@@ -23,6 +22,9 @@ import { postConfigRevisionRebase } from "./postConfigRevisionRebase";
 import { postConfigRevisionRevert } from "./postConfigRevisionRevert";
 import { postConfigRevisionRequestReview } from "./postConfigRevisionRequestReview";
 import { postConfigRevisionSubmitReview } from "./postConfigRevisionSubmitReview";
+import { postConfigRevisionReopen } from "./postConfigRevisionReopen";
+import { postConfigRevisionRecallReview } from "./postConfigRevisionRecallReview";
+import { postConfigRevisionSchedulePublish } from "./postConfigRevisionSchedulePublish";
 import { putConfigRevisionMetadata } from "./putConfigRevisionMetadata";
 import { putConfigRevisionValue } from "./putConfigRevisionValue";
 import { putConfigRevisionSchema } from "./putConfigRevisionSchema";
@@ -31,7 +33,6 @@ import { deleteConfigRevisionProjection } from "./deleteConfigRevisionProjection
 import { putConfigRevisionArchive } from "./putConfigRevisionArchive";
 
 export const configsRoutes: OpenApiRoute[] = [
-  // Config CRUD
   listConfigs,
   postConfig,
   listConfigRevisions,
@@ -45,17 +46,15 @@ export const configsRoutes: OpenApiRoute[] = [
   unarchiveConfig,
   deleteConfig,
 
-  // Revisions — reading & listing.
   // `latest` MUST precede the `:version` route below; otherwise its int param
   // would swallow the literal "latest" and fail validation.
   getConfigRevisions,
   getConfigRevisionLatest,
   getConfigRevision,
 
-  // Draft creation
   postConfigRevision,
 
-  // Field-level edits — accept `version: "new"` to auto-create a draft.
+  // Field-level edits accept `version: "new"` to auto-create a draft.
   putConfigRevisionMetadata,
   putConfigRevisionValue,
   putConfigRevisionSchema,
@@ -63,9 +62,11 @@ export const configsRoutes: OpenApiRoute[] = [
   deleteConfigRevisionProjection,
   putConfigRevisionArchive,
 
-  // Review & lifecycle
   postConfigRevisionRequestReview,
   postConfigRevisionSubmitReview,
+  postConfigRevisionRecallReview,
+  postConfigRevisionReopen,
+  postConfigRevisionSchedulePublish,
   getConfigRevisionMergeStatus,
   postConfigRevisionRebase,
   postConfigRevisionPublish,

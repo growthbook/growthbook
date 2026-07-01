@@ -12,9 +12,8 @@ import {
 } from "./validations";
 import { toApiConfigRevisions } from "./toApiConfigRevision";
 
-// Cross-config revision listing. Per-document read permission is enforced by
-// RevisionModel.canRead (delegating to the config adapter), so callers only see
-// revisions for configs they can read.
+// Read permission is enforced per-document by RevisionModel.canRead, so callers
+// only see revisions for configs they can read.
 export const listConfigRevisions = createApiRequestHandler(
   listConfigRevisionsValidator,
 )(async (req) => {
@@ -44,8 +43,8 @@ export const listConfigRevisions = createApiRequestHandler(
   const authorId = mine ? req.context.userId : req.query.author;
   const status = buildRevisionStatusFilter(req.query.status);
 
-  // The `key` filter is the config's key; resolve it to the internal id the
-  // revision store indexes on. An unknown key matches no config → no results.
+  // Resolve the public key to the internal id the revision store indexes on.
+  // An unknown key matches no config → no results.
   let entityId: string | undefined;
   if (req.query.key) {
     const config = await req.context.models.configs.getByKey(req.query.key);

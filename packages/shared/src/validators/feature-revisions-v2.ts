@@ -6,6 +6,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
+  schemaValidationQueryFields,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -463,7 +464,7 @@ export const postFeatureRevisionPublishV2Validator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -905,7 +906,7 @@ export const putFeatureRevisionDefaultValueV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1028,7 +1029,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1078,7 +1079,7 @@ export const putFeatureRevisionRuleV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };

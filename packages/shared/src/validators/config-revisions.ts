@@ -3,6 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  schemaValidationQueryFields,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -39,8 +40,7 @@ const revisionParamsStrict = configKeyParams.extend({
   version: z.coerce.number().int(),
 });
 
-// Optional metadata applied when an endpoint auto-creates a draft via
-// `version: "new"`. Ignored when editing an existing revision.
+// Applied only when an endpoint auto-creates a draft via `version: "new"`.
 const newDraftMetadataFields = {
   revisionTitle: z.string().optional(),
   revisionComment: z.string().optional(),
@@ -95,8 +95,7 @@ const apiActivityLogEntryValidator = namedSchema(
     .strict(),
 );
 
-// API-facing revision projection. Hides the raw `target` shape used internally
-// and surfaces the config view directly (mirrors constant revisions).
+// Hides the raw internal `target` shape, surfacing the config view directly.
 export const apiConfigRevisionValidator = namedSchema(
   "ConfigRevision",
   z
@@ -123,8 +122,7 @@ export const apiConfigRevisionValidator = namedSchema(
       dateUpdated: z.string().meta({ format: "date-time" }),
       // Snapshot of the config at the time the revision was created.
       baseConfig: apiConfigValidator,
-      // The config with this revision's proposed changes applied — what it would
-      // look like if merged against its current snapshot.
+      // The config with this revision's changes applied, against its current snapshot.
       proposedConfig: apiConfigValidator,
       // Raw JSON Patch ops (RFC 6902); escape hatch for inspecting deltas.
       proposedChanges: z.array(jsonPatchOperationValidator),
@@ -329,7 +327,7 @@ export const postConfigRevisionPublishValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -349,7 +347,7 @@ export const postConfigRevisionRevertValidator = {
       comment: z.string().optional(),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -413,6 +411,55 @@ export const postConfigRevisionSubmitReviewValidator = {
   }),
 };
 
+export const postConfigRevisionSchedulePublishValidator = {
+  method: "post" as const,
+  path: "/configs-revisions/:key/:version/schedule-publish",
+  operationId: "postConfigRevisionSchedulePublish",
+  summary: "Schedule (or cancel) a deferred publish",
+  description:
+    "Arms a revision to publish automatically at a future time. Pass `scheduledPublishAt` as an RFC3339 timestamp in the future to arm, or `null` to cancel a pending schedule. Requires the `scheduled-revisions` commercial feature and publish permission on the config. A draft that still requires approval must request review first (or be armed with `bypassApproval` by a caller who can bypass).",
+  tags: ["config-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      scheduledPublishAt: z.string().nullable(),
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConfigRevisionReopenValidator = {
+  method: "post" as const,
+  path: "/configs-revisions/:key/:version/reopen",
+  operationId: "postConfigRevisionReopen",
+  summary: "Reopen a discarded revision",
+  description:
+    "Returns a previously discarded revision to `draft` status so it can be edited and published again. Only discarded revisions can be reopened.",
+  tags: ["config-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postConfigRevisionRecallReviewValidator = {
+  method: "post" as const,
+  path: "/configs-revisions/:key/:version/recall-review",
+  operationId: "postConfigRevisionRecallReview",
+  summary: "Recall a review request",
+  description:
+    "Pulls a revision in review (`pending-review`, `changes-requested`, or `approved`) back to `draft`, clearing existing reviews and disarming any auto-publish-on-approval.",
+  tags: ["config-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
 // ---- Field-edit endpoint validators ----
 
 export const putConfigRevisionMetadataValidator = {
@@ -446,7 +493,7 @@ export const putConfigRevisionMetadataValidator = {
       extensible: z.boolean().optional(),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };
 
@@ -473,7 +520,7 @@ export const putConfigRevisionValueValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -502,7 +549,7 @@ export const putConfigRevisionSchemaValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 
@@ -534,7 +581,7 @@ export const putConfigRevisionProjectionValidator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponseWithWarnings,
 };
 

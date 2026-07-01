@@ -45,7 +45,6 @@ export function isDraftStatus(status: string): boolean {
   return (ACTIVE_STATUSES as readonly string[]).includes(status);
 }
 
-// The loosely-typed entity shape the revision helpers expect.
 export type RevisionEntityArg = Record<string, unknown> & {
   id: string;
   owner?: string;
@@ -71,7 +70,6 @@ async function createBlankDraft(
   );
 }
 
-// Look up a revision by version, scoped to the supplied config.
 export async function loadRevisionByVersion(
   context: ApiReqContext,
   configId: string,
@@ -128,7 +126,6 @@ export async function discardIfJustCreated(
   }
 }
 
-// The config as it stands on a revision (base snapshot + staged changes).
 export function applyRevisionToSnapshot(revision: Revision): ConfigInterface {
   return applyPatchToSnapshot(
     revision.target.snapshot as ConfigInterface,
@@ -148,7 +145,6 @@ export function assertUserScopedKeyForMine(
   }
 }
 
-// Translate the public `status` query param into the model's filter shape.
 export function buildRevisionStatusFilter(
   input?: string,
 ): string | string[] | undefined {
@@ -168,9 +164,7 @@ export function pickNewDraftMetadata(body: {
   return { title: body.revisionTitle, comment: body.revisionComment };
 }
 
-// Validate a staged value edit. Configs are always JSON objects (empty allowed)
-// and environment-agnostic. `@const:` refs are allowed; lineage is expressed via
-// `parent`/`extends`, so a `@config:` ref in the value is rejected here.
+// `@const:` refs are allowed; a `@config:` ref is rejected (lineage lives on `parent`/`extends`).
 export function assertValidConfigValueEdit(value: string | undefined): void {
   try {
     if (value !== undefined)
@@ -187,10 +181,8 @@ export function assertValidConfigValueEdit(value: string | undefined): void {
 
 type SchemaFormat = z.infer<typeof configSchemaFormatValidator>;
 
-// Resolve a public schema envelope (`{ type: "json-schema" | "typescript", value }`)
-// or an `infer` request into a `SimpleSchema` + warnings, by translating the
-// envelope to the converter's `format`+`source` form. Returns `schema: undefined`
-// when neither is supplied (a schema-less create or a no-schema-change update).
+// Returns `schema: undefined` when neither a source nor `infer` is supplied
+// (a schema-less create or a no-schema-change update).
 export function resolveConfigSchemaSource(args: {
   source?: ConfigSchemaSource;
   infer?: boolean;
@@ -206,8 +198,7 @@ export function resolveConfigSchemaSource(args: {
     return { schema: undefined, warnings: [] };
   }
   if (source !== undefined) {
-    // json-schema carries a JSON object (stringify it); typescript/protobuf
-    // carry source text used verbatim.
+    // json-schema carries a JSON object (stringify it); other formats are source text.
     const importArgs =
       source.type === "json-schema"
         ? {
@@ -224,14 +215,9 @@ export function resolveConfigSchemaSource(args: {
   });
 }
 
-// Resolve a schema-import request body into a `SimpleSchema` plus structured
-// warnings. Exactly one source must be supplied:
-//   - `schema`     — a SimpleSchema object directly
-//   - `format`+`source` — a raw document to convert (JSON Schema / TypeScript /
-//                    a JSON-encoded SimpleSchema for `simple`)
-//   - `infer`      — derive from `inferValue` (the draft's value)
-// JSON Schema is the canonical pivot; conversions are lossy-by-design and never
-// throw — exotic constructs degrade to permissive types WITH warnings.
+// Exactly one source must be supplied (`schema`, `format`+`source`, or `infer`).
+// Conversions are lossy-by-design and never throw — exotic constructs degrade to
+// permissive types WITH warnings.
 export function resolveImportedSchema(args: {
   schema?: SimpleSchema;
   format?: SchemaFormat;
@@ -257,7 +243,6 @@ export function resolveImportedSchema(args: {
     );
   }
 
-  // Direct SimpleSchema.
   if (schema !== undefined) {
     return {
       schema:
@@ -268,7 +253,6 @@ export function resolveImportedSchema(args: {
     };
   }
 
-  // Infer from the draft value.
   if (infer === true) {
     const obj = parsePlainJSONObject(args.inferValue ?? "") ?? {};
     const fields = inferFieldsFromValue(obj);
@@ -282,7 +266,6 @@ export function resolveImportedSchema(args: {
     };
   }
 
-  // Convert a raw document.
   if (format === undefined || source === undefined) {
     throw new BadRequestError(
       "Both `format` and `source` are required when importing from a raw document.",

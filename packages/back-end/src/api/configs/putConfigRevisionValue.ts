@@ -39,14 +39,12 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
   const { inferSchemaIfMissing } = req.body;
   // Value arrives as a native JSON object; handled as a JSON string internally.
-  // (Configs are environment-agnostic — no per-environment overrides.)
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
   if (value === undefined) {
     throw new BadRequestError("Provide `value` to update.");
   }
 
-  // Validate the raw value as a JSON object.
   assertValidConfigValueEdit(value);
 
   // Inheritance lives on `parent`; strip any `@config:` ref from the stored value.
@@ -85,17 +83,15 @@ export const putConfigRevisionValue = createApiRequestHandler(
       );
     }
 
-    // Judge the staged value against the draft's OWN staged lineage/schema, not
-    // the live config — a draft may have changed parent/extends/schema, so the
-    // live values would produce false 400s (or miss real ones).
+    // Judge against the draft's OWN staged lineage/schema, not live: a draft may
+    // have changed parent/extends/schema, so live values would give false results.
     const draft = applyRevisionToSnapshot(revision);
 
     const fieldsToUpdate: Record<string, unknown> = {};
     if (strippedValue !== undefined) fieldsToUpdate.value = strippedValue;
 
-    // Optionally derive a schema from the value when the draft has none yet, so a
-    // value-first import still gets typing/validation. Existing schemas are never
-    // overwritten here — use the schema endpoint for that.
+    // Derive a schema from the value only when the draft has none, so a
+    // value-first import gets typing; existing schemas are never overwritten here.
     if (
       inferSchemaIfMissing &&
       !draft.schema?.fields?.length &&
@@ -118,9 +114,8 @@ export const putConfigRevisionValue = createApiRequestHandler(
         );
     }
 
-    // Enforce the staged value against the draft's effective schema. Uses the
-    // proposed (inferred) schema when this request also sets one, so a value-first
-    // import validates against the schema it derives.
+    // Validate against the proposed (inferred) schema when this request sets one,
+    // so a value-first import validates against the schema it derives.
     await assertConfigValueValid(
       req.context,
       {

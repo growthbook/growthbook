@@ -24,13 +24,7 @@ export function deriveChange(
   const paths = proposedChanges.map((op) => op.path);
   if (paths.some((p) => p.startsWith("/archived"))) return "archive";
   if (paths.some((p) => p.startsWith("/schema"))) return "schema";
-  if (
-    paths.some(
-      (p) => p.startsWith("/value") || p.startsWith("/environmentValues"),
-    )
-  ) {
-    return "value";
-  }
+  if (paths.some((p) => p.startsWith("/value"))) return "value";
   return "metadata";
 }
 

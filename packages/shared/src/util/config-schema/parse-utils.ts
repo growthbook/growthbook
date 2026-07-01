@@ -1,9 +1,4 @@
-// String-aware parsing helpers shared by the brace-based language importers
-// (Protobuf, Go, Rust). Python is indentation-based and parses separately.
-
-// Strip `//` line and `/* */` block comments, preserving string literals
-// (so a `//` inside a quoted string isn't mistaken for a comment). Comments are
-// replaced with a newline / nothing so positions of real tokens stay sane.
+// Strip `//` line and `/* */` block comments, preserving string literals.
 export function stripSlashComments(text: string): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
@@ -38,8 +33,7 @@ export function stripSlashComments(text: string): string {
   return out;
 }
 
-// Body between the `{` at `open` and its matching `}` (string-aware). Returns
-// the inner text and the index just past the closing brace.
+// Body between the `{` at `open` and its matching `}` (string-aware).
 export function matchBraces(
   text: string,
   open: number,

@@ -7,14 +7,15 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 import { simpleSchemaValidator } from "./features";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  schemaValidationQueryFields,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
-// A JSON-object value with a field schema and `$extends` inheritance; resolves
-// like a `json` constant. The schema only drives typing/validation/UX.
-// Per-source naming captured from an import (a consuming codebase's type names),
-// replayed when exporting that source's typed projection. Presentation metadata
-// only — never part of the schema contract, so it never affects drift.
+// Per-source naming captured from an import, replayed on typed-projection export.
+// Presentation metadata only — never part of the schema contract, so never affects drift.
 export const schemaProjectionValidator = z
   .object({
     language: z.string(),
@@ -30,34 +31,22 @@ export const configValidator = z
     key: z.string(),
     name: z.string(),
     owner: ownerField,
-    // Lineage parent (another config's `key`): the primary spine of the lineage
-    // tree. `$extends` is synthesized from this at resolution time, never stored
-    // in `value`.
+    // Lineage parent's `key`; synthesized into `$extends` at resolution, never stored in `value`.
     parent: z.string().optional(),
-    // Additional composition bases (mixins) beyond `parent`, in precedence order
-    // (later overrides earlier; all override `parent`; own keys win last). Like
-    // `parent`, these are config `key`s synthesized into `$extends` at resolution
-    // time and never stored in `value`.
+    // Composition bases beyond `parent`, in precedence order (later wins; all override `parent`;
+    // own keys win last). Synthesized into `$extends` at resolution, never stored in `value`.
     extends: z.array(z.string()).optional(),
-    // Own value, a JSON object stored as a JSON-encoded string.
-    //
-    // DECISION: configs are environment-agnostic — they expose a single `value`
-    // and have NO per-environment overrides anywhere (no `environmentValues`
-    // field, on any API or the model). For per-environment values, use a Constant
-    // (which supports env overrides) as the value source.
+    // Configs are environment-agnostic: single `value`, NO per-environment overrides
+    // anywhere. For per-environment values, use a Constant as the value source.
     value: z.string().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
-    // Defines each field and its type for the Configuration UI.
     schema: simpleSchemaValidator.optional(),
-    // Whether this config family permits extension (extra keys) by child configs,
-    // feature rules, and ad-hoc overrides. Only the root config's value applies.
-    // Absent = inherit the org default (`configsExtensibleByDefault`).
+    // Whether this family permits extra keys. Only the root config's value applies;
+    // absent = inherit the org default (`configsExtensibleByDefault`).
     extensible: z.boolean().optional(),
-    // Per-source render projections (source id → captured type names), used to
-    // reproduce a consumer's named types on export. Presentation metadata, set at
-    // import time; never part of the schema contract or drift.
+    // Presentation metadata only — never part of the schema contract or drift.
     renderProjections: z
       .record(z.string(), schemaProjectionValidator)
       .optional(),
@@ -78,8 +67,6 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   archived: true,
   schema: true,
   extensible: true,
-  // Per-source render projections are versioned alongside the schema (set/cleared
-  // via the projection revision endpoints).
   renderProjections: true,
 });
 
@@ -118,18 +105,10 @@ export const putConfigBodyValidator = z.object({
   renderProjections: z.record(z.string(), schemaProjectionValidator).optional(),
 });
 
-// ===========================================================================
-// External REST API. Validators below carry the OpenAPI route metadata and are
-// wired through `createApiRequestHandler`. Configs are addressed by their
-// org-unique `key` (the `@config:` reference handle), mirroring constants.
-// ===========================================================================
+// Configs are addressed by their org-unique `key` (the `@config:` reference handle).
 
-// Schema-import source formats. A caller may supply a `SimpleSchema` directly,
-// a raw document to convert (`json-schema`/`typescript`), or ask GrowthBook to
-// infer a schema from the config's value (`infer`). JSON Schema is the canonical
-// pivot AND the recommended happy-path import format (highest fidelity, resolves
-// `$ref`/`$defs`); other languages are best-effort and only need a converter —
-// never an API change.
+// JSON Schema is the canonical pivot and recommended import format (highest fidelity,
+// resolves `$ref`/`$defs`); other languages are best-effort.
 export const configSchemaFormatValidator = z.enum([
   "simple",
   "json-schema",
@@ -140,8 +119,7 @@ export const configSchemaFormatValidator = z.enum([
   "rust",
 ]);
 
-// Public schema-render formats. SimpleSchema is internal-only; the external API
-// speaks JSON Schema (canonical) plus the rendered typed-code languages.
+// SimpleSchema is internal-only; the external API speaks JSON Schema plus typed-code languages.
 export const configSchemaRenderFormatValidator = z.enum([
   "json-schema",
   "typescript",
@@ -151,22 +129,15 @@ export const configSchemaRenderFormatValidator = z.enum([
   "rust",
 ]);
 
-// A JSON Schema document — an object, open by nature, so typed loosely. The
-// converter (not Zod) validates/degrades its contents.
+// Typed loosely; the converter (not Zod) validates/degrades its contents.
 const jsonSchemaDocument = z
   .record(z.string(), z.unknown())
   .describe("A JSON Schema document (an object).");
 
-// A config's value — always a JSON object. The external API takes/returns it as
-// native JSON (not a JSON-encoded string); the value is stored as a string
-// internally and parsed/stringified at the API boundary.
+// External API takes/returns native JSON; stored as a string internally and
+// parsed/stringified at the API boundary.
 export const configValueObject = z.record(z.string(), z.unknown());
 
-// Schema I/O envelope: a config's field schema supplied as a JSON Schema document
-// (canonical, native JSON — no escaping) or TypeScript source. Used for
-// create/update/import input and schema export. JSON Schema is the happy path
-// (highest fidelity, resolves `$ref`/`$defs`); TypeScript is best-effort and
-// degrades exotic constructs to permissive types WITH warnings.
 export const configSchemaSourceValidator = namedSchema(
   "ConfigSchemaSource",
   z.discriminatedUnion("type", [
@@ -219,8 +190,7 @@ export const configSchemaSourceValidator = namedSchema(
 
 export type ConfigSchemaSource = z.infer<typeof configSchemaSourceValidator>;
 
-// Read projection of a config's own schema: always JSON Schema (the canonical
-// form). TypeScript output is available via the schema-export endpoint.
+// Always JSON Schema; other formats are available via the schema-export endpoint.
 const configSchemaReadValidator = z
   .object({
     type: z.literal("json-schema"),
@@ -228,10 +198,8 @@ const configSchemaReadValidator = z
   })
   .strict();
 
-// Structured, machine-actionable warnings emitted by schema importers (an LLM/CI
-// sync loop can act on `code` to self-correct). Mirrors the shared `SchemaWarning`
-// shape in `shared/util/config-schema`. Lives here (not config-revisions) so both
-// the config and revision validators can reference it without an import cycle.
+// Mirrors the shared `SchemaWarning` shape in `shared/util/config-schema`. Lives here
+// (not config-revisions) so both config and revision validators reference it without a cycle.
 export const apiSchemaWarningValidator = namedSchema(
   "ConfigSchemaWarning",
   z
@@ -248,10 +216,6 @@ export const apiSchemaWarningValidator = namedSchema(
     .strict(),
 );
 
-// A reusable, typed, inheritable JSON object referenced from feature values via
-// `@config:key`. Resolves like a `json` constant (composed via `$extends`), but
-// carries a field `schema` and a lineage `parent`. `key` is the stable handle,
-// unique per org across both constants and configs.
 // Cross-field validation rules. On READ, `rule` is the canonical JSONLogic
 // object. On WRITE (see input validator below), it may also be a CEL string.
 export const apiConfigInvariantValidator = z
@@ -284,6 +248,10 @@ const apiConfigInvariantInputValidator = z
   })
   .strict();
 
+// A reusable, typed, inheritable JSON object referenced from feature values via
+// `@config:key`. Resolves like a `json` constant (composed via `$extends`), but
+// carries a field `schema` and a lineage `parent`. `key` is the stable handle,
+// unique per org across both constants and configs.
 export const apiConfigValidator = namedSchema(
   "Config",
   z
@@ -350,9 +318,7 @@ const bypassApprovalField = z
   )
   .optional();
 
-// On create a config publishes immediately and never enters the approval flow,
-// so this flag is a no-op here. Retained (deprecated) for backward compatibility;
-// it remains meaningful on update.
+// No-op on create (configs publish immediately); retained deprecated for compatibility.
 const bypassApprovalCreateField = z
   .boolean()
   .describe(
@@ -461,8 +427,7 @@ const configKeyParams = z
 
 const apiConfigResponse = z.object({ config: apiConfigValidator }).strict();
 
-// Create/update can convert a schema source (JSON Schema / TypeScript) inline, so
-// they surface any importer warnings alongside the config.
+// Create/update convert a schema source inline, so they surface importer warnings.
 const apiConfigResponseWithWarnings = z
   .object({
     config: apiConfigValidator,
@@ -483,8 +448,7 @@ export const apiConfigReferencesValidator = namedSchema(
           })
           .strict(),
       ),
-      // Other constants/configs that reference this one (e.g. child configs that
-      // extend it). `isConfig` distinguishes a config from a constant.
+      // Constants/configs that reference this one; `isConfig` distinguishes the two.
       constants: z.array(
         z
           .object({
@@ -500,7 +464,6 @@ export const apiConfigReferencesValidator = namedSchema(
     .strict(),
 );
 
-// One config in the family tree returned by the lineage endpoint.
 const apiConfigLineageNodeValidator = z
   .object({
     key: z.string(),
@@ -535,9 +498,7 @@ const apiConfigLineageNodeValidator = z
   })
   .strict();
 
-// The full family tree for a config: traversed up to the root and down through
-// every descendant, so the whole lineage is returned regardless of which member
-// was requested. Not revision-aware — always reflects the live configs.
+// Not revision-aware — always reflects the live configs.
 const apiConfigLineageValidator = namedSchema(
   "ConfigLineage",
   z
@@ -563,9 +524,7 @@ const apiConfigLineageValidator = namedSchema(
     .strict(),
 );
 
-// Schema export: the config's own (or, with `effective=true`, the lineage's
-// accumulated) field schema, rendered in the requested format. Not
-// revision-aware — always reflects the live config.
+// Not revision-aware — always reflects the live config.
 const apiConfigSchemaExportValidator = namedSchema(
   "ConfigSchemaExport",
   z
@@ -683,7 +642,7 @@ export const getConfigValidator = {
 
 export const postConfigValidator = {
   bodySchema: postConfigApiBody,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Create a single config",
@@ -702,7 +661,7 @@ export const postConfigValidator = {
 
 export const updateConfigValidator = {
   bodySchema: updateConfigApiBody,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponseWithWarnings,
   summary: "Partially update a single config",

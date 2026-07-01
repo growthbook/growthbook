@@ -45,7 +45,8 @@ export type Language =
   | "csharp"
   | "java"
   | "elixir"
-  | "protobuf";
+  | "protobuf"
+  | "rust";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",

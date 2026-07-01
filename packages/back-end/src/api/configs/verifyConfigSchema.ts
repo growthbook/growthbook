@@ -6,9 +6,8 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { resolveConfigSchemaSource } from "./validations";
 
-// Stable content fingerprint of a field set — the hash of its canonical form, so
-// two schemas with the same meaning (any field order, cosmetic differences)
-// share a fingerprint and only a real change moves it.
+// Hashes the canonical form, so two equivalent schemas (any field order,
+// cosmetic differences) share a fingerprint and only a real change moves it.
 function schemaFingerprint(fields: SchemaField[]): string {
   return (
     "sha256:" +
@@ -16,9 +15,8 @@ function schemaFingerprint(fields: SchemaField[]): string {
   );
 }
 
-// Read-only drift check: convert the supplied schema source and compare it to the
-// config's own stored schema. Nothing is mutated. CI can branch on `inSync` (or
-// the fingerprints) and read `drift` for a categorized, contract-vs-docs diff.
+// Read-only drift check: compares the supplied schema source to the stored one;
+// nothing is mutated. CI can branch on `inSync` or the fingerprints.
 export const verifyConfigSchema = createApiRequestHandler(
   verifyConfigSchemaValidator,
 )(async (req) => {

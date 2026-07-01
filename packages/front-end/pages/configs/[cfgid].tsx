@@ -17,6 +17,9 @@ import {
   simpleToJSONSchema,
   fieldsToTsType,
   fieldsToProto,
+  fieldsToGolang,
+  fieldsToRust,
+  fieldsToPython,
   getConfigSubtree,
   computeConfigReconciliationPreview,
   evaluateInvariants,
@@ -32,17 +35,7 @@ import {
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import {
-  PiPlusBold,
-  PiCaretDown,
-  PiCheckBold,
-  PiCopy,
-  PiCaretDoubleLeft,
-  PiCaretDoubleRight,
-  PiStackBold,
-  PiFlag,
-} from "react-icons/pi";
-import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
+import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
@@ -54,7 +47,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import Owner from "@/components/Avatar/Owner";
 import Markdown from "@/components/Markdown/Markdown";
-
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -63,7 +55,6 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
-import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
@@ -71,17 +62,15 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
 import ReviewAndPublishTab from "@/components/Revision/ReviewAndPublishTab";
-import ArchiveModal from "@/components/Revision/ArchiveModal";
-import RevertModal from "@/components/Revision/RevertModal";
-import RevisionDraftSelectorForChanges from "@/components/Revision/RevisionDraftSelectorForChanges";
+import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAuditDiff";
 import {
@@ -94,12 +83,9 @@ import {
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import {
-  useConfigFamilyReferences,
-  useConstantReferences,
-} from "@/hooks/useConstantReferences";
-import ConstantReferencesList from "@/components/Constants/ConstantReferencesList";
+import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
+import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
+import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
 import { ConstantRevisionContext } from "@/components/Constants/useConstantDraftTarget";
 import ConfigModal from "@/components/Configs/ConfigModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -108,6 +94,7 @@ import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReference
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
+import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import {
   FIELD_GRID_TEMPLATE,
   ResolvedField,
@@ -121,52 +108,57 @@ import {
 type ResolvedResponse = {
   status: number;
   config: ConfigInterface;
-  // Lineage chain (base → leaf); re-resolved client-side so a selected draft's
-  // proposed value shows in the field table.
+  // Re-resolved client-side so a selected draft's proposed value shows in the field table.
   chain: ConfigChainNode[];
   effectiveSchema: SchemaField[];
-  // Whether this config family permits extra keys (root policy / org default).
   extensible?: boolean;
   fields: ResolvedField[];
   lineage: LineageNode[];
-  // Families that compose this config as a mixin (`extends`), one entry per
-  // composing `parent`-spine family. Lets a mixin view render "where am I used"
-  // as N trees instead of a lone node. Keyed by the family's spine root.
+  // Families that compose this config as a mixin, one per composing spine family,
+  // so a mixin view can render "where am I used" as N trees. Keyed by spine root.
   composerFamilies?: { rootKey: string; lineage: LineageNode[] }[];
-  // Own-value field count per config key (covers mixins outside the family).
   fieldCounts?: Record<string, number>;
-  // Display name per config key (covers mixins outside the family).
   configNames?: Record<string, string>;
-  // Archived flag per config key (covers mixins outside the family).
   archivedByKey?: Record<string, boolean>;
-  // Project-scoped value-map inputs so the field table can squash `@const:`
-  // refs client-side. The editor and JSON view keep references raw.
+  // The editor and JSON view keep references raw; this drives `@const:` squashing in the table.
   constants: (Pick<
     ConstantInterface,
     "key" | "type" | "value" | "project" | "archived"
   > & { source: ConstantSource })[];
 };
 
-// The strings the Export menu copies. All are derived from the displayed
-// revision, so the export is revision-sensitive (drafts export their proposed
-// state, the live revision exports live).
+const SCHEMA_EXPORT_FORMATS: { id: string; label: string }[] = [
+  { id: "json", label: "JSON Schema" },
+  { id: "typescript", label: "TypeScript" },
+  { id: "protobuf", label: "Protobuf" },
+  { id: "python", label: "Python" },
+  { id: "go", label: "Go" },
+  { id: "rust", label: "Rust" },
+];
+
+const SCHEMA_LANG_LABEL: Record<string, string> = {
+  typescript: "TypeScript",
+  protobuf: "Protobuf",
+  python: "Python",
+  go: "Go",
+  rust: "Rust",
+  "json-schema": "JSON Schema",
+};
+
+// Derived from the displayed revision, so the export is revision-sensitive.
+// Schemas keyed by format id; named projections listed separately.
 type ConfigExportPayloads = {
   ownValue: string;
   resolvedValue: string;
-  ownSchemaJson: string;
-  ownSchemaTs: string;
-  ownSchemaProto: string;
-  effectiveSchemaJson: string;
-  effectiveSchemaTs: string;
-  effectiveSchemaProto: string;
-  // Validation rules, empty when the config has none.
+  ownSchema: Record<string, string>;
+  effectiveSchema: Record<string, string>;
+  ownProjections: { source: string; label: string; text: string }[];
+  // Validation rules, empty strings when the config has none.
   validationJsonLogic: string;
   validationCel: string;
 };
 
-// Export-as dropdown, modeled on the review "Copy as" widget: copies the
-// config's value/schema to the clipboard in the chosen shape. "Resolved"
-// variants walk the inheritance tree (and resolve constants for the value).
+// "Resolved" variants walk the inheritance tree (and resolve constants for the value).
 function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 2000,
@@ -206,8 +198,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         <Button variant="ghost" size="sm">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
-            {/* Fixed width so swapping "Copy Config..." ↔ "Copied!" doesn't
-                shift the surrounding layout. */}
+            {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
             <Box
               style={{ width: 92, textAlign: "center", whiteSpace: "nowrap" }}
             >
@@ -227,58 +218,38 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         )}
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuGroup label="Schema">
-        {item("JSON Schema", null, payloads.ownSchemaJson)}
-        {item("TypeScript", null, payloads.ownSchemaTs)}
-        {item("Protobuf", null, payloads.ownSchemaProto)}
-      </DropdownMenuGroup>
-      <DropdownMenuGroup label="Resolved schema">
-        {item("JSON Schema", null, payloads.effectiveSchemaJson)}
-        {item("TypeScript", null, payloads.effectiveSchemaTs)}
-        {item("Protobuf", null, payloads.effectiveSchemaProto)}
-      </DropdownMenuGroup>
+      <DropdownSubMenu trigger="Schema">
+        {SCHEMA_EXPORT_FORMATS.map((f) => (
+          <React.Fragment key={f.id}>
+            {item(f.label, null, payloads.ownSchema[f.id])}
+          </React.Fragment>
+        ))}
+        {payloads.ownProjections.length > 0 && <DropdownMenuSeparator />}
+        {payloads.ownProjections.map((p) => (
+          <React.Fragment key={p.source}>
+            {item(p.label, "Named projection", p.text)}
+          </React.Fragment>
+        ))}
+      </DropdownSubMenu>
+      <DropdownSubMenu trigger="Resolved schema">
+        {SCHEMA_EXPORT_FORMATS.map((f) => (
+          <React.Fragment key={f.id}>
+            {item(f.label, null, payloads.effectiveSchema[f.id])}
+          </React.Fragment>
+        ))}
+      </DropdownSubMenu>
       {payloads.validationJsonLogic && (
         <>
           <DropdownMenuSeparator />
-          <DropdownMenuGroup label="Validation">
+          <DropdownSubMenu trigger="Validation">
             {item("JSONLogic", null, payloads.validationJsonLogic)}
             {item("CEL", null, payloads.validationCel)}
-          </DropdownMenuGroup>
+          </DropdownSubMenu>
         </>
       )}
     </DropdownMenu>
   );
 }
-
-// Fields a config revert can restore (mirrors ConstantRevertModal). `archived`
-// is handled separately via an explicit opt-in inside RevertModal.
-const CONFIG_REVERTABLE_FIELDS = [
-  "name",
-  "owner",
-  "description",
-  "project",
-  "value",
-  "extends",
-  "schema",
-  "renderProjections",
-] as const satisfies readonly (keyof ConfigInterface)[];
-
-// Count bubble overlaid on the collapsed-rail Configs/Features icons.
-const RAIL_BADGE_STYLE: React.CSSProperties = {
-  position: "absolute",
-  top: -4,
-  right: -4,
-  minWidth: 15,
-  height: 15,
-  padding: "0 4px",
-  borderRadius: 8,
-  background: "var(--accent-9)",
-  color: "white",
-  fontSize: 9,
-  fontWeight: 600,
-  lineHeight: "15px",
-  textAlign: "center",
-};
 
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
@@ -296,85 +267,45 @@ export default function ConfigDetailPage(): React.ReactElement {
   const permissionsUtil = usePermissionsUtil();
 
   const [editInfoOpen, setEditInfoOpen] = useState(false);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [showAuditModal, setShowAuditModal] = useState(false);
-  const [compareOpen, setCompareOpen] = useState(false);
   const [confirmRevert, setConfirmRevert] = useState(false);
   const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
     null,
   );
   const [editDescriptionModal, setEditDescriptionModal] = useState(false);
-  const [tab, setTab] = useState<"overview" | "review">("overview");
-  const [userSidebarCollapsed, setUserSidebarCollapsed] =
-    useLocalStorage<boolean>("config-lineage-sidebar-collapsed", false);
-  const [sidebarTab, setSidebarTab] = useState<"configs" | "features">(
-    "configs",
-  );
-  // The lineage panel auto-rails when the *content container* (not the screen)
-  // is too narrow for the panel + review. The main nav skews the viewport, so we
-  // measure the actual available width with a ResizeObserver.
-  const contentRowRef = useRef<HTMLDivElement>(null);
-  const [isNarrowContainer, setIsNarrowContainer] = useState(false);
-  // Transient "peek" of the full panel while the container is narrow.
-  const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
-  useEffect(() => {
-    const el = contentRowRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const update = () => {
-      const narrow = el.clientWidth < 900;
-      setIsNarrowContainer(narrow);
-      if (narrow) setNarrowSidebarOpen(false);
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  const sidebarCollapsed = isNarrowContainer
-    ? !narrowSidebarOpen
-    : userSidebarCollapsed;
-  const collapseSidebar = () =>
-    isNarrowContainer
-      ? setNarrowSidebarOpen(false)
-      : setUserSidebarCollapsed(true);
-  const expandSidebar = () =>
-    isNarrowContainer
-      ? setNarrowSidebarOpen(true)
-      : setUserSidebarCollapsed(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
   const [showCreateChild, setShowCreateChild] = useState(false);
-  // Whether the inline "compose a mixin config" picker is showing.
   const [composeAdding, setComposeAdding] = useState(false);
 
-  // Field currently being overridden (inline value edit), and the draft text.
+  // Page-level tabs (Overview | Review & Publish) mirror constants/saved groups.
+  const [tab, setTab] = useState<"overview" | "review">("overview");
+  // Inner content view shown under the Overview tab.
   const [activeTab, setActiveTab] = useState<
     "form" | "json" | "resolved" | "validation"
   >("form");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
-  // Separate from the text so an explicit null and a concrete value stay
-  // distinct. (Not overriding at all is a third axis: the inherit / Reset action.)
+  // Separate from the text so an explicit null and a concrete value stay distinct
+  // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null" | "undefined">(
     "value",
   );
 
-  // Inline schema authoring: "add" shows a blank field form; a key string edits
-  // that field's definition.
+  // "add" shows a blank field form; a key string edits that field's definition.
   const [schemaEdit, setSchemaEdit] = useState<"add" | string | null>(null);
 
-  // Surfaced when a composition (mixin) write fails.
   const [composeError, setComposeError] = useState<string | null>(null);
 
-  // Serializes mixin (`extends`) writes: two quick add/remove clicks each compute
-  // `next` from a stale `mixinKeys` snapshot, so without a guard the second write
-  // can clobber the first and silently drop (or re-add) a mixin.
+  // Serializes mixin (`extends`) writes: without it, two quick clicks each compute
+  // `next` from a stale snapshot and the second clobbers the first.
   const savingExtendsRef = useRef(false);
 
-  // Switching configs (e.g. via the lineage tree) reuses this page instance, so
-  // clear any in-progress row edit / insert when the addressed config changes.
+  // The page instance is reused across configs, so clear in-progress edits when it changes.
   useEffect(() => {
     setEditKey(null);
     setEditText("");
@@ -384,13 +315,9 @@ export default function ConfigDetailPage(): React.ReactElement {
     setShowCreateChild(false);
     setComposeAdding(false);
     setShowOverrides(false);
-    // The reused page instance can otherwise carry a modal open from the
-    // previous config (e.g. the review/publish dialog popping up after a
-    // lineage/tag link lands on a different config).
-    setTab("overview");
+    // Also close any modal carried over from the previous config.
     setCompareOpen(false);
     setConfirmRevert(false);
-    setRevisionToRevert(null);
     setEditDescriptionModal(false);
     setShowArchiveModal(false);
     setShowAuditModal(false);
@@ -399,9 +326,26 @@ export default function ConfigDetailPage(): React.ReactElement {
     setMenuOpen(false);
   }, [configKey]);
 
-  // Addressed by `key`; the resolved endpoint returns the config plus its
-  // lineage chain + tree. The selected revision (`?v=` in the URL) is forwarded
-  // so a draft's unpublished lineage/composition drives resolution server-side.
+  // Page-level tab driven by the URL hash. The hash may carry an inner sub-tab
+  // after a comma (`#review,changes`); only the first segment selects the page tab.
+  useEffect(() => {
+    const hash = (new URL(router.asPath, "http://x").hash
+      .replace(/^#/, "")
+      .split(",")[0] || undefined) as "overview" | "review" | undefined;
+    if (hash === "overview" || hash === "review") {
+      setTab(hash);
+    }
+  }, [router.asPath]);
+  const setTabAndScroll = (newTab: "overview" | "review") => {
+    setTab(newTab);
+    router.replace(
+      { pathname: router.pathname, query: router.query, hash: newTab },
+      undefined,
+      { shallow: true },
+    );
+  };
+
+  // Forward the selected revision so a draft's unpublished lineage drives resolution server-side.
   const versionParam = typeof router.query.v === "string" ? router.query.v : "";
   const { data, error, mutate } = useApi<ResolvedResponse>(
     `/configs/${configKey}/resolved${versionParam ? `?v=${versionParam}` : ""}`,
@@ -422,46 +366,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
 
+  // Open-draft counts by status, for the Review & Publish tab badge tooltip.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  for (const r of openRevisions) {
+    draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+  }
+
   const { references: familyReferences, loading: familyReferencesLoading } =
     useConfigFamilyReferences(config?.id);
 
-  // On "live" (no explicit selection) fall back to the latest merged revision so
-  // the Review tab renders its read-only Live view instead of the empty state.
-  const displayRevision = useMemo(() => {
-    if (selectedRevision) return selectedRevision;
-    return [...allRevisions]
-      .filter((r) => r.status === "merged")
-      .sort(
-        (a, b) =>
-          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
-      )[0];
-  }, [selectedRevision, allRevisions]);
-
-  // Drives the count bubble on the "Review & Publish" tab.
-  const draftStatusCounts: Partial<Record<string, number>> = {};
-  allRevisions.forEach((r) => {
-    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
-      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
-    }
-  });
-  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
-    (sum, n) => sum + (n ?? 0),
-    0,
-  );
-
-  // References that block archiving — only fetched while the archive modal is
-  // open and we're archiving (unarchiving is never blocked).
-  const { references: archiveReferences, loading: archiveReferencesLoading } =
-    useConstantReferences(
-      showArchiveModal && !config?.archived ? config?.id : null,
-      "configs",
-    );
-  const archiveReferenceCount =
-    (archiveReferences?.features.length ?? 0) +
-    (archiveReferences?.constants.length ?? 0);
-
-  // Constant-picker scope: cycle-creating keys + this config's own key are
-  // scrubbed so a value can't reference back into a cycle.
+  // Scrub cycle-creating keys + own key so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
     config?.id ? `/configs/${config.id}/cyclic-keys` : "",
     { shouldRun: () => !!config?.id },
@@ -477,8 +391,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     [config?.project, config?.key, cyclicData?.cyclicKeys],
   );
 
-  // Squash `@const:` refs to default values for the table display (cross-project
-  // refs scrubbed like the payload). The editor and JSON view keep refs raw.
+  // Table display only; the editor and JSON view keep refs raw.
   const squashConstants = useMemo(() => {
     const map = buildConstantValueMap(data?.constants ?? [], "");
     const project = config?.project || "";
@@ -487,14 +400,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   }, [data?.constants, config?.project]);
 
   const settings = organization.settings || {};
-  const revertsBypassApproval = !!settings.revertsBypassApproval;
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
-  // Creating configs (incl. child override configs) is premium-gated; editing
-  // existing ones is not (permissive on license lapse).
+  // Creating configs is premium-gated; editing existing ones is not (permissive on lapse).
   const hasConfigsFeature = hasCommercialFeature("feature-configs");
 
-  // Configs inherit the feature `requireReviews` settings. This rule drives the
-  // coarse "is approval configured" gate; per-revision uses constantRequiresReview.
+  // Drives the coarse "is approval configured" gate; per-revision uses constantRequiresReview.
   const requireReviews = settings.requireReviews;
   const reviewRule =
     hasApprovalsFeature && Array.isArray(requireReviews)
@@ -539,10 +449,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     ) as ConfigInterface;
   }, [selectedRevision, config]);
 
-  // Schema-format options whose backing data differs between the displayed
-  // draft and the published config — the editor renders an amber dot on each.
-  // A schema change touches every format (all derive from it); a projection's
-  // own change (added/removed/renamed) additionally flags that one source.
+  // Formats whose data differs between draft and published (editor shows an amber dot).
+  // A schema change flags every format; a projection change also flags that one source.
   const unpublishedFormats = useMemo(() => {
     const set = new Set<string>();
     if (!config || !displayedConfig) return set;
@@ -551,9 +459,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       config.schema ?? null,
     );
     if (schemaChanged) {
-      set.add("json");
-      set.add("typescript");
-      set.add("protobuf");
+      // Every format derives from the schema, so flag them all.
+      SCHEMA_EXPORT_FORMATS.forEach((f) => set.add(f.id));
     }
     const draftRP = displayedConfig.renderProjections ?? {};
     const liveRP = config.renderProjections ?? {};
@@ -571,8 +478,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return set;
   }, [config, displayedConfig]);
 
-  // Re-resolve the chain with this node's displayed (possibly draft) value
-  // substituted in, so the field table reflects the revision in view.
+  // Substitute this node's displayed (possibly draft) value so the table reflects the revision.
   const resolved = useMemo(() => {
     if (!data || !displayedConfig)
       return {
@@ -587,9 +493,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return resolveConfigChain(chain);
   }, [data, displayedConfig]);
 
-  // Resolved fields with `@const:`/`@config:` refs squashed to their values, for
-  // the read-only Resolved tab (which shows the fully-resolved value: inheritance
-  // *and* constants). The Form tab squashes per-row separately.
+  // For the read-only Resolved tab (inheritance *and* constants); the Form tab squashes per-row.
   const resolvedFieldsResolved = useMemo(
     () =>
       resolved.fields.map((f) => ({
@@ -599,8 +503,9 @@ export default function ConfigDetailPage(): React.ReactElement {
     [resolved.fields, squashConstants],
   );
 
-  // Flat resolved (inherited+own) value object for live invariant feedback —
-  // mirrors what the back-end publish gate evaluates (raw values, refs as-is).
+  // The resolved (inherited+own) value object cross-field rules run against —
+  // present keys only, mirroring the back-end publish gate (raw values, refs
+  // as-is).
   const invariantValue = useMemo(() => {
     const o: Record<string, unknown> = {};
     for (const f of resolved.fields) {
@@ -609,8 +514,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     return o;
   }, [resolved.fields]);
 
-  // Invariants that currently fail against the displayed (draft-aware) value —
-  // surfaced on the Form tab too, not just the Validation tab.
+  // Invariants that currently fail against the displayed (draft-aware) value.
   const failingInvariants = useMemo(
     () =>
       evaluateInvariants(
@@ -621,7 +525,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
 
   // Field key → messages of the failing rules that reference it, for row-level
-  // highlighting in the Form tab.
+  // highlighting on the Form tab.
   const failingFieldInfo = useMemo(() => {
     const map = new Map<string, string[]>();
     const failingNames = new Set(failingInvariants.map((v) => v.name));
@@ -639,9 +543,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     return self?.parentKey ?? null;
   }, [data?.lineage, config?.key]);
 
-  // Family extensibility ("Allow extra fields"). The flag lives on the root, so
-  // a root config reads it draft-aware off the displayed revision; a child uses
-  // the server-computed (live) family value. Drives schema `additionalProperties`.
+  // The flag lives on the root: a root reads it draft-aware off the displayed revision,
+  // a child uses the server-computed family value. Drives schema `additionalProperties`.
   const effectiveExtensible =
     parentKey === null
       ? (displayedConfig?.extensible ??
@@ -649,8 +552,8 @@ export default function ConfigDetailPage(): React.ReactElement {
         true)
       : (data?.extensible ?? settings.configsExtensibleByDefault ?? true);
 
-  // Per-field value as resolved by the parent chain (this config excluded), so
-  // an override row can show the inherited value it replaces.
+  // Resolved by the parent chain (this config excluded) so an override row can show
+  // the inherited value it replaces.
   const parentFieldValues = useMemo(() => {
     const map = new Map<string, unknown>();
     if (!data || !displayedConfig || !parentKey) return map;
@@ -671,10 +574,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     return map;
   }, [data, displayedConfig, parentKey]);
 
-  // Descendants that currently declare a field key this config also declares.
-  // Publishing makes this config the owner of those keys, so the cascade strips
-  // the redundant definitions from each descendant ("base wins"). Surfaced as an
-  // informational Callout. Kept above the loading guard for stable hook order.
+  // Descendants declaring a key this config also declares; publishing strips the
+  // redundant definitions ("base wins"). Above the loading guard for stable hook order.
   const reconciliationPreview = useMemo(() => {
     if (!data || !displayedConfig)
       return [] as { name: string; keys: string[] }[];
@@ -686,10 +587,8 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   }, [data, displayedConfig]);
 
-  // Clipboard-export strings for the Export menu, derived from the displayed
-  // revision (so drafts export their proposed state). Schemas are pretty-printed
-  // JSON Schema or TS; the empty schema still emits a valid object schema. Kept
-  // above the loading guard so the hook order stays stable.
+  // Derived from the displayed revision (drafts export their proposed state).
+  // Above the loading guard for stable hook order.
   const exportPayloads = useMemo<ConfigExportPayloads>(() => {
     const prettyJSON = (text: string): string => {
       try {
@@ -727,14 +626,46 @@ export default function ConfigDetailPage(): React.ReactElement {
       }
     };
 
-    // Resolved value = inheritance-merged fields (constants squashed), excluding
-    // fields with no value set anywhere.
     const resolvedObj: Record<string, unknown> = {};
     for (const f of resolved.fields) {
       if (f.value !== undefined) resolvedObj[f.key] = f.value;
     }
 
     const ownFields = displayedConfig?.schema?.fields ?? [];
+    const ap = effectiveExtensible;
+    const codeRenderers: Record<
+      string,
+      (f: SchemaField[], p?: SchemaProjection) => string
+    > = {
+      typescript: (f, p) =>
+        fieldsToTsType(f, { additionalProperties: ap, projection: p }),
+      protobuf: (f, p) =>
+        fieldsToProto(f, { additionalProperties: ap, projection: p }),
+      python: (f, p) =>
+        fieldsToPython(f, { additionalProperties: ap, projection: p }),
+      go: (f, p) =>
+        fieldsToGolang(f, { additionalProperties: ap, projection: p }),
+      rust: (f, p) =>
+        fieldsToRust(f, { additionalProperties: ap, projection: p }),
+    };
+    const renderAll = (fields: SchemaField[]): Record<string, string> => {
+      const out: Record<string, string> = { json: schemaToJson(fields) };
+      for (const [id, render] of Object.entries(codeRenderers)) {
+        out[id] = render(fields);
+      }
+      return out;
+    };
+
+    const projections = displayedConfig?.renderProjections ?? {};
+    const ownProjections = Object.entries(projections).map(([source, p]) => ({
+      source,
+      label: `${source} (${SCHEMA_LANG_LABEL[p.language] ?? p.language})`,
+      text: (codeRenderers[p.language] ?? codeRenderers.typescript)(
+        ownFields,
+        p,
+      ),
+    }));
+
     const ownInvariants = displayedConfig?.schema?.invariants ?? [];
     const validationJsonLogic = ownInvariants.length
       ? JSON.stringify(
@@ -751,8 +682,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           2,
         )
       : "";
-    // CEL export in the documented `invariants:` YAML shape (rule as a CEL
-    // string). JSON.stringify escapes name/rule/message into valid YAML scalars.
     const validationCel = ownInvariants.length
       ? "invariants:\n" +
         ownInvariants
@@ -764,29 +693,20 @@ export default function ConfigDetailPage(): React.ReactElement {
           )
           .join("\n")
       : "";
+
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
       resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
-      ownSchemaJson: schemaToJson(ownFields),
-      ownSchemaTs: fieldsToTsType(ownFields, {
-        additionalProperties: effectiveExtensible,
-      }),
-      ownSchemaProto: fieldsToProto(ownFields, {
-        additionalProperties: effectiveExtensible,
-      }),
-      effectiveSchemaJson: schemaToJson(resolved.effectiveSchema),
-      effectiveSchemaTs: fieldsToTsType(resolved.effectiveSchema, {
-        additionalProperties: effectiveExtensible,
-      }),
-      effectiveSchemaProto: fieldsToProto(resolved.effectiveSchema, {
-        additionalProperties: effectiveExtensible,
-      }),
+      ownSchema: renderAll(ownFields),
+      effectiveSchema: renderAll(resolved.effectiveSchema),
+      ownProjections,
       validationJsonLogic,
       validationCel,
     };
   }, [
     displayedConfig?.value,
     displayedConfig?.schema,
+    displayedConfig?.renderProjections,
     resolved,
     effectiveExtensible,
     squashConstants,
@@ -803,7 +723,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     return <LoadingOverlay />;
   }
 
-  // Start an empty draft regardless of approval settings.
   const handleNewDraft = async () => {
     const res = await apiCall<{ revision?: Revision }>(
       `/configs/${config.id}?forceCreateRevision=1`,
@@ -815,10 +734,8 @@ export default function ConfigDetailPage(): React.ReactElement {
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
   const canDeleteNow =
     permissionsUtil.canDeleteConfig(config) && !!config.archived;
-  // Editing is only meaningful on the live state or a draft.
   const canEditNow = canUpdate && (!selectedRevision || isDraft);
-  // Inline editing is draft-only; the non-draft view shows an "Edit" button
-  // (handleEdit) that drops into a draft.
+  // Inline editing is draft-only; non-draft views show an "Edit" button that drops into a draft.
   const canEditInline = canUpdate && isDraft;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
@@ -838,12 +755,10 @@ export default function ConfigDetailPage(): React.ReactElement {
       displayedConfig.project)
     : "";
 
-  // Own-value object of the currently-displayed config (own fields only).
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // Inline edits target the selected draft; the forceCreateRevision fallback is
-  // defensive and should not be reached (gated by canEditInline).
+  // forceCreateRevision is a defensive fallback, not normally reached (gated by canEditInline).
   const writeQuery = (): string =>
     selectedRevision && isDraft
       ? `?revisionId=${selectedRevision.id}`
@@ -858,11 +773,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  // Set the composition mixins (the `extends` array). Staged into the draft via
-  // the same revision-aware write query as value/schema edits.
-  //
-  // Serialized via a ref + awaited (see savingExtendsRef above): errors are
-  // surfaced instead of becoming unhandled rejections.
+  // Serialized via savingExtendsRef + awaited so errors surface instead of unhandled rejections.
   const saveExtends = async (next: string[]) => {
     if (savingExtendsRef.current) return;
     savingExtendsRef.current = true;
@@ -883,8 +794,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  // Value override (editKey) and schema add/edit (schemaEdit) are mutually
-  // exclusive; both cancelled on tab switch so no editor lingers off-tab.
+  // Both cancelled on tab switch so no editor lingers off-tab.
   const cancelEdits = () => {
     setEditKey(null);
     setEditError(null);
@@ -894,7 +804,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   const startOverride = (f: ResolvedField) => {
     setSchemaEdit(null);
     setEditError(null);
-    // Seed from the resolved value (explicit null, concrete value, or type default).
     // JSON editors accept `null` as literal text, so they never use the null kind.
     const isJson = isJsonField(f.field);
     if (f.value === null && !isJson) {
@@ -952,8 +861,7 @@ export default function ConfigDetailPage(): React.ReactElement {
         parsed = editText;
       }
     }
-    // Surface backend rejections (schema violation, conflict) inline — the Save
-    // button has no setError, so an unhandled rejection would be swallowed.
+    // Surface backend rejections inline; the Save button has no setError of its own.
     try {
       await saveValue({ ...ownValue(), [editKey]: parsed });
       setEditKey(null);
@@ -962,18 +870,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
   };
 
-  // The fields this config appends (its own schema); inherited fields aren't editable here.
   const ownSchema = (): SimpleSchema =>
     displayedConfig.schema ?? { type: "object", fields: [] };
   const ownSchemaKeys = ownSchema().fields.map((sf) => sf.key);
 
-  // Effective-schema keys this config does NOT declare itself — owned by an
-  // ancestor. Declaring one is a "base wins" collision; valuing one is an override.
+  // Ancestor-owned keys: declaring one is a "base wins" collision; valuing one is an override.
   const ancestorOwnedKeys = resolved.effectiveSchema
     .map((sf) => sf.key)
     .filter((k) => !ownSchemaKeys.includes(k));
 
-  // Persist the appended schema (optionally with a value override in the same write).
   const saveSchema = async (
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
@@ -1016,7 +921,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     setSchemaEdit(null);
   };
 
-  // Remove an own field entirely: drop it from the schema and clear its value.
   const removeField = async (key: string) => {
     const v = ownValue();
     const hadOverride = key in v;
@@ -1027,15 +931,13 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // Remove just this config's override of an inherited field (reverts to the
-  // inherited value); the field definition is the parent's, so it's untouched.
+  // Removes only this config's override (reverts to inherited); the parent's definition is untouched.
   const removeOverride = async (key: string) => {
     const v = ownValue();
     delete v[key];
     await saveValue(v);
   };
 
-  // Compact create row when adding, a button otherwise.
   const renderAddField = () =>
     schemaEdit === "add" ? (
       <FieldDefForm
@@ -1067,11 +969,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       )
     );
 
-  // Composition mixins: configs layered on top of the `parent` spine. Candidates
-  // exclude self, the parent, current mixins, and this config's own descendants
-  // (which would close a cycle). Archived configs are hidden as candidates, but
-  // the descendant walk uses the archived-inclusive graph so a cycle through an
-  // archived intermediate is still excluded.
+  // Candidates exclude self, parent, current mixins, and descendants (cycle). The descendant
+  // walk uses the archived-inclusive graph so a cycle through an archived node is still excluded.
   const mixinKeys = displayedConfig.extends ?? [];
   const mixinDescendants = new Set(
     getConfigSubtree(config.key, allConfigsForGraph),
@@ -1087,12 +986,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     )
     .map((c) => ({ label: c.name, value: c.key }));
 
-  // The composition row sits at the top of the field table (above the rows and
-  // the "Add field" CTA): a "COMPOSES" label, the mixin configs (removable in a
-  // draft), and a "+ Add config mixin" affordance.
-  // Top-of-table row showing the `parent` this config extends. Mirrors the
-  // compose row but has no actions — the parent is fixed (set at creation), so
-  // there's nothing to remove here.
+  // The parent is fixed at creation, so this row has no actions.
   const renderExtendsRow = () => {
     if (!parentKey) return null;
     const name =
@@ -1125,15 +1019,11 @@ export default function ConfigDetailPage(): React.ReactElement {
             </Link>
           </Flex>
         </Box>
-        {/* No actions: the parent is locked in. */}
         <Box />
       </Grid>
     );
   };
 
-  // Top-of-table row listing the composition mixins, with a right-justified
-  // actions menu (matching the field rows). Only shown when mixins exist; the
-  // "+ Add config mixin" entry point lives at the bottom by "Add field".
   const renderComposeRow = () => {
     if (mixinKeys.length === 0) return null;
     return (
@@ -1145,7 +1035,6 @@ export default function ConfigDetailPage(): React.ReactElement {
         px="3"
         style={{ borderBottom: "1px solid var(--slate-a3)" }}
       >
-        {/* Key column: row label. */}
         <Box style={{ minWidth: 0 }}>
           <Flex align="center" style={{ minHeight: 32 }}>
             <Text
@@ -1159,7 +1048,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Flex>
         </Box>
 
-        {/* Spans the value/type/source columns: the mixin configs. */}
         <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
             {mixinKeys.map((k) => {
@@ -1174,7 +1062,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Flex>
         </Box>
 
-        {/* Actions column: right-justified menu, matching the field rows. */}
         <Flex
           gap="2"
           align="center"
@@ -1214,7 +1101,6 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // Bottom-of-table entry point for adding a mixin, mirroring "Add field".
   const renderAddMixin = () => {
     if (!canEditInline) return null;
     return composeAdding ? (
@@ -1267,8 +1153,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   };
 
-  // An override = an inherited field re-valued by this config (not one of its
-  // own schema fields).
+  // An override is an inherited field re-valued here, not one of this config's own fields.
   const isOverrideField = (f: ResolvedField) =>
     f.source === config.key && !ownSchemaKeys.includes(f.key);
   const overrideCount = resolved.fields.filter(isOverrideField).length;
@@ -1286,214 +1171,126 @@ export default function ConfigDetailPage(): React.ReactElement {
         ]}
       />
       <Box className="contents container-fluid pagecontents" mt="2">
-        <Flex gap="6" align="start" ref={contentRowRef}>
-          {/* Sidebar — the lineage family (Configs) and the features that
-              reference it (Features). */}
+        <Flex gap="6" align="start">
+          {/* Sidebar */}
           <Box
             style={{
-              width: sidebarCollapsed ? 48 : 220,
+              width: 220,
               flexShrink: 0,
               position: "sticky",
               top: "1rem",
               alignSelf: "flex-start",
               maxHeight: "calc(100vh - 2rem)",
               overflowY: "auto",
-              transition: "width 0.2s ease",
             }}
           >
-            {sidebarCollapsed ? (
-              <Flex direction="column" align="center" gap="3" pt="1">
-                <Tooltip body="Expand panel">
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="2"
-                    radius="full"
-                    onClick={expandSidebar}
-                  >
-                    <PiCaretDoubleRight size={16} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip body={`Configs (${data.lineage.length})`}>
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="2"
-                    style={{ position: "relative", overflow: "visible" }}
-                    onClick={() => {
-                      setSidebarTab("configs");
-                      expandSidebar();
-                    }}
-                  >
-                    <PiStackBold size={18} />
-                    <span style={RAIL_BADGE_STYLE}>{data.lineage.length}</span>
-                  </IconButton>
-                </Tooltip>
-                <Tooltip
-                  body={`Features (${familyReferences?.features.length ?? 0})`}
-                >
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="2"
-                    style={{ position: "relative", overflow: "visible" }}
-                    onClick={() => {
-                      setSidebarTab("features");
-                      expandSidebar();
-                    }}
-                  >
-                    <PiFlag size={18} />
-                    {!!familyReferences?.features.length && (
-                      <span style={RAIL_BADGE_STYLE}>
-                        {familyReferences.features.length}
-                      </span>
-                    )}
-                  </IconButton>
-                </Tooltip>
-              </Flex>
-            ) : (
-              <>
-                <Flex justify="end" mb="1">
-                  <Tooltip body="Collapse panel">
-                    <IconButton
-                      variant="ghost"
+            <Tabs defaultValue="configs">
+              <TabsList size="1">
+                <TabsTrigger value="configs">
+                  <Flex as="span" align="center" gap="2">
+                    Configs
+                    <Badge
+                      size="xs"
                       color="gray"
-                      size="1"
-                      onClick={collapseSidebar}
+                      radius="full"
+                      label={`${data.lineage.length}`}
+                      style={{ justifyContent: "center", textAlign: "center" }}
+                    />
+                  </Flex>
+                </TabsTrigger>
+                <TabsTrigger value="features">
+                  <Flex as="span" align="center" gap="2">
+                    Features
+                    <Badge
+                      size="xs"
+                      color="gray"
+                      radius="full"
+                      label={`${familyReferences?.features.length ?? 0}`}
+                      style={{ justifyContent: "center", textAlign: "center" }}
+                    />
+                  </Flex>
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="configs">
+                <Box mt="2">
+                  <LineageTree
+                    nodes={data.lineage}
+                    currentKey={config.key}
+                    fieldCounts={data.fieldCounts}
+                    namesByKey={data.configNames}
+                    archivedByKey={data.archivedByKey}
+                    // Only this node's draft is merged into the tree, so flag only it.
+                    draftKeys={isDraft ? { [config.key]: true } : undefined}
+                  />
+                </Box>
+                {canUpdate && (
+                  <Box mt="3" pl="1">
+                    {hasConfigsFeature ? (
+                      <Link
+                        size="2"
+                        weight="medium"
+                        onClick={() => setShowCreateChild(true)}
+                      >
+                        <PiPlusBold
+                          style={{ marginRight: 3, verticalAlign: "middle" }}
+                        />
+                        Add override config
+                      </Link>
+                    ) : (
+                      <PremiumTooltip commercialFeature="feature-configs">
+                        <Link size="2" weight="medium" color="gray">
+                          <PiPlusBold
+                            style={{ marginRight: 3, verticalAlign: "middle" }}
+                          />
+                          Add override config
+                        </Link>
+                      </PremiumTooltip>
+                    )}
+                  </Box>
+                )}
+                {!!data.composerFamilies?.length && (
+                  <Box mt="4">
+                    <Text
+                      as="div"
+                      size="small"
+                      weight="medium"
+                      color="text-low"
+                      ml="1"
+                      mb="1"
                     >
-                      <PiCaretDoubleLeft size={15} />
-                    </IconButton>
-                  </Tooltip>
-                </Flex>
-                <Tabs
-                  value={sidebarTab}
-                  onValueChange={(v) =>
-                    setSidebarTab(v === "features" ? "features" : "configs")
-                  }
-                >
-                  <TabsList size="1">
-                    <TabsTrigger value="configs">
-                      <Flex as="span" align="center" gap="2">
-                        Configs
-                        <Badge
-                          size="xs"
-                          color="gray"
-                          radius="full"
-                          label={`${data.lineage.length}`}
-                          style={{
-                            justifyContent: "center",
-                            textAlign: "center",
-                          }}
+                      Used as a mixin by
+                    </Text>
+                    {data.composerFamilies.map((fam) => (
+                      <Box key={fam.rootKey} mb="2">
+                        <LineageTree
+                          nodes={fam.lineage}
+                          currentKey={config.key}
+                          fieldCounts={data.fieldCounts}
+                          namesByKey={data.configNames}
+                          archivedByKey={data.archivedByKey}
+                          // This config is the mixin row in each composer tree; flag it as draft.
+                          draftKeys={
+                            isDraft ? { [config.key]: true } : undefined
+                          }
                         />
-                      </Flex>
-                    </TabsTrigger>
-                    <TabsTrigger value="features">
-                      <Flex as="span" align="center" gap="2">
-                        Features
-                        <Badge
-                          size="xs"
-                          color="gray"
-                          radius="full"
-                          label={`${familyReferences?.features.length ?? 0}`}
-                          style={{
-                            justifyContent: "center",
-                            textAlign: "center",
-                          }}
-                        />
-                      </Flex>
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="configs">
-                    <Box mt="2">
-                      <LineageTree
-                        nodes={data.lineage}
-                        currentKey={config.key}
-                        fieldCounts={data.fieldCounts}
-                        namesByKey={data.configNames}
-                        archivedByKey={data.archivedByKey}
-                        // Only the local/active draft is merged into the tree, so flag
-                        // just this node when a draft revision is in view.
-                        draftKeys={isDraft ? { [config.key]: true } : undefined}
-                      />
-                    </Box>
-                    {canUpdate && (
-                      <Box mt="3" pl="1">
-                        {hasConfigsFeature ? (
-                          <Link
-                            size="2"
-                            weight="medium"
-                            onClick={() => setShowCreateChild(true)}
-                          >
-                            <PiPlusBold
-                              style={{
-                                marginRight: 3,
-                                verticalAlign: "middle",
-                              }}
-                            />
-                            Add override config
-                          </Link>
-                        ) : (
-                          <PremiumTooltip commercialFeature="feature-configs">
-                            <Link size="2" weight="medium" color="gray">
-                              <PiPlusBold
-                                style={{
-                                  marginRight: 3,
-                                  verticalAlign: "middle",
-                                }}
-                              />
-                              Add override config
-                            </Link>
-                          </PremiumTooltip>
-                        )}
                       </Box>
-                    )}
-                    {!!data.composerFamilies?.length && (
-                      <Box mt="4">
-                        <Text
-                          as="div"
-                          size="small"
-                          weight="medium"
-                          color="text-low"
-                          ml="1"
-                          mb="1"
-                        >
-                          Used as a mixin by
-                        </Text>
-                        {data.composerFamilies.map((fam) => (
-                          <Box key={fam.rootKey} mb="2">
-                            <LineageTree
-                              nodes={fam.lineage}
-                              currentKey={config.key}
-                              fieldCounts={data.fieldCounts}
-                              namesByKey={data.configNames}
-                              archivedByKey={data.archivedByKey}
-                              // The mixin row in each composer tree is this config,
-                              // so flag it as a draft when a draft revision is in view.
-                              draftKeys={
-                                isDraft ? { [config.key]: true } : undefined
-                              }
-                            />
-                          </Box>
-                        ))}
-                      </Box>
-                    )}
-                  </TabsContent>
-                  <TabsContent value="features">
-                    <Box mt="2">
-                      <ConfigFeatureReferences
-                        lineage={data.lineage}
-                        currentKey={config.key}
-                        references={familyReferences}
-                        loading={familyReferencesLoading}
-                      />
-                    </Box>
-                  </TabsContent>
-                </Tabs>
-              </>
-            )}
+                    ))}
+                  </Box>
+                )}
+              </TabsContent>
+              <TabsContent value="features">
+                <Box mt="2">
+                  <ConfigFeatureReferences
+                    lineage={data.lineage}
+                    currentKey={config.key}
+                    references={familyReferences}
+                    loading={familyReferencesLoading}
+                  />
+                </Box>
+              </TabsContent>
+            </Tabs>
           </Box>
 
-          {/* Main */}
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Flex align="start" justify="between" gap="2" mb="2">
               <Box style={{ marginTop: "-4px" }}>
@@ -1610,16 +1407,18 @@ export default function ConfigDetailPage(): React.ReactElement {
             <Box mb="4">
               <Tabs
                 value={tab}
-                onValueChange={(v) => setTab(v as "overview" | "review")}
+                onValueChange={(v) =>
+                  setTabAndScroll(v as "overview" | "review")
+                }
               >
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
-                    {activeDraftCount > 0 && (
+                    {openRevisions.length > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
                         <Badge
-                          label={String(activeDraftCount)}
+                          label={String(openRevisions.length)}
                           color="red"
                           variant="solid"
                           radius="full"
@@ -1653,9 +1452,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     await mutateRevisions();
                   }}
                   onNewDraft={canUpdate ? handleNewDraft : undefined}
-                  onReviewPublish={() => setTab("review")}
-                  onEditDescription={() => setEditDescriptionModal(true)}
-                  promptDraftWhenLive
+                  onReviewPublish={() => setTabAndScroll("review")}
+                  onEditDescription={
+                    canUpdate ? () => setEditDescriptionModal(true) : undefined
+                  }
+                  disablePinning
                 />
 
                 <Box mb="4" pb="5" px="6" className="appbox">
@@ -1674,20 +1475,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                       );
                     }}
                   >
-                    {/* Single tab bar with consistent meanings on every revision:
-                    Form/JSON show this config's own definition (editable only on
-                    a draft); Resolved is the read-only resolved value + effective
-                    schema after inheritance/constants. The right-hand controls
-                    live inside the (full-width) TabsList so its underline runs
-                    the whole width of the appbox and sits under them too. */}
+                    {/* Right-hand controls live inside the full-width TabsList so its
+                    underline runs the whole width and sits under them too. */}
                     <Box pt="4" mb="4">
                       <TabsList style={{ width: "100%" }}>
                         <TabsTrigger value="form">Form</TabsTrigger>
                         <TabsTrigger value="json">JSON</TabsTrigger>
                         <TabsTrigger value="resolved">Resolved</TabsTrigger>
                         <TabsTrigger value="validation">Validation</TabsTrigger>
-                        {/* stopPropagation so the interactive controls don't feed
-                        the TabsList's arrow-key roving focus. */}
+                        {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
                         <Flex
                           align="center"
                           gap="5"
@@ -1700,7 +1496,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </TabsList>
                     </Box>
 
-                    {/* Form — per-field resolved values (override / reset). */}
                     <TabsContent value="form">
                       <Box>
                         {canEditInline && reconciliationPreview.length > 0 && (
@@ -1722,9 +1517,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                           </Callout>
                         )}
                         <Box style={{ minWidth: 800 }}>
-                          {/* Column header — same grid template as the rows so it
-                      aligns. The 5th (actions) column holds the right-aligned
-                      "Show overrides" toggle. */}
                           <Grid
                             columns={FIELD_GRID_TEMPLATE}
                             gapX="5"
@@ -1735,9 +1527,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                             style={{
                               borderBottom: "1px solid var(--slate-a4)",
                               position: "sticky",
-                              // Pin just below the fixed 56px top nav (.topbar) — the
-                              // page scrolls the document, so top:0 would hide the
-                              // header behind the nav.
+                              // Pin below the fixed 56px top nav; the page scrolls the document.
                               top: 56,
                               zIndex: 2,
                               background: "var(--color-panel-solid)",
@@ -1776,9 +1566,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                           {renderComposeRow()}
 
                           {resolved.fields.map((f) => {
-                            // Editing an own field replaces the row with the full editor
-                            // (definition + value); the value is seeded from the resolved
-                            // value, mirroring the inherited-field value editor.
                             if (schemaEdit === f.key) {
                               const isJson = isJsonField(f.field);
                               // JSON editors accept `null` as literal text, so only
@@ -1874,11 +1661,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </Box>
                     </TabsContent>
 
-                    {/* JSON (own value + schema; editable only on a draft) and
-                    Resolved (resolved value + effective schema, read-only) share
-                    ONE editor instance at a fixed tree position, so switching
-                    between them only flips the `view` prop — the component stays
-                    mounted and edit buffers survive. */}
+                    {/* JSON and Resolved share ONE editor instance (only the `view` prop
+                    flips), so the component stays mounted and edit buffers survive. */}
                     {(activeTab === "json" || activeTab === "resolved") && (
                       <ConfigJsonEditor
                         valueJson={displayedConfig.value ?? "{}"}
@@ -1902,11 +1686,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                     )}
 
                     {activeTab === "validation" && (
-                      <Box pt="4">
+                      <Box pt="2">
                         <ConfigInvariantsEditor
                           invariants={ownSchema().invariants ?? []}
-                          // All resolved keys (declared schema fields + value
-                          // keys), so rules can reference schema-less configs too.
                           fieldKeys={resolved.fields.map((f) => f.key)}
                           resolvedValue={invariantValue}
                           canEdit={canEditInline}
@@ -1928,7 +1710,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
             {tab === "review" && (
               <ReviewAndPublishTab<ConfigInterface>
-                revision={selectedRevision ?? displayRevision ?? null}
+                revision={selectedRevision ?? null}
                 allRevisions={allRevisions}
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}
@@ -1971,47 +1753,12 @@ export default function ConfigDetailPage(): React.ReactElement {
       )}
 
       {showArchiveModal && (
-        <ArchiveModal
-          entityNoun="Config"
-          entityId={config.id}
-          isArchived={!!config.archived}
-          apiPathBase="/configs"
-          openRevisions={openRevisions}
-          approvalRequired={approvalRequired}
-          canBypassApproval={canBypassApproval}
-          referenceCount={archiveReferenceCount}
-          referencesLoading={archiveReferencesLoading}
-          referencesList={
-            <ConstantReferencesList
-              features={archiveReferences?.features ?? []}
-              constants={archiveReferences?.constants ?? []}
-            />
-          }
-          renderDraftSelector={({
-            mode,
-            setMode,
-            selectedDraftId,
-            setSelectedDraftId,
-            canAutoPublish,
-            approvalRequired: gated,
-          }) => (
-            <RevisionDraftSelectorForChanges
-              entityId={config.id}
-              openRevisions={openRevisions}
-              allRevisions={allRevisions}
-              mode={mode}
-              setMode={setMode}
-              selectedDraftId={selectedDraftId}
-              setSelectedDraftId={setSelectedDraftId}
-              canAutoPublish={canAutoPublish}
-              approvalRequired={gated}
-            />
-          )}
-          trackingEventModalType="config-archive-modal"
-          close={() => setShowArchiveModal(false)}
-          onRevisionCreated={onRevisionCreated}
+        <ConfigArchiveModal
+          config={displayedConfig}
+          revisionCtx={revisionCtx}
+          onSaved={onRevisionCreated}
           selectFlow={selectRevision}
-          onSaved={mutateDefinitions}
+          close={() => setShowArchiveModal(false)}
         />
       )}
 
@@ -2027,64 +1774,6 @@ export default function ConfigDetailPage(): React.ReactElement {
             await Promise.all([mutateRevisions(), mutate()]);
           }}
           requiresApproval={approvalRequired}
-        />
-      )}
-
-      {confirmRevert && revisionToRevert && (
-        <RevertModal<ConfigInterface>
-          liveEntity={config}
-          revertableFields={CONFIG_REVERTABLE_FIELDS}
-          apiPathBase="/configs"
-          revision={revisionToRevert}
-          allRevisions={allRevisions}
-          diffConfig={REVISION_CONFIG_DIFF_CONFIG}
-          revertsBypassApproval={revertsBypassApproval}
-          approvalRequired={approvalRequired}
-          canBypassApproval={canBypassApproval}
-          renderDraftSelector={({
-            mode,
-            setMode,
-            canAutoPublish,
-            approvalRequired: gated,
-          }) => (
-            <RevisionDraftSelectorForChanges
-              entityId={config.id}
-              openRevisions={[]}
-              allRevisions={allRevisions}
-              mode={mode}
-              setMode={setMode}
-              selectedDraftId={null}
-              setSelectedDraftId={() => undefined}
-              canAutoPublish={canAutoPublish}
-              approvalRequired={gated}
-              hideExisting
-              defaultExpanded
-              triggerPrefix="Revert will be"
-            />
-          )}
-          close={() => {
-            setConfirmRevert(false);
-            setRevisionToRevert(null);
-          }}
-          onRevisionCreated={async (rev) => {
-            await onRevisionCreated(rev);
-            setConfirmRevert(false);
-            setRevisionToRevert(null);
-          }}
-        />
-      )}
-
-      {editDescriptionModal && displayRevision && (
-        <EditRevisionDescriptionModal
-          initialValue={displayRevision.comment || ""}
-          close={() => setEditDescriptionModal(false)}
-          onSubmit={async (description) => {
-            await apiCall(`/revision/${displayRevision.id}/description`, {
-              method: "PATCH",
-              body: JSON.stringify({ description }),
-            });
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
         />
       )}
 
@@ -2129,6 +1818,37 @@ export default function ConfigDetailPage(): React.ReactElement {
             hiddenLabelSections: [OVERFLOW_SECTION_LABEL],
           }}
           onClose={() => setShowAuditModal(false)}
+        />
+      )}
+
+      {confirmRevert && revisionToRevert && (
+        <ConfigRevertModal
+          config={config}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_CONFIG_DIFF_CONFIG}
+          revertsBypassApproval={!!settings.revertsBypassApproval}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canBypassApproval}
+          close={() => setConfirmRevert(false)}
+          onRevisionCreated={async (rev) => {
+            await onRevisionCreated(rev);
+            setConfirmRevert(false);
+          }}
+        />
+      )}
+
+      {editDescriptionModal && selectedRevision && (
+        <EditRevisionDescriptionModal
+          initialValue={selectedRevision.comment || ""}
+          close={() => setEditDescriptionModal(false)}
+          onSubmit={async (description) => {
+            await apiCall(`/revision/${selectedRevision.id}/description`, {
+              method: "PATCH",
+              body: JSON.stringify({ description }),
+            });
+            await mutateRevisions();
+          }}
         />
       )}
 

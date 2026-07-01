@@ -17,10 +17,8 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    // Deleting a live (non-archived) config is production-affecting (features
-    // and child configs implementing it would lose their backing). Mirror
-    // constants/features: allow it only when the org has opted into unrestricted
-    // REST writes; otherwise require archiving first.
+    // Deleting a live config is production-affecting (dependents lose their
+    // backing), so require archiving first unless the org opted into bypass.
     if (!config.archived && !canUseRestApiBypassSetting(req)) {
       throw new BadRequestError(
         "Cannot delete a live config via the REST API when 'REST API always bypasses approval requirements' is disabled. " +

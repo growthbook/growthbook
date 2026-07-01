@@ -47,8 +47,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     );
   }
 
-  // Reconstruct the config's state at the time of the historical revision (base
-  // snapshot + its proposed changes = post-merge state).
+  // Reconstruct the historical revision's post-merge state (snapshot + changes).
   const targetState = applyPatchToSnapshot(
     targetRevision.target.snapshot as ConfigInterface,
     targetRevision.target.proposedChanges,
@@ -63,15 +62,13 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
     } else if (field === "parent") {
-      // Absent in the target but set live → clear the lineage on revert (an
-      // empty string clears `parent`; see the merge path's clear handling).
+      // Absent in target but set live → clear it; "" clears `parent`.
       fieldsToUpdate[field] = "";
     } else if (field === "extends") {
       fieldsToUpdate[field] = [];
     }
-    // Other optional fields absent in the target are left as-is: a revert never
-    // needs to null them in practice, and clearing them generically risks
-    // writing an invalid shape (e.g. an empty `schema`).
+    // Other optional fields absent in the target are left as-is; clearing them
+    // generically risks writing an invalid shape (e.g. an empty `schema`).
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -80,10 +77,9 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     );
   }
 
-  // Resolve the revert strategy up front so validation can match it: a publish
-  // uses the bypassable publish-time check (block-vs-warn + ?ignoreWarnings),
-  // while a draft uses the write-time check (a draft can be staged for later
-  // review even if it won't pass publish).
+  // Resolve the strategy up front so validation matches: publish uses the
+  // bypassable publish-time check; a draft uses the write-time check (it can be
+  // staged for later review even if it won't pass publish).
   const revertsBypassApproval =
     !!req.organization.settings?.revertsBypassApproval;
   const strategy =
@@ -167,9 +163,8 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     return { revision: await toApiConfigRevision(draft, req.context) };
   }
 
-  // Record the already-merged revert revision FIRST, then apply it. If the apply
-  // fails, delete the just-created revision so we never leave a "reverted"
-  // record with no corresponding live change.
+  // Record the merged revision FIRST, then apply; roll it back if the apply
+  // fails, so a "reverted" record never lacks a live change.
   const merged = await req.context.models.revisions.createMerged({
     type: "config",
     id: config.id,

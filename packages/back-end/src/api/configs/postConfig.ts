@@ -22,7 +22,6 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     req.body;
   const extendsKeys = req.body.extends;
   // Value arrives as a native JSON object; stored/validated as a JSON string.
-  // (Configs are environment-agnostic — no per-environment overrides.)
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
 
@@ -30,9 +29,8 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  // Configs are a premium feature. Creation is gated; updating/deleting existing
-  // configs is intentionally NOT, so a lapsed license can still manage what it
-  // already has (it just can't create new ones).
+  // Only creation is premium-gated; update/delete are not, so a lapsed license
+  // can still manage existing configs.
   if (!req.context.hasPremiumFeature("feature-configs")) {
     throw new PlanDoesNotAllowError(
       "Creating configs requires a plan that includes feature configs.",
@@ -43,12 +41,11 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     await req.context.models.projects.ensureProjectsExist([project]);
   }
 
-  // Config keys are unique within the config namespace (a constant may share the
-  // key — `@config:foo` and `@const:foo` are distinct).
+  // Unique within the config namespace; a constant may share the key
+  // (`@config:foo` and `@const:foo` are distinct).
   await assertKeyAvailable(req.context, key, "config");
 
-  // Configs are always JSON objects (empty allowed). Lineage is expressed via
-  // `parent`/`extends`, so a `@config:` ref in the value is rejected.
+  // A `@config:` ref in the value is rejected (lineage lives on `parent`/`extends`).
   if (value !== undefined)
     validateResolvableValue({
       type: "json",
@@ -60,8 +57,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   // Inheritance lives on `parent` (spine) + `extends` (mixins); never in value.
   const parent = req.body.parent || "";
 
-  // Convert the schema envelope (JSON Schema / TypeScript) to the internal
-  // SimpleSchema in one call — this is what makes create single-shot from source.
+  // Converting the schema envelope here keeps create single-shot from source.
   const {
     schema: resolvedSchema,
     warnings,
@@ -87,15 +83,13 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       }
     : resolvedSchema;
 
-  // A child created under a base can't re-declare an inherited field ("base
-  // wins"); strip any colliding keys from its appended schema up front.
+  // "Base wins": strip any inherited field keys a child tries to re-declare.
   const normalizedSchema =
     await req.context.models.configs.normalizeSchemaAgainstAncestors(
       { key, parent: parent || undefined, extends: extendsKeys, value },
       schemaWithInvariants,
     );
 
-  // Enforce the value against the (effective) schema.
   const storedValue = stripConfigExtends(value);
   await assertConfigValueValid(
     req.context,
@@ -113,11 +107,8 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 
-  // Creation never requires approval (consistent with features): a brand-new
-  // config has no dependents, so creating it can't change any resolved value.
-  // Approvals apply to subsequent changes via the revision flow.
-
-  // Permission is enforced again by the model's canCreate.
+  // Creation never requires approval: a brand-new config has no dependents, so
+  // it can't change any resolved value. Approvals apply to later changes.
   const config = await req.context.models.configs.create({
     key,
     name,
@@ -129,14 +120,12 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     project: project || "",
     schema: normalizedSchema,
     extensible,
-    // Capture the consuming source's named-type structure for typed export.
     ...(req.body.source && projection
       ? { renderProjections: { [req.body.source]: projection } }
       : {}),
   });
 
-  // Backfill a live (published) revision so the config is immediately editable
-  // through the revision system (mirrors the internal controller).
+  // Backfill a live revision so the config is immediately editable via revisions.
   await ensureLiveRevisionExists(
     req.context,
     "config",

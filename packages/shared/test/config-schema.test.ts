@@ -545,6 +545,21 @@ describe("fieldsToTsType", () => {
     expect(ts).toContain("host: string | null;");
   });
 
+  it("renders a nullable+optional field as `?: T | null` (not loose `?: T`)", () => {
+    const ts = fieldsToTsType(
+      [
+        field({
+          key: "fallbackRegion",
+          type: "string",
+          nullable: true,
+          required: false,
+        }),
+      ],
+      { name: "Config" },
+    );
+    expect(ts).toContain("fallbackRegion?: string | null;");
+  });
+
   it("renders a nested-object field's schema as an inline TS shape", () => {
     const nested = field({
       key: "http",
@@ -1149,6 +1164,64 @@ describe("fieldsToProto", () => {
   });
 });
 
+describe("proto nullable (wrapper types)", () => {
+  it("renders nullable scalars as well-known wrapper types + import", () => {
+    const proto = fieldsToProto(
+      [
+        field({ key: "region", type: "string", nullable: true }),
+        field({ key: "port", type: "integer", nullable: true }),
+        field({ key: "ratio", type: "float", nullable: true }),
+        field({ key: "enabled", type: "boolean", nullable: true }),
+        field({ key: "name", type: "string" }), // non-nullable stays plain
+      ],
+      { name: "Cfg" },
+    );
+    expect(proto).toContain('import "google/protobuf/wrappers.proto";');
+    expect(proto).toContain("google.protobuf.StringValue region = 1;");
+    expect(proto).toContain("google.protobuf.Int32Value port = 2;");
+    expect(proto).toContain("google.protobuf.DoubleValue ratio = 3;");
+    expect(proto).toContain("google.protobuf.BoolValue enabled = 4;");
+    expect(proto).toContain("string name = 5;");
+  });
+
+  it("omits the wrappers import when no nullable scalar is present", () => {
+    const proto = fieldsToProto([field({ key: "name", type: "string" })], {
+      name: "Cfg",
+    });
+    expect(proto).not.toContain("google/protobuf/wrappers.proto");
+  });
+
+  it("parses wrapper types back to nullable scalars", () => {
+    const { fields } = protoToFields(`
+      syntax = "proto3";
+      import "google/protobuf/wrappers.proto";
+      message Cfg {
+        google.protobuf.StringValue region = 1;
+        google.protobuf.Int32Value port = 2;
+      }
+    `);
+    const region = fields.find((f) => f.key === "region");
+    const port = fields.find((f) => f.key === "port");
+    expect(region?.nullable).toBe(true);
+    expect(region?.type).toBe("string");
+    expect(port?.nullable).toBe(true);
+    expect(port?.type).toBe("integer");
+  });
+
+  it("round-trips nullable through proto → fields → proto → fields", () => {
+    const original = [
+      field({ key: "region", type: "string", nullable: true }),
+      field({ key: "port", type: "integer", nullable: true, required: false }),
+      field({ key: "name", type: "string" }),
+    ];
+    const { fields } = protoToFields(fieldsToProto(original, { name: "Cfg" }));
+    expect(fields.length).toBe(original.length);
+    fields.forEach((f, i) => {
+      expect(fieldsCanonicallyEqual(f, original[i])).toBe(true);
+    });
+  });
+});
+
 describe("proto projection (named-message round-trip)", () => {
   const src = `
     message RetryPolicy { int32 max_attempts = 1; }
@@ -1434,5 +1507,65 @@ class AppConfig(BaseModel):
     expect(py).toContain("class Retry(BaseModel):");
     expect(py).toContain("retry: Retry");
     expect(py).toContain("backoff_ms: Optional[int] = None");
+  });
+});
+
+describe("converter review regressions", () => {
+  it("python: defines multi-level nested classes before use", () => {
+    const py = fieldsToPython(
+      [
+        field({
+          key: "outer",
+          jsonSchema: JSON.stringify({
+            type: "object",
+            required: ["inner"],
+            properties: {
+              inner: {
+                type: "object",
+                required: ["leaf"],
+                properties: { leaf: { type: "string" } },
+              },
+            },
+          }),
+        }),
+      ],
+      { name: "Root" },
+    );
+    // Inner is referenced by Outer, so it must be defined first (no NameError).
+    expect(
+      py.search(/class \w*Inner\w*\(BaseModel\)|class Inner\b/),
+    ).toBeLessThan(py.search(/class Outer\b/));
+    expect(py.search(/class Outer\b/)).toBeLessThan(py.search(/class Root\b/));
+  });
+
+  it("python: renders a numeric enum as numeric Literal (not stringified)", () => {
+    const py = fieldsToPython([
+      field({
+        key: "level",
+        jsonSchema: JSON.stringify({ type: "integer", enum: [1, 2, 3] }),
+      }),
+    ]);
+    expect(py).toContain("Literal[1, 2, 3]");
+  });
+
+  it("go: resolves a slice-of-pointers field ([]*Foo) and picks the right root", () => {
+    const src =
+      `type Foo struct {
+  A string ` +
+      '`json:"a"`' +
+      `
+}
+type Cfg struct {
+  Items []*Foo ` +
+      '`json:"items"`' +
+      `
+  Name  string ` +
+      '`json:"name"`' +
+      `
+}`;
+    const { fields, projection } = golangToFields(src);
+    expect(fields.map((f) => f.key).sort()).toEqual(["items", "name"]);
+    expect(projection?.rootName).toBe("Cfg");
+    expect(projection?.typeNames).toEqual({ "/properties/items/items": "Foo" });
   });
 });

@@ -29,9 +29,8 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   const { name, owner, description, project, parent, extensible } = req.body;
   const extendsKeys = req.body.extends;
 
-  // Re-check edit permission against the merged change set so a `project` move
-  // requires edit on both old AND new project. Done BEFORE probing project
-  // existence so the endpoint can't be used as an existence oracle.
+  // Re-check edit permission so a `project` move needs edit on old AND new.
+  // Done BEFORE probing project existence so it can't be an existence oracle.
   if (
     !req.context.permissions.canUpdateConfig(config, {
       project: typeof project !== "undefined" ? project : config.project,
@@ -52,14 +51,12 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
     }
     fieldsToUpdate.project = project;
   }
-  // Empty string detaches from the parent (root config). Stage the literal value
-  // (including "") so the merge clears it — `buildPatchOps` drops only
-  // null/undefined. Lineage cycles are rejected at merge time by the model.
+  // Stage the literal value (incl. "" to detach the parent); buildPatchOps drops
+  // only null/undefined. Lineage cycles are rejected at merge time by the model.
   if (typeof parent !== "undefined") {
     fieldsToUpdate.parent = parent;
   }
-  // Store the array as-is (including `[]` to clear all mixins). `undefined` is
-  // dropped by buildPatchOps and would silently no-op the clear.
+  // Store as-is (incl. `[]` to clear); `undefined` would be dropped and no-op the clear.
   if (typeof extendsKeys !== "undefined") {
     fieldsToUpdate.extends = extendsKeys;
   }
@@ -96,9 +93,8 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       return { revision: await toApiConfigRevision(closed, req.context) };
     }
 
-    // Reparenting, changing mixins, or toggling extensibility changes the
-    // effective ancestor schema; the draft's existing value(s) must still
-    // conform.
+    // Reparenting/mixin/extensibility changes shift the effective schema; the
+    // draft's value(s) must still conform.
     if (
       typeof parent !== "undefined" ||
       typeof extendsKeys !== "undefined" ||
@@ -124,10 +120,8 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
         { value: draft.value },
       );
 
-      // A lineage change shifts which fields the bases own, so re-normalize the
-      // draft's own schema now ("base wins"). Without this, reviewers see a stale
-      // schema until publish re-runs normalization. Extensibility alone doesn't
-      // change ownership, so only re-normalize on parent/extends edits.
+      // "Base wins": re-normalize now on a lineage change so reviewers don't see
+      // a stale schema until publish. Extensibility alone doesn't change ownership.
       if (
         draft.schema &&
         (typeof parent !== "undefined" || typeof extendsKeys !== "undefined")

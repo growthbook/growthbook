@@ -56,11 +56,37 @@ function toStr(v: unknown): string | undefined {
   return typeof v === "string" ? v : JSON.stringify(v, null, 2);
 }
 
-// Value + per-environment overrides, one block per value.
-export function renderConstantValues(pre: Pre, post: Post): ReactNode | null {
-  const rows: ReactNode[] = [
-    <ValueRow key="__value" pre={toStr(pre?.value)} post={toStr(post.value)} />,
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+// Drill into two parsed JSON objects, emitting one row per changed leaf keyed by
+// its dotted path (e.g. `port`, `db.host`). Arrays and scalars are leaves, so a
+// changed array shows whole. Falls back to a single before/after row when the
+// values aren't both objects (scalar value, type change, create/delete).
+function valueDiffRows(pre: unknown, post: unknown, path: string): ReactNode[] {
+  if (isPlainObject(pre) && isPlainObject(post)) {
+    const keys = Array.from(
+      new Set([...Object.keys(pre), ...Object.keys(post)]),
+    ).sort();
+    return keys.flatMap((k) =>
+      valueDiffRows(pre[k], post[k], path ? `${path}.${k}` : k),
+    );
+  }
+  if (isEqual(pre, post)) return [];
+  return [
+    <ValueRow
+      key={path || "__value"}
+      label={path || undefined}
+      pre={toStr(pre)}
+      post={toStr(post)}
+    />,
   ];
+}
+
+// Value + per-environment overrides, drilled to field-level rows for JSON.
+export function renderConstantValues(pre: Pre, post: Post): ReactNode | null {
+  const rows: ReactNode[] = [...valueDiffRows(pre?.value, post.value, "")];
 
   const preEnvs = pre?.environmentValues ?? {};
   const postEnvs = post.environmentValues ?? {};
@@ -68,14 +94,7 @@ export function renderConstantValues(pre: Pre, post: Post): ReactNode | null {
     new Set([...Object.keys(preEnvs), ...Object.keys(postEnvs)]),
   ).sort();
   for (const env of envIds) {
-    rows.push(
-      <ValueRow
-        key={env}
-        label={env}
-        pre={toStr(preEnvs[env])}
-        post={toStr(postEnvs[env])}
-      />,
-    );
+    rows.push(...valueDiffRows(preEnvs[env], postEnvs[env], env));
   }
 
   const visible = rows.filter(Boolean);
@@ -154,7 +173,22 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-// Config field definitions (the `schema` field), one chunk per changed key.
+// Friendly labels for the SimpleSchema field attributes (the canonical config
+// schema that JSON Schema and the language projections are generated from).
+const SCHEMA_FIELD_PROP_LABELS: Record<string, string> = {
+  type: "type",
+  required: "required",
+  default: "default",
+  description: "description",
+  enum: "allowed values",
+  min: "min",
+  max: "max",
+  nullable: "nullable",
+  jsonSchema: "JSON Schema",
+};
+
+// Diff of the config schema (`schema.fields` — the structured field definitions,
+// not a projection). One row per changed field attribute, e.g. `port → type`.
 export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
   const preFields = pre?.schema?.fields ?? [];
   const postFields = post.schema?.fields ?? [];
@@ -168,14 +202,39 @@ export function renderConstantSchema(pre: Pre, post: Post): ReactNode | null {
     const a = preFields.find((f) => f.key === k);
     const b = postFields.find((f) => f.key === k);
     if (isEqual(a, b)) continue;
-    rows.push(
-      <ValueRow
-        key={k}
-        label={k || "(new field)"}
-        pre={a ? JSON.stringify(a, null, 2) : undefined}
-        post={b ? JSON.stringify(b, null, 2) : undefined}
-      />,
-    );
+
+    const fieldName = k || "(unnamed)";
+
+    // Added or removed field → one row with the whole definition.
+    if (!a || !b) {
+      rows.push(
+        <ValueRow
+          key={k}
+          label={`${fieldName} field — ${a ? "removed" : "added"}`}
+          pre={a ? JSON.stringify(a, null, 2) : undefined}
+          post={b ? JSON.stringify(b, null, 2) : undefined}
+        />,
+      );
+      continue;
+    }
+
+    // Edited field → one row per changed attribute, with a friendly label.
+    const aRec = a as Record<string, unknown>;
+    const bRec = b as Record<string, unknown>;
+    const props = Array.from(
+      new Set([...Object.keys(aRec), ...Object.keys(bRec)]),
+    ).filter((p) => p !== "key");
+    for (const p of props) {
+      if (isEqual(aRec[p], bRec[p])) continue;
+      rows.push(
+        <ValueRow
+          key={`${k}.${p}`}
+          label={`${fieldName} field → ${SCHEMA_FIELD_PROP_LABELS[p] ?? p}`}
+          pre={toStr(aRec[p])}
+          post={toStr(bRec[p])}
+        />,
+      );
+    }
   }
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
@@ -393,13 +452,14 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
         getBadges: getConstantSettingsBadges,
       },
       {
+        // Configs are environment-agnostic — no `environmentValues`.
         label: "Value",
-        keys: ["value", "environmentValues"] as (keyof ConfigInterface)[],
+        keys: ["value"] as (keyof ConfigInterface)[],
         render: renderConstantValues,
         getBadges: getConstantValuesBadges,
       },
       {
-        label: "Fields",
+        label: "Schema",
         keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConstantSchema,
         getBadges: getConstantSchemaBadges,

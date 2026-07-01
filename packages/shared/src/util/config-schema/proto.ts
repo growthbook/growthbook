@@ -19,8 +19,11 @@ import {
 // extensions) degrades to a permissive type WITH a warning rather than failing.
 //
 // Conventions (proto3 has no `required`): a field is treated as required unless
-// it carries the `optional` keyword. Scalar/enum/message round-trip; `bytes` maps
-// to string with a warning; `map<K,V>` becomes an open object keyed by V.
+// it carries the `optional` keyword. Nullable scalars use the well-known wrapper
+// types (`google.protobuf.StringValue` etc.) since proto3 has no null — these
+// round-trip, whereas `optional` would conflate nullable with not-required.
+// Scalar/enum/message round-trip; `bytes` maps to string with a warning;
+// `map<K,V>` becomes an open object keyed by V.
 
 const MAX_NEST_DEPTH = 6;
 
@@ -113,6 +116,10 @@ function typeTokenToNode(
   warnings: SchemaWarning[],
 ): Record<string, unknown> | null {
   if (token in SCALARS) return { ...SCALARS[token] };
+  // Well-known wrapper types model a nullable scalar in proto3.
+  if (token in WRAPPER_TO_SCALAR) {
+    return { type: [WRAPPER_TO_SCALAR[token], "null"] };
+  }
   if (token === "bytes") {
     warnings.push({
       code: "unresolved-type",
@@ -347,6 +354,31 @@ const SCALAR_OUT: Record<string, string> = {
   boolean: "bool",
 };
 
+// proto3 has no null. The idiomatic way to express a nullable scalar is a
+// well-known wrapper type, which (unlike the `optional` keyword) round-trips
+// losslessly. Keyed by the proto scalar token we'd otherwise emit.
+const NULLABLE_WRAPPER_FOR: Record<string, string> = {
+  string: "google.protobuf.StringValue",
+  bool: "google.protobuf.BoolValue",
+  int32: "google.protobuf.Int32Value",
+  double: "google.protobuf.DoubleValue",
+};
+
+const WRAPPER_TO_SCALAR: Record<
+  string,
+  "string" | "boolean" | "integer" | "number"
+> = {
+  "google.protobuf.StringValue": "string",
+  "google.protobuf.BytesValue": "string",
+  "google.protobuf.BoolValue": "boolean",
+  "google.protobuf.Int32Value": "integer",
+  "google.protobuf.Int64Value": "integer",
+  "google.protobuf.UInt32Value": "integer",
+  "google.protobuf.UInt64Value": "integer",
+  "google.protobuf.FloatValue": "number",
+  "google.protobuf.DoubleValue": "number",
+};
+
 // Render context: the JSON-Pointer of the node being rendered + the projection.
 // A nested message uses the projection's captured name at its pointer, else a
 // name generated from the field key.
@@ -466,8 +498,15 @@ function renderField(
     modifier = "repeated ";
   } else {
     ({ token, comment } = protoTypeFor(node, key, nested, depth, ctx));
-    // proto3: presence (optional) approximates nullable / not-required.
-    if (isNullable || !required) modifier = "optional ";
+    // Nullable scalars → a wrapper type (round-trips). For nullable objects,
+    // enums (which carry a `// one of` comment), and anything else a wrapper
+    // can't represent, fall back to presence (`optional`), which is lossy.
+    if (isNullable && comment === undefined && NULLABLE_WRAPPER_FOR[token]) {
+      token = NULLABLE_WRAPPER_FOR[token];
+      if (!required) modifier = "optional ";
+    } else if (isNullable || !required) {
+      modifier = "optional ";
+    }
   }
   const line = `${modifier}${token} ${key} = ${num};`;
   return comment ? `${line} // ${comment}` : line;
@@ -540,8 +579,14 @@ export function fieldsToProto(
   const root = `message ${rootName} {\n${lines
     .map((l) => `  ${l}`)
     .join("\n")}\n}`;
+  const usesWrappers =
+    root.includes("google.protobuf.") ||
+    nested.some((s) => s.includes("google.protobuf."));
+  const header = usesWrappers
+    ? `syntax = "proto3";\nimport "google/protobuf/wrappers.proto";`
+    : `syntax = "proto3";`;
   // Nested messages first (deterministic), then the root.
-  return [`syntax = "proto3";`, ...nested.reverse(), root].join("\n\n");
+  return [header, ...nested.reverse(), root].join("\n\n");
 }
 
 export const protoConverter: SchemaConverter = {

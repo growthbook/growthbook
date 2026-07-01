@@ -53,8 +53,7 @@ export const postConfigRevisionRebase = createApiRequestHandler(
   const conflicts = mergeResult.conflicts || [];
   const strategies = req.body.conflictResolutions ?? {};
 
-  // Every conflicting field needs an explicit strategy, else 400. Config content
-  // fields are scalars/objects (value/schema/etc.), so overwrite/discard apply.
+  // Every conflicting field needs an explicit overwrite/discard strategy, else 400.
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
     if (strategy !== "overwrite" && strategy !== "discard") {
