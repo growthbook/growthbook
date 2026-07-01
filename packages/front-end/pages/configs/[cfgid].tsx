@@ -29,7 +29,16 @@ import {
 import { isEqual } from "lodash";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiPlusBold, PiCaretDown, PiCheckBold, PiCopy } from "react-icons/pi";
+import {
+  PiPlusBold,
+  PiCaretDown,
+  PiCheckBold,
+  PiCopy,
+  PiCaretDoubleLeft,
+  PiCaretDoubleRight,
+  PiStackBold,
+  PiFlag,
+} from "react-icons/pi";
 import { REVIEW_REQUESTED_STATUSES } from "shared/validators";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -51,6 +60,7 @@ import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
+import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
@@ -81,6 +91,7 @@ import {
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   useConfigFamilyReferences,
   useConstantReferences,
@@ -237,6 +248,23 @@ const CONFIG_REVERTABLE_FIELDS = [
   "renderProjections",
 ] as const satisfies readonly (keyof ConfigInterface)[];
 
+// Count bubble overlaid on the collapsed-rail Configs/Features icons.
+const RAIL_BADGE_STYLE: React.CSSProperties = {
+  position: "absolute",
+  top: -4,
+  right: -4,
+  minWidth: 15,
+  height: 15,
+  padding: "0 4px",
+  borderRadius: 8,
+  background: "var(--accent-9)",
+  color: "white",
+  fontSize: 9,
+  fontWeight: 600,
+  lineHeight: "15px",
+  textAlign: "center",
+};
+
 export default function ConfigDetailPage(): React.ReactElement {
   const router = useRouter();
   const { cfgid } = router.query;
@@ -262,6 +290,42 @@ export default function ConfigDetailPage(): React.ReactElement {
   );
   const [editDescriptionModal, setEditDescriptionModal] = useState(false);
   const [tab, setTab] = useState<"overview" | "review">("overview");
+  const [userSidebarCollapsed, setUserSidebarCollapsed] =
+    useLocalStorage<boolean>("config-lineage-sidebar-collapsed", false);
+  const [sidebarTab, setSidebarTab] = useState<"configs" | "features">(
+    "configs",
+  );
+  // The lineage panel auto-rails when the *content container* (not the screen)
+  // is too narrow for the panel + review. The main nav skews the viewport, so we
+  // measure the actual available width with a ResizeObserver.
+  const contentRowRef = useRef<HTMLDivElement>(null);
+  const [isNarrowContainer, setIsNarrowContainer] = useState(false);
+  // Transient "peek" of the full panel while the container is narrow.
+  const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
+  useEffect(() => {
+    const el = contentRowRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => {
+      const narrow = el.clientWidth < 900;
+      setIsNarrowContainer(narrow);
+      if (narrow) setNarrowSidebarOpen(false);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const sidebarCollapsed = isNarrowContainer
+    ? !narrowSidebarOpen
+    : userSidebarCollapsed;
+  const collapseSidebar = () =>
+    isNarrowContainer
+      ? setNarrowSidebarOpen(false)
+      : setUserSidebarCollapsed(true);
+  const expandSidebar = () =>
+    isNarrowContainer
+      ? setNarrowSidebarOpen(true)
+      : setUserSidebarCollapsed(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showOverrides, setShowOverrides] = useState(false);
@@ -519,6 +583,16 @@ export default function ConfigDetailPage(): React.ReactElement {
       })),
     [resolved.fields, squashConstants],
   );
+
+  // Flat resolved (inherited+own) value object for live invariant feedback —
+  // mirrors what the back-end publish gate evaluates (raw values, refs as-is).
+  const invariantValue = useMemo(() => {
+    const o: Record<string, unknown> = {};
+    for (const f of resolved.fields) {
+      if (f.value !== undefined) o[f.key] = f.value;
+    }
+    return o;
+  }, [resolved.fields]);
 
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
@@ -833,8 +907,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
     renderProjections?: Record<string, SchemaProjection>,
+    invariants?: SimpleSchema["invariants"],
   ) => {
-    const schema: SimpleSchema = { type: ownSchema().type, fields };
+    // Preserve existing invariants across field edits; the rules editor passes a
+    // new list when it changes them.
+    const nextInvariants = invariants ?? ownSchema().invariants;
+    const schema: SimpleSchema = {
+      type: ownSchema().type,
+      fields,
+      ...(nextInvariants?.length ? { invariants: nextInvariants } : {}),
+    };
     const res = await apiCall<{ revision?: Revision }>(
       `/configs/${config.id}${writeQuery()}`,
       {
@@ -1133,127 +1215,211 @@ export default function ConfigDetailPage(): React.ReactElement {
         ]}
       />
       <Box className="contents container-fluid pagecontents" mt="2">
-        <Flex gap="6" align="start">
+        <Flex gap="6" align="start" ref={contentRowRef}>
           {/* Sidebar — the lineage family (Configs) and the features that
               reference it (Features). */}
           <Box
             style={{
-              width: 220,
+              width: sidebarCollapsed ? 48 : 220,
               flexShrink: 0,
               position: "sticky",
               top: "1rem",
               alignSelf: "flex-start",
               maxHeight: "calc(100vh - 2rem)",
               overflowY: "auto",
+              transition: "width 0.2s ease",
             }}
           >
-            <Tabs defaultValue="configs">
-              <TabsList size="1">
-                <TabsTrigger value="configs">
-                  <Flex as="span" align="center" gap="2">
-                    Configs
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${data.lineage.length}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
-                    />
-                  </Flex>
-                </TabsTrigger>
-                <TabsTrigger value="features">
-                  <Flex as="span" align="center" gap="2">
-                    Features
-                    <Badge
-                      size="xs"
-                      color="gray"
-                      radius="full"
-                      label={`${familyReferences?.features.length ?? 0}`}
-                      style={{ justifyContent: "center", textAlign: "center" }}
-                    />
-                  </Flex>
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="configs">
-                <Box mt="2">
-                  <LineageTree
-                    nodes={data.lineage}
-                    currentKey={config.key}
-                    fieldCounts={data.fieldCounts}
-                    namesByKey={data.configNames}
-                    archivedByKey={data.archivedByKey}
-                    // Only the local/active draft is merged into the tree, so flag
-                    // just this node when a draft revision is in view.
-                    draftKeys={isDraft ? { [config.key]: true } : undefined}
-                  />
-                </Box>
-                {canUpdate && (
-                  <Box mt="3" pl="1">
-                    {hasConfigsFeature ? (
-                      <Link
-                        size="2"
-                        weight="medium"
-                        onClick={() => setShowCreateChild(true)}
-                      >
-                        <PiPlusBold
-                          style={{ marginRight: 3, verticalAlign: "middle" }}
-                        />
-                        Add override config
-                      </Link>
-                    ) : (
-                      <PremiumTooltip commercialFeature="feature-configs">
-                        <Link size="2" weight="medium" color="gray">
-                          <PiPlusBold
-                            style={{ marginRight: 3, verticalAlign: "middle" }}
-                          />
-                          Add override config
-                        </Link>
-                      </PremiumTooltip>
+            {sidebarCollapsed ? (
+              <Flex direction="column" align="center" gap="3" pt="1">
+                <Tooltip body="Expand panel">
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="2"
+                    radius="full"
+                    onClick={expandSidebar}
+                  >
+                    <PiCaretDoubleRight size={16} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip body={`Configs (${data.lineage.length})`}>
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="2"
+                    style={{ position: "relative", overflow: "visible" }}
+                    onClick={() => {
+                      setSidebarTab("configs");
+                      expandSidebar();
+                    }}
+                  >
+                    <PiStackBold size={18} />
+                    <span style={RAIL_BADGE_STYLE}>{data.lineage.length}</span>
+                  </IconButton>
+                </Tooltip>
+                <Tooltip
+                  body={`Features (${familyReferences?.features.length ?? 0})`}
+                >
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="2"
+                    style={{ position: "relative", overflow: "visible" }}
+                    onClick={() => {
+                      setSidebarTab("features");
+                      expandSidebar();
+                    }}
+                  >
+                    <PiFlag size={18} />
+                    {!!familyReferences?.features.length && (
+                      <span style={RAIL_BADGE_STYLE}>
+                        {familyReferences.features.length}
+                      </span>
                     )}
-                  </Box>
-                )}
-                {!!data.composerFamilies?.length && (
-                  <Box mt="4">
-                    <Text
-                      as="div"
-                      size="small"
-                      weight="medium"
-                      color="text-low"
-                      ml="1"
-                      mb="1"
+                  </IconButton>
+                </Tooltip>
+              </Flex>
+            ) : (
+              <>
+                <Flex justify="end" mb="1">
+                  <Tooltip body="Collapse panel">
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      size="1"
+                      onClick={collapseSidebar}
                     >
-                      Used as a mixin by
-                    </Text>
-                    {data.composerFamilies.map((fam) => (
-                      <Box key={fam.rootKey} mb="2">
-                        <LineageTree
-                          nodes={fam.lineage}
-                          currentKey={config.key}
-                          fieldCounts={data.fieldCounts}
-                          namesByKey={data.configNames}
-                          archivedByKey={data.archivedByKey}
-                          // The mixin row in each composer tree is this config,
-                          // so flag it as a draft when a draft revision is in view.
-                          draftKeys={
-                            isDraft ? { [config.key]: true } : undefined
-                          }
+                      <PiCaretDoubleLeft size={15} />
+                    </IconButton>
+                  </Tooltip>
+                </Flex>
+                <Tabs
+                  value={sidebarTab}
+                  onValueChange={(v) =>
+                    setSidebarTab(v === "features" ? "features" : "configs")
+                  }
+                >
+                  <TabsList size="1">
+                    <TabsTrigger value="configs">
+                      <Flex as="span" align="center" gap="2">
+                        Configs
+                        <Badge
+                          size="xs"
+                          color="gray"
+                          radius="full"
+                          label={`${data.lineage.length}`}
+                          style={{
+                            justifyContent: "center",
+                            textAlign: "center",
+                          }}
                         />
+                      </Flex>
+                    </TabsTrigger>
+                    <TabsTrigger value="features">
+                      <Flex as="span" align="center" gap="2">
+                        Features
+                        <Badge
+                          size="xs"
+                          color="gray"
+                          radius="full"
+                          label={`${familyReferences?.features.length ?? 0}`}
+                          style={{
+                            justifyContent: "center",
+                            textAlign: "center",
+                          }}
+                        />
+                      </Flex>
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="configs">
+                    <Box mt="2">
+                      <LineageTree
+                        nodes={data.lineage}
+                        currentKey={config.key}
+                        fieldCounts={data.fieldCounts}
+                        namesByKey={data.configNames}
+                        archivedByKey={data.archivedByKey}
+                        // Only the local/active draft is merged into the tree, so flag
+                        // just this node when a draft revision is in view.
+                        draftKeys={isDraft ? { [config.key]: true } : undefined}
+                      />
+                    </Box>
+                    {canUpdate && (
+                      <Box mt="3" pl="1">
+                        {hasConfigsFeature ? (
+                          <Link
+                            size="2"
+                            weight="medium"
+                            onClick={() => setShowCreateChild(true)}
+                          >
+                            <PiPlusBold
+                              style={{
+                                marginRight: 3,
+                                verticalAlign: "middle",
+                              }}
+                            />
+                            Add override config
+                          </Link>
+                        ) : (
+                          <PremiumTooltip commercialFeature="feature-configs">
+                            <Link size="2" weight="medium" color="gray">
+                              <PiPlusBold
+                                style={{
+                                  marginRight: 3,
+                                  verticalAlign: "middle",
+                                }}
+                              />
+                              Add override config
+                            </Link>
+                          </PremiumTooltip>
+                        )}
                       </Box>
-                    ))}
-                  </Box>
-                )}
-              </TabsContent>
-              <TabsContent value="features">
-                <Box mt="2">
-                  <ConfigFeatureReferences
-                    lineage={data.lineage}
-                    currentKey={config.key}
-                    references={familyReferences}
-                    loading={familyReferencesLoading}
-                  />
-                </Box>
-              </TabsContent>
-            </Tabs>
+                    )}
+                    {!!data.composerFamilies?.length && (
+                      <Box mt="4">
+                        <Text
+                          as="div"
+                          size="small"
+                          weight="medium"
+                          color="text-low"
+                          ml="1"
+                          mb="1"
+                        >
+                          Used as a mixin by
+                        </Text>
+                        {data.composerFamilies.map((fam) => (
+                          <Box key={fam.rootKey} mb="2">
+                            <LineageTree
+                              nodes={fam.lineage}
+                              currentKey={config.key}
+                              fieldCounts={data.fieldCounts}
+                              namesByKey={data.configNames}
+                              archivedByKey={data.archivedByKey}
+                              // The mixin row in each composer tree is this config,
+                              // so flag it as a draft when a draft revision is in view.
+                              draftKeys={
+                                isDraft ? { [config.key]: true } : undefined
+                              }
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="features">
+                    <Box mt="2">
+                      <ConfigFeatureReferences
+                        lineage={data.lineage}
+                        currentKey={config.key}
+                        references={familyReferences}
+                        loading={familyReferencesLoading}
+                      />
+                    </Box>
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
           </Box>
 
           {/* Main */}
@@ -1627,6 +1793,23 @@ export default function ConfigDetailPage(): React.ReactElement {
                           {renderAddField()}
                           {renderAddMixin()}
                         </Box>
+                      </Box>
+
+                      <Box mt="5">
+                        <ConfigInvariantsEditor
+                          invariants={ownSchema().invariants ?? []}
+                          fieldKeys={resolved.effectiveSchema.map((f) => f.key)}
+                          resolvedValue={invariantValue}
+                          canEdit={canEditInline}
+                          onChange={(next) =>
+                            saveSchema(
+                              ownSchema().fields,
+                              undefined,
+                              undefined,
+                              next,
+                            )
+                          }
+                        />
                       </Box>
                     </TabsContent>
 

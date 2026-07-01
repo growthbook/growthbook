@@ -20,8 +20,10 @@ export function evaluateInvariants(
   for (const inv of invariants) {
     let satisfied: boolean;
     try {
-      satisfied = truthy(apply(inv.rule as Parameters<typeof apply>[0], value));
+      const rule = JSON.parse(inv.rule) as Parameters<typeof apply>[0];
+      satisfied = truthy(apply(rule, value));
     } catch {
+      // Unparseable or malformed rule → surface as a violation, never throw.
       violations.push({ name: inv.name, message: inv.message });
       continue;
     }

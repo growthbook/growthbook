@@ -3005,10 +3005,7 @@ paths:
                                 type: string
                                 maxLength: 128
                               rule:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties: {}
+                                type: string
                               message:
                                 type: string
                                 maxLength: 10000
@@ -7975,10 +7972,7 @@ paths:
                                 type: string
                                 maxLength: 128
                               rule:
-                                type: object
-                                propertyNames:
-                                  type: string
-                                additionalProperties: {}
+                                type: string
                               message:
                                 type: string
                                 maxLength: 10000

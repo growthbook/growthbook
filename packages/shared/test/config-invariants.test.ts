@@ -3,8 +3,9 @@ import {
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
-// One invariant per pattern from the StreamingPlan spec (rules as JSONLogic).
-const RULES: ConfigInvariant[] = [
+// One invariant per pattern from the StreamingPlan spec. Authored as JSONLogic
+// objects for readability, then stringified (rules are stored as JSON strings).
+const RULE_DEFS: { name: string; rule: unknown; message: string }[] = [
   {
     name: "hdr_requires_4k",
     rule: {
@@ -60,6 +61,12 @@ const RULES: ConfigInvariant[] = [
     message: "Concurrent streams cannot exceed registered devices.",
   },
 ];
+
+const RULES: ConfigInvariant[] = RULE_DEFS.map((r) => ({
+  name: r.name,
+  rule: JSON.stringify(r.rule),
+  message: r.message,
+}));
 
 const valid: Record<string, unknown> = {
   plan_tier: "standard",
@@ -193,24 +200,37 @@ describe("evaluateInvariants", () => {
   });
 
   it("treats a missing field as null (sparse value), per the != null pattern", () => {
-    // downloads off + titles absent(→null) → both unset → ok
     expect(names({ offline_downloads_enabled: false })).not.toContain(
       "downloads_iff_limit",
     );
-    // downloads on + titles absent(→null) → mismatch → flagged
     expect(names({ offline_downloads_enabled: true })).toContain(
       "downloads_iff_limit",
     );
   });
 
-  it("surfaces a malformed rule as a violation instead of throwing", () => {
+  it("surfaces a malformed rule (unknown op) as a violation instead of throwing", () => {
     const bad: ConfigInvariant[] = [
-      { name: "bad", rule: { not_a_real_op: [1, 2] }, message: "bad rule" },
+      {
+        name: "bad_op",
+        rule: JSON.stringify({ not_a_real_op: [1, 2] }),
+        message: "bad op",
+      },
     ];
     let result: ReturnType<typeof evaluateInvariants> = [];
     expect(() => {
       result = evaluateInvariants({}, bad);
     }).not.toThrow();
-    expect(result.map((v) => v.name)).toEqual(["bad"]);
+    expect(result.map((v) => v.name)).toEqual(["bad_op"]);
+  });
+
+  it("surfaces an unparseable rule string as a violation instead of throwing", () => {
+    const bad: ConfigInvariant[] = [
+      { name: "bad_json", rule: "{ not valid json", message: "bad json" },
+    ];
+    let result: ReturnType<typeof evaluateInvariants> = [];
+    expect(() => {
+      result = evaluateInvariants({}, bad);
+    }).not.toThrow();
+    expect(result.map((v) => v.name)).toEqual(["bad_json"]);
   });
 });
