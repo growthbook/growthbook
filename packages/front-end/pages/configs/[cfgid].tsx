@@ -19,6 +19,7 @@ import {
   fieldsToProto,
   getConfigSubtree,
   computeConfigReconciliationPreview,
+  evaluateInvariants,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -593,6 +594,17 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
     return o;
   }, [resolved.fields]);
+
+  // Invariants that currently fail against the displayed (draft-aware) value —
+  // surfaced on the Form tab too, not just the Validation tab.
+  const failingInvariants = useMemo(
+    () =>
+      evaluateInvariants(
+        invariantValue,
+        displayedConfig?.schema?.invariants ?? [],
+      ),
+    [invariantValue, displayedConfig],
+  );
 
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
@@ -1648,6 +1660,18 @@ export default function ConfigDetailPage(): React.ReactElement {
                               : "those fields"}
                             , so the descendant keeps only a value override
                             (base wins).
+                          </Callout>
+                        )}
+                        {failingInvariants.length > 0 && (
+                          <Callout status="error" mt="3">
+                            {failingInvariants.length === 1
+                              ? "1 validation rule is not satisfied:"
+                              : `${failingInvariants.length} validation rules are not satisfied:`}
+                            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                              {failingInvariants.map((v) => (
+                                <li key={v.name}>{v.message}</li>
+                              ))}
+                            </ul>
                           </Callout>
                         )}
                         <Box style={{ minWidth: 800 }}>
