@@ -1807,7 +1807,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             )}
 
             {tab === "validation" && (
-              <Box>
+              <>
                 <ConfigInvariantsEditor
                   invariants={ownSchema().invariants ?? []}
                   fieldKeys={resolved.fields.map((f) => f.key)}
@@ -1817,13 +1817,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     saveSchema(ownSchema().fields, undefined, undefined, next)
                   }
                 />
-                <Box mt="4">
-                  <ConfigCustomHooksSection
-                    config={config}
-                    canManage={canUpdate}
-                  />
-                </Box>
-              </Box>
+                <ConfigCustomHooksSection
+                  config={config}
+                  canManage={canUpdate}
+                />
+              </>
             )}
 
             {tab === "review" && (

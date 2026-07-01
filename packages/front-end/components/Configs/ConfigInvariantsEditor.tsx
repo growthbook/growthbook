@@ -14,6 +14,7 @@ import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -716,15 +717,23 @@ export default function ConfigInvariantsEditor({
   );
 
   return (
-    <Box>
-      <Flex align="center" justify="between" mb="2">
-        <Text weight="medium">Validation rules</Text>
+    <Frame mb="4" px="6" py="4">
+      <Flex align="center" justify="between" mb="1">
+        <Heading as="h3" size="medium" mb="0">
+          Validation rules
+        </Heading>
         {canEdit && (
           <Button variant="ghost" onClick={() => open(-1)}>
             + Add rule
           </Button>
         )}
       </Flex>
+      <Box mb="3">
+        <em className="text-muted">
+          Relational checks JSON Schema can&apos;t express — evaluated against
+          the resolved value at publish.
+        </em>
+      </Box>
 
       {invariants.length === 0 && (
         <Text as="div" size="small" color="text-low">
@@ -791,6 +800,6 @@ export default function ConfigInvariantsEditor({
           {editorBody}
         </ModalStandard>
       )}
-    </Box>
+    </Frame>
   );
 }
