@@ -320,7 +320,6 @@ export function VariationBox({
                 variation={i}
                 experiment={experiment.id}
                 onSuccess={() => mutate?.()}
-                fillHeight
               >
                 <NoImageBox />
               </ScreenshotUpload>
@@ -345,22 +344,20 @@ export function VariationBox({
             {allowImages && (
               <Flex align="center" justify="end" gap="2">
                 {canEdit && !blockFileUploads && (
-                  <div>
-                    <ScreenshotUpload
-                      variation={i}
-                      experiment={experiment.id}
-                      onSuccess={() => mutate?.()}
-                    >
-                      <Link>
-                        <Flex align="center" gap="1">
-                          <PiUploadSimple size="15" />
-                          <Text size="small" weight="semibold">
-                            Image
-                          </Text>
-                        </Flex>
-                      </Link>
-                    </ScreenshotUpload>
-                  </div>
+                  <ScreenshotUpload
+                    variation={i}
+                    experiment={experiment.id}
+                    onSuccess={() => mutate?.()}
+                  >
+                    <Link>
+                      <Flex align="center" gap="1">
+                        <PiUploadSimple size="15" />
+                        <Text size="small" weight="semibold">
+                          Image
+                        </Text>
+                      </Flex>
+                    </Link>
+                  </ScreenshotUpload>
                 )}
                 {v.screenshots.length > 0 ? (
                   <Text color="text-mid">
