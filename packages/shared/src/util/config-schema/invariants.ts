@@ -31,3 +31,61 @@ export function evaluateInvariants(
   }
   return violations;
 }
+
+const COMPARATORS: Record<string, string> = {
+  "==": "==",
+  "===": "==",
+  "!=": "≠",
+  "!==": "≠",
+  "<": "<",
+  "<=": "≤",
+  ">": ">",
+  ">=": "≥",
+};
+
+function describeNode(node: unknown, depth: number): string {
+  if (node === null) return "null";
+  if (typeof node === "string") return JSON.stringify(node);
+  if (typeof node === "number" || typeof node === "boolean")
+    return String(node);
+  if (Array.isArray(node))
+    return node.map((n) => describeNode(n, depth + 1)).join(", ");
+  if (typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (keys.length === 1) {
+      const op = keys[0];
+      const arg = obj[op];
+      if (op === "var")
+        return typeof arg === "string" ? arg : describeNode(arg, depth + 1);
+      if (op === "!") return `NOT ${describeNode(arg, depth + 1)}`;
+      if ((op === "and" || op === "or") && Array.isArray(arg)) {
+        const inner = arg
+          .map((a) => describeNode(a, depth + 1))
+          .join(op === "and" ? " AND " : " OR ");
+        return depth === 0 ? inner : `(${inner})`;
+      }
+      if (COMPARATORS[op] && Array.isArray(arg) && arg.length === 2) {
+        return `${describeNode(arg[0], depth + 1)} ${COMPARATORS[op]} ${describeNode(
+          arg[1],
+          depth + 1,
+        )}`;
+      }
+    }
+  }
+  return JSON.stringify(node);
+}
+
+// A compact, human-readable "simple view" of a JSONLogic rule string, for the
+// editor card + revision diff. Renders the comparison/boolean subset the builder
+// produces (e.g. `hello == "4k"`, `NOT (a AND b)`); falls back to the raw string
+// for anything it can't parse, so it never throws.
+export function describeInvariantRule(ruleJson: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(ruleJson);
+  } catch {
+    return ruleJson;
+  }
+  return describeNode(parsed, 0);
+}

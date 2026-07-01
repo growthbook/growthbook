@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
+import { describeInvariantRule } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import {
   ChangeField,
@@ -217,6 +218,78 @@ export function getConstantSchemaBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
+// Config cross-field validation rules (`schema.invariants`), one row per changed
+// rule. Kept in its own diff section so a rules-only change still shows up as a
+// tracked part of the revision (fields may be untouched).
+export function renderConfigInvariants(pre: Pre, post: Post): ReactNode | null {
+  const preInv = pre?.schema?.invariants ?? [];
+  const postInv = post.schema?.invariants ?? [];
+  if (isEqual(preInv, postInv)) return null;
+
+  // Simple, readable view: `field ≠ "4k" — "message"` rather than raw JSONLogic.
+  const describe = (inv: { rule: string; message: string }): string => {
+    const expr = describeInvariantRule(inv.rule);
+    return inv.message ? `${expr} — "${inv.message}"` : expr;
+  };
+
+  const names = Array.from(
+    new Set([...preInv.map((i) => i.name), ...postInv.map((i) => i.name)]),
+  ).sort();
+  const rows: ReactNode[] = [];
+  for (const n of names) {
+    const a = preInv.find((i) => i.name === n);
+    const b = postInv.find((i) => i.name === n);
+    if (isEqual(a, b)) continue;
+    rows.push(
+      <ValueRow
+        key={n}
+        label={n || "(new rule)"}
+        pre={a ? describe(a) : undefined}
+        post={b ? describe(b) : undefined}
+      />,
+    );
+  }
+  return rows.length ? <Box mt="1">{rows}</Box> : null;
+}
+
+export function getConfigInvariantBadges(pre: Pre, post: Post): DiffBadge[] {
+  const preInv = pre?.schema?.invariants ?? [];
+  const postInv = post.schema?.invariants ?? [];
+  if (isEqual(preInv, postInv)) return [];
+
+  const preNames = new Set(preInv.map((i) => i.name));
+  const postNames = new Set(postInv.map((i) => i.name));
+  const added = [...postNames].filter((n) => !preNames.has(n)).length;
+  const removed = [...preNames].filter((n) => !postNames.has(n)).length;
+  const edited = [...postNames].filter(
+    (n) =>
+      preNames.has(n) &&
+      !isEqual(
+        preInv.find((i) => i.name === n),
+        postInv.find((i) => i.name === n),
+      ),
+  ).length;
+
+  const badges: DiffBadge[] = [];
+  const plural = (n: number) => (n !== 1 ? "s" : "");
+  if (added)
+    badges.push({
+      label: `${added} rule${plural(added)} added`,
+      action: "add rule",
+    });
+  if (removed)
+    badges.push({
+      label: `${removed} rule${plural(removed)} removed`,
+      action: "remove rule",
+    });
+  if (edited)
+    badges.push({
+      label: `${edited} rule${plural(edited)} edited`,
+      action: "edit rule",
+    });
+  return badges;
+}
+
 export function getConstantSettingsBadges(pre: Pre, post: Post): DiffBadge[] {
   const badges: DiffBadge[] = [];
   if (!isEqual(pre?.name, post.name) && post.name !== undefined)
@@ -330,6 +403,12 @@ export const REVISION_CONFIG_DIFF_CONFIG: RevisionDiffConfig<ConfigInterface> =
         keys: ["schema"] as (keyof ConfigInterface)[],
         render: renderConstantSchema,
         getBadges: getConstantSchemaBadges,
+      },
+      {
+        label: "Validation rules",
+        keys: ["schema"] as (keyof ConfigInterface)[],
+        render: renderConfigInvariants,
+        getBadges: getConfigInvariantBadges,
       },
     ],
     // Configs are always JSON objects, so their value/overrides are always parsed.

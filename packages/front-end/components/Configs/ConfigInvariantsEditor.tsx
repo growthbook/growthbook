@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { evaluateInvariants } from "shared/util";
+import { evaluateInvariants, describeInvariantRule } from "shared/util";
 import type { ConfigInvariant } from "shared/util";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -383,7 +383,7 @@ export default function ConfigInvariantsEditor({
                   wordBreak: "break-all",
                 }}
               >
-                {iv.rule}
+                {describeInvariantRule(iv.rule)}
               </Box>
               <Text as="div" size="small" color="text-low" mt="1">
                 {iv.message}

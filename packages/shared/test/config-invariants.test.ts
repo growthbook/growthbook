@@ -1,5 +1,6 @@
 import {
   evaluateInvariants,
+  describeInvariantRule,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
@@ -232,5 +233,48 @@ describe("evaluateInvariants", () => {
       result = evaluateInvariants({}, bad);
     }).not.toThrow();
     expect(result.map((v) => v.name)).toEqual(["bad_json"]);
+  });
+});
+
+describe("describeInvariantRule", () => {
+  const rule = (r: unknown) => describeInvariantRule(JSON.stringify(r));
+
+  it("renders a single comparison as infix", () => {
+    expect(rule({ "==": [{ var: "hello" }, "4k"] })).toBe('hello == "4k"');
+    expect(rule({ "!=": [{ var: "hello" }, "4k"] })).toBe('hello ≠ "4k"');
+  });
+
+  it("renders field-to-field ordering (pattern 6)", () => {
+    expect(
+      rule({
+        "<=": [
+          { var: "max_concurrent_streams" },
+          { var: "max_registered_devices" },
+        ],
+      }),
+    ).toBe("max_concurrent_streams ≤ max_registered_devices");
+  });
+
+  it("renders implication (pattern 1) without wrapping the top-level or", () => {
+    expect(
+      rule({
+        or: [
+          { "!": { var: "hdr_enabled" } },
+          { "==": [{ var: "max_resolution" }, "4k"] },
+        ],
+      }),
+    ).toBe('NOT hdr_enabled OR max_resolution == "4k"');
+  });
+
+  it("parenthesizes a nested boolean group (pattern 4)", () => {
+    expect(
+      rule({
+        "!": { and: [{ var: "ad_supported" }, { var: "skip_ads_enabled" }] },
+      }),
+    ).toBe("NOT (ad_supported AND skip_ads_enabled)");
+  });
+
+  it("falls back to the raw string for unparseable input", () => {
+    expect(describeInvariantRule("{ not json")).toBe("{ not json");
   });
 });
