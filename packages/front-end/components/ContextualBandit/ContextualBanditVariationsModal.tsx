@@ -70,8 +70,6 @@ export default function ContextualBanditVariationsModal({
             screenshots: [],
           }));
 
-          // Weights are algorithm-managed; only resend them (as equal weights)
-          // when the variation count changed so stored weights stay well-formed.
           const countChanged = variations.length !== initialVariationCount;
           const body: {
             variations: typeof variations;

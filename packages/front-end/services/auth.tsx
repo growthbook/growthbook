@@ -42,10 +42,6 @@ export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
 
-// The external REST API (mounted at /api/v1, /api/v2) authenticates via the
-// Authorization header rather than cookies and serves a wildcard CORS origin.
-// Browsers block wildcard-origin responses for credentialed requests, so these
-// calls must omit credentials. Internal app endpoints rely on the session cookie.
 export function isExternalApiPath(url: string): boolean {
   return /^\/api\/v\d/.test(url);
 }
@@ -365,11 +361,6 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      // The external REST API (/api/v1, /api/v2) authenticates via the
-      // Authorization header (not cookies) and its CORS policy uses a wildcard
-      // origin. Browsers reject wildcard-origin responses for credentialed
-      // requests, so omit credentials for those paths (matches useRestApiCall).
-      // Internal app endpoints still rely on the session cookie.
       init.credentials = isExternalApiPath(url) ? "omit" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
@@ -390,11 +381,6 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
-        // Internal endpoints include a `status` field in their JSON error
-        // bodies, but the external REST API (/api/v1/*) returns just
-        // `{ message }`. Backfill the HTTP status on error responses so that
-        // `apiCall` can detect the failure instead of treating the error body
-        // as a successful result.
         if (
           !response.ok &&
           responseData &&
@@ -417,8 +403,6 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        // See isExternalApiPath: external REST API calls must omit credentials
-        // so the wildcard CORS origin isn't rejected by the browser.
         init.credentials = isExternalApiPath(url) ? "omit" : "include";
       }
 

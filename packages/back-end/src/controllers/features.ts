@@ -3587,9 +3587,6 @@ export async function postFeatureContextualBanditRefRule(
     throw new Error("Invalid contextual bandit selected");
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
   let scopedRule: FeatureRule;
   if (rule.allEnvironments === true) {
     scopedRule = {
@@ -3617,7 +3614,6 @@ export async function postFeatureContextualBanditRefRule(
     context.permissions.throwPermissionError();
   }
 
-  // autoPublish always starts from live so the merge stays clean.
   const targetVersion = autoPublish
     ? feature.version
     : forceNewDraft
@@ -3625,8 +3621,6 @@ export async function postFeatureContextualBanditRefRule(
       : (draftVersion ?? feature.version);
   const revision = await getDraftRevision(context, feature, targetVersion);
 
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
   const baseEnvEnabled: Record<string, boolean> = {
     ...Object.fromEntries(
       environments.map((e) => [
@@ -3654,7 +3648,6 @@ export async function postFeatureContextualBanditRefRule(
       ...envToggles,
     };
   }
-  // Title fresh drafts only — don't clobber a user's title on an existing draft.
   const bundlingIntoExistingDraft =
     !!draftVersion && !forceNewDraft && !autoPublish;
   if (!bundlingIntoExistingDraft && !revision.title) {
@@ -3721,7 +3714,6 @@ export async function postFeatureContextualBanditRefRule(
     });
     published = true;
   } else {
-    // Queue the draft for auto-publish on CB `status -> running`.
     await context.models.contextualBandits.addPendingFeatureDraft(
       contextualBandit.id,
       feature.id,
@@ -3729,9 +3721,6 @@ export async function postFeatureContextualBanditRefRule(
     );
   }
 
-  // Mirror the experiment-ref path's explicit linkage so the feature shows up
-  // in the CB's Linked Features list immediately (the fire-and-forget revision
-  // sync would otherwise race the response).
   if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
     await context.models.contextualBandits.addLinkedFeature(
       contextualBandit.id,

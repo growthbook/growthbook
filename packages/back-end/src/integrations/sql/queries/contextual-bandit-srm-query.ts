@@ -8,9 +8,7 @@ import type { ContextualBanditSrmQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
-/** Minimum expected count for a (group, variation) cell to be usable in the test. */
 const MIN_EXPECTED_PER_CELL = 5;
-/** A (leaf_id, bandit_version) group is only kept when it has at least this many usable cells. */
 const MIN_VALID_CELLS_PER_GROUP = 2;
 
 /**
@@ -62,19 +60,14 @@ export function getContextualBanditSrmQuery(
   const banditVersionCol = CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN;
   const weightsCol = CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN;
 
-  // One scalar weight column per variation, extracted from the per-row array.
   const weightSelectCols = variations
     .map((_, i) => `, ${dialect.arrayElement(`e.${weightsCol}`, i)} AS w_${i}`)
     .join("\n          ");
 
-  // Pass the per-variation weight columns through the first-exposure pick unchanged.
   const weightPassCols = variations
     .map((_, i) => `, w_${i}`)
     .join("\n          ");
 
-  // observed_i / expected_i per (leaf_id, bandit_version) cell.
-  // The assignment query logs the variation key (0-based index, e.g. "0"/"1"),
-  // not the GrowthBook variation id, so match on the index.
   const cellAggCols = variations
     .map(
       (_, i) =>
@@ -86,8 +79,6 @@ export function getContextualBanditSrmQuery(
     )
     .join("\n          ");
 
-  // Unpivot the k (observed, expected) pairs into one row per cell-variation,
-  // carrying the group keys so downstream filtering can work per group.
   const cellRows = variations
     .map(
       (_, i) =>

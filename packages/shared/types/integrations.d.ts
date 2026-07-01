@@ -308,8 +308,6 @@ export type ColumnTopValuesResponseRow = {
   count: number;
 };
 
-// The resolved assignment query (SQL + id type) plus the experiment-level
-// fields the units SQL reads.
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
   exposureQuery: { query: string; userIdType: string };
@@ -322,14 +320,11 @@ export interface ExperimentUnitsQuerySettings {
   customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   banditSettings?: SnapshotBanditSettings;
-  // Needed only for activation-metric overrides applied inside the units query.
   metricSettings: MetricForSnapshot[];
 }
 
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
-  // Pre-marshalled units/exposure settings, built by the query runner so the
-  // SQL generators never have to resolve the exposure query themselves.
   unitsSettings: ExperimentUnitsQuerySettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
@@ -598,9 +593,6 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
-  // Resolved population exposure query (SQL + id type), supplied by the caller
-  // when `settings.populationType === "exposureQuery"` so the SQL generator
-  // doesn't look it up. Omitted for segment/factTable populations.
   populationExposureQuery?: ResolvedExposureQuery;
 };
 
@@ -789,8 +781,6 @@ export type DimensionSlicesQueryResponseRows = {
 }[];
 
 export type ContextualBanditSrmQueryResponseRows = {
-  // @lukebrawleysmith are we going to also return the top-level counts
-  // here so we can show them in the SRM table?
   /**
    * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
    * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)

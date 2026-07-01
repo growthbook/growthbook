@@ -100,8 +100,6 @@ export const startPopulationDataQueries = async (
     }
   }
 
-  // No datasource exposure query on the population path; the units come from
-  // the population CTE, so we only need to carry the user id type through.
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
     query: "",
     userIdType: params.populationSettings.userIdType,

@@ -305,7 +305,6 @@ describe("persistContextualBanditEvent", () => {
   it("still patches once with empty weights so banditVersion advances on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();
-    // Empty responses => leafWeightsFromContextualBanditResult returns [].
     const result = makeResult({ responses: [], leaf_map: [] });
 
     const createCbeMock = jest.fn().mockResolvedValue({
@@ -336,8 +335,6 @@ describe("persistContextualBanditEvent", () => {
 
     await persistContextualBanditEvent(context, cbs, result);
 
-    // The patch must run exactly once with an empty array: patchLeafWeights skips the
-    // currentLeafWeights write but still $inc's banditVersion.
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);

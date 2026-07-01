@@ -48,7 +48,6 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  // Contextual-bandit payload extensions (additive, backwards-compatible).
   isContextualBandit?: boolean;
   attributesRequired?: string[];
   contexts?: {

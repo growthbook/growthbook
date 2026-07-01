@@ -4,7 +4,6 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 
-/** Draft revision statuses that still apply to `pendingFeatureDrafts` (CB.start should publish them). */
 const OPEN_DRAFT_STATUSES = new Set([
   "draft",
   "pending-review",
@@ -15,7 +14,6 @@ const OPEN_DRAFT_STATUSES = new Set([
 function getContextualBanditIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
 ): string[] {
-  // Accepts v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>) shapes.
   const flat: unknown[] = Array.isArray(rules)
     ? rules
     : rules && typeof rules === "object"
@@ -46,7 +44,6 @@ export async function syncFeatureContextualBanditLinkages(
       .filter((r) => r.status === "published")
       .sort((a, b) => b.version - a.version)[0];
 
-    // cbId -> open-draft revision versions referencing it (multiple drafts apply sequentially at CB.start).
     const draftVersionsByCb = new Map<string, Set<number>>();
     for (const rev of openDrafts) {
       for (const cbId of getContextualBanditIdsFromRules(rev.rules)) {
@@ -91,7 +88,6 @@ export async function syncFeatureContextualBanditLinkages(
       }
     }
 
-    // Strip pendingFeatureDrafts on unreferenced CBs; `linkedFeatures` is preserved (user-driven removal).
     await cbModel.clearStalePendingFeatureDrafts(
       featureId,
       Array.from(allCbIds),

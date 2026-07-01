@@ -24,7 +24,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditSnapshotModel extends BaseClass {
-  // ACL is delegated to the HTTP boundary: route handlers gate on the parent CB before touching CBS.
   protected canRead(): boolean {
     return true;
   }

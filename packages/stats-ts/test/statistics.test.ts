@@ -1,5 +1,3 @@
-/** Tests for the gbstats `statistics.py` TS port; reference values from the Python suite. */
-
 import {
   ProportionStatistic,
   QuantileClusteredStatistic,
@@ -291,7 +289,6 @@ describe("computeTheta", () => {
   });
 });
 
-// Reference inputs from tests/frequentist/test_tests.py.
 const makeRARatio = (theta: number | null = null) =>
   new RegressionAdjustedRatioStatistic({
     n: 100,
@@ -460,7 +457,6 @@ describe("computeThetaRegressionAdjustedRatio", () => {
 });
 
 describe("QuantileStatistic", () => {
-  // Control-arm quantile data from test_shared_models.py.
   const makeQuantile = (overrides: Partial<QuantileArgs> = {}) =>
     new QuantileStatistic({
       n: 11054,
@@ -618,7 +614,6 @@ function extractArgs(stat: RegressionAdjustedRatioStatistic): RARatioArgs {
   };
 }
 
-/** RA-ratio statistic with zero pre-period variance and covariance, so varPre = 0. */
 function makeZeroPreVarianceRatio(): RegressionAdjustedRatioStatistic {
   const constantPreM = new SampleMeanStatistic({
     n: 100,

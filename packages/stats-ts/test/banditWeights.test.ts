@@ -3,7 +3,6 @@ import {
   thompsonSampler,
 } from "../src/banditWeights";
 
-/** Small deterministic LCG so the random scenarios are stable across runs. */
 function makeRng(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -18,9 +17,6 @@ type Scenario = {
   sigmas: number[];
 };
 
-// Comparable-scale posteriors: the realistic bandit case (per-arm posterior
-// stds are similar because of the >=100 units floor). Gauss-Hermite is highly
-// accurate here.
 const comparableScenarios: Scenario[] = [
   { name: "near tie, 3 arms", means: [0, 0.1, 0.2], sigmas: [0.1, 0.1, 0.1] },
   { name: "clear ranking, 3 arms", means: [1, 2, 3], sigmas: [0.5, 0.5, 0.5] },
@@ -38,8 +34,6 @@ const comparableScenarios: Scenario[] = [
 ];
 
 describe("Gauss-Hermite Thompson weighting", () => {
-  // P(some arm is best) == 1 exactly, so the sum over arms is a ground-truth
-  // accuracy check that needs no reference integrator.
   const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
 
   it.each(comparableScenarios)(
@@ -75,9 +69,8 @@ describe("Gauss-Hermite Thompson weighting", () => {
   it("stays accurate across randomized comparable-scale scenarios", () => {
     const rng = makeRng(42);
     for (let trial = 0; trial < 200; trial++) {
-      const k = 3 + Math.floor(rng() * 4); // 3..6 arms
+      const k = 3 + Math.floor(rng() * 4);
       const means = Array.from({ length: k }, () => (rng() - 0.5) * 4);
-      // Keep sigmas within a ~3x band of each other (the realistic regime).
       const sigmas = Array.from({ length: k }, () => 0.2 + rng() * 0.4);
 
       const p = bestArmProbabilitiesGaussHermite(means, sigmas);
@@ -90,11 +83,6 @@ describe("Gauss-Hermite Thompson weighting", () => {
   });
 
   it("stays within bandit tolerance in the heterogeneous-sigma regime", () => {
-    // A ~30x sigma ratio is the classic Gauss-Hermite weakness (one arm's CDF
-    // is a near-step on another arm's scale). Accuracy degrades to ~1e-2 here,
-    // which is still well inside the 0.01 weight floor, and this regime does not
-    // arise in practice because the >=100-units floor keeps posterior stds
-    // comparable.
     const means = [0, 0.5, 1];
     const sigmas = [0.05, 0.5, 1.5];
     const p = bestArmProbabilitiesGaussHermite(means, sigmas);

@@ -176,7 +176,6 @@ const expireOldQueries = async () => {
     );
   }
 
-  // Update matching contextual bandit snapshots so stale queries don't leak a running CBS doc.
   const cbSnapshots = await findRunningContextualBanditSnapshotsByQueryId([
     ...queryIds,
   ]);
@@ -409,7 +408,6 @@ async function findRunningAggregatedFactTableRunsByQueryId(
     .toArray();
 }
 
-// Mirrors `reapStalledSnapshots` for the ContextualBanditSnapshot collection.
 async function reapStalledContextualBanditSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
   const earliestDate = new Date();
@@ -463,7 +461,6 @@ async function reapStalledContextualBanditSnapshots() {
       ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
-    // Atomic transition: only flip if still "running" to avoid racing the orchestrator's success-path write.
     const res = await cbsCollection.updateOne(
       { id: snapshot.id, status: "running" },
       {

@@ -67,7 +67,6 @@ export function getAllowedTargetingAttributePropertyNames(
 export function getInvalidTargetingAttributeColumnsForExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
   exposureQueries: TargetingColumnQuery[] | undefined,
-  /** When provided, columns already present on the matching saved query are NOT re-validated. */
   previousExposureQueries?: TargetingColumnQuery[],
 ): { queryLabel: string; column: string }[] {
   const allowed = getAllowedTargetingAttributePropertyNames(attributeSchema);

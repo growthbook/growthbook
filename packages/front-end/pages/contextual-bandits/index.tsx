@@ -211,7 +211,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
                       return (
                         <button
                           key={tab}
-                          // badge-purple is a custom GrowthBook class; other styles are inline to drop Bootstrap utilities.
                           className={clsx({
                             "badge-purple": active,
                           })}

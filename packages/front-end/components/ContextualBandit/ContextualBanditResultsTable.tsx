@@ -14,6 +14,7 @@ import type {
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
 import Heatmap, { HeatmapColumn, HeatmapRow } from "@/ui/Heatmap";
@@ -66,11 +67,6 @@ function LeafContextsLabel({
   return <ConditionDisplay condition={condition} />;
 }
 
-/**
- * Colored, numbered circle + variation name (matches experiment variation labels).
- * Set `hideName` to render just the circle; the full name is still available on
- * hover via the title tooltip (used in the compact comparison column headers).
- */
 function VariationLabel({
   index,
   name,
@@ -116,7 +112,6 @@ function VariationLabel({
   );
 }
 
-/** Pick black/white text for a hex background based on perceived luminance. */
 function readableTextColor(hex: string): string {
   const normalized = hex.replace("#", "");
   if (normalized.length < 6) return "#fff";
@@ -127,11 +122,6 @@ function readableTextColor(hex: string): string {
   return luminance > 0.6 ? "var(--gray-12)" : "#fff";
 }
 
-/**
- * Per-variation heatmap values for a leaf. Weights are the leaf decision
- * weights (shared by every context in the leaf); means and units are the
- * leaf-pooled aggregates from `leaf_stats`.
- */
 function leafCellValues(
   leaf: ContextualBanditResultsLeaf,
   mode: ComparisonMode,
@@ -150,7 +140,6 @@ function leafCellValues(
   });
 }
 
-/** Total pooled units across all variations for a leaf. */
 function leafTotalSampleSize(leaf: ContextualBanditResultsLeaf): number {
   return leaf.variations.reduce((sum, v) => sum + (v.users ?? 0), 0);
 }
@@ -174,7 +163,6 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   }).format(value);
 }
 
-/** Overall weights summary — one card per variation, sorted by weight desc. */
 function OverallWeights({
   variations,
   weights,
@@ -291,8 +279,6 @@ export default function ContextualBanditResultsTable({
     [results?.attributes],
   );
 
-  // Leaves are the decision unit: each pools the contexts routed to it. We
-  // display these aggregates rather than the raw per-context `responses`.
   const leaves = useMemo(() => results?.leaves ?? [], [results?.leaves]);
   const hasTableData = leaves.length > 0;
 
@@ -304,8 +290,6 @@ export default function ContextualBanditResultsTable({
     [leaves],
   );
 
-  // Overall (marginal) weights/units across all contexts, aligned positionally
-  // to the bandit's variation order.
   const overallVariations = useMemo(
     () => results?.overall.variations ?? [],
     [results?.overall.variations],
@@ -358,11 +342,9 @@ export default function ContextualBanditResultsTable({
                 </Text>
               ) : null}
               {leaf.error ? (
-                <Box mt="1" style={{ color: "var(--red-11)" }}>
-                  <Text size="small" as="div">
-                    {leaf.error}
-                  </Text>
-                </Box>
+                <HelperText status="error" size="sm" mt="1">
+                  {leaf.error}
+                </HelperText>
               ) : null}
             </>
           ) : null;

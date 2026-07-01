@@ -636,7 +636,6 @@ export async function publishPendingFeatureDraftsForExperiment(
   return { published, failed };
 }
 
-// Sibling of `publishPendingFeatureDraftsForExperiment` for CBs; same two-phase shape (prune+gate, then sequential publish).
 export async function publishPendingFeatureDraftsForContextualBandit(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -649,7 +648,6 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   const ready: ResolvedDraft[] = [];
   const cbModel = context.models.contextualBandits;
 
-  // ── Phase 1: prune stale + gate on approval ──────────────────────────────
   for (const { featureId, revisionVersion } of drafts) {
     const feature = await getFeature(context, featureId);
     if (!feature) {
@@ -710,7 +708,6 @@ export async function publishPendingFeatureDraftsForContextualBandit(
     return { published: [], failed };
   }
 
-  // ── Phase 2: sequential publish, re-merging each against fresh live ──────
   ready.sort(
     (a, b) =>
       a.featureId.localeCompare(b.featureId) ||

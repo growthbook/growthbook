@@ -34,7 +34,6 @@ describe("determineNextContextualBanditSchedule", () => {
   });
 
   it("returns the burn-in end during explore when it lands before the next cadence boundary", () => {
-    // burn-in 6h < schedule 1d => next run at burn-in end.
     const next = determineNextContextualBanditSchedule(makeCb());
     expect(next.getTime()).toBe(NOW.getTime() + 6 * HOUR);
   });
@@ -47,7 +46,6 @@ describe("determineNextContextualBanditSchedule", () => {
   });
 
   it("ignores the burn-in branch in explore when burn-in is at/after the cadence boundary", () => {
-    // burn-in 2d >= schedule 1d => standard boundary wins.
     const next = determineNextContextualBanditSchedule(
       makeCb({
         burnInValue: 2,
@@ -75,7 +73,6 @@ describe("computeContextualBanditStageAndSchedule", () => {
   });
 
   it("makes no changes while still inside the explore (burn-in) window", () => {
-    // stage started 1h ago, burn-in is 6h => not elapsed.
     const cb = makeCb({
       stageDateStarted: new Date(NOW.getTime() - 1 * HOUR),
     });
@@ -83,14 +80,12 @@ describe("computeContextualBanditStageAndSchedule", () => {
   });
 
   it("transitions explore -> exploit once burn-in elapses and schedules the next run", () => {
-    // stage started 7h ago, burn-in is 6h => elapsed.
     const cb = makeCb({
       stageDateStarted: new Date(NOW.getTime() - 7 * HOUR),
     });
     const changes = computeContextualBanditStageAndSchedule(cb);
     expect(changes.stage).toBe("exploit");
     expect(changes.stageDateStarted).toEqual(NOW);
-    // Now in exploit, anchored at NOW => next run one cadence (1d) out.
     expect(changes.nextSnapshotAttempt?.getTime()).toBe(NOW.getTime() + DAY);
   });
 

@@ -1,8 +1,3 @@
-/**
- * TypeScript port of gbstats `models/settings.py`; snake_case names match the wire format.
- * `bandit_weights_rng` is represented by the integer seed it was built from.
- */
-
 export type DifferenceType = "relative" | "absolute" | "scaled";
 export type StatsEngine = "bayesian" | "frequentist";
 export type UnadjustedStatisticType =
@@ -92,7 +87,7 @@ export class AnalysisSettingsForStatsEngine {
 export type BanditWeightsSinglePeriod = {
   date: string;
   weights: number[];
-  total_users: number; // sample size across all variations
+  total_users: number;
 };
 
 export type BanditSettingsForStatsEngineInit = {
@@ -137,10 +132,8 @@ export type ContextualBanditSettingsForStatsEngineInit =
   };
 
 export class ContextualBanditSettingsForStatsEngine extends BanditSettingsForStatsEngine {
-  // Columns used to create context keys (not column values).
   attributes: string[];
   max_leaves: number;
-  // Per-context current weights, keyed by contextId (distinct from inherited single-vector).
   current_contextual_weights: Record<string, number[]>;
 
   constructor(args: ContextualBanditSettingsForStatsEngineInit) {

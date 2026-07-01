@@ -53,9 +53,6 @@ export default function EditContextualBanditFeatureValuesModal({
     `/feature/${feature.id}`,
   );
 
-  // The rule lives in the draft revision (when the link is still pending) or in
-  // the live revision. Edits target that version; the back-end opens a draft
-  // from it if needed.
   const targetVersion =
     linkedFeatureInfo.draftRevisionVersion ?? feature.version;
 
@@ -66,11 +63,7 @@ export default function EditContextualBanditFeatureValuesModal({
     const revision = (data?.revisions ?? []).find(
       (r) => r.version === targetVersion,
     );
-    const ruleSources: unknown[] = [
-      revision?.rules,
-      // Fall back to the live feature rules if the revision isn't loaded yet.
-      feature.rules,
-    ];
+    const ruleSources: unknown[] = [revision?.rules, feature.rules];
     for (const rules of ruleSources) {
       const match = naiveFlattenV1Rules(rules).find(matchesCbRule);
       if (match) return match as ContextualBanditRefRule;

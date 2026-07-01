@@ -1,5 +1,3 @@
-/** TypeScript port of gbstats `models/results.py`; field names match the wire contract. */
-
 export interface EffectMomentsResult {
   point_estimate: number;
   standard_error: number;
@@ -63,7 +61,6 @@ export interface BanditResult {
   weightsWereUpdated: boolean;
 }
 
-// e.g. { country: { $in: ["UK", "CA", "DE"] } }
 export type Context = Record<string, unknown>;
 
 export interface ContextualBanditResponse {

@@ -53,9 +53,7 @@ export type ComputedContextualBanditInterface = ApiContextualBanditInterface & {
   projectId?: string;
   projectName?: string;
   projectIsDeReferenced?: string | boolean;
-  /** List-page tab bucket (`drafts` / `running` / `stopped` / `archived`). */
   tab: string;
-  /** ISO date for the "Date" column — started / stopped / created depending on status. */
   date: string;
   isWatched?: boolean;
 };

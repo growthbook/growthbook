@@ -177,7 +177,6 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  /** Optional map of experimentId → CB doc for contextual-bandit payload injection. */
   cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
@@ -1209,7 +1208,6 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  // Pre-fetch CB docs referenced by contextual-bandit-ref rules so the payload builder can inject CB fields without per-rule async calls.
   let cbMap: Map<string, ContextualBanditInterface> | undefined;
   const cbIdsFromRules: string[] = [];
   for (const feature of filteredFeatures) {

@@ -100,7 +100,6 @@ export const mysqlDialect: SqlDialect = {
 
   escapeStringLiteral: mysqlEscapeStringLiteral,
 
-  // MySQL has no native array type; arrays are stored as JSON. Indexing is 0-based.
   arrayElement: (arrayCol: string, index: number) =>
     mysqlDialect.castToFloat(`JSON_EXTRACT(${arrayCol}, '$[${index}]')`),
 };

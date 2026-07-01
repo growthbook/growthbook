@@ -88,7 +88,6 @@ describe("computeContextualBanditWeights", () => {
 
     const weights = r.updatedWeights as number[];
     expect(weights[1]).toBeGreaterThan(weights[0]);
-    // Loser clamped to 0.01 floor, then renormalized => just under 0.01.
     expect(weights[0]).toBeGreaterThan(0);
     expect(weights[0]).toBeLessThan(0.02);
     expect(weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
@@ -157,16 +156,11 @@ describe("computeContextualBanditWeights", () => {
     const result = computeContextualBanditWeights(input(data));
 
     expect(result.sse_trajectory).toBeDefined();
-    // numSplits is 0 (root) then 1 (after the single US/CA split).
     expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0, 1]);
 
-    // Root pools US+CA per variation: each variation contributes
-    // sumSquares - sum^2/n = 1398 - 900 = 498, so root total SSE = 996.
     expect(result.sse_trajectory![0].totalSse).toBeCloseTo(996, 6);
-    // After the split each single-context leaf has SSE 398, total = 796.
     expect(result.sse_trajectory![1].totalSse).toBeCloseTo(796, 6);
 
-    // The greedy tree only ever reduces total SSE.
     expect(result.sse_trajectory![1].totalSse).toBeLessThan(
       result.sse_trajectory![0].totalSse,
     );
@@ -180,7 +174,6 @@ describe("computeContextualBanditWeights", () => {
 
     const result = computeContextualBanditWeights(input(data));
 
-    // One context => no split is possible, so only the root entry is recorded.
     expect(result.sse_trajectory!.map((s) => s.numSplits)).toEqual([0]);
     expect(result.sse_trajectory![0].totalSse).toBeCloseTo(398, 6);
   });
@@ -212,7 +205,6 @@ describe("computeContextualBanditWeights", () => {
     const second = computeContextualBanditWeights(input(data));
     const w1 = first.responses[0].updatedWeights as number[];
     const w2 = second.responses[0].updatedWeights as number[];
-    // Monte Carlo Thompson sampling: require closeness, not equality.
     expect(w1).toHaveLength(w2.length);
     w1.forEach((w, i) => {
       expect(Math.abs(w - w2[i])).toBeLessThan(0.02);

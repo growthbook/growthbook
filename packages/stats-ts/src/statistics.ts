@@ -1,8 +1,5 @@
-/** TypeScript port of gbstats `models/statistics.py`; keep pure and numerically faithful. */
-
 import { normPpf, varianceOfRatios } from "./utils";
 
-/** Quadratic form vᵀ·M·v for an n-vector and n×n matrix. */
 function quadForm(v: number[], m: number[][]): number {
   let total = 0;
   for (let i = 0; i < v.length; i++) {
@@ -13,7 +10,6 @@ function quadForm(v: number[], m: number[][]): number {
   return total;
 }
 
-/** Bilinear form uᵀ·M·v where M has `u.length` rows and `v.length` cols. */
 function bilinearForm(u: number[], m: number[][], v: number[]): number {
   let total = 0;
   for (let i = 0; i < u.length; i++) {
@@ -560,7 +556,6 @@ export class RegressionAdjustedRatioStatistic extends Statistic {
   }
 }
 
-/** Extract the [rowStart,rowEnd) × [colStart,colEnd) sub-block of a matrix. */
 function block(
   m: number[][],
   rowStart: number,
@@ -579,25 +574,23 @@ export function computeThetaRegressionAdjustedRatio(
   a: RegressionAdjustedRatioStatistic,
   b: RegressionAdjustedRatioStatistic,
 ): number {
-  // theta=1 makes the partial derivatives independent of theta.
   const aOne = a.withTheta(1);
   const bOne = b.withTheta(1);
   if (aOne.varPre + bOne.varPre === 0) return 0;
   return -(aOne.covariance + bOne.covariance) / (aOne.varPre + bOne.varPre);
 }
 
-// scipy.stats.norm.ppf(1.0 - 0.5 * 0.05): the 97.5th percentile multiplier.
 const QUANTILE_MULTIPLIER = normPpf(1.0 - 0.5 * 0.05);
 
 export class QuantileStatistic extends Statistic {
-  readonly nStar: number; // sample size used when evaluating quantile bounds
-  readonly nu: number; // quantile level of interest
-  readonly quantileHat: number; // sample estimate
+  readonly nStar: number;
+  readonly nu: number;
+  readonly quantileHat: number;
   readonly quantileLower: number;
   readonly quantileUpper: number;
 
   constructor(args: {
-    n: number; // number of events
+    n: number;
     nStar: number;
     nu: number;
     quantileHat: number;
@@ -648,9 +641,9 @@ export class QuantileStatistic extends Statistic {
 }
 
 export class QuantileClusteredStatistic extends QuantileStatistic {
-  readonly mainSum: number; // numerator sum
+  readonly mainSum: number;
   readonly mainSumSquares: number;
-  readonly denominatorSum: number; // denominator sum
+  readonly denominatorSum: number;
   readonly denominatorSumSquares: number;
   readonly mainDenominatorSumProduct: number;
   readonly nClusters: number;
@@ -767,7 +760,6 @@ export function createThetaAdjustedStatistics(
   ) {
     const theta = computeTheta(statA, statB);
     if (theta === 0) {
-      // Revert to non-RA if no variance in a time period.
       return [statA.postStatistic, statB.postStatistic];
     }
     return [statA.withTheta(theta), statB.withTheta(theta)];
@@ -780,7 +772,6 @@ export function createThetaAdjustedStatistics(
   ) {
     const theta = computeThetaRegressionAdjustedRatio(statA, statB);
     if (Math.abs(theta) < 1e-8) {
-      // Revert to non-RA if no variance in a time period.
       const revertedA = new RatioStatistic({
         n: statA.n,
         mStatistic: statA.mStatisticPost,

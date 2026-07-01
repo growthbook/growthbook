@@ -572,7 +572,6 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
-  /** Optional map of experimentId → CB doc, used to inject CB payload fields. */
   cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): FeatureDefinition | null {
@@ -860,8 +859,6 @@ export function getFeatureDefinition({
           return rule;
         }
 
-        // Contextual-bandit reference rules: parallel to experiment-ref but sourced
-        // directly from the CB doc; SDKs without `contextualBandits` capability fall back to MAB.
         if (r.type === "contextual-bandit-ref") {
           const cb = cbMap?.get(r.contextualBanditId);
           if (!cb) return null;
@@ -884,7 +881,6 @@ export function getFeatureDefinition({
           rule.hashVersion = 2;
 
           if (cb.status === "stopped") {
-            // CBs don't yet track `releasedVariationId`; a stopped CB drops out of the payload.
             return null;
           }
 
@@ -906,8 +902,6 @@ export function getFeatureDefinition({
           if (cbCapable) {
             rule.isContextualBandit = true;
             rule.attributesRequired = cb.contextualAttributes;
-            // Per-leaf weights: each entry carries the leaf's routing condition and
-            // its positional variation weights so the SDK can assign within a leaf.
             rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
               leafId: lw.leafId,
               condition: lw.condition,
@@ -919,8 +913,6 @@ export function getFeatureDefinition({
           rule.meta = includeExperimentNames
             ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
             : cb.variations.map((v) => ({ key: v.key }));
-          // Single-phase CB: emit a constant "0" for SDK back-compat. Sticky-bucketing keys may
-          // incorporate this string, so changing or dropping it could re-bucket existing users.
           rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 

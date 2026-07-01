@@ -24,7 +24,6 @@ function makeSettings(
   } as unknown as ExperimentUnitsQuerySettings;
 }
 
-/** Whitespace-insensitive view of the formatted SQL for stable substring assertions. */
 function compact(sql: string): string {
   return sql.replace(/\s+/g, "");
 }
@@ -36,22 +35,18 @@ describe("getContextualBanditSrmQuery", () => {
     });
     const c = compact(sql);
 
-    // Exposure CTE + experiment/window filter
     expect(c).toContain("__rawExperiment");
     expect(c).toContain("e.experiment_id='exp_1'");
     expect(c).toContain("e.timestamp>=");
 
-    // Per-variation weight extraction via dialect.arrayElement (postgres: 1-based)
     expect(c).toContain("e.variation_weights[1]ASw_0");
     expect(c).toContain("e.variation_weights[2]ASw_1");
 
-    // First-exposure-per-cell selection
     expect(c).toContain(
       "ROW_NUMBER()OVER(PARTITIONBYuid,leaf_id,bandit_versionORDERBYtimestampASC)",
     );
     expect(c).toContain("__rn=1");
 
-    // observed/expected matched on 0-based variation index, NOT the var_ id
     expect(c).toContain("variation='0'");
     expect(c).toContain("variation='1'");
     expect(c).not.toContain("var_control");
@@ -61,22 +56,17 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASobserved_1");
     expect(c).toContain("ASexpected_1");
 
-    // Cells unpivoted carrying the group keys
     expect(c).toContain("UNIONALL");
     expect(c).toContain(
       "SELECTleaf_id,bandit_version,observed_0ASobserved,expected_0ASexpected",
     );
 
-    // Cells with expected < 5 are dropped before the test
     expect(c).toContain("WHEREexpected>=5");
 
-    // Groups need at least 2 usable cells to be kept
     expect(c).toContain("HAVINGCOUNT(*)>=2");
 
-    // Chi-square statistic accumulated per kept group
     expect(c).toContain("POW(observed-expected,2)/expected");
 
-    // Degrees of freedom computed in SQL: (sum usable cells) - (num kept groups)
     expect(c).toContain(
       "COALESCE(SUM(num_valid_cells),0)-COUNT(*)ASdegrees_of_freedom",
     );
@@ -99,7 +89,6 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASobserved_2");
     expect(c).toContain("ASexpected_2");
     expect(c).not.toContain("num_variations");
-    // 3 variations => 3 UNION ALL'd cell rows (2 separators)
     expect(sql.match(/UNION ALL/gi)?.length).toBe(2);
   });
 

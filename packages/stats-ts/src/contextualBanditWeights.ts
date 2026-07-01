@@ -1,4 +1,3 @@
-/** TypeScript port of the gbstats contextual-bandit weight pipeline. */
 import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import type {
   ContextualBanditResponseSnapshot,
@@ -18,7 +17,6 @@ import {
 } from "./banditWeights";
 import { varianceOfRatios } from "./utils";
 
-// Sentinel for a missing attribute in `context_tuple_from_row`.
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
 
 /** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
@@ -158,7 +156,6 @@ function computeCovariance(
   return (sumOfProducts - (aSum * bSum) / n) / (n - 1);
 }
 
-/** Mean/variance for a variation arm; `forBandit` recasts binomial -> SampleMean for Thompson. */
 function armMomentStat(
   arm: ArmColumns,
   metric: MetricSettingsForStatsEngine,
@@ -296,7 +293,6 @@ function partitionByContext(
     }
     addRowToArm(entry.arms[variationIndex], row);
   }
-  // Sort unique context keys for determinism (matches gbstats).
   return [...byKey.values()].sort((a, b) =>
     JSON.stringify(a.tuple) < JSON.stringify(b.tuple) ? -1 : 1,
   );
@@ -304,7 +300,6 @@ function partitionByContext(
 
 type Feature = { attrIndex: number; category: string };
 
-/** One-hot feature list: attribute-major, category-sorted (matches gbstats). */
 function buildFeatures(
   contexts: ContextEntry[],
   attrColumns: string[],
@@ -324,7 +319,6 @@ function featureValue(ctx: ContextEntry, feature: Feature): number {
   return ctx.tuple[feature.attrIndex] === feature.category ? 1 : 0;
 }
 
-/** SSE = sum of (n-1)*variance across variations for a set of contexts. */
 function leafSumOfSquaredErrors(
   contexts: ContextEntry[],
   metric: MetricSettingsForStatsEngine,
@@ -341,20 +335,10 @@ function leafSumOfSquaredErrors(
 }
 
 type BuildTreeResult = {
-  /** Leaf id assigned to each context (parallel to `contexts`). */
   leafByContext: number[];
-  /**
-   * Total within-tree SSE at each stage of greedy growth, in order:
-   * index 0 is the root (before the first split), index 1 is after the first
-   * split, index 2 after the second split, etc. Length = (splits applied) + 1.
-   */
   sseTrajectory: number[];
 };
 
-/**
- * Greedy SSE regression tree up to `maxLeaves`. Returns the per-context leaf
- * assignment plus the total-SSE trajectory captured as the tree grows.
- */
 function buildTree(
   contexts: ContextEntry[],
   features: Feature[],
@@ -368,7 +352,6 @@ function buildTree(
     return { leafByContext: currentLeaf, sseTrajectory: [] };
   }
 
-  // True only if every variation has at least `minUsersPerLeaf` users across `ctxIdxs`.
   const sideMeetsMinPerVariation = (ctxIdxs: number[]): boolean => {
     for (let v = 0; v < numVariations; v++) {
       let total = 0;
@@ -378,7 +361,6 @@ function buildTree(
     return true;
   };
 
-  // Total SSE summed across all current leaves of the tree.
   const totalSse = (): number => {
     let total = 0;
     for (const leafId of new Set(currentLeaf)) {
@@ -391,7 +373,6 @@ function buildTree(
     return total;
   };
 
-  // Root SSE (single leaf containing every context), before the first split.
   const sseTrajectory: number[] = [totalSse()];
 
   for (let iteration = 0; iteration < maxLeaves - 1; iteration++) {
@@ -421,7 +402,6 @@ function buildTree(
           else side0.push(c);
         }
         if (side0.length === 0 || side1.length === 0) continue;
-        // Require at least `minUsersPerLeaf` users in every variation on both sides.
         if (
           !sideMeetsMinPerVariation(side0) ||
           !sideMeetsMinPerVariation(side1)
@@ -440,7 +420,6 @@ function buildTree(
             numVariations,
           );
         const gain = sseCurrent - sseSplit;
-        // Strict > preserves gbstats' argmax tie-break (feature-major, leaf-minor).
         if (gain > bestGain) {
           bestGain = gain;
           bestFeature = f;
@@ -461,7 +440,6 @@ function buildTree(
       }
     }
 
-    // Record the new total SSE now that this split has been applied.
     sseTrajectory.push(totalSse());
   }
 
@@ -482,7 +460,6 @@ export function computeContextualBanditWeights(
     rows,
   } = input;
 
-  // Contextual bandits use CUPED covariate columns but no pooled theta.
   const metricSettings: MetricSettingsForStatsEngine = {
     ...metricSettingsInput,
     keep_theta: false,
@@ -533,7 +510,6 @@ export function computeContextualBanditWeights(
     );
   }
 
-  // Per-leaf pooled sample stats (data-only), parallel to the per-context ones.
   const sortedLeafArms = [...leafArms.entries()].sort((a, b) => a[0] - b[0]);
 
   const leaf_stats: ContextualLeafStatsEntry[] = sortedLeafArms.map(
@@ -550,9 +526,6 @@ export function computeContextualBanditWeights(
     },
   );
 
-  // Total within-tree SSE captured at each stage of greedy growth: the SSE
-  // before the first split (root), after the first split, after the second,
-  // etc. `numSplits` is the count of splits applied so far (0 = root).
   const sse_trajectory: ContextualSseTrajectoryEntry[] = sseTrajectory.map(
     (totalSse, numSplits) => ({ numSplits, totalSse }),
   );

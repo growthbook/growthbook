@@ -45,7 +45,6 @@ export type Props = {
   close: () => void;
   cta?: string;
   cb: ApiContextualBanditInterface;
-  // Feature ids already linked to this CB; excluded from the "use existing" list.
   existingLinkedFeatureIds?: string[];
   mutate: () => void;
   source?: string;
@@ -365,16 +364,7 @@ export default function LinkFeatureToContextualBanditModal({
               onChange={(tags) => form.setValue("tags", tags)}
             />
           ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mr-3 mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowTags(true);
-              }}
-            >
-              + tags
-            </a>
+            <Link onClick={() => setShowTags(true)}>+ tags</Link>
           )}
 
           {showDescription ? (
@@ -387,16 +377,7 @@ export default function LinkFeatureToContextualBanditModal({
               />
             </div>
           ) : (
-            <a
-              href="#"
-              className="badge badge-light badge-pill mb-3"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowDescription(true);
-              }}
-            >
-              + description
-            </a>
+            <Link onClick={() => setShowDescription(true)}>+ description</Link>
           )}
 
           <ValueTypeField

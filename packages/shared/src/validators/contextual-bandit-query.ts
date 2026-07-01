@@ -20,9 +20,7 @@ export const contextualBanditQueryValidator = baseSchema
     name: z.string(),
     description: z.string().optional(),
     userIdType: z.string(),
-    /** The assignment SQL. Must SELECT the CB required columns + targeting columns. */
     query: z.string(),
-    /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
     targetingAttributeColumns: z.array(z.string()),
   })
   .strict();
@@ -31,8 +29,6 @@ export type ContextualBanditQueryInterface = z.infer<
   typeof contextualBanditQueryValidator
 >;
 
-// REST/internal API DTO — currently mirrors the full interface (no internal-only
-// fields to hide yet), but kept separate so the wire contract can diverge later.
 export const apiContextualBanditQueryValidator = namedSchema(
   "ContextualBanditQuery",
   apiBaseSchema.safeExtend({
@@ -52,7 +48,6 @@ export type ApiContextualBanditQueryInterface = z.infer<
 export const apiListContextualBanditQueriesValidator = {
   bodySchema: z.never(),
   querySchema: z.strictObject({
-    /** Scope the list to one datasource (used by the CB create form's query picker). */
     datasourceId: z.string().optional(),
   }),
   paramsSchema: z.never(),

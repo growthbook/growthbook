@@ -9,7 +9,6 @@ export default function ContextualBanditLink({
 }: {
   contextualBanditId: string | undefined;
 }) {
-  // SWR cache is shared, so this is cheap relative to a per-id fetch.
   const { contextualBanditsMap } = useContextualBandits();
 
   if (!contextualBanditId) return <em>unset</em>;

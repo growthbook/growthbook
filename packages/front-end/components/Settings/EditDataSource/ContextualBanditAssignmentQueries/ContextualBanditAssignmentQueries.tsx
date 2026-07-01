@@ -48,7 +48,6 @@ export const ContextualBanditAssignmentQueries: FC<
 
   const handleExpandCollapse = useCallback(
     (id: string) => () => {
-      // Cards default to open (undefined === open), so toggle off the default-true.
       setOpenIds((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
     },
     [],
@@ -121,14 +120,12 @@ export const ContextualBanditAssignmentQueries: FC<
         record of which contextual bandit variation was assigned to each user.
       </p>
 
-      {/* region Empty state */}
       {!loading && contextualBanditQueries.length === 0 ? (
         <Callout status="info">
           No contextual bandit assignment queries. A contextual bandit requires
           one of these queries to analyze results.
         </Callout>
       ) : null}
-      {/* endregion Empty state */}
 
       {contextualBanditQueries.map((query) => {
         const isOpen = openIds[query.id] ?? true;
@@ -137,7 +134,6 @@ export const ContextualBanditAssignmentQueries: FC<
         return (
           <Card mt="3" key={query.id}>
             <Flex align="start" justify="between" py="2" px="3" gap="3">
-              {/* region Title Bar */}
               <Box width="100%">
                 <Heading as="h4" size="small" mb="0">
                   {query.name}
@@ -169,9 +165,7 @@ export const ContextualBanditAssignmentQueries: FC<
                   </Box>
                 </Flex>
               </Box>
-              {/* endregion Title Bar */}
 
-              {/* region Actions */}
               <Flex align="center">
                 {canEdit && (
                   <MoreMenu>
@@ -210,7 +204,6 @@ export const ContextualBanditAssignmentQueries: FC<
                   />
                 </button>
               </Flex>
-              {/* endregion Actions */}
             </Flex>
 
             {isOpen && (
@@ -226,7 +219,6 @@ export const ContextualBanditAssignmentQueries: FC<
         );
       })}
 
-      {/* region Add/Edit modal */}
       {uiMode === "edit" || uiMode === "add" ? (
         <AddEditContextualBanditQueryModal
           contextualBanditQuery={editingQuery}
@@ -236,7 +228,6 @@ export const ContextualBanditAssignmentQueries: FC<
           onCancel={handleCancel}
         />
       ) : null}
-      {/* endregion Add/Edit modal */}
     </Box>
   );
 };

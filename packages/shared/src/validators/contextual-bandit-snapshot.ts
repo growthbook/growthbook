@@ -48,22 +48,12 @@ export const contextualBanditSnapshotValidator = baseSchema
     contextualBandit: z.string(),
     status: z.enum(["pending", "running", "success", "error", "partial"]),
     error: z.string().optional(),
-    /** Nullable (not optional) to satisfy `InterfaceWithQueries` on the abstract `QueryRunner`. */
     runStarted: z.date().nullable(),
     queries: z.array(queryPointerValidator),
-    /** Frozen copy so the snapshot stays self-contained even if the parent CB mutates. */
     frozenSettings: contextualBanditSnapshotSettingsValidator.optional(),
     contextualBanditEventId: z.string().nullable().optional(),
     weightsWereUpdated: z.boolean().optional(),
     triggeredBy: z.enum(["manual", "schedule"]).optional(),
-    /**
-     * Sample Ratio Mismatch computed per snapshot run. `statistic` is the
-     * chi-square sum SUM((observed - expected)^2 / expected) over the usable
-     * cells of the kept (leaf_id, bandit_version) groups, computed in SQL.
-     * `degreesOfFreedom` is computed in SQL as
-     * (sum of usable cells across kept groups) - (number of kept groups), and
-     * `pValue` is derived from the statistic with those degrees of freedom.
-     */
     srm: z
       .object({
         statistic: z.number(),

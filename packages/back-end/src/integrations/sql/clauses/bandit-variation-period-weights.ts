@@ -38,7 +38,6 @@ export function getBanditVariationPeriodWeights(
 export function getBanditDates(
   banditSettings: SnapshotBanditSettings | undefined,
 ): Date[] | undefined {
-  // CBs weight in TS from raw stats and skip MAB period weighting; short-circuit so callers see "no bandit dates".
   if (banditSettings?.contextualBandit) {
     return undefined;
   }

@@ -1,4 +1,3 @@
-/** Gaussian-Gaussian Thompson weighting for bandit variation weights. */
 import { normCdf, randomNormal } from "./utils";
 
 const BANDIT_PRIOR_MEAN = 0;
@@ -20,14 +19,6 @@ export type VariationWeightResult = {
   error: string;
 };
 
-/**
- * Sum of log Φ over the non-k arms.
- *
- * Guards against CDF underflow: the normal CDF can return exactly 0 for
- * arguments deep in the lower tail. The Gauss-Hermite nodes reach far into the
- * tails, so clamp to the smallest positive double before taking the log to
- * avoid `-Infinity`/`NaN`.
- */
 function logProdOtherCdfs(
   x: number,
   means: number[],
@@ -44,10 +35,6 @@ function logProdOtherCdfs(
   return logProd;
 }
 
-// 128 nodes is far more than the comparable-scale posteriors (the realistic
-// regime, where per-arm stds are similar thanks to the >=100-units floor) need,
-// and buys headroom for the harder case where one arm's CDF is a near-step on
-// another arm's scale. The rule is computed once and memoized.
 const GAUSS_HERMITE_ORDER = 128;
 
 interface GaussHermiteRule {
@@ -57,16 +44,6 @@ interface GaussHermiteRule {
 
 let gaussHermiteRuleCache: GaussHermiteRule | null = null;
 
-/**
- * Symmetric tridiagonal QL with implicit shifts (Numerical Recipes `tqli`),
- * specialized to track only the first row of the eigenvector matrix.
- *
- * `d` holds the diagonal (overwritten with the eigenvalues), `e` the
- * subdiagonal where `e[i]` couples `d[i]` and `d[i+1]` (`e[n-1]` unused), and
- * `z` is initialized to the first row of the identity and ends up holding the
- * first component of each eigenvector. That first component is all the
- * Golub-Welsch algorithm needs to recover Gauss quadrature weights.
- */
 function symmetricTridiagonalQL(d: number[], e: number[], z: number[]): void {
   const n = d.length;
   const sign = (a: number, b: number): number =>
@@ -108,7 +85,6 @@ function symmetricTridiagonalQL(d: number[], e: number[], z: number[]): void {
           p = s * r;
           d[i + 1] = g + p;
           g = c * r - b;
-          // Accumulate only the first row of the eigenvector matrix.
           f = z[i + 1];
           z[i + 1] = s * z[i] + c * f;
           z[i] = c * z[i] - s * f;
@@ -122,13 +98,6 @@ function symmetricTridiagonalQL(d: number[], e: number[], z: number[]): void {
   }
 }
 
-/**
- * Gauss-Hermite nodes/weights for the weight function e^{-x^2} via the
- * Golub-Welsch algorithm: the nodes are the eigenvalues of the symmetric
- * tridiagonal Jacobi matrix for (physicists') Hermite polynomials, and each
- * weight is sqrt(pi) times the squared first component of the matching
- * eigenvector. Computed once and memoized for the fixed order.
- */
 function getGaussHermiteRule(n: number): GaussHermiteRule {
   if (gaussHermiteRuleCache && gaussHermiteRuleCache.nodes.length === n) {
     return gaussHermiteRuleCache;
@@ -136,7 +105,6 @@ function getGaussHermiteRule(n: number): GaussHermiteRule {
 
   const d = new Array<number>(n).fill(0);
   const e = new Array<number>(n).fill(0);
-  // Off-diagonal Jacobi entries beta_i = sqrt(i / 2), i = 1..n-1.
   for (let i = 0; i < n - 1; i++) {
     e[i] = Math.sqrt((i + 1) / 2);
   }
@@ -146,7 +114,7 @@ function getGaussHermiteRule(n: number): GaussHermiteRule {
 
   symmetricTridiagonalQL(d, e, z);
 
-  const mu0 = Math.sqrt(Math.PI); // integral of e^{-x^2} over R
+  const mu0 = Math.sqrt(Math.PI);
   gaussHermiteRuleCache = {
     nodes: d.slice(),
     weights: z.map((zi) => mu0 * zi * zi),
@@ -154,18 +122,6 @@ function getGaussHermiteRule(n: number): GaussHermiteRule {
   return gaussHermiteRuleCache;
 }
 
-/**
- * P(arm k has the largest mean) via Gauss-Hermite quadrature.
- *
- * The integrand already carries arm k's Gaussian PDF, which is exactly the
- * e^{-x^2} weight function after the substitution x = mu_k + sqrt(2)*sigma_k*u:
- *
- *   P(k biggest) = (1 / sqrt(pi)) * sum_j w_j * prod_{i != k} Phi((x_j-mu_i)/sd_i)
- *
- * The remaining product of Gaussian CDFs is smooth and bounded in [0, 1], so a
- * modest fixed node count converges well past the precision the 0.01 weight
- * floor needs, with a predictable, recursion-free cost.
- */
 function probKthArmIsBiggestGaussHermite(
   means: number[],
   sds: number[],
@@ -187,7 +143,6 @@ export function bestArmProbabilitiesGaussHermite(
   sigmas: number[],
   inverse: boolean = false,
 ): number[] {
-  // P(arm k is smallest) == P(arm k is largest) with all means negated.
   const adjMeans = inverse ? means.map((m) => -m) : means;
   return means.map((_, k) =>
     probKthArmIsBiggestGaussHermite(adjMeans, sigmas, k),

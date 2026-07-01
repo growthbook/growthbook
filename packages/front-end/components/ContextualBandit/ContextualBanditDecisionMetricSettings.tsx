@@ -56,12 +56,6 @@ export type ContextualBanditDecisionMetricSettingsProps = {
   setDisableBanditConversionWindow: (v: boolean) => void;
   project?: string;
   disabled?: boolean;
-  /**
-   * Auto-derive the conversion window from the decision metric / cadence on mount.
-   * Creation passes `true` (fresh defaults); the edit flow passes `false` so a
-   * previously-saved override isn't clobbered when the modal opens. In both cases
-   * changing the decision metric still re-derives defaults via the picker's onChange.
-   */
   autoApplyDefaults?: boolean;
 };
 
@@ -84,8 +78,6 @@ export default function ContextualBanditDecisionMetricSettings({
   const permissionsUtil = usePermissionsUtil();
   const [showFactTableModal, setShowFactTableModal] = useState(false);
   const [showFactMetricModal, setShowFactMetricModal] = useState(false);
-  // Prefer the fact table just created from within this modal, but fall back to
-  // definitions below so the flow survives the definitions refresh / remount.
   const [createdFactTable, setCreatedFactTable] =
     useState<FactTableInterface | null>(null);
 
@@ -97,7 +89,6 @@ export default function ContextualBanditDecisionMetricSettings({
   const datasourceId = form.watch("datasource") ?? "";
   const exposureQueryId = form.watch("exposureQueryId");
 
-  // Contextual bandits require a fact metric as the decision metric.
   const hasFactMetricForDatasource = useMemo(() => {
     if (!datasourceId) return true;
     return factMetrics.some(
@@ -199,14 +190,12 @@ export default function ContextualBanditDecisionMetricSettings({
     if (lastMetricDefaultKey.current === defaultKey) {
       return;
     }
-    // In edit mode, adopt the existing override on first run instead of clobbering it.
     if (!autoApplyDefaults && lastMetricDefaultKey.current === null) {
       lastMetricDefaultKey.current = defaultKey;
       return;
     }
     lastMetricDefaultKey.current = defaultKey;
     applyConversionWindowDefault(decisionMetricId);
-    // Only re-default when the selected decision metric or its window changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisionMetricId, decisionMetricWindowKey]);
 
@@ -217,7 +206,6 @@ export default function ContextualBanditDecisionMetricSettings({
     const { value, unit } = conversionWindowFromScheduleHours(scheduleHours);
     form.setValue("banditConversionWindowValue", value);
     form.setValue("banditConversionWindowUnit", unit);
-    // Keep cadence-based defaults in sync when there is no metric-level window.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisionMetricId, decisionMetricWindowKey, scheduleHours]);
 

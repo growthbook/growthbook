@@ -134,7 +134,6 @@ export function getExperimentFactMetricsQuery(
   // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
 
-  // CBs are weighted in TS from raw stats, so they skip MAB period weighting; `getBanditDates` returns undefined for them.
   const banditDates = getBanditDates(settings.banditSettings);
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>

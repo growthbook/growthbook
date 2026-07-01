@@ -35,6 +35,5 @@ export const verticaDialect: SqlDialect = {
   // restricted to a single SELECT (no UNION).
   unpivotLabeledPairs: indicesTableUnpivot,
 
-  // Vertica native arrays are 0-based.
   arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
 };

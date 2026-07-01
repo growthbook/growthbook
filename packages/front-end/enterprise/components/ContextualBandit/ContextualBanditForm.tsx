@@ -57,8 +57,6 @@ import {
   getNewExperimentDatasourceDefaults,
 } from "@/components/Experiment/NewExperimentForm";
 
-// CBs have no `phases`; the few targeting fields the shared bandit UI edits are lifted
-// to the form root. Reuses the phase field types so shapes match the shared components.
 type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   Partial<
     Pick<
@@ -72,7 +70,6 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
       | "dateEnded"
     >
   > & {
-    /** CBs optimize toward a single decision metric (not the experiment `goalMetrics` array). */
     decisionMetric?: string;
   };
 
@@ -117,7 +114,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   } = useDefinitions();
   const { experiments } = useExperiments();
 
-  // CBs have no prerequisite targeting step, so SDK targeting issues never arise.
   const [prerequisiteTargetingSdkIssues] = useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(false);
@@ -382,7 +378,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       );
     }
 
-    // Preflight tracking-key uniqueness since BaseModel CRUD response lacks the duplicate-key sentinel.
     if (!allowDuplicateTrackingKey && data.trackingKey) {
       const existing = await apiCall<{
         contextualBandits: ApiContextualBanditInterface[];

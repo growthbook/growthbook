@@ -16,19 +16,15 @@ export type ContextualBanditResultsVariation = {
 export type ContextualBanditOverallVariation = {
   variationId: string;
   variationName?: string;
-  /** Marginal (overall) weight across all contexts. */
   weight: number | null;
-  /** Total users across all contexts for this variation. */
   users: number | null;
 };
 
 export type ContextualBanditLeafVariation = {
   variationId: string;
   variationName?: string;
-  /** Leaf decision weight (shared by every context in the leaf). */
   weight: number | null;
   bestArmProbability: number | null;
-  /** Leaf-aggregated (pooled) sample stats. */
   users: number | null;
   mean: number | null;
   variance: number | null;
@@ -37,21 +33,18 @@ export type ContextualBanditLeafVariation = {
 export type ContextualBanditContextVariation = {
   variationId: string;
   variationName?: string;
-  /** Per-context sample stats; these differ across contexts within a leaf. */
   users: number | null;
   mean: number | null;
   variance: number | null;
 };
 
 export type ContextualBanditResultsContext = {
-  /** Context attribute values, keyed by attribute alias. */
   attributes: Record<string, string>;
   variations: ContextualBanditContextVariation[];
 };
 
 export type ContextualBanditResultsLeaf = {
   leafId: number;
-  /** Leaf-level diagnostics (shared by every context in the leaf). */
   updateMessage: string | null;
   error: string | null;
   variations: ContextualBanditLeafVariation[];
@@ -60,9 +53,7 @@ export type ContextualBanditResultsLeaf = {
 
 /** Total within-tree SSE at one stage of greedy tree growth. */
 export type ContextualBanditSseStep = {
-  /** Number of splits applied so far. 0 = root, before the first split. */
   numSplits: number;
-  /** Total SSE summed across every leaf of the tree at this stage. */
   totalSse: number;
 };
 
@@ -73,10 +64,6 @@ export type ContextualBanditSseStep = {
  */
 export type ContextualBanditResultsView = {
   attributes: string[];
-  /**
-   * Total within-tree SSE at each stage of greedy growth, ordered root-first
-   * (numSplits 0 = before the first split). Empty when no tree was built.
-   */
   sseTrajectory: ContextualBanditSseStep[];
   overall: { variations: ContextualBanditOverallVariation[] };
   leaves: ContextualBanditResultsLeaf[];
@@ -104,7 +91,6 @@ export function buildContextualBanditResultsView(
     variationName: variations[i]?.name,
   });
 
-  // Group context indices by leaf, preserving first-seen leaf order.
   const indicesByLeaf = new Map<number, number[]>();
   const leafOrder: number[] = [];
   responses.forEach((_, i) => {
@@ -124,12 +110,9 @@ export function buildContextualBanditResultsView(
     .sort((a, b) => a - b)
     .map((leafId) => {
       const indices = indicesByLeaf.get(leafId) ?? [];
-      // Weights/diagnostics are leaf-level, so any context in the leaf works.
       const head = responses[indices[0]];
       const stats = leafStatsById.get(leafId);
 
-      // Decision weights come strictly from updatedWeights; we do not substitute
-      // best-arm probabilities (a different quantity) for them.
       const weights = head?.updatedWeights;
       if (!weights || weights.length === 0) {
         throw new Error(

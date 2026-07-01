@@ -433,8 +433,6 @@ export class Permissions {
     );
   };
 
-  // Pass allProjects on list pages where "All Projects" may be selected;
-  // omit it when checking a specific resource's project.
   public canViewContextualBanditModal = (
     project?: string,
     allProjects?: { id: string }[],
