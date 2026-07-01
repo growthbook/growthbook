@@ -34,6 +34,7 @@ import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
 import ContextualBanditVariations from "@/components/ContextualBandit/ContextualBanditVariations";
 import ContextualBanditLinkedFeatures from "@/components/ContextualBandit/ContextualBanditLinkedFeatures";
+import StartContextualBanditModal from "@/components/ContextualBandit/StartContextualBanditModal";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 
 /** Experiment-style Frame section with a header + optional edit affordance. */
@@ -113,6 +114,7 @@ export default function ContextualBanditDetailPage({
     cb.datasource,
   );
   const [confirmStop, setConfirmStop] = useState(false);
+  const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
@@ -215,7 +217,9 @@ export default function ContextualBanditDetailPage({
 
         <Flex direction="row" align="center" gap="2" flexShrink="0">
           {canRun && cb.status === "draft" ? (
-            <Button onClick={start}>Start Contextual Bandit</Button>
+            <Button onClick={() => setShowStart(true)}>
+              Start Contextual Bandit
+            </Button>
           ) : null}
           {canRun && cb.status === "running" ? (
             <Button
@@ -499,16 +503,10 @@ export default function ContextualBanditDetailPage({
               </div>
               <div className="row mt-3">
                 <DetailSectionColumn label="Exploratory Stage">
-                  {formatExploratoryStage(
-                    cb.burnInValue,
-                    cb.burnInUnit,
-                  )}
+                  {formatExploratoryStage(cb.burnInValue, cb.burnInUnit)}
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Update Cadence">
-                  {formatUpdateCadence(
-                    cb.scheduleValue,
-                    cb.scheduleUnit,
-                  )}
+                  {formatUpdateCadence(cb.scheduleValue, cb.scheduleUnit)}
                 </DetailSectionColumn>
               </div>
             </OverviewSection>
@@ -524,6 +522,15 @@ export default function ContextualBanditDetailPage({
           </Box>
         </TabsContent>
       </Tabs>
+
+      {showStart && cb.status === "draft" ? (
+        <StartContextualBanditModal
+          cb={cb}
+          linkedFeatures={linkedFeatures}
+          startContextualBandit={start}
+          close={() => setShowStart(false)}
+        />
+      ) : null}
 
       {confirmStop ? (
         <ConfirmDialog
