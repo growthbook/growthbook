@@ -8,7 +8,7 @@ import type { RevisionStatus } from "shared/validators";
 // revision system (RevisionModel + EntityRevisionAdapter) currently serving
 // saved groups. This module belongs to the older feature-revision pipeline.
 // Once feature revisions converge onto the generic system, this state machine
-// can be unified with RevisionDetail's approval logic — until then the two
+// can be unified with the generic revision approval logic — until then the two
 // coexist as separate UI flows sharing the same entity-agnostic concepts.
 
 export type RnPMode = "fix-conflicts" | "main";
