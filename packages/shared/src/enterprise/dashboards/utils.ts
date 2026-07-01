@@ -101,11 +101,9 @@ export function getBlockAnalysisSettings(
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
   const blockSettings: Partial<ExperimentSnapshotAnalysisSettings> = {};
-  if (
-    blockHasFieldOfType(block, "dimensionId", isString) &&
-    block.dimensionId.length > 0
-  ) {
-    blockSettings.dimensions = [block.dimensionId];
+  if (blockHasFieldOfType(block, "dimensionId", isString)) {
+    blockSettings.dimensions =
+      block.dimensionId.length > 0 ? [block.dimensionId] : [];
   }
   if (blockHasFieldOfType(block, "differenceType", isDifferenceType)) {
     blockSettings.differenceType = block.differenceType;
@@ -151,6 +149,45 @@ export function getBlockSnapshotAnalysis<
     defaultAnalysis.settings,
   );
   return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
+}
+
+// Declarative, per-block-type dimension behavior. Consumed generically by the
+// editor (and any block) so dimension support is data-driven rather than
+// special-cased by block type.
+export interface BlockDimensionConfig {
+  scope: "all" | "precomputed"; // which dimensions are selectable
+  required: boolean; // dimension selection required
+  allowNone: boolean; // offer an explicit "None" option to clear the dimension
+  showValues: boolean; // render the levels multiselect
+  hideWhenNoneAvailable: boolean; // hide selectors if no in-scope dimensions exist
+  valuesRequireSelection: boolean; // only show levels once a dimension is chosen
+}
+
+export const BLOCK_DIMENSION_CONFIG: Partial<
+  Record<DashboardBlockType, BlockDimensionConfig>
+> = {
+  "experiment-dimension": {
+    scope: "all",
+    required: true,
+    allowNone: false,
+    showValues: true,
+    hideWhenNoneAvailable: false,
+    valuesRequireSelection: false,
+  },
+  "experiment-time-series": {
+    scope: "precomputed",
+    required: false,
+    allowNone: true,
+    showValues: true,
+    hideWhenNoneAvailable: true,
+    valuesRequireSelection: true,
+  },
+};
+
+export function getBlockDimensionConfig(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): BlockDimensionConfig | undefined {
+  return BLOCK_DIMENSION_CONFIG[block.type];
 }
 
 type CreateBlock<T extends DashboardBlockInterface> = (args: {
@@ -226,6 +263,8 @@ export const CREATE_BLOCK_TYPE: {
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
+    dimensionId: "",
+    dimensionValues: [],
     sliceTagsFilter: [],
     metricTagFilter: [],
     sortBy: null,

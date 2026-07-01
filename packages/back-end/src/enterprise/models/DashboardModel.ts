@@ -667,6 +667,14 @@ export function migrateBlock(
           "metricSelector",
         ]),
         metricIds: migratedMetricIds,
+        dimensionId:
+          "dimensionId" in doc && typeof doc.dimensionId === "string"
+            ? doc.dimensionId
+            : "",
+        dimensionValues:
+          "dimensionValues" in doc && Array.isArray(doc.dimensionValues)
+            ? doc.dimensionValues
+            : [],
         sliceTagsFilter,
         metricTagFilter,
         differenceType,

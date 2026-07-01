@@ -257,6 +257,11 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()),
     differenceType: z.enum(differenceTypes),
     snapshotId: z.string(),
+    // Optional precomputed-dimension breakdown. Empty/absent dimensionId means
+    // the dimensionless series; dimensionValues filters which levels to render.
+    // Optional (not required) so existing saved blocks keep parsing under .strict().
+    dimensionId: z.string().optional(),
+    dimensionValues: z.array(z.string()).optional(),
     sliceTagsFilter: z.array(z.string()),
     metricTagFilter: z.array(z.string()),
     sortBy: z
