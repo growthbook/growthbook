@@ -1,5 +1,7 @@
 export * from "./agreements";
 export * from "./base-model";
+export * from "./constant";
+export * from "./constant-revisions";
 export * from "./custom-fields";
 export * from "./custom-hooks";
 export * from "./experiments";
@@ -67,6 +69,7 @@ export * from "./population-data";
 export * from "./presentation-theme";
 export * from "./url-redirects";
 export * from "./sdk-connection-cache";
+export * from "./session-replay";
 export * from "./metric-group";
 export * from "./metrics";
 export * from "./product-analytics";

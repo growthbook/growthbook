@@ -122,7 +122,7 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
-  useRadixButton,
+  useRadixButton = true,
   aboveBodyContent = null,
   borderlessHeader = false,
   backgroundlessHeader = false,
@@ -209,7 +209,7 @@ const Modal: FC<ModalProps> = ({
                 header
               )}
               {docSection && (
-                <DocLink docSection={docSection}>
+                <DocLink useRadix={false} docSection={docSection}>
                   <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
                 </DocLink>
               )}

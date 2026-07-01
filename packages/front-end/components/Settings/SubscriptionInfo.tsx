@@ -54,6 +54,7 @@ export default function SubscriptionInfo() {
       )}
       {showCancellationSurveyModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header={null}
           trackingEventModalType="cancellation-survey"
@@ -84,6 +85,7 @@ export default function SubscriptionInfo() {
       )}
       {cancelSubscriptionModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Are you sure you want to cancel?"
           trackingEventModalType="cancel-subscription"

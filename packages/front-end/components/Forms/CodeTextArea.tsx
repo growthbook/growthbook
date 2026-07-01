@@ -203,6 +203,9 @@ export type Props = CodeTextAreaFieldProps & {
   // When set, the in-editor fullscreen button calls this instead of toggling
   // CodeTextArea's own fullscreen — lets a parent own a custom fullscreen view.
   onRequestFullscreen?: () => void;
+  // Exposes the underlying Ace editor once loaded, so a parent can do cursor-
+  // aware edits (e.g. inserting a token at the cursor).
+  onEditorLoad?: (editor: Ace.Editor) => void;
 };
 
 const LIGHT_THEME = "textmate";
@@ -225,6 +228,7 @@ export default function CodeTextArea({
   showCopyButton = false,
   showFullscreenButton = false,
   onRequestFullscreen,
+  onEditorLoad,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -407,6 +411,7 @@ export default function CodeTextArea({
                   name={id}
                   onLoad={(e) => {
                     setEditor(e);
+                    onEditorLoad?.(e);
                     // Clear auto-selection after editor loads
                     setTimeout(() => {
                       e.clearSelection();

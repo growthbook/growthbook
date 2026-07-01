@@ -6,6 +6,8 @@ import {
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
+  isScheduledPublishPending,
+  isScheduledPublishDue,
 } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
@@ -37,7 +39,7 @@ export async function approveRevision(
   if (
     context.hasPremiumFeature("require-approvals") &&
     isUserBlockedFromApproving({
-      approvalFlows: context.org.settings?.approvalFlows,
+      settings: context.org.settings,
       entityType: revision.target.type,
       revision,
       userId: context.userId,
@@ -87,7 +89,12 @@ export async function publishRevision(
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
 
-  if (!adapter.canUpdate(context, entity)) {
+  // Publish authority may be narrower than update (e.g. environment-scoped);
+  // honor the adapter override when present, like the schedule controller does.
+  const canPublish = adapter.canPublishRevision
+    ? adapter.canPublishRevision(context, entity)
+    : adapter.canUpdate(context, entity);
+  if (!canPublish) {
     context.permissions.throwPermissionError();
   }
 
@@ -137,12 +144,33 @@ export async function publishRevision(
     }
   }
 
+  // Another draft's committed "lock other drafts" schedule blocks this publish.
+  // Excludes this revision by id, so the locking revision can still fire itself.
+  if (
+    await context.models.revisions.hasPublishLockingScheduledSibling(
+      revision.target,
+      revision.id,
+    )
+  ) {
+    throw new BadRequestError(
+      "Another draft of this entity has a scheduled publish that locks other drafts. Cancel that schedule to publish this revision.",
+    );
+  }
+
   const desiredState = buildMergeDesiredState(
     entity,
     revision.target.snapshot as Record<string, unknown>,
     revision.target.proposedChanges,
     adapter.getUpdatableFields(),
   );
+
+  // The check above covers the live (source) entity. If the revision moves the
+  // entity to a different project, also require update permission on the
+  // destination — publishing a project move must not land where the caller
+  // lacks access.
+  if (!adapter.canUpdate(context, { ...entity, ...desiredState })) {
+    context.permissions.throwPermissionError();
+  }
 
   const updatableFields = adapter.getUpdatableFields();
   const hasChanges = Object.keys(desiredState).some((key) => {
@@ -168,15 +196,33 @@ export async function publishRevision(
     return merged;
   }
 
-  await adapter.applyChanges(context, entity, desiredState, {
-    isRevert: !!revision.revertedFrom,
-  });
-
+  // Claim the merge BEFORE touching the live entity. `merge` is CAS-guarded, so
+  // a concurrent discard either lost (status already moved → merge throws here,
+  // nothing applied) or will lose (its `close` CAS-fails once we've merged).
+  // This closes the window where a discard landing between applyChanges and
+  // merge would orphan a half-applied change on the live entity.
   const merged = await context.models.revisions.merge(
     revision.id,
     context.userId,
     { bypass: isBypass },
   );
+
+  try {
+    await adapter.applyChanges(context, entity, desiredState, {
+      isRevert: !!revision.revertedFrom,
+    });
+  } catch (e) {
+    // Couldn't apply after claiming the merge — reopen so the revision isn't
+    // stranded "merged" with the live entity unchanged. A retry then re-runs
+    // the full publish (and the no-op self-heal path above if it was partially
+    // applied). Best-effort: surface the original error regardless.
+    try {
+      await context.models.revisions.reopen(merged.id, context.userId);
+    } catch {
+      // ignore — the original applyChanges error is the one that matters
+    }
+    throw e;
+  }
 
   await getRevisionWebhookAdapter(merged.target.type)?.dispatch(
     context,
@@ -193,15 +239,19 @@ export function canEnableAutoPublishOnApproval(
   entity: Record<string, unknown>,
 ): boolean {
   if (!context.hasPremiumFeature("require-approvals")) return false;
-  if (
-    !isAutopublishOnApprovalEnabled(
-      context.org.settings?.approvalFlows,
-      entityType,
-    )
-  ) {
-    return false;
-  }
-  return getAdapter(entityType).canUpdate(context, entity);
+  const adapter = getAdapter(entityType);
+  // The adapter may override how autopublish-on-approval is determined
+  // (constants key off the feature `requireReviews` model). Default to the
+  // entity's approval-flow toggle.
+  const enabled = adapter.isAutopublishOnApprovalEnabled
+    ? adapter.isAutopublishOnApprovalEnabled(context, entity)
+    : isAutopublishOnApprovalEnabled(
+        context.org.settings,
+        entityType,
+        (entity as { project?: string }).project,
+      );
+  if (!enabled) return false;
+  return adapter.canUpdate(context, entity);
 }
 
 export async function maybeAutoPublishRevision(
@@ -211,6 +261,12 @@ export async function maybeAutoPublishRevision(
 ): Promise<Revision> {
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
+
+  // A future-dated schedule defers the publish to the poller — don't fire early
+  // just because approval landed.
+  if (isScheduledPublishPending(revision) && !isScheduledPublishDue(revision)) {
+    return revision;
+  }
 
   // Publish with the authority of whoever armed auto-publish; fall back to
   // the author for revisions armed before `autoPublishEnabledBy` existed.
@@ -241,6 +297,84 @@ export async function maybeAutoPublishRevision(
     logger.error(
       e,
       `auto-publish-on-approval failed for revision ${revision.id}; left approved for manual publish`,
+    );
+    return revision;
+  }
+}
+
+// After this many failed poller attempts, escalate logging so a stuck schedule
+// surfaces in monitoring instead of retrying silently forever.
+const SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS = 10;
+
+async function recordAndLogScheduledPublishFailure(
+  context: Context,
+  revision: Revision,
+  message: string,
+): Promise<void> {
+  const attempts = await context.models.revisions.recordScheduledPublishFailure(
+    revision.id,
+    message,
+  );
+  const logFn =
+    attempts >= SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS
+      ? logger.error
+      : logger.info;
+  logFn(
+    { revisionId: revision.id, attempts },
+    `Scheduled publish not completed yet: ${message}`,
+  );
+}
+
+/**
+ * Poller entry point: publish a due scheduled revision with the arming user's
+ * authority. Re-checks the due gate and governance (approval, conflicts, rebase,
+ * sibling locks all live in publishRevision); on any failure records the attempt
+ * and holds so the poller retries next tick.
+ */
+export async function maybePublishScheduledRevision(
+  context: Context,
+  revision: Revision,
+  entity: Record<string, unknown>,
+): Promise<Revision> {
+  if (!isScheduledPublishDue(revision)) return revision;
+
+  const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
+  if (!enablerId) {
+    await recordAndLogScheduledPublishFailure(
+      context,
+      revision,
+      "No arming user or author to publish with",
+    );
+    return revision;
+  }
+
+  try {
+    const enablerContext = await getContextForUserIdInOrg(
+      context.org,
+      enablerId,
+    );
+    if (!enablerContext) {
+      await recordAndLogScheduledPublishFailure(
+        context,
+        revision,
+        "Arming user could not be resolved",
+      );
+      return revision;
+    }
+
+    // Admin bypass-approval is only honored if the armer STILL holds bypass at
+    // fire time (a lapsed admin can't force a non-bypass schedule through).
+    const adapter = getAdapter(revision.target.type);
+    const bypass =
+      !!revision.scheduledPublishBypassApproval &&
+      adapter.canBypassApproval(enablerContext, entity);
+
+    return await publishRevision(enablerContext, revision, entity, { bypass });
+  } catch (e) {
+    await recordAndLogScheduledPublishFailure(
+      context,
+      revision,
+      e instanceof Error ? e.message : String(e),
     );
     return revision;
   }

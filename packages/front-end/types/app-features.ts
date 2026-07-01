@@ -118,4 +118,5 @@ export type AppFeatures = {
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
   "contextual-bandits": boolean;
+  "session-replays": boolean;
 };

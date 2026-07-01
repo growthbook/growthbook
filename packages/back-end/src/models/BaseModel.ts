@@ -169,6 +169,12 @@ export interface ModelConfig<
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
     sparse?: boolean;
+    // Explicit index name (required for partial indexes so they can be matched
+    // for removal and so dup-key errors can be identified).
+    name?: string;
+    // Build a partial index — only documents matching this filter are indexed.
+    // Enables e.g. a unique constraint scoped to a subset of rows.
+    partialFilterExpression?: Record<string, unknown>;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -882,7 +888,7 @@ export abstract class BaseModel<
       generatedIds.uid = this._generateUid();
     }
 
-    const doc = {
+    let doc = {
       ...generatedIds,
       ...props,
       organization: this.context.org.id,
@@ -906,7 +912,11 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
+    // insertOne mutates `doc` in place to add Mongo's `_id`. Scrub it (and the
+    // mongoose version key) with the same helper reads use, so these internals
+    // don't leak into the return value, audit log details, or hooks.
     await this._dangerousGetCollection().insertOne(doc);
+    doc = this._removeMongooseFields(doc) as z.infer<T>;
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
@@ -1280,6 +1290,10 @@ export abstract class BaseModel<
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
             sparse: !!index.sparse,
+            ...(index.name ? { name: index.name } : {}),
+            ...(index.partialFilterExpression
+              ? { partialFilterExpression: index.partialFilterExpression }
+              : {}),
           })
           .catch((err) => {
             logger.error(

@@ -20,7 +20,6 @@ import {
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
   parsePlainJSONObject,
-  resolveSparseJSONValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -43,6 +42,8 @@ import {
   getJSONValue,
   getPayloadAllowedKeys,
   replaceSavedGroups,
+  resolveConstantRefs,
+  ConstantValueMap,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -547,6 +548,7 @@ export function getFeatureDefinition({
   projectsMap,
   cbMap,
   rampMonitoredRuleMap,
+  constantMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -574,6 +576,11 @@ export function getFeatureDefinition({
   projectsMap?: Map<string, ProjectInterface>;
   cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Per-environment constant values. When provided, `@const:` references in
+  // sparse rule values (and the default they merge onto) are resolved BEFORE the
+  // sparse merge, so the rule's own fields are applied last and win over the
+  // resolved constant. Non-sparse values are resolved by the caller afterward.
+  constantMap?: ConstantValueMap;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -589,14 +596,60 @@ export function getFeatureDefinition({
   // For `json` features, parse the default value once so rules flagged `sparse`
   // can merge their partial object onto it. Null when the default isn't a plain
   // key/val object (array, null, primitive) — sparse is then a no-op and rules
-  // emit their value as-is.
-  const jsonDefaultObj =
-    feature.valueType === "json" ? parsePlainJSONObject(defaultValue) : null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const valueForSDK = (valueStr: string, sparse?: boolean): any =>
-    sparse && jsonDefaultObj
-      ? resolveSparseJSONValue(valueStr, jsonDefaultObj)
-      : getJSONValue(feature.valueType, valueStr);
+  // emit their value as-is. When a constant map is supplied, resolve the
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
+  const jsonDefaultObj = (() => {
+    if (feature.valueType !== "json") return null;
+    const base = parsePlainJSONObject(defaultValue);
+    if (!base || !constantMap) return base;
+    const resolved = resolveConstantRefs(
+      base,
+      constantMap,
+      undefined,
+      undefined,
+      feature.project || "",
+    );
+    return resolved !== null &&
+      typeof resolved === "object" &&
+      !Array.isArray(resolved)
+      ? (resolved as Record<string, unknown>)
+      : base;
+  })();
+
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    if (sparse && jsonDefaultObj) {
+      const patch = parsePlainJSONObject(valueStr);
+      if (patch !== null) {
+        // Resolve the patch's constants BEFORE merging so the rule's fields are
+        // spread last and win over the (already-resolved) default — i.e. sparse
+        // fields are "further down". Non-object resolutions (e.g. a whole-value
+        // JSON constant that resolves to an array) replace the value outright.
+        const resolvedPatch = constantMap
+          ? resolveConstantRefs(
+              patch,
+              constantMap,
+              undefined,
+              undefined,
+              feature.project || "",
+            )
+          : patch;
+        if (
+          resolvedPatch !== null &&
+          typeof resolvedPatch === "object" &&
+          !Array.isArray(resolvedPatch)
+        ) {
+          return {
+            ...jsonDefaultObj,
+            ...(resolvedPatch as Record<string, unknown>),
+          };
+        }
+        return resolvedPatch;
+      }
+    }
+    // Non-sparse values are resolved by the caller's post-build pass.
+    return getJSONValue(feature.valueType, valueStr);
+  };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through

@@ -155,6 +155,8 @@ export default function SDKConnectionPage() {
                       confirmation={{
                         confirmationTitle: "Delete SDK Connection",
                         cta: "Delete",
+                        getConfirmationContent: async () =>
+                          "Are you sure? This will permanently delete the SDK connection and any associated session recordings will no longer be accessible.",
                         submit: async () => {
                           await apiCall(`/sdk-connections/${connection.id}`, {
                             method: "DELETE",

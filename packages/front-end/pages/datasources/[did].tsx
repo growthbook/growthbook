@@ -186,7 +186,11 @@ const DataSourcePage: FC = () => {
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
+          <DocLink
+            useRadix={false}
+            docSection="env_prod"
+            className="btn btn-primary"
+          >
             View instructions for fixing
           </DocLink>
         </div>
@@ -254,6 +258,7 @@ const DataSourcePage: FC = () => {
                 }}
               >
                 <DocLink
+                  useRadix={false}
                   docSection={d.type as DocSection}
                   fallBackSection="datasources"
                 >
@@ -440,7 +445,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       Sending Events
                     </Heading>
                     <Text>
-                      <DocLink docSection="managedWarehouseTracking">
+                      <DocLink
+                        useRadix={false}
+                        docSection="managedWarehouseTracking"
+                      >
                         Read our full docs
                       </DocLink>{" "}
                       with instructions on how to send events from your app to
