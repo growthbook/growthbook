@@ -14,7 +14,7 @@ import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
-import Callout from "@/ui/Callout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -26,7 +26,6 @@ type Props = {
   // The resolved (inherited+own) value, for live pass/fail feedback.
   resolvedValue: Record<string, unknown>;
   canEdit: boolean;
-  saving?: boolean;
   onChange: (next: ConfigInvariant[]) => Promise<void>;
 };
 
@@ -322,7 +321,6 @@ export default function ConfigInvariantsEditor({
   fieldKeys,
   resolvedValue,
   canEdit,
-  saving,
   onChange,
 }: Props) {
   // null = closed, -1 = adding, >=0 = editing that row.
@@ -338,7 +336,6 @@ export default function ConfigInvariantsEditor({
   const [groupB, setGroupB] = useState<Group>([
     newCondition(fieldKeys[0] ?? ""),
   ]);
-  const [error, setError] = useState<string | null>(null);
 
   const currentRule = advanced
     ? safeParse(ruleText)
@@ -351,27 +348,33 @@ export default function ConfigInvariantsEditor({
   };
 
   const open = (index: number) => {
-    setError(null);
     setEditingIndex(index);
     const inv = index >= 0 ? invariants[index] : undefined;
     setName(inv?.name ?? "");
     setMessage(inv?.message ?? "");
-    const parsed = inv ? safeParse(inv.rule) : null;
+    if (!inv) {
+      // New rule: start in the builder with a single blank condition.
+      setKind("single");
+      setGroupA([newCondition(fieldKeys[0] ?? "")]);
+      setGroupB([newCondition(fieldKeys[0] ?? "")]);
+      setAdvanced(false);
+      setRuleText("{}");
+      return;
+    }
+    const parsed = safeParse(inv.rule);
     const b = parsed ? parseRule(parsed) : null;
     if (b) {
       applyParsed(b);
       setAdvanced(false);
       setRuleText(parsed ? JSON.stringify(parsed, null, 2) : "{}");
     } else {
+      // Existing rule the builder can't represent → open in Advanced.
       setAdvanced(true);
-      setRuleText(
-        parsed ? JSON.stringify(parsed, null, 2) : (inv?.rule ?? "{}"),
-      );
+      setRuleText(parsed ? JSON.stringify(parsed, null, 2) : inv.rule);
     }
   };
   const close = () => {
     setEditingIndex(null);
-    setError(null);
   };
 
   const onKindChange = (k: RuleKind) => {
@@ -425,16 +428,16 @@ export default function ConfigInvariantsEditor({
   };
 
   const save = async () => {
-    if (!name.trim()) return setError("Name is required.");
-    if (!message.trim()) return setError("Message is required.");
+    if (!name.trim()) throw new Error("Name is required.");
+    if (!message.trim()) throw new Error("Message is required.");
     if (!advanced) {
       const err = validateBuilder();
-      if (err) return setError(err);
+      if (err) throw new Error(err);
     }
     const rule = advanced
       ? safeParse(ruleText)
       : buildRule(kind, groupA, groupB);
-    if (!rule) return setError("Rule must be a mongo condition object.");
+    if (!rule) throw new Error("Rule must be a mongo condition object.");
     const next: ConfigInvariant = {
       name: name.trim(),
       rule: JSON.stringify(rule),
@@ -445,7 +448,6 @@ export default function ConfigInvariantsEditor({
         ? invariants.map((iv, i) => (i === editingIndex ? next : iv))
         : [...invariants, next];
     await onChange(list);
-    close();
   };
 
   const remove = async (index: number) => {
@@ -615,8 +617,10 @@ export default function ConfigInvariantsEditor({
     </Box>
   );
 
-  const editor = (
-    <Frame mb="3">
+  const isEditingExisting = editingIndex !== null && editingIndex >= 0;
+
+  const editorBody = (
+    <>
       <Field
         label="Name"
         value={name}
@@ -698,37 +702,21 @@ export default function ConfigInvariantsEditor({
           />
         </Box>
       )}
-      {error && (
-        <Callout status="error" mt="2">
-          {error}
-        </Callout>
-      )}
-
-      <Flex gap="2" mt="3">
-        <Button onClick={save} loading={saving}>
-          {editingIndex !== null && editingIndex >= 0
-            ? "Save rule"
-            : "Add rule"}
-        </Button>
-        <Button variant="ghost" onClick={close}>
-          Cancel
-        </Button>
-      </Flex>
-    </Frame>
+    </>
   );
 
   return (
     <Box>
       <Flex align="center" justify="between" mb="2">
         <Text weight="medium">Validation rules</Text>
-        {canEdit && editingIndex === null && (
+        {canEdit && (
           <Button variant="ghost" onClick={() => open(-1)}>
             + Add rule
           </Button>
         )}
       </Flex>
 
-      {invariants.length === 0 && editingIndex === null && (
+      {invariants.length === 0 && (
         <Text as="div" size="small" color="text-low">
           No cross-field rules yet — add relational checks JSON Schema
           can&apos;t express (implications, both-or-neither, or comparing two
@@ -737,54 +725,62 @@ export default function ConfigInvariantsEditor({
       )}
 
       {invariants.map((iv, i) => (
-        <Box key={i}>
-          {editingIndex === i ? (
-            editor
-          ) : (
-            <Frame mb="2">
-              <Flex align="center" gap="2">
-                <Text weight="semibold">{iv.name}</Text>
-                <Badge
-                  color={failing.has(i) ? "red" : "green"}
-                  variant="soft"
-                  label={failing.has(i) ? "fails" : "ok"}
-                />
-                {canEdit && (
-                  <Flex gap="2" ml="auto">
-                    <Button variant="ghost" size="xs" onClick={() => open(i)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      color="red"
-                      onClick={() => remove(i)}
-                    >
-                      Delete
-                    </Button>
-                  </Flex>
-                )}
+        <Frame mb="2" key={i}>
+          <Flex align="center" gap="2">
+            <Text weight="semibold">{iv.name}</Text>
+            <Badge
+              color={failing.has(i) ? "red" : "green"}
+              variant="soft"
+              label={failing.has(i) ? "fails" : "ok"}
+            />
+            {canEdit && (
+              <Flex gap="2" ml="auto">
+                <Button variant="ghost" size="xs" onClick={() => open(i)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  color="red"
+                  onClick={() => remove(i)}
+                >
+                  Delete
+                </Button>
               </Flex>
-              <Box
-                mt="1"
-                style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: 12,
-                  color: "var(--gray-11)",
-                  wordBreak: "break-all",
-                }}
-              >
-                {describeInvariantRule(iv.rule)}
-              </Box>
-              <Text as="div" size="small" color="text-low" mt="1">
-                {iv.message}
-              </Text>
-            </Frame>
-          )}
-        </Box>
+            )}
+          </Flex>
+          <Box
+            mt="1"
+            style={{
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 12,
+              color: "var(--gray-11)",
+              wordBreak: "break-all",
+            }}
+          >
+            {describeInvariantRule(iv.rule)}
+          </Box>
+          <Text as="div" size="small" color="text-low" mt="1">
+            {iv.message}
+          </Text>
+        </Frame>
       ))}
 
-      {editingIndex === -1 && editor}
+      {editingIndex !== null && (
+        <ModalStandard
+          open
+          trackingEventModalType="config-invariant-rule"
+          header={
+            isEditingExisting ? "Edit validation rule" : "Add validation rule"
+          }
+          size="lg"
+          cta={isEditingExisting ? "Save rule" : "Add rule"}
+          close={close}
+          submit={save}
+        >
+          {editorBody}
+        </ModalStandard>
+      )}
     </Box>
   );
 }
