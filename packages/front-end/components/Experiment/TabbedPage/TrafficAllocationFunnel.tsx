@@ -76,7 +76,7 @@ function FunnelCard({
           <IconButton
             variant="ghost"
             color="violet"
-            onClick={onEdit}
+            onClick={() => onEdit()}
             size="1"
             aria-label={`Edit ${title}`}
           >

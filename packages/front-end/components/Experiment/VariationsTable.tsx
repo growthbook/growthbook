@@ -167,7 +167,7 @@ function AddVariationButton({ onClick }: { onClick: () => void }) {
       variant="ghost"
       color="violet"
       radius="full"
-      onClick={onClick}
+      onClick={() => onClick()}
       aria-label="Add variation"
     >
       <PiPlusCircle size="15" />

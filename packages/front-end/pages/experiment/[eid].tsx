@@ -141,10 +141,7 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editTraffic = canRunExperiment
     ? (variationId?: string) => {
-        // Callers may pass a DOM event, so only string ids focus a variation.
-        setTrafficFocusVariation(
-          typeof variationId === "string" ? variationId : null,
-        );
+        setTrafficFocusVariation(variationId ?? null);
         setTrafficModalOpen(true);
       }
     : null;

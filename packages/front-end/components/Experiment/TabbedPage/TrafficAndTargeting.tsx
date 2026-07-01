@@ -71,7 +71,7 @@ export default function TrafficAndTargeting({
               </Heading>
               <div className="flex-1" />
               {editTraffic && !(isBandit && experiment.status === "running") ? (
-                <Link onClick={editTraffic}>
+                <Link onClick={() => editTraffic()}>
                   <Text weight="semibold">Edit</Text>
                 </Link>
               ) : null}
