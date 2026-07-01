@@ -199,6 +199,16 @@ export const CREATE_BLOCK_TYPE: {
     sortDirection: null,
     ...(initialValues || {}),
   }),
+  "metric-experiments": ({ initialValues }) => ({
+    type: "metric-experiments",
+    title: "",
+    description: "",
+    metricId: "",
+    experimentSearchString: "",
+    differenceType: "relative",
+    bandits: false,
+    ...(initialValues || {}),
+  }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
     type: "experiment-dimension",
     title: "",

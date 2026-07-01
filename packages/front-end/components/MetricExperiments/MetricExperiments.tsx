@@ -296,7 +296,7 @@ function MetricExperimentResultTab({
             <SortableTH field="variationId">Variation</SortableTH>
             <SortableTH field="date">Date</SortableTH>
             <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="users">Variation Users</SortableTH>
+            <SortableTH field="users">Variation Units</SortableTH>
             {/* <th>Won/lost</th> */}
             {!bandits && <SortableTH field="lift">Lift</SortableTH>}
           </tr>
