@@ -252,7 +252,7 @@ from growthbook import GrowthBook
 gb = GrowthBook(
     api_host="https://cdn.growthbook.io",
     client_key="sdk-abc123",
-  # How long to cache features in seconds (Optional, default 60s)
+  # How long to cache features in seconds (Optional, default 600s for the legacy client)
     cache_ttl=60,
     # Optional: Encryption support
     decryption_key="your-decryption-key",
@@ -316,6 +316,42 @@ gb.load_features()  # Will use Redis cache
 </TabItem>
 </Tabs>
 
+### Real-time Streaming (Legacy Client)
+
+The traditional `GrowthBook` client can also keep features up to date in real time using Server-Sent Events, without polling. Pass `streaming=True`:
+
+```python
+from growthbook import GrowthBook
+
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    streaming=True,                    # Enable SSE
+    streaming_connection_timeout=30,   # Optional, default 30s
+)
+gb.load_features()
+
+# Features now update automatically in the background.
+# Call gb.destroy() to close the streaming connection when done.
+```
+
+You can also start/stop streaming manually with `gb.startAutoRefresh()` and `gb.stopAutoRefresh()`. For the async `GrowthBookClient`, use `refresh_strategy=FeatureRefreshStrategy.SERVER_SENT_EVENTS` in `Options` instead (see [Real-time Feature Updates](#real-time-feature-updates)).
+
+#### Stale-While-Revalidate Caching (Legacy Client)
+
+Instead of streaming, you can serve cached features past their TTL while refreshing them in the background:
+
+```python
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    cache_ttl=600,                 # Hard expiry (seconds)
+    stale_while_revalidate=True,   # Serve stale features while refetching
+    stale_ttl=300,                 # Soft expiry — refetch in background after this
+)
+gb.load_features()
+```
+
 ### Custom Implementation
 
 If you prefer to handle the entire fetching/caching logic yourself, you can just pass in a `dict` of features from the GrowthBook API directly into the constructor:
@@ -335,23 +371,54 @@ Note: When doing this, you do not need to specify your `api_host` or `client_key
 
 The GrowthBook constructor has the following parameters:
 
+**Core**
+
 - **enabled** (`bool`) - Flag to globally disable all experiments. Default true.
 - **attributes** (`dict`) - Dictionary of user attributes that are used for targeting and to assign variations
 - **url** (`str`) - The URL of the current request (if applicable)
-- **qa_mode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
-- **on_experiment_viewed** (`callable`) - A function that takes `experiment` and `result` as arguments.
+- **qa_mode** (`bool`) - If true, random assignment is disabled and only explicitly forced variations are used.
+- **features** (`dict`) - Feature definitions from the GrowthBook API (only required if `client_key` is not specified)
+
+**Fetching & caching**
+
 - **api_host** (`str`) - The GrowthBook API host to fetch feature flags from. Defaults to `https://cdn.growthbook.io`
 - **client_key** (`str`) - The client key that will be passed to the API Host to fetch feature flags
 - **decryption_key** (`str`) - If the GrowthBook API endpoint has encryption enabled, specify the decryption key here
-- **cache_ttl** (`int`) - How long to cache features in-memory from the GrowthBook API (seconds, default `60`)
-- **features** (`dict`) - Feature definitions from the GrowthBook API (only required if `client_key` is not specified)
-- **forced_variations** (`dict`) - Dictionary of forced experiment variations (used for QA)
+- **cache_ttl** (`int`) - How long to cache features in-memory from the GrowthBook API, in seconds. Default `600` for the legacy `GrowthBook` client (the async client's `Options` defaults to `60`).
+- **streaming** (`bool`) - If true, keeps features up to date in real time via Server-Sent Events. Default false. (See [Real-time Streaming](#real-time-streaming-legacy-client).)
+- **streaming_connection_timeout** (`int`) - Timeout in seconds for the streaming connection. Default 30.
+- **stale_while_revalidate** (`bool`) - If true, serve cached features past `cache_ttl` while refreshing them in the background. Default false.
+- **stale_ttl** (`int`) - Soft-expiry threshold in seconds for stale-while-revalidate. Default 300.
 
-There are also getter and setter methods for features and attributes if you need to update them later in the request:
+**Tracking & callbacks**
+
+- **on_experiment_viewed** (`callable`) - Called when an experiment is run. Receives `(experiment, result, user_context)`.
+- **on_feature_usage** (`callable`) - Called whenever a feature is evaluated. Receives `(feature_key, feature_result, user_context)`.
+- **plugins** (`list`) - List of plugins, e.g. `growthbook_tracking_plugin()` or `request_context_plugin()`. (See [Tracking Plugins](#tracking-plugins).)
+
+**Experiment control**
+
+- **forced_variations** (`dict`) - Dictionary of forced experiment variations (used for QA)
+- **forced_features** (`dict`) - Dictionary of forced feature values (used for QA)
+- **skip_all_experiments** (`bool`) - If true, skip running any experiments. Default false.
+
+**Sticky bucketing & remote eval**
+
+- **sticky_bucket_service** (`AbstractStickyBucketService`) - Service for persisting experiment assignments. (See [Sticky Bucketing](#sticky-bucketing).)
+- **sticky_bucket_identifier_attributes** (`list`) - Which attributes to use as sticky bucket identifiers (defaults to those referenced by experiments).
+- **remoteEval** (`bool`) - Enable remote evaluation against a self-hosted proxy. (See [Remote Evaluation](#remote-evaluation).)
+- **cacheKeyAttributes** (`list`) - Attributes used to build the remote-eval cache key.
+
+> **Note:** The async `GrowthBookClient` accepts the same options via the `Options` dataclass, but the remote-eval fields use snake_case (`remote_eval`, `cache_key_attributes`) and streaming is controlled by `refresh_strategy` (a `FeatureRefreshStrategy` enum) instead of the `streaming` flag.
+
+There are also getter and setter methods if you need to update state later in the request:
 
 ```python
 gb.set_features(gb.get_features())
 gb.set_attributes(gb.get_attributes())
+gb.set_forced_variations({"my-experiment": 1})
+gb.set_forced_features({"my-feature": "forced-value"})
+gb.set_url("https://example.com/page")
 ```
 
 ### Attributes
@@ -598,7 +665,7 @@ from growthbook import GrowthBookClient, Options, UserContext, Experiment, Resul
 def on_experiment_viewed(experiment: Experiment, result: Result, user_context: UserContext):
     """Synchronous callback for experiment tracking (Fire-and-Forget)"""
     # Use whatever event tracking system you want
-    user_id = result.hash_attribute or "anonymous"
+    user_id = result.hashAttribute or "anonymous"
 
     # For async analytics, you must schedule the task on the loop
     # without awaiting it (Fire-and-Forget)
@@ -611,8 +678,8 @@ async def track_async(user_id, experiment, result):
         'experimentId': experiment.key,
         'variationId': result.key,
         'variationValue': result.value,
-        'inExperiment': result.in_experiment,
-        'hashUsed': result.hash_used
+        'inExperiment': result.inExperiment,
+        'hashUsed': result.hashUsed
     })
     print(f"Tracked experiment: {experiment.key} -> {result.value}")
 
@@ -660,7 +727,7 @@ def sync_experiment_tracker(experiment: Experiment, result: Result):
     analytics.track("Experiment Viewed", {
         'experimentId': experiment.key,
         'variationId': result.key,
-        'userId': result.hash_attribute
+        'userId': result.hashAttribute
     })
 
 client = GrowthBookClient(
@@ -683,14 +750,14 @@ from growthbook import GrowthBook, Experiment, Result
 def on_experiment_viewed(experiment: Experiment, result: Result):
     """Callback for experiment tracking"""
   # Use whatever event tracking system you want
-    user_id = result.hash_attribute or "anonymous"
+    user_id = result.hashAttribute or "anonymous"
 
     analytics.track(user_id, "Experiment Viewed", {
     'experimentId': experiment.key,
         'variationId': result.key,
         'variationValue': result.value,
-        'inExperiment': result.in_experiment,
-        'hashUsed': result.hash_used
+        'inExperiment': result.inExperiment,
+        'hashUsed': result.hashUsed
   })
 
     print(f"Tracked experiment: {experiment.key} -> {result.value}")
@@ -767,7 +834,7 @@ async def main():
             tracking_plugins=[
                 GrowthBookTrackingPlugin(
                     # Ingestor host for GrowthBook built-in usage
-                    ingestor_host="https://c1.growthbook.io",
+                    ingestor_host="https://us1.gb-ingest.com",
                     # Additional callback for custom analytics
                     additional_callback=my_custom_tracker
                 )
@@ -796,40 +863,40 @@ asyncio.run(main())
 <TabItem value="legacy" label="Legacy Client">
 
 ```python
-from growthbook import GrowthBook, TrackingPlugin
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
 
-# Custom tracking callback for your analytics system
-def my_custom_tracker(events):
-    """Process a batch of tracking events"""
-    for event in events:
-        # Send to your analytics system
-        analytics.track(
-            user_id=event.user_id,
-            event_name="Experiment Viewed",
-            properties={
-                'experiment_id': event.experiment.key,
-                'variation_id': event.result.key,
-                'variation_value': event.result.value,
-                'timestamp': event.timestamp
-            }
-        )
-    print(f"Processed {len(events)} tracking events")
+# Optional: a callback to also forward events to your own analytics system.
+# It receives the experiment, result, and user context for each tracked event.
+def my_custom_tracker(experiment, result, user_context):
+    """Forward a tracking event to your analytics system"""
+    analytics.track(
+        user_id=result.hashValue,
+        event_name="Experiment Viewed",
+        properties={
+            'experiment_id': experiment.key,
+            'variation_id': result.key,
+            'variation_value': result.value,
+        }
+    )
 
-# Create GrowthBook with tracking plugin
+# Create GrowthBook with the built-in tracking plugin.
+# Note: the legacy client uses the `plugins` argument (the async client's
+# `Options` uses `tracking_plugins` instead).
 gb = GrowthBook(
     api_host="https://cdn.growthbook.io",
     client_key="sdk-abc123",
     attributes={"id": "user_123"},
-    tracking_plugins=[
-        TrackingPlugin(
-            # Your custom tracking function
-            callback=my_custom_tracker,
-            # Batch size (optional, default 10)
+    plugins=[
+        GrowthBookTrackingPlugin(
+            # Ingestor host for GrowthBook's built-in warehouse
+            # (optional, default "https://us1.gb-ingest.com")
+            ingestor_host="https://us1.gb-ingest.com",
+            # Number of events to batch before flushing (optional, default 10)
             batch_size=5,
-            # Flush interval in seconds (optional, default 30)
-            flush_interval=10,
-            # Max retries (optional, default 3)
-            max_retries=2
+            # Max seconds to wait before flushing a partial batch (optional, default 10.0)
+            batch_timeout=10.0,
+            # Optional: extra callback for your own analytics
+            additional_callback=my_custom_tracker
         )
     ]
 )
@@ -848,47 +915,57 @@ gb.destroy()
 </TabItem>
 </Tabs>
 
-#### Multiple Tracking Plugins
+#### Forwarding Events to Your Own Analytics
 
-You can use multiple tracking plugins to send events to different analytics systems:
+The built-in plugin always sends events to GrowthBook's ingestor. To **also** forward each event to your own analytics systems, use a single `additional_callback`. It receives `(experiment, result, user_context)` for every tracked event:
 
 ```python
+import asyncio
 from growthbook import GrowthBookClient, Options, GrowthBookTrackingPlugin
 
-# Different tracking callbacks
-def segment_tracker(experiment, result, user_context):
-    """Send events to Segment (Fire-and-Forget)"""
+def forward_to_analytics(experiment, result, user_context):
+    """Forward each tracked event to Segment and Mixpanel (Fire-and-Forget)"""
     loop = asyncio.get_running_loop()
-    loop.create_task(segment_track_async(experiment, result))
+    loop.create_task(forward_async(experiment, result))
 
-async def segment_track_async(experiment, result):
-     await segment.track_async(...)
+async def forward_async(experiment, result):
+    user_id = result.hashValue
+    properties = {
+        'experiment_id': experiment.key,
+        'variation_id': result.key,
+        'variation_value': result.value,
+    }
+    # Send to multiple destinations
+    await segment.track_async(user_id, "Experiment Viewed", properties)
+    await mixpanel.track_async(user_id, "Experiment Viewed", properties)
 
-async def mixpanel_tracker(events):
-    """Send events to Mixpanel"""
-    for event in events:
-        await mixpanel.track_async(event.user_id, "Experiment Viewed", {
-            'experiment_id': event.experiment.key,
-            'variation': event.result.value
-        })
-
-# Create client with multiple tracking plugins
+# A single tracking plugin sends to GrowthBook AND forwards a copy of
+# each event to your callback
 client = GrowthBookClient(
     Options(
         api_host="https://cdn.growthbook.io",
         client_key="sdk-abc123",
         tracking_plugins=[
-            GrowthBookTrackingPlugin(
-                additional_callback=segment_tracker
-            ),
-            GrowthBookTrackingPlugin(
-                additional_callback=mixpanel_tracker
-            )
+            GrowthBookTrackingPlugin(additional_callback=forward_to_analytics)
         ]
     )
 )
+```
 
-# Events are now automatically sent to both Segment and Mixpanel
+#### Combining Different Plugins
+
+You can also pass multiple **different** plugins together — for example the tracking plugin alongside the request context plugin, which enriches targeting attributes (URL, UTM parameters, User-Agent) from the incoming request:
+
+```python
+from growthbook import GrowthBook, growthbook_tracking_plugin, request_context_plugin
+
+gb = GrowthBook(
+    attributes={"id": "user_123"},
+    plugins=[
+        request_context_plugin(),      # adds URL, UTM, and User-Agent attributes
+        growthbook_tracking_plugin(),  # tracks experiment/feature events
+    ]
+)
 ```
 
 #### Tracking Plugin Benefits
@@ -906,7 +983,7 @@ The tracking plugin system provides several advantages over custom tracking call
 Tracking plugins work alongside your existing `on_experiment_viewed` callbacks:
 
 ```python
-def legacy_tracker(experiment, result):
+def legacy_tracker(experiment, result, user_context=None):
     """Traditional tracking callback"""
     print(f"Legacy tracker: {experiment.key}")
 
@@ -916,15 +993,60 @@ client = GrowthBookClient(
         client_key="sdk-abc123",
         # Traditional callback still works
         on_experiment_viewed=legacy_tracker,
-        # Plus new tracking plugins
+        # Plus the built-in tracking plugin
         tracking_plugins=[
-            TrackingPlugin(callback=my_custom_tracker)
+            GrowthBookTrackingPlugin()
         ]
     )
 )
 
-# Both the legacy callback and plugin will be triggered
+# Both the legacy callback and the plugin will be triggered
 ```
+
+## Custom Events
+
+In addition to automatic experiment and feature tracking, you can log arbitrary custom events with `log_event()`. This requires `GrowthBookTrackingPlugin` to be configured — the plugin wires up the event logger and sends events to GrowthBook's ingestor. Without the plugin, `log_event()` logs a warning and does nothing.
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+from growthbook import GrowthBookClient, Options, UserContext, GrowthBookTrackingPlugin
+
+client = GrowthBookClient(
+    Options(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123",
+        tracking_plugins=[GrowthBookTrackingPlugin()],
+    )
+)
+await client.initialize()
+
+user = UserContext(attributes={"id": "user_123"})
+# log_event(event_name, properties=None, user_context=None)
+await client.log_event("checkout_completed", {"revenue": 49.99}, user)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+```python
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
+
+gb = GrowthBook(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123",
+    attributes={"id": "user_123"},
+    plugins=[GrowthBookTrackingPlugin()],
+)
+gb.load_features()
+
+# log_event(event_name, properties=None) — uses the instance's current attributes
+gb.log_event("checkout_completed", {"revenue": 49.99})
+```
+
+</TabItem>
+</Tabs>
 
 ## Using Features
 
@@ -1181,10 +1303,10 @@ exp = Experiment(
 
         pricing_result = await client.run(complex_exp, user)
 
-        if pricing_result.in_experiment:
+        if pricing_result.inExperiment:
             print(f"User is in pricing experiment: ${pricing_result.value}")
             print(f"Variation ID: {pricing_result.key}")
-            print(f"Hash used: {pricing_result.hash_used}")
+            print(f"Hash used: {pricing_result.hashUsed}")
         else:
             print("User not in pricing experiment")
 
@@ -1235,10 +1357,10 @@ complex_exp = Experiment(
 
 pricing_result = gb.run(complex_exp)
 
-if pricing_result.in_experiment:
+if pricing_result.inExperiment:
     print(f"User is in pricing experiment: ${pricing_result.value}")
     print(f"Variation ID: {pricing_result.key}")
-    print(f"Hash used: {pricing_result.hash_used}")
+    print(f"Hash used: {pricing_result.hashUsed}")
 else:
     print("User not in pricing experiment")
 
@@ -1262,6 +1384,12 @@ There are a number of additional settings to control the experiment behavior:
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to "id")
 - **hashVersion** (`int`) - What version of our hashing algorithm to use. We recommend using the latest version `2`.
 - **namespace** (`tuple[str,float,float]`) - Used to run mutually exclusive experiments.
+- **fallbackAttribute** (`str`) - When sticky bucketing is enabled, used as a fallback to assign variations if the primary `hashAttribute` is missing.
+- **disableStickyBucketing** (`bool`) - Disable sticky bucketing for this experiment, even if a sticky bucket service is configured.
+- **bucketVersion** (`int`) - Version of the sticky bucket assignments. Increment to force re-bucketing of all users.
+- **minBucketVersion** (`int`) - Minimum sticky bucket version a user must have; users below it are excluded (used to handle opt-outs).
+- **parentConditions** (`list`) - Prerequisite features that must pass before this experiment is evaluated.
+- **filters** (`list`) - Mutual-exclusion filters (the newer alternative to `namespace`).
 
 Here's an example that uses all of them:
 
@@ -1491,6 +1619,28 @@ gb.run(Experiment(
 </TabItem>
 </Tabs>
 
+## Subscriptions
+
+Use `subscribe()` to register a callback that fires whenever a user is assigned a **new or changed** experiment result. The callback receives `(experiment, result)`, and `subscribe()` returns an unsubscribe function. This method is available on both the legacy `GrowthBook` and async `GrowthBookClient` clients.
+
+```python
+def on_assignment(experiment, result):
+    if result.inExperiment:
+        print(f"Assigned to {experiment.key}: variation {result.key}")
+
+unsubscribe = gb.subscribe(on_assignment)
+
+# ... run features/experiments ...
+
+# Stop receiving callbacks
+unsubscribe()
+
+# Get all experiment results assigned to the current user so far
+all_results = gb.get_all_results()
+```
+
+Unlike `on_experiment_viewed`, subscription callbacks only fire when the assigned variation actually changes — not on every evaluation.
+
 ## Working with Encrypted Features
 
 The Python SDK supports encrypted feature flags for enhanced security. When encryption is enabled, the feature payload is encrypted before being sent from GrowthBook, and the SDK automatically decrypts it client-side.
@@ -1626,6 +1776,60 @@ gb = GrowthBook(
 )
 ```
 
+## Remote Evaluation
+
+**Available starting in version 2.3.0**
+
+With remote evaluation, feature flags are evaluated on a self-hosted GrowthBook Proxy or Edge worker instead of in the SDK. The SDK sends the user attributes to the proxy and receives only the already-evaluated values, which keeps targeting rules and unreleased feature values off the client.
+
+Remote evaluation requires a **self-hosted** proxy/edge endpoint and has a few constraints:
+
+- `client_key` and `api_host` are **required**, and `api_host` must point at your proxy/edge — **not** GrowthBook Cloud.
+- Encryption (`decryption_key`) is **not** supported (the proxy handles payloads).
+- A `sticky_bucket_service` is **not** supported (the proxy handles sticky bucketing server-side).
+- Stale-while-revalidate is not compatible (legacy `stale_while_revalidate`, or async `refresh_strategy=STALE_WHILE_REVALIDATE`).
+
+<Tabs>
+<TabItem value="async" label="Async Client">
+
+```python
+from growthbook import GrowthBookClient, Options, UserContext
+
+client = GrowthBookClient(
+    Options(
+        api_host="https://my-proxy.example.com",  # self-hosted proxy/edge
+        client_key="sdk-abc123",
+        remote_eval=True,
+        # Optional: only these attributes are sent to the proxy / used in the cache key
+        cache_key_attributes=["id", "country"],
+    )
+)
+
+await client.initialize()
+user = UserContext(attributes={"id": "user_123", "country": "US"})
+enabled = await client.is_on("my-feature", user)
+```
+
+</TabItem>
+<TabItem value="legacy" label="Legacy Client">
+
+```python
+from growthbook import GrowthBook
+
+gb = GrowthBook(
+    api_host="https://my-proxy.example.com",  # self-hosted proxy/edge
+    client_key="sdk-abc123",
+    remoteEval=True,
+    cacheKeyAttributes=["id", "country"],
+    attributes={"id": "user_123", "country": "US"},
+)
+gb.load_features()
+enabled = gb.is_on("my-feature")
+```
+
+</TabItem>
+</Tabs>
+
 ## Logging
 
 The GrowthBook SDK uses a Python logger with the name `growthbook` and includes helpful info for debugging as well as warnings/errors if something is misconfigured.
@@ -1706,7 +1910,7 @@ async def run_experiment(user_id: str):
 
     return {
         "variation": result.value,
-        "in_experiment": result.in_experiment
+        "in_experiment": result.inExperiment
     }
 ```
 
