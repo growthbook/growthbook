@@ -164,6 +164,12 @@ describe("resolveConstantRefs — $extends (JSON object merge)", () => {
     });
   });
 
+  it("emits a backtick-escaped `$extends` key as a literal $extends data key", () => {
+    expect(resolveConstantRefs({ "`$extends`": "@const:cfg" }, map)).toEqual({
+      $extends: "@const:cfg",
+    });
+  });
+
   it("interpolates string references inside JSON string leaves", () => {
     expect(
       resolveConstantRefs({ greeting: "hi {{ @const:name }}" }, map),

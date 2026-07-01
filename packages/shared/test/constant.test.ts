@@ -395,6 +395,48 @@ describe("assertValidExtendsEntries", () => {
       ).toThrow(/\$extends/);
     });
   });
+
+  describe("non-array $extends (mis-wrapped directive)", () => {
+    it("rejects a string $extends in a config/constant value", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { $extends: "@const:default-limits" },
+          "",
+          false,
+          "constant",
+        ),
+      ).toThrow(/must be an array/);
+      expect(() =>
+        assertValidExtendsEntries({ $extends: { x: 1 } }, "", false, "config"),
+      ).toThrow(/must be an array/);
+    });
+
+    it("rejects a ref-string $extends even on the lenient feature path", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "@const:base" }, "", true),
+      ).toThrow(/must be an array/);
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "@config:base" }, "", true),
+      ).toThrow(/must be an array/);
+    });
+
+    it("leaves a non-ref string $extends alone on the feature path (grandfathered data)", () => {
+      expect(() =>
+        assertValidExtendsEntries({ $extends: "just data" }, "", true),
+      ).not.toThrow();
+    });
+
+    it("exempts a backtick-escaped `$extends` key (literal data key)", () => {
+      expect(() =>
+        assertValidExtendsEntries(
+          { "`$extends`": "@const:base" },
+          "",
+          false,
+          "constant",
+        ),
+      ).not.toThrow();
+    });
+  });
 });
 
 describe("getConstantReferenceKeys", () => {

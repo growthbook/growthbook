@@ -266,6 +266,22 @@ export function assertValidExtendsEntries(
         }
       });
     }
+  } else if (CONSTANT_EXTENDS_KEY in obj) {
+    // A non-array `$extends` never resolves — the resolver treats it as a plain
+    // key, so a mis-wrapped ref (e.g. {"$extends": "@const:x"} instead of
+    // {"$extends": ["@const:x"]}) silently ships unresolved. Reject it here: for
+    // config/constant values `$extends` is a reserved directive (any non-array
+    // form is wrong); for feature values, catch only the clear ref-string typo.
+    const looksLikeRef =
+      typeof list === "string" &&
+      (PLACEHOLDER_KEY_RE.test(list) || CONFIG_PLACEHOLDER_RE.test(list));
+    if (refSource || looksLikeRef) {
+      throw new Error(
+        `${prefix}"$extends" must be an array of "@const:key" references or inline ` +
+          `objects, e.g. {"$extends": ["@const:key"]}. To use a literal key named ` +
+          `"$extends", escape it with backticks: "\`$extends\`".`,
+      );
+    }
   }
   // Descend into own keys and inline-object `$extends` entries (via the array).
   for (const v of Object.values(obj)) {

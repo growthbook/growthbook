@@ -277,10 +277,14 @@ function resolveValue(
     }
 
     // Own keys override the merged base. Skip `$extends` itself when it was used
-    // as a merge directive (an array); otherwise treat it as a normal key.
+    // as a merge directive (an array); otherwise treat it as a normal key. A
+    // backtick-escaped reserved key (`` `$extends` ``) emits as the literal key
+    // it escapes, so a genuine data key named `$extends` is expressible.
+    const ESCAPED_EXTENDS_KEY = "`" + EXTENDS_KEY + "`";
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
-      out[k] = resolveValue(v, visited, ctx);
+      const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
+      out[outKey] = resolveValue(v, visited, ctx);
     }
     return out;
   }
