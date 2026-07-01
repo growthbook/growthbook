@@ -279,9 +279,19 @@ function parseRule(obj: Record<string, unknown>): ParsedRule | null {
       const gB = parseGroup(arg[1]);
       if (gA && gB) return { kind: "implication", groupA: gA, groupB: gB };
     }
-    // Both or neither: {$or: [{$and:[A,B]}, {$nor:[A,B]}]}
+    // Both or neither: {$or: [{$and:[A,B]}, {$nor:[A,B]}]}. The $nor arm must
+    // mirror the $and arm, or it isn't an iff — fall through to Advanced rather
+    // than mislabel it and silently rewrite on save.
     const first = arg[0] as Record<string, unknown> | undefined;
-    if (first && Array.isArray(first.$and) && first.$and.length === 2) {
+    const second = arg[1] as Record<string, unknown> | undefined;
+    if (
+      first &&
+      Array.isArray(first.$and) &&
+      first.$and.length === 2 &&
+      second &&
+      Array.isArray(second.$nor) &&
+      JSON.stringify(first.$and) === JSON.stringify(second.$nor)
+    ) {
       const gA = parseGroup(first.$and[0]);
       const gB = parseGroup(first.$and[1]);
       if (gA && gB) return { kind: "iff", groupA: gA, groupB: gB };

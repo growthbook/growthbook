@@ -21,9 +21,24 @@ export function evalCondition(
   savedGroups?: SavedGroupsValues,
 ): boolean {
   savedGroups = savedGroups || {};
-  // Resolve any `{ $ref: "path" }` markers against the tested object so a rule
-  // can compare one field to another (no-op / same reference when none present).
-  condition = resolveConditionRefs(condition, obj);
+  // Resolve any `{ $ref: "path" }` markers against the tested object ONCE, up
+  // front, so a rule can compare one field to another. The whole tree is
+  // resolved here, so the recursive evaluation below never has to re-resolve.
+  return evalConditionResolved(
+    obj,
+    resolveConditionRefs(condition, obj),
+    savedGroups,
+  );
+}
+
+// Evaluate a condition whose `$ref` markers have already been resolved against
+// `obj`. Logical operators recurse here (same object, no re-resolution);
+// `$elemMatch` crosses into a new object and re-enters `evalCondition`.
+function evalConditionResolved(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  savedGroups: SavedGroupsValues,
+): boolean {
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
@@ -38,7 +53,7 @@ export function evalCondition(
         if (!evalAnd(obj, v as ConditionInterface[], savedGroups)) return false;
         break;
       case "$not":
-        if (evalCondition(obj, v as ConditionInterface, savedGroups))
+        if (evalConditionResolved(obj, v as ConditionInterface, savedGroups))
           return false;
         break;
       default:
@@ -316,7 +331,8 @@ function evalOperatorCondition(
   }
 }
 
-// Recursive $or rule
+// Recursive $or rule. `conditions` share the already-resolved `obj`, so recurse
+// via evalConditionResolved rather than re-resolving refs per branch.
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
@@ -324,7 +340,7 @@ function evalOr(
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalCondition(obj, conditions[i], savedGroups)) {
+    if (evalConditionResolved(obj, conditions[i], savedGroups)) {
       return true;
     }
   }
@@ -338,7 +354,7 @@ function evalAnd(
   savedGroups: SavedGroupsValues,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalCondition(obj, conditions[i], savedGroups)) {
+    if (!evalConditionResolved(obj, conditions[i], savedGroups)) {
       return false;
     }
   }

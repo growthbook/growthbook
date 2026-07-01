@@ -6,6 +6,7 @@ import {
   celToMongo,
   jsonLogicToMongo,
   mongoToJsonLogic,
+  apiInvariantsToStored,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
@@ -363,6 +364,108 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
         { var: "max_registered_devices" },
       ],
     });
+  });
+
+  it("keeps every operator in a multi-operator field condition", () => {
+    // A range `{price: {$gte, $lte}}` must not silently drop a bound when
+    // exported to CEL / JSONLogic / a readable description.
+    const RANGE = { price: { $gte: 0, $lte: 100 } };
+    expect(toCel(JSON.stringify(RANGE))).toBe("price >= 0 && price <= 100");
+    expect(describeInvariantRule(JSON.stringify(RANGE))).toBe(
+      "price ≥ 0 AND price ≤ 100",
+    );
+    expect(mongoToJsonLogic(JSON.stringify(RANGE))).toEqual({
+      and: [{ ">=": [{ var: "price" }, 0] }, { "<=": [{ var: "price" }, 100] }],
+    });
+  });
+
+  it("converts the both-or-neither (iff) JSONLogic pattern to mongo", () => {
+    // `A == (B != null)` — a comparison whose operand is itself a boolean
+    // expression. Must expand to the iff shape, not leave JSONLogic in $eq.
+    const jl = {
+      "==": [
+        { var: "offline_downloads_enabled" },
+        { "!=": [{ var: "max_offline_titles" }, null] },
+      ],
+    };
+    const IFF = {
+      $or: [
+        {
+          $and: [
+            { offline_downloads_enabled: { $eq: true } },
+            { max_offline_titles: { $ne: null } },
+          ],
+        },
+        {
+          $nor: [
+            { offline_downloads_enabled: { $eq: true } },
+            { max_offline_titles: { $ne: null } },
+          ],
+        },
+      ],
+    };
+    expect(jsonLogicToMongo(jl)).toEqual(IFF);
+    expect(describeInvariantRule(JSON.stringify(IFF))).toBe(
+      "offline_downloads_enabled IF AND ONLY IF max_offline_titles is set",
+    );
+    expect(invariantRuleFields(JSON.stringify(IFF)).sort()).toEqual([
+      "max_offline_titles",
+      "offline_downloads_enabled",
+    ]);
+    const rule = [
+      { name: "iff", rule: JSON.stringify(IFF), message: "must match" },
+    ];
+    // Both set → satisfied; only one set → violation.
+    expect(
+      evaluateInvariants(
+        { offline_downloads_enabled: true, max_offline_titles: 25 },
+        rule,
+      ),
+    ).toHaveLength(0);
+    expect(
+      evaluateInvariants(
+        { offline_downloads_enabled: true, max_offline_titles: null },
+        rule,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("apiInvariantsToStored: mongo passes through; JSONLogic + CEL convert", () => {
+    const mongo = {
+      $or: [
+        { $not: { hdr_enabled: { $eq: true } } },
+        { max_resolution: { $eq: "4k" } },
+      ],
+    };
+    // Single-key mongo (`$or`) must pass through, not get mis-routed to the
+    // JSONLogic converter (which would throw "Unsupported operator $or").
+    const [fromMongo] = apiInvariantsToStored([
+      { name: "r", rule: mongo, message: "m" },
+    ]);
+    expect(JSON.parse(fromMongo.rule)).toEqual(mongo);
+
+    const [fromJl] = apiInvariantsToStored([
+      {
+        name: "r",
+        rule: {
+          or: [
+            { "!": { var: "hdr_enabled" } },
+            { "==": [{ var: "max_resolution" }, "4k"] },
+          ],
+        },
+        message: "m",
+      },
+    ]);
+    expect(JSON.parse(fromJl.rule)).toEqual(mongo);
+
+    const [fromCel] = apiInvariantsToStored([
+      {
+        name: "r",
+        rule: "!hdr_enabled || max_resolution == '4k'",
+        message: "m",
+      },
+    ]);
+    expect(JSON.parse(fromCel.rule)).toEqual(mongo);
   });
 
   it("round-trips CEL → mongo → CEL", () => {

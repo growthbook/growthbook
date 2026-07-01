@@ -1,5 +1,4 @@
 import { evalCondition } from "@growthbook/growthbook";
-import jsonLogic from "json-logic-js";
 import { z } from "zod";
 import { configInvariantValidator } from "../../validators/features";
 
@@ -124,8 +123,14 @@ function fieldToAst(field: string, val: unknown): Ast {
     return { k: "cmp", op: "==", field, rhs: { lit: val } };
   }
   const opObj = val as Record<string, unknown>;
-  const op = Object.keys(opObj)[0];
-  const arg = opObj[op];
+  const ops = Object.keys(opObj);
+  if (!ops.length) throw new Error(`Empty operator object for "${field}"`);
+  // A field may carry several operators (e.g. a range `{$gte, $lte}`); AND them.
+  const parts = ops.map((op) => operatorToAst(field, op, opObj[op]));
+  return parts.length === 1 ? parts[0] : { k: "and", items: parts };
+}
+
+function operatorToAst(field: string, op: string, arg: unknown): Ast {
   if (op === "$exists") {
     return { k: "cmp", op: arg ? "!=" : "==", field, rhs: { lit: null } };
   }
@@ -159,6 +164,24 @@ const JL_OP_INV: Record<string, CmpOp> = {
   ">=": ">=",
 };
 
+// A JSONLogic node that is itself a boolean expression (logical or comparison),
+// as opposed to a `var` reference or a scalar literal.
+function isJsonLogicBoolExpr(x: unknown): boolean {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  const keys = Object.keys(x as object);
+  if (keys.length !== 1) return false;
+  const k = keys[0];
+  return k === "and" || k === "or" || k === "!" || k in JL_OP_INV;
+}
+
+// Distinguish a JSONLogic rule from a mongo condition at the write boundary.
+// JSONLogic uses bare operator keys (var/and/or/!/==/…); mongo uses $-prefixed
+// operators or field names. NB: json-logic-js's `is_logic` only checks for a
+// single key, so it also matches mongo like `{$or:…}` — it can't be used here.
+function looksLikeJsonLogic(rule: unknown): boolean {
+  return isVarNode(rule) || isJsonLogicBoolExpr(rule);
+}
+
 function jsonLogicToAst(node: unknown): Ast {
   if (isVarNode(node)) return { k: "truthy", field: node.var };
   if (!node || typeof node !== "object" || Array.isArray(node)) {
@@ -174,6 +197,24 @@ function jsonLogicToAst(node: unknown): Ast {
   const cmp = JL_OP_INV[op];
   if (cmp && Array.isArray(arg) && arg.length === 2) {
     const [lhs, rhs] = arg;
+    // Boolean (in)equality between sub-expressions — the "both or neither"
+    // pattern, e.g. `A == (B != null)`. Expand to iff: (A ∧ B) ∨ ¬(A ∨ B).
+    // (`!=` is the negation, i.e. xor.)
+    if (
+      (cmp === "==" || cmp === "!=") &&
+      (isJsonLogicBoolExpr(lhs) || isJsonLogicBoolExpr(rhs))
+    ) {
+      const a = jsonLogicToAst(lhs);
+      const b = jsonLogicToAst(rhs);
+      const iff: Ast = {
+        k: "or",
+        items: [
+          { k: "and", items: [a, b] },
+          { k: "not", item: { k: "or", items: [a, b] } },
+        ],
+      };
+      return cmp === "==" ? iff : { k: "not", item: iff };
+    }
     if (!isVarNode(lhs))
       throw new Error("JSONLogic comparison LHS must be a var");
     const r: Rhs = isVarNode(rhs) ? { ref: rhs.var } : { lit: rhs };
@@ -190,6 +231,10 @@ function astToMongo(ast: Ast): Record<string, unknown> {
     case "or":
       return { [`$${ast.k}`]: ast.items.map(astToMongo) };
     case "not":
+      // ¬(A ∨ B …) → $nor, mirroring mongoToAst and the builder's iff shape.
+      if (ast.item.k === "or") {
+        return { $nor: ast.item.items.map(astToMongo) };
+      }
       return { $not: astToMongo(ast.item) };
     case "truthy":
       return { [ast.field]: { $eq: true } };
@@ -252,6 +297,18 @@ function astToCel(ast: Ast, depth = 0): string {
 
 // ---- AST → readable (friendly) --------------------------------------------
 
+// (A ∧ B) ∨ ¬(A ∨ B) — the "both or neither" (iff) shape. Returns [A, B] or null.
+function matchIff(items: Ast[]): [Ast, Ast] | null {
+  if (items.length !== 2) return null;
+  const [x, y] = items;
+  if (x.k !== "and" || x.items.length !== 2) return null;
+  if (y.k !== "not" || y.item.k !== "or" || y.item.items.length !== 2) {
+    return null;
+  }
+  if (JSON.stringify(x.items) !== JSON.stringify(y.item.items)) return null;
+  return [x.items[0], x.items[1]];
+}
+
 function astToReadable(ast: Ast, depth = 0): string {
   switch (ast.k) {
     case "or": {
@@ -259,6 +316,15 @@ function astToReadable(ast: Ast, depth = 0): string {
       if (ast.items.length === 2 && ast.items[0].k === "not") {
         const s = `IF ${astToReadable(ast.items[0].item, depth + 1)} THEN ${astToReadable(
           ast.items[1],
+          depth + 1,
+        )}`;
+        return depth === 0 ? s : `(${s})`;
+      }
+      // (A ∧ B) ∨ ¬(A ∨ B) reads as "A if and only if B".
+      const iff = matchIff(ast.items);
+      if (iff) {
+        const s = `${astToReadable(iff[0], depth + 1)} IF AND ONLY IF ${astToReadable(
+          iff[1],
           depth + 1,
         )}`;
         return depth === 0 ? s : `(${s})`;
@@ -511,10 +577,16 @@ export function apiInvariantsToStored(
     try {
       if (typeof inv.rule === "string") {
         mongo = celToMongo(inv.rule);
-      } else if (jsonLogic.is_logic(inv.rule)) {
+      } else if (looksLikeJsonLogic(inv.rule)) {
         mongo = jsonLogicToMongo(inv.rule);
       } else if (inv.rule && typeof inv.rule === "object") {
+        // Direct mongo passthrough. Probe it against an empty object to reject
+        // hard structural errors up front. mongrule is deliberately tolerant
+        // (unknown operators evaluate to false, not throw), so a semantically
+        // broken rule that never matches still surfaces as a violation at
+        // evaluation time rather than here — see evaluateInvariants.
         mongo = inv.rule as Record<string, unknown>;
+        evalCondition({}, mongo as Parameters<typeof evalCondition>[1], {});
       } else {
         throw new Error(
           "rule must be a mongo/JSONLogic object or a CEL string",
