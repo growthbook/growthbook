@@ -43,6 +43,18 @@ export const simpleSchemaFieldValidator = z.object({
   jsonSchema: z.string().optional(),
 });
 
+// Config-only: a named cross-field invariant — a relational rule JSON Schema
+// can't express (field-to-field comparisons, implications). `rule` is a JSONLogic
+// boolean expression over the config's fields, stored as a JSON string (kept a
+// string rather than a nested object so it doesn't fight react-hook-form's typing
+// in the feature schema editor, which shares this validator); `message` is shown
+// to editors.
+export const configInvariantValidator = z.object({
+  name: z.string().max(128),
+  rule: z.string(),
+  message: z.string().max(MAX_DESCRIPTION_LENGTH),
+});
+
 export const simpleSchemaValidator = z.object({
   type: z.enum(["object", "object[]", "primitive", "primitive[]"]),
   fields: z.array(simpleSchemaFieldValidator),
@@ -50,6 +62,9 @@ export const simpleSchemaValidator = z.object({
   // declared fields (`additionalProperties: true`), letting child configs/rules
   // extend the base. Absent = strict (`false`).
   additionalProperties: z.boolean().optional(),
+  // Config-only: cross-field invariants evaluated at the save gate alongside the
+  // per-field JSON Schema check (see configInvariantValidator).
+  invariants: z.array(configInvariantValidator).optional(),
 });
 
 export const featureValueType = [

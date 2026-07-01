@@ -216,6 +216,42 @@ export const apiSchemaWarningValidator = namedSchema(
     .strict(),
 );
 
+// Cross-field validation rules. On READ, `rule` is the canonical JSONLogic
+// object. On WRITE (see input validator below), it may also be a CEL string.
+export const apiConfigInvariantValidator = z
+  .object({
+    name: z.string().max(128).describe("Unique name for the rule."),
+    rule: z
+      .record(z.string(), z.unknown())
+      .describe("A JSONLogic boolean expression over the config's fields."),
+    message: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Human-readable error shown when the rule is violated."),
+  })
+  .strict();
+
+// Write shape: each rule's expression may be a JSONLogic object OR a CEL string
+// (converted to JSONLogic server-side) — mirroring how a schema can be uploaded
+// as a JSON Schema document or typed-code source.
+const apiConfigInvariantInputValidator = z
+  .object({
+    name: z.string().max(128),
+    rule: z
+      .union([z.string(), z.record(z.string(), z.unknown())])
+      .describe(
+        "The rule expression, as a JSONLogic object or a CEL string " +
+          "(e.g. \"!hdr_enabled || max_resolution == '4k'\"). CEL is converted " +
+          "to JSONLogic on write.",
+      ),
+    message: z.string().max(MAX_DESCRIPTION_LENGTH),
+  })
+  .strict();
+
+// A reusable, typed, inheritable JSON object referenced from feature values via
+// `@config:key`. Resolves like a `json` constant (composed via `$extends`), but
+// carries a field `schema` and a lineage `parent`. `key` is the stable handle,
+// unique per org across both constants and configs.
 export const apiConfigValidator = namedSchema(
   "Config",
   z
@@ -259,6 +295,12 @@ export const apiConfigValidator = namedSchema(
         .boolean()
         .describe(
           "Whether this config family permits extra keys beyond the declared fields (child configs, feature rules, ad-hoc overrides). Only the root config's flag applies. Absent = inherit the org default.",
+        )
+        .optional(),
+      invariants: z
+        .array(apiConfigInvariantValidator)
+        .describe(
+          "Cross-field validation rules (relational checks JSON Schema can't express, e.g. implications or comparing two fields), evaluated against the resolved value at publish.",
         )
         .optional(),
       dateCreated: z.string().meta({ format: "date-time" }),
@@ -323,6 +365,12 @@ const postConfigApiBody = z
       )
       .optional(),
     extensible: z.boolean().optional(),
+    invariants: z
+      .array(apiConfigInvariantInputValidator)
+      .describe(
+        "Cross-field validation rules. Each rule's expression may be JSONLogic or CEL. Stored on the config schema and enforced at publish.",
+      )
+      .optional(),
     bypassApproval: bypassApprovalCreateField,
   })
   .strict();
@@ -362,6 +410,12 @@ const updateConfigApiBody = z
       )
       .optional(),
     extensible: z.boolean().optional(),
+    invariants: z
+      .array(apiConfigInvariantInputValidator)
+      .describe(
+        "Replace the config's cross-field validation rules. Each rule's expression may be JSONLogic or CEL. Send the complete set; an empty array clears all rules. Omit to leave them unchanged.",
+      )
+      .optional(),
     bypassApproval: bypassApprovalField,
   })
   .strict();

@@ -5,7 +5,7 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { stripConfigExtends } from "shared/util";
+import { stripConfigExtends, apiInvariantsToStored } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -107,11 +107,38 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         fieldsToUpdate.value = normalizedValue;
       }
     }
-    if (
+    // Fold validation rules into the schema to persist:
+    //  - `invariants` sent → they replace (an empty array clears them);
+    //  - schema sent without `invariants` → keep the config's existing rules
+    //    (the JSON Schema source can't carry them, so don't drop them);
+    //  - neither → no schema change from this.
+    const storedInvariants = (() => {
+      try {
+        return req.body.invariants
+          ? apiInvariantsToStored(req.body.invariants)
+          : undefined;
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    let nextSchema = resolvedSchema;
+    if (storedInvariants !== undefined) {
+      const base = resolvedSchema ??
+        config.schema ?? { type: "object" as const, fields: [] };
+      if (storedInvariants.length) {
+        nextSchema = { ...base, invariants: storedInvariants };
+      } else {
+        const { invariants: _drop, ...rest } = base;
+        nextSchema = rest;
+      }
+    } else if (
       resolvedSchema !== undefined &&
-      !isEqual(resolvedSchema, config.schema)
+      config.schema?.invariants?.length
     ) {
-      fieldsToUpdate.schema = resolvedSchema;
+      nextSchema = { ...resolvedSchema, invariants: config.schema.invariants };
+    }
+    if (nextSchema !== undefined && !isEqual(nextSchema, config.schema)) {
+      fieldsToUpdate.schema = nextSchema;
     }
     if (extensible !== undefined && extensible !== config.extensible) {
       fieldsToUpdate.extensible = extensible;

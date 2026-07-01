@@ -9,6 +9,7 @@ import {
   PiPencil,
   PiPlusBold,
   PiMagnifyingGlass,
+  PiWarningOctagonFill,
 } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -57,6 +58,8 @@ export default function ConfigFieldRow({
   onRemoveOverride,
   showParentValue = false,
   parentValue,
+  hasValidationError = false,
+  validationTooltip,
 }: {
   field: ResolvedField;
   configKey: string;
@@ -79,6 +82,9 @@ export default function ConfigFieldRow({
   // Render the inherited value struck-through beneath the current value.
   showParentValue?: boolean;
   parentValue?: unknown;
+  // This field is referenced by a validation rule that currently fails.
+  hasValidationError?: boolean;
+  validationTooltip?: string;
 }): React.ReactElement {
   const here = f.source === configKey;
   // Read schema-derived info from the canonical simple form so raw-authored
@@ -104,13 +110,37 @@ export default function ConfigFieldRow({
       pt={hasJsonEditor ? "6" : "2"}
       pb="2"
       px="3"
-      style={{ borderBottom: "1px solid var(--slate-a3)" }}
+      style={{
+        borderBottom: "1px solid var(--slate-a3)",
+        borderLeft: hasValidationError
+          ? "3px solid var(--red-9)"
+          : "3px solid transparent",
+        background: hasValidationError ? "var(--red-a2)" : undefined,
+      }}
     >
       <Box style={{ minWidth: 0 }}>
         <Flex align="center" gap="1" style={{ minHeight: 32 }}>
           <Box style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-            <code style={{ color: "var(--slate-12)" }}>{f.key}</code>
+            <code
+              style={{
+                color: hasValidationError ? "var(--red-11)" : "var(--slate-12)",
+              }}
+            >
+              {f.key}
+            </code>
           </Box>
+          {hasValidationError && (
+            <Tooltip
+              body={validationTooltip ?? "Fails a validation rule"}
+              style={{
+                display: "inline-flex",
+                flexShrink: 0,
+                color: "var(--red-9)",
+              }}
+            >
+              <PiWarningOctagonFill />
+            </Tooltip>
+          )}
           {nf?.description && (
             <Tooltip
               body={nf.description}

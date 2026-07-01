@@ -196,6 +196,15 @@ export async function publishRevision(
     return merged;
   }
 
+  // Validate BEFORE claiming the merge so a publish that fails validation (e.g. a
+  // config value violating a cross-field rule) errors without ever marking the
+  // revision merged — it stays open and editable. A bypass/admin-override publish
+  // skips approval, not validation. This is the primary publish-time gate for the
+  // internal flow; applyChanges keeps its own checks as a post-merge backstop.
+  await adapter.assertPublishable?.(context, entity, desiredState, {
+    isRevert: !!revision.revertedFrom,
+  });
+
   // Claim the merge BEFORE touching the live entity. `merge` is CAS-guarded, so
   // a concurrent discard either lost (status already moved → merge throws here,
   // nothing applied) or will lose (its `close` CAS-fails once we've merged).

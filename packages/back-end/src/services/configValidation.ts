@@ -6,6 +6,7 @@ import {
   parsePlainJSONObject,
   validateConfigValue,
   findIncompatibleConfigValueKeys,
+  evaluateInvariants,
 } from "shared/util";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
@@ -156,6 +157,45 @@ async function collectMissingRequiredFields(
   ];
 }
 
+// Cross-field invariants (relational rules JSON Schema can't express) are
+// evaluated against the fully-resolved value at publish — the same point required
+// fields are enforced, since a draft can be transiently invalid mid-edit.
+// Invariants accumulate across the lineage (base→leaf, leaf wins on name) so a
+// base config's rules also guard its descendants. Returns each failed rule's
+// human message.
+async function collectInvariantViolations(
+  context: Context,
+  leaf: ConfigLeaf,
+  rawValue: string | undefined,
+): Promise<string[]> {
+  const all = await context.models.configs.getAllForReconcile();
+  const byKey = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
+  byKey.set(leaf.key, {
+    ...byKey.get(leaf.key),
+    ...leaf,
+    value: rawValue ?? leaf.value,
+  } as ConfigInterface);
+  const chain = linearizeConfigDag(leaf.key, byKey);
+
+  type Invariant = NonNullable<SimpleSchema["invariants"]>[number];
+  const invByName = new Map<string, Invariant>();
+  for (const node of chain) {
+    for (const inv of node.schema?.invariants ?? []) {
+      invByName.set(inv.name, inv);
+    }
+  }
+  const invariants = [...invByName.values()];
+  if (!invariants.length) return [];
+
+  // The resolved (inherited+own) value object the rules run against.
+  const { fields } = resolveConfigChain(chain);
+  const resolvedValue: Record<string, unknown> = {};
+  for (const f of fields) {
+    if (f.source !== null) resolvedValue[f.key] = f.value;
+  }
+  return evaluateInvariants(resolvedValue, invariants).map((vi) => vi.message);
+}
+
 // Publish-time safety net for configs (the analog of
 // `assertFeatureValuesValidForPublish`). When the org's
 // `blockPublishOnSchemaError` is true (default) a mismatch blocks the publish;
@@ -170,6 +210,7 @@ export async function assertConfigValueValidForPublish(
   const errors = [
     ...(await collectConfigValueErrors(context, leaf, values)),
     ...(await collectMissingRequiredFields(context, leaf, values.value)),
+    ...(await collectInvariantViolations(context, leaf, values.value)),
   ];
   if (!errors.length) return;
   // Default to blocking when the setting is absent.
@@ -179,6 +220,29 @@ export async function assertConfigValueValidForPublish(
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
       "Publishing config value(s) that don't match the schema:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join("; "));
+}
+
+// Cross-field invariants, enforced from the revision adapter's applyChanges so
+// EVERY publish path (direct, scheduled publish, autopublish-on-approval) runs
+// them against the revision's *proposed* (draft) resolved value — not the live
+// one. Honors the same block-vs-warn + skip settings as the schema check.
+export async function assertConfigInvariantsValid(
+  context: Context,
+  leaf: ConfigLeaf,
+  rawValue: string | undefined,
+): Promise<void> {
+  if (context.skipSchemaValidation) return;
+  const errors = await collectInvariantViolations(context, leaf, rawValue);
+  if (!errors.length) return;
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Publishing config value(s) that violate a validation rule:\n" +
         errors.join("\n"),
       errors,
     );

@@ -30,6 +30,7 @@ import {
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import EventUser from "@/components/Avatar/EventUser";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
@@ -783,14 +784,28 @@ function ReviewAndPublishRevision<T>({
                     "",
                   email: users.get(revision.authorId)?.email || "",
                 }}
-                display="avatar-name-email"
+                display="avatar-name"
                 size="sm"
                 wrap={true}
               />
-              <Text size="small" color="text-low">
-                {" · "}
-                {datetime(revision.dateUpdated)}
-              </Text>
+              {users.get(revision.authorId)?.email && (
+                <OverflowText
+                  maxWidth={220}
+                  title={users.get(revision.authorId)?.email}
+                  style={{
+                    color: "var(--gray-9)",
+                    fontSize: "var(--font-size-1)",
+                  }}
+                >
+                  {`<${users.get(revision.authorId)?.email}>`}
+                </OverflowText>
+              )}
+              <Box flexShrink="0" style={{ whiteSpace: "nowrap" }}>
+                <Text size="small" color="text-low">
+                  {" · "}
+                  {datetime(revision.dateUpdated)}
+                </Text>
+              </Box>
             </>
           }
         />
@@ -1319,9 +1334,19 @@ function ReviewAndPublishRevision<T>({
       )}
 
       {reviewHeader}
-      <Flex gap="5" align="start">
-        <Box style={{ flex: 1, minWidth: 0 }}>{leftColumn}</Box>
-        <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>
+      <Flex gap="5" align="start" direction={{ initial: "column", md: "row" }}>
+        <Box
+          width={{ initial: "100%", md: "auto" }}
+          flexGrow={{ initial: "0", md: "1" }}
+          style={{ minWidth: 0 }}
+        >
+          {leftColumn}
+        </Box>
+        <Box
+          width={{ initial: "100%", md: "360px" }}
+          minWidth={{ initial: "0", md: "360px" }}
+          flexShrink="0"
+        >
           {isActiveDraft ? draftActionsColumn : readonlyActionsColumn}
         </Box>
       </Flex>

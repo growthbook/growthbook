@@ -22,6 +22,9 @@ import {
   fieldsToPython,
   getConfigSubtree,
   computeConfigReconciliationPreview,
+  evaluateInvariants,
+  invariantRuleFields,
+  toCel,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -91,6 +94,7 @@ import ConfigFeatureReferences from "@/components/Configs/ConfigFeatureReference
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
+import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import {
   FIELD_GRID_TEMPLATE,
   ResolvedField,
@@ -149,6 +153,9 @@ type ConfigExportPayloads = {
   ownSchema: Record<string, string>;
   effectiveSchema: Record<string, string>;
   ownProjections: { source: string; label: string; text: string }[];
+  // Validation rules, empty strings when the config has none.
+  validationJsonLogic: string;
+  validationCel: string;
 };
 
 // "Resolved" variants walk the inheritance tree (and resolve constants for the value).
@@ -231,6 +238,15 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
           </React.Fragment>
         ))}
       </DropdownSubMenu>
+      {payloads.validationJsonLogic && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownSubMenu trigger="Validation">
+            {item("JSONLogic", null, payloads.validationJsonLogic)}
+            {item("CEL", null, payloads.validationCel)}
+          </DropdownSubMenu>
+        </>
+      )}
     </DropdownMenu>
   );
 }
@@ -268,9 +284,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   // Page-level tabs (Overview | Review & Publish) mirror constants/saved groups.
   const [tab, setTab] = useState<"overview" | "review">("overview");
   // Inner content view shown under the Overview tab.
-  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
-    "form",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "form" | "json" | "resolved" | "validation"
+  >("form");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -487,6 +503,41 @@ export default function ConfigDetailPage(): React.ReactElement {
     [resolved.fields, squashConstants],
   );
 
+  // The resolved (inherited+own) value object cross-field rules run against —
+  // present keys only, mirroring the back-end publish gate (raw values, refs
+  // as-is).
+  const invariantValue = useMemo(() => {
+    const o: Record<string, unknown> = {};
+    for (const f of resolved.fields) {
+      if (f.value !== undefined) o[f.key] = f.value;
+    }
+    return o;
+  }, [resolved.fields]);
+
+  // Invariants that currently fail against the displayed (draft-aware) value.
+  const failingInvariants = useMemo(
+    () =>
+      evaluateInvariants(
+        invariantValue,
+        displayedConfig?.schema?.invariants ?? [],
+      ),
+    [invariantValue, displayedConfig],
+  );
+
+  // Field key → messages of the failing rules that reference it, for row-level
+  // highlighting on the Form tab.
+  const failingFieldInfo = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const failingNames = new Set(failingInvariants.map((v) => v.name));
+    for (const inv of displayedConfig?.schema?.invariants ?? []) {
+      if (!failingNames.has(inv.name)) continue;
+      for (const key of invariantRuleFields(inv.rule)) {
+        map.set(key, [...(map.get(key) ?? []), inv.message]);
+      }
+    }
+    return map;
+  }, [failingInvariants, displayedConfig]);
+
   const parentKey = useMemo(() => {
     const self = data?.lineage.find((n) => n.key === config?.key);
     return self?.parentKey ?? null;
@@ -615,12 +666,42 @@ export default function ConfigDetailPage(): React.ReactElement {
       ),
     }));
 
+    const ownInvariants = displayedConfig?.schema?.invariants ?? [];
+    const validationJsonLogic = ownInvariants.length
+      ? JSON.stringify(
+          ownInvariants.map((iv) => {
+            let rule: unknown = iv.rule;
+            try {
+              rule = JSON.parse(iv.rule);
+            } catch {
+              // keep the raw string if it isn't valid JSON
+            }
+            return { name: iv.name, rule, message: iv.message };
+          }),
+          null,
+          2,
+        )
+      : "";
+    const validationCel = ownInvariants.length
+      ? "invariants:\n" +
+        ownInvariants
+          .map(
+            (iv) =>
+              `  - name: ${JSON.stringify(iv.name)}\n` +
+              `    rule: ${JSON.stringify(toCel(iv.rule))}\n` +
+              `    message: ${JSON.stringify(iv.message)}`,
+          )
+          .join("\n")
+      : "";
+
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
       resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
       ownSchema: renderAll(ownFields),
       effectiveSchema: renderAll(resolved.effectiveSchema),
       ownProjections,
+      validationJsonLogic,
+      validationCel,
     };
   }, [
     displayedConfig?.value,
@@ -802,8 +883,16 @@ export default function ConfigDetailPage(): React.ReactElement {
     fields: SchemaField[],
     valueOverride?: Record<string, unknown>,
     renderProjections?: Record<string, SchemaProjection>,
+    invariants?: SimpleSchema["invariants"],
   ) => {
-    const schema: SimpleSchema = { type: ownSchema().type, fields };
+    // Preserve existing invariants across field edits; the rules editor passes a
+    // new list when it changes them.
+    const nextInvariants = invariants ?? ownSchema().invariants;
+    const schema: SimpleSchema = {
+      type: ownSchema().type,
+      fields,
+      ...(nextInvariants?.length ? { invariants: nextInvariants } : {}),
+    };
     const res = await apiCall<{ revision?: Revision }>(
       `/configs/${config.id}${writeQuery()}`,
       {
@@ -1380,7 +1469,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                           ? "json"
                           : v === "resolved"
                             ? "resolved"
-                            : "form",
+                            : v === "validation"
+                              ? "validation"
+                              : "form",
                       );
                     }}
                   >
@@ -1391,6 +1482,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         <TabsTrigger value="form">Form</TabsTrigger>
                         <TabsTrigger value="json">JSON</TabsTrigger>
                         <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                        <TabsTrigger value="validation">Validation</TabsTrigger>
                         {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
                         <Flex
                           align="center"
@@ -1543,6 +1635,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                                   showOverrides && isOverrideField(f)
                                 }
                                 parentValue={parentFieldValues.get(f.key)}
+                                hasValidationError={failingFieldInfo.has(f.key)}
+                                validationTooltip={failingFieldInfo
+                                  .get(f.key)
+                                  ?.join("; ")}
                               />
                             );
                           })}
@@ -1587,6 +1683,25 @@ export default function ConfigDetailPage(): React.ReactElement {
                           saveSchema(fields, value, renderProjections)
                         }
                       />
+                    )}
+
+                    {activeTab === "validation" && (
+                      <Box pt="2">
+                        <ConfigInvariantsEditor
+                          invariants={ownSchema().invariants ?? []}
+                          fieldKeys={resolved.fields.map((f) => f.key)}
+                          resolvedValue={invariantValue}
+                          canEdit={canEditInline}
+                          onChange={(next) =>
+                            saveSchema(
+                              ownSchema().fields,
+                              undefined,
+                              undefined,
+                              next,
+                            )
+                          }
+                        />
+                      </Box>
                     )}
                   </Tabs>
                 </Box>

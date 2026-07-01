@@ -3,10 +3,13 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { stripConfigExtends } from "shared/util";
+import { stripConfigExtends, apiInvariantsToStored } from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { PlanDoesNotAllowError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import { assertConfigValueValid } from "back-end/src/services/configValidation";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
@@ -63,11 +66,28 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     source: schema,
   });
 
+  // Validation rules ride alongside the schema (rule as JSONLogic or CEL).
+  const storedInvariants = (() => {
+    try {
+      return req.body.invariants
+        ? apiInvariantsToStored(req.body.invariants)
+        : undefined;
+    } catch (e) {
+      throw new BadRequestError(e instanceof Error ? e.message : String(e));
+    }
+  })();
+  const schemaWithInvariants = storedInvariants?.length
+    ? {
+        ...(resolvedSchema ?? { type: "object" as const, fields: [] }),
+        invariants: storedInvariants,
+      }
+    : resolvedSchema;
+
   // "Base wins": strip any inherited field keys a child tries to re-declare.
   const normalizedSchema =
     await req.context.models.configs.normalizeSchemaAgainstAncestors(
       { key, parent: parent || undefined, extends: extendsKeys, value },
-      resolvedSchema,
+      schemaWithInvariants,
     );
 
   const storedValue = stripConfigExtends(value);

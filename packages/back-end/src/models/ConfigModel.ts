@@ -12,6 +12,7 @@ import {
   stripAncestorOwnedFields,
   findSiblingSchemaConflicts,
   fieldsToJsonSchema,
+  storedInvariantsToApi,
 } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { isEqual, omit } from "lodash";
@@ -362,6 +363,9 @@ export class ConfigModel extends BaseClass {
           }
         : undefined,
       extensible: config.extensible,
+      // Cross-field validation rules, with `rule` as the canonical JSONLogic
+      // object. Omitted when the config has none.
+      invariants: storedInvariantsToApi(config.schema?.invariants),
       dateCreated: config.dateCreated.toISOString(),
       dateUpdated: config.dateUpdated.toISOString(),
     };

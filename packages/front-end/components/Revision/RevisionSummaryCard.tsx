@@ -60,6 +60,11 @@ export interface RevisionSummaryCardProps {
   // Each action is optional; the corresponding control is hidden when omitted.
   onNewDraft?: () => void;
   onReviewPublish?: () => void;
+  // Opt-in: when viewing the live entity with no open draft, show a banner
+  // prompting the user to create one (for entities edited inline, where there's
+  // no separate edit modal to start a draft). Gated on `onNewDraft` for
+  // permission, so read-only users never see it.
+  promptDraftWhenLive?: boolean;
   onEditDescription?: () => void;
   // Render the banner inline (scrolls with the page) instead of pinning it to
   // the top on scroll. The sticky banner doesn't suit denser pages like Configs.
@@ -83,6 +88,7 @@ export default function RevisionSummaryCard({
   onTitleCommit,
   onNewDraft,
   onReviewPublish,
+  promptDraftWhenLive,
   onEditDescription,
   disablePinning = false,
 }: RevisionSummaryCardProps) {

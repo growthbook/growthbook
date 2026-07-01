@@ -16,6 +16,10 @@ import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
 } from "back-end/src/services/configReconcile";
+import {
+  assertConfigInvariantsValid,
+  assertConfigValueValidForPublish,
+} from "back-end/src/services/configValidation";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
@@ -201,6 +205,27 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       } as ConfigInterface);
     }
 
+    // Enforce cross-field invariants here — the chokepoint every publish path
+    // (direct, scheduled, autopublish-on-approval) flows through — against the
+    // revision's proposed (draft) state.
+    await assertConfigInvariantsValid(
+      context,
+      {
+        key: entity.key,
+        name: entity.name,
+        value: (filteredChanges.value as string | undefined) ?? entity.value,
+        schema:
+          (filteredChanges.schema as ConfigInterface["schema"]) ??
+          entity.schema,
+        parent: (filteredChanges.parent as string | undefined) ?? entity.parent,
+        extends:
+          "extends" in filteredChanges
+            ? (filteredChanges.extends as string[] | undefined)
+            : entity.extends,
+      },
+      (filteredChanges.value as string | undefined) ?? entity.value,
+    );
+
     await context.models.configs.update(
       entity,
       filteredChanges as Parameters<typeof context.models.configs.update>[1],
@@ -210,5 +235,61 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key);
     }
+  },
+
+  // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full
+  // publish-time validation against the proposed state BEFORE the revision is
+  // marked merged, so a failing publish errors and leaves the draft open instead
+  // of stranding it "merged". Mirrors the REST publish handler's pre-merge checks
+  // (postConfigRevisionPublish). assertConfigValueValidForPublish also enforces
+  // the cross-field invariants.
+  async assertPublishable(
+    context: Context,
+    entity: ConfigInterface,
+    desiredState: Record<string, unknown>,
+  ): Promise<void> {
+    const filteredChanges: Record<string, unknown> = {};
+    for (const key of Object.keys(desiredState)) {
+      if (!UPDATABLE_FIELDS.has(key)) continue;
+      const newVal = desiredState[key];
+      const currentVal = (entity as Record<string, unknown>)[key];
+      if (newVal !== undefined && !isEqual(newVal, currentVal)) {
+        filteredChanges[key] = newVal;
+      }
+    }
+    if (Object.keys(filteredChanges).length === 0) return;
+
+    const touchesLineageOrSchema =
+      filteredChanges.schema !== undefined ||
+      filteredChanges.parent !== undefined ||
+      "extends" in filteredChanges;
+
+    if (touchesLineageOrSchema) {
+      await assertConfigDescendantsReconcilable(context, {
+        ...entity,
+        ...filteredChanges,
+      } as ConfigInterface);
+    }
+
+    const postValue =
+      (filteredChanges.value as string | undefined) ?? entity.value;
+    await assertConfigValueValidForPublish(
+      context,
+      {
+        key: entity.key,
+        name: entity.name,
+        value: postValue,
+        schema:
+          (filteredChanges.schema as ConfigInterface["schema"]) ??
+          entity.schema,
+        parent: (filteredChanges.parent as string | undefined) ?? entity.parent,
+        extends:
+          "extends" in filteredChanges
+            ? (filteredChanges.extends as string[] | undefined)
+            : entity.extends,
+        extensible: entity.extensible,
+      },
+      { value: postValue },
+    );
   },
 };
