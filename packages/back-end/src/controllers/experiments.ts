@@ -1631,9 +1631,10 @@ export async function postExperiment(
     !!data.variations &&
     data.variations.length !== experiment.variations.length;
   const coverageChanged = data.coverage !== undefined;
+  const variationWeightsChanged = data.variationWeights !== undefined;
   if (
     experiment.status === "running" &&
-    (variationCountChanged || coverageChanged)
+    (variationCountChanged || coverageChanged || variationWeightsChanged)
   ) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
@@ -1646,7 +1647,9 @@ export async function postExperiment(
     if (inPayload) {
       const field = variationCountChanged
         ? "the number of variations"
-        : "coverage";
+        : coverageChanged
+          ? "coverage"
+          : "traffic split";
       res.status(400).json({
         status: 400,
         message: `Cannot change ${field} while the experiment is running and live in the SDK payload.`,
