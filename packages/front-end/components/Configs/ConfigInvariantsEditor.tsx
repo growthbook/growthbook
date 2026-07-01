@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { PiXBold } from "react-icons/pi";
 import { evaluateInvariants, describeInvariantRule } from "shared/util";
 import type { ConfigInvariant } from "shared/util";
+import {
+  ConditionRow,
+  ConditionRowLabel,
+  AddConditionButton,
+} from "@/components/Features/TargetingConditionsCard";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Switch from "@/ui/Switch";
@@ -25,10 +31,10 @@ type Props = {
 };
 
 // ---- Condition model -------------------------------------------------------
-// A condition is one predicate over a single field. Conditions are combined into
-// AND/OR groups; rule kinds compose one or two groups into JSONLogic. All
-// operators emitted here (var, ==, !=, <, <=, >, >=, !, and, or) are standard
-// json-logic-js operators — see the evaluator in shared/util/config-schema.
+// A condition is one predicate over a single field. Conditions within a group
+// are AND-joined (matching the feature-targeting builder); rule kinds compose
+// one or two groups. Every operator emitted (var, ==, !=, <, <=, >, >=, !, and)
+// is standard json-logic-js — see the evaluator in shared/util/config-schema.
 
 const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"] as const;
 const UNARY_OPS = ["isTrue", "isFalse", "isNull", "isNotNull"] as const;
@@ -56,23 +62,23 @@ type Condition = {
   rhs: string;
 };
 
-type Connector = "and" | "or";
-type ConditionGroup = { connector: Connector; conditions: Condition[] };
+// A group is an AND-joined list of conditions.
+type Group = Condition[];
 
 type RuleKind = "single" | "implication" | "iff" | "exclusive";
 
 const RULE_KIND_OPTIONS: { label: string; value: RuleKind }[] = [
-  { label: "Field condition", value: "single" },
-  { label: "Implication (if … then)", value: "implication" },
+  { label: "Conditions that must hold", value: "single" },
+  { label: "If … then …", value: "implication" },
   { label: "Both or neither", value: "iff" },
   { label: "Can't all be true", value: "exclusive" },
 ];
 
 const RULE_KIND_HINTS: Record<RuleKind, string> = {
-  single: "The condition(s) must hold.",
-  implication: "When the first group holds, the second must too.",
-  iff: "Both groups must be true together, or both false together.",
-  exclusive: "The conditions can't all be true at the same time.",
+  single: "All of these conditions must hold.",
+  implication: "When the IF conditions all hold, the THEN conditions must too.",
+  iff: "The two sides must be true together, or false together.",
+  exclusive: "These conditions can't all be true at the same time.",
 };
 
 function isComp(op: CondOp): op is CompOp {
@@ -81,10 +87,6 @@ function isComp(op: CondOp): op is CompOp {
 
 function newCondition(field: string): Condition {
   return { field, op: "==", rhsKind: "value", rhs: "" };
-}
-
-function newGroup(field: string): ConditionGroup {
-  return { connector: "and", conditions: [newCondition(field)] };
 }
 
 function isVar(x: unknown): x is { var: string } {
@@ -97,9 +99,8 @@ function isVar(x: unknown): x is { var: string } {
   );
 }
 
-// Parse a typed right-hand-side value. JSON first (so 5, true, null, "quoted",
-// {objects} and [arrays] keep their type), then a bare word falls back to a
-// string (so `4k` needn't be quoted).
+// Parse a typed right-hand-side value: JSON first (so 5, true, null, "quoted",
+// {objects}/[arrays] keep their type), then a bare word falls back to a string.
 function parseLiteral(s: string): unknown {
   const t = s.trim();
   try {
@@ -109,8 +110,8 @@ function parseLiteral(s: string): unknown {
   }
 }
 
-// Inverse of parseLiteral for the text input: show a string bare unless it would
-// re-parse as a non-string (then quote it); everything else as JSON.
+// Inverse for the text input: show a string bare unless it would re-parse as a
+// non-string (then quote it); everything else as JSON.
 function formatLiteral(v: unknown): string {
   if (v === null) return "null";
   if (typeof v !== "string") return JSON.stringify(v);
@@ -139,31 +140,29 @@ function conditionToLogic(c: Condition): unknown {
   }
 }
 
-function groupToLogic(g: ConditionGroup): Record<string, unknown> {
-  const parts = g.conditions.map(conditionToLogic);
+function groupToLogic(g: Group): Record<string, unknown> {
+  const parts = g.map(conditionToLogic);
   if (parts.length === 1) return parts[0] as Record<string, unknown>;
-  return { [g.connector]: parts };
+  return { and: parts };
 }
 
 function buildRule(
   kind: RuleKind,
-  groupA: ConditionGroup,
-  groupB: ConditionGroup,
+  a: Group,
+  b: Group,
 ): Record<string, unknown> {
   switch (kind) {
     case "single":
-      return groupToLogic(groupA);
+      return groupToLogic(a);
     case "implication":
       // A → B  ≡  ¬A ∨ B
-      return { or: [{ "!": groupToLogic(groupA) }, groupToLogic(groupB)] };
+      return { or: [{ "!": groupToLogic(a) }, groupToLogic(b)] };
     case "iff":
       // A ↔ B  ≡  A == B
-      return { "==": [groupToLogic(groupA), groupToLogic(groupB)] };
+      return { "==": [groupToLogic(a), groupToLogic(b)] };
     case "exclusive":
-      // Can't all be true: ¬(A ∧ B ∧ …). Always AND, regardless of group toggle.
-      return {
-        "!": groupToLogic({ connector: "and", conditions: groupA.conditions }),
-      };
+      // Can't all be true: ¬(A ∧ B ∧ …)
+      return { "!": groupToLogic(a) };
   }
 }
 
@@ -209,53 +208,44 @@ function parseCondition(node: unknown): Condition | null {
   return null;
 }
 
-function parseGroup(node: unknown): ConditionGroup | null {
+// A single condition, or an AND group of conditions. OR groups aren't builder-
+// representable → null (they open in the Advanced editor).
+function parseGroup(node: unknown): Group | null {
   if (node && typeof node === "object" && !Array.isArray(node)) {
     const obj = node as Record<string, unknown>;
     const keys = Object.keys(obj);
-    if (
-      keys.length === 1 &&
-      (keys[0] === "and" || keys[0] === "or") &&
-      Array.isArray(obj[keys[0]])
-    ) {
-      const arr = obj[keys[0]] as unknown[];
-      const conds = arr.map(parseCondition);
+    if (keys.length === 1 && keys[0] === "and" && Array.isArray(obj.and)) {
+      const conds = (obj.and as unknown[]).map(parseCondition);
       if (conds.length > 0 && conds.every((c): c is Condition => c !== null)) {
-        return { connector: keys[0] as Connector, conditions: conds };
+        return conds;
       }
       return null;
     }
   }
   const single = parseCondition(node);
-  return single ? { connector: "and", conditions: [single] } : null;
+  return single ? [single] : null;
 }
 
-type ParsedRule = {
-  kind: RuleKind;
-  groupA?: ConditionGroup;
-  groupB?: ConditionGroup;
-};
+type ParsedRule = { kind: RuleKind; groupA: Group; groupB?: Group };
 
 // Best-effort: recognize a stored rule as one of the builder kinds so it can be
-// edited in the simple view. Anything else returns null → the Advanced editor.
-// Ambiguous shapes (e.g. an OR group vs an implication) are logically equivalent,
-// so the chosen interpretation is always correct even if not what was picked.
+// edited visually. Anything else (incl. OR groups) returns null → Advanced.
 function parseRule(obj: Record<string, unknown>): ParsedRule | null {
   const keys = Object.keys(obj);
   if (keys.length !== 1) return null;
   const op = keys[0];
   const arg = obj[op];
 
-  // Can't all be true: {"!": <and/or group>}
-  if (op === "!" && arg && typeof arg === "object" && !Array.isArray(arg)) {
-    const innerKeys = Object.keys(arg as object);
-    if (
-      innerKeys.length === 1 &&
-      (innerKeys[0] === "and" || innerKeys[0] === "or")
-    ) {
-      const g = parseGroup(arg);
-      if (g) return { kind: "exclusive", groupA: g };
-    }
+  // Can't all be true: {"!": {and: [...]}}
+  if (
+    op === "!" &&
+    arg &&
+    typeof arg === "object" &&
+    !Array.isArray(arg) &&
+    "and" in (arg as object)
+  ) {
+    const g = parseGroup(arg);
+    if (g) return { kind: "exclusive", groupA: g };
   }
 
   // Implication: {or: [{"!": A}, B]}
@@ -272,16 +262,12 @@ function parseRule(obj: Record<string, unknown>): ParsedRule | null {
       const gB = parseGroup(arg[1]);
       if (gA && gB) return { kind: "implication", groupA: gA, groupB: gB };
     }
-    const g = parseGroup(obj);
-    if (g) return { kind: "single", groupA: g };
     return null;
   }
 
   // Single simple condition (comparison / unary).
   const c = parseCondition(obj);
-  if (c) {
-    return { kind: "single", groupA: { connector: "and", conditions: [c] } };
-  }
+  if (c) return { kind: "single", groupA: [c] };
 
   // Single AND-group.
   if (op === "and" && Array.isArray(arg)) {
@@ -308,10 +294,10 @@ function safeParse(text: string): Record<string, unknown> | null {
   }
 }
 
-// Named cross-field rules on a config schema. A template-driven builder (field
-// conditions grouped with AND/OR, implication, both-or-neither, mutual-exclusion)
-// covers the relational patterns; an "Advanced" toggle swaps in a raw JSONLogic
-// editor for anything the builder can't represent — never both at once.
+// Named cross-field rules on a config schema, built with the same condition-row
+// layout as feature targeting: field · operator · value rows joined by AND, with
+// IF/THEN framing for the relational kinds. An "Advanced" toggle swaps in a raw
+// JSONLogic editor for anything the builder can't represent.
 export default function ConfigInvariantsEditor({
   invariants,
   fieldKeys,
@@ -327,12 +313,12 @@ export default function ConfigInvariantsEditor({
   const [advanced, setAdvanced] = useState(false);
   const [ruleText, setRuleText] = useState("{}");
   const [kind, setKind] = useState<RuleKind>("single");
-  const [groupA, setGroupA] = useState<ConditionGroup>(
-    newGroup(fieldKeys[0] ?? ""),
-  );
-  const [groupB, setGroupB] = useState<ConditionGroup>(
-    newGroup(fieldKeys[0] ?? ""),
-  );
+  const [groupA, setGroupA] = useState<Group>([
+    newCondition(fieldKeys[0] ?? ""),
+  ]);
+  const [groupB, setGroupB] = useState<Group>([
+    newCondition(fieldKeys[0] ?? ""),
+  ]);
   const [error, setError] = useState<string | null>(null);
 
   const currentRule = advanced
@@ -341,8 +327,8 @@ export default function ConfigInvariantsEditor({
 
   const applyParsed = (b: ParsedRule) => {
     setKind(b.kind);
-    setGroupA(b.groupA ?? newGroup(fieldKeys[0] ?? ""));
-    setGroupB(b.groupB ?? newGroup(fieldKeys[0] ?? ""));
+    setGroupA(b.groupA);
+    setGroupB(b.groupB ?? [newCondition(fieldKeys[0] ?? "")]);
   };
 
   const open = (index: number) => {
@@ -371,11 +357,8 @@ export default function ConfigInvariantsEditor({
 
   const onKindChange = (k: RuleKind) => {
     // "Can't all be true" needs at least two conditions to be meaningful.
-    if (k === "exclusive" && groupA.conditions.length < 2) {
-      setGroupA({
-        ...groupA,
-        conditions: [...groupA.conditions, newCondition(fieldKeys[0] ?? "")],
-      });
+    if (k === "exclusive" && groupA.length < 2) {
+      setGroupA([...groupA, newCondition(fieldKeys[0] ?? "")]);
     }
     setKind(k);
   };
@@ -402,28 +385,23 @@ export default function ConfigInvariantsEditor({
     return null;
   };
 
-  const validateGroup = (g: ConditionGroup, label: string): string | null => {
-    for (let i = 0; i < g.conditions.length; i++) {
-      const lbl =
-        g.conditions.length > 1 ? `${label} condition ${i + 1}` : label;
-      const e = validateCondition(g.conditions[i], lbl);
+  const validateGroup = (g: Group, label: string): string | null => {
+    for (let i = 0; i < g.length; i++) {
+      const lbl = g.length > 1 ? `${label} condition ${i + 1}` : label;
+      const e = validateCondition(g[i], lbl);
       if (e) return e;
     }
     return null;
   };
 
   const validateBuilder = (): string | null => {
-    if (kind === "exclusive" && groupA.conditions.length < 2) {
+    if (kind === "exclusive" && groupA.length < 2) {
       return "Add at least two conditions.";
     }
-    const a = validateGroup(
-      groupA,
-      kind === "implication" || kind === "iff" ? "the first group" : "the rule",
-    );
+    const twoSided = kind === "implication" || kind === "iff";
+    const a = validateGroup(groupA, twoSided ? "the first group" : "the rule");
     if (a) return a;
-    if (kind === "implication" || kind === "iff") {
-      return validateGroup(groupB, "the second group");
-    }
+    if (twoSided) return validateGroup(groupB, "the second group");
     return null;
   };
 
@@ -472,120 +450,148 @@ export default function ConfigInvariantsEditor({
 
   const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
 
-  const conditionRow = (c: Condition, set: (c: Condition) => void) => (
-    <Flex gap="2" align="end" wrap="wrap">
-      <SelectField
-        label="Field"
-        value={c.field}
-        onChange={(v) => set({ ...c, field: v })}
-        options={fieldOptions}
-        placeholder="field"
-      />
-      <SelectField
-        label="Condition"
-        value={c.op}
-        onChange={(v) => set({ ...c, op: v as CondOp })}
-        options={ALL_OPS.map((o) => ({ label: OP_LABELS[o], value: o }))}
-        sort={false}
-      />
-      {isComp(c.op) && (
-        <>
-          <SelectField
-            label="Compare to"
-            value={c.rhsKind}
-            onChange={(v) => set({ ...c, rhsKind: v as "value" | "field" })}
-            options={[
-              { label: "a value", value: "value" },
-              { label: "another field", value: "field" },
-            ]}
-            sort={false}
+  // One AND-joined group rendered as ConditionRows (field · operator · value),
+  // matching the feature-targeting builder. `leadLabel` prefixes the first row
+  // (e.g. IF / THEN); subsequent rows read AND.
+  const groupBlock = (
+    g: Group,
+    setG: (g: Group) => void,
+    leadLabel: string | null,
+  ) => {
+    const setAt = (i: number, c: Condition) =>
+      setG(g.map((x, j) => (j === i ? c : x)));
+    return (
+      <Box>
+        {g.map((c, i) => (
+          <Box key={i} mt={i > 0 ? "2" : "0"}>
+            <ConditionRow
+              prefixSlot={
+                <ConditionRowLabel
+                  label={i === 0 ? (leadLabel ?? "") : "AND"}
+                />
+              }
+              attributeSlot={
+                <SelectField
+                  label=""
+                  value={c.field}
+                  onChange={(v) => setAt(i, { ...c, field: v })}
+                  options={fieldOptions}
+                  placeholder="field"
+                />
+              }
+              operatorSlot={
+                <SelectField
+                  label=""
+                  value={c.op}
+                  onChange={(v) => setAt(i, { ...c, op: v as CondOp })}
+                  options={ALL_OPS.map((o) => ({
+                    label: OP_LABELS[o],
+                    value: o,
+                  }))}
+                  sort={false}
+                />
+              }
+              valueSlot={
+                isComp(c.op) ? (
+                  <Flex gap="2" align="start">
+                    <Box style={{ width: 110, flexShrink: 0 }}>
+                      <SelectField
+                        label=""
+                        value={c.rhsKind}
+                        onChange={(v) =>
+                          setAt(i, { ...c, rhsKind: v as "value" | "field" })
+                        }
+                        options={[
+                          { label: "a value", value: "value" },
+                          { label: "a field", value: "field" },
+                        ]}
+                        sort={false}
+                      />
+                    </Box>
+                    <Box style={{ flex: "1 1 0", minWidth: 120 }}>
+                      {c.rhsKind === "field" ? (
+                        <SelectField
+                          label=""
+                          value={c.rhs}
+                          onChange={(v) => setAt(i, { ...c, rhs: v })}
+                          options={fieldOptions}
+                          placeholder="field"
+                        />
+                      ) : (
+                        <Field
+                          value={c.rhs}
+                          onChange={(e) =>
+                            setAt(i, { ...c, rhs: e.target.value })
+                          }
+                          placeholder={`4k, 5, true, {"a":1}`}
+                        />
+                      )}
+                    </Box>
+                  </Flex>
+                ) : undefined
+              }
+              removeSlot={
+                g.length > 1 ? (
+                  <IconButton
+                    type="button"
+                    color="gray"
+                    variant="ghost"
+                    radius="full"
+                    size="1"
+                    onClick={() => setG(g.filter((_, j) => j !== i))}
+                  >
+                    <PiXBold size={14} />
+                  </IconButton>
+                ) : null
+              }
+            />
+          </Box>
+        ))}
+        <Box mt="2">
+          <AddConditionButton
+            onClick={() => setG([...g, newCondition(fieldKeys[0] ?? "")])}
           />
-          {c.rhsKind === "field" ? (
-            <SelectField
-              label="Field"
-              value={c.rhs}
-              onChange={(v) => set({ ...c, rhs: v })}
-              options={fieldOptions}
-              placeholder="field"
-            />
-          ) : (
-            <Field
-              label="Value"
-              value={c.rhs}
-              onChange={(e) => set({ ...c, rhs: e.target.value })}
-              placeholder={`4k, 5, true, null, {"a":1}`}
-            />
-          )}
-        </>
-      )}
+        </Box>
+      </Box>
+    );
+  };
+
+  const divider = (label: string) => (
+    <Flex align="center" gap="3" my="3">
+      <Separator style={{ flexGrow: 1 }} />
+      <Text size="small" weight="medium" color="text-low">
+        {label}
+      </Text>
+      <Separator style={{ flexGrow: 1 }} />
     </Flex>
   );
 
-  const groupEditor = (
-    g: ConditionGroup,
-    set: (g: ConditionGroup) => void,
-    showConnector = true,
-  ) => (
+  const builder = (
     <Box>
-      {showConnector && g.conditions.length > 1 && (
-        <Box mb="2">
-          <SelectField
-            label="Match"
-            value={g.connector}
-            onChange={(v) => set({ ...g, connector: v as Connector })}
-            options={[
-              { label: "all conditions (AND)", value: "and" },
-              { label: "any condition (OR)", value: "or" },
-            ]}
-            sort={false}
-          />
-        </Box>
-      )}
-      {g.conditions.map((c, i) => (
-        <Box key={i} mt={i > 0 ? "2" : "0"}>
-          {i > 0 && (
-            <Text size="small" color="text-low" as="div" mb="1">
-              {showConnector && g.connector === "or" ? "or" : "and"}
-            </Text>
-          )}
-          <Flex gap="2" align="end" wrap="wrap">
-            {conditionRow(c, (nc) =>
-              set({
-                ...g,
-                conditions: g.conditions.map((x, j) => (j === i ? nc : x)),
-              }),
-            )}
-            {g.conditions.length > 1 && (
-              <Button
-                variant="ghost"
-                size="xs"
-                color="red"
-                onClick={() =>
-                  set({
-                    ...g,
-                    conditions: g.conditions.filter((_, j) => j !== i),
-                  })
-                }
-              >
-                Remove
-              </Button>
-            )}
-          </Flex>
-        </Box>
-      ))}
-      <Box mt="2">
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() =>
-            set({
-              ...g,
-              conditions: [...g.conditions, newCondition(fieldKeys[0] ?? "")],
-            })
-          }
-        >
-          + Add condition
-        </Button>
+      <SelectField
+        label="Rule type"
+        value={kind}
+        onChange={(v) => onKindChange(v as RuleKind)}
+        options={RULE_KIND_OPTIONS}
+        sort={false}
+        helpText={RULE_KIND_HINTS[kind]}
+      />
+      <Box mt="3">
+        {kind === "single" && groupBlock(groupA, setGroupA, null)}
+        {kind === "implication" && (
+          <>
+            {groupBlock(groupA, setGroupA, "IF")}
+            <Box mt="3">{groupBlock(groupB, setGroupB, "THEN")}</Box>
+          </>
+        )}
+        {kind === "iff" && (
+          <>
+            {groupBlock(groupA, setGroupA, null)}
+            {divider("if and only if")}
+            {groupBlock(groupB, setGroupB, null)}
+          </>
+        )}
+        {kind === "exclusive" && groupBlock(groupA, setGroupA, null)}
       </Box>
     </Box>
   );
@@ -599,7 +605,7 @@ export default function ConfigInvariantsEditor({
         placeholder="e.g. streams_lte_devices"
       />
 
-      <Flex justify="between" align="center" mt="3" mb="1">
+      <Flex justify="between" align="center" mt="3" mb="2">
         <Text size="small" weight="medium">
           Rule
         </Text>
@@ -634,52 +640,12 @@ export default function ConfigInvariantsEditor({
           }
         />
       ) : (
-        <Box>
-          <SelectField
-            label="Rule type"
-            value={kind}
-            onChange={(v) => onKindChange(v as RuleKind)}
-            options={RULE_KIND_OPTIONS}
-            sort={false}
-            helpText={RULE_KIND_HINTS[kind]}
-          />
-
-          {kind === "single" && (
-            <Box mt="2">{groupEditor(groupA, setGroupA)}</Box>
-          )}
-
-          {kind === "implication" && (
-            <Box mt="2">
-              <Text size="small" color="text-low" as="div" mb="1">
-                If
-              </Text>
-              {groupEditor(groupA, setGroupA)}
-              <Text size="small" color="text-low" as="div" mt="3" mb="1">
-                then
-              </Text>
-              {groupEditor(groupB, setGroupB)}
-            </Box>
-          )}
-
-          {kind === "iff" && (
-            <Box mt="2">
-              {groupEditor(groupA, setGroupA)}
-              <Text size="small" color="text-low" as="div" mt="3" mb="1">
-                if and only if
-              </Text>
-              {groupEditor(groupB, setGroupB)}
-            </Box>
-          )}
-
-          {kind === "exclusive" && (
-            <Box mt="2">{groupEditor(groupA, setGroupA, false)}</Box>
-          )}
-        </Box>
+        builder
       )}
 
       {currentRule && (
         <Box
-          mt="2"
+          mt="3"
           style={{
             fontFamily: "var(--font-mono, monospace)",
             fontSize: 12,
