@@ -349,6 +349,7 @@ export function VariationBox({
                     variation={i}
                     experiment={experiment.id}
                     onSuccess={() => mutate?.()}
+                    noDrag
                   >
                     <Link>
                       <Flex align="center" gap="1">
