@@ -395,12 +395,16 @@ export default function AttributeModal({ close, attribute }: Props) {
       {constrainingChange ? (
         <>
           <Callout status="warning" mt="2" mb="2">
-            This change is applied in place — no new attribute is created and
-            features are not updated automatically. Existing targeting
-            conditions keep evaluating. Make sure the values above include every
-            value already used in targeting; conditions using an out-of-list
-            value or a now-unavailable operator will keep running but become
-            hard to edit.
+            <strong>
+              Include every value already used in targeting before saving.
+            </strong>{" "}
+            Conditions referencing a value outside the list — or using an
+            operator no longer offered — keep running but become hard to edit.
+            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+              The change is applied in place: no new attribute is created,
+              existing conditions keep evaluating, and features are not updated
+              automatically.
+            </span>
           </Callout>
           {refCount > 0 && refs ? (
             <Box mb="3">

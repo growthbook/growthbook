@@ -987,11 +987,17 @@ function ConditionAndGroupInput({
               ? attribute.enum.length
                 ? [
                     // Enum-constrained list: set operators drive the restricted
-                    // MultiSelect; the single-value ops keep older conditions editable.
+                    // MultiSelect. Single-value ops are only offered to keep an
+                    // existing condition that already uses them editable — hidden
+                    // otherwise to avoid duplicate-looking options.
                     { label: "includes any of", value: "$in" },
                     { label: "includes none of", value: "$nin" },
-                    { label: "includes", value: "$includes" },
-                    { label: "does not include", value: "$notIncludes" },
+                    ...(["$includes", "$notIncludes"].includes(operator)
+                      ? [
+                          { label: "includes", value: "$includes" },
+                          { label: "does not include", value: "$notIncludes" },
+                        ]
+                      : []),
                     { label: "is empty", value: "$empty" },
                     { label: "is not empty", value: "$notEmpty" },
                     { label: "is not NULL", value: "$exists" },
