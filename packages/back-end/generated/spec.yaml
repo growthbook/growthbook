@@ -18969,6 +18969,37 @@ paths:
                   type: string
                 extensible:
                   type: boolean
+                invariants:
+                  description: >-
+                    Cross-field validation rules. Each rule's expression may be
+                    JSONLogic or CEL. Stored on the config schema and enforced
+                    at publish.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        maxLength: 128
+                      rule:
+                        description: >-
+                          The rule expression, as a JSONLogic object or a CEL
+                          string (e.g. "!hdr_enabled || max_resolution ==
+                          '4k'"). CEL is converted to JSONLogic on write.
+                        anyOf:
+                          - type: string
+                          - type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                      message:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - name
+                      - rule
+                      - message
+                    additionalProperties: false
                 bypassApproval:
                   deprecated: true
                   description: >-
@@ -19464,6 +19495,38 @@ paths:
                   type: string
                 extensible:
                   type: boolean
+                invariants:
+                  description: >-
+                    Replace the config's cross-field validation rules. Each
+                    rule's expression may be JSONLogic or CEL. Send the complete
+                    set; an empty array clears all rules. Omit to leave them
+                    unchanged.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        maxLength: 128
+                      rule:
+                        description: >-
+                          The rule expression, as a JSONLogic object or a CEL
+                          string (e.g. "!hdr_enabled || max_resolution ==
+                          '4k'"). CEL is converted to JSONLogic on write.
+                        anyOf:
+                          - type: string
+                          - type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                      message:
+                        type: string
+                        maxLength: 10000
+                    required:
+                      - name
+                      - rule
+                      - message
+                    additionalProperties: false
                 bypassApproval:
                   description: >-
                     Set to true to skip the approval flow when the org requires
@@ -42839,6 +42902,34 @@ components:
             fields (child configs, feature rules, ad-hoc overrides). Only the
             root config's flag applies. Absent = inherit the org default.
           type: boolean
+        invariants:
+          description: >-
+            Cross-field validation rules (relational checks JSON Schema can't
+            express, e.g. implications or comparing two fields), evaluated
+            against the resolved value at publish.
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                description: Unique name for the rule.
+                type: string
+                maxLength: 128
+              rule:
+                description: A JSONLogic boolean expression over the config's fields.
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+              message:
+                description: Human-readable error shown when the rule is violated.
+                type: string
+                maxLength: 10000
+            required:
+              - name
+              - rule
+              - message
+            additionalProperties: false
         dateCreated:
           format: date-time
           type: string

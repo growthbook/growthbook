@@ -341,6 +341,58 @@ export function celToJsonLogic(cel: string): unknown {
   return result;
 }
 
+type ApiInvariantInput = { name: string; rule: unknown; message: string };
+type ApiInvariant = {
+  name: string;
+  rule: Record<string, unknown>;
+  message: string;
+};
+
+// Convert API invariants (each `rule` a JSONLogic object OR a CEL string) to the
+// stored form (rule as a JSONLogic JSON string). Throws with a rule-scoped
+// message on invalid CEL — the API surfaces that as a 400.
+export function apiInvariantsToStored(
+  invariants: ApiInvariantInput[],
+): ConfigInvariant[] {
+  return invariants.map((inv) => {
+    let ruleObj: unknown = inv.rule;
+    if (typeof inv.rule === "string") {
+      try {
+        ruleObj = celToJsonLogic(inv.rule);
+      } catch (e) {
+        throw new Error(
+          `Invalid CEL in validation rule "${inv.name}": ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
+    return {
+      name: inv.name,
+      rule: JSON.stringify(ruleObj),
+      message: inv.message,
+    };
+  });
+}
+
+// Reverse, for API responses: stored form → `rule` as a JSONLogic object.
+// Returns undefined when there are no rules (so the field is omitted).
+export function storedInvariantsToApi(
+  invariants: ConfigInvariant[] | undefined,
+): ApiInvariant[] | undefined {
+  if (!invariants?.length) return undefined;
+  return invariants.map((inv) => {
+    let rule: Record<string, unknown> = {};
+    try {
+      const p = JSON.parse(inv.rule);
+      if (p && typeof p === "object" && !Array.isArray(p)) rule = p;
+    } catch {
+      // unparseable stored rule → expose an empty object rather than throwing
+    }
+    return { name: inv.name, rule, message: inv.message };
+  });
+}
+
 // The field keys a rule references (every `{var}`), for row-level highlighting
 // of which fields a failing rule involves. Uses the top-level path segment
 // (configs are flat). Never throws.
