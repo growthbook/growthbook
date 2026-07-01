@@ -40,13 +40,6 @@ type BlockerItem = {
   hardBlock: boolean;
 };
 
-/**
- * Mirrors the experiment pre-launch hard blockers, computed from linked-feature
- * state. These are the same conditions that make the CB start endpoint's
- * auto-publish of linked feature drafts fail (merge conflicts, missing
- * approvals, unrelated draft edits). Missing variation values are surfaced as a
- * non-blocking "Recommended" item.
- */
 function computeBlockers(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
