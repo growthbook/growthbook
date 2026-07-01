@@ -3,7 +3,6 @@ import {
   ContextualBanditRefRule,
 } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";

@@ -5,10 +5,7 @@ import {
   ContextualBanditRefRule,
 } from "shared/types/feature";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { naiveFlattenV1Rules, validateFeatureValue } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -29,7 +26,6 @@ export interface Props {
 }
 
 type FeatureRevisionResponse = {
-  revisionList: MinimalFeatureRevisionInterface[];
   revisions: FeatureRevisionInterface[];
 };
 

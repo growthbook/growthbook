@@ -1,4 +1,3 @@
-import React from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
 import Link from "@/ui/Link";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
