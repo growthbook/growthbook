@@ -32,7 +32,7 @@ const Carousel: FC<{
   const current = active >= num ? num - 1 : active;
 
   return (
-    <div className="carousel slide my-2">
+    <div className="carousel slide">
       <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;

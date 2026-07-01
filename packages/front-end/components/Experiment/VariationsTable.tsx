@@ -8,7 +8,7 @@ import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
   PiCameraPlusLight,
-  PiPencilSimple,
+  PiPencilSimpleFill,
   PiPlusCircle,
   PiUploadSimple,
 } from "react-icons/pi";
@@ -184,10 +184,11 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       width="100%"
       flexGrow="1"
       style={{
-        backgroundColor: "var(--slate-a3)",
+        backgroundColor: "var(--black-a2)",
         height: "100%",
         minHeight: NO_IMAGE_MIN_HEIGHT + "px",
-        color: "var(--slate-a9)",
+        color: "var(--slate-8)",
+        border: "none",
       }}
     >
       <Box>
@@ -291,14 +292,14 @@ export function VariationBox({
                 }}
                 aria-label="Edit variation"
               >
-                <PiPencilSimple size="15" />
+                <PiPencilSimpleFill size="15" />
               </IconButton>
             ) : null}
           </Flex>
         </Box>
         {allowImages && (
           <Box
-            mt={showNoImage ? "3" : "0"}
+            mt={showNoImage ? "2" : "0"}
             flexGrow="1"
             style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
           >
@@ -321,7 +322,7 @@ export function VariationBox({
                 experiment={experiment.id}
                 onSuccess={() => mutate?.()}
               >
-                <NoImageBox />
+                <NoImageBox canEdit={canEdit} />
               </ScreenshotUpload>
             ) : (
               <NoImageBox canEdit={false} />
@@ -403,6 +404,9 @@ const VariationsTable: FC<Props> = ({
   } | null>(null);
 
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
+  const someVariationHasImage = variations.some(
+    (v) => v.screenshots.length > 0,
+  );
 
   const cols = centered
     ? Math.min(variations.length, 3)
@@ -420,6 +424,7 @@ const VariationsTable: FC<Props> = ({
     <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
+        style={{ gridAutoRows: "1fr" }}
         {...(centered
           ? { justify: "center", columns: getVariationGridColumns(cols) }
           : {
@@ -452,7 +457,9 @@ const VariationsTable: FC<Props> = ({
               shareType={shareType}
               onEditMetadata={onEditMetadata}
               onEditTraffic={onEditTraffic}
-              showNoImage={experiment.status === "draft"}
+              showNoImage={
+                experiment.status === "draft" || someVariationHasImage
+              }
               capWidth={centered}
             />
           );
