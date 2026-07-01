@@ -9,7 +9,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -98,6 +98,7 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
+  const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const managedWarehouseAwaitingProvisioning = d
@@ -505,14 +506,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   />
                 </Frame>
 
-                {hasCommercialFeature("contextual-bandits") && (
-                  <Frame id={CBAQ_ANCHOR_ID}>
-                    <ContextualBanditAssignmentQueries
-                      dataSource={d}
-                      canEdit={canUpdateDataSourceSettings}
-                    />
-                  </Frame>
-                )}
+                {contextualBanditsEnabled &&
+                  hasCommercialFeature("contextual-bandits") && (
+                    <Frame id={CBAQ_ANCHOR_ID}>
+                      <ContextualBanditAssignmentQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
 
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (
