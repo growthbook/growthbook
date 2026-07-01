@@ -22,6 +22,7 @@ import {
   parsePlainJSONObject,
   getConfigBackingKey,
   ensureConfigBacking,
+  deepMergePatch,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -635,10 +636,15 @@ export function getFeatureDefinition({
           typeof resolvedPatch === "object" &&
           !Array.isArray(resolvedPatch)
         ) {
-          return {
-            ...jsonDefaultObj,
-            ...(resolvedPatch as Record<string, unknown>),
-          };
+          // Config-backed features get a deep (targeted) sparse patch so a rule
+          // restates only the leaves it changes; plain JSON features keep the
+          // top-level spread. `$extends`-composed chunks stay atomic.
+          return defaultConfigKey
+            ? deepMergePatch(jsonDefaultObj, resolvedPatch)
+            : {
+                ...jsonDefaultObj,
+                ...(resolvedPatch as Record<string, unknown>),
+              };
         }
         return resolvedPatch;
       }

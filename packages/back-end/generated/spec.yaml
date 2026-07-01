@@ -20099,6 +20099,13 @@ paths:
         per-environment override (use a Constant for that).
 
 
+        Inheritance is a deep (targeted) patch: this value is merged onto the
+        resolved parent recursively, key by key — restate only the leaves you
+        want to change and the rest are inherited. Arrays and scalars replace
+        wholesale, `null` is a value (it does not delete a key), and a value
+        composed from a constant via `$extends` is applied whole.
+
+
         Set `inferSchemaIfMissing: true` to derive and stage a field schema from
         the value when the config has none yet.
       tags:
@@ -20133,7 +20140,9 @@ paths:
                 revisionComment:
                   type: string
                 value:
-                  description: This config's own value as a JSON object.
+                  description: >-
+                    This config's own value as a JSON object — a targeted patch
+                    deep-merged onto the resolved parent value.
                   type: object
                   propertyNames:
                     type: string

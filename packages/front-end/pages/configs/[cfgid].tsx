@@ -1600,6 +1600,19 @@ export default function ConfigDetailPage(): React.ReactElement {
                             (base wins).
                           </Callout>
                         )}
+                        {parentKey && (
+                          <Text
+                            as="p"
+                            size="small"
+                            color="text-low"
+                            mt="3"
+                            mb="0"
+                          >
+                            Nested objects deep-merge onto{" "}
+                            {parentName || "the parent"}; arrays and scalars
+                            replace.
+                          </Text>
+                        )}
                         <Box style={{ minWidth: 800 }}>
                           <Grid
                             columns={FIELD_GRID_TEMPLATE}

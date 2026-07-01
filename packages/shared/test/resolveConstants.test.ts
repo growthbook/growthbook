@@ -216,6 +216,22 @@ describe("resolveConstantRefs — $extends merge precedence", () => {
     ).toEqual({ wrapper: { a: 1, b: 2, extra: true } });
   });
 
+  it("deep-merges own keys onto a nested object from the base (targeted patch)", () => {
+    const deepMap = mapOf({
+      base: {
+        type: "json",
+        value: '{"abr":{"levels":{"low":1500,"high":12000}}}',
+      },
+    });
+    // Only `high` is restated; `low` is inherited (shallow merge would drop it).
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:base"], abr: { levels: { high: 16000 } } },
+        deepMap,
+      ),
+    ).toEqual({ abr: { levels: { low: 1500, high: 16000 } } });
+  });
+
   it("merges across separate array elements", () => {
     expect(
       resolveConstantRefs(

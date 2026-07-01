@@ -46,6 +46,8 @@ Precedence, lowest to highest:
 
 When fields collide, the **closest base wins**: a child cannot redefine a field that a published ancestor already owns. This keeps a family's shape coherent — the base config governs the fields it declares, and children may only _add_ fields. Changing a base cascades down to its descendants automatically.
 
+Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk.
+
 You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
 
 ## Using a config as a feature flag's value

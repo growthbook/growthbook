@@ -1,5 +1,6 @@
 import { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
+import { deepMergePatch } from "../util/deep-merge";
 
 // Which namespace an entry belongs to. References are namespaced (`@const:` vs
 // `@config:`) and the value map is keyed by `source:key`, so the two namespaces
@@ -276,15 +277,19 @@ function resolveValue(
       }
     }
 
-    // Own keys override the merged base. Skip `$extends` itself when it was used
-    // as a merge directive (an array); otherwise treat it as a normal key. A
+    // Own keys deep-merge (targeted patch) onto the merged base — a value
+    // restates only the leaves it changes. Skip `$extends` itself when used as a
+    // merge directive (an array); otherwise treat it as a normal key. A
     // backtick-escaped reserved key (`` `$extends` ``) emits as the literal key
-    // it escapes, so a genuine data key named `$extends` is expressible.
+    // it escapes, so a genuine data key named `$extends` is expressible. An own
+    // key whose value is itself a `$extends` chunk is applied wholesale (atomic).
     const ESCAPED_EXTENDS_KEY = "`" + EXTENDS_KEY + "`";
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
       const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
-      out[outKey] = resolveValue(v, visited, ctx);
+      const resolved = resolveValue(v, visited, ctx);
+      const isChunk = isPlainObject(v) && EXTENDS_KEY in v;
+      out[outKey] = isChunk ? resolved : deepMergePatch(out[outKey], resolved);
     }
     return out;
   }

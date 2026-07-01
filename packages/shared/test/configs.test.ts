@@ -650,6 +650,26 @@ describe("resolveConfigChain — value merge precedence", () => {
     expect(byKey.get("a")!.value).toBe(1);
   });
 
+  it("deep-merges a nested object: a child patches one leaf and inherits siblings", () => {
+    const byKey = valueByKey([
+      {
+        key: "base",
+        value: JSON.stringify({
+          abr: { levels: { low: 1500, medium: 4000, high: 12000 } },
+        }),
+      },
+      {
+        key: "device",
+        value: JSON.stringify({ abr: { levels: { high: 16000 } } }),
+      },
+    ]);
+    // low/medium survive from base; only high is patched by the child.
+    expect(byKey.get("abr")!.value).toEqual({
+      levels: { low: 1500, medium: 4000, high: 16000 },
+    });
+    expect(byKey.get("abr")!.source).toBe("device");
+  });
+
   it("accumulates the effective schema base → leaf (first definition wins)", () => {
     const { effectiveSchema } = resolveConfigChain([
       { key: "base", schema: objSchema("color") },

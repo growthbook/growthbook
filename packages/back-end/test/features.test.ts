@@ -1276,6 +1276,51 @@ describe("SDK Payloads", () => {
     ]);
   });
 
+  it("deep-merges a sparse rule onto a config-backed feature default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Config-backed default that also layers `extra` on top of the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      extra: { x: 1 },
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Patches one leaf of `extra`; a shallow merge would drop `extra.x`.
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Deep: config field `cfg` and the default's `extra.x` both survive.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
   // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
   const jsonForceFeature = (ruleValue: string): FeatureInterface => {
     const feature = cloneDeep(baseFeature);

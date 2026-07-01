@@ -4,6 +4,7 @@ import {
   getConfigBackingPatch,
   setConfigBacking,
   validateJSONFeatureValue,
+  deepMergePatch,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -63,8 +64,10 @@ function toObject(v: unknown): Record<string, unknown> | null {
 //
 // - Default value (`sparse` off): the fully-resolved config payload.
 // - Rule (`sparse` on): the same payload, but as a diff against the feature
-//   default — overridden fields bold, inherited base fields muted — with a
-//   "with overrides" tag when anything differs.
+//   default — overridden fields bold, inherited base fields muted.
+// A "with overrides" tag shows when the value carries its own patch fields on
+// top of the config. Config + patch constants are all resolved so the preview
+// matches the SDK payload.
 export default function ConfigBackedSummary({
   value,
   configKey,
@@ -93,9 +96,8 @@ export default function ConfigBackedSummary({
     if (!data?.constants) return null;
     const map = buildConstantValueMap(data.constants, "");
     const project = feature.project || "";
-    // Resolve only the config base — this flattens the constants the config
-    // itself references (and its lineage). The override patch is merged on top
-    // raw, so any constants referenced inline on this value stay unresolved.
+    // Resolve the config base — this flattens the constants the config itself
+    // references (and its lineage).
     const base = resolveConstantRefs(
       JSON.parse(setConfigBacking(configKey, "{}")),
       map,
@@ -112,10 +114,29 @@ export default function ConfigBackedSummary({
     } catch {
       patch = {};
     }
+    // "with overrides" reflects whether this value adds anything on top of the
+    // config — its own patch fields (or a `@const:` layer) — NOT whether the
+    // resolved value happens to differ from the feature default. Computed from
+    // the raw patch, before its own references are resolved.
+    const hasOverrides = Object.keys(patch).length > 0;
+    // Resolve the patch's own `@const:` refs too, so the preview matches what
+    // the SDK ships (the config base above is already resolved).
+    const resolvedPatch =
+      toObject(
+        resolveConstantRefs(patch, map, undefined, undefined, project),
+      ) ?? patch;
     const baseObj = toObject(base);
-    const merged = baseObj ? { ...baseObj, ...patch } : patch;
+    // Deep (targeted) patch onto the resolved base, matching SDK resolution —
+    // the patch restates only the leaves it changes. `deepMergePatch` returns
+    // the patch as-is when there's no object base to merge onto.
+    const merged = deepMergePatch(baseObj, resolvedPatch) as Record<
+      string,
+      unknown
+    >;
 
-    if (!sparse) return { merged, diffKeys: null as Set<string> | null };
+    if (!sparse) {
+      return { merged, diffKeys: null as Set<string> | null, hasOverrides };
+    }
 
     // Diff against the resolved feature default so a rule shows only what it
     // changes (bold) over the inherited base (muted).
@@ -135,7 +156,7 @@ export default function ConfigBackedSummary({
     const diffKeys = new Set(
       Object.keys(merged).filter((k) => !isEqual(merged[k], defaultObj[k])),
     );
-    return { merged, diffKeys };
+    return { merged, diffKeys, hasOverrides };
   }, [data, value, configKey, feature.project, feature.defaultValue, sparse]);
 
   // Validate the resolved (base + patch) value against the config's own schema.
@@ -177,7 +198,7 @@ export default function ConfigBackedSummary({
       <ServeConfigHeader
         configKey={configKey}
         name={config?.name ?? configKey}
-        suffix={resolved?.diffKeys?.size ? "with overrides" : undefined}
+        suffix={resolved?.hasOverrides ? "with overrides" : undefined}
       />
       {resolved !== null && (
         <Box width="100%" mt="2">

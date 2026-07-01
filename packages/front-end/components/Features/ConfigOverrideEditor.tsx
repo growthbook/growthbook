@@ -35,9 +35,10 @@ type ResolvedResponse = {
   extensible?: boolean;
 };
 
-// Key / Value / Type / action. Key and Type are fixed so the Value column
-// (1fr) absorbs the remaining width.
-const GRID_TEMPLATE = "200px minmax(160px, 1fr) 110px 90px";
+// Key / Value / Type / action. Key, Type, and action are fixed so the Value
+// column (1fr) absorbs the remaining width; its min is generous so JSON editing
+// stays usable in narrower layouts.
+const GRID_TEMPLATE = "150px minmax(280px, 1fr) 110px 64px";
 
 function parseOverrides(value: string): Record<string, unknown> | null {
   try {

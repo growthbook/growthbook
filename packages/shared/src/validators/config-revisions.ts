@@ -503,7 +503,7 @@ export const putConfigRevisionValueValidator = {
   operationId: "putConfigRevisionValue",
   summary: "Update the value of a config draft revision",
   description:
-    'Stages a new `value` (this config\'s own JSON object) on the draft. Pass `version: "new"` to auto-create a draft. A `@config:` inheritance entry in the value is rejected — express lineage via the `parent`/`extends` metadata fields instead. Configs are environment-agnostic: there is no per-environment override (use a Constant for that).\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
+    'Stages a new `value` (this config\'s own JSON object) on the draft. Pass `version: "new"` to auto-create a draft. A `@config:` inheritance entry in the value is rejected — express lineage via the `parent`/`extends` metadata fields instead. Configs are environment-agnostic: there is no per-environment override (use a Constant for that).\n\nInheritance is a deep (targeted) patch: this value is merged onto the resolved parent recursively, key by key — restate only the leaves you want to change and the rest are inherited. Arrays and scalars replace wholesale, `null` is a value (it does not delete a key), and a value composed from a constant via `$extends` is applied whole.\n\nSet `inferSchemaIfMissing: true` to derive and stage a field schema from the value when the config has none yet.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
@@ -511,7 +511,9 @@ export const putConfigRevisionValueValidator = {
       ...newDraftMetadataFields,
       value: configValueObject
         .optional()
-        .describe("This config's own value as a JSON object."),
+        .describe(
+          "This config's own value as a JSON object — a targeted patch deep-merged onto the resolved parent value.",
+        ),
       inferSchemaIfMissing: z
         .boolean()
         .optional()

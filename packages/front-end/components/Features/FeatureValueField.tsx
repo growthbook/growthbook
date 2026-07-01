@@ -533,6 +533,10 @@ export default function FeatureValueField({
                       <Text as="label" weight="medium">
                         Additional overrides
                       </Text>
+                      <Text as="p" size="small" color="text-low" mb="0">
+                        Nested objects deep-merge onto the config; arrays and
+                        scalars replace.
+                      </Text>
                     </Box>
                     <ConfigOverrideEditor
                       configKey={configKey}

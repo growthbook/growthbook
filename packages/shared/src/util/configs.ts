@@ -2,6 +2,7 @@ import { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { parsePlainJSONObject } from "./features";
 import { collectInvalidConfigValueKeys } from "./config-schema";
+import { deepMergePatch } from "./deep-merge";
 
 // Inheritance is modeled by a `parent` key (the primary lineage spine) plus an
 // optional ordered `extends[]` of mixin config keys, neither stored in the
@@ -478,12 +479,20 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
     }
   }
 
+  // Values merge base → leaf with deep (targeted) patching: a descendant
+  // restates only the leaves it changes and inherits the rest. `source` tracks
+  // the deepest node that touched the top-level key (nested provenance is a
+  // future concern). `$extends` chunks stay atomic (see deepMergePatch).
   const valueByKey = new Map<string, { value: unknown; source: string }>();
   for (const node of chain) {
     const obj = parsePlainJSONObject(node.value ?? "") ?? {};
     for (const [k, v] of Object.entries(obj)) {
       if (k === CONSTANT_EXTENDS_KEY) continue;
-      valueByKey.set(k, { value: v, source: node.key });
+      const prev = valueByKey.get(k);
+      valueByKey.set(k, {
+        value: prev ? deepMergePatch(prev.value, v) : v,
+        source: node.key,
+      });
     }
   }
 
