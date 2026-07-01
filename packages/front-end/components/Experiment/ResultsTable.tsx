@@ -1016,7 +1016,7 @@ export default function ResultsTable({
                                       >
                                         {!compactResults ? (
                                           <div
-                                            className={`d-flex align-items-center ${
+                                            className={`d-flex align-items-center ml-2 ${
                                               row.isSliceRow
                                                 ? "pl-4"
                                                 : dimension
