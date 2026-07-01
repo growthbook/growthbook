@@ -173,8 +173,7 @@ export function toApiContextualBandit(
     conversionWindowValue: doc.conversionWindowValue,
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
-    stageDateStarted:
-      doc.stageDateStarted?.toISOString(),
+    stageDateStarted: doc.stageDateStarted?.toISOString(),
   };
 }
 
@@ -235,19 +234,11 @@ export class ContextualBanditModel extends BaseClass {
     return {
       ...body,
       scheduleValue:
-        body.scheduleValue ??
-        orgSettings?.banditScheduleValue ??
-        1,
+        body.scheduleValue ?? orgSettings?.banditScheduleValue ?? 1,
       scheduleUnit:
-        body.scheduleUnit ??
-        orgSettings?.banditScheduleUnit ??
-        "days",
-      burnInValue:
-        body.burnInValue ?? orgSettings?.banditBurnInValue ?? 1,
-      burnInUnit:
-        body.burnInUnit ??
-        orgSettings?.banditBurnInUnit ??
-        "days",
+        body.scheduleUnit ?? orgSettings?.banditScheduleUnit ?? "days",
+      burnInValue: body.burnInValue ?? orgSettings?.banditBurnInValue ?? 1,
+      burnInUnit: body.burnInUnit ?? orgSettings?.banditBurnInUnit ?? "days",
       tags: body.tags ?? [],
       owner: body.owner ?? "",
       archived: false,

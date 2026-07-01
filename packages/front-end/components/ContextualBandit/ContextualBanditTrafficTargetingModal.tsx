@@ -2,10 +2,7 @@ import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
-import {
-  FeaturePrerequisite,
-  SavedGroupTargeting,
-} from "shared/types/feature";
+import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -41,10 +38,8 @@ export default function ContextualBanditTrafficTargetingModal({
   const environments = useEnvironments();
 
   const [conditionKey, setConditionKey] = useState(0);
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
 
   const numVariations = cb.variations.length;
   const form = useForm<FormValues>({
@@ -131,9 +126,7 @@ export default function ContextualBanditTrafficTargetingModal({
           conditionKey={conditionKey}
           prerequisites={form.watch("prerequisites") || []}
           setPrerequisites={(v) => form.setValue("prerequisites", v)}
-          setPrerequisiteTargetingSdkIssues={
-            setPrerequisiteTargetingSdkIssues
-          }
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
       </ModalStandard>
     </FormProvider>
