@@ -4,6 +4,13 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+// Config/constant values come from JSON.parse, where `__proto__` etc. are real
+// own keys. Never assign them during a merge — `out["__proto__"] = …` would set
+// the prototype rather than a data key.
+export function isUnsafeMergeKey(k: string): boolean {
+  return k === "__proto__" || k === "constructor" || k === "prototype";
+}
+
 // Deep-merge `patch` onto `base` for config/constant value resolution. This is
 // the "targeted patching" behavior: a descendant (or rule override) restates
 // only the leaves it changes.
@@ -27,6 +34,7 @@ export function deepMergePatch(base: unknown, patch: unknown): unknown {
   }
   const out: Record<string, unknown> = { ...base };
   for (const [k, v] of Object.entries(patch)) {
+    if (isUnsafeMergeKey(k)) continue;
     out[k] = deepMergePatch(base[k], v);
   }
   return out;

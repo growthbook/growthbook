@@ -32,6 +32,16 @@ describe("deepMergePatch", () => {
     });
   });
 
+  it("ignores prototype-polluting keys from JSON values", () => {
+    // JSON.parse makes `__proto__` a real own key; assigning it would set the
+    // prototype rather than a data key.
+    const patch = JSON.parse('{"__proto__": {"polluted": true}, "b": 2}');
+    const out = deepMergePatch({ a: 1 }, patch) as Record<string, unknown>;
+    expect(out).toEqual({ a: 1, b: 2 });
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("applies a $extends chunk wholesale on either side (never merges into it)", () => {
     // patch is a chunk → replace
     expect(deepMergePatch({ a: 1 }, { $extends: ["@const:x"], b: 2 })).toEqual({

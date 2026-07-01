@@ -333,6 +333,20 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     expect(celToMongo("replicas == 3")).toEqual({ replicas: { $eq: 3 } });
   });
 
+  it("celToMongo: rejects '!' before a comparison (precedence)", () => {
+    // `!a == b` must not be silently reinterpreted as `!(a == b)`.
+    expect(() => celToMongo("!a == b")).toThrow();
+    expect(celToMongo("!a || b == 1")).toEqual({
+      $or: [{ $not: { a: { $eq: true } } }, { b: { $eq: 1 } }],
+    });
+  });
+
+  it("describes a logical operator beside a field condition", () => {
+    // `{$or:[…], c:…}` — the field must be AND-ed, not read as a field "$or".
+    const rule = { $or: [{ a: { $eq: 1 } }, { b: { $eq: 2 } }], c: { $eq: 3 } };
+    expect(toCel(JSON.stringify(rule))).toBe("(a == 1 || b == 2) && c == 3");
+  });
+
   it("jsonLogicToMongo: JSONLogic → mongo", () => {
     expect(
       jsonLogicToMongo({

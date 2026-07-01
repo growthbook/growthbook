@@ -326,6 +326,7 @@ export default function ConfigDetailPage(): React.ReactElement {
     setEditKey(null);
     setEditText("");
     setEditError(null);
+    setComposeError(null);
     setEditKind("value");
     setSchemaEdit(null);
     setShowCreateChild(false);

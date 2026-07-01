@@ -25,6 +25,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import CustomHookModal from "@/components/Features/CustomHookModal";
 import Badge from "@/ui/Badge";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
 
@@ -190,6 +191,7 @@ function HooksTable({
   const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
     null,
   );
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   if (!hooks.length) {
     return (
@@ -206,6 +208,11 @@ function HooksTable({
           hook={viewCodeHook}
           close={() => setViewCodeHook(null)}
         />
+      )}
+      {toggleError && (
+        <Callout status="error" mb="3">
+          {toggleError}
+        </Callout>
       )}
       <Table variant="list" stickyHeader roundedCorners>
         <TableHeader>
@@ -270,11 +277,20 @@ function HooksTable({
                         className="dropdown-item"
                         onClick={async (e) => {
                           e.preventDefault();
-                          await apiCall(`/custom-hooks/${hook.id}`, {
-                            method: "PUT",
-                            body: JSON.stringify({ enabled: !hook.enabled }),
-                          });
-                          await mutate();
+                          setToggleError(null);
+                          try {
+                            await apiCall(`/custom-hooks/${hook.id}`, {
+                              method: "PUT",
+                              body: JSON.stringify({ enabled: !hook.enabled }),
+                            });
+                            await mutate();
+                          } catch (err) {
+                            setToggleError(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to update hook",
+                            );
+                          }
                         }}
                       >
                         {hook.enabled ? "Disable" : "Enable"}

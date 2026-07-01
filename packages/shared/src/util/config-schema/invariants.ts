@@ -137,30 +137,28 @@ function isRef(x: unknown): x is { $ref: string } {
 
 // ---- mongo condition → AST ------------------------------------------------
 
+// One top-level entry (key + value) → AST: a logical operator, or a field
+// condition. mongoToAst ANDs all entries, so a logical op can sit beside a field
+// condition (e.g. `{ $and: […], c: 3 }`) instead of being mis-read as a field.
+function entryToAst(k: string, v: unknown): Ast {
+  if ((k === "$and" || k === "$or") && Array.isArray(v)) {
+    return { k: k === "$and" ? "and" : "or", items: v.map(mongoToAst) };
+  }
+  if (k === "$nor" && Array.isArray(v)) {
+    return { k: "not", item: { k: "or", items: v.map(mongoToAst) } };
+  }
+  if (k === "$not") {
+    return { k: "not", item: mongoToAst(v) };
+  }
+  return fieldToAst(k, v);
+}
+
 function mongoToAst(node: unknown): Ast {
   if (!node || typeof node !== "object" || Array.isArray(node)) {
     throw new Error("Not a mongo condition");
   }
   const obj = node as Record<string, unknown>;
-  const keys = Object.keys(obj);
-
-  if (keys.length === 1) {
-    const k = keys[0];
-    const v = obj[k];
-    if ((k === "$and" || k === "$or") && Array.isArray(v)) {
-      return { k: k === "$and" ? "and" : "or", items: v.map(mongoToAst) };
-    }
-    if (k === "$nor" && Array.isArray(v)) {
-      return { k: "not", item: { k: "or", items: v.map(mongoToAst) } };
-    }
-    if (k === "$not") {
-      return { k: "not", item: mongoToAst(v) };
-    }
-    // else: a single field condition (fall through)
-  }
-
-  // One or more field conditions → AND them.
-  const parts = keys.map((field) => fieldToAst(field, obj[field]));
+  const parts = Object.keys(obj).map((k) => entryToAst(k, obj[k]));
   return parts.length === 1 ? parts[0] : { k: "and", items: parts };
 }
 
@@ -520,12 +518,28 @@ function celToAst(cel: string): Ast {
     throw new Error(`Unexpected "${t.value}" in CEL rule`);
   };
 
+  // `!` binds tighter than comparison (CEL/C precedence): it negates a primary,
+  // not a whole comparison. So `!a == b` parses as `(!a) == b`; since a
+  // comparison's LHS must be a bare field, that's then rejected rather than
+  // silently reinterpreted as `!(a == b)`.
+  const parseUnary = (): CelOperand => {
+    const t = peek();
+    if (t && t.type === "op" && t.value === "!") {
+      pos++;
+      return {
+        kind: "ast",
+        ast: { k: "not", item: operandToAst(parseUnary()) },
+      };
+    }
+    return parsePrimary();
+  };
+
   const parseComparison = (): Ast => {
-    const left = parsePrimary();
+    const left = parseUnary();
     const t = peek();
     if (t && t.type === "op" && COMP_OPS.includes(t.value as CmpOp)) {
       pos++;
-      const right = parsePrimary();
+      const right = parseUnary();
       if (left.kind !== "ident") {
         throw new Error("The left side of a comparison must be a field");
       }
@@ -542,19 +556,11 @@ function celToAst(cel: string): Ast {
     return operandToAst(left);
   };
 
-  const parseUnary = (): Ast => {
-    const t = peek();
-    if (t && t.type === "op" && t.value === "!") {
-      pos++;
-      return { k: "not", item: parseUnary() };
-    }
-    return parseComparison();
-  };
   const parseAnd = (): Ast => {
-    const items = [parseUnary()];
+    const items = [parseComparison()];
     while (peek()?.type === "op" && peek()?.value === "&&") {
       pos++;
-      items.push(parseUnary());
+      items.push(parseComparison());
     }
     return items.length === 1 ? items[0] : { k: "and", items };
   };

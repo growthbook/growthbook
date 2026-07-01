@@ -1,6 +1,6 @@
 import { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
-import { deepMergePatch } from "../util/deep-merge";
+import { deepMergePatch, isUnsafeMergeKey } from "../util/deep-merge";
 
 // Which namespace an entry belongs to. References are namespaced (`@const:` vs
 // `@config:`) and the value map is keyed by `source:key`, so the two namespaces
@@ -287,6 +287,7 @@ function resolveValue(
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
       const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
+      if (isUnsafeMergeKey(outKey)) continue;
       const resolved = resolveValue(v, visited, ctx);
       const isChunk = isPlainObject(v) && EXTENDS_KEY in v;
       out[outKey] = isChunk ? resolved : deepMergePatch(out[outKey], resolved);
