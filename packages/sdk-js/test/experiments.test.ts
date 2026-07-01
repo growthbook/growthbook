@@ -879,4 +879,91 @@ describe("experiments", () => {
 
     gb2.destroy();
   });
+
+  it("resolves a nested attribute used as the hash attribute (#4432)", () => {
+    const exp: Experiment<number> = {
+      key: "my-test",
+      hashAttribute: "user.id",
+      variations: [0, 1],
+    };
+
+    // Nested attribute should resolve via dot notation
+    const nested = new GrowthBook({
+      attributes: { user: { id: "1" } },
+    });
+    const nestedRes = nested.run(exp);
+
+    // A flat attribute of the same name should produce the same assignment
+    const flat = new GrowthBook({
+      attributes: { "user.id": "1" },
+    });
+    const flatRes = flat.run({ ...exp });
+
+    expect(nestedRes.inExperiment).toEqual(true);
+    expect(nestedRes.hashUsed).toEqual(true);
+    expect(nestedRes.hashValue).toEqual("1");
+    expect(nestedRes.variationId).toEqual(flatRes.variationId);
+
+    nested.destroy();
+    flat.destroy();
+  });
+
+  it("prefers a literal dotted key over the nested path", () => {
+    // A real attribute key that literally contains a dot must still win
+    const gb = new GrowthBook({
+      attributes: {
+        "user.id": "literal",
+        user: { id: "nested" },
+      },
+    });
+
+    const res = gb.run({
+      key: "my-test",
+      hashAttribute: "user.id",
+      variations: [0, 1],
+    });
+
+    expect(res.hashValue).toEqual("literal");
+
+    gb.destroy();
+  });
+
+  it("honors a falsy literal dotted key instead of falling through to the nested path", () => {
+    // A literal key that is present but falsy means "no value", and must not be
+    // silently overridden by a same-named nested path.
+    const gb = new GrowthBook({
+      attributes: {
+        "user.id": 0,
+        user: { id: "nested" },
+      },
+    });
+
+    const res = gb.run({
+      key: "my-test",
+      hashAttribute: "user.id",
+      variations: [0, 1],
+    });
+
+    expect(res.inExperiment).toEqual(false);
+    expect(res.hashUsed).toEqual(false);
+
+    gb.destroy();
+  });
+
+  it("does not hash when a nested hash attribute is missing", () => {
+    const gb = new GrowthBook({
+      attributes: { user: { email: "test@example.com" } },
+    });
+
+    const res = gb.run({
+      key: "my-test",
+      hashAttribute: "user.id",
+      variations: [0, 1],
+    });
+
+    expect(res.inExperiment).toEqual(false);
+    expect(res.hashUsed).toEqual(false);
+
+    gb.destroy();
+  });
 });
