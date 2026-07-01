@@ -1407,8 +1407,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       Audit history
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {((!config.lock && canUpdate) ||
-                    (config.lock && canBypassApproval)) && (
+                  {((!config.lock && canUpdate) || !!config.lock) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -1422,7 +1421,15 @@ export default function ConfigDetailPage(): React.ReactElement {
                             Lock…
                           </DropdownMenuItem>
                         ) : (
+                          // Always shown while locked; disabled (not hidden) when
+                          // the viewer lacks unlock permission, so it's discoverable.
                           <DropdownMenuItem
+                            disabled={!canBypassApproval}
+                            tooltip={
+                              !canBypassApproval
+                                ? "You don't have permission to unlock this config."
+                                : undefined
+                            }
                             onClick={() => {
                               setMenuOpen(false);
                               setLockConfirm("unlock");
