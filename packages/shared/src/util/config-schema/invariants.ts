@@ -124,6 +124,80 @@ export function describeInvariantRule(ruleJson: string): string {
   return describeNode(parsed, 0);
 }
 
+const CEL_COMPARATORS: Record<string, string> = {
+  "==": "==",
+  "===": "==",
+  "!=": "!=",
+  "!==": "!=",
+  "<": "<",
+  "<=": "<=",
+  ">": ">",
+  ">=": ">=",
+};
+
+function isCompoundNode(x: unknown): boolean {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    Object.keys(x as object).length === 1 &&
+    !("var" in (x as object))
+  );
+}
+
+function celNode(node: unknown, depth: number): string {
+  if (node === null) return "null";
+  if (typeof node === "string") return JSON.stringify(node);
+  if (typeof node === "number" || typeof node === "boolean")
+    return String(node);
+  if (Array.isArray(node))
+    return node.map((n) => celNode(n, depth + 1)).join(", ");
+  if (typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (keys.length === 1) {
+      const op = keys[0];
+      const arg = obj[op];
+      if (op === "var")
+        return typeof arg === "string" ? arg : celNode(arg, depth + 1);
+      if (op === "!") {
+        // Render the operand un-parenthesized (depth 0), then wrap once when it
+        // needs grouping — avoids `!((a && b))`.
+        const inner = celNode(arg, 0);
+        return isCompoundNode(arg) ? `!(${inner})` : `!${inner}`;
+      }
+      if ((op === "and" || op === "or") && Array.isArray(arg)) {
+        const inner = arg
+          .map((a) => celNode(a, depth + 1))
+          .join(op === "and" ? " && " : " || ");
+        return depth === 0 ? inner : `(${inner})`;
+      }
+      if (CEL_COMPARATORS[op] && Array.isArray(arg) && arg.length === 2) {
+        const operand = (a: unknown) => {
+          const s = celNode(a, depth + 1);
+          return isCompoundNode(a) ? `(${s})` : s;
+        };
+        return `${operand(arg[0])} ${CEL_COMPARATORS[op]} ${operand(arg[1])}`;
+      }
+    }
+  }
+  return JSON.stringify(node);
+}
+
+// Transpile a JSONLogic rule string to a CEL (Common Expression Language)
+// expression — e.g. `!hdr_enabled || max_resolution == "4k"`. Covers the
+// comparison/boolean subset the builder produces; falls back to the raw string
+// for anything it can't parse. Never throws.
+export function toCel(ruleJson: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(ruleJson);
+  } catch {
+    return ruleJson;
+  }
+  return celNode(parsed, 0);
+}
+
 // The field keys a rule references (every `{var}`), for row-level highlighting
 // of which fields a failing rule involves. Uses the top-level path segment
 // (configs are flat). Never throws.

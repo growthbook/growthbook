@@ -21,6 +21,7 @@ import {
   computeConfigReconciliationPreview,
   evaluateInvariants,
   invariantRuleFields,
+  toCel,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -158,6 +159,9 @@ type ConfigExportPayloads = {
   effectiveSchemaJson: string;
   effectiveSchemaTs: string;
   effectiveSchemaProto: string;
+  // Validation rules, empty when the config has none.
+  validationJsonLogic: string;
+  validationCel: string;
 };
 
 // Export-as dropdown, modeled on the review "Copy as" widget: copies the
@@ -233,6 +237,15 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
         {item("TypeScript", null, payloads.effectiveSchemaTs)}
         {item("Protobuf", null, payloads.effectiveSchemaProto)}
       </DropdownMenuGroup>
+      {payloads.validationJsonLogic && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup label="Validation">
+            {item("JSONLogic", null, payloads.validationJsonLogic)}
+            {item("CEL", null, payloads.validationCel)}
+          </DropdownMenuGroup>
+        </>
+      )}
     </DropdownMenu>
   );
 }
@@ -722,6 +735,27 @@ export default function ConfigDetailPage(): React.ReactElement {
     }
 
     const ownFields = displayedConfig?.schema?.fields ?? [];
+    const ownInvariants = displayedConfig?.schema?.invariants ?? [];
+    const validationJsonLogic = ownInvariants.length
+      ? JSON.stringify(
+          ownInvariants.map((iv) => {
+            let rule: unknown = iv.rule;
+            try {
+              rule = JSON.parse(iv.rule);
+            } catch {
+              // keep the raw string if it isn't valid JSON
+            }
+            return { name: iv.name, rule, message: iv.message };
+          }),
+          null,
+          2,
+        )
+      : "";
+    const validationCel = ownInvariants.length
+      ? ownInvariants
+          .map((iv) => `# ${iv.name} — ${iv.message}\n${toCel(iv.rule)}`)
+          .join("\n\n")
+      : "";
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
       resolvedValue: JSON.stringify(squashConstants(resolvedObj), null, 2),
@@ -739,6 +773,8 @@ export default function ConfigDetailPage(): React.ReactElement {
       effectiveSchemaProto: fieldsToProto(resolved.effectiveSchema, {
         additionalProperties: effectiveExtensible,
       }),
+      validationJsonLogic,
+      validationCel,
     };
   }, [
     displayedConfig?.value,
@@ -1675,18 +1711,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                               : "those fields"}
                             , so the descendant keeps only a value override
                             (base wins).
-                          </Callout>
-                        )}
-                        {failingInvariants.length > 0 && (
-                          <Callout status="error" mt="3">
-                            {failingInvariants.length === 1
-                              ? "1 validation rule is not satisfied:"
-                              : `${failingInvariants.length} validation rules are not satisfied:`}
-                            <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                              {failingInvariants.map((v) => (
-                                <li key={v.name}>{v.message}</li>
-                              ))}
-                            </ul>
                           </Callout>
                         )}
                         <Box style={{ minWidth: 800 }}>

@@ -2,6 +2,7 @@ import {
   evaluateInvariants,
   describeInvariantRule,
   invariantRuleFields,
+  toCel,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
@@ -322,5 +323,40 @@ describe("invariantRuleFields", () => {
 
   it("returns [] for an unparseable rule", () => {
     expect(invariantRuleFields("{ not json")).toEqual([]);
+  });
+});
+
+describe("toCel", () => {
+  const cel = (r: unknown) => toCel(JSON.stringify(r));
+
+  it("transpiles an implication (¬A ∨ B)", () => {
+    expect(
+      cel({
+        or: [
+          { "!": { var: "hdr_enabled" } },
+          { "==": [{ var: "max_resolution" }, "4k"] },
+        ],
+      }),
+    ).toBe('!hdr_enabled || max_resolution == "4k"');
+  });
+
+  it("transpiles mutual exclusion with parens", () => {
+    expect(cel({ "!": { and: [{ var: "a" }, { var: "b" }] } })).toBe(
+      "!(a && b)",
+    );
+  });
+
+  it("transpiles field-to-field ordering", () => {
+    expect(cel({ "<=": [{ var: "a" }, { var: "b" }] })).toBe("a <= b");
+  });
+
+  it("parenthesizes a nested comparison operand", () => {
+    expect(cel({ "==": [{ var: "a" }, { "!=": [{ var: "b" }, null] }] })).toBe(
+      "a == (b != null)",
+    );
+  });
+
+  it("falls back to the raw string for unparseable input", () => {
+    expect(toCel("{ not json")).toBe("{ not json");
   });
 });
