@@ -13,7 +13,52 @@ export type InvariantViolation = { name: string; message: string };
 // supported only at the API/copy boundary and converted to/from the mongo form.
 // All three formats convert through a tiny internal AST (the hub below), so we
 // don't need a converter for every pair.
+//
+// Field-to-field comparisons use a `{ $ref: "otherField" }` marker. We resolve
+// those markers HERE, against the value, before calling evalCondition — rather
+// than relying on the SDK to do it — so the feature works with the published
+// `@growthbook/growthbook` (whose evalCondition doesn't understand `$ref`).
 // ---------------------------------------------------------------------------
+
+// Value at a dot-separated path (mongrule getPath semantics: missing → null).
+function valueAtPath(obj: unknown, path: string): unknown {
+  let current: unknown = obj;
+  for (const part of path.split(".")) {
+    if (current && typeof current === "object" && part in current) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return null;
+    }
+  }
+  return current;
+}
+
+// Replace every `{ $ref: "path" }` marker in a condition with the value at that
+// path, so a field-to-field rule becomes a plain literal comparison the SDK's
+// evalCondition can evaluate. Returns a ref-free clone (input untouched).
+function resolveRuleRefs(
+  node: unknown,
+  value: Record<string, unknown>,
+): unknown {
+  if (Array.isArray(node)) {
+    return node.map((n) => resolveRuleRefs(n, value));
+  }
+  if (node && typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    if (
+      keys.length === 1 &&
+      keys[0] === "$ref" &&
+      typeof obj.$ref === "string"
+    ) {
+      return valueAtPath(value, obj.$ref);
+    }
+    const out: Record<string, unknown> = {};
+    for (const k of keys) out[k] = resolveRuleRefs(obj[k], value);
+    return out;
+  }
+  return node;
+}
 
 // Evaluate a config's cross-field invariants against its resolved value. A rule
 // is SATISFIED when its mongo condition matches the value, a VIOLATION when it
@@ -28,8 +73,12 @@ export function evaluateInvariants(
   for (const inv of invariants) {
     let satisfied: boolean;
     try {
-      const condition = JSON.parse(inv.rule);
-      satisfied = evalCondition(value, condition, {});
+      const condition = resolveRuleRefs(JSON.parse(inv.rule), value);
+      satisfied = evalCondition(
+        value,
+        condition as Parameters<typeof evalCondition>[1],
+        {},
+      );
     } catch {
       violations.push({ name: inv.name, message: inv.message });
       continue;
