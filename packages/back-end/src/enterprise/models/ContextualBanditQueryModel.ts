@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
 import { contextualBanditQueryApiSpec } from "back-end/src/api/specs/contextual-bandit-query.spec";
 
 const BaseClass = MakeModelClass({
@@ -13,6 +14,9 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbanditqueries",
   idPrefix: "cbq_",
   globallyUniquePrimaryKeys: true,
+  defaultValues: {
+    owner: "",
+  },
   additionalIndexes: [
     {
       fields: {
@@ -111,6 +115,7 @@ export class ContextualBanditQueryModel extends BaseClass {
       id: doc.id,
       dateCreated: doc.dateCreated.toISOString(),
       dateUpdated: doc.dateUpdated.toISOString(),
+      owner: doc.owner,
       datasourceId: doc.datasourceId,
       name: doc.name,
       description: doc.description,
@@ -128,7 +133,10 @@ export class ContextualBanditQueryModel extends BaseClass {
     const docs = datasourceId
       ? await this.getByDatasource(datasourceId)
       : await this.getAll();
-    return docs.map((doc) => this.toApiInterface(doc));
+    return resolveOwnerEmails(
+      docs.map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
   }
 
   /** All CB queries for a datasource. */

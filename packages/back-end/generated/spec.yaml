@@ -30385,6 +30385,13 @@ paths:
             schema:
               type: object
               properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
                 name:
                   type: string
                 description:
@@ -30430,6 +30437,15 @@ paths:
             schema:
               type: object
               properties:
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
+                  type: string
                 datasourceId:
                   type: string
                 name:
@@ -46704,6 +46720,14 @@ components:
         dateUpdated:
           type: string
           format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
         datasourceId:
           type: string
         name:
@@ -46722,6 +46746,7 @@ components:
         - id
         - dateCreated
         - dateUpdated
+        - owner
         - datasourceId
         - name
         - userIdType

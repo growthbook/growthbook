@@ -1,12 +1,18 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
 /**
  * A Contextual Bandit Query is the bandit-specific replacement for borrowing an
  * Experiment Assignment Query (exposure query) off the datasource. It lives in its
  * own collection rather than on `datasource.settings.queries.exposure[]`, so the CB
- * SQL contract (leaf_id / snapshot_update_count / variation_weights output columns
+ * SQL contract (leaf_id / bandit_version / variation_weights output columns
  * plus targeting-attribute context columns) no longer overloads the EAQ.
  *
  * `targetingAttributeColumns` is required and must be non-empty — a bandit with no
@@ -16,6 +22,7 @@ import { namedSchema } from "./openapi-helpers";
  */
 export const contextualBanditQueryValidator = baseSchema
   .extend({
+    owner: ownerField,
     datasourceId: z.string(),
     name: z.string(),
     description: z.string().optional(),
@@ -32,6 +39,8 @@ export type ContextualBanditQueryInterface = z.infer<
 export const apiContextualBanditQueryValidator = namedSchema(
   "ContextualBanditQuery",
   apiBaseSchema.safeExtend({
+    owner: ownerField,
+    ownerEmail: ownerEmailField,
     datasourceId: z.string(),
     name: z.string(),
     description: z.string().optional(),
@@ -54,6 +63,7 @@ export const apiListContextualBanditQueriesValidator = {
 };
 
 export const apiCreateContextualBanditQueryBody = z.strictObject({
+  owner: optionalOwnerInputField,
   datasourceId: z.string(),
   name: z.string(),
   description: z.string().optional(),
@@ -67,6 +77,7 @@ export type ApiCreateContextualBanditQueryBody = z.infer<
 >;
 
 export const apiUpdateContextualBanditQueryBody = z.strictObject({
+  owner: ownerInputField.optional(),
   name: z.string().optional(),
   description: z.string().optional(),
   userIdType: z.string().optional(),

@@ -65,7 +65,7 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
-  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id,\n  leaf_id as leaf_id,\n  snapshot_update_count as snapshot_update_count,\n  variation_weights as variation_weights\nFROM my_contextual_bandit_assignments`;
+  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id,\n  leaf_id as leaf_id,\n  bandit_version as bandit_version,\n  variation_weights as variation_weights\nFROM my_contextual_bandit_assignments`;
 
   const [uiMode, setUiMode] = useState<"view" | "sql">("view");
 

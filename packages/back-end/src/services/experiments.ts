@@ -4670,7 +4670,7 @@ export async function getRefLinkedFeatureInfo({
       let draftDiffersFromLive = false;
 
       for (const r of activeDrafts) {
-        const m = getMatchingRules(feature, filter, environments, r);
+        const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
         const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {

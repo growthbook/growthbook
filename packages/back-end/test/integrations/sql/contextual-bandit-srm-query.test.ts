@@ -4,7 +4,7 @@ import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queri
 
 const defaultExposureQuery = {
   query:
-    "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, snapshot_update_count, variation_weights FROM cb_assignments",
+    "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM cb_assignments",
   userIdType: "user_id",
 };
 
