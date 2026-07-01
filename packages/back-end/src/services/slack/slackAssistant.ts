@@ -1,12 +1,8 @@
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
 import { generalAgentConfig } from "back-end/src/agent/general-agent";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
-import {
-  findSlackWebhookByTeam,
-  resolveSlackUserContext,
-} from "back-end/src/services/slack/slackIdentity";
+import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import {
   postSlackMessage,
   updateSlackMessage,
@@ -41,10 +37,15 @@ function stripBotMention(text: string, botUserId?: string): string {
   return t.replace(/\s+/g, " ").trim();
 }
 
-/** Stable per-(thread, user) conversation id so a thread keeps its context. */
-function conversationIdFor(teamId: string, rootTs: string, userId: string) {
+/** Stable per-(thread, user, org) conversation id so a thread keeps its context. */
+function conversationIdFor(
+  teamId: string,
+  organizationId: string,
+  rootTs: string,
+  userId: string,
+) {
   const safeTs = rootTs.replace(/[^a-zA-Z0-9]/g, "");
-  return `conv_slack_${teamId}_${safeTs}_${userId}`;
+  return `conv_slack_${teamId}_${organizationId}_${safeTs}_${userId}`;
 }
 
 /**
@@ -60,22 +61,29 @@ export async function handleSlackAssistantMention(
   const { teamId, channelId, slackUserId, messageTs } = mention;
   const rootTs = mention.threadTs || messageTs;
 
-  const webhook = await findSlackWebhookByTeam(teamId);
-  if (!webhook) {
-    // No connection means no bot token to reply with — nothing we can do.
-    logger.warn(`Slack assistant: no connected webhook for team ${teamId}`);
-    return;
-  }
-
-  const token = await getSlackBotAccessTokenForWebhook({
-    eventWebHookId: webhook.id,
-    organizationId: webhook.organizationId,
+  // Resolve the workspace + channel + user to a single org and a
+  // permission-scoped context (or a routing/access failure we can surface).
+  const target = await resolveSlackAssistantTarget({
+    teamId,
+    channelId,
+    slackUserId,
   });
-  if (!token) {
-    logger.warn(`Slack assistant: no bot token for team ${teamId}`);
+  if (!target.ok) {
+    if (target.botToken) {
+      await postSlackMessage({
+        token: target.botToken,
+        channel: channelId,
+        text: target.message,
+        threadTs: rootTs,
+      });
+    } else {
+      // No connection / no token — we can't post anything back.
+      logger.warn(`Slack assistant: ${target.reason} for team ${teamId}`);
+    }
     return;
   }
 
+  const token = target.botToken;
   const reply = (text: string) =>
     postSlackMessage({ token, channel: channelId, text, threadTs: rootTs });
 
@@ -84,16 +92,6 @@ export async function handleSlackAssistantMention(
     await reply(
       "Ask me about your experiments, features, or metrics — e.g. *what experiments are running right now?*",
     );
-    return;
-  }
-
-  const identity = await resolveSlackUserContext({
-    eventWebHookId: webhook.id,
-    organizationId: webhook.organizationId,
-    slackUserId,
-  });
-  if (!identity.ok) {
-    await reply(identity.message);
     return;
   }
 
@@ -126,11 +124,16 @@ export async function handleSlackAssistantMention(
 
   try {
     const result = await runAgentTurnToCompletion({
-      context: identity.context,
+      context: target.context,
       config: generalAgentConfig,
       input: {
         message: question,
-        conversationId: conversationIdFor(teamId, rootTs, identity.userId),
+        conversationId: conversationIdFor(
+          teamId,
+          target.organizationId,
+          rootTs,
+          target.userId,
+        ),
       },
     });
 
