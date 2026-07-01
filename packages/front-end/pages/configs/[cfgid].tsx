@@ -334,9 +334,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [composeAdding, setComposeAdding] = useState(false);
 
   // Field currently being overridden (inline value edit), and the draft text.
-  const [activeTab, setActiveTab] = useState<"form" | "json" | "resolved">(
-    "form",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "form" | "json" | "resolved" | "validation"
+  >("form");
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -1597,7 +1597,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                           ? "json"
                           : v === "resolved"
                             ? "resolved"
-                            : "form",
+                            : v === "validation"
+                              ? "validation"
+                              : "form",
                       );
                     }}
                   >
@@ -1612,6 +1614,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         <TabsTrigger value="form">Form</TabsTrigger>
                         <TabsTrigger value="json">JSON</TabsTrigger>
                         <TabsTrigger value="resolved">Resolved</TabsTrigger>
+                        <TabsTrigger value="validation">Validation</TabsTrigger>
                         {/* stopPropagation so the interactive controls don't feed
                         the TabsList's arrow-key roving focus. */}
                         <Flex
@@ -1794,25 +1797,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                           {renderAddMixin()}
                         </Box>
                       </Box>
-
-                      <Box mt="5">
-                        <ConfigInvariantsEditor
-                          invariants={ownSchema().invariants ?? []}
-                          // All resolved keys (declared schema fields + value
-                          // keys), so rules can reference schema-less configs too.
-                          fieldKeys={resolved.fields.map((f) => f.key)}
-                          resolvedValue={invariantValue}
-                          canEdit={canEditInline}
-                          onChange={(next) =>
-                            saveSchema(
-                              ownSchema().fields,
-                              undefined,
-                              undefined,
-                              next,
-                            )
-                          }
-                        />
-                      </Box>
                     </TabsContent>
 
                     {/* JSON (own value + schema; editable only on a draft) and
@@ -1840,6 +1824,27 @@ export default function ConfigDetailPage(): React.ReactElement {
                           saveSchema(fields, value, renderProjections)
                         }
                       />
+                    )}
+
+                    {activeTab === "validation" && (
+                      <Box pt="4">
+                        <ConfigInvariantsEditor
+                          invariants={ownSchema().invariants ?? []}
+                          // All resolved keys (declared schema fields + value
+                          // keys), so rules can reference schema-less configs too.
+                          fieldKeys={resolved.fields.map((f) => f.key)}
+                          resolvedValue={invariantValue}
+                          canEdit={canEditInline}
+                          onChange={(next) =>
+                            saveSchema(
+                              ownSchema().fields,
+                              undefined,
+                              undefined,
+                              next,
+                            )
+                          }
+                        />
+                      </Box>
                     )}
                   </Tabs>
                 </Box>
