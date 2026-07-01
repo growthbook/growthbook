@@ -11539,6 +11539,11 @@ paths:
                     properties:
                       id:
                         type: string
+                      variationId:
+                        description: >-
+                          Alias for `id`. Mirrors the GET response. `id` takes
+                          precedence.
+                        type: string
                       key:
                         type: string
                       name:
@@ -11624,8 +11629,21 @@ paths:
                             - condition
                           additionalProperties: false
                       reason:
+                        description: >-
+                          Deprecated: use `reasonForStopping`. Takes precedence
+                          if set.
+                        deprecated: true
                         type: string
                       condition:
+                        description: >-
+                          Deprecated: use `targetingCondition`. Takes precedence
+                          if set.
+                        deprecated: true
+                        type: string
+                      targetingCondition:
+                        description: >-
+                          Targeting condition as a JSON string. Mirrors the GET
+                          response.
                         type: string
                       savedGroupTargeting:
                         type: array
@@ -11647,9 +11665,27 @@ paths:
                             - savedGroups
                           additionalProperties: false
                       variationWeights:
+                        description: >-
+                          Deprecated: use `trafficSplit`. Takes precedence if
+                          set.
+                        deprecated: true
                         type: array
                         items:
                           type: number
+                      trafficSplit:
+                        description: Per-variation weights. Mirrors the GET response.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                          required:
+                            - variationId
+                            - weight
+                          additionalProperties: false
                     required:
                       - name
                       - dateStarted
@@ -12151,6 +12187,11 @@ paths:
                     properties:
                       id:
                         type: string
+                      variationId:
+                        description: >-
+                          Alias for `id`. Mirrors the GET response. `id` takes
+                          precedence.
+                        type: string
                       key:
                         type: string
                       name:
@@ -12230,8 +12271,21 @@ paths:
                             - condition
                           additionalProperties: false
                       reason:
+                        description: >-
+                          Deprecated: use `reasonForStopping`. Takes precedence
+                          if set.
+                        deprecated: true
                         type: string
                       condition:
+                        description: >-
+                          Deprecated: use `targetingCondition`. Takes precedence
+                          if set.
+                        deprecated: true
+                        type: string
+                      targetingCondition:
+                        description: >-
+                          Targeting condition as a JSON string. Mirrors the GET
+                          response.
                         type: string
                       savedGroupTargeting:
                         type: array
@@ -12253,9 +12307,27 @@ paths:
                             - savedGroups
                           additionalProperties: false
                       variationWeights:
+                        description: >-
+                          Deprecated: use `trafficSplit`. Takes precedence if
+                          set.
+                        deprecated: true
                         type: array
                         items:
                           type: number
+                      trafficSplit:
+                        description: Per-variation weights. Mirrors the GET response.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                          required:
+                            - variationId
+                            - weight
+                          additionalProperties: false
                     required:
                       - name
                       - dateStarted
