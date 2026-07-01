@@ -373,7 +373,7 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("skips feature usage when disableExposureLogging is set", () => {
+  it("skips feature usage when disableTracking is set", () => {
     const context: Context = {
       attributes: { id: "1" },
       features: {
@@ -387,7 +387,7 @@ describe("features", () => {
 
     // Value is still evaluated and returned normally
     const res = growthbook.evalFeature("feature1", {
-      disableExposureLogging: true,
+      disableTracking: true,
     });
     expect(res.value).toEqual(0);
     // But no usage callback fired
@@ -396,11 +396,11 @@ describe("features", () => {
     // getFeatureValue / isOn / isOff also respect the flag
     expect(
       growthbook.getFeatureValue("feature1", 5, {
-        disableExposureLogging: true,
+        disableTracking: true,
       }),
     ).toEqual(0);
-    growthbook.isOn("feature1", { disableExposureLogging: true });
-    growthbook.isOff("feature1", { disableExposureLogging: true });
+    growthbook.isOn("feature1", { disableTracking: true });
+    growthbook.isOff("feature1", { disableTracking: true });
     expect(mock.calls.length).toEqual(0);
 
     growthbook.destroy();
@@ -419,7 +419,7 @@ describe("features", () => {
     const mock = mockCallback(context);
 
     // Suppressed evaluation does not record the feature as tracked
-    growthbook.evalFeature("feature1", { disableExposureLogging: true });
+    growthbook.evalFeature("feature1", { disableTracking: true });
     expect(mock.calls.length).toEqual(0);
 
     // A later normal evaluation still fires the usage callback

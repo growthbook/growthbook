@@ -705,20 +705,20 @@ Note: If you evaluate the same feature multiple times (and the value doesn't cha
 
 Sometimes you want to read a feature's value without counting it as an exposure. A common example is evaluating features server-side to build a prefetch payload — the user hasn't actually been exposed to the feature yet, so you don't want to log a feature usage / exposure event at that point.
 
-The `isOn`, `isOff`, `getFeatureValue`, `evalFeature`, and `run` methods accept an optional trailing options argument with a `disableExposureLogging` flag:
+The `isOn`, `isOff`, `getFeatureValue`, `evalFeature`, and `run` methods accept an optional trailing options argument with a `disableTracking` flag:
 
 ```ts
 // Evaluate without firing any feature usage / exposure tracking
 const value = gb.getFeatureValue("button-color", "blue", {
-  disableExposureLogging: true,
+  disableTracking: true,
 });
 
 // Also works with the other evaluation methods
-gb.isOn("my-feature", { disableExposureLogging: true });
-gb.evalFeature("my-feature", { disableExposureLogging: true });
+gb.isOn("my-feature", { disableTracking: true });
+gb.evalFeature("my-feature", { disableTracking: true });
 ```
 
-When `disableExposureLogging` is `true`:
+When `disableTracking` is `true`:
 
 - The feature is still evaluated and its value returned normally.
 - No feature usage callback, experiment tracking callback, deferred tracking, or [Event Forwarder](/app/event-forwarder) event is fired for that call.

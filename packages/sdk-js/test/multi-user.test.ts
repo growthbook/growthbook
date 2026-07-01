@@ -103,7 +103,7 @@ describe("GrowthBookClient", () => {
     gb.destroy();
   });
 
-  it("Skips feature usage callback when disableExposureLogging is set", () => {
+  it("Skips feature usage callback when disableTracking is set", () => {
     const track = jest.fn();
     const gb = new GrowthBookClient({
       onFeatureUsage: track,
@@ -127,7 +127,7 @@ describe("GrowthBookClient", () => {
 
     // Value is still returned, but no exposure logged
     const res = gb.evalFeature("feature", user, {
-      disableExposureLogging: true,
+      disableTracking: true,
     });
     expect(res.value).toEqual(false);
     expect(track).not.toHaveBeenCalled();

@@ -372,12 +372,12 @@ export type EvalContext = {
 
 // Per-call options for feature/experiment evaluation methods
 export type FeatureEvalOptions = {
-  // If true, this evaluation will not log a feature usage / exposure event.
-  // Useful when you want to read a value without counting it as an exposure
-  // (e.g. server-side prefetch). The value is still evaluated and returned
-  // normally, and the dedupe cache is left untouched so a later evaluation
-  // (without this flag) will still log the exposure.
-  disableExposureLogging?: boolean;
+  // If true, this evaluation will not fire any tracking - neither feature usage
+  // tracking nor experiment tracking. Useful when you want to read a value
+  // without counting it as usage/exposure (e.g. server-side prefetch). The
+  // value is still evaluated and returned normally, and the dedupe cache is
+  // left untouched so a later evaluation (without this flag) will still track.
+  disableTracking?: boolean;
 };
 
 export type PrefetchOptions = Pick<

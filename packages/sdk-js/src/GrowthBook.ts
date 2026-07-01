@@ -637,7 +637,7 @@ export class GrowthBook<
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
-        disableTracking: options?.disableExposureLogging,
+        disableTracking: options?.disableTracking,
       },
     };
   }
