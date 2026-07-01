@@ -751,10 +751,18 @@ export default function ConfigDetailPage(): React.ReactElement {
           2,
         )
       : "";
+    // CEL export in the documented `invariants:` YAML shape (rule as a CEL
+    // string). JSON.stringify escapes name/rule/message into valid YAML scalars.
     const validationCel = ownInvariants.length
-      ? ownInvariants
-          .map((iv) => `# ${iv.name} — ${iv.message}\n${toCel(iv.rule)}`)
-          .join("\n\n")
+      ? "invariants:\n" +
+        ownInvariants
+          .map(
+            (iv) =>
+              `  - name: ${JSON.stringify(iv.name)}\n` +
+              `    rule: ${JSON.stringify(toCel(iv.rule))}\n` +
+              `    message: ${JSON.stringify(iv.message)}`,
+          )
+          .join("\n")
       : "";
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),

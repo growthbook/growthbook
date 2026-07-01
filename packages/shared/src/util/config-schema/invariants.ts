@@ -147,7 +147,9 @@ function isCompoundNode(x: unknown): boolean {
 
 function celNode(node: unknown, depth: number): string {
   if (node === null) return "null";
-  if (typeof node === "string") return JSON.stringify(node);
+  // CEL string literals — single-quoted (Google CEL convention; keeps the
+  // expression clean inside a double-quoted YAML `rule:` scalar).
+  if (typeof node === "string") return `'${node.replace(/'/g, "\\'")}'`;
   if (typeof node === "number" || typeof node === "boolean")
     return String(node);
   if (Array.isArray(node))
@@ -196,6 +198,147 @@ export function toCel(ruleJson: string): string {
     return ruleJson;
   }
   return celNode(parsed, 0);
+}
+
+type CelToken = { type: string; value: string };
+
+function tokenizeCel(input: string): CelToken[] {
+  const tokens: CelToken[] = [];
+  const two = ["&&", "||", "==", "!=", "<=", ">="];
+  let i = 0;
+  while (i < input.length) {
+    const c = input[i];
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    const pair = input.slice(i, i + 2);
+    if (two.includes(pair)) {
+      tokens.push({ type: "op", value: pair });
+      i += 2;
+      continue;
+    }
+    if (c === "!" || c === "<" || c === ">") {
+      tokens.push({ type: "op", value: c });
+      i++;
+      continue;
+    }
+    if (c === "(") {
+      tokens.push({ type: "lparen", value: c });
+      i++;
+      continue;
+    }
+    if (c === ")") {
+      tokens.push({ type: "rparen", value: c });
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      let s = "";
+      while (j < input.length && input[j] !== c) {
+        if (input[j] === "\\" && j + 1 < input.length) {
+          s += input[j + 1];
+          j += 2;
+        } else {
+          s += input[j];
+          j++;
+        }
+      }
+      if (j >= input.length) throw new Error("Unterminated string in CEL rule");
+      tokens.push({ type: "str", value: s });
+      i = j + 1;
+      continue;
+    }
+    if (/[0-9]/.test(c) || (c === "-" && /[0-9]/.test(input[i + 1] ?? ""))) {
+      let j = i + 1;
+      while (j < input.length && /[0-9.]/.test(input[j])) j++;
+      tokens.push({ type: "num", value: input.slice(i, j) });
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      let j = i + 1;
+      while (j < input.length && /[A-Za-z0-9_.]/.test(input[j])) j++;
+      const word = input.slice(i, j);
+      if (word === "true" || word === "false")
+        tokens.push({ type: "bool", value: word });
+      else if (word === "null") tokens.push({ type: "null", value: word });
+      else tokens.push({ type: "ident", value: word });
+      i = j;
+      continue;
+    }
+    throw new Error(`Unexpected character "${c}" in CEL rule`);
+  }
+  return tokens;
+}
+
+// Parse a CEL expression into JSONLogic (the reverse of toCel). Handles the
+// boolean/comparison subset: && || ! == != < <= > >=, parens, field identifiers,
+// and string/number/bool/null literals. Throws on anything it can't parse (the
+// API surfaces that as a 400). This is a small recursive-descent parser, not a
+// full CEL implementation — macros/functions aren't supported.
+export function celToJsonLogic(cel: string): unknown {
+  const tokens = tokenizeCel(cel);
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const COMP = ["==", "!=", "<", "<=", ">", ">="];
+
+  const parsePrimary = (): unknown => {
+    const t = tokens[pos++];
+    if (!t) throw new Error("Unexpected end of CEL rule");
+    if (t.type === "lparen") {
+      const e = parseOr();
+      const close = tokens[pos++];
+      if (!close || close.type !== "rparen")
+        throw new Error("Missing ')' in CEL rule");
+      return e;
+    }
+    if (t.type === "str") return t.value;
+    if (t.type === "num") return Number(t.value);
+    if (t.type === "bool") return t.value === "true";
+    if (t.type === "null") return null;
+    if (t.type === "ident") return { var: t.value };
+    throw new Error(`Unexpected "${t.value}" in CEL rule`);
+  };
+  const parseComparison = (): unknown => {
+    const left = parsePrimary();
+    const t = peek();
+    if (t && t.type === "op" && COMP.includes(t.value)) {
+      pos++;
+      return { [t.value]: [left, parsePrimary()] };
+    }
+    return left;
+  };
+  const parseUnary = (): unknown => {
+    const t = peek();
+    if (t && t.type === "op" && t.value === "!") {
+      pos++;
+      return { "!": parseUnary() };
+    }
+    return parseComparison();
+  };
+  const parseAnd = (): unknown => {
+    const parts = [parseUnary()];
+    while (peek()?.type === "op" && peek()?.value === "&&") {
+      pos++;
+      parts.push(parseUnary());
+    }
+    return parts.length === 1 ? parts[0] : { and: parts };
+  };
+  function parseOr(): unknown {
+    const parts = [parseAnd()];
+    while (peek()?.type === "op" && peek()?.value === "||") {
+      pos++;
+      parts.push(parseAnd());
+    }
+    return parts.length === 1 ? parts[0] : { or: parts };
+  }
+
+  const result = parseOr();
+  if (pos < tokens.length)
+    throw new Error(`Unexpected "${tokens[pos].value}" in CEL rule`);
+  return result;
 }
 
 // The field keys a rule references (every `{var}`), for row-level highlighting

@@ -3,6 +3,7 @@ import {
   describeInvariantRule,
   invariantRuleFields,
   toCel,
+  celToJsonLogic,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
 
@@ -337,7 +338,7 @@ describe("toCel", () => {
           { "==": [{ var: "max_resolution" }, "4k"] },
         ],
       }),
-    ).toBe('!hdr_enabled || max_resolution == "4k"');
+    ).toBe("!hdr_enabled || max_resolution == '4k'");
   });
 
   it("transpiles mutual exclusion with parens", () => {
@@ -358,5 +359,50 @@ describe("toCel", () => {
 
   it("falls back to the raw string for unparseable input", () => {
     expect(toCel("{ not json")).toBe("{ not json");
+  });
+});
+
+describe("celToJsonLogic", () => {
+  it("parses comparisons and literals", () => {
+    expect(celToJsonLogic("a <= b")).toEqual({
+      "<=": [{ var: "a" }, { var: "b" }],
+    });
+    expect(celToJsonLogic('max_resolution == "4k"')).toEqual({
+      "==": [{ var: "max_resolution" }, "4k"],
+    });
+    expect(celToJsonLogic("a != null")).toEqual({
+      "!=": [{ var: "a" }, null],
+    });
+    expect(celToJsonLogic("a == 5")).toEqual({ "==": [{ var: "a" }, 5] });
+    expect(celToJsonLogic("a == true")).toEqual({ "==": [{ var: "a" }, true] });
+  });
+
+  it("parses implication and mutual exclusion", () => {
+    expect(celToJsonLogic('!hdr_enabled || max_resolution == "4k"')).toEqual({
+      or: [
+        { "!": { var: "hdr_enabled" } },
+        { "==": [{ var: "max_resolution" }, "4k"] },
+      ],
+    });
+    expect(celToJsonLogic("!(a && b)")).toEqual({
+      "!": { and: [{ var: "a" }, { var: "b" }] },
+    });
+  });
+
+  it("round-trips CEL → JSONLogic → CEL", () => {
+    for (const cel of [
+      "!hdr_enabled || max_resolution == '4k'",
+      "max_concurrent_streams <= max_registered_devices",
+      "!(ad_supported && skip_ads_enabled)",
+      "billing_mode != 'metered' || overage != null",
+    ]) {
+      expect(toCel(JSON.stringify(celToJsonLogic(cel)))).toBe(cel);
+    }
+  });
+
+  it("throws on malformed input", () => {
+    expect(() => celToJsonLogic("a &&")).toThrow();
+    expect(() => celToJsonLogic("a b c")).toThrow();
+    expect(() => celToJsonLogic("(a || b")).toThrow();
   });
 });
