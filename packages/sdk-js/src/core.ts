@@ -127,6 +127,11 @@ function onFeatureUsage(
   key: string,
   ret: FeatureResult<unknown>,
 ): void {
+  // Exposure logging disabled for this evaluation - skip all tracking.
+  // Return before the dedupe cache is written so a later evaluation (without
+  // the flag) will still log the exposure.
+  if (ctx.stack.disableTracking) return;
+
   // Only track a feature once, unless the assigned value changed
   if (ctx.user.trackedFeatureUsage) {
     const stringifiedValue = JSON.stringify(ret.value);
@@ -756,8 +761,16 @@ export function runExperiment<T>(
 
   // 14. Fire the tracking callback(s)
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCalls = onExperimentViewed(ctx, experiment, result);
-  if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
+  // Skip entirely (including deferred tracking) when exposure logging is
+  // disabled for this evaluation.
+  const trackingCalls = ctx.stack.disableTracking
+    ? []
+    : onExperimentViewed(ctx, experiment, result);
+  if (
+    !ctx.stack.disableTracking &&
+    trackingCalls.length === 0 &&
+    ctx.global.saveDeferredTrack
+  ) {
     ctx.global.saveDeferredTrack({
       experiment,
       result,

@@ -701,6 +701,31 @@ The `result` argument is the same thing returned from `gb.evalFeature`.
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
+### Disabling Exposure Logging
+
+Sometimes you want to read a feature's value without counting it as an exposure. A common example is evaluating features server-side to build a prefetch payload — the user hasn't actually been exposed to the feature yet, so you don't want to log a feature usage / exposure event at that point.
+
+The `isOn`, `isOff`, `getFeatureValue`, `evalFeature`, and `run` methods accept an optional trailing options argument with a `disableExposureLogging` flag:
+
+```ts
+// Evaluate without firing any feature usage / exposure tracking
+const value = gb.getFeatureValue("button-color", "blue", {
+  disableExposureLogging: true,
+});
+
+// Also works with the other evaluation methods
+gb.isOn("my-feature", { disableExposureLogging: true });
+gb.evalFeature("my-feature", { disableExposureLogging: true });
+```
+
+When `disableExposureLogging` is `true`:
+
+- The feature is still evaluated and its value returned normally.
+- No feature usage callback, experiment tracking callback, deferred tracking, or [Event Forwarder](/app/event-forwarder) event is fired for that call.
+- The internal de-dupe cache is left untouched, so a **later** evaluation of the same feature (without the flag) will still log the exposure.
+
+This lets you separate "evaluate the value" from "count the exposure" — for example, evaluate with the flag during a server-side prefetch, then evaluate again (without the flag) on the client at the moment the user is actually exposed.
+
 ### Dev Mode
 
 There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.

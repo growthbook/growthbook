@@ -8,6 +8,7 @@ import type {
   FeatureDefinition,
   Context,
   WidenPrimitives,
+  FeatureEvalOptions,
 } from "@growthbook/growthbook";
 import { GrowthBook } from "@growthbook/growthbook";
 
@@ -70,24 +71,26 @@ export function useExperiment<T>(exp: Experiment<T>): Result<T> {
 
 export function useFeature<T extends JSONValue = any>(
   id: string,
+  options?: FeatureEvalOptions,
 ): FeatureResult<T | null> {
   const growthbook = useGrowthBook();
-  return growthbook.evalFeature<T>(id);
+  return growthbook.evalFeature<T>(id, options);
 }
 
 export function useFeatureIsOn<
   AppFeatures extends Record<string, any> = Record<string, any>,
->(id: string & keyof AppFeatures): boolean {
+>(id: string & keyof AppFeatures, options?: FeatureEvalOptions): boolean {
   const growthbook = useGrowthBook<AppFeatures>();
-  return growthbook.isOn(id);
+  return growthbook.isOn(id, options);
 }
 
 export function useFeatureValue<T extends JSONValue = any>(
   id: string,
   fallback: T,
+  options?: FeatureEvalOptions,
 ): WidenPrimitives<T> {
   const growthbook = useGrowthBook();
-  return growthbook.getFeatureValue(id, fallback);
+  return growthbook.getFeatureValue(id, fallback, options);
 }
 
 export function useGrowthBook<

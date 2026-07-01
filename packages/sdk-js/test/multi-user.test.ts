@@ -103,6 +103,42 @@ describe("GrowthBookClient", () => {
     gb.destroy();
   });
 
+  it("Skips feature usage callback when disableExposureLogging is set", () => {
+    const track = jest.fn();
+    const gb = new GrowthBookClient({
+      onFeatureUsage: track,
+    });
+
+    gb.initSync({
+      payload: {
+        features: {
+          feature: {
+            defaultValue: false,
+          },
+        },
+      },
+    });
+
+    const user: UserContext = {
+      attributes: {
+        id: "1",
+      },
+    };
+
+    // Value is still returned, but no exposure logged
+    const res = gb.evalFeature("feature", user, {
+      disableExposureLogging: true,
+    });
+    expect(res.value).toEqual(false);
+    expect(track).not.toHaveBeenCalled();
+
+    // A later normal evaluation still fires
+    gb.evalFeature("feature", user);
+    expect(track).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+  });
+
   it("Supports sticky buckets", async () => {
     const stickyBucketService = new LocalStorageStickyBucketService();
 
