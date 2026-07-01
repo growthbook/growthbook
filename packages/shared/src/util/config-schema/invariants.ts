@@ -1,16 +1,25 @@
-import { apply, truthy } from "json-logic-js";
+import { evalCondition } from "@growthbook/growthbook";
+import jsonLogic from "json-logic-js";
 import { z } from "zod";
 import { configInvariantValidator } from "../../validators/features";
 
 export type ConfigInvariant = z.infer<typeof configInvariantValidator>;
 export type InvariantViolation = { name: string; message: string };
 
-// Evaluate a config's cross-field invariants against its resolved (inherited+own)
-// value. Each invariant's `rule` is a JSONLogic boolean expression; a missing
-// field reads as null (json-logic-js `var` semantics), so rules must tolerate
-// nulls (e.g. `field != null`). Returns one entry per rule that isn't satisfied.
-// A malformed rule is surfaced as a violation rather than throwing, so it can
-// never crash the save path.
+// ---------------------------------------------------------------------------
+// Config cross-field invariants.
+//
+// The CANONICAL stored `rule` is a mongo condition (mongrule / the SDK's
+// evalCondition, extended with `$ref` for field-to-field). JSONLogic and CEL are
+// supported only at the API/copy boundary and converted to/from the mongo form.
+// All three formats convert through a tiny internal AST (the hub below), so we
+// don't need a converter for every pair.
+// ---------------------------------------------------------------------------
+
+// Evaluate a config's cross-field invariants against its resolved value. A rule
+// is SATISFIED when its mongo condition matches the value, a VIOLATION when it
+// doesn't. A malformed rule is surfaced as a violation rather than thrown, so it
+// can never crash the save path.
 export function evaluateInvariants(
   value: Record<string, unknown>,
   invariants?: ConfigInvariant[] | null,
@@ -20,10 +29,9 @@ export function evaluateInvariants(
   for (const inv of invariants) {
     let satisfied: boolean;
     try {
-      const rule = JSON.parse(inv.rule) as Parameters<typeof apply>[0];
-      satisfied = truthy(apply(rule, value));
+      const condition = JSON.parse(inv.rule);
+      satisfied = evalCondition(value, condition, {});
     } catch {
-      // Unparseable or malformed rule → surface as a violation, never throw.
       violations.push({ name: inv.name, message: inv.message });
       continue;
     }
@@ -32,99 +40,115 @@ export function evaluateInvariants(
   return violations;
 }
 
-const COMPARATORS: Record<string, string> = {
+// ---- Internal AST (the conversion hub) ------------------------------------
+
+type CmpOp = "==" | "!=" | "<" | "<=" | ">" | ">=";
+type Rhs = { ref: string } | { lit: unknown };
+type Ast =
+  | { k: "and" | "or"; items: Ast[] }
+  | { k: "not"; item: Ast }
+  | { k: "cmp"; op: CmpOp; field: string; rhs: Rhs }
+  | { k: "truthy"; field: string };
+
+const COMP_OPS: CmpOp[] = ["==", "!=", "<", "<=", ">", ">="];
+const MONGO_OP: Record<CmpOp, string> = {
+  "==": "$eq",
+  "!=": "$ne",
+  "<": "$lt",
+  "<=": "$lte",
+  ">": "$gt",
+  ">=": "$gte",
+};
+const MONGO_OP_INV: Record<string, CmpOp> = {
+  $eq: "==",
+  $ne: "!=",
+  $lt: "<",
+  $lte: "<=",
+  $gt: ">",
+  $gte: ">=",
+};
+// Prettier symbols for the human-readable "describe" view only.
+const READABLE_OP: Record<CmpOp, string> = {
   "==": "==",
-  "===": "==",
   "!=": "≠",
-  "!==": "≠",
   "<": "<",
   "<=": "≤",
   ">": ">",
   ">=": "≥",
 };
 
-function isVarNode(x: unknown): boolean {
+function isRef(x: unknown): x is { $ref: string } {
   return (
     !!x &&
     typeof x === "object" &&
     !Array.isArray(x) &&
     Object.keys(x as object).length === 1 &&
-    "var" in (x as object)
+    typeof (x as { $ref?: unknown }).$ref === "string"
   );
 }
 
-function describeNode(node: unknown, depth: number): string {
-  if (node === null) return "null";
-  if (typeof node === "string") return JSON.stringify(node);
-  if (typeof node === "number" || typeof node === "boolean")
-    return String(node);
-  if (Array.isArray(node))
-    return node.map((n) => describeNode(n, depth + 1)).join(", ");
-  if (typeof node === "object") {
-    const obj = node as Record<string, unknown>;
-    const keys = Object.keys(obj);
-    if (keys.length === 1) {
-      const op = keys[0];
-      const arg = obj[op];
-      if (op === "var")
-        return typeof arg === "string" ? arg : describeNode(arg, depth + 1);
-      if (op === "!") return `NOT ${describeNode(arg, depth + 1)}`;
-      // ¬X ∨ Y reads as an implication ("if X then Y") — friendlier than the
-      // raw `NOT X OR Y` for the common feature-dependency rules.
-      if (op === "or" && Array.isArray(arg) && arg.length === 2) {
-        const first = arg[0];
-        if (
-          first &&
-          typeof first === "object" &&
-          !Array.isArray(first) &&
-          Object.keys(first as object).length === 1 &&
-          "!" in (first as object)
-        ) {
-          const antecedent = describeNode(
-            (first as Record<string, unknown>)["!"],
-            depth + 1,
-          );
-          const consequent = describeNode(arg[1], depth + 1);
-          const s = `IF ${antecedent} THEN ${consequent}`;
-          return depth === 0 ? s : `(${s})`;
-        }
-      }
-      if ((op === "and" || op === "or") && Array.isArray(arg)) {
-        const inner = arg
-          .map((a) => describeNode(a, depth + 1))
-          .join(op === "and" ? " AND " : " OR ");
-        return depth === 0 ? inner : `(${inner})`;
-      }
-      if (COMPARATORS[op] && Array.isArray(arg) && arg.length === 2) {
-        // Parenthesize a nested expression operand (e.g. the `x != null` side of
-        // a both-or-neither rule) so `a == (b ≠ null)` doesn't read ambiguously;
-        // plain field/literal operands stay bare.
-        const operand = (a: unknown) => {
-          const s = describeNode(a, depth + 1);
-          return a && typeof a === "object" && !isVarNode(a) ? `(${s})` : s;
-        };
-        return `${operand(arg[0])} ${COMPARATORS[op]} ${operand(arg[1])}`;
-      }
+// ---- mongo condition → AST ------------------------------------------------
+
+function mongoToAst(node: unknown): Ast {
+  if (!node || typeof node !== "object" || Array.isArray(node)) {
+    throw new Error("Not a mongo condition");
+  }
+  const obj = node as Record<string, unknown>;
+  const keys = Object.keys(obj);
+
+  if (keys.length === 1) {
+    const k = keys[0];
+    const v = obj[k];
+    if ((k === "$and" || k === "$or") && Array.isArray(v)) {
+      return { k: k === "$and" ? "and" : "or", items: v.map(mongoToAst) };
     }
+    if (k === "$nor" && Array.isArray(v)) {
+      return { k: "not", item: { k: "or", items: v.map(mongoToAst) } };
+    }
+    if (k === "$not") {
+      return { k: "not", item: mongoToAst(v) };
+    }
+    // else: a single field condition (fall through)
   }
-  return JSON.stringify(node);
+
+  // One or more field conditions → AND them.
+  const parts = keys.map((field) => fieldToAst(field, obj[field]));
+  return parts.length === 1 ? parts[0] : { k: "and", items: parts };
 }
 
-// A compact, human-readable "simple view" of a JSONLogic rule string, for the
-// editor card + revision diff. Renders the comparison/boolean subset the builder
-// produces (e.g. `hello == "4k"`, `NOT (a AND b)`); falls back to the raw string
-// for anything it can't parse, so it never throws.
-export function describeInvariantRule(ruleJson: string): string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(ruleJson);
-  } catch {
-    return ruleJson;
+function fieldToAst(field: string, val: unknown): Ast {
+  // Shorthand equality: `{field: <primitive>}`.
+  if (val === null) return { k: "cmp", op: "==", field, rhs: { lit: null } };
+  if (typeof val !== "object" || Array.isArray(val)) {
+    if (val === true) return { k: "truthy", field };
+    return { k: "cmp", op: "==", field, rhs: { lit: val } };
   }
-  return describeNode(parsed, 0);
+  const opObj = val as Record<string, unknown>;
+  const op = Object.keys(opObj)[0];
+  const arg = opObj[op];
+  if (op === "$exists") {
+    return { k: "cmp", op: arg ? "!=" : "==", field, rhs: { lit: null } };
+  }
+  const cmp = MONGO_OP_INV[op];
+  if (!cmp) throw new Error(`Unsupported mongo operator "${op}"`);
+  if (cmp === "==" && arg === true) return { k: "truthy", field };
+  const rhs: Rhs = isRef(arg) ? { ref: arg.$ref } : { lit: arg };
+  return { k: "cmp", op: cmp, field, rhs };
 }
 
-const CEL_COMPARATORS: Record<string, string> = {
+// ---- JSONLogic → AST ------------------------------------------------------
+
+function isVarNode(x: unknown): x is { var: string } {
+  return (
+    !!x &&
+    typeof x === "object" &&
+    !Array.isArray(x) &&
+    Object.keys(x as object).length === 1 &&
+    typeof (x as { var?: unknown }).var === "string"
+  );
+}
+
+const JL_OP_INV: Record<string, CmpOp> = {
   "==": "==",
   "===": "==",
   "!=": "!=",
@@ -135,70 +159,136 @@ const CEL_COMPARATORS: Record<string, string> = {
   ">=": ">=",
 };
 
-function isCompoundNode(x: unknown): boolean {
-  return (
-    !!x &&
-    typeof x === "object" &&
-    !Array.isArray(x) &&
-    Object.keys(x as object).length === 1 &&
-    !("var" in (x as object))
-  );
+function jsonLogicToAst(node: unknown): Ast {
+  if (isVarNode(node)) return { k: "truthy", field: node.var };
+  if (!node || typeof node !== "object" || Array.isArray(node)) {
+    throw new Error("Not a JSONLogic rule");
+  }
+  const obj = node as Record<string, unknown>;
+  const op = Object.keys(obj)[0];
+  const arg = obj[op];
+  if ((op === "and" || op === "or") && Array.isArray(arg)) {
+    return { k: op, items: arg.map(jsonLogicToAst) };
+  }
+  if (op === "!") return { k: "not", item: jsonLogicToAst(arg) };
+  const cmp = JL_OP_INV[op];
+  if (cmp && Array.isArray(arg) && arg.length === 2) {
+    const [lhs, rhs] = arg;
+    if (!isVarNode(lhs))
+      throw new Error("JSONLogic comparison LHS must be a var");
+    const r: Rhs = isVarNode(rhs) ? { ref: rhs.var } : { lit: rhs };
+    return { k: "cmp", op: cmp, field: lhs.var, rhs: r };
+  }
+  throw new Error(`Unsupported JSONLogic operator "${op}"`);
 }
 
-function celNode(node: unknown, depth: number): string {
-  if (node === null) return "null";
-  // CEL string literals — single-quoted (Google CEL convention; keeps the
-  // expression clean inside a double-quoted YAML `rule:` scalar).
-  if (typeof node === "string") return `'${node.replace(/'/g, "\\'")}'`;
-  if (typeof node === "number" || typeof node === "boolean")
-    return String(node);
-  if (Array.isArray(node))
-    return node.map((n) => celNode(n, depth + 1)).join(", ");
-  if (typeof node === "object") {
-    const obj = node as Record<string, unknown>;
-    const keys = Object.keys(obj);
-    if (keys.length === 1) {
-      const op = keys[0];
-      const arg = obj[op];
-      if (op === "var")
-        return typeof arg === "string" ? arg : celNode(arg, depth + 1);
-      if (op === "!") {
-        // Render the operand un-parenthesized (depth 0), then wrap once when it
-        // needs grouping — avoids `!((a && b))`.
-        const inner = celNode(arg, 0);
-        return isCompoundNode(arg) ? `!(${inner})` : `!${inner}`;
-      }
-      if ((op === "and" || op === "or") && Array.isArray(arg)) {
-        const inner = arg
-          .map((a) => celNode(a, depth + 1))
-          .join(op === "and" ? " && " : " || ");
-        return depth === 0 ? inner : `(${inner})`;
-      }
-      if (CEL_COMPARATORS[op] && Array.isArray(arg) && arg.length === 2) {
-        const operand = (a: unknown) => {
-          const s = celNode(a, depth + 1);
-          return isCompoundNode(a) ? `(${s})` : s;
-        };
-        return `${operand(arg[0])} ${CEL_COMPARATORS[op]} ${operand(arg[1])}`;
-      }
+// ---- AST → mongo ----------------------------------------------------------
+
+function astToMongo(ast: Ast): Record<string, unknown> {
+  switch (ast.k) {
+    case "and":
+    case "or":
+      return { [`$${ast.k}`]: ast.items.map(astToMongo) };
+    case "not":
+      return { $not: astToMongo(ast.item) };
+    case "truthy":
+      return { [ast.field]: { $eq: true } };
+    case "cmp": {
+      const rhs = "ref" in ast.rhs ? { $ref: ast.rhs.ref } : ast.rhs.lit;
+      return { [ast.field]: { [MONGO_OP[ast.op]]: rhs } };
     }
   }
-  return JSON.stringify(node);
 }
 
-// Transpile a JSONLogic rule string to a CEL (Common Expression Language)
-// expression — e.g. `!hdr_enabled || max_resolution == "4k"`. Covers the
-// comparison/boolean subset the builder produces; falls back to the raw string
-// for anything it can't parse. Never throws.
-export function toCel(ruleJson: string): string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(ruleJson);
-  } catch {
-    return ruleJson;
+// ---- AST → JSONLogic ------------------------------------------------------
+
+function astToJsonLogic(ast: Ast): Record<string, unknown> {
+  switch (ast.k) {
+    case "and":
+    case "or":
+      return { [ast.k]: ast.items.map(astToJsonLogic) };
+    case "not":
+      return { "!": astToJsonLogic(ast.item) };
+    case "truthy":
+      return { var: ast.field };
+    case "cmp": {
+      const rhs = "ref" in ast.rhs ? { var: ast.rhs.ref } : ast.rhs.lit;
+      return { [ast.op]: [{ var: ast.field }, rhs] };
+    }
   }
-  return celNode(parsed, 0);
 }
+
+// ---- AST → CEL ------------------------------------------------------------
+
+function celLiteral(v: unknown): string {
+  if (v === null) return "null";
+  if (typeof v === "string") return `'${v.replace(/'/g, "\\'")}'`;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v);
+}
+
+function astToCel(ast: Ast, depth = 0): string {
+  switch (ast.k) {
+    case "and":
+    case "or": {
+      const inner = ast.items
+        .map((i) => astToCel(i, depth + 1))
+        .join(ast.k === "and" ? " && " : " || ");
+      return depth === 0 ? inner : `(${inner})`;
+    }
+    case "not": {
+      const inner = astToCel(ast.item, 0);
+      const compound = ast.item.k === "and" || ast.item.k === "or";
+      return compound || ast.item.k === "cmp" ? `!(${inner})` : `!${inner}`;
+    }
+    case "truthy":
+      return ast.field;
+    case "cmp": {
+      const rhs = "ref" in ast.rhs ? ast.rhs.ref : celLiteral(ast.rhs.lit);
+      return `${ast.field} ${ast.op} ${rhs}`;
+    }
+  }
+}
+
+// ---- AST → readable (friendly) --------------------------------------------
+
+function astToReadable(ast: Ast, depth = 0): string {
+  switch (ast.k) {
+    case "or": {
+      // ¬X ∨ Y reads as an implication ("if X then Y").
+      if (ast.items.length === 2 && ast.items[0].k === "not") {
+        const s = `IF ${astToReadable(ast.items[0].item, depth + 1)} THEN ${astToReadable(
+          ast.items[1],
+          depth + 1,
+        )}`;
+        return depth === 0 ? s : `(${s})`;
+      }
+      const inner = ast.items
+        .map((i) => astToReadable(i, depth + 1))
+        .join(" OR ");
+      return depth === 0 ? inner : `(${inner})`;
+    }
+    case "and": {
+      const inner = ast.items
+        .map((i) => astToReadable(i, depth + 1))
+        .join(" AND ");
+      return depth === 0 ? inner : `(${inner})`;
+    }
+    case "not":
+      return `NOT ${astToReadable(ast.item, depth + 1)}`;
+    case "truthy":
+      return ast.field;
+    case "cmp": {
+      if (ast.rhs && "lit" in ast.rhs && ast.rhs.lit === null) {
+        return `${ast.field} ${ast.op === "==" ? "is empty" : "is set"}`;
+      }
+      const rhs = "ref" in ast.rhs ? ast.rhs.ref : celLiteral(ast.rhs.lit);
+      return `${ast.field} ${READABLE_OP[ast.op]} ${rhs}`;
+    }
+  }
+}
+
+// ---- CEL → AST (recursive-descent parser) ---------------------------------
 
 type CelToken = { type: string; value: string };
 
@@ -273,18 +363,23 @@ function tokenizeCel(input: string): CelToken[] {
   return tokens;
 }
 
-// Parse a CEL expression into JSONLogic (the reverse of toCel). Handles the
-// boolean/comparison subset: && || ! == != < <= > >=, parens, field identifiers,
-// and string/number/bool/null literals. Throws on anything it can't parse (the
-// API surfaces that as a 400). This is a small recursive-descent parser, not a
-// full CEL implementation — macros/functions aren't supported.
-export function celToJsonLogic(cel: string): unknown {
+type CelOperand =
+  | { kind: "ast"; ast: Ast }
+  | { kind: "ident"; name: string }
+  | { kind: "lit"; value: unknown };
+
+function celToAst(cel: string): Ast {
   const tokens = tokenizeCel(cel);
   let pos = 0;
   const peek = () => tokens[pos];
-  const COMP = ["==", "!=", "<", "<=", ">", ">="];
 
-  const parsePrimary = (): unknown => {
+  const operandToAst = (o: CelOperand): Ast => {
+    if (o.kind === "ast") return o.ast;
+    if (o.kind === "ident") return { k: "truthy", field: o.name };
+    throw new Error("A literal is not a valid boolean expression on its own");
+  };
+
+  const parsePrimary = (): CelOperand => {
     const t = tokens[pos++];
     if (!t) throw new Error("Unexpected end of CEL rule");
     if (t.type === "lparen") {
@@ -292,54 +387,110 @@ export function celToJsonLogic(cel: string): unknown {
       const close = tokens[pos++];
       if (!close || close.type !== "rparen")
         throw new Error("Missing ')' in CEL rule");
-      return e;
+      return { kind: "ast", ast: e };
     }
-    if (t.type === "str") return t.value;
-    if (t.type === "num") return Number(t.value);
-    if (t.type === "bool") return t.value === "true";
-    if (t.type === "null") return null;
-    if (t.type === "ident") return { var: t.value };
+    if (t.type === "str") return { kind: "lit", value: t.value };
+    if (t.type === "num") return { kind: "lit", value: Number(t.value) };
+    if (t.type === "bool") return { kind: "lit", value: t.value === "true" };
+    if (t.type === "null") return { kind: "lit", value: null };
+    if (t.type === "ident") return { kind: "ident", name: t.value };
     throw new Error(`Unexpected "${t.value}" in CEL rule`);
   };
-  const parseComparison = (): unknown => {
+
+  const parseComparison = (): Ast => {
     const left = parsePrimary();
     const t = peek();
-    if (t && t.type === "op" && COMP.includes(t.value)) {
+    if (t && t.type === "op" && COMP_OPS.includes(t.value as CmpOp)) {
       pos++;
-      return { [t.value]: [left, parsePrimary()] };
+      const right = parsePrimary();
+      if (left.kind !== "ident") {
+        throw new Error("The left side of a comparison must be a field");
+      }
+      const rhs: Rhs =
+        right.kind === "ident"
+          ? { ref: right.name }
+          : right.kind === "lit"
+            ? { lit: right.value }
+            : (() => {
+                throw new Error("Cannot compare against a sub-expression");
+              })();
+      return { k: "cmp", op: t.value as CmpOp, field: left.name, rhs };
     }
-    return left;
+    return operandToAst(left);
   };
-  const parseUnary = (): unknown => {
+
+  const parseUnary = (): Ast => {
     const t = peek();
     if (t && t.type === "op" && t.value === "!") {
       pos++;
-      return { "!": parseUnary() };
+      return { k: "not", item: parseUnary() };
     }
     return parseComparison();
   };
-  const parseAnd = (): unknown => {
-    const parts = [parseUnary()];
+  const parseAnd = (): Ast => {
+    const items = [parseUnary()];
     while (peek()?.type === "op" && peek()?.value === "&&") {
       pos++;
-      parts.push(parseUnary());
+      items.push(parseUnary());
     }
-    return parts.length === 1 ? parts[0] : { and: parts };
+    return items.length === 1 ? items[0] : { k: "and", items };
   };
-  function parseOr(): unknown {
-    const parts = [parseAnd()];
+  function parseOr(): Ast {
+    const items = [parseAnd()];
     while (peek()?.type === "op" && peek()?.value === "||") {
       pos++;
-      parts.push(parseAnd());
+      items.push(parseAnd());
     }
-    return parts.length === 1 ? parts[0] : { or: parts };
+    return items.length === 1 ? items[0] : { k: "or", items };
   }
 
-  const result = parseOr();
+  const ast = parseOr();
   if (pos < tokens.length)
     throw new Error(`Unexpected "${tokens[pos].value}" in CEL rule`);
-  return result;
+  return ast;
 }
+
+// ---- Public converters (canonical form is the mongo condition string) ------
+
+// mongo rule string → CEL, e.g. `!hdr_enabled || max_resolution == '4k'`.
+// Falls back to the raw string for anything it can't parse; never throws.
+export function toCel(ruleJson: string): string {
+  try {
+    return astToCel(mongoToAst(JSON.parse(ruleJson)));
+  } catch {
+    return ruleJson;
+  }
+}
+
+// mongo rule string → friendly readable form for the editor card + revision diff.
+export function describeInvariantRule(ruleJson: string): string {
+  try {
+    return astToReadable(mongoToAst(JSON.parse(ruleJson)));
+  } catch {
+    return ruleJson;
+  }
+}
+
+// CEL → mongo condition (for API upload). Throws on invalid CEL.
+export function celToMongo(cel: string): Record<string, unknown> {
+  return astToMongo(celToAst(cel));
+}
+
+// JSONLogic → mongo condition (for API upload). Throws if not representable.
+export function jsonLogicToMongo(jl: unknown): Record<string, unknown> {
+  return astToMongo(jsonLogicToAst(jl));
+}
+
+// mongo rule string → JSONLogic object (for copy). Best-effort; {} on failure.
+export function mongoToJsonLogic(ruleJson: string): Record<string, unknown> {
+  try {
+    return astToJsonLogic(mongoToAst(JSON.parse(ruleJson)));
+  } catch {
+    return {};
+  }
+}
+
+// ---- API boundary ---------------------------------------------------------
 
 type ApiInvariantInput = { name: string; rule: unknown; message: string };
 type ApiInvariant = {
@@ -348,35 +499,43 @@ type ApiInvariant = {
   message: string;
 };
 
-// Convert API invariants (each `rule` a JSONLogic object OR a CEL string) to the
-// stored form (rule as a JSONLogic JSON string). Throws with a rule-scoped
-// message on invalid CEL — the API surfaces that as a 400.
+// Convert API invariants to the stored (mongo condition string) form. Each
+// `rule` may be a mongo object, a JSONLogic object, or a CEL string — all are
+// normalized to the canonical mongo condition. Throws with a rule-scoped message
+// on invalid input (the API surfaces that as a 400).
 export function apiInvariantsToStored(
   invariants: ApiInvariantInput[],
 ): ConfigInvariant[] {
   return invariants.map((inv) => {
-    let ruleObj: unknown = inv.rule;
-    if (typeof inv.rule === "string") {
-      try {
-        ruleObj = celToJsonLogic(inv.rule);
-      } catch (e) {
+    let mongo: Record<string, unknown>;
+    try {
+      if (typeof inv.rule === "string") {
+        mongo = celToMongo(inv.rule);
+      } else if (jsonLogic.is_logic(inv.rule)) {
+        mongo = jsonLogicToMongo(inv.rule);
+      } else if (inv.rule && typeof inv.rule === "object") {
+        mongo = inv.rule as Record<string, unknown>;
+      } else {
         throw new Error(
-          `Invalid CEL in validation rule "${inv.name}": ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          "rule must be a mongo/JSONLogic object or a CEL string",
         );
       }
+    } catch (e) {
+      throw new Error(
+        `Invalid validation rule "${inv.name}": ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
     }
     return {
       name: inv.name,
-      rule: JSON.stringify(ruleObj),
+      rule: JSON.stringify(mongo),
       message: inv.message,
     };
   });
 }
 
-// Reverse, for API responses: stored form → `rule` as a JSONLogic object.
-// Returns undefined when there are no rules (so the field is omitted).
+// Reverse, for API responses: stored form → `rule` as the mongo object.
 export function storedInvariantsToApi(
   invariants: ConfigInvariant[] | undefined,
 ): ApiInvariant[] | undefined {
@@ -387,15 +546,17 @@ export function storedInvariantsToApi(
       const p = JSON.parse(inv.rule);
       if (p && typeof p === "object" && !Array.isArray(p)) rule = p;
     } catch {
-      // unparseable stored rule → expose an empty object rather than throwing
+      // leave {}
     }
     return { name: inv.name, rule, message: inv.message };
   });
 }
 
-// The field keys a rule references (every `{var}`), for row-level highlighting
-// of which fields a failing rule involves. Uses the top-level path segment
-// (configs are flat). Never throws.
+// ---- Field references (row-level highlighting) -----------------------------
+
+// The field keys a mongo-condition rule references — the non-`$` object keys plus
+// any `$ref` targets. Top-level path segment only (configs are flat). Never throws.
+const BOOLEAN_MONGO_OPS = new Set(["$and", "$or", "$nor"]);
 export function invariantRuleFields(ruleJson: string): string[] {
   let parsed: unknown;
   try {
@@ -410,13 +571,20 @@ export function invariantRuleFields(ruleJson: string): string[] {
       n.forEach(walk);
       return;
     }
-    const obj = n as Record<string, unknown>;
-    if (Object.keys(obj).length === 1 && typeof obj.var === "string") {
-      const top = obj.var.split(".")[0];
-      if (top) fields.add(top);
-      return;
+    for (const [k, v] of Object.entries(n as Record<string, unknown>)) {
+      if (k === "$ref" && typeof v === "string") {
+        const top = v.split(".")[0];
+        if (top) fields.add(top);
+      } else if (BOOLEAN_MONGO_OPS.has(k) || k === "$not") {
+        walk(v);
+      } else if (k.startsWith("$")) {
+        walk(v);
+      } else {
+        const top = k.split(".")[0];
+        if (top) fields.add(top);
+        walk(v);
+      }
     }
-    Object.values(obj).forEach(walk);
   };
   walk(parsed);
   return [...fields];
