@@ -57,7 +57,15 @@ export const DEFAULT_USE_STICKY_BUCKETING = false;
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
+
+/** SQL column prefix for contextual bandit attributes after bucketing. */
+export const ATTR_CB_PREFIX = "attr_cb_";
+/** SQL column prefix for first-exposure raw contextual bandit attributes (pre-bucketing). */
+export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
+/** Bucket value for low-traffic / merged contextual bandit attribute slices. */
+export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
+export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
@@ -275,6 +283,7 @@ export const entityEvents = {
     "approval-bypassed",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
+  contextualBandit: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 

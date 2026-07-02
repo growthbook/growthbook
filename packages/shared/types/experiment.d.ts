@@ -310,38 +310,54 @@ export type ExperimentHealthSettings = {
   experimentMinLengthDays: number;
 };
 
-export type ExperimentDataForStatusStringDates = Pick<
-  ExperimentInterfaceStringDates,
-  | "type"
-  | "variations"
-  | "status"
-  | "archived"
-  | "results"
-  | "analysisSummary"
-  | "phases"
-  | "dismissedWarnings"
-  | "goalMetrics"
-  | "secondaryMetrics"
-  | "guardrailMetrics"
-  | "datasource"
-  | "decisionFrameworkSettings"
-  | "nextScheduledStatusUpdate"
->;
+export type ExperimentDataForStatusStringDates = Omit<
+  Pick<
+    ExperimentInterfaceStringDates,
+    | "type"
+    | "variations"
+    | "status"
+    | "archived"
+    | "results"
+    | "analysisSummary"
+    | "phases"
+    | "dismissedWarnings"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "datasource"
+    | "decisionFrameworkSettings"
+    | "nextScheduledStatusUpdate"
+  >,
+  "type"
+> & {
+  // Contextual bandits are a separate model but reuse the experiment status
+  // badge via an adapter, so allow their type here. Kept optional to match
+  // the source `type` field.
+  type?: ExperimentType | "contextual-bandit";
+};
 
-export type ExperimentDataForStatus = Pick<
-  ExperimentInterface,
-  | "type"
-  | "variations"
-  | "status"
-  | "archived"
-  | "results"
-  | "analysisSummary"
-  | "phases"
-  | "dismissedWarnings"
-  | "goalMetrics"
-  | "secondaryMetrics"
-  | "guardrailMetrics"
-  | "datasource"
-  | "decisionFrameworkSettings"
-  | "nextScheduledStatusUpdate"
->;
+export type ExperimentDataForStatus = Omit<
+  Pick<
+    ExperimentInterface,
+    | "type"
+    | "variations"
+    | "status"
+    | "archived"
+    | "results"
+    | "analysisSummary"
+    | "phases"
+    | "dismissedWarnings"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "datasource"
+    | "decisionFrameworkSettings"
+    | "nextScheduledStatusUpdate"
+  >,
+  "type"
+> & {
+  // Contextual bandits are a separate model but reuse the experiment status
+  // badge via an adapter, so allow their type here. Kept optional to match
+  // the source `type` field.
+  type?: ExperimentType | "contextual-bandit";
+};
