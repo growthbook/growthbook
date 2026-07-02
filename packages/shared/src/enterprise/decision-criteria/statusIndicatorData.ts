@@ -65,6 +65,14 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status === "stopped") {
+    if (experimentData.type === "contextual-bandit") {
+      return {
+        color: "gray",
+        status: "Stopped",
+        sortOrder: 4,
+      };
+    }
+
     switch (experimentData.results) {
       case "won":
         return {

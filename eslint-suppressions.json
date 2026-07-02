@@ -548,11 +548,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
     "local/no-alert-classname": {
       "count": 2
@@ -1782,6 +1777,11 @@
   "packages/sdk-react/rollup.config.mjs": {
     "prettier/prettier": {
       "count": 2
+    }
+  },
+  "packages/stats-ts/test/statistics.test.ts": {
+    "no-loss-of-precision": {
+      "count": 1
     }
   }
 }

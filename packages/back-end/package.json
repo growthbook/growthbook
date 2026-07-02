@@ -124,6 +124,7 @@
     "saslprep": "^1.0.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
+    "stats-ts": "workspace:*",
     "snowflake-sdk": "^2.4.3",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^17.4.0",
