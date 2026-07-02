@@ -382,6 +382,38 @@ export type AggregatedFactTableSchemaState = {
   metricState: AggregatedFactTableMetricStateInterface[];
 };
 
+// True when the fact-table definition change is SQL-text-only with an unchanged
+// output-column set and unchanged eventName/filters — the case where the
+// materialized aggregated data is still schema-compatible. Requires both
+// current and stored sub-fingerprints; returns false when either side is
+// missing (legacy registry doc, or columns unresolved) so callers fall back to
+// the conservative full-hash compare.
+export function isSqlOnlySchemaCompatibleFactTableChange({
+  registry,
+  factTableNonSqlSettingsHash,
+  factTableColumnsFingerprint,
+}: {
+  registry: Pick<
+    AggregatedFactTableInterface,
+    "factTableNonSqlSettingsHash" | "factTableColumnsFingerprint"
+  >;
+  factTableNonSqlSettingsHash: string | undefined;
+  factTableColumnsFingerprint: string | null | undefined;
+}): boolean {
+  if (
+    factTableNonSqlSettingsHash === undefined ||
+    factTableColumnsFingerprint == null ||
+    registry.factTableNonSqlSettingsHash == null ||
+    registry.factTableColumnsFingerprint == null
+  ) {
+    return false;
+  }
+  return (
+    factTableNonSqlSettingsHash === registry.factTableNonSqlSettingsHash &&
+    factTableColumnsFingerprint === registry.factTableColumnsFingerprint
+  );
+}
+
 // Builds the schema state the nightly job persists on the registry: the
 // fact-table definition hash plus per-metric state (settings hash + the
 // columns each metric/slice materializes). `metrics` must already be the
@@ -471,22 +503,15 @@ export function detectAggregatedFactTableSchemaDrift({
   if (factTableSettingsHash !== registry.factTableSettingsHash) {
     // The full definition hash changed. Before flagging drift, check whether
     // this is a SQL-text-only change that left the output schema untouched.
-    // Requires both current and stored sub-fingerprints; a legacy registry doc
-    // (or unresolved columns) falls through to the conservative drift path.
-    const canCheckCompat =
-      factTableNonSqlSettingsHash !== undefined &&
-      factTableColumnsFingerprint != null &&
-      registry.factTableNonSqlSettingsHash != null &&
-      registry.factTableColumnsFingerprint != null;
+    // Tolerate: fall through to the metric-state check. The next successful
+    // run persists the new full hash, so this fires once per SQL edit.
     if (
-      canCheckCompat &&
-      factTableNonSqlSettingsHash === registry.factTableNonSqlSettingsHash &&
-      factTableColumnsFingerprint === registry.factTableColumnsFingerprint
+      !isSqlOnlySchemaCompatibleFactTableChange({
+        registry,
+        factTableNonSqlSettingsHash,
+        factTableColumnsFingerprint,
+      })
     ) {
-      // SQL text changed, but eventName/filters and output columns did not.
-      // Tolerate: fall through to the metric-state check. The next successful
-      // run persists the new full hash, so this fires once per SQL edit.
-    } else {
       return { drift: true, reason: "fact table definition changed" };
     }
   }

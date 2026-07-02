@@ -18,6 +18,7 @@ import {
   getFactTableNonSqlSettingsHashForAggregatedFactTable,
   getFactTableSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,
+  isSqlOnlySchemaCompatibleFactTableChange,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { canReAggregateDailyPartialsForCovariate } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
@@ -147,15 +148,14 @@ async function resolveCovariateInsertPathInner({
     // schema-compatible — keep reading it. The next maintenance run will roll
     // the stored hash forward. Without stored sub-fingerprints (legacy doc) or
     // resolved columns, fall back to legacy as before.
-    const currentColumnsFingerprint = getFactTableColumnsFingerprint(factTable);
-    const sqlOnlySchemaCompatible =
-      registry.factTableNonSqlSettingsHash != null &&
-      registry.factTableColumnsFingerprint != null &&
-      currentColumnsFingerprint != null &&
-      getFactTableNonSqlSettingsHashForAggregatedFactTable(factTable) ===
-        registry.factTableNonSqlSettingsHash &&
-      currentColumnsFingerprint === registry.factTableColumnsFingerprint;
-    if (!sqlOnlySchemaCompatible) {
+    if (
+      !isSqlOnlySchemaCompatibleFactTableChange({
+        registry,
+        factTableNonSqlSettingsHash:
+          getFactTableNonSqlSettingsHashForAggregatedFactTable(factTable),
+        factTableColumnsFingerprint: getFactTableColumnsFingerprint(factTable),
+      })
+    ) {
       log("legacy: fact table definition changed, restate pending", {
         registryFactTableSettingsHash: registry.factTableSettingsHash,
       });
