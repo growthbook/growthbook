@@ -362,7 +362,6 @@ export async function processJWT(
             ? new Date(org.dateCreated).toISOString()
             : "",
           ...trackingAttributes,
-          anonymous_id: trackingAttributes.device_id,
           role: org?.members.find((m) => m.id === user.id)?.role,
           hasLicenseKey: org?.licenseKey ? true : false,
           configFile: usingFileConfig(),

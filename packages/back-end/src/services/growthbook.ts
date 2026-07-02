@@ -24,6 +24,16 @@ setPolyfills({ EventSource });
 
 let gbClient: GrowthBookClient<AppFeatures> | null = null;
 let initPromise: Promise<void> | null = null;
+let gbInitSucceeded = false;
+
+function resetGrowthBookClientState(): void {
+  if (gbClient) {
+    gbClient.destroy();
+    gbClient = null;
+  }
+  initPromise = null;
+  gbInitSucceeded = false;
+}
 
 function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
   const client = new GrowthBookClient<AppFeatures>({
@@ -111,6 +121,7 @@ const GB_SESSION_ID_HEADER = "x-gb-session-id";
 const GB_DEVICE_ID_HEADER = "x-gb-device-id";
 const GB_PAGE_ID_HEADER = "x-gb-page-id";
 const GB_PAGE_URL_HEADER = "x-gb-page-url";
+const GB_ANONYMOUS_ID_HEADER = "x-gb-anonymous-id";
 
 /**
  * Session, device, page IDs, and request context for backend SDK tracking events.
@@ -123,6 +134,7 @@ export function getGrowthBookTrackingAttributes(
   session_id?: string;
   device_id?: string;
   page_id?: string;
+  anonymous_id?: string;
   ip?: string;
   ua?: string;
 } {
@@ -131,6 +143,7 @@ export function getGrowthBookTrackingAttributes(
   const device_id =
     req.get(GB_DEVICE_ID_HEADER) || req.cookies["gb_device_id"] || undefined;
   const page_id = req.get(GB_PAGE_ID_HEADER) || undefined;
+  const anonymous_id = req.get(GB_ANONYMOUS_ID_HEADER) || undefined;
   const ip = req.ip || undefined;
   const ua = (req.headers["user-agent"] as string) || undefined;
 
@@ -138,6 +151,7 @@ export function getGrowthBookTrackingAttributes(
     ...(session_id ? { session_id } : {}),
     ...(device_id ? { device_id } : {}),
     ...(page_id ? { page_id } : {}),
+    ...(anonymous_id ? { anonymous_id } : {}),
     ...(ip ? { ip } : {}),
     ...(ua ? { ua } : {}),
   };
@@ -161,7 +175,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
 export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
   const client = ensureGrowthBookClient();
 
-  if (client && !client.ready && !initPromise) {
+  if (!gbInitSucceeded && !initPromise) {
     void initializeGrowthBookClient();
   }
 
@@ -179,10 +193,12 @@ async function runGrowthBookClientInit(): Promise<void> {
 
   if (!success) {
     logger.warn({ source, err: error }, "GrowthBook features not loaded");
-    initPromise = null;
+    // SDK sets ready=true even with an empty payload; discard and retry later.
+    resetGrowthBookClientState();
     return;
   }
 
+  gbInitSucceeded = true;
   logger.info(
     { source, streaming: true },
     "GrowthBook client initialized successfully",
@@ -205,7 +221,7 @@ export async function initializeGrowthBookClient(): Promise<void> {
   if (initPromise) return initPromise;
 
   initPromise = runGrowthBookClientInit().catch((error) => {
-    initPromise = null;
+    resetGrowthBookClientState();
     logger.error({ err: error }, "Failed to initialize GrowthBook client");
     // Don't throw - allow app to continue without feature flags
   });
@@ -218,10 +234,6 @@ export async function initializeGrowthBookClient(): Promise<void> {
  * Call this during graceful shutdown to close SSE connections
  */
 export function destroyGrowthBookClient(): void {
-  if (gbClient) {
-    gbClient.destroy();
-    gbClient = null;
-    initPromise = null;
-    logger.info("GrowthBook client destroyed");
-  }
+  resetGrowthBookClientState();
+  logger.info("GrowthBook client destroyed");
 }

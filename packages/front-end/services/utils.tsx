@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
 import { GB_SDK_ID_DEV, GB_SDK_ID_PROD } from "shared/constants";
 import { AppFeatures } from "shared/types/app-features";
-import track from "@/services/track";
+import track, { getJitsuAnonymousId } from "@/services/track";
 import { isCloud, isLocalhost } from "./env";
 
 const DEVICE_ID_COOKIE = "gb_device_id";
@@ -295,12 +295,19 @@ export function getGrowthBookTrackingHeaders(): Record<string, string> {
     return {};
   }
 
-  return {
+  const headers: Record<string, string> = {
     "X-GB-Session-Id": getOrGenerateSessionId(),
     "X-GB-Device-Id": getOrGenerateDeviceId(),
     "X-GB-Page-Id": getOrGeneratePageId(),
     "X-GB-Page-Url": window.location.href,
   };
+
+  const anonymousId = getJitsuAnonymousId();
+  if (anonymousId) {
+    headers["X-GB-Anonymous-Id"] = anonymousId;
+  }
+
+  return headers;
 }
 
 // Used to describe account plan in text
