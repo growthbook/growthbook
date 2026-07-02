@@ -143,12 +143,7 @@ export function getGrowthBookTrackingAttributes(
   };
 }
 
-/**
- * Get the singleton GrowthBookClient instance
- * This provides 3x performance improvement over creating new instances per request
- * by reusing the same core instance across all requests
- */
-export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
   if (!IS_CLOUD && !IS_LOCALHOST) return null;
 
   if (!gbClient) {
@@ -156,6 +151,42 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
   }
 
   return gbClient;
+}
+
+/**
+ * Get the singleton GrowthBookClient instance
+ * This provides 3x performance improvement over creating new instances per request
+ * by reusing the same core instance across all requests
+ */
+export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+  const client = ensureGrowthBookClient();
+
+  if (client && !client.ready && !initPromise) {
+    void initializeGrowthBookClient();
+  }
+
+  return client;
+}
+
+async function runGrowthBookClientInit(): Promise<void> {
+  const client = ensureGrowthBookClient();
+  if (!client) return;
+
+  const { success, source, error } = await client.init({
+    timeout: 3000,
+    streaming: true, // Enable real-time updates via SSE
+  });
+
+  if (!success) {
+    logger.warn({ source, err: error }, "GrowthBook features not loaded");
+    initPromise = null;
+    return;
+  }
+
+  logger.info(
+    { source, streaming: true },
+    "GrowthBook client initialized successfully",
+  );
 }
 
 /**
@@ -173,29 +204,11 @@ export async function initializeGrowthBookClient(): Promise<void> {
 
   if (initPromise) return initPromise;
 
-  initPromise = (async () => {
-    try {
-      const client = getGrowthBookClient();
-      if (client) {
-        const { success, source, error } = await client.init({
-          timeout: 3000,
-          streaming: true, // Enable real-time updates via SSE
-        });
-
-        if (!success) {
-          logger.warn({ source, err: error }, "GrowthBook features not loaded");
-        } else {
-          logger.info(
-            { source, streaming: true },
-            "GrowthBook client initialized successfully",
-          );
-        }
-      }
-    } catch (error) {
-      logger.error({ err: error }, "Failed to initialize GrowthBook client");
-      // Don't throw - allow app to continue without feature flags
-    }
-  })();
+  initPromise = runGrowthBookClientInit().catch((error) => {
+    initPromise = null;
+    logger.error({ err: error }, "Failed to initialize GrowthBook client");
+    // Don't throw - allow app to continue without feature flags
+  });
 
   return initPromise;
 }

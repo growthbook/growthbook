@@ -362,8 +362,7 @@ export async function processJWT(
             ? new Date(org.dateCreated).toISOString()
             : "",
           ...trackingAttributes,
-          anonymous_id:
-            trackingAttributes.device_id || req.cookies["gb_device_id"],
+          anonymous_id: trackingAttributes.device_id,
           role: org?.members.find((m) => m.id === user.id)?.role,
           hasLicenseKey: org?.licenseKey ? true : false,
           configFile: usingFileConfig(),
