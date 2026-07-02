@@ -2,7 +2,7 @@ import {
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   isFactMetric,
-  isFunnelMetric,
+  isLegacyFunnelMetric,
   isPercentileCappedMetric,
   isRatioMetric,
   isRegressionAdjusted,
@@ -58,7 +58,7 @@ export function getMetricData(
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
   const ratioMetric = isRatioMetric(metric);
-  const funnelMetric = isFunnelMetric(metric);
+  const funnelMetric = isLegacyFunnelMetric(metric);
   const quantileMetric = quantileMetricType(metric);
   const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
     metric,

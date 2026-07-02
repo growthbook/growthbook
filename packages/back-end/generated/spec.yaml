@@ -25998,6 +25998,7 @@ paths:
                     - quantile
                     - ratio
                     - dailyParticipation
+                    - funnel
                 numerator:
                   type: object
                   properties:
@@ -26529,6 +26530,7 @@ paths:
                     - quantile
                     - ratio
                     - dailyParticipation
+                    - funnel
                 numerator:
                   type: object
                   properties:
@@ -55090,6 +55092,7 @@ components:
             - quantile
             - ratio
             - dailyParticipation
+            - funnel
         numerator:
           type: object
           properties:

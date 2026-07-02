@@ -263,6 +263,62 @@ export const priorSettingsValidator = z.object({
   stddev: z.number().gt(0),
 });
 
+// ---------------------------------------------------------------------------
+// Funnel step / settings validators
+// ---------------------------------------------------------------------------
+// Defined here (rather than in product-analytics.ts) so factMetricValidator can
+// reference funnelStepValidator without a circular import: funnelStepValidator
+// needs rowFilterValidator (defined above in this file), and factMetricValidator
+// needs funnelStepValidator. product-analytics.ts imports these from here.
+
+export const conversionWindowValidator = z.object({
+  unit: conversionWindowUnitValidator,
+  value: z.number().positive(),
+});
+export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
+
+export const funnelStepValidator = z.object({
+  // Display name shown in the sidebar / chart / table.
+  name: z.string(),
+  // Id of the fact table the step's events come from.
+  factTable: z.string(),
+  // Filters that decide whether an event row counts as this step.
+  rowFilters: z.array(rowFilterValidator),
+  // Ignored for the initial step. When true, the step is allowed to be
+  // skipped without breaking the funnel.
+  optional: z.boolean(),
+  // Ignored for the initial step. Bounds how long after the previous
+  // matched step's timestamp this step's event can occur.
+  conversionWindow: conversionWindowValidator.nullish(),
+});
+export type FunnelStep = z.infer<typeof funnelStepValidator>;
+
+// Step ordering for funnel metrics. v1 supports "sequential" only; "strict"
+// and "unordered" are modeled now (locked via validateFunnelSettingsForV1) so
+// the fast-follows need no schema migration.
+export const funnelOrderingValidator = z.enum([
+  "sequential",
+  "strict",
+  "unordered",
+]);
+export type FunnelOrdering = z.infer<typeof funnelOrderingValidator>;
+
+// Funnel-as-experiment-metric settings. Mirrors the quantileSettings pattern:
+// a nullable sub-object on the fact metric. Statistically a proportion.
+export const funnelSettingsValidator = z.object({
+  steps: z.array(funnelStepValidator),
+  ordering: funnelOrderingValidator.optional(),
+  // Out-of-order tolerance between adjacent steps (seconds). Optional; only
+  // meaningful for ordered modes (ignored for "unordered").
+  concurrencyWindowSeconds: z.number().int().min(0).optional(),
+  // Fast-follow axes: modeled now, locked to v1 values by
+  // validateFunnelSettingsForV1 (windowScope "funnelWide" and sessionBased are
+  // rejected in v1).
+  windowScope: z.enum(["perStep", "funnelWide"]).optional(),
+  sessionBased: z.boolean().optional(),
+});
+export type FunnelSettings = z.infer<typeof funnelSettingsValidator>;
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -270,6 +326,7 @@ export const metricTypeValidator = z.enum([
   "retention",
   "quantile",
   "dailyParticipation",
+  "funnel",
 ]);
 
 export const factMetricValidator = z
@@ -312,8 +369,45 @@ export const factMetricValidator = z
     metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    // Funnel-as-experiment-metric config. Nullable like quantileSettings;
+    // populated only when metricType === "funnel".
+    funnelSettings: funnelSettingsValidator.nullable(),
   })
   .strict();
+
+// v1 lock for funnel settings. Implemented as a standalone validator (invoked
+// at the create/update layer) rather than a superRefine on factMetricValidator,
+// because factMetricValidator is consumed as a bare ZodObject by the model
+// layer and wrapping it in ZodEffects would break schema composition
+// (.omit/.partial/.shape). Returns an array of human-readable errors ([] = ok).
+export function validateFunnelSettingsForV1(
+  metric: Pick<
+    z.infer<typeof factMetricValidator>,
+    "metricType" | "funnelSettings"
+  >,
+): string[] {
+  if (metric.metricType !== "funnel") return [];
+  const fs = metric.funnelSettings;
+  const errors: string[] = [];
+  if (!fs) {
+    errors.push("funnelSettings is required when metricType is 'funnel'");
+    return errors;
+  }
+  if (fs.steps.length < 2) {
+    errors.push("Funnel metrics require at least 2 steps");
+  }
+  if ((fs.ordering ?? "sequential") !== "sequential") {
+    errors.push("Only 'sequential' funnel ordering is supported in v1");
+  }
+  if (fs.windowScope === "funnelWide") {
+    errors.push("Funnel-wide windows are not supported in v1 (per-step only)");
+  }
+  if (fs.sessionBased) {
+    errors.push("Session-based funnels are not supported in v1");
+  }
+  return errors;
+}
 
 export const createFactFilterPropsValidator = z
   .object({

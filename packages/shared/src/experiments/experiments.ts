@@ -22,6 +22,7 @@ import {
   FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
+  FunnelStep,
   MetricQuantileSettings,
   MetricWindowSettings,
   RowFilter,
@@ -447,7 +448,7 @@ export function isCappableMetricType(m: ExperimentMetricDefinition) {
 
 export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
-    return ["proportion", "retention"].includes(m.metricType);
+    return ["proportion", "retention", "funnel"].includes(m.metricType);
   return m.type === "binomial";
 }
 
@@ -472,12 +473,38 @@ export function quantileMetricType(
   return "";
 }
 
-export function isFunnelMetric(
+/**
+ * LEGACY funnel metric: a non-fact metric whose (binomial) denominator metric
+ * gates the numerator (denominator chaining). This is NOT the new fact-metric
+ * funnel type — see isFactFunnelMetric. Renamed from isFunnelMetric so the two
+ * concepts don't get conflated; the experiment SQL path still uses this for the
+ * existing legacy behavior.
+ */
+export function isLegacyFunnelMetric(
   m: ExperimentMetricDefinition,
   denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
+}
+
+/**
+ * fact-metric funnel: a fact metric with metricType === "funnel"
+ */
+export function isFactFunnelMetric(
+  m: ExperimentMetricInterface,
+): m is FactMetricInterface {
+  return isFactMetric(m) && m.metricType === "funnel";
+}
+
+/**
+ * Ordered funnel steps for a fact-metric funnel, or [] for any other metric.
+ */
+export function getFunnelSteps(m: ExperimentMetricInterface): FunnelStep[] {
+  if (isFactFunnelMetric(m)) {
+    return m.funnelSettings?.steps ?? [];
+  }
+  return [];
 }
 
 export function isRegressionAdjusted(

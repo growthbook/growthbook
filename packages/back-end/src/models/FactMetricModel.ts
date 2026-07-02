@@ -114,6 +114,7 @@ function denominatorRequiredByMetricType(metricType: FactMetricType): boolean {
     case "quantile":
     case "retention":
     case "proportion":
+    case "funnel":
       return false;
     case "ratio":
       return true;

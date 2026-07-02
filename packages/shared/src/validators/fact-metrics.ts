@@ -221,6 +221,7 @@ const apiMetricTypeEnum = z.enum([
   "quantile",
   "ratio",
   "dailyParticipation",
+  "funnel",
 ]);
 
 // Corresponds to schemas/FactMetric.yaml

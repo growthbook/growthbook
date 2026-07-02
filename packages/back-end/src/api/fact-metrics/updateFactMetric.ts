@@ -20,6 +20,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "quantile":
     case "retention":
     case "dailyParticipation":
+    case "funnel":
       return false;
   }
 }

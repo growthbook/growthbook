@@ -27,9 +27,9 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
-  FunnelStep,
-  ConversionWindow,
 } from "../../validators/product-analytics";
+// FunnelStep / ConversionWindow moved to validators/fact-table (see note there).
+import { FunnelStep, ConversionWindow } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,

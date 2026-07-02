@@ -50,6 +50,7 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "dailyParticipation":
       case "retention":
+      case "funnel":
         return BASE_METRIC_FLOAT_COLS;
       case "ratio":
         return [...BASE_METRIC_FLOAT_COLS, ...RATIO_METRIC_FLOAT_COLS];
@@ -67,6 +68,7 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "dailyParticipation":
       case "retention":
+      case "funnel":
         return BASE_METRIC_CUPED_FLOAT_COLS;
       case "ratio":
         return [
@@ -90,6 +92,7 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "dailyParticipation":
       case "retention":
+      case "funnel":
         return BASE_METRIC_PERCENTILE_CAPPING_FLOAT_COLS;
       case "ratio":
         return [
@@ -109,6 +112,7 @@ export function getNonQuantileFloatColumns({
       case "proportion":
       case "retention":
       case "quantile":
+      case "funnel":
         return [];
       case "mean":
       case "dailyParticipation":
@@ -165,6 +169,7 @@ export function maxColumnsNeededForMetric({
     case "dailyParticipation":
     case "retention":
     case "ratio":
+    case "funnel":
       return boilerplateCols + floatCols.length;
     case "quantile":
       return (
