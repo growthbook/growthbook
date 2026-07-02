@@ -97,7 +97,7 @@ const EditVariationsForm: FC<{
         track("edited-variations");
 
         const numVariationsAdded =
-          data.variations.length - experiment.variations.length;
+          data.variations.length - getLatestPhaseVariations(experiment).length;
         if (numVariationsAdded > 0) {
           track("Added Variations", {
             source: "edit-variations-form",
