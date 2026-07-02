@@ -61,6 +61,7 @@ export default {
             "features/rules", // Rules (overview, choosing a rule type, all rule types)
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
+            "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
             "features/constants", // Constants (reusable referenced values)
           ],
