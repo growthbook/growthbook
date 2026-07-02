@@ -800,7 +800,6 @@ export default function ConfigureReport({
                 <div className="col pr-3">
                   <Field
                     label="Custom SQL Filter"
-                    labelClassName="font-weight-bold"
                     {...form.register("experimentAnalysisSettings.queryFilter")}
                     textarea
                     placeholder="e.g. user_id NOT IN ('123', '456')"

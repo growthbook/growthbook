@@ -242,7 +242,6 @@ function EditSimpleSchema({
       {!lockedPrimitive && (
         <SelectField
           label="Type"
-          labelClassName="font-weight-bold text-dark"
           value={schema.type}
           sort={false}
           onChange={(type) =>
@@ -664,7 +663,6 @@ export default function EditSchemaModal({
             <CodeTextArea
               language="json"
               label={`JSON Schema`}
-              labelClassName="font-weight-bold text-dark"
               value={form.watch("schema")}
               setValue={(v) => form.setValue("schema", v)}
               minRows={20}

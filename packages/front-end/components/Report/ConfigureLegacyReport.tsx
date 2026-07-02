@@ -221,7 +221,6 @@ export default function ConfigureLegacyReport({
     >
       <Field
         label="Tracking Key"
-        labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your experiment assignment table"
       />
@@ -285,7 +284,6 @@ export default function ConfigureLegacyReport({
               <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
             </>
           }
-          labelClassName="font-weight-bold"
           value={form.watch("exposureQueryId") ?? ""}
           onChange={(v) => form.setValue("exposureQueryId", v)}
           required
@@ -381,13 +379,11 @@ export default function ConfigureLegacyReport({
         exposureQueryId={form.watch("exposureQueryId")}
         datasourceId={report.args.datasource}
         userIdType={report.args.userIdType}
-        labelClassName="font-weight-bold"
         showHelp={true}
         newUi={false}
       />
       <SelectField
         label="Difference Type"
-        labelClassName="font-weight-bold"
         value={form.watch("differenceType")}
         onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
         sort={false}
@@ -417,7 +413,6 @@ export default function ConfigureLegacyReport({
             <MetricsSelectorTooltip onlyBinomial={true} isSingular={true} />
           </>
         }
-        labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial
         value={form.watch("activationMetric") || ""}
@@ -427,7 +422,6 @@ export default function ConfigureLegacyReport({
       {datasourceProperties?.experimentSegments && (
         <SelectField
           label="Segment"
-          labelClassName="font-weight-bold"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
           onChange={(value) => form.setValue("segment", value || "")}
@@ -444,7 +438,6 @@ export default function ConfigureLegacyReport({
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label="Handling In-Progress Conversions"
-          labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
           onChange={(v) => {
             form.setValue("skipPartialData", v === "strict");
@@ -505,7 +498,6 @@ export default function ConfigureLegacyReport({
                   <GBSequential /> Use Sequential Testing
                 </PremiumTooltip>
               }
-              labelClassName="font-weight-bold"
               value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
               onChange={(v) => {
                 form.setValue("sequentialTestingEnabled", v === "on");
@@ -576,7 +568,6 @@ export default function ConfigureLegacyReport({
                 <GBCuped /> Use Regression Adjustment (CUPED)
               </PremiumTooltip>
             }
-            labelClassName="font-weight-bold"
             value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
             onChange={(v) => {
               form.setValue("regressionAdjustmentEnabled", v === "on");
@@ -601,7 +592,6 @@ export default function ConfigureLegacyReport({
           <div className="col">
             <Field
               label="Custom SQL Filter"
-              labelClassName="font-weight-bold"
               {...form.register("queryFilter")}
               textarea
               placeholder="e.g. user_id NOT IN ('123', '456')"

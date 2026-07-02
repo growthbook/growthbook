@@ -186,7 +186,6 @@ export const IdListItemInput: FC<{
         <StringArrayField
           containerClassName="mb-0"
           label="List Values to Include"
-          labelClassName="font-weight-bold"
           value={values}
           onChange={setValues}
           placeholder="Separate values using the 'Enter' key"

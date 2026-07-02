@@ -128,7 +128,6 @@ export const HoldoutSelect = ({
     <>
       <SelectField
         label="Holdout"
-        labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}
         onChange={(v) => {
           setHoldout(v);

@@ -234,7 +234,6 @@ export default function CodeSnippetModal({
               <div className="col-auto">
                 <SelectField
                   label="SDK Connection"
-                  labelClassName="font-weight-bold small text-dark"
                   options={connections.map((connection) => ({
                     value: connection.id,
                     label: connection.name,

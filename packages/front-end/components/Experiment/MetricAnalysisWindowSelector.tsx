@@ -78,7 +78,6 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                 Metric Analysis Windows <GBInfo />
               </AttributionModelTooltip>
             }
-            labelClassName="font-weight-bold"
             value={attributionModel}
             onChange={handleModeChange}
             options={[

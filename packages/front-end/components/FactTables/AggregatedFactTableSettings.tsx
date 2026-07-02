@@ -91,7 +91,6 @@ export default function AggregatedFactTableSettings({
 
       <MultiSelectField
         label="Materialize aggregated tables for"
-        labelClassName="font-weight-bold"
         helpText="Tables are aggregated by identifier type and only experiments using these identifier types will be able to use the aggregated tables for CUPED. Clear all to disable."
         value={selectedIdTypes}
         options={idTypeOptions}
@@ -106,7 +105,6 @@ export default function AggregatedFactTableSettings({
         <div className="col-auto">
           <Field
             label="Daily update time"
-            labelClassName="font-weight-bold"
             type="time"
             disabled={!canEdit}
             {...form.register("aggregatedFactTableSettings.updateTime.time")}
@@ -115,7 +113,6 @@ export default function AggregatedFactTableSettings({
         <div className="col">
           <SelectField
             label="Timezone"
-            labelClassName="font-weight-bold"
             value={timezone}
             options={timezoneOptions.map((tz) => ({
               value: tz,
@@ -134,7 +131,6 @@ export default function AggregatedFactTableSettings({
 
       <Field
         label="Restate lookback window (days)"
-        labelClassName="font-weight-bold"
         helpText="How far back to re-scan when the table is fully restated (e.g. on schema changes). Leave it longer than your typical regression window to allow for experiments with older start dates to still benefit from the aggregated tables. Also the default retention window for the table is set to this value. If this value changes, however, the retention window on any existing tables will only change when the table is fully restated."
         type="number"
         min={1}

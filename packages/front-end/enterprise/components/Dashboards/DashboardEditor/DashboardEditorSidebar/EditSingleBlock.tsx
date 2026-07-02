@@ -893,7 +893,6 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
                 label="Metric"
-                labelClassName="font-weight-bold"
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
@@ -942,7 +941,6 @@ export default function EditSingleBlock({
                   <Box>
                     <MultiSelectField
                       label="Metrics"
-                      labelClassName="font-weight-bold"
                       placeholder="All Metrics"
                       containerClassName="mb-0"
                       customStyles={{
@@ -1192,7 +1190,6 @@ export default function EditSingleBlock({
                     sliceOptions.length > 0 && (
                       <MultiSelectField
                         label="Slices"
-                        labelClassName="font-weight-bold"
                         placeholder="Type to search..."
                         containerClassName="mb-0"
                         value={block.sliceTagsFilter}
@@ -1232,7 +1229,6 @@ export default function EditSingleBlock({
                     sortByOptions.length > 1 && (
                       <SelectField
                         label="Sort by"
-                        labelClassName="font-weight-bold"
                         containerClassName="mb-0"
                         value={block.sortBy || ""}
                         onChange={(value) =>
@@ -1265,7 +1261,6 @@ export default function EditSingleBlock({
                       block.sortBy === "change") && (
                       <SelectField
                         label="Sort direction"
-                        labelClassName="font-weight-bold"
                         containerClassName="mb-0"
                         value={block.sortDirection || ""}
                         onChange={(value) =>
@@ -1290,7 +1285,6 @@ export default function EditSingleBlock({
                 required
                 markRequired
                 label="Dimension"
-                labelClassName="font-weight-bold"
                 placeholder="Choose which dimension to use"
                 value={block.dimensionId}
                 containerClassName="mb-0"
@@ -1303,7 +1297,6 @@ export default function EditSingleBlock({
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField
                   label="Difference Type"
-                  labelClassName="font-weight-bold"
                   containerClassName="mb-0"
                   value={block.differenceType}
                   onChange={(value) =>
@@ -1327,7 +1320,6 @@ export default function EditSingleBlock({
                 <SelectField
                   sort={false}
                   label="Baseline"
-                  labelClassName="font-weight-bold"
                   containerClassName="mb-0"
                   value={block.baselineRow.toString()}
                   onChange={(value) =>
@@ -1371,7 +1363,6 @@ export default function EditSingleBlock({
                 <MultiSelectField
                   sort={false}
                   label="Variations"
-                  labelClassName="font-weight-bold"
                   placeholder="Showing all variations"
                   value={block.variationIds}
                   containerClassName="mb-0"
@@ -1411,7 +1402,6 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
-                labelClassName="font-weight-bold"
                 placeholder="Showing all values"
                 value={block.dimensionValues}
                 containerClassName="mb-0"
@@ -1535,7 +1525,7 @@ export default function EditSingleBlock({
                   <>
                     <SelectField
                       required
-                      labelClassName="font-weight-bold flex-grow-1"
+                      labelClassName="flex-grow-1"
                       containerClassName="mb-0"
                       value={savedQuery?.id || ""}
                       forceUndefinedValueToNull

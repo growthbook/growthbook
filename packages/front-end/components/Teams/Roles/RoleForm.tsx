@@ -137,7 +137,6 @@ export default function RoleForm({
           maxLength={40}
           currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
-          labelClassName="font-weight-bold"
           {...form.register("id")}
           helpText={
             status === "creating" ? (
@@ -156,7 +155,6 @@ export default function RoleForm({
           currentLength={currentValue.description.length}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={100}
-          labelClassName="font-weight-bold"
           {...form.register("description")}
         />
         <Field
@@ -165,7 +163,6 @@ export default function RoleForm({
           currentLength={currentValue.displayName?.length || 0}
           placeholder="Optional: User-friendly name to display in the UI (e.g., 'Project Admin')"
           maxLength={64}
-          labelClassName="font-weight-bold"
           {...form.register("displayName")}
           helpText="Optional. If not provided, the role ID will be used for display."
         />

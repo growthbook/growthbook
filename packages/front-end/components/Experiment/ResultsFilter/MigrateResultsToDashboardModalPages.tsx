@@ -243,7 +243,6 @@ export function SelectDashboardAndBlockPage({
                 label="Dashboard Name"
                 {...form.register("newDashboardTitle")}
                 placeholder="Dashboard name"
-                labelClassName="font-weight-bold"
                 containerClassName="mb-0"
                 onFocus={(e) => {
                   if (e.target.value === defaultFormValues.newDashboardTitle) {
@@ -341,7 +340,6 @@ export function SelectDashboardAndBlockPage({
             label="Block Name"
             {...form.register("blockName")}
             placeholder={defaultBlockName}
-            labelClassName="font-weight-bold"
             containerClassName="mb-0"
           />
 

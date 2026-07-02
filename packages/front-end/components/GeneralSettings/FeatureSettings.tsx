@@ -226,7 +226,6 @@ export default function FeatureSettings() {
             <SelectField
               id="preferredEnvironment"
               label="Preferred environment for feature pages:"
-              labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
               options={[
@@ -368,7 +367,6 @@ export default function FeatureSettings() {
                   <Box mb="5">
                     <SelectField
                       label="Platform (to allow direct linking):"
-                      labelClassName="font-weight-semibold"
                       containerClassName="mb-0"
                       value={form.watch("codeRefsPlatformUrl") || ""}
                       isClearable

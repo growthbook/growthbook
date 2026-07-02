@@ -615,7 +615,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
             <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
               <SelectField
                 label="Data Source"
-                labelClassName="font-weight-bold"
                 value={form.watch("datasource") ?? ""}
                 onChange={(newDatasource) => {
                   form.setValue("datasource", newDatasource);
@@ -654,7 +653,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                       <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
                     </>
                   }
-                  labelClassName="font-weight-bold"
                   value={form.watch("exposureQueryId") ?? ""}
                   onChange={(v) => form.setValue("exposureQueryId", v)}
                   required

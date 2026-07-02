@@ -92,7 +92,6 @@ export default function EditTrafficModal({
         <div className="pt-2">
           <Field
             label="Tracking Key"
-            labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
             helpText={
               supportsSQL ? (
@@ -114,7 +113,6 @@ export default function EditTrafficModal({
             withRadixThemedPortal
             containerClassName="flex-1"
             label="Assign variation based on attribute"
-            labelClassName="font-weight-bold"
             options={hashAttributeOptions}
             sort={false}
             value={form.watch("hashAttribute")}

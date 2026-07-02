@@ -1496,7 +1496,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {(!isImport || fromFeature) && (
                 <SelectField
                   label="Data Source"
-                  labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
                   onChange={(v) => form.setValue("datasource", v)}
                   placeholder="Select..."
@@ -1521,7 +1520,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                     </>
                   }
-                  labelClassName="font-weight-bold"
                   value={form.watch("exposureQueryId") ?? ""}
                   onChange={(v) => form.setValue("exposureQueryId", v)}
                   initialOption="Choose..."

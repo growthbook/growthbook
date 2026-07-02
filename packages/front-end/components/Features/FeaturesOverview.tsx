@@ -1836,7 +1836,6 @@ export default function FeaturesOverview({
               {showNewDraftNotes ? (
                 <Field
                   label="Description"
-                  labelClassName="font-weight-bold"
                   textarea
                   value={newDraftNotes}
                   onChange={(e) => setNewDraftNotes(e.target.value)}

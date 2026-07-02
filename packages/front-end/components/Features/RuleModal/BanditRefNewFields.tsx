@@ -282,7 +282,6 @@ export default function BanditRefNewFields({
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
               label="Data Source"
-              labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) =>
                 form.setValue("datasource", newDatasource)
@@ -307,7 +306,6 @@ export default function BanditRefNewFields({
                     <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
                   </>
                 }
-                labelClassName="font-weight-bold"
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
@@ -427,7 +425,6 @@ export default function BanditRefNewFields({
                     <GBCuped /> Use Regression Adjustment (CUPED)
                   </PremiumTooltip>
                 }
-                labelClassName="font-weight-bold"
                 value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
                 onChange={(v) => {
                   form.setValue("regressionAdjustmentEnabled", v === "on");

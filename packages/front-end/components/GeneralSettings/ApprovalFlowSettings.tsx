@@ -118,7 +118,6 @@ export default function ApprovalFlowSettings() {
                             <MultiSelectField
                               id={`projects-${i}`}
                               label="Projects"
-                              labelClassName="font-weight-semibold"
                               containerClassName="mb-0"
                               value={
                                 form.watch(`requireReviews.${i}.projects`) || []
@@ -148,7 +147,6 @@ export default function ApprovalFlowSettings() {
                             <MultiSelectField
                               id={`environments-${i}`}
                               label="Specific environments"
-                              labelClassName="font-weight-semibold"
                               containerClassName="mb-0"
                               value={
                                 form.watch(

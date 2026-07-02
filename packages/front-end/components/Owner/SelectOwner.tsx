@@ -41,7 +41,6 @@ export default function SelectOwner({
   return (
     <SelectField
       label="Owner"
-      labelClassName="font-weight-bold"
       options={options}
       value={value}
       disabled={disabled}

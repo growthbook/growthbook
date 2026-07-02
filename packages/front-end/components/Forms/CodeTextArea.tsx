@@ -13,6 +13,7 @@ import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -355,9 +356,9 @@ export default function CodeTextArea({
             >
               {isFullscreen ? (
                 <Flex align="center" gap="3" mb="2" justify="between">
-                  <label className="mb-0 d-block font-weight-bold">
+                  <Text as="label" weight="semibold" color="text-high" mb="0">
                     {fieldProps.label}
-                  </label>
+                  </Text>
                   <Button
                     type="button"
                     size="xs"

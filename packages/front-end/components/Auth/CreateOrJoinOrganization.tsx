@@ -304,7 +304,6 @@ const CreateOrJoinOrganization: FC<{
                   />
                   <SelectField
                     label="Your role"
-                    labelClassName="font-weight-bold"
                     markRequired
                     required
                     sort={false}

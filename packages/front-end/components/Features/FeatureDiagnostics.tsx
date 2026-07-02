@@ -240,7 +240,6 @@ export default function FeatureDiagnostics({
       <Box width="400px">
         <SelectField
           label="Select a Data Source"
-          labelClassName="font-weight-bold"
           value={form.watch("datasourceId") ?? ""}
           onChange={(newDatasource) => {
             if (newDatasource !== form.watch("datasourceId")) {

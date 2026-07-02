@@ -1091,7 +1091,6 @@ const AnalysisForm: FC<{
                       <div className="form-group mb-2">
                         <MultiSelectField
                           label="Always-computed unit dimensions"
-                          labelClassName="font-weight-bold"
                           helpText={`These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}. Changes apply on the next refresh.`}
                           value={selectedPrecomputedUnitDimensionIds}
                           options={precomputedUnitDimensionOptionsWithTooltips}
@@ -1118,7 +1117,6 @@ const AnalysisForm: FC<{
                         <div className="form-group mb-2">
                           <SelectField
                             label="Segment"
-                            labelClassName="font-weight-bold"
                             value={form.watch("segment")}
                             onChange={(value) =>
                               form.setValue("segment", value || "")
@@ -1144,7 +1142,6 @@ const AnalysisForm: FC<{
                         >
                           <SelectField
                             label="Metric Conversion Windows"
-                            labelClassName="font-weight-bold"
                             value={form.watch("skipPartialData")}
                             onChange={(value) =>
                               form.setValue("skipPartialData", value)
@@ -1199,7 +1196,6 @@ const AnalysisForm: FC<{
                           <div className="col">
                             <Field
                               label="Custom SQL Filter"
-                              labelClassName="font-weight-bold"
                               {...form.register("queryFilter")}
                               textarea
                               placeholder="e.g. user_id NOT IN ('123', '456')"

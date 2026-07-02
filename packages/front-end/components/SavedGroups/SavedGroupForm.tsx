@@ -523,7 +523,6 @@ const SavedGroupForm: FC<{
         <>
           <Field
             label={`${type === "list" ? "List" : "Group"} Name`}
-            labelClassName="font-weight-bold"
             required
             {...form.register("groupName")}
             placeholder="e.g. beta-users or internal-team-members"
@@ -531,7 +530,6 @@ const SavedGroupForm: FC<{
           {showDescription ? (
             <Field
               label="Description"
-              labelClassName="font-weight-bold"
               required={false}
               textarea
               maxLength={100}
@@ -556,7 +554,6 @@ const SavedGroupForm: FC<{
           )}
           <MultiSelectField
             label="Projects"
-            labelClassName="font-weight-bold"
             placeholder={
               canCreateWithoutProject ? "All Projects" : "Select projects..."
             }
@@ -590,7 +587,6 @@ const SavedGroupForm: FC<{
           <>
             <SelectField
               label="Attribute Key"
-              labelClassName="font-weight-bold"
               required
               value={form.watch("attributeKey") || ""}
               disabled={!!current.attributeKey}

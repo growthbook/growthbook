@@ -116,7 +116,6 @@ const ExposureDebuggerPage = () => {
             <div className="col-md-4">
               <SelectField
                 label="Select a Data Source"
-                labelClassName="font-weight-bold"
                 value={datasourceId ?? ""}
                 onChange={(newDatasource) => {
                   form.setValue("datasourceId", newDatasource);
@@ -171,7 +170,6 @@ const ExposureDebuggerPage = () => {
 
                 <div className="col-sm-2">
                   <SelectField
-                    labelClassName="font-weight-bold"
                     value={form.watch("lookbackDays") ?? ""}
                     onChange={(value) => form.setValue("lookbackDays", value)}
                     options={[

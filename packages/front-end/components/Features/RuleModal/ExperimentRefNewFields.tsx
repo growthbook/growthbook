@@ -562,7 +562,6 @@ export default function ExperimentRefNewFields({
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
               label="Data Source"
-              labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) => {
                 form.setValue("datasource", newDatasource);
@@ -618,7 +617,6 @@ export default function ExperimentRefNewFields({
                     <Tooltip content="Should correspond to the Identifier Type used to randomize units for this experiment" />
                   </>
                 }
-                labelClassName="font-weight-bold"
                 value={form.watch("exposureQueryId") ?? ""}
                 onChange={(v) => form.setValue("exposureQueryId", v)}
                 required
@@ -695,7 +693,6 @@ export default function ExperimentRefNewFields({
                   exposureQueryId={exposureQueryId}
                   project={project}
                   includeFacts={true}
-                  labelClassName="font-weight-bold"
                   label={
                     <>
                       Activation Metric{" "}
@@ -717,7 +714,6 @@ export default function ExperimentRefNewFields({
               {datasourceProperties?.experimentSegments && (
                 <SelectField
                   label="Segment"
-                  labelClassName="font-weight-bold"
                   value={form.watch("segment")}
                   onChange={(value) => form.setValue("segment", value || "")}
                   initialOption="None (All Users)"
@@ -733,7 +729,6 @@ export default function ExperimentRefNewFields({
               {datasourceProperties?.separateExperimentResultQueries && (
                 <SelectField
                   label="Metric Conversion Windows"
-                  labelClassName="font-weight-bold"
                   value={form.watch("skipPartialData")}
                   onChange={(value) => form.setValue("skipPartialData", value)}
                   options={[

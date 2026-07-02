@@ -3,7 +3,7 @@ import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
 import { useMemo, useState } from "react";
 import { JSONColumnFields } from "shared/types/fact-table";
-import { Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import { PiArrowClockwise, PiSpinner } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -126,7 +126,7 @@ export default function AddMaterializedColumnsModal({
         labelClassName="w-100"
         label={
           <Flex justify="between" align="center">
-            <Text>Attribute</Text>
+            Attribute
             <div>
               <span className="text-danger ml-2">{refreshError}</span>
               <Tooltip

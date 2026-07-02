@@ -1,3 +1,4 @@
+import { Box } from "@radix-ui/themes";
 import clsx from "clsx";
 import {
   ReactElement,
@@ -10,7 +11,7 @@ import {
 import TextareaAutosize, {
   TextareaAutosizeProps,
 } from "react-textarea-autosize";
-
+import Text from "@/ui/Text";
 export type SelectOptions =
   | (
       | string
@@ -235,10 +236,21 @@ const Field = forwardRef(
       >
         <div className="d-flex flex-row justify-content-between">
           {label && (
-            <label htmlFor={fieldId} className={clsx(labelClassName)}>
-              {label}
-              {markRequired && <span className="text-danger ml-1">*</span>}
-            </label>
+            <Box className={clsx(labelClassName)}>
+              <Text
+                as="label"
+                htmlFor={fieldId}
+                weight="semibold"
+                color="text-high"
+              >
+                {label}
+              </Text>
+              {markRequired && (
+                <Box as="span" ml="1" className="text-danger">
+                  *
+                </Box>
+              )}
+            </Box>
           )}
           {otherProps.currentLength !== undefined && otherProps.maxLength ? (
             <div className="font-weight-light">
