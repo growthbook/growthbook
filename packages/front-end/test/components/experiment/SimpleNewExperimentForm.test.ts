@@ -254,4 +254,46 @@ describe("getAutoExposureQueryId", () => {
       }),
     ).toBe("eq_1");
   });
+
+  it("auto-selects the managed warehouse query the hash attribute folds into", () => {
+    // Managed warehouses don't populate userIdType.attributes, but the hash
+    // attribute maps to an identifier column (here `id` folds into device_id).
+    expect(
+      getAutoExposureQueryId({
+        dsSettings: makeSettings([
+          makeExposureQuery("user_id", "user_id"),
+          makeExposureQuery("device_id", "device_id"),
+        ]),
+        hashAttribute: "id",
+        datasourceType: "growthbook_clickhouse",
+      }),
+    ).toBe("device_id");
+  });
+
+  it("auto-selects the managed warehouse query for a custom identifier", () => {
+    expect(
+      getAutoExposureQueryId({
+        dsSettings: makeSettings([
+          makeExposureQuery("user_id", "user_id"),
+          makeExposureQuery("device_id", "device_id"),
+          makeExposureQuery("company_id", "company_id"),
+        ]),
+        hashAttribute: "company_id",
+        datasourceType: "growthbook_clickhouse",
+      }),
+    ).toBe("company_id");
+  });
+
+  it("does not auto-select a managed warehouse query for an unmapped attribute", () => {
+    expect(
+      getAutoExposureQueryId({
+        dsSettings: makeSettings([
+          makeExposureQuery("user_id", "user_id"),
+          makeExposureQuery("device_id", "device_id"),
+        ]),
+        hashAttribute: "some_non_identifier",
+        datasourceType: "growthbook_clickhouse",
+      }),
+    ).toBe("");
+  });
 });

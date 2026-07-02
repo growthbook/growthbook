@@ -6,9 +6,14 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  DataSourceType,
+  GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getManagedWarehouseExposureQueryIdForAttribute,
+  isProjectListValidForProject,
+} from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
@@ -92,10 +97,12 @@ export function getAutoExposureQueryId({
   dsSettings,
   hashAttribute,
   templateExposureQueryId,
+  datasourceType,
 }: {
   dsSettings?: DataSourceSettings;
   hashAttribute: string;
   templateExposureQueryId?: string;
+  datasourceType?: DataSourceType;
 }): string {
   const exposureQueries = dsSettings?.queries?.exposure || [];
 
@@ -107,6 +114,19 @@ export function getAutoExposureQueryId({
   }
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
+
+  // Managed warehouses store an attribute -> identifier column mapping (materialized
+  // columns for legacy warehouses, or the attribute name itself for JSON-column
+  // warehouses), with one exposure query per identifier. Resolve the assignment
+  // query directly from the selected hash attribute rather than relying on
+  // userIdType.attributes links (which managed warehouses don't populate).
+  if (datasourceType === "growthbook_clickhouse" && dsSettings) {
+    return getManagedWarehouseExposureQueryIdForAttribute({
+      settings: dsSettings as GrowthbookClickhouseSettings,
+      attribute: hashAttribute,
+    });
+  }
+
   if (exposureQueries.length > 1) {
     // A hash attribute can be linked to multiple identifier types, each with
     // its own query. Only auto-select when exactly one query is linked across
@@ -280,6 +300,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       dsSettings: autoDatasource?.settings,
       hashAttribute: watchedHashAttribute,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
+      datasourceType: autoDatasource?.type,
     }) !== "";
   const showLinkIdentifierCallout =
     !!autoDatasource &&
@@ -356,12 +377,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       project,
       templateDatasource: data.datasource || "",
     });
+    const selectedDatasource = datasource
+      ? getDatasourceById(datasource)
+      : null;
     const exposureQueryId = getAutoExposureQueryId({
-      dsSettings: datasource
-        ? getDatasourceById(datasource)?.settings
-        : undefined,
+      dsSettings: selectedDatasource?.settings,
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
+      datasourceType: selectedDatasource?.type,
     });
 
     data = {
