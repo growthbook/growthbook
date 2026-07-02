@@ -102,6 +102,34 @@ export function getGrowthBookRequestUrl(
   return `${req.protocol}://${host}${req.originalUrl}`;
 }
 
+const GB_SESSION_ID_HEADER = "x-gb-session-id";
+const GB_DEVICE_ID_HEADER = "x-gb-device-id";
+const GB_PAGE_ID_HEADER = "x-gb-page-id";
+
+/**
+ * Session, device, and page IDs from the front-end (headers) or shared cookies.
+ * Cross-origin API calls do not send cookies, so the front-end also sends X-GB-* headers.
+ */
+export function getGrowthBookTrackingAttributes(
+  req: Pick<Request, "cookies" | "get">,
+): {
+  session_id?: string;
+  device_id?: string;
+  page_id?: string;
+} {
+  const session_id =
+    req.get(GB_SESSION_ID_HEADER) || req.cookies["gb_session_id"] || undefined;
+  const device_id =
+    req.get(GB_DEVICE_ID_HEADER) || req.cookies["gb_device_id"] || undefined;
+  const page_id = req.get(GB_PAGE_ID_HEADER) || undefined;
+
+  return {
+    ...(session_id ? { session_id } : {}),
+    ...(device_id ? { device_id } : {}),
+    ...(page_id ? { page_id } : {}),
+  };
+}
+
 /**
  * Get the singleton GrowthBookClient instance
  * This provides 3x performance improvement over creating new instances per request

@@ -463,6 +463,15 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Organization",
+      "X-SSO-Connection-ID",
+      "X-GB-Session-Id",
+      "X-GB-Device-Id",
+      "X-GB-Page-Id",
+    ],
   }),
 );
 

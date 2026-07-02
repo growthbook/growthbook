@@ -46,6 +46,7 @@ import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
 import {
   getGrowthBookClient,
   getGrowthBookRequestUrl,
+  getGrowthBookTrackingAttributes,
 } from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
@@ -343,6 +344,8 @@ export async function processJWT(
           res: res as any,
         });
 
+        const trackingAttributes = getGrowthBookTrackingAttributes(req);
+
         // Define user attributes
         // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
         const attributes = {
@@ -358,7 +361,9 @@ export async function processJWT(
           orgDateCreated: org?.dateCreated
             ? new Date(org.dateCreated).toISOString()
             : "",
-          anonymous_id: req.cookies["gb_device_id"],
+          ...trackingAttributes,
+          anonymous_id:
+            trackingAttributes.device_id || req.cookies["gb_device_id"],
           role: org?.members.find((m) => m.id === user.id)?.role,
           hasLicenseKey: org?.licenseKey ? true : false,
           configFile: usingFileConfig(),

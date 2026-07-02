@@ -288,6 +288,19 @@ function getOrGenerateSessionId() {
   return sessionId;
 }
 
+/** Forward browser GB identity to the API for backend SDK tracking events. */
+export function getGrowthBookTrackingHeaders(): Record<string, string> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  return {
+    "X-GB-Session-Id": getOrGenerateSessionId(),
+    "X-GB-Device-Id": getOrGenerateDeviceId(),
+    "X-GB-Page-Id": getOrGeneratePageId(),
+  };
+}
+
 // Used to describe account plan in text
 export function planNameFromAccountPlan(accountPlan?: AccountPlan) {
   if (!accountPlan) {
