@@ -7,6 +7,9 @@ import { ApprovalFlowConfigurations } from "shared/types/organization";
 // and the reference detector (validators/constant) so they can't drift.
 export const CONSTANT_EXTENDS_KEY = "$extends";
 
+export const GB_SDK_ID_DEV = "sdk-UmQ03OkUDAu7Aox";
+export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
+
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;

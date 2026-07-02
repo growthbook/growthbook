@@ -71,6 +71,21 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+export function getJitsuAnonymousId(): string {
+  const jitsu = getJitsuClient();
+  if (
+    jitsu &&
+    "getAnonymousId" in jitsu &&
+    typeof jitsu.getAnonymousId === "function"
+  ) {
+    const anonymousId = jitsu.getAnonymousId();
+    if (typeof anonymousId === "string") {
+      return anonymousId;
+    }
+  }
+  return "";
+}
+
 const getHost = () => {
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);

@@ -12,7 +12,7 @@
     "type-check": "tsgo --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
     "test": "vitest run",
-    "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
+    "type-gen": "pnpm --filter shared type-gen"
   },
   "dependencies": {
     "@dnd-kit/core": "^5.0.0",
