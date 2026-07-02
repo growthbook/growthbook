@@ -5,6 +5,7 @@ import {
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
+import { EventForwarderCloud, EventForwarderCloudRegion } from "shared/util";
 import {
   EventForwarderConfigInterface,
   EventForwarderConnectorPhase,
@@ -26,6 +27,7 @@ import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
 } from "back-end/src/services/eventForwarder/config";
+import { deriveEventForwarderCloudRegion } from "back-end/src/services/eventForwarder/clusterRegion";
 import {
   ensureEventForwarderBigQueryTables,
   resolveBigQueryEventForwarderTablePrefix,
@@ -131,6 +133,8 @@ export async function syncEventForwarderStatusFromLicenseServer(
     organizationId: context.org.id,
     datasourceId: eventForwarderConfig.datasourceId,
     connectorName,
+    cloud: eventForwarderConfig.cloud,
+    region: eventForwarderConfig.region,
   });
 
   const response = buildEventForwarderStatusResponse(connectorStatus);
@@ -212,6 +216,17 @@ export async function provisionEventForwarderThroughLicenseServer(
       connectorName: string;
       connectorId: string;
     };
+    // The cloud/region already persisted on the config (from a prior provision).
+    // Used as a fallback when fresh derivation transiently fails, so we keep
+    // provisioning on the same cluster instead of silently flipping to default.
+    const existingCloudRegion: EventForwarderCloudRegion | null =
+      eventForwarderConfig.cloud && eventForwarderConfig.region
+        ? {
+            cloud: eventForwarderConfig.cloud,
+            region: eventForwarderConfig.region,
+          }
+        : null;
+    let derivedCloudRegion: EventForwarderCloudRegion | null = null;
 
     switch (eventForwarderConfig.sinkType) {
       case "bigquery": {
@@ -252,6 +267,15 @@ export async function provisionEventForwarderThroughLicenseServer(
           serviceAccountKey: decrypted.serviceAccountKey,
         });
 
+        derivedCloudRegion =
+          (await deriveEventForwarderCloudRegion({
+            context,
+            datasource,
+            sinkType: "bigquery",
+            decryptedConfig: decrypted,
+            datasourceParams: bigqueryConnectionParams,
+          })) ?? existingCloudRegion;
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -265,6 +289,8 @@ export async function provisionEventForwarderThroughLicenseServer(
           connectorName:
             eventForwarderConfig.connectorName?.trim() || undefined,
           connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+          cloud: derivedCloudRegion?.cloud,
+          region: derivedCloudRegion?.region,
         });
         break;
       }
@@ -283,6 +309,15 @@ export async function provisionEventForwarderThroughLicenseServer(
           }),
         );
 
+        derivedCloudRegion =
+          (await deriveEventForwarderCloudRegion({
+            context,
+            datasource,
+            sinkType: "snowflake",
+            decryptedConfig: decrypted,
+            datasourceParams: datasourceParams as SnowflakeConnectionParams,
+          })) ?? existingCloudRegion;
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -293,6 +328,8 @@ export async function provisionEventForwarderThroughLicenseServer(
           connectorName:
             eventForwarderConfig.connectorName?.trim() || undefined,
           connectorId: eventForwarderConfig.connectorId?.trim() || undefined,
+          cloud: derivedCloudRegion?.cloud,
+          region: derivedCloudRegion?.region,
         });
         break;
       }
@@ -309,6 +346,13 @@ export async function provisionEventForwarderThroughLicenseServer(
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
+        // Always persist the cloud/region the connector was actually provisioned
+        // with (matching the provision payload), so later status/pause/resume/
+        // teardown calls route to the same cluster. `derivedCloudRegion` already
+        // falls back to the previously stored value on transient derivation
+        // failures, so this never leaves a stale mismatch.
+        cloud: derivedCloudRegion?.cloud,
+        region: derivedCloudRegion?.region,
       });
 
     try {
@@ -370,6 +414,8 @@ export async function provisionEventForwarderThroughLicenseServer(
         organizationId: context.org.id,
         datasourceId: eventForwarderConfig.datasourceId,
         connectorName: result.connectorName,
+        cloud: derivedCloudRegion?.cloud,
+        region: derivedCloudRegion?.region,
       });
     }
   } catch (error) {
@@ -451,6 +497,8 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           tablePrefix,
           bigqueryDataset: decrypted.dataset.trim(),
           serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
+          cloud: eventForwarderConfig.cloud,
+          region: eventForwarderConfig.region,
         });
         break;
       }
@@ -466,6 +514,8 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           connectorName,
           sinkType: "snowflake",
           snowflake: decrypted,
+          cloud: eventForwarderConfig.cloud,
+          region: eventForwarderConfig.region,
         });
         break;
       }
@@ -525,6 +575,8 @@ export async function pauseEventForwarderThroughLicenseServer(
       organizationId: context.org.id,
       datasourceId: eventForwarderConfig.datasourceId,
       connectorName,
+      cloud: eventForwarderConfig.cloud,
+      region: eventForwarderConfig.region,
     });
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -572,6 +624,8 @@ export async function resumeEventForwarderThroughLicenseServer(
       organizationId: context.org.id,
       datasourceId: eventForwarderConfig.datasourceId,
       connectorName,
+      cloud: eventForwarderConfig.cloud,
+      region: eventForwarderConfig.region,
     });
 
     await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
@@ -608,6 +662,8 @@ export async function teardownEventForwarderInfrastructureRemote(snapshot: {
   topic?: string;
   connectorName?: string;
   connectorId?: string;
+  cloud?: EventForwarderCloud;
+  region?: string;
 }): Promise<void> {
   await postTeardownEventForwarderToLicenseServer({
     organizationId: snapshot.organizationId,
@@ -616,5 +672,7 @@ export async function teardownEventForwarderInfrastructureRemote(snapshot: {
     topic: snapshot.topic,
     connectorName: snapshot.connectorName,
     connectorId: snapshot.connectorId,
+    cloud: snapshot.cloud,
+    region: snapshot.region,
   });
 }

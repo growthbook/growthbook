@@ -54,6 +54,8 @@ async function deleteEventForwarderAndTeardown({
     topic: existing.topic?.trim() || undefined,
     connectorName: existing.connectorName?.trim() || undefined,
     connectorId: existing.connectorId?.trim() || undefined,
+    cloud: existing.cloud,
+    region: existing.region,
     eventForwarderConfigId: existing.id,
   };
 
@@ -75,6 +77,8 @@ async function deleteEventForwarderAndTeardown({
           topic: snapshot.topic,
           connectorName: snapshot.connectorName,
           connectorId: snapshot.connectorId,
+          cloud: snapshot.cloud,
+          region: snapshot.region,
         });
         logger.info(
           {

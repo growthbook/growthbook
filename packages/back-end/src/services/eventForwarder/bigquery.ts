@@ -165,6 +165,27 @@ export async function resolveBigQueryEventForwarderTablePrefix(
   return trimmed;
 }
 
+/**
+ * Reads the BigQuery dataset's location (e.g. "us-central1", "US", "EU"),
+ * used to derive the event forwarder's cloud+region for cluster routing.
+ * Returns null when the location can't be determined.
+ */
+export async function getBigQueryEventForwarderDatasetLocation(params: {
+  projectId: string;
+  dataset: string;
+  serviceAccountKey?: string;
+}): Promise<string | null> {
+  const client = buildBigQueryClient(
+    params.projectId,
+    params.serviceAccountKey,
+  );
+  const [metadata] = await client.dataset(params.dataset).getMetadata();
+  const location = (metadata as { location?: unknown })?.location;
+  return typeof location === "string" && location.trim()
+    ? location.trim()
+    : null;
+}
+
 export type EnsureEventForwarderBigQueryTablesParams = {
   projectId: string;
   dataset: string;
