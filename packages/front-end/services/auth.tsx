@@ -42,6 +42,10 @@ export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
 
+export function isExternalApiPath(url: string): boolean {
+  return /^\/api\/v\d/.test(url);
+}
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
@@ -188,7 +192,9 @@ function getDetailedError(error: string): string | ReactElement {
           environment variables{" "}
           <code className="font-weight-bold">APP_ORIGIN</code> and{" "}
           <code className="font-weight-bold">API_HOST</code>.{" "}
-          <DocLink docSection="config_domains_and_ports">View docs</DocLink>
+          <DocLink useRadix={false} docSection="config_domains_and_ports">
+            View docs
+          </DocLink>
         </div>
       );
     }
@@ -276,6 +282,7 @@ export const AuthProvider: React.FC<{
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            useRadixButton={false}
             trackingEventModalType=""
             open={true}
             submit={async () => {
@@ -357,7 +364,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = "include";
+      init.credentials = isExternalApiPath(url) ? "omit" : "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -377,6 +384,14 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
+        if (
+          !response.ok &&
+          responseData &&
+          typeof responseData === "object" &&
+          typeof responseData.status !== "number"
+        ) {
+          responseData.status = response.status;
+        }
       }
 
       return responseData;
@@ -391,7 +406,7 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        init.credentials = "include";
+        init.credentials = isExternalApiPath(url) ? "omit" : "include";
       }
 
       if (init.body && !init.headers["Content-Type"]) {
@@ -587,6 +602,7 @@ export const AuthProvider: React.FC<{
   if (initError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         header="logo"
         open={true}
@@ -613,6 +629,7 @@ export const AuthProvider: React.FC<{
   if (sessionError) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         cta="OK"

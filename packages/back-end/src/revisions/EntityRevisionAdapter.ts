@@ -1,5 +1,27 @@
+import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
+
+/**
+ * Narrow a proposed-changes object to the fields an adapter may write, dropping
+ * undefined or unchanged values. Shared by adapters' `applyChanges`. Lives in
+ * this leaf module (not revisions/util) to avoid an adapter→util→index cycle.
+ */
+export function filterUpdatableChanges(
+  changes: Record<string, unknown>,
+  entity: Record<string, unknown>,
+  updatableFields: ReadonlySet<string>,
+): Record<string, unknown> {
+  const filtered: Record<string, unknown> = {};
+  for (const key of Object.keys(changes)) {
+    if (!updatableFields.has(key)) continue;
+    const newVal = changes[key];
+    if (newVal !== undefined && !isEqual(newVal, entity[key])) {
+      filtered[key] = newVal;
+    }
+  }
+  return filtered;
+}
 
 /**
  * Adapter interface that each entity type must implement to participate in the
@@ -88,4 +110,22 @@ export interface EntityRevisionAdapter<
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
   ): Promise<void>;
+
+  // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
+
+  /**
+   * Whether the caller may ARM a date-based scheduled publish. When absent,
+   * defaults to the `scheduled-revisions` premium feature plus publish
+   * authority (`canPublishRevision`) — so every revisioned entity supports
+   * scheduling out of the box. Override only to narrow it.
+   */
+  canSchedulePublish?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Publish authority over the entity — gates publishing, canceling a pending
+   * schedule, and taking one over. Defaults to `canUpdate` when absent.
+   * Override when publish authority differs from edit (e.g. an
+   * environment-scoped publish permission).
+   */
+  canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
 }

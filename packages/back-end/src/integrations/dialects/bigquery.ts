@@ -215,6 +215,8 @@ export const bigQueryDialect: SqlDialect = {
       valueExpr: "col.value",
     };
   },
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[SAFE_OFFSET(${index})]`,
 
   // APPROX_TOP_COUNT(expr, k) returns ARRAY<STRUCT<value, count>> per column;
   // pack the per-column structs into one array and double-UNNEST back to long

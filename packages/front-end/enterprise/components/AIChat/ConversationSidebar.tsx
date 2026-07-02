@@ -56,6 +56,7 @@ export default function ConversationSidebar({
 
       {confirmDeleteId && onDelete && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Delete conversation"
           close={() => setConfirmDeleteId(null)}

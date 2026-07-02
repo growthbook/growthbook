@@ -4,7 +4,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { getSnapshotAnalysis } from "shared/util";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
@@ -30,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export interface Props {
   value: string;
@@ -456,7 +457,9 @@ export default function DimensionChooser({
 
   return (
     <Flex direction="row" gap="2" align="center">
-      <Text weight="medium">Unit Dimension:</Text>
+      <Text weight="semibold" color="text-high">
+        Unit Dimension:
+      </Text>
       <DropdownMenu
         trigger={
           <Link type="button" style={{ color: "var(--color-text-high)" }}>

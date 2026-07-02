@@ -583,6 +583,7 @@ export default function FeaturesHeader({
       )}
       {watchersModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Feature Watchers"

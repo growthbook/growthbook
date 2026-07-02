@@ -303,7 +303,7 @@ export default function ExperimentGraph({
           />
         </div>
         <div className="pt-2">
-          <MoreMenu>
+          <MoreMenu useRadix={false}>
             <div className="p-2 px-3">Download data as CSV...</div>
             <a
               href="#"

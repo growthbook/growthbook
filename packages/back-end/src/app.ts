@@ -152,6 +152,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -961,6 +962,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.post(
+  "/feature/:id/:version/contextual-bandit",
+  featuresController.postFeatureContextualBanditRefRule,
+);
 app.delete(
   "/experiment/:id/linked-feature/:featureId",
   experimentsController.deleteExperimentLinkedFeature,
@@ -1173,6 +1178,8 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/upload", uploadRouter);
+
+app.use("/session-replay", sessionReplayRouter);
 
 // Teams
 app.use("/teams", teamRouter);
