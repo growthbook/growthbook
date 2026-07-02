@@ -29,8 +29,7 @@ export function isGrowthBookTelemetryEnabled(): boolean {
 
 export function isGrowthBookTelemetryDebug(): boolean {
   return (
-    DISABLE_TELEMETRY === "debug" ||
-    DISABLE_TELEMETRY === "enable-with-debug"
+    DISABLE_TELEMETRY === "debug" || DISABLE_TELEMETRY === "enable-with-debug"
   );
 }
 
