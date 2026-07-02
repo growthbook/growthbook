@@ -50,6 +50,7 @@ const ExperimentPage = (): ReactElement => {
   const [trafficFocusVariation, setTrafficFocusVariation] = useState<
     string | null
   >(null);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
   const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
@@ -142,6 +143,13 @@ const ExperimentPage = (): ReactElement => {
   const editTraffic = canRunExperiment
     ? (variationId?: string) => {
         setTrafficFocusVariation(variationId ?? null);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
         setTrafficModalOpen(true);
       }
     : null;
@@ -255,11 +263,13 @@ const ExperimentPage = (): ReactElement => {
           close={() => {
             setTrafficModalOpen(false);
             setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
           }}
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
           focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
         />
       )}
       {namespaceModalOpen && (
@@ -306,6 +316,7 @@ const ExperimentPage = (): ReactElement => {
           envs={envs}
           editTargeting={editTargeting}
           editTraffic={editTraffic}
+          addVariation={addVariation}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

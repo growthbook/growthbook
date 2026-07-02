@@ -33,6 +33,8 @@ export interface Props {
   safeToEdit: boolean;
   // Auto-focus this variation's Name field when the modal opens.
   focusVariationId?: string | null;
+  // Append a new variation on open and focus its Name field.
+  addVariationOnOpen?: boolean;
 }
 
 export default function EditTrafficModal({
@@ -41,6 +43,7 @@ export default function EditTrafficModal({
   mutate,
   safeToEdit,
   focusVariationId,
+  addVariationOnOpen,
 }: Props) {
   const simpleExperimentFlow = useFeatureIsOn("simple-experiment-flow");
 
@@ -51,6 +54,7 @@ export default function EditTrafficModal({
         experiment={experiment}
         mutate={mutate}
         focusVariationId={focusVariationId}
+        addVariationOnOpen={addVariationOnOpen}
       />
     ) : (
       <LegacyEditTrafficForm
@@ -69,11 +73,13 @@ function EditTrafficForm({
   experiment,
   mutate,
   focusVariationId,
+  addVariationOnOpen,
 }: {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   focusVariationId?: string | null;
+  addVariationOnOpen?: boolean;
 }) {
   const { apiCall } = useAuth();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -195,6 +201,7 @@ function EditTrafficForm({
           showPreview
           showDescriptions
           autoFocusVariationId={focusVariationId}
+          autoAddVariationOnMount={addVariationOnOpen}
         />
       </div>
     </ModalStandard>

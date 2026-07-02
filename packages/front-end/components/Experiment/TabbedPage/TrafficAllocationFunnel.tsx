@@ -30,6 +30,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
   editNamespace?: (() => void) | null;
+  addVariation?: (() => void) | null;
   setEditVariationIndex?: (index: number) => void;
   canEditExperiment?: boolean;
   safeToEdit: boolean;
@@ -178,6 +179,7 @@ export default function TrafficAllocationFunnel({
   editTargeting,
   editTraffic,
   editNamespace,
+  addVariation,
   setEditVariationIndex,
   canEditExperiment = false,
   safeToEdit = false,
@@ -373,8 +375,8 @@ export default function TrafficAllocationFunnel({
                 canEditExperiment && editTraffic ? editTraffic : undefined
               }
               onAddVariation={
-                canEditExperiment && !isRunning && editTraffic
-                  ? editTraffic
+                canEditExperiment && !isRunning && addVariation
+                  ? addVariation
                   : undefined
               }
             />

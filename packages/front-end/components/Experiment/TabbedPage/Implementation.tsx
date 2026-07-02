@@ -41,6 +41,7 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   editTraffic?: ((variationId?: string) => void) | null;
+  addVariation?: (() => void) | null;
   editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -62,6 +63,7 @@ export default function Implementation({
   mutate,
   editTargeting,
   editTraffic,
+  addVariation,
   editNamespace,
   editVariations,
   setFeatureModal,
@@ -168,6 +170,9 @@ export default function Implementation({
             }
             editNamespace={
               experiment.nextScheduledStatusUpdate ? null : editNamespace
+            }
+            addVariation={
+              experiment.nextScheduledStatusUpdate ? null : addVariation
             }
             setEditVariationIndex={setEditMetadataIndex}
             canEditExperiment={canEditExperiment}
