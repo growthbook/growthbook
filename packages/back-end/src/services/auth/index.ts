@@ -351,6 +351,7 @@ export async function processJWT(
         const attributes = {
           id: user.id,
           user_id: user.id,
+          request_path: req.path,
           freeSeats: org?.freeSeats,
           discountCode: org?.discountCode,
           organizationId: hashedOrganizationId,
