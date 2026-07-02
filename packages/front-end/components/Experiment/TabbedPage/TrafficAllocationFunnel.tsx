@@ -1,7 +1,11 @@
 import { ReactNode } from "react";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  hasAttributeCondition,
+  hasTargetingConfigured,
+} from "shared/experiments";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -191,11 +195,10 @@ export default function TrafficAllocationFunnel({
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
 
-  const hasConfiguredTargeting =
-    phase &&
-    ((phase.condition && phase.condition !== "{}") ||
-      (phase.savedGroups && phase.savedGroups.length > 0) ||
-      (phase.prerequisites && phase.prerequisites.length > 0));
+  const hasConfiguredTargeting = hasTargetingConfigured(phase);
+  const hasCondition = hasAttributeCondition(phase?.condition);
+  const hasSavedGroups = !!phase?.savedGroups?.length;
+  const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
 
   if (!phase) {
     return (
@@ -266,7 +269,7 @@ export default function TrafficAllocationFunnel({
             <Flex direction="column" gap="3">
               {hasConfiguredTargeting ? (
                 <>
-                  {phase.condition && phase.condition !== "{}" ? (
+                  {hasCondition ? (
                     <div>
                       <Text as="div" color="text-high" weight="semibold" mb="2">
                         Attribute Targeting
@@ -274,7 +277,7 @@ export default function TrafficAllocationFunnel({
                       <ConditionDisplay condition={phase.condition} />
                     </div>
                   ) : null}
-                  {phase.savedGroups?.length ? (
+                  {hasSavedGroups ? (
                     <div>
                       <Text as="div" color="text-high" weight="semibold" mb="2">
                         Saved Group Targeting
@@ -284,7 +287,7 @@ export default function TrafficAllocationFunnel({
                       />
                     </div>
                   ) : null}
-                  {!isHoldout && phase.prerequisites?.length ? (
+                  {hasPrerequisites ? (
                     <div>
                       <Text as="div" color="text-high" weight="semibold" mb="2">
                         Prerequisite Targeting

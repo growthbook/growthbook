@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
+import { hasTargetingConfigured } from "shared/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -55,10 +56,7 @@ export default function TrafficAndTargeting({
   const isHoldout = experiment.type === "holdout";
   const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
 
-  const hasConfiguredTargeting =
-    (phase?.condition && phase.condition !== "{}") ||
-    (phase?.savedGroups && phase.savedGroups.length > 0) ||
-    (phase?.prerequisites && phase.prerequisites.length > 0);
+  const hasConfiguredTargeting = hasTargetingConfigured(phase);
 
   return (
     <>
