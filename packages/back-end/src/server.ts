@@ -11,7 +11,7 @@ import {
 
 // Initialize GrowthBook singleton before starting server
 initializeGrowthBookClient().catch((error) => {
-  logger.error("Failed to initialize GrowthBook at startup", { error });
+  logger.error({ err: error }, "Failed to initialize GrowthBook at startup");
 });
 
 const server = app.listen(app.get("port"), () => {

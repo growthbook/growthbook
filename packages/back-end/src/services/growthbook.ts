@@ -120,16 +120,16 @@ export async function initializeGrowthBookClient(): Promise<void> {
         });
 
         if (!success) {
-          logger.warn("GrowthBook features not loaded", { source, error });
+          logger.warn({ source, err: error }, "GrowthBook features not loaded");
         } else {
-          logger.info("GrowthBook client initialized successfully", {
-            source,
-            streaming: true,
-          });
+          logger.info(
+            { source, streaming: true },
+            "GrowthBook client initialized successfully",
+          );
         }
       }
     } catch (error) {
-      logger.error("Failed to initialize GrowthBook client", { error });
+      logger.error({ err: error }, "Failed to initialize GrowthBook client");
       // Don't throw - allow app to continue without feature flags
     }
   })();
