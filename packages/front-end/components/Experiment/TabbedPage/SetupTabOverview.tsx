@@ -18,7 +18,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Callout from "@/ui/Callout";
@@ -184,19 +183,23 @@ export default function SetupTabOverview({
                 content="Scheduled start date has passed—edit scheduled time"
                 enabled={showScheduleIsInThePastWarning}
               >
-                <Button variant="ghost" onClick={() => editSchedule()}>
-                  {showScheduleIsInThePastWarning && (
-                    <PiWarningFill color="var(--warning)" className="mr-1" />
-                  )}
-                  Target Start:{" "}
-                  {experiment.statusUpdateSchedule?.startAt
-                    ? format(
-                        new Date(experiment.statusUpdateSchedule.startAt),
-                        "MMM d, yyyy 'at' h:mm a (z)",
-                      )
-                    : ""}{" "}
-                  <PiPencilSimpleFill className="ml-1" />
-                </Button>
+                <Link onClick={() => editSchedule()}>
+                  <Flex align="center" gap="1">
+                    {showScheduleIsInThePastWarning && (
+                      <PiWarningFill color="var(--warning)" />
+                    )}
+                    <Text weight="semibold">
+                      Target Start:{" "}
+                      {experiment.statusUpdateSchedule?.startAt
+                        ? format(
+                            new Date(experiment.statusUpdateSchedule.startAt),
+                            "MMM d, yyyy 'at' h:mm a (z)",
+                          )
+                        : ""}
+                    </Text>
+                    <PiPencilSimpleFill />
+                  </Flex>
+                </Link>
               </Tooltip>
             ) : null}
           </Flex>
