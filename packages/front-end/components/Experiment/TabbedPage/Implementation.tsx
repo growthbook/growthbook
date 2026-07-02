@@ -29,6 +29,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Frame from "@/ui/Frame";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -221,8 +222,10 @@ export default function Implementation({
           />
         ) : null}
         {isHoldout && holdout ? (
-          <div className="box p-4 my-4">
-            <h4>Included Experiments & Features</h4>
+          <Frame>
+            <Heading color="text-high" as="h4" size="small" mb="0">
+              Included Experiments & Features
+            </Heading>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
             {experiment.status === "draft" ? (
               <Text>
@@ -298,7 +301,7 @@ export default function Implementation({
                 weight="regular"
               />
             </Flex>
-          </div>
+          </Frame>
         ) : null}
         {(experiment.status !== "draft" ||
           !!experiment.nextScheduledStatusUpdate) &&
