@@ -121,6 +121,7 @@ const GB_SESSION_ID_HEADER = "x-gb-session-id";
 const GB_DEVICE_ID_HEADER = "x-gb-device-id";
 const GB_PAGE_ID_HEADER = "x-gb-page-id";
 const GB_PAGE_URL_HEADER = "x-gb-page-url";
+const GB_PAGE_PATH_HEADER = "x-gb-page-path";
 const GB_ANONYMOUS_ID_HEADER = "x-gb-anonymous-id";
 
 /**
@@ -135,6 +136,7 @@ export function getGrowthBookTrackingAttributes(
   device_id?: string;
   page_id?: string;
   anonymous_id?: string;
+  url?: string;
   ip?: string;
   ua?: string;
 } {
@@ -144,6 +146,7 @@ export function getGrowthBookTrackingAttributes(
     req.get(GB_DEVICE_ID_HEADER) || req.cookies["gb_device_id"] || undefined;
   const page_id = req.get(GB_PAGE_ID_HEADER) || undefined;
   const anonymous_id = req.get(GB_ANONYMOUS_ID_HEADER) || undefined;
+  const url = req.get(GB_PAGE_PATH_HEADER) || undefined;
   const ip = req.ip || undefined;
   const ua = (req.headers["user-agent"] as string) || undefined;
 
@@ -152,6 +155,7 @@ export function getGrowthBookTrackingAttributes(
     ...(device_id ? { device_id } : {}),
     ...(page_id ? { page_id } : {}),
     ...(anonymous_id ? { anonymous_id } : {}),
+    ...(url ? { url } : {}),
     ...(ip ? { ip } : {}),
     ...(ua ? { ua } : {}),
   };

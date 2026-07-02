@@ -405,6 +405,7 @@ const GROWTHBOOK_TRACKING_HEADERS = [
   "X-GB-Device-Id",
   "X-GB-Page-Id",
   "X-GB-Page-Url",
+  "X-GB-Page-Path",
   "X-GB-Anonymous-Id",
 ] as const;
 

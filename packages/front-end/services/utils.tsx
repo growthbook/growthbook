@@ -290,7 +290,9 @@ function getOrGenerateSessionId() {
 }
 
 /** Forward browser GB identity to the API for backend SDK tracking events. */
-export function getGrowthBookTrackingHeaders(): Record<string, string> {
+export function getGrowthBookTrackingHeaders(
+  pagePath?: string,
+): Record<string, string> {
   if (typeof window === "undefined" || (!isCloud() && !isLocalhost())) {
     return {};
   }
@@ -301,6 +303,10 @@ export function getGrowthBookTrackingHeaders(): Record<string, string> {
     "X-GB-Page-Id": getOrGeneratePageId(),
     "X-GB-Page-Url": window.location.href,
   };
+
+  if (pagePath) {
+    headers["X-GB-Page-Path"] = pagePath;
+  }
 
   const anonymousId = getJitsuAnonymousId();
   if (anonymousId) {

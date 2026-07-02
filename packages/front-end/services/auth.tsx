@@ -371,7 +371,10 @@ export const AuthProvider: React.FC<{
         init.headers["X-Organization"] = orgId;
       }
 
-      Object.assign(init.headers, getGrowthBookTrackingHeaders());
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
 
       const response = await fetch(getApiHost() + url, init);
 
@@ -387,7 +390,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [orgId],
+    [orgId, router.pathname],
   );
 
   const fetchRaw = useCallback(
@@ -408,7 +411,10 @@ export const AuthProvider: React.FC<{
         init.headers["X-Organization"] = orgId;
       }
 
-      Object.assign(init.headers, getGrowthBookTrackingHeaders());
+      Object.assign(
+        init.headers,
+        getGrowthBookTrackingHeaders(router.pathname),
+      );
 
       const response = await fetch(getApiHost() + url, init);
 
@@ -455,7 +461,7 @@ export const AuthProvider: React.FC<{
 
       return response;
     },
-    [orgId, token],
+    [orgId, token, router.pathname],
   );
 
   // Register a warning request; all pending requests share one dialog.
