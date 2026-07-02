@@ -94,8 +94,7 @@ export function useRestApiCall() {
           method: spec.method.toUpperCase(),
           body: body ? JSON.stringify(body) : undefined,
           headers,
-          // We aren't using cookies, only auth headers
-          credentials: "omit",
+          credentials: "include",
         });
 
       let response = await issue(url);
