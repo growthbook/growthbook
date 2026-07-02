@@ -5,7 +5,7 @@ import {
   EVENT_FEATURE_EVALUATED,
 } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
-import * as EventSource from "eventsource";
+import { EventSource } from "eventsource";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
 import {
