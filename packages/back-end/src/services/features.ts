@@ -900,6 +900,7 @@ export async function refreshSDKPayloadCache({
         const contents = await buildSDKPayloadForConnection({
           context,
           connection: {
+            id: connection.id,
             capabilities,
             environment: env,
             projects: filteredProjects,
@@ -921,6 +922,7 @@ export async function refreshSDKPayloadCache({
             allowedCustomFieldsInMetadata:
               connection.allowedCustomFieldsInMetadata,
             includeTagsInMetadata: connection.includeTagsInMetadata,
+            sessionReplayEnabled: connection.sessionReplayEnabled,
           },
           data: { ...rawData, holdoutsMap, constantMap: constantMapByEnv[env] },
         });
@@ -992,6 +994,16 @@ export async function refreshSDKPayloadCache({
   );
 }
 
+// Session-replay capture config delivered in the SDK payload. Shaped as a
+// `rules` array (Stage 1 emits a single global-rate rule) so future conditional
+// sampling (§14) can add per-rule conditions without a breaking change.
+// Only the enable/disable flag rides the payload (kept minimal for size).
+// Sampling controls (rate, min-duration) are configured in the SDK init code
+// for now — revisit moving them here in fast-follow plan §12.3 Phase 2.
+export type SessionReplaySDKPayload = {
+  enabled: boolean;
+};
+
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -1006,6 +1018,7 @@ export type FeatureDefinitionsResponseArgs = {
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
+  sessionReplay?: SessionReplaySDKPayload;
 };
 export async function getFeatureDefinitionsResponse({
   features,
@@ -1020,6 +1033,7 @@ export async function getFeatureDefinitionsResponse({
   usedSavedGroups,
   savedGroupReferencesEnabled,
   organization,
+  sessionReplay,
 }: FeatureDefinitionsResponseArgs): Promise<{
   features: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -1028,6 +1042,7 @@ export async function getFeatureDefinitionsResponse({
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  sessionReplay?: SessionReplaySDKPayload;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1108,6 +1123,8 @@ export async function getFeatureDefinitionsResponse({
       ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
       savedGroups: savedGroupsForPayload,
+      // Session replay config is not feature data — always plaintext.
+      ...(sessionReplay && { sessionReplay }),
     };
   }
 
@@ -1131,6 +1148,8 @@ export async function getFeatureDefinitionsResponse({
     encryptedFeatures,
     ...(encryptedExperiments !== undefined && { encryptedExperiments }),
     encryptedSavedGroups: encryptedSavedGroups,
+    // Session replay config is not feature data — always plaintext.
+    ...(sessionReplay && { sessionReplay }),
   };
 }
 
@@ -1153,6 +1172,7 @@ export type FeatureDefinitionArgs = {
   includeTagsInMetadata?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  sessionReplayEnabled?: boolean;
 };
 
 // Pre-fetched data to build one connection's payload. Bulk refresh shares this and adds holdoutsMap per env; may include visualExperiments/urlRedirectExperiments to avoid repeated DB queries.
@@ -1180,6 +1200,8 @@ export type SDKPayloadRawData = {
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
 export type ConnectionPayloadOptions = {
+  // SDK connection id — used to check per-connection operator kill membership.
+  id?: string;
   capabilities: SDKCapability[];
   environment: string;
   projects: string[] | null;
@@ -1197,6 +1219,7 @@ export type ConnectionPayloadOptions = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  sessionReplayEnabled?: boolean;
 };
 
 // Full input for building one connection's SDK payload
@@ -1228,6 +1251,7 @@ export async function buildSDKPayloadForConnection(
 ): Promise<FeatureDefinitionSDKPayload> {
   const { context, connection, data } = input;
   const {
+    id: connectionId,
     capabilities,
     environment = "production",
     projects,
@@ -1244,7 +1268,30 @@ export async function buildSDKPayloadForConnection(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
+    sessionReplayEnabled,
   } = connection;
+
+  // Operator break-glass: when a super-admin has force-disabled session replay
+  // for the org (blanket) or this specific connection, always emit the block
+  // with enabled:false so the SDK is forced off regardless of the connection's
+  // own toggle (Phase 2 §12.1b/§12.1c). Otherwise only emit when the connection
+  // has configured the toggle; when unset, omit so the SDK uses its init config.
+  // NB: only `enabled` rides the payload — sampling stays in the SDK init config
+  // for now (fast-follow plan §12.3 Phase 2).
+  const orgSessionReplayKilled =
+    context.org.sessionReplayDisabled === true ||
+    (!!connectionId &&
+      (context.org.sessionReplayDisabledConnectionIds ?? []).includes(
+        connectionId,
+      ));
+  const sessionReplay: SessionReplaySDKPayload | undefined =
+    !orgSessionReplayKilled && sessionReplayEnabled === undefined
+      ? undefined
+      : {
+          enabled: orgSessionReplayKilled
+            ? false
+            : (sessionReplayEnabled ?? false),
+        };
 
   if (projects === null) {
     return {
@@ -1252,6 +1299,7 @@ export async function buildSDKPayloadForConnection(
       experiments: [],
       dateUpdated: new Date(),
       savedGroups: {},
+      ...(sessionReplay && { sessionReplay }),
     };
   }
 
@@ -1399,6 +1447,7 @@ export async function buildSDKPayloadForConnection(
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
     organization: context.org,
+    sessionReplay,
   });
 }
 
@@ -1410,6 +1459,7 @@ export type FeatureDefinitionSDKPayload = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  sessionReplay?: SessionReplaySDKPayload;
 };
 
 export async function getFeatureDefinitions(
@@ -1449,6 +1499,7 @@ export async function getFeatureDefinitions(
       includeCustomFieldsInMetadata: args.includeCustomFieldsInMetadata,
       allowedCustomFieldsInMetadata: args.allowedCustomFieldsInMetadata,
       includeTagsInMetadata: args.includeTagsInMetadata,
+      sessionReplayEnabled: args.sessionReplayEnabled,
     },
     data: {
       features: allFeatures,

@@ -428,6 +428,12 @@ export interface OrganizationInterface {
   disabled?: boolean;
   suspended?: boolean;
   setupEventTracker?: string;
+  // Operator break-glass: when true, session recording is force-disabled for the
+  // org regardless of the org's own SDK-connection toggle. Set only via
+  // super-admin tooling — deliberately top-level (not under customer-editable
+  // settings) so the org cannot re-enable itself. Mirrors `disabled`/`suspended`.
+  sessionReplayDisabled?: boolean;
+  sessionReplayDisabledConnectionIds?: string[];
 }
 
 export type NamespaceUsage = Record<

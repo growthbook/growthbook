@@ -76,6 +76,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
   eventTracker: String,
+  sessionReplayEnabled: Boolean,
   managedBy: {},
   key: {
     type: String,
@@ -213,6 +214,7 @@ export const createSDKConnectionValidator = z
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
+    sessionReplayEnabled: z.boolean().optional(),
     managedBy: managedByValidator.optional(),
   })
   .strict();
@@ -321,6 +323,7 @@ export const editSDKConnectionValidator = z
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
     eventTracker: z.string().optional(),
+    sessionReplayEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -390,6 +393,7 @@ export async function editSDKConnection(
     "allowedCustomFieldsInMetadata",
     "includeTagsInMetadata",
     "savedGroupReferencesEnabled",
+    "sessionReplayEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {

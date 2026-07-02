@@ -55,6 +55,16 @@ const EditOrganization: FC<{
     currentOrg.disableSelfServeBilling || false,
   );
   const [suspended, setSuspended] = useState(currentOrg.suspended || false);
+  const [sessionReplayDisabled, setSessionReplayDisabled] = useState(
+    currentOrg.sessionReplayDisabled || false,
+  );
+  const [
+    sessionReplayDisabledConnectionIds,
+    setSessionReplayDisabledConnectionIds,
+  ] = useState<string[]>(currentOrg.sessionReplayDisabledConnectionIds || []);
+  const [sdkConnections, setSdkConnections] = useState<
+    { id: string; name: string; key: string }[]
+  >([]);
   const [messages, setMessages] = useState<MessageWithId[]>(
     (currentOrg.messages || []).map((m) => ({
       ...m,
@@ -105,6 +115,33 @@ const EditOrganization: FC<{
     refreshEventForwarders();
   }, [refreshEventForwarders]);
 
+  // Load the org's SDK connections so a super-admin can disable session
+  // recording per connection (or all). Uses the X-Organization override.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiCall<{
+          connections: { id: string; name: string; key: string }[];
+        }>("/sdk-connections", { headers: { "X-Organization": id } });
+        if (!cancelled) {
+          setSdkConnections(
+            (res.connections || []).map((c) => ({
+              id: c.id,
+              name: c.name,
+              key: c.key,
+            })),
+          );
+        }
+      } catch {
+        // Non-fatal: the checklist just won't render per-connection rows.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiCall, id]);
+
   const handleSubmit = async () => {
     await apiCall<{
       status: number;
@@ -123,6 +160,8 @@ const EditOrganization: FC<{
         freeSeats,
         disableSelfServeBilling,
         suspended,
+        sessionReplayDisabled,
+        sessionReplayDisabledConnectionIds,
         messages: messages.map(({ id: _id, ...m }) => m),
       }),
     });
@@ -331,6 +370,53 @@ const EditOrganization: FC<{
                   organization.
                 </span>
               </div>
+            </div>
+            <div className="mt-3">
+              <strong>Session Recording</strong>
+              <div className="mb-2">
+                <span className="text-muted small">
+                  Enable or disable session recording for this org. Disabling
+                  overrides the org&apos;s own SDK settings — the ingestor
+                  rejects replay events (403) and the SDK payload is forced off,
+                  and the org cannot re-enable it themselves.
+                </span>
+              </div>
+              <Checkbox
+                id="sessionReplayDisabled"
+                label="All connections"
+                description={
+                  sessionReplayDisabled
+                    ? "Disabled for the whole org"
+                    : "Enabled (disable to kill recording across every connection)"
+                }
+                value={sessionReplayDisabled}
+                setValue={setSessionReplayDisabled}
+              />
+              {!sessionReplayDisabled && sdkConnections.length > 0 && (
+                <div className="ml-4 mt-2">
+                  {sdkConnections.map((c) => {
+                    const disabled =
+                      sessionReplayDisabledConnectionIds.includes(c.id);
+                    return (
+                      <Checkbox
+                        key={c.id}
+                        id={`sr-disabled-${c.id}`}
+                        mb="2"
+                        label={`${c.name} (${c.key})`}
+                        description={disabled ? "Disabled" : "Enabled"}
+                        value={disabled}
+                        setValue={(val) =>
+                          setSessionReplayDisabledConnectionIds((prev) =>
+                            val
+                              ? [...new Set([...prev, c.id])]
+                              : prev.filter((x) => x !== c.id),
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="mt-3">
               Free Seats
