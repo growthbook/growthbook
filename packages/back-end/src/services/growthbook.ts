@@ -113,26 +113,33 @@ const GB_PAGE_ID_HEADER = "x-gb-page-id";
 const GB_PAGE_URL_HEADER = "x-gb-page-url";
 
 /**
- * Session, device, and page IDs from the front-end (headers) or shared cookies.
+ * Session, device, page IDs, and request context for backend SDK tracking events.
  * Cross-origin API calls do not send cookies, so the front-end also sends X-GB-* headers.
+ * `ip` and `ua` come from the API request so ingestor geo/UA enrichment uses the end-user, not ECS.
  */
 export function getGrowthBookTrackingAttributes(
-  req: Pick<Request, "cookies" | "get">,
+  req: Pick<Request, "cookies" | "get" | "headers" | "ip">,
 ): {
   session_id?: string;
   device_id?: string;
   page_id?: string;
+  ip?: string;
+  ua?: string;
 } {
   const session_id =
     req.get(GB_SESSION_ID_HEADER) || req.cookies["gb_session_id"] || undefined;
   const device_id =
     req.get(GB_DEVICE_ID_HEADER) || req.cookies["gb_device_id"] || undefined;
   const page_id = req.get(GB_PAGE_ID_HEADER) || undefined;
+  const ip = req.ip || undefined;
+  const ua = (req.headers["user-agent"] as string) || undefined;
 
   return {
     ...(session_id ? { session_id } : {}),
     ...(device_id ? { device_id } : {}),
     ...(page_id ? { page_id } : {}),
+    ...(ip ? { ip } : {}),
+    ...(ua ? { ua } : {}),
   };
 }
 
