@@ -260,6 +260,16 @@ tags:
       (publish, discard, revert). Publishing a schema change cascades the "base
       wins" normalization to descendant configs. Pass `version: "new"` on edit
       endpoints to auto-create a draft.
+  - name: custom-hooks
+    x-displayName: Custom Hooks
+    description: >-
+      Sandboxed JavaScript validation hooks that run when features, configs, or
+      their revisions are saved or published. Throwing an Error blocks the save;
+      `addWarning(msg)` raises a soft warning. Hooks are scoped by projects, or
+      pinned to a single feature/config via `entityType`/`entityId`; a
+      config-scoped hook with `includeDescendants` also runs for every config
+      inheriting from it. Scope can be retargeted on update (or cleared with
+      nulls). Requires an enterprise plan; not available on GrowthBook Cloud.
   - name: organizations
     x-displayName: Organizations
     description: >-
@@ -386,6 +396,9 @@ tags:
   - name: CustomField_model
     x-displayName: Custom Field
     description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
+  - name: CustomHook_model
+    x-displayName: Custom Hook
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomHook" />
   - name: Dashboard_model
     x-displayName: Dashboard
     description: <SchemaDefinition schemaRef="#/components/schemas/Dashboard" />
@@ -21018,6 +21031,324 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/configs-revisions/{key}/{version}/revert'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/custom-hooks:
+    get:
+      operationId: listCustomHooks
+      summary: Get all custom hooks
+      tags:
+        - custom-hooks
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      customHooks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CustomHook'
+                    required:
+                      - customHooks
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/custom-hooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postCustomHook
+      summary: Create a single custom hook
+      tags:
+        - custom-hooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: The display name of the custom hook
+                  type: string
+                hook:
+                  type: string
+                  enum:
+                    - validateFeature
+                    - validateFeatureRevision
+                    - validateConfig
+                    - validateConfigRevision
+                code:
+                  type: string
+                enabled:
+                  default: true
+                  type: boolean
+                projects:
+                  description: Project ids the hook applies to (empty/omitted = all)
+                  type: array
+                  items:
+                    type: string
+                entityType:
+                  type: string
+                  enum:
+                    - feature
+                    - config
+                entityId:
+                  type: string
+                includeDescendants:
+                  description: >-
+                    Config scope only: also run the hook for every config that
+                    inherits from entityId (via parent/extends, transitively)
+                  type: boolean
+                incrementalChangesOnly:
+                  type: boolean
+              required:
+                - name
+                - hook
+                - code
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customHook:
+                    $ref: '#/components/schemas/CustomHook'
+                required:
+                  - customHook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/custom-hooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Require a description","hook":"validateFeature","code":"if (!feature.description) {\n  throw new Error(\"Feature must have a description\");\n}"}'
+  /v1/custom-hooks/test:
+    post:
+      operationId: testCustomHook
+      summary: Dry-run hook code in the sandbox
+      tags:
+        - custom-hooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                functionBody:
+                  description: JavaScript function body to execute in the sandbox
+                  type: string
+                functionArgs:
+                  description: >-
+                    Arguments exposed to the function as named globals (e.g.
+                    `feature`, `config`, `revision`)
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties: {}
+                entityType:
+                  type: string
+                  enum:
+                    - feature
+                    - config
+                entityId:
+                  type: string
+              required:
+                - functionBody
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  returnVal:
+                    description: JSON-stringified return value, when the hook returned one
+                    type: string
+                  error:
+                    type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                  log:
+                    description: Captured console output
+                    type: string
+                required:
+                  - success
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/custom-hooks/test' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"functionBody":"if (!feature.description) throw new Error(\"No description\");","functionArgs":{"feature":{"id":"my-feature","description":""}}}'
+  /v1/custom-hooks/{id}:
+    get:
+      operationId: getCustomHook
+      summary: Get a single custom hook
+      tags:
+        - custom-hooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the custom hook
+          schema:
+            description: The id of the custom hook
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customHook:
+                    $ref: '#/components/schemas/CustomHook'
+                required:
+                  - customHook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: updateCustomHook
+      summary: Partially update a single custom hook
+      tags:
+        - custom-hooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the custom hook
+          schema:
+            description: The id of the custom hook
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                hook:
+                  type: string
+                  enum:
+                    - validateFeature
+                    - validateFeatureRevision
+                    - validateConfig
+                    - validateConfigRevision
+                code:
+                  type: string
+                enabled:
+                  type: boolean
+                projects:
+                  type: array
+                  items:
+                    type: string
+                entityType:
+                  description: >-
+                    Retarget the hook's scope (set with entityId). Pass null
+                    (with entityId: null) to make the hook
+                    global/project-scoped; omit to leave unchanged.
+                  anyOf:
+                    - type: string
+                      enum:
+                        - feature
+                        - config
+                    - type: 'null'
+                entityId:
+                  description: >-
+                    The scoped resource: a feature id, or a config key. Pass
+                    null (with entityType: null) to clear the scope; omit to
+                    leave unchanged.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                includeDescendants:
+                  description: >-
+                    Config scope only: also run the hook for every config that
+                    inherits from entityId (via parent/extends, transitively)
+                  type: boolean
+                incrementalChangesOnly:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customHook:
+                    $ref: '#/components/schemas/CustomHook'
+                required:
+                  - customHook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"enabled":false}'
+    delete:
+      operationId: deleteCustomHook
+      summary: Delete a single custom hook
+      tags:
+        - custom-hooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the custom hook
+          schema:
+            description: The id of the custom hook
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
     get:
@@ -43705,6 +44036,78 @@ components:
         - action
         - dateCreated
       additionalProperties: false
+    CustomHook:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hook:
+          description: >-
+            Which save/publish event runs the hook (and which entity type it
+            validates)
+          type: string
+          enum:
+            - validateFeature
+            - validateFeatureRevision
+            - validateConfig
+            - validateConfigRevision
+        code:
+          description: >-
+            JavaScript function body executed in the sandbox. Throw an Error to
+            block the save; call `addWarning(msg)` for a soft warning.
+          type: string
+        enabled:
+          type: boolean
+        projects:
+          description: >-
+            Project ids the hook applies to (empty = all projects). Always empty
+            for entity-scoped hooks.
+          type: array
+          items:
+            type: string
+        entityType:
+          description: Set (with entityId) to scope the hook to a single resource.
+          type: string
+          enum:
+            - feature
+            - config
+        entityId:
+          description: 'The scoped resource: a feature id, or a config key.'
+          type: string
+        includeDescendants:
+          description: >-
+            Config scope only: when true, the hook also runs for every config
+            that inherits from entityId (via parent/extends, transitively)
+          type: boolean
+        incrementalChangesOnly:
+          description: >-
+            When true, errors/warnings that already existed before the change
+            being validated are suppressed
+          type: boolean
+        lastSuccess:
+          format: date-time
+          type: string
+        lastFailure:
+          format: date-time
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - name
+        - hook
+        - code
+        - enabled
+        - projects
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
     Organization:
       type: object
       properties:
@@ -51931,6 +52334,7 @@ x-tagGroups:
       - constant-revisions
       - configs
       - config-revisions
+      - custom-hooks
       - organizations
       - members
       - code-references
@@ -51970,6 +52374,7 @@ x-tagGroups:
       - ConstantRevisionActivityLogEntry_model
       - ConstantRevisionReview_model
       - CustomField_model
+      - CustomHook_model
       - Dashboard_model
       - DataSource_model
       - Dimension_model

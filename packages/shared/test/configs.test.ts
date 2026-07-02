@@ -10,6 +10,7 @@ import {
   getConfigSpineSubtree,
   ensureConfigBacking,
   getAncestorSchemaKeys,
+  getConfigAncestorKeys,
   stripAncestorOwnedFields,
   configIsExtensible,
   stripConfigExtends,
@@ -403,6 +404,56 @@ describe("getAncestorSchemaKeys", () => {
     expect([...getAncestorSchemaKeys(m.get("leaf")!, m)].sort()).toEqual([
       "color",
       "font",
+    ]);
+  });
+});
+
+describe("getConfigAncestorKeys", () => {
+  const byKey = new Map([
+    ["root", {}],
+    ["mid", { parent: "root" }],
+    ["leaf", { parent: "mid" }],
+    ["theme", { parent: "root" }],
+  ]);
+
+  it("collects the transitive parent chain", () => {
+    expect(
+      [...getConfigAncestorKeys(byKey.get("leaf")!, byKey)].sort(),
+    ).toEqual(["mid", "root"]);
+  });
+
+  it("returns an empty set for a root config", () => {
+    expect(getConfigAncestorKeys(byKey.get("root")!, byKey).size).toBe(0);
+  });
+
+  it("walks extends mixins and their own ancestors (DAG, deduped)", () => {
+    const leaf = { parent: "mid", extends: ["theme"] };
+    expect([...getConfigAncestorKeys(leaf, byKey)].sort()).toEqual([
+      "mid",
+      "root",
+      "theme",
+    ]);
+  });
+
+  it("uses the staged bases, not the stored ones", () => {
+    // A publish that re-parents `leaf` under `theme` is judged by its new family.
+    const staged = { parent: "theme" };
+    expect([...getConfigAncestorKeys(staged, byKey)].sort()).toEqual([
+      "root",
+      "theme",
+    ]);
+  });
+
+  it("includes dangling base keys and is cycle-safe", () => {
+    const looped = new Map([
+      ["a", { parent: "b" }],
+      ["b", { parent: "a" }],
+    ]);
+    expect([...getConfigAncestorKeys(looped.get("a")!, looped)].sort()).toEqual(
+      ["a", "b"],
+    );
+    expect([...getConfigAncestorKeys({ parent: "ghost" }, byKey)]).toEqual([
+      "ghost",
     ]);
   });
 });

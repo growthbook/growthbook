@@ -52,12 +52,15 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
-// A config's publish-time content passed to config hooks. `key`/`project` drive
-// hook scoping (entity-scoped by key, project-scoped by project); the rest is
-// the config's own fields + staged value.
+// A config's publish-time content passed to config hooks. `key`/`project`/
+// `parent`/`extends` drive hook scoping (entity-scoped by key, family-scoped by
+// the staged lineage, project-scoped by project); the rest is the config's own
+// fields + staged value.
 type ConfigHookInput = {
   key: string;
   project?: string;
+  parent?: string;
+  extends?: string[];
 } & Record<string, unknown>;
 
 export async function runValidateConfigHooks({
@@ -76,6 +79,7 @@ export async function runValidateConfigHooks({
     config.project ?? "",
     config.key,
     original ? { config: original } : undefined,
+    { parent: config.parent, extends: config.extends },
   );
 }
 
@@ -116,6 +120,7 @@ export async function runValidateConfigRevisionHooks({
     config.project ?? "",
     config.key,
     original ? { config: original } : undefined,
+    { parent: config.parent, extends: config.extends },
   );
 }
 
@@ -127,6 +132,9 @@ async function _runCustomHooks(
   project: string = "",
   entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
+  // Staged immediate bases of the target config (config hook types only) —
+  // lets family-scoped hooks match descendants of their entityId.
+  configBases?: { parent?: string; extends?: string[] },
 ) {
   // Skip on cloud
   // The V8 Isolates approach we are using is too big of a risk in a multi-tenant environment
@@ -149,6 +157,7 @@ async function _runCustomHooks(
     hookType,
     project,
     entityId,
+    configBases,
   );
 
   const allWarnings: string[] = [];

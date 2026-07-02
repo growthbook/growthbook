@@ -27,6 +27,10 @@ Global and project-scoped hooks are managed under **Settings → Custom Hooks**.
 
 The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
 
+A config-scoped hook can additionally check **Include descendant configs** (`includeDescendants` in the REST API) to cover the whole family: the hook then runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
+
+A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
+
 ### Limits
 
 Custom Hooks are executed in a V8 Isolate, which provides a secure and efficient environment for running untrusted code. All modern JavaScript language features are supported (including async/await and fetch), but certain global objects like `process.env` are not available for security reasons.
@@ -44,7 +48,7 @@ A hook may execute **multiple times for a single save**. GrowthBook runs hooks e
 
 ### Debugging
 
-If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
+If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected. Hook errors are prefixed with `Custom hook:`, which distinguishes them from schema-conformance errors (prefixed with the offending field, e.g. `value: …`) and from validation-rule failures (which surface the rule's own message).
 
 When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 

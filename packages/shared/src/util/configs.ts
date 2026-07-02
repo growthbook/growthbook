@@ -263,6 +263,27 @@ export function ensureConfigBacking(
   return setConfigBacking(defaultConfigKey, value);
 }
 
+// Every ancestor config key across the whole base DAG (parent + every
+// `extends` mixin, transitively). Cycle-safe. Dangling base keys are included:
+// they still name the intended ancestor even if that config no longer resolves.
+// Drives family-scoped custom-hook matching ("this config and its descendants").
+export function getConfigAncestorKeys(
+  config: { parent?: string; extends?: string[] },
+  byKey: Map<string, { parent?: string; extends?: string[] }>,
+): Set<string> {
+  const seen = new Set<string>();
+  const stack = [...getConfigBaseKeys(config)];
+  while (stack.length) {
+    const key = stack.pop() as string;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const base = byKey.get(key);
+    if (!base) continue;
+    for (const b of getConfigBaseKeys(base)) stack.push(b);
+  }
+  return seen;
+}
+
 // Schema field keys owned by a config's ancestors across the whole base DAG
 // (parent + every `extends` mixin, transitively). The base wins on a key
 // collision. Cycle-safe. Used to enforce "base wins": a descendant may re-value

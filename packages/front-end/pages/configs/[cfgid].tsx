@@ -1865,6 +1865,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <ConfigCustomHooksSection
                   config={config}
                   canManage={canUpdate}
+                  lineage={[
+                    ...data.lineage,
+                    ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
+                  ]}
                 />
               </>
             )}

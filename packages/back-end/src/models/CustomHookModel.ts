@@ -1,24 +1,34 @@
 import {
+  ApiCustomHook,
   CustomHookInterface,
   CustomHookType,
   customHookValidator,
   hookEntityType,
 } from "shared/validators";
+import { getConfigAncestorKeys } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { FeatureInterface } from "shared/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
 // Whether a hook applies to the entity being validated. Entity-scoped hooks
-// (feature/config) match by their exact `entityId`; global/project hooks (no
-// entityType) match by project (empty projects = all). Callers pre-filter by
-// `hook` type, so an entity-scoped match can only ever be the correct entity
-// type. Pure + exported for unit testing.
+// (feature/config) match by their exact `entityId` — or, with
+// `includeDescendants` (config only), by any of the target's `ancestorIds`.
+// Global/project hooks (no entityType) match by project (empty projects = all).
+// Callers pre-filter by `hook` type, so an entity-scoped match can only ever be
+// the correct entity type. Pure + exported for unit testing.
 export function customHookMatchesScope(
-  hook: Pick<CustomHookInterface, "entityType" | "entityId" | "projects">,
-  target: { entityId?: string; project?: string },
+  hook: Pick<
+    CustomHookInterface,
+    "entityType" | "entityId" | "projects" | "includeDescendants"
+  >,
+  target: { entityId?: string; project?: string; ancestorIds?: string[] },
 ): boolean {
   if (hook.entityType && hook.entityId) {
-    return hook.entityId === target.entityId;
+    if (hook.entityId === target.entityId) return true;
+    return (
+      !!hook.includeDescendants &&
+      (target.ancestorIds ?? []).includes(hook.entityId)
+    );
   }
   return !hook.projects.length || hook.projects.includes(target.project ?? "");
 }
@@ -34,8 +44,6 @@ const BaseClass = MakeModelClass({
     deleteEvent: "customHook.delete",
   },
   globallyUniquePrimaryKeys: false,
-  // Scope is locked at creation — retarget by duplicating instead.
-  readonlyFields: ["entityType", "entityId"],
 });
 
 export class CustomHookModel extends BaseClass {
@@ -69,11 +77,16 @@ export class CustomHookModel extends BaseClass {
     _updates: UpdateProps<CustomHookInterface>,
     newDoc: CustomHookInterface,
   ): boolean {
-    // entityType/entityId are readonly, so the scope can't change on update.
-    const feature = this.featureRef(newDoc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canUpdateCustomHook(existing, newDoc);
+    // The scope is editable, so a retarget must be permitted against BOTH the
+    // old and new target (it removes validation from one resource and adds it
+    // to another). When the scope doesn't change this is a single check.
+    const canManage = (doc: CustomHookInterface): boolean => {
+      const feature = this.featureRef(doc);
+      return feature
+        ? this.context.permissions.canManageFeatureCustomHooks(feature)
+        : this.context.permissions.canUpdateCustomHook(existing, newDoc);
+    };
+    return canManage(existing) && canManage(newDoc);
   }
   protected canDelete(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
@@ -99,6 +112,18 @@ export class CustomHookModel extends BaseClass {
       );
     }
 
+    if (doc.includeDescendants && entityType !== "config") {
+      throw new Error(
+        "includeDescendants is only valid for config-scoped custom hooks",
+      );
+    }
+
+    // Entity-scoped hooks derive their scope from the entity alone; stray
+    // projects would silently narrow the permission checks.
+    if (entityType !== null && doc.projects.length) {
+      throw new Error("Entity-scoped custom hooks cannot set projects");
+    }
+
     if (entityType === "feature" && this.featureRef(doc) === null) {
       throw new Error(`Could not find feature for custom hook: ${entityId}`);
     }
@@ -112,14 +137,62 @@ export class CustomHookModel extends BaseClass {
     }
   }
 
+  public toApiInterface(hook: CustomHookInterface): ApiCustomHook {
+    return {
+      id: hook.id,
+      name: hook.name,
+      hook: hook.hook,
+      code: hook.code,
+      enabled: hook.enabled,
+      projects: hook.projects,
+      // `?? undefined`: raw Mongo docs can carry nulls the interface types as
+      // absent — normalize so responses omit the keys instead of emitting null.
+      entityType: hook.entityType ?? undefined,
+      entityId: hook.entityId ?? undefined,
+      includeDescendants: hook.includeDescendants ?? undefined,
+      incrementalChangesOnly: hook.incrementalChangesOnly ?? undefined,
+      lastSuccess: hook.lastSuccess?.toISOString(),
+      lastFailure: hook.lastFailure?.toISOString(),
+      dateCreated: hook.dateCreated.toISOString(),
+      dateUpdated: hook.dateUpdated.toISOString(),
+    };
+  }
+
   public async getByHook(
     hook: CustomHookType,
     project: string = "",
     entityId: string = "",
+    // The target config's staged immediate bases, when the hook type targets
+    // configs. Family-scoped (includeDescendants) hooks match against the
+    // lineage the write is about to create, so a re-parenting publish is judged
+    // by the family it's entering. Falls back to the stored config's bases.
+    configBases?: { parent?: string; extends?: string[] },
   ) {
     const hooks = await this._find({ hook, enabled: true });
+
+    // The ancestor walk reads the whole config collection — only pay for it
+    // when a family-scoped hook could match beyond its exact entityId.
+    let ancestorIds: string[] | undefined;
+    const needsAncestors = hooks.some(
+      (h) =>
+        h.includeDescendants &&
+        h.entityType === "config" &&
+        h.entityId &&
+        h.entityId !== entityId,
+    );
+    if (needsAncestors) {
+      const all = await this.context.models.configs.getAllForReconcile();
+      const byKey = new Map(all.map((c) => [c.key, c]));
+      ancestorIds = [
+        ...getConfigAncestorKeys(
+          configBases ?? byKey.get(entityId) ?? {},
+          byKey,
+        ),
+      ];
+    }
+
     return hooks.filter((h) =>
-      customHookMatchesScope(h, { entityId, project }),
+      customHookMatchesScope(h, { entityId, project, ancestorIds }),
     );
   }
 

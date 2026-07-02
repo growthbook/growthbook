@@ -215,6 +215,7 @@ export default function CustomHookModal({
       hook: defaultHook,
       code: current?.code || "",
       projects: current?.projects || [],
+      includeDescendants: current?.includeDescendants ?? false,
       incrementalChangesOnly: current?.incrementalChangesOnly ?? true,
     },
   });
@@ -361,6 +362,15 @@ export default function CustomHookModal({
               onChange={(v) => form.setValue("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Only run this hook for selected projects"
+            />
+          )}
+          {scope === "config" && (
+            <Checkbox
+              label="Include descendant configs"
+              value={form.watch("includeDescendants") ?? false}
+              setValue={(value) => form.setValue("includeDescendants", value)}
+              description={`Also run this hook for every config that inherits from ${config?.key} (via parent or extends).`}
+              mb="3"
             />
           )}
           <Separator size="4" mb="4" my="2" />
