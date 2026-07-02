@@ -1,5 +1,6 @@
 import { FeatureEnvironment } from "shared/types/feature";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export default function HoldoutEnvironments({
   environments,
@@ -13,9 +14,9 @@ export default function HoldoutEnvironments({
       <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-2">
         <h4 className="m-0">Included Environments</h4>
         <div className="flex-1" />
-        <Button variant="ghost" onClick={editEnvironments}>
-          Edit
-        </Button>
+        <Link onClick={editEnvironments}>
+          <Text weight="semibold">Edit</Text>
+        </Link>
       </div>
       <div>
         {Object.keys(environments)

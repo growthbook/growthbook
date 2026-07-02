@@ -5,6 +5,7 @@ import {
   getConnectionSDKCapabilities,
 } from "shared/sdk-versioning";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Box } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -50,7 +51,7 @@ export function IncompatibleSDKsPopover({
 
   return (
     <Popover
-      trigger={<Link ml="2">{triggerText}</Link>}
+      trigger={<Link>{triggerText}</Link>}
       content={
         <div>
           <Text weight="semibold" size="small" mb="2" as="div">
@@ -171,10 +172,10 @@ export default function SDKCapabilityWarning({
   const status = statusProp ?? (hasSome ? "warning" : "error");
   const size = sizeProp === "small" ? "sm" : "md";
   const content = (
-    <span>
-      {hasSome ? someMessage : noneMessage}
+    <Box>
+      <Text mr="2">{hasSome ? someMessage : noneMessage}</Text>
       {popover}
-    </span>
+    </Box>
   );
 
   if (variant === "helperText") {

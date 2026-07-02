@@ -2597,11 +2597,16 @@ li.metrics a span img {
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 30px;
     height: 30px;
     border-radius: 50px;
-    background-size: 50%;
+    background-image: none;
     background-color: colors.$gray-600;
+    color: #fff;
+    font-size: 18px;
   }
   .carousel-inner {
     overflow: visible;
