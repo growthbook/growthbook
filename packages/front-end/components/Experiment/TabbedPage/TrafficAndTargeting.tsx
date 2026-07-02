@@ -234,7 +234,8 @@ export default function TrafficAndTargeting({
               </div>
             ) : (
               <Text color="text-mid">
-                No targeting (experiment will include all traffic)
+                No targeting ({isHoldout ? "holdout" : "experiment"} will
+                include all traffic)
               </Text>
             )}
           </Frame>
