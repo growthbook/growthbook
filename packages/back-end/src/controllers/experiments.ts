@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  includeExperimentInPayload,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -1447,6 +1448,7 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
+      coverage?: number;
     },
     { id: string }
   >,
@@ -1623,6 +1625,60 @@ export async function postExperiment(
 
   if (data.variations) {
     validateVariationIds(data.variations);
+  }
+
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const existingKeyById = new Map(
+    experiment.variations.map((v) => [v.id, v.key]),
+  );
+  const variationIdsChanged =
+    !!data.variations &&
+    !isEqual(
+      data.variations.map((v) => v.id),
+      latestPhase?.variations.map((v) => v.id),
+    );
+  // Variation keys are emitted in the SDK payload meta, so key edits also count
+  const variationKeysChanged =
+    !!data.variations &&
+    data.variations.some((v) => v.key !== existingKeyById.get(v.id));
+  const variationsChanged = variationIdsChanged || variationKeysChanged;
+  const coverageChanged =
+    data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+  const variationWeightsChanged =
+    data.variationWeights !== undefined &&
+    !isEqual(data.variationWeights, latestPhase?.variationWeights);
+  if (
+    experiment.status === "running" &&
+    (variationsChanged || coverageChanged || variationWeightsChanged)
+  ) {
+    const linkedFeaturesForPayload = await getFeaturesByIds(
+      context,
+      experiment.linkedFeatures || [],
+    );
+    const inPayload = includeExperimentInPayload(
+      experiment,
+      linkedFeaturesForPayload,
+    );
+    if (inPayload) {
+      const fields = [];
+      if (variationIdsChanged) {
+        fields.push("variation IDs");
+      }
+      if (variationKeysChanged) {
+        fields.push("variation keys");
+      }
+      if (coverageChanged) {
+        fields.push("coverage");
+      }
+      if (variationWeightsChanged) {
+        fields.push("variationWeights");
+      }
+      res.status(400).json({
+        status: 400,
+        message: `Cannot change: [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+      });
+      return;
+    }
   }
 
   // Check if tracking key is being changed and validate uniqueness if required
@@ -1935,6 +1991,16 @@ export async function postExperiment(
         id: v.id,
         status: "active" as const,
       })),
+    };
+    changes.phases = phases;
+  }
+
+  if (data.coverage !== undefined) {
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      coverage: data.coverage,
     };
     changes.phases = phases;
   }
