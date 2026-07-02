@@ -29,10 +29,6 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
-  "contextual-bandits": {
-    plan: "enterprise",
-    displayName: "Contextual Bandits",
-  },
   "custom-hooks": {
     plan: "enterprise",
     displayName: "Custom Hooks",

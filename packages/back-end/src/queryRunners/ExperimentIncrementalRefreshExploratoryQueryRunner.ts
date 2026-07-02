@@ -74,19 +74,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
 
-  const exposureQuery = (
-    integration.datasource.settings?.queries?.exposure || []
-  ).find((q) => q.id === snapshotSettings.exposureQueryId);
-
-  if (!exposureQuery) {
-    throw new Error("Exposure query not found");
-  }
-
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
-
   // Only include metrics tied to this experiment, which is goverend by the snapshotSettings.metricSettings
   // after the introduction of metric slices
   const selectedMetrics = snapshotSettings.metricSettings
@@ -244,7 +231,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         // TODO(incremental-refresh): add post-stratification to exploratory
         // analysis. Pre-computation is unused here; we lean on
@@ -305,7 +291,6 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         dimensionsForPrecomputation: [],
         dimensionsForAnalysis: dimensionObjs,

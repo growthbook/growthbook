@@ -117,7 +117,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getSnapshotMetricQuery(_: ExperimentMetricQueryParams): string {
+  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
@@ -132,7 +132,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runSnapshotMetricQuery(
+  runExperimentMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,

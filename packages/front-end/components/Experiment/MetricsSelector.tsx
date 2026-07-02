@@ -107,7 +107,6 @@ const MetricsSelector: FC<{
     disabled: boolean;
     reason?: string;
   };
-  requireDatasource?: boolean;
 }> = ({
   datasource,
   project,
@@ -126,7 +125,6 @@ const MetricsSelector: FC<{
   helpText,
   groupOptions = true,
   getMetricDisabledInfo,
-  requireDatasource = false,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -248,9 +246,7 @@ const MetricsSelector: FC<{
     ];
 
     return options
-      .filter((m) =>
-        datasource ? m.datasource === datasource : !requireDatasource,
-      )
+      .filter((m) => (datasource ? m.datasource === datasource : true))
       .filter((m) =>
         datasourceSettings && userIdType && m.userIdTypes.length
           ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
@@ -273,7 +269,6 @@ const MetricsSelector: FC<{
     excludeQuantiles,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
-    requireDatasource,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -470,8 +465,6 @@ const MetricsSelector: FC<{
     [],
   );
 
-  const selectorDisabled = disabled || (requireDatasource && !datasource);
-
   const selector = !forceSingleMetric ? (
     <MultiSelectField
       value={selected}
@@ -481,7 +474,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
-      disabled={selectorDisabled}
+      disabled={disabled}
       helpText={
         <>
           {helpText}
@@ -584,7 +577,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={singleFormatOptionLabel}
-      disabled={selectorDisabled}
+      disabled={disabled}
       helpText={helpText}
     />
   );

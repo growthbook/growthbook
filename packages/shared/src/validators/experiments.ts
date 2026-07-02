@@ -353,7 +353,7 @@ export const statusUpdateScheduleValidator = z.object({
   startAt: z.date(),
 });
 
-export const nextScheduledStatusUpdateValidator = z.object({
+const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
   date: z.date(),
   // Number of times the scheduled job has failed to apply this update.

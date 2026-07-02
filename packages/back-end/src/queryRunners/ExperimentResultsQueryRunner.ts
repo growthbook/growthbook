@@ -8,7 +8,6 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -45,7 +44,6 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
@@ -131,15 +129,6 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  // Resolve the exposure query the same way the SQL builders used to internally:
-  // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
-  // exposure query, and an unknown id throws a clear error rather than generating
-  // an invalid query with an empty user id type.
-  const resolvedExposureQuery = getExposureQuery(
-    integration.datasource,
-    snapshotSettings.exposureQueryId || "",
-  );
-
   const snapshotDimensions: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
@@ -201,18 +190,13 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
-    snapshotSettings,
-    resolvedExposureQuery,
-  );
-
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
     dimensions: snapshotDimensions.length
       ? snapshotDimensions
       : dimensionsForTraffic,
     segment: segmentObj,
-    unitsSettings,
+    settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
     includeIdJoins: true,
     factTableMap: params.factTableMap,
@@ -281,17 +265,16 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
-      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getSnapshotMetricQuery(queryParams),
+        query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
-          integration.runSnapshotMetricQuery(
+          integration.runExperimentMetricQuery(
             query,
             setExternalId,
             queryMetadata,
@@ -314,7 +297,6 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
-      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -363,7 +345,6 @@ export const startExperimentResultQueries = async (
           segment: segmentObj,
           settings: snapshotSettings,
           unitsSource: "exposureTable",
-          unitsSettings,
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
@@ -409,17 +390,16 @@ export const startExperimentResultQueries = async (
           segment: segmentObj,
           settings: snapshotSettings,
           unitsSource: "exposureTable",
-          unitsSettings,
           unitsTableFullName: unitsTableFullName,
           factTableMap: params.factTableMap,
         };
         queries.push(
           await startQuery({
             name: getUnitDimQueryName(dimensionId, m.id),
-            query: integration.getSnapshotMetricQuery(queryParams),
+            query: integration.getExperimentMetricQuery(queryParams),
             dependencies: [unitQuery.query],
             run: (query, setExternalId, queryMetadata) =>
-              integration.runSnapshotMetricQuery(
+              integration.runExperimentMetricQuery(
                 query,
                 setExternalId,
                 queryMetadata,
@@ -451,7 +431,6 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        settings: snapshotSettings,
         dimensions: snapshotDimensionsForTraffic.length
           ? snapshotDimensionsForTraffic
           : dimensionsForTraffic,

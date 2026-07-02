@@ -42,10 +42,6 @@ export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
 
-export function isExternalApiPath(url: string): boolean {
-  return /^\/api\/v\d/.test(url);
-}
-
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
@@ -364,7 +360,7 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = isExternalApiPath(url) ? "omit" : "include";
+      init.credentials = "include";
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -384,14 +380,6 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
-        if (
-          !response.ok &&
-          responseData &&
-          typeof responseData === "object" &&
-          typeof responseData.status !== "number"
-        ) {
-          responseData.status = response.status;
-        }
       }
 
       return responseData;
@@ -406,7 +394,7 @@ export const AuthProvider: React.FC<{
       init.headers["Authorization"] = `Bearer ${token}`;
 
       if (!init.credentials) {
-        init.credentials = isExternalApiPath(url) ? "omit" : "include";
+        init.credentials = "include";
       }
 
       if (init.body && !init.headers["Content-Type"]) {

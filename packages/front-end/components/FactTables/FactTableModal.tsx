@@ -37,14 +37,12 @@ export interface Props {
   existing?: FactTableInterface;
   close: () => void;
   duplicate?: boolean;
-  onCreate?: (factTable: FactTableInterface) => void;
 }
 
 export default function FactTableModal({
   existing,
   close,
   duplicate = false,
-  onCreate,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
@@ -235,11 +233,7 @@ export default function FactTableModal({
             track("Create Fact Table");
 
             await mutateDefinitions();
-            if (onCreate) {
-              onCreate(factTable);
-            } else {
-              router.push(`/fact-tables/${factTable.id}`);
-            }
+            router.push(`/fact-tables/${factTable.id}`);
           }
         })}
       >

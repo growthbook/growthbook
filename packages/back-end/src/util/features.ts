@@ -32,11 +32,7 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import {
-  HoldoutInterface,
-  ContextualBanditInterface,
-  VariationWeightPair,
-} from "shared/validators";
+import { HoldoutInterface } from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
@@ -63,15 +59,6 @@ import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
-
-function pairedWeightsToPositional(
-  paired: VariationWeightPair[],
-  variations: { id: string }[],
-): number[] {
-  return variations.map(
-    (v) => paired.find((w) => w.variationId === v.id)?.weight ?? 0,
-  );
-}
 
 export interface FeatureLookups {
   featuresMap: Map<string, FeatureInterface>;
@@ -546,7 +533,6 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
-  cbMap,
   rampMonitoredRuleMap,
   constantMap,
 }: {
@@ -574,7 +560,6 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
-  cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
   // Per-environment constant values. When provided, `@const:` references in
   // sparse rule values (and the default they merge onto) are resolved BEFORE the
@@ -865,7 +850,6 @@ export function getFeatureDefinition({
               return variation ? valueForSDK(variation.value, r.sparse) : null;
             });
             rule.weights = phase.variationWeights;
-
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -897,95 +881,6 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
-          }
-
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
-            }
-            return picked;
-          }
-          return rule;
-        }
-
-        if (r.type === "contextual-bandit-ref") {
-          const cb = cbMap?.get(r.contextualBanditId);
-          if (!cb) return null;
-
-          if (cb.status === "draft") return null;
-
-          const phaseCondition = getParsedCondition(groupMap, cb.condition);
-          if (phaseCondition) {
-            rule.condition = phaseCondition;
-          }
-
-          rule.coverage = cb.coverage;
-
-          if (cb.hashAttribute) {
-            rule.hashAttribute = cb.hashAttribute;
-          }
-          if (cb.seed) {
-            rule.seed = cb.seed;
-          }
-          rule.hashVersion = 2;
-
-          if (cb.status === "stopped") {
-            return null;
-          }
-
-          rule.variations = cb.variations.map((v) => {
-            const variation = r.variations?.find(
-              (rv) => rv.variationId === v.id,
-            );
-            return variation
-              ? getJSONValue(feature.valueType, variation.value)
-              : null;
-          });
-          rule.weights = cb.variationWeights
-            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
-            : undefined;
-
-          const cbCapable =
-            capabilities === undefined ||
-            capabilities.includes("contextualBandits");
-          if (cbCapable) {
-            rule.isContextualBandit = true;
-            rule.attributesRequired = cb.contextualAttributes;
-            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
-              leafId: lw.leafId,
-              condition: lw.condition,
-              weights: pairedWeightsToPositional(lw.weights, cb.variations),
-            }));
-          }
-
-          rule.key = cb.trackingKey;
-          rule.meta = includeExperimentNames
-            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
-            : cb.variations.map((v) => ({ key: v.key }));
-          rule.phase = "0";
-          if (includeExperimentNames) rule.name = cb.name;
-
-          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
-            if (rule.condition)
-              recursiveWalk(
-                rule.condition,
-                replaceSavedGroups(savedGroupsMap, organization!),
-              );
-          }
-          if (metadataOptions) {
-            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
-              {
-                project: cb.project,
-                tags: cb.tags,
-              },
-              metadataOptions,
-              projectsMap,
-            );
-            if (cbMetadata) rule.metadata = cbMetadata;
           }
 
           if (allowedKeys) {

@@ -6,7 +6,7 @@ import { logger } from "./logger";
 // mutates metric object itself!
 export function applyMetricOverrides(
   metric: ExperimentMetricInterface,
-  settings: Pick<ExperimentSnapshotSettings, "metricSettings">,
+  settings: ExperimentSnapshotSettings,
 ): void {
   if (!metric) return;
 

@@ -788,20 +788,6 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
-  } else if (rule.type === "contextual-bandit-ref") {
-    rule.variations.forEach((v, i) => {
-      const newValue = validateFeatureValue(
-        feature,
-        v.value,
-        "Variation #" + i,
-      );
-      if (newValue !== v.value) {
-        hasChanges = true;
-        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
-          i
-        ].value = newValue;
-      }
-    });
   } else if (rule.type === "safe-rollout") {
     const newVariationValue = validateFeatureValue(
       feature,

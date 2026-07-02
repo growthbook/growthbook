@@ -5,6 +5,7 @@ import {
   AnalysisKeyType,
   AnalysisMetaEntry,
 } from "shared/snapshot-analysis-chunks";
+import { PhaseSQLVar } from "shared/types/sql";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -16,22 +17,21 @@ import {
   SupplementalResults,
 } from "shared/types/stats";
 import { QueryLanguage } from "./datasource";
-import { DimensionInterface } from "./dimension";
-import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 import { MetricInterface, MetricStats } from "./metric";
 import { Queries } from "./query";
-import { PhaseSQLVar } from "./sql";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
+import { DimensionInterface } from "./dimension";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
   LegacyBanditResult,
   LookbackOverride,
 } from "./experiment";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -90,7 +90,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
 
 export interface MetricForSnapshot {
   id: string;
-  /** Snapshot-time copy of the Metric object's settings. */
+  // Settings directly from the Metric object at the time the snapshot was created
   settings?: Pick<
     MetricInterface,
     | "datasource"
@@ -101,7 +101,8 @@ export interface MetricForSnapshot {
     | "userIdTypes"
     | "type"
   >;
-  /** Settings after overrides applied; see MetricSnapshotSettings. */
+  // Computed settings that take into account overrides
+  // see MetricSnapshotSettings
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -114,13 +115,18 @@ export interface MetricForSnapshot {
     targetMDE?: number;
   };
 }
+
 export interface DimensionForSnapshot {
-  /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
+  // The same format we use today that encodes both the type and id
+  // For example: `exp:country` or `pre:date`
   id: string;
+  // Pre-defined dimension levels, if they exist
   slices?: string[];
-  /** Snapshot-time settings, used by the front-end "out-of-date" warning. */
+  // Dimension settings at the time the snapshot was created
+  // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
 }
+
 export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
@@ -177,13 +183,18 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
-  contextualBandit?: boolean;
-  targetingAttributeColumns?: string[];
 }
 
+// Settings that control which queries are run
+// Used to determine which types of analyses are possible
+// Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
-  /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
+  /**
+   * Experiment-level always-computed unit dimensions.
+   * We use this field to gather the required data in 1 pass, and then this is used
+   * to create individual analyses for each unit dimension.
+   */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];

@@ -177,17 +177,6 @@ const experimentRefVariation = z
 
 export type ExperimentRefVariation = z.infer<typeof experimentRefVariation>;
 
-const contextualBanditRefVariation = z
-  .object({
-    variationId: z.string(),
-    value: z.string(),
-  })
-  .strict();
-
-export type ContextualBanditRefVariation = z.infer<
-  typeof contextualBanditRefVariation
->;
-
 const experimentRefRule = baseRule
   .extend({
     type: z.literal("experiment-ref"),
@@ -198,16 +187,6 @@ const experimentRefRule = baseRule
   .strict();
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
-
-const contextualBanditRefRule = baseRule
-  .extend({
-    type: z.literal("contextual-bandit-ref"),
-    contextualBanditId: z.string(),
-    variations: z.array(contextualBanditRefVariation),
-  })
-  .strict();
-
-export type ContextualBanditRefRule = z.infer<typeof contextualBanditRefRule>;
 
 export const safeRolloutRule = baseRule
   .extend({
@@ -231,7 +210,6 @@ export const featureRule = z.union([
   rolloutRule,
   experimentRule,
   experimentRefRule,
-  contextualBanditRefRule,
   safeRolloutRule,
 ]);
 
@@ -925,27 +903,6 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   ),
 );
 
-export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
-  "FeatureContextualBanditRefRule",
-  z.intersection(
-    apiFeatureBaseRuleValidator
-      .omit({})
-      .describe(
-        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
-      ),
-    z.object({
-      type: z.literal("contextual-bandit-ref"),
-      variations: z.array(
-        z.object({
-          value: z.string(),
-          variationId: z.string(),
-        }),
-      ),
-      contextualBanditId: z.string(),
-    }),
-  ),
-);
-
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
 export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   "FeatureSafeRolloutRule",
@@ -978,7 +935,6 @@ export const apiFeatureRuleValidator = namedSchema(
     apiFeatureRolloutRuleValidator,
     apiFeatureExperimentRuleValidator,
     apiFeatureExperimentRefRuleValidator,
-    apiFeatureContextualBanditRefRuleValidator,
     apiFeatureSafeRolloutRuleValidator,
   ]),
 );

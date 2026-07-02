@@ -99,7 +99,4 @@ export const mysqlDialect: SqlDialect = {
   }),
 
   escapeStringLiteral: mysqlEscapeStringLiteral,
-
-  arrayElement: (arrayCol: string, index: number) =>
-    mysqlDialect.castToFloat(`JSON_EXTRACT(${arrayCol}, '$[${index}]')`),
 };

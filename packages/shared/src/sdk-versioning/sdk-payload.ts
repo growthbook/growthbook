@@ -45,11 +45,6 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
-export const CONTEXTUAL_BANDIT_RULE_KEYS = [
-  "isContextualBandit",
-  "attributesRequired",
-] as const;
-
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
   featureKeys: readonly string[];
   featureRuleKeys: readonly string[];
@@ -63,9 +58,6 @@ export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {
       ? STICKY_BUCKETING_RULE_KEYS
       : []),
     ...(capabilities.includes("prerequisites") ? PREREQUISITE_RULE_KEYS : []),
-    ...(capabilities.includes("contextualBandits")
-      ? CONTEXTUAL_BANDIT_RULE_KEYS
-      : []),
   ];
   const removedExperimentKeys = capabilities.includes("prerequisites")
     ? []

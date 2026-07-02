@@ -12,6 +12,7 @@ import type {
 import type { SqlDialect } from "shared/types/sql";
 
 import { snapToUtcDayStart } from "shared/dates";
+import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
@@ -28,7 +29,11 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
   datasource: DataSourceInterface,
   params: InsertMetricSourceCovariateDataQueryParams,
 ): string {
-  const exposureQuery = params.exposureQuery;
+  const exposureQuery = getExposureQuery(
+    datasource,
+    params.settings.exposureQueryId || "",
+    undefined,
+  );
 
   // Capping is applied later in the statistics query.
   const sortedMetrics = cloneDeep(params.metrics)

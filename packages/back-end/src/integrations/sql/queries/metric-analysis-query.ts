@@ -96,7 +96,7 @@ export function getMetricAnalysisQuery(
   });
 
   const populationSQL = getMetricAnalysisPopulationCTEs(dialect, {
-    populationExposureQuery: params.populationExposureQuery,
+    datasource,
     settings,
     idJoinMap,
     factTableMap: params.factTableMap,

@@ -22,8 +22,6 @@ export {
   ExperimentRule,
   ScheduleRule,
   ExperimentRefRule,
-  ContextualBanditRefRule,
-  ContextualBanditRefVariation,
   RolloutRule,
   ExperimentRefVariation,
   ComputedFeatureInterface,

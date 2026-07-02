@@ -12,10 +12,7 @@ import { compileSqlTemplate } from "back-end/src/util/sql";
 export function processDimensions(
   dialect: SqlDialect,
   dimensions: Dimension[],
-  settings: Pick<
-    ExperimentSnapshotSettings,
-    "startDate" | "endDate" | "experimentId"
-  >,
+  settings: ExperimentSnapshotSettings,
   activationMetric: ExperimentMetricInterface | null,
 ): ProcessedDimensions {
   const processedDimensions: ProcessedDimensions = {

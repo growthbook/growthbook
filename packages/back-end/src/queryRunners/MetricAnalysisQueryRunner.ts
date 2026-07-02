@@ -42,40 +42,10 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
     this.metric = getMetricWithFiltersApplied(params);
-
-    const populationExposureQuery =
-      params.settings.populationType === "exposureQuery"
-        ? (this.integration.datasource.settings?.queries?.exposure || []).find(
-            (q) => q.id === params.settings.populationId,
-          )
-        : undefined;
-
-    if (
-      params.settings.populationType === "exposureQuery" &&
-      !populationExposureQuery
-    ) {
-      throw new Error(
-        `Unknown population exposure query: ${params.settings.populationId}`,
-      );
-    }
-
-    const paramsWithPopulation: MetricAnalysisParams = {
-      ...params,
-      populationExposureQuery: populationExposureQuery
-        ? {
-            query: populationExposureQuery.query,
-            userIdType: populationExposureQuery.userIdType,
-          }
-        : undefined,
-    };
-
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(
-          this.metric,
-          paramsWithPopulation,
-        ),
+        query: this.integration.getMetricAnalysisQuery(this.metric, params),
         dependencies: [],
         run: (query, setExternalId, queryMetadata) =>
           this.integration.runMetricAnalysisQuery(

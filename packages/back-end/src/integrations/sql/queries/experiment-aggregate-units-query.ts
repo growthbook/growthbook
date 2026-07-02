@@ -13,6 +13,7 @@ import {
 } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
+import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getUnitCountCTE } from "back-end/src/integrations/sql/ctes/unit-count-cte";
 
@@ -21,18 +22,15 @@ export function getExperimentAggregateUnitsQuery(
   datasource: DataSourceInterface,
   params: ExperimentAggregateUnitsQueryParams,
 ): string {
-  const {
-    activationMetric,
-    segment,
-    settings,
-    factTableMap,
-    useUnitsTable,
-    unitsSettings,
-  } = params;
+  const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
+    params;
 
   const experimentDimensions = params.dimensions;
 
-  const exposureQuery = unitsSettings.exposureQuery;
+  const exposureQuery = getExposureQuery(
+    datasource,
+    settings.exposureQueryId || "",
+  );
 
   const banditDates = getBanditDates(settings.banditSettings);
   const variationPeriodWeights = getBanditVariationPeriodWeights(

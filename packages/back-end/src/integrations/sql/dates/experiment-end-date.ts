@@ -1,7 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 
 export function getExperimentEndDate(
-  settings: Pick<ExperimentSnapshotSettings, "skipPartialData" | "endDate">,
+  settings: ExperimentSnapshotSettings,
   conversionWindowHours: number,
 ): Date {
   // Only include users who entered the experiment before this timestamp

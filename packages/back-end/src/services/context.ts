@@ -73,10 +73,6 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
-import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
-import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
-import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
-import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -137,10 +133,6 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
-  | "contextualBandits"
-  | "contextualBanditQueries"
-  | "contextualBanditSnapshots"
-  | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs";
 
@@ -186,10 +178,6 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
-  contextualBandits: ContextualBanditModel,
-  contextualBanditQueries: ContextualBanditQueryModel,
-  contextualBanditSnapshots: ContextualBanditSnapshotModel,
-  contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
@@ -253,10 +241,6 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
-      contextualBandits: new ContextualBanditModel(this),
-      contextualBanditQueries: new ContextualBanditQueryModel(this),
-      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
-      contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };

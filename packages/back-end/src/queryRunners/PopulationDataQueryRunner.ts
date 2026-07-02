@@ -26,7 +26,6 @@ import {
   PopulationDataMetric,
 } from "shared/types/population-data";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -100,11 +99,6 @@ export const startPopulationDataQueries = async (
     }
   }
 
-  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(settings, {
-    query: "",
-    userIdType: params.populationSettings.userIdType,
-  });
-
   for (const m of legacyMetricSingles) {
     if (
       !integration.getPopulationMetricQuery ||
@@ -132,7 +126,6 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
-      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };
@@ -168,7 +161,6 @@ export const startPopulationDataQueries = async (
       segment: segment,
       settings,
       unitsSource: "otherQuery",
-      unitsSettings,
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };

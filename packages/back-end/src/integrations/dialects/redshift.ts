@@ -57,7 +57,4 @@ export const redshiftDialect: SqlDialect = {
   // relational subqueries — both `CROSS JOIN LATERAL (VALUES ...)` and
   // `CROSS JOIN LATERAL (SELECT ... UNION ALL ...)` are syntax errors.
   unpivotLabeledPairs: indicesTableUnpivot,
-
-  arrayElement: (arrayCol: string, index: number) =>
-    redshiftDialect.castToFloat(`${arrayCol}[${index}]`),
 };
