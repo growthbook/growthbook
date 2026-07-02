@@ -5,6 +5,8 @@ import {
   FactTableValue,
   ExplorationConfig,
 } from "shared/validators";
+import type { DashboardGlobalFilterSkippedReason } from "shared/enterprise";
+import type { RowFilter } from "shared/types/fact-table";
 import { PiArrowsClockwise, PiLink } from "react-icons/pi";
 import ShareUrlPopover from "@/ui/ShareUrlPopover";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -23,6 +25,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
 import Switch from "@/ui/Switch";
+import Badge from "@/ui/Badge";
 import {
   createEmptyValue,
   showAsAppliesTo,
@@ -42,12 +45,26 @@ interface Props {
   renderingInDashboardSidebar?: boolean;
   dashboardDateRange?: ExplorationConfig["dateRange"];
   inheritedDashboardDimensions?: InheritedDashboardDimension[];
+  inheritedDashboardFilters?: InheritedDashboardFilter[];
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: {
     dateRange?: boolean;
     dimensions?: Record<string, boolean>;
+    filters?: Record<string, boolean>;
   }) => void;
+  onSubmit?: () => void;
 }
+
+export type InheritedDashboardFilter = {
+  id: string;
+  label: string;
+  column: string;
+  operator: RowFilter["operator"];
+  values?: string[];
+  enabled: boolean;
+  applied: boolean;
+  skippedReason?: DashboardGlobalFilterSkippedReason;
+};
 
 function formatDateRange(dateRange: ExplorationConfig["dateRange"]): string {
   switch (dateRange.predefined) {
@@ -70,8 +87,10 @@ export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
   dashboardDateRange,
   inheritedDashboardDimensions = [],
+  inheritedDashboardFilters = [],
   useDashboardDateControl = false,
   onGlobalControlSettingsChange,
+  onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -128,6 +147,14 @@ export default function ExplorerSideBar({
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
+  const formatFilter = (filter: InheritedDashboardFilter) => {
+    if (
+      ["is_null", "not_null", "is_true", "is_false"].includes(filter.operator)
+    ) {
+      return `${filter.column} ${filter.operator}`;
+    }
+    return `${filter.column} ${filter.operator} ${filter.values?.join(", ") || ""}`;
+  };
 
   return (
     <Flex
@@ -228,7 +255,9 @@ export default function ExplorerSideBar({
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={() => handleSubmit({ force: isStale })}
+                onClick={() =>
+                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
+                }
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -408,6 +437,75 @@ export default function ExplorerSideBar({
           }
         />
       )}
+      {renderingInDashboardSidebar && inheritedDashboardFilters.length > 0 ? (
+        <Flex
+          direction="column"
+          gap="2"
+          p="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Text weight="medium">Filters</Text>
+          {inheritedDashboardFilters.map((filter) => {
+            const canEnable = filter.skippedReason !== "invalid-target";
+            return (
+              <Flex
+                key={filter.id}
+                direction="column"
+                gap="2"
+                style={{
+                  border: filter.applied
+                    ? "1px solid var(--violet-a5)"
+                    : "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  padding: "var(--space-2)",
+                  backgroundColor: filter.applied
+                    ? "var(--violet-a2)"
+                    : "var(--gray-a2)",
+                }}
+              >
+                <Flex align="center" gap="2" justify="between">
+                  <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                    <Text weight="medium" truncate>
+                      {filter.label}
+                    </Text>
+                    <Badge
+                      label="Global"
+                      color={filter.applied ? "violet" : "gray"}
+                      variant="soft"
+                    />
+                  </Flex>
+                  {onGlobalControlSettingsChange ? (
+                    <Switch
+                      size="1"
+                      value={filter.enabled && canEnable}
+                      disabled={!canEnable}
+                      onChange={(checked) =>
+                        onGlobalControlSettingsChange({
+                          filters: { [filter.id]: checked },
+                        })
+                      }
+                      label="Apply"
+                    />
+                  ) : null}
+                </Flex>
+                <Text size="small" color="text-low">
+                  {filter.applied
+                    ? formatFilter(filter)
+                    : filter.skippedReason === "invalid-target"
+                      ? "Dashboard filter is not available for this block."
+                      : filter.skippedReason === "incomplete"
+                        ? "Dashboard filter is not applied until it has a value."
+                        : "Dashboard filter disabled for this block."}
+                </Text>
+              </Flex>
+            );
+          })}
+        </Flex>
+      ) : null}
     </Flex>
   );
 }

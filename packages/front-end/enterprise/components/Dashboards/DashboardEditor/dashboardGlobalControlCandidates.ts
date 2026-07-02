@@ -50,10 +50,12 @@ export function getDashboardGlobalControlCandidates({
   blocks,
   getFactTableById,
   getFactMetricById,
+  includeBigNumber = false,
 }: {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   getFactTableById: (id: string) => FactTableInterface | null;
   getFactMetricById: (id: string) => FactMetricInterface | null;
+  includeBigNumber?: boolean;
 }): DashboardGlobalControlCandidate[] {
   const candidates = new Map<string, DashboardGlobalControlCandidate>();
 
@@ -63,7 +65,7 @@ export function getDashboardGlobalControlCandidates({
     }
 
     const { config } = block;
-    if (config.chartType === "bigNumber") {
+    if (!includeBigNumber && config.chartType === "bigNumber") {
       return;
     }
 

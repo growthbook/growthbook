@@ -2,6 +2,7 @@ import { z } from "zod";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import { baseExplorationConfigValidator } from "../../validators/product-analytics";
+import { rowFilterValidator } from "../../validators/fact-table";
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
@@ -67,10 +68,32 @@ export const dashboardGlobalDimensionValidator = z
   })
   .strict();
 
+export const dashboardGlobalFilterTargetValidator = z
+  .object({
+    blockId: z.string(),
+    column: z.string(),
+    valueIndex: z.number().int().min(0).optional(),
+    datasource: z.string().optional(),
+    factTableId: z.string().optional(),
+    metricId: z.string().optional(),
+    datatype: z.string().optional(),
+  })
+  .strict();
+
+export const dashboardGlobalFilterValidator = rowFilterValidator
+  .extend({
+    id: z.string(),
+    label: z.string(),
+    column: z.string(),
+    targets: z.array(dashboardGlobalFilterTargetValidator),
+  })
+  .strict();
+
 export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
     dimensions: z.array(dashboardGlobalDimensionValidator).optional(),
+    filters: z.array(dashboardGlobalFilterValidator).optional(),
   })
   .strict();
 export type DashboardGlobalControls = z.infer<
@@ -81,6 +104,12 @@ export type DashboardGlobalDimension = z.infer<
 >;
 export type DashboardGlobalDimensionTarget = z.infer<
   typeof dashboardGlobalDimensionTargetValidator
+>;
+export type DashboardGlobalFilter = z.infer<
+  typeof dashboardGlobalFilterValidator
+>;
+export type DashboardGlobalFilterTarget = z.infer<
+  typeof dashboardGlobalFilterTargetValidator
 >;
 
 export const dashboardInterface = z

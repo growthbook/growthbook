@@ -349,6 +349,7 @@ const globalControlSettingsValidator = z
   .object({
     dateRange: z.boolean().optional(),
     dimensions: z.record(z.string(), z.boolean()).optional(),
+    filters: z.record(z.string(), z.boolean()).optional(),
   })
   .strict();
 

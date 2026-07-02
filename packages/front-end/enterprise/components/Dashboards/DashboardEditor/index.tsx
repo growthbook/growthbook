@@ -431,7 +431,9 @@ function DashboardEditor({
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
   const hasGlobalControls = Boolean(
-    globalControls?.dateRange || globalControls?.dimensions?.length,
+    globalControls?.dateRange ||
+      globalControls?.dimensions?.length ||
+      globalControls?.filters?.length,
   );
 
   const handleViewQueries = () => {

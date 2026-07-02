@@ -11,12 +11,15 @@ import {
   DataSourceExplorationBlockInterface,
   DashboardGlobalDimension,
   DashboardGlobalDimensionTarget,
+  DashboardGlobalFilter,
+  DashboardGlobalFilterTarget,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
 } from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -108,9 +111,21 @@ export function blockUsesDashboardDimensionControl(
   return block.globalControlSettings?.dimensions?.[dimensionId] !== false;
 }
 
+export function blockUsesDashboardFilterControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  filterId: string,
+): block is DashboardGlobalControlSupportedBlock {
+  if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+  return block.globalControlSettings?.filters?.[filterId] !== false;
+}
+
+type DashboardGlobalControlTarget =
+  | DashboardGlobalDimensionTarget
+  | DashboardGlobalFilterTarget;
+
 function getTargetedValueIndexes(
   block: DashboardGlobalControlSupportedBlock,
-  target: DashboardGlobalDimensionTarget,
+  target: DashboardGlobalControlTarget,
 ): number[] {
   const values = block.config.dataset.values;
   if (typeof target.valueIndex === "number") {
@@ -144,7 +159,7 @@ function getTargetedValueIndexes(
 
 function targetMatchesCurrentBlock(
   block: DashboardGlobalControlSupportedBlock,
-  target: DashboardGlobalDimensionTarget,
+  target: DashboardGlobalControlTarget,
   blockIndex?: number,
 ): boolean {
   const blockId = dashboardBlockHasIds(block)
@@ -192,6 +207,20 @@ export type DashboardGlobalDimensionEvaluation = {
   skippedReason?: DashboardGlobalDimensionSkippedReason;
 };
 
+export type DashboardGlobalFilterSkippedReason =
+  | "disabled"
+  | "invalid-target"
+  | "incomplete";
+
+export type DashboardGlobalFilterEvaluation = {
+  filter: DashboardGlobalFilter;
+  target?: DashboardGlobalFilterTarget;
+  enabled: boolean;
+  applied: boolean;
+  rowFilter?: RowFilter;
+  skippedReason?: DashboardGlobalFilterSkippedReason;
+};
+
 export type DashboardGlobalControlsEvaluation<
   T extends DashboardGlobalControlSupportedBlock,
 > = {
@@ -201,6 +230,7 @@ export type DashboardGlobalControlsEvaluation<
     applied: boolean;
   };
   dimensions: DashboardGlobalDimensionEvaluation[];
+  filters: DashboardGlobalFilterEvaluation[];
 };
 
 function getMaxGlobalDimensions(
@@ -208,6 +238,63 @@ function getMaxGlobalDimensions(
 ): number {
   if (block.config.chartType === "bigNumber") return 0;
   return block.config.dataset.values.length > 1 ? 1 : 2;
+}
+
+function hasNonEmptyFilterValues(filter: DashboardGlobalFilter): boolean {
+  return (filter.values ?? []).some((value) => value !== "");
+}
+
+function isCompleteDashboardGlobalFilter(
+  filter: DashboardGlobalFilter,
+): boolean {
+  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
+    return hasNonEmptyFilterValues(filter);
+  }
+  if (
+    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+  ) {
+    return filter.column.length > 0;
+  }
+  return filter.column.length > 0 && hasNonEmptyFilterValues(filter);
+}
+
+function addGlobalFiltersToConfig<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  config: T["config"],
+  block: T,
+  filters: DashboardGlobalFilterEvaluation[],
+): T["config"] {
+  const appliedFilters = filters.filter(
+    (
+      filter,
+    ): filter is DashboardGlobalFilterEvaluation & {
+      target: DashboardGlobalFilterTarget;
+      rowFilter: RowFilter;
+    } => filter.applied && !!filter.target && !!filter.rowFilter,
+  );
+  if (appliedFilters.length === 0) return config;
+
+  const values = config.dataset.values.map((value, valueIndex) => {
+    const rowFilters = appliedFilters
+      .filter(({ target }) =>
+        getTargetedValueIndexes(block, target).includes(valueIndex),
+      )
+      .map(({ rowFilter }) => rowFilter);
+    if (rowFilters.length === 0) return value;
+    return {
+      ...value,
+      rowFilters: [...value.rowFilters, ...rowFilters],
+    };
+  });
+
+  return {
+    ...config,
+    dataset: {
+      ...config.dataset,
+      values,
+    },
+  } as T["config"];
 }
 
 export function evaluateDashboardGlobalControlsForBlock<
@@ -299,17 +386,70 @@ export function evaluateDashboardGlobalControlsForBlock<
       column: dimension.column,
       maxValues: dimension.maxValues,
     }));
+  const filters = (dashboard.globalControls?.filters ?? []).map(
+    (filter): DashboardGlobalFilterEvaluation => {
+      const enabled = blockUsesDashboardFilterControl(block, filter.id);
+      const target = filter.targets.find((target) =>
+        targetMatchesCurrentBlock(block, target, blockIndex),
+      );
 
-  return {
-    effectiveConfig: {
+      if (!enabled) {
+        return {
+          filter,
+          target,
+          enabled,
+          applied: false,
+          skippedReason: "disabled",
+        };
+      }
+      if (!target) {
+        return {
+          filter,
+          enabled,
+          applied: false,
+          skippedReason: "invalid-target",
+        };
+      }
+      if (!isCompleteDashboardGlobalFilter(filter)) {
+        return {
+          filter,
+          target,
+          enabled,
+          applied: false,
+          skippedReason: "incomplete",
+        };
+      }
+
+      return {
+        filter,
+        target,
+        enabled,
+        applied: true,
+        rowFilter: {
+          operator: filter.operator,
+          column: target.column,
+          ...(filter.values ? { values: filter.values } : {}),
+        },
+      };
+    },
+  );
+  const configWithGlobalFilters = addGlobalFiltersToConfig(
+    {
       ...config,
       dimensions: [...dateDimensions, ...blockDimensions, ...globalDimensions],
     } as T["config"],
+    block,
+    filters,
+  );
+
+  return {
+    effectiveConfig: configWithGlobalFilters,
     dateRange: {
       enabled: dateRangeEnabled,
       applied: dateRangeApplied,
     },
     dimensions,
+    filters,
   };
 }
 
@@ -335,6 +475,11 @@ export function getDashboardGlobalControlApplicability(dashboard: {
     dimension: DashboardGlobalDimension;
     affectedBlocks: DashboardGlobalControlSupportedBlock[];
     invalidTargets: DashboardGlobalDimensionTarget[];
+  }[];
+  filters: {
+    filter: DashboardGlobalFilter;
+    affectedBlocks: DashboardGlobalControlSupportedBlock[];
+    invalidTargets: DashboardGlobalFilterTarget[];
   }[];
 } {
   const supportedBlocks: DashboardGlobalControlSupportedBlock[] = [];
@@ -400,12 +545,58 @@ export function getDashboardGlobalControlApplicability(dashboard: {
       };
     },
   );
+  const filters = (dashboard.globalControls?.filters ?? []).map((filter) => {
+    const affectedBlocks = new Set<DashboardGlobalControlSupportedBlock>();
+    const invalidTargets: DashboardGlobalFilterTarget[] = [];
+
+    filter.targets.forEach((target) => {
+      const blockIndex = dashboard.blocks.findIndex((block) => {
+        if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+        const blockId = dashboardBlockHasIds(block)
+          ? block.id
+          : getTemporaryDashboardBlockId(
+              dashboard.blocks.findIndex((candidate) => candidate === block),
+            );
+        return blockId === target.blockId;
+      });
+      const block =
+        blockIndex >= 0 &&
+        isDashboardGlobalControlSupportedBlock(dashboard.blocks[blockIndex])
+          ? dashboard.blocks[blockIndex]
+          : undefined;
+      if (!block || !targetMatchesCurrentBlock(block, target, blockIndex)) {
+        invalidTargets.push(target);
+        return;
+      }
+      const filterEvaluation = evaluateDashboardGlobalControlsForBlock(
+        block,
+        dashboard,
+        blockIndex,
+      ).filters.find(
+        (filterEvaluation) => filterEvaluation.filter.id === filter.id,
+      );
+      if (filterEvaluation?.skippedReason === "invalid-target") {
+        invalidTargets.push(target);
+        return;
+      }
+      if (filterEvaluation?.applied) {
+        affectedBlocks.add(block);
+      }
+    });
+
+    return {
+      filter,
+      affectedBlocks: [...affectedBlocks],
+      invalidTargets,
+    };
+  });
 
   return {
     supportedBlocks,
     unsupportedBlocks,
     dateControlledBlocks,
     dimensions,
+    filters,
   };
 }
 
@@ -446,6 +637,7 @@ export function canAutoRefreshDashboard(
   const affectedBlocks = new Set([
     ...applicability.dateControlledBlocks,
     ...applicability.dimensions.flatMap(({ affectedBlocks }) => affectedBlocks),
+    ...applicability.filters.flatMap(({ affectedBlocks }) => affectedBlocks),
   ]);
 
   return [...affectedBlocks].every((block) => {

@@ -74,13 +74,21 @@ export default function ProductAnalyticsExplorerSettings({
   } as typeof block;
   const effectiveInitialConfig = dashboardGlobalControls
     ? getEffectiveExplorationConfig(blockForInitialConfig, {
-        globalControls: dashboardGlobalControls,
+        globalControls: {
+          ...dashboardGlobalControls,
+          filters: undefined,
+        },
       })
     : baseInitialConfig;
   const usesDashboardDimensions = dashboardGlobalControls
     ? evaluateDashboardGlobalControlsForBlock(block, {
         globalControls: dashboardGlobalControls,
       }).dimensions.some((dimension) => dimension.applied)
+    : false;
+  const usesDashboardFilters = dashboardGlobalControls
+    ? evaluateDashboardGlobalControlsForBlock(block, {
+        globalControls: dashboardGlobalControls,
+      }).filters.some((filter) => filter.applied)
     : false;
   const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
     ? {
@@ -118,7 +126,8 @@ export default function ProductAnalyticsExplorerSettings({
             : undefined;
         const nextConfig =
           block.globalControlSettings?.dateRange === true ||
-          usesDashboardDimensions
+          usesDashboardDimensions ||
+          usesDashboardFilters
             ? {
                 ...exploration.config,
                 ...(block.globalControlSettings?.dateRange === true
@@ -126,6 +135,9 @@ export default function ProductAnalyticsExplorerSettings({
                   : {}),
                 ...(usesDashboardDimensions
                   ? { dimensions: block.config.dimensions }
+                  : {}),
+                ...(usesDashboardFilters
+                  ? { dataset: block.config.dataset }
                   : {}),
               }
             : exploration.config;

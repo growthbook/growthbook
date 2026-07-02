@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -81,6 +81,40 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   const usesDashboardDimensions = inheritedDashboardDimensions.some(
     (dimension) => dimension.applied,
   );
+  const inheritedDashboardFilters = useMemo(() => {
+    return (globalControlsEvaluation?.filters ?? []).map((filter) => ({
+      id: filter.filter.id,
+      label: filter.filter.label,
+      column:
+        filter.rowFilter?.column ??
+        filter.target?.column ??
+        filter.filter.column,
+      operator: filter.filter.operator,
+      values: filter.filter.values,
+      enabled: filter.enabled,
+      applied: filter.applied,
+      skippedReason: filter.skippedReason,
+    }));
+  }, [globalControlsEvaluation]);
+  const usesDashboardFilters = inheritedDashboardFilters.some(
+    (filter) => filter.applied,
+  );
+  const getEffectiveDraftConfig = useCallback(
+    () =>
+      dashboardGlobalControls
+        ? ({
+            ...getEffectiveExplorationConfig(
+              {
+                ...block,
+                config: stripExplorerDraftFields(draftExploreState),
+              } as typeof block,
+              { globalControls: dashboardGlobalControls },
+            ),
+            previousTimeFrame: draftExploreState.previousTimeFrame,
+          } as typeof draftExploreState)
+        : draftExploreState,
+    [block, dashboardGlobalControls, draftExploreState],
+  );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -100,7 +134,9 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig =
-      block.globalControlSettings?.dateRange === true || usesDashboardDimensions
+      block.globalControlSettings?.dateRange === true ||
+      usesDashboardDimensions ||
+      usesDashboardFilters
         ? {
             ...nextDraftConfig,
             ...(block.globalControlSettings?.dateRange === true &&
@@ -110,6 +146,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
             ...(usesDashboardDimensions
               ? { dimensions: block.config.dimensions }
               : {}),
+            ...(usesDashboardFilters ? { dataset: block.config.dataset } : {}),
           }
         : nextDraftConfig;
     if (
@@ -140,14 +177,15 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     dashboardGlobalControls,
     nextComparison,
     usesDashboardDimensions,
+    usesDashboardFilters,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
   useEffect(() => {
     if (!saveAndCloseTrigger) return;
     pendingCloseRef.current = true;
-    handleSubmit({ force: true });
-  }, [saveAndCloseTrigger, handleSubmit]);
+    handleSubmit({ force: true, config: getEffectiveDraftConfig() });
+  }, [saveAndCloseTrigger, handleSubmit, getEffectiveDraftConfig]);
 
   // Once onRunComplete writes the required analysis ids, complete the save.
   useEffect(() => {
@@ -174,7 +212,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       renderingInDashboardSidebar
       dashboardDateRange={dashboardGlobalControls?.dateRange}
       inheritedDashboardDimensions={inheritedDashboardDimensions}
+      inheritedDashboardFilters={inheritedDashboardFilters}
       useDashboardDateControl={block.globalControlSettings?.dateRange === true}
+      onSubmit={() =>
+        handleSubmit({ force: true, config: getEffectiveDraftConfig() })
+      }
       onGlobalControlSettingsChange={(settings) => {
         const nextSettings = {
           ...block.globalControlSettings,
@@ -182,6 +224,10 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
           dimensions: {
             ...block.globalControlSettings?.dimensions,
             ...settings.dimensions,
+          },
+          filters: {
+            ...block.globalControlSettings?.filters,
+            ...settings.filters,
           },
         };
         if (settings.dateRange !== undefined) {

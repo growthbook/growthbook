@@ -7,17 +7,24 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardGlobalDimension,
+  DashboardGlobalFilter,
   DashboardInterface,
   getDashboardGlobalControlApplicability,
   isDashboardGlobalControlSupportedBlock,
 } from "shared/enterprise";
-import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import {
+  dateRangePredefined,
+  lookbackUnit,
+  rowFilterOperators,
+} from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import SelectField from "@/components/Forms/SelectField";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -66,6 +73,62 @@ function createGlobalDimension(
       ...(target.metricId ? { metricId: target.metricId } : {}),
     })),
   };
+}
+
+function candidateTargetsToGlobalTargets(
+  candidate: DashboardGlobalControlCandidate,
+) {
+  return candidate.targets.map((target) => ({
+    blockId: target.blockId,
+    column: target.column,
+    valueIndex: target.valueIndex,
+    datasource: target.datasource,
+    datatype: target.datatype,
+    ...(target.factTableId ? { factTableId: target.factTableId } : {}),
+    ...(target.metricId ? { metricId: target.metricId } : {}),
+  }));
+}
+
+function createGlobalFilter(
+  candidate: DashboardGlobalControlCandidate,
+): DashboardGlobalFilter {
+  return {
+    id: `gf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    label: candidate.label,
+    column: candidate.column,
+    operator: "=",
+    values: [],
+    targets: candidateTargetsToGlobalTargets(candidate),
+  };
+}
+
+const dashboardFilterOperators = rowFilterOperators.filter(
+  (operator) => operator !== "sql_expr" && operator !== "saved_filter",
+);
+
+const operatorLabels: Record<RowFilter["operator"], string> = {
+  "=": "is",
+  "!=": "is not",
+  "<": "less than",
+  "<=": "less than or equal to",
+  ">": "greater than",
+  ">=": "greater than or equal to",
+  in: "is one of",
+  not_in: "is not one of",
+  contains: "contains",
+  not_contains: "does not contain",
+  starts_with: "starts with",
+  ends_with: "ends with",
+  is_null: "is null",
+  not_null: "is not null",
+  is_true: "is true",
+  is_false: "is false",
+  sql_expr: "SQL expression",
+  saved_filter: "saved filter",
+};
+
+function filterNeedsValue(operator: RowFilter["operator"]): boolean {
+  return !["is_null", "not_null", "is_true", "is_false"].includes(operator);
 }
 
 function DashboardDateRangePicker({
@@ -202,6 +265,8 @@ export default function DashboardGlobalControlsBar({
   setNeedsUpdate,
 }: Props) {
   const [selectedCandidateKey, setSelectedCandidateKey] = useState("");
+  const [selectedFilterCandidateKey, setSelectedFilterCandidateKey] =
+    useState("");
   const [saving, setSaving] = useState(false);
   const { datasources, getFactTableById, getFactMetricById } = useDefinitions();
   const { updateAllSnapshots } = useContext(DashboardSnapshotContext);
@@ -215,6 +280,16 @@ export default function DashboardGlobalControlsBar({
       }),
     [blocks, getFactTableById, getFactMetricById],
   );
+  const filterCandidates = useMemo(
+    () =>
+      getDashboardGlobalControlCandidates({
+        blocks,
+        getFactTableById,
+        getFactMetricById,
+        includeBigNumber: true,
+      }),
+    [blocks, getFactTableById, getFactMetricById],
+  );
   const datasourceMap = useMemo(
     () => new Map(datasources.map((datasource) => [datasource.id, datasource])),
     [datasources],
@@ -224,6 +299,7 @@ export default function DashboardGlobalControlsBar({
     [blocks, globalControls],
   );
   const dimensions = globalControls?.dimensions ?? [];
+  const filters = globalControls?.filters ?? [];
 
   const persistGlobalControls = async (
     nextGlobalControls: DashboardInterface["globalControls"],
@@ -233,13 +309,31 @@ export default function DashboardGlobalControlsBar({
     try {
       await onGlobalControlsChange(nextGlobalControls, nextBlocks);
       const blocksForRefresh = nextBlocks ?? blocks;
+      const nextApplicability = getDashboardGlobalControlApplicability({
+        blocks: blocksForRefresh,
+        globalControls: nextGlobalControls,
+      });
       const hasDateControl = Boolean(nextGlobalControls?.dateRange);
       const hasCompleteDateControl =
         !nextGlobalControls?.dateRange ||
         hasCompleteDateRange(nextGlobalControls.dateRange);
       const hasGroupBys = (nextGlobalControls?.dimensions ?? []).length > 0;
+      const hasFilters = (nextGlobalControls?.filters ?? []).length > 0;
+      const hasAffectedBlocks = Boolean(
+        nextApplicability.dateControlledBlocks.length ||
+          nextApplicability.dimensions.some(
+            ({ affectedBlocks }) => affectedBlocks.length > 0,
+          ) ||
+          nextApplicability.filters.some(
+            ({ affectedBlocks }) => affectedBlocks.length > 0,
+          ),
+      );
 
-      if ((!hasDateControl && !hasGroupBys) || !hasCompleteDateControl) {
+      if (
+        (!hasDateControl && !hasGroupBys && !hasFilters) ||
+        !hasCompleteDateControl ||
+        !hasAffectedBlocks
+      ) {
         setNeedsUpdate(false);
       } else if (
         canAutoRefreshDashboard(
@@ -288,6 +382,18 @@ export default function DashboardGlobalControlsBar({
     setSelectedCandidateKey("");
   };
 
+  const addFilter = () => {
+    const candidate = filterCandidates.find(
+      (c) => c.key === selectedFilterCandidateKey,
+    );
+    if (!candidate) return;
+    persistGlobalControls({
+      ...(globalControls ?? {}),
+      filters: [...filters, createGlobalFilter(candidate)],
+    });
+    setSelectedFilterCandidateKey("");
+  };
+
   const updateDimension = (
     dimensionId: string,
     updates: Partial<DashboardGlobalDimension>,
@@ -300,6 +406,28 @@ export default function DashboardGlobalControlsBar({
     });
   };
 
+  const updateFilter = (
+    filterId: string,
+    updates: Partial<DashboardGlobalFilter>,
+  ) => {
+    persistGlobalControls({
+      ...(globalControls ?? {}),
+      filters: filters.map((filter) =>
+        filter.id === filterId ? { ...filter, ...updates } : filter,
+      ),
+    });
+  };
+
+  const updateFilterCandidate = (filterId: string, candidateKey: string) => {
+    const candidate = filterCandidates.find((c) => c.key === candidateKey);
+    if (!candidate) return;
+    updateFilter(filterId, {
+      label: candidate.label,
+      column: candidate.column,
+      targets: candidateTargetsToGlobalTargets(candidate),
+    });
+  };
+
   const removeDimension = (dimensionId: string) => {
     persistGlobalControls({
       ...(globalControls ?? {}),
@@ -309,8 +437,18 @@ export default function DashboardGlobalControlsBar({
     });
   };
 
+  const removeFilter = (filterId: string) => {
+    persistGlobalControls({
+      ...(globalControls ?? {}),
+      filters: filters.filter((filter) => filter.id !== filterId),
+    });
+  };
+
   const selectedCandidate = candidates.find(
     (candidate) => candidate.key === selectedCandidateKey,
+  );
+  const selectedFilterCandidate = filterCandidates.find(
+    (candidate) => candidate.key === selectedFilterCandidateKey,
   );
 
   return (
@@ -469,6 +607,183 @@ export default function DashboardGlobalControlsBar({
                         />
                       </Flex>
                     ) : null}
+                  </Flex>
+                );
+              })
+            )}
+          </Flex>
+        </Box>
+      )}
+
+      {(canModifyControls || filters.length > 0) && (
+        <Box
+          p="3"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-3)",
+            backgroundColor: "var(--color-panel-translucent)",
+          }}
+        >
+          <Flex direction="column" gap="3">
+            <Flex align="center" justify="between" gap="3" wrap="wrap">
+              <Text size="medium" weight="medium">
+                Filters
+              </Text>
+              {canModifyControls ? (
+                <Flex align="end" gap="2" wrap="wrap">
+                  <SelectField
+                    label="Add filter"
+                    value={selectedFilterCandidateKey}
+                    placeholder="Choose column..."
+                    options={filterCandidates.map((candidate) => ({
+                      label: `${candidate.label} (${candidate.targets.length} target${candidate.targets.length === 1 ? "" : "s"})`,
+                      value: candidate.key,
+                    }))}
+                    onChange={setSelectedFilterCandidateKey}
+                    isClearable
+                    disabled={saving || filterCandidates.length === 0}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!selectedFilterCandidate || saving}
+                    onClick={addFilter}
+                  >
+                    Add
+                  </Button>
+                </Flex>
+              ) : null}
+            </Flex>
+
+            {filters.length === 0 ? (
+              <Text size="medium" color="text-low">
+                No dashboard filters yet.
+              </Text>
+            ) : (
+              filters.map((filter) => {
+                const impact = applicability.filters.find(
+                  ({ filter: f }) => f.id === filter.id,
+                );
+                const selectedCandidateKey =
+                  filterCandidates.find(
+                    (candidate) =>
+                      candidate.column === filter.column &&
+                      candidate.targets.some((candidateTarget) =>
+                        filter.targets.some(
+                          (target) =>
+                            target.blockId === candidateTarget.blockId &&
+                            target.column === candidateTarget.column,
+                        ),
+                      ),
+                  )?.key ?? "";
+                const needsValue = filterNeedsValue(filter.operator);
+                const multiValueInput = ["in", "not_in"].includes(
+                  filter.operator,
+                );
+
+                return (
+                  <Flex
+                    key={filter.id}
+                    direction="column"
+                    gap="2"
+                    p="3"
+                    style={{
+                      border: "1px solid var(--gray-a3)",
+                      borderRadius: "var(--radius-3)",
+                    }}
+                  >
+                    <Flex align="center" justify="between" gap="3" wrap="wrap">
+                      <Flex align="center" gap="2" wrap="wrap">
+                        <Text weight="medium">{filter.label}</Text>
+                        <Badge
+                          label={`Applies to ${impact?.affectedBlocks.length ?? 0} block${impact?.affectedBlocks.length === 1 ? "" : "s"}`}
+                          variant="soft"
+                          color="violet"
+                        />
+                        {impact?.invalidTargets.length ? (
+                          <Badge
+                            label={`${impact.invalidTargets.length} unavailable target${impact.invalidTargets.length === 1 ? "" : "s"}`}
+                            variant="outline"
+                            color="amber"
+                          />
+                        ) : null}
+                      </Flex>
+                      {canModifyControls ? (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          disabled={saving}
+                          onClick={() => removeFilter(filter.id)}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </Flex>
+                    {canModifyControls ? (
+                      <Flex gap="2" wrap="wrap" align="end">
+                        <SelectField
+                          label="Column"
+                          value={selectedCandidateKey}
+                          placeholder="Choose column..."
+                          options={filterCandidates.map((candidate) => ({
+                            label: candidate.label,
+                            value: candidate.key,
+                          }))}
+                          onChange={(candidateKey) =>
+                            updateFilterCandidate(filter.id, candidateKey)
+                          }
+                          disabled={saving}
+                          sort={false}
+                        />
+                        <SelectField
+                          label="Operator"
+                          value={filter.operator}
+                          options={dashboardFilterOperators.map((operator) => ({
+                            label: operatorLabels[operator],
+                            value: operator,
+                          }))}
+                          onChange={(operator: RowFilter["operator"]) =>
+                            updateFilter(filter.id, {
+                              operator,
+                              ...(filterNeedsValue(operator)
+                                ? {}
+                                : { values: [] }),
+                            })
+                          }
+                          disabled={saving}
+                          sort={false}
+                        />
+                        {needsValue && multiValueInput ? (
+                          <Box style={{ minWidth: 220 }}>
+                            <StringArrayField
+                              label="Values"
+                              value={filter.values ?? []}
+                              onChange={(values) =>
+                                updateFilter(filter.id, { values })
+                              }
+                              delimiters={["Enter", "Tab"]}
+                              disabled={saving}
+                              required
+                            />
+                          </Box>
+                        ) : needsValue ? (
+                          <Field
+                            label="Value"
+                            value={filter.values?.[0] ?? ""}
+                            disabled={saving}
+                            onChange={(e) =>
+                              updateFilter(filter.id, {
+                                values: [e.target.value],
+                              })
+                            }
+                          />
+                        ) : null}
+                      </Flex>
+                    ) : (
+                      <Text size="small" color="text-low">
+                        {filter.label} {operatorLabels[filter.operator]}{" "}
+                        {filter.values?.join(", ") ?? ""}
+                      </Text>
+                    )}
                   </Flex>
                 );
               })

@@ -187,9 +187,17 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const activeDimensionLabels = dashboardGlobalControlApplicability.dimensions
     .filter(({ affectedBlocks }) => affectedBlocks.length > 0)
     .map(({ dimension }) => dimension.label);
+  const activeFilterLabels = dashboardGlobalControlApplicability.filters
+    .filter(({ affectedBlocks }) => affectedBlocks.length > 0)
+    .map(({ filter }) => filter.label);
+  const skippedFilterCount = dashboardGlobalControlApplicability.filters.filter(
+    ({ affectedBlocks, invalidTargets }) =>
+      affectedBlocks.length === 0 && invalidTargets.length > 0,
+  ).length;
   const hasGlobalControls = Boolean(
     dashboardGlobalControls?.dateRange ||
-      dashboardGlobalControls?.dimensions?.length,
+      dashboardGlobalControls?.dimensions?.length ||
+      dashboardGlobalControls?.filters?.length,
   );
   const shouldShowUnsupportedGlobalControlBadge =
     hasGlobalControls &&
@@ -551,6 +559,23 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 label={`Grouped by: ${activeDimensionLabels.join(", ")}`}
                 color="violet"
                 variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
+            {activeFilterLabels.length > 0 ? (
+              <Badge
+                label={`Filtered by: ${activeFilterLabels.join(", ")}`}
+                color="violet"
+                variant="soft"
+                size="xs"
+                ml="2"
+              />
+            ) : skippedFilterCount > 0 ? (
+              <Badge
+                label={`${skippedFilterCount} global filter${skippedFilterCount === 1 ? "" : "s"} not applied`}
+                color="amber"
+                variant="outline"
                 size="xs"
                 ml="2"
               />

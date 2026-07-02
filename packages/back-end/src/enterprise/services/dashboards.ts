@@ -374,7 +374,6 @@ function isProductAnalyticsExplorationBlock(
     "explorerAnalysisId" in block &&
     typeof (block as { explorerAnalysisId?: string }).explorerAnalysisId ===
       "string" &&
-    (block as { explorerAnalysisId: string }).explorerAnalysisId.length > 0 &&
     "config" in block &&
     (block as { config?: unknown }).config != null
   );
