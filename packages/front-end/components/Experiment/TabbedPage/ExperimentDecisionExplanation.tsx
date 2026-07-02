@@ -115,7 +115,7 @@ export default function ExperimentDecisionExplanation({
       {decidingRules.map((r) => (
         <>
           <Flex direction="column" mb="2">
-            <Flex direction="row" gap="1" mb="1">
+            <Flex direction="row" align="center" gap="1" mb="1">
               {decidingRules.length > 1
                 ? r.variationIds.map((v, i) => (
                     <>

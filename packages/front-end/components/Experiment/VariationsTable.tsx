@@ -4,7 +4,7 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
   PiCameraPlusLight,
@@ -19,6 +19,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import VariationLabel from "@/ui/VariationLabel";
 
 const imageCache = {};
 
@@ -208,15 +209,10 @@ export function VariationBox({
       <Flex gap="2" direction="column" justify="between" height="100%">
         <Box>
           <Box mb="3">
-            <Flex gap="0" align="center" justify="between">
-              <Flex gap="0" align="center">
-                <Box className="">
-                  <span className="circle-label label">{i}</span>
-                </Box>
-                <Heading as="h4" size="3" mb="0">
-                  {v.name}
-                </Heading>
-              </Flex>
+            <Flex gap="2" align="center" justify="between">
+              <Box minWidth="0" flexGrow="1">
+                <VariationLabel number={i} name={v.name} size="large" />
+              </Box>
               {canEdit && onEditMetadata ? (
                 <IconButton
                   variant="ghost"
