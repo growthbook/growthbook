@@ -12,6 +12,8 @@ import {
   InsertAggregatedFactTableDataQueryParams,
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
+  CreateAggregatedFactTableStagingQueryParams,
+  InsertAggregatedFactTableStagingDataQueryParams,
   DimensionSlicesQueryParams,
   DimensionSlicesQueryResponse,
   DropMetricSourceCovariateTableQueryParams,
@@ -189,6 +191,12 @@ export interface SourceIntegrationInterface {
   ): string;
   getDropAggregatedFactTableQuery(
     params: DropAggregatedFactTableQueryParams,
+  ): string;
+  getCreateAggregatedFactTableStagingQuery(
+    params: CreateAggregatedFactTableStagingQueryParams,
+  ): string;
+  getInsertAggregatedFactTableStagingDataQuery(
+    params: InsertAggregatedFactTableStagingDataQueryParams,
   ): string;
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,

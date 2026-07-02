@@ -41,6 +41,8 @@ import {
   InsertAggregatedFactTableDataQueryParams,
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
+  CreateAggregatedFactTableStagingQueryParams,
+  InsertAggregatedFactTableStagingDataQueryParams,
 } from "shared/types/integrations";
 import { parseIntWithDefault } from "shared/util";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
@@ -257,6 +259,16 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
   getDropAggregatedFactTableQuery(
     _params: DropAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateAggregatedFactTableStagingQuery(
+    _params: CreateAggregatedFactTableStagingQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertAggregatedFactTableStagingDataQuery(
+    _params: InsertAggregatedFactTableStagingDataQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }
