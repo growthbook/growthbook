@@ -144,11 +144,27 @@ function DateRangePresetSelect({
       value={dateRange.predefined}
       placeholder="Select range"
       setValue={(v) => {
+        const predefined = v as (typeof dateRangePredefined)[number];
         setDraftExploreState((prev) => ({
           ...prev,
           dateRange: {
             ...prev.dateRange,
-            predefined: v as (typeof dateRangePredefined)[number],
+            predefined,
+            ...(predefined === "customLookback"
+              ? {
+                  lookbackValue: prev.dateRange.lookbackValue || 30,
+                  lookbackUnit: prev.dateRange.lookbackUnit || "day",
+                }
+              : {}),
+            ...(predefined === "customDateRange"
+              ? {
+                  startDate:
+                    prev.dateRange.startDate ??
+                    format(new Date(), "yyyy-MM-dd"),
+                  endDate:
+                    prev.dateRange.endDate ?? format(new Date(), "yyyy-MM-dd"),
+                }
+              : {}),
           },
         }));
       }}

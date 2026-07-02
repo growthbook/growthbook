@@ -25844,6 +25844,136 @@ paths:
                   type: array
                   items:
                     type: string
+                globalControls:
+                  type: object
+                  properties:
+                    dateRange:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                    dimensions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          label:
+                            type: string
+                          column:
+                            type: string
+                          maxValues:
+                            type: integer
+                            minimum: 1
+                            maximum: 20
+                          targets:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                blockId:
+                                  type: string
+                                column:
+                                  type: string
+                                valueIndex:
+                                  type: integer
+                                  minimum: 0
+                                datasource:
+                                  type: string
+                                factTableId:
+                                  type: string
+                                metricId:
+                                  type: string
+                                datatype:
+                                  type: string
+                              required:
+                                - blockId
+                                - column
+                              additionalProperties: false
+                        required:
+                          - id
+                          - label
+                          - column
+                          - maxValues
+                          - targets
+                        additionalProperties: false
+                  additionalProperties: false
+                comparison:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    previousTimeFrame:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                  required:
+                    - enabled
+                  additionalProperties: false
                 blocks:
                   type: array
                   items:
@@ -27318,6 +27448,18 @@ paths:
                                 additionalProperties: false
                               comparisonExplorerAnalysisId:
                                 type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  dimensions:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: boolean
+                                additionalProperties: false
                               config:
                                 type: object
                                 properties:
@@ -27675,6 +27817,18 @@ paths:
                                 additionalProperties: false
                               comparisonExplorerAnalysisId:
                                 type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  dimensions:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: boolean
+                                additionalProperties: false
                               config:
                                 type: object
                                 properties:
@@ -28041,6 +28195,18 @@ paths:
                                 additionalProperties: false
                               comparisonExplorerAnalysisId:
                                 type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                  dimensions:
+                                    type: object
+                                    propertyNames:
+                                      type: string
+                                    additionalProperties:
+                                      type: boolean
+                                additionalProperties: false
                               config:
                                 type: object
                                 properties:
@@ -28430,6 +28596,136 @@ paths:
                   type: array
                   items:
                     type: string
+                globalControls:
+                  type: object
+                  properties:
+                    dateRange:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                    dimensions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          label:
+                            type: string
+                          column:
+                            type: string
+                          maxValues:
+                            type: integer
+                            minimum: 1
+                            maximum: 20
+                          targets:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                blockId:
+                                  type: string
+                                column:
+                                  type: string
+                                valueIndex:
+                                  type: integer
+                                  minimum: 0
+                                datasource:
+                                  type: string
+                                factTableId:
+                                  type: string
+                                metricId:
+                                  type: string
+                                datatype:
+                                  type: string
+                              required:
+                                - blockId
+                                - column
+                              additionalProperties: false
+                        required:
+                          - id
+                          - label
+                          - column
+                          - maxValues
+                          - targets
+                        additionalProperties: false
+                  additionalProperties: false
+                comparison:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    previousTimeFrame:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                  required:
+                    - enabled
+                  additionalProperties: false
                 blocks:
                   type: array
                   items:
@@ -43081,6 +43377,92 @@ components:
               additionalProperties: false
         title:
           type: string
+        globalControls:
+          type: object
+          properties:
+            dateRange:
+              type: object
+              properties:
+                predefined:
+                  type: string
+                  enum:
+                    - today
+                    - last7Days
+                    - last30Days
+                    - last90Days
+                    - customLookback
+                    - customDateRange
+                lookbackValue:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                lookbackUnit:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - hour
+                        - day
+                        - week
+                        - month
+                    - type: 'null'
+                startDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                endDate:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+              required:
+                - predefined
+              additionalProperties: false
+            dimensions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+                  column:
+                    type: string
+                  maxValues:
+                    type: integer
+                    minimum: 1
+                    maximum: 20
+                  targets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        blockId:
+                          type: string
+                        column:
+                          type: string
+                        valueIndex:
+                          type: integer
+                          minimum: 0
+                        datasource:
+                          type: string
+                        factTableId:
+                          type: string
+                        metricId:
+                          type: string
+                        datatype:
+                          type: string
+                      required:
+                        - blockId
+                        - column
+                      additionalProperties: false
+                required:
+                  - id
+                  - label
+                  - column
+                  - maxValues
+                  - targets
+                additionalProperties: false
+          additionalProperties: false
         comparison:
           type: object
           properties:
@@ -43976,6 +44358,18 @@ components:
                     additionalProperties: false
                   comparisonExplorerAnalysisId:
                     type: string
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      dimensions:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: boolean
+                    additionalProperties: false
                   config:
                     type: object
                     properties:
@@ -44333,6 +44727,18 @@ components:
                     additionalProperties: false
                   comparisonExplorerAnalysisId:
                     type: string
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      dimensions:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: boolean
+                    additionalProperties: false
                   config:
                     type: object
                     properties:
@@ -44699,6 +45105,18 @@ components:
                     additionalProperties: false
                   comparisonExplorerAnalysisId:
                     type: string
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                      dimensions:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: boolean
+                    additionalProperties: false
                   config:
                     type: object
                     properties:

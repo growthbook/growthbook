@@ -5,12 +5,21 @@ import {
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
   DashboardTemplateInterface,
+  DashboardInterface,
+  MetricExplorationBlockInterface,
+  FactTableExplorationBlockInterface,
+  DataSourceExplorationBlockInterface,
+  DashboardGlobalDimension,
+  DashboardGlobalDimensionTarget,
+  DashboardGlobalFilter,
+  DashboardGlobalFilterTarget,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
 } from "shared/validators";
+import type { RowFilter } from "shared/types/fact-table";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -20,8 +29,9 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis } from "../../util";
+import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
 import {
   parseSliceQueryString,
   generateSliceString,
@@ -58,6 +68,585 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 ): data is T {
   const block = data as T;
   return !!(block.id && block.uid && block.organization);
+}
+
+type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+>;
+
+const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+]);
+
+export function getTemporaryDashboardBlockId(index: number): string {
+  return `tmp:${index}`;
+}
+
+export function isDashboardGlobalControlSupportedBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock {
+  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+}
+
+export function blockUsesDashboardDateControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock & {
+  globalControlSettings: { dateRange: true };
+} {
+  return (
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === true
+  );
+}
+
+export function blockUsesDashboardDimensionControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  dimensionId: string,
+): block is DashboardGlobalControlSupportedBlock {
+  if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+  return block.globalControlSettings?.dimensions?.[dimensionId] !== false;
+}
+
+export function blockUsesDashboardFilterControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  filterId: string,
+): block is DashboardGlobalControlSupportedBlock {
+  if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+  return block.globalControlSettings?.filters?.[filterId] !== false;
+}
+
+type DashboardGlobalControlTarget =
+  | DashboardGlobalDimensionTarget
+  | DashboardGlobalFilterTarget;
+
+function getTargetedValueIndexes(
+  block: DashboardGlobalControlSupportedBlock,
+  target: DashboardGlobalControlTarget,
+): number[] {
+  const values = block.config.dataset.values;
+  if (typeof target.valueIndex === "number") {
+    const value = values[target.valueIndex];
+    if (!value) return [];
+    if (
+      block.config.dataset.type === "metric" &&
+      target.metricId &&
+      value.type === "metric" &&
+      value.metricId !== target.metricId
+    ) {
+      return [];
+    }
+    return [target.valueIndex];
+  }
+
+  return values
+    .map((value, index) => ({ value, index }))
+    .filter(({ value }) => {
+      if (
+        block.config.dataset.type === "metric" &&
+        target.metricId &&
+        value.type === "metric"
+      ) {
+        return value.metricId === target.metricId;
+      }
+      return true;
+    })
+    .map(({ index }) => index);
+}
+
+function targetMatchesCurrentBlock(
+  block: DashboardGlobalControlSupportedBlock,
+  target: DashboardGlobalControlTarget,
+  blockIndex?: number,
+): boolean {
+  const blockId = dashboardBlockHasIds(block)
+    ? block.id
+    : blockIndex !== undefined
+      ? getTemporaryDashboardBlockId(blockIndex)
+      : null;
+  if (!blockId || target.blockId !== blockId) {
+    return false;
+  }
+  if (target.datasource && target.datasource !== block.config.datasource) {
+    return false;
+  }
+
+  const { dataset } = block.config;
+  if (
+    dataset.type === "fact_table" &&
+    target.factTableId &&
+    target.factTableId !== dataset.factTableId
+  ) {
+    return false;
+  }
+  if (
+    dataset.type === "data_source" &&
+    dataset.columnTypes &&
+    !(target.column in dataset.columnTypes)
+  ) {
+    return false;
+  }
+  return getTargetedValueIndexes(block, target).length > 0;
+}
+
+export type DashboardGlobalDimensionSkippedReason =
+  | "disabled"
+  | "invalid-target"
+  | "capacity";
+
+export type DashboardGlobalDimensionEvaluation = {
+  dimension: DashboardGlobalDimension;
+  target?: DashboardGlobalDimensionTarget;
+  enabled: boolean;
+  applied: boolean;
+  column: string;
+  maxValues: number;
+  skippedReason?: DashboardGlobalDimensionSkippedReason;
+};
+
+export type DashboardGlobalFilterSkippedReason =
+  | "disabled"
+  | "invalid-target"
+  | "incomplete";
+
+export type DashboardGlobalFilterEvaluation = {
+  filter: DashboardGlobalFilter;
+  target?: DashboardGlobalFilterTarget;
+  enabled: boolean;
+  applied: boolean;
+  rowFilter?: RowFilter;
+  skippedReason?: DashboardGlobalFilterSkippedReason;
+};
+
+export type DashboardGlobalControlsEvaluation<
+  T extends DashboardGlobalControlSupportedBlock,
+> = {
+  effectiveConfig: T["config"];
+  dateRange: {
+    enabled: boolean;
+    applied: boolean;
+  };
+  dimensions: DashboardGlobalDimensionEvaluation[];
+  filters: DashboardGlobalFilterEvaluation[];
+};
+
+function getMaxGlobalDimensions(
+  block: DashboardGlobalControlSupportedBlock,
+): number {
+  if (block.config.chartType === "bigNumber") return 0;
+  return block.config.dataset.values.length > 1 ? 1 : 2;
+}
+
+function hasNonEmptyFilterValues(filter: DashboardGlobalFilter): boolean {
+  return (filter.values ?? []).some((value) => value !== "");
+}
+
+function isCompleteDashboardGlobalFilter(
+  filter: DashboardGlobalFilter,
+): boolean {
+  if (filter.operator === "sql_expr" || filter.operator === "saved_filter") {
+    return hasNonEmptyFilterValues(filter);
+  }
+  if (
+    ["is_true", "is_false", "is_null", "not_null"].includes(filter.operator)
+  ) {
+    return filter.column.length > 0;
+  }
+  return filter.column.length > 0 && hasNonEmptyFilterValues(filter);
+}
+
+function addGlobalFiltersToConfig<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  config: T["config"],
+  block: T,
+  filters: DashboardGlobalFilterEvaluation[],
+): T["config"] {
+  const appliedFilters = filters.filter(
+    (
+      filter,
+    ): filter is DashboardGlobalFilterEvaluation & {
+      target: DashboardGlobalFilterTarget;
+      rowFilter: RowFilter;
+    } => filter.applied && !!filter.target && !!filter.rowFilter,
+  );
+  if (appliedFilters.length === 0) return config;
+
+  const values = config.dataset.values.map((value, valueIndex) => {
+    const rowFilters = appliedFilters
+      .filter(({ target }) =>
+        getTargetedValueIndexes(block, target).includes(valueIndex),
+      )
+      .map(({ rowFilter }) => rowFilter);
+    if (rowFilters.length === 0) return value;
+    return {
+      ...value,
+      rowFilters: [...value.rowFilters, ...rowFilters],
+    };
+  });
+
+  return {
+    ...config,
+    dataset: {
+      ...config.dataset,
+      values,
+    },
+  } as T["config"];
+}
+
+export function evaluateDashboardGlobalControlsForBlock<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+  blockIndex?: number,
+): DashboardGlobalControlsEvaluation<T> {
+  const dateRangeEnabled = blockUsesDashboardDateControl(block);
+  const dateRangeApplied = Boolean(
+    dateRangeEnabled && dashboard.globalControls?.dateRange,
+  );
+  const config = dateRangeApplied
+    ? {
+        ...block.config,
+        dateRange: dashboard.globalControls!.dateRange!,
+      }
+    : block.config;
+  const dateDimensions = config.dimensions.filter(
+    (dimension) => dimension.dimensionType === "date",
+  );
+  const blockDimensions = config.dimensions.filter(
+    (dimension) => dimension.dimensionType !== "date",
+  );
+  const availableGlobalDimensions = Math.max(
+    0,
+    getMaxGlobalDimensions(block) -
+      dateDimensions.length -
+      blockDimensions.length,
+  );
+  let appliedGlobalDimensions = 0;
+  const dimensions = (dashboard.globalControls?.dimensions ?? []).map(
+    (dimension): DashboardGlobalDimensionEvaluation => {
+      const enabled = blockUsesDashboardDimensionControl(block, dimension.id);
+      const target = dimension.targets.find((target) =>
+        targetMatchesCurrentBlock(block, target, blockIndex),
+      );
+      const column = target?.column || dimension.column;
+
+      if (!enabled) {
+        return {
+          dimension,
+          target,
+          enabled,
+          applied: false,
+          column,
+          maxValues: dimension.maxValues,
+          skippedReason: "disabled",
+        };
+      }
+      if (!target) {
+        return {
+          dimension,
+          enabled,
+          applied: false,
+          column,
+          maxValues: dimension.maxValues,
+          skippedReason: "invalid-target",
+        };
+      }
+      if (appliedGlobalDimensions >= availableGlobalDimensions) {
+        return {
+          dimension,
+          target,
+          enabled,
+          applied: false,
+          column,
+          maxValues: dimension.maxValues,
+          skippedReason: "capacity",
+        };
+      }
+
+      appliedGlobalDimensions += 1;
+      return {
+        dimension,
+        target,
+        enabled,
+        applied: true,
+        column,
+        maxValues: dimension.maxValues,
+      };
+    },
+  );
+  const globalDimensions = dimensions
+    .filter((dimension) => dimension.applied)
+    .map((dimension) => ({
+      dimensionType: "dynamic" as const,
+      column: dimension.column,
+      maxValues: dimension.maxValues,
+    }));
+  const filters = (dashboard.globalControls?.filters ?? []).map(
+    (filter): DashboardGlobalFilterEvaluation => {
+      const enabled = blockUsesDashboardFilterControl(block, filter.id);
+      const target = filter.targets.find((target) =>
+        targetMatchesCurrentBlock(block, target, blockIndex),
+      );
+
+      if (!enabled) {
+        return {
+          filter,
+          target,
+          enabled,
+          applied: false,
+          skippedReason: "disabled",
+        };
+      }
+      if (!target) {
+        return {
+          filter,
+          enabled,
+          applied: false,
+          skippedReason: "invalid-target",
+        };
+      }
+      if (!isCompleteDashboardGlobalFilter(filter)) {
+        return {
+          filter,
+          target,
+          enabled,
+          applied: false,
+          skippedReason: "incomplete",
+        };
+      }
+
+      return {
+        filter,
+        target,
+        enabled,
+        applied: true,
+        rowFilter: {
+          operator: filter.operator,
+          column: target.column,
+          ...(filter.values ? { values: filter.values } : {}),
+        },
+      };
+    },
+  );
+  const configWithGlobalFilters = addGlobalFiltersToConfig(
+    {
+      ...config,
+      dimensions: [...dateDimensions, ...blockDimensions, ...globalDimensions],
+    } as T["config"],
+    block,
+    filters,
+  );
+
+  return {
+    effectiveConfig: configWithGlobalFilters,
+    dateRange: {
+      enabled: dateRangeEnabled,
+      applied: dateRangeApplied,
+    },
+    dimensions,
+    filters,
+  };
+}
+
+export function getEffectiveExplorationConfig<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+  blockIndex?: number,
+): T["config"] {
+  return evaluateDashboardGlobalControlsForBlock(block, dashboard, blockIndex)
+    .effectiveConfig;
+}
+
+export function getDashboardGlobalControlApplicability(dashboard: {
+  globalControls?: DashboardInterface["globalControls"];
+  blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+}): {
+  supportedBlocks: DashboardGlobalControlSupportedBlock[];
+  unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  dateControlledBlocks: DashboardGlobalControlSupportedBlock[];
+  dimensions: {
+    dimension: DashboardGlobalDimension;
+    affectedBlocks: DashboardGlobalControlSupportedBlock[];
+    invalidTargets: DashboardGlobalDimensionTarget[];
+  }[];
+  filters: {
+    filter: DashboardGlobalFilter;
+    affectedBlocks: DashboardGlobalControlSupportedBlock[];
+    invalidTargets: DashboardGlobalFilterTarget[];
+  }[];
+} {
+  const supportedBlocks: DashboardGlobalControlSupportedBlock[] = [];
+  const unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] =
+    [];
+
+  dashboard.blocks.forEach((block) => {
+    if (isDashboardGlobalControlSupportedBlock(block)) {
+      supportedBlocks.push(block);
+    } else {
+      unsupportedBlocks.push(block);
+    }
+  });
+
+  const dateControlledBlocks = supportedBlocks.filter(
+    blockUsesDashboardDateControl,
+  );
+  const dimensions = (dashboard.globalControls?.dimensions ?? []).map(
+    (dimension) => {
+      const affectedBlocks = new Set<DashboardGlobalControlSupportedBlock>();
+      const invalidTargets: DashboardGlobalDimensionTarget[] = [];
+
+      dimension.targets.forEach((target) => {
+        const blockIndex = dashboard.blocks.findIndex((block) => {
+          if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+          const blockId = dashboardBlockHasIds(block)
+            ? block.id
+            : getTemporaryDashboardBlockId(
+                dashboard.blocks.findIndex((candidate) => candidate === block),
+              );
+          return blockId === target.blockId;
+        });
+        const block =
+          blockIndex >= 0 &&
+          isDashboardGlobalControlSupportedBlock(dashboard.blocks[blockIndex])
+            ? dashboard.blocks[blockIndex]
+            : undefined;
+        if (!block || !targetMatchesCurrentBlock(block, target, blockIndex)) {
+          invalidTargets.push(target);
+          return;
+        }
+        const dimensionEvaluation = evaluateDashboardGlobalControlsForBlock(
+          block,
+          dashboard,
+          blockIndex,
+        ).dimensions.find(
+          (dimensionEvaluation) =>
+            dimensionEvaluation.dimension.id === dimension.id,
+        );
+        if (dimensionEvaluation?.skippedReason === "invalid-target") {
+          invalidTargets.push(target);
+          return;
+        }
+        if (dimensionEvaluation?.applied) {
+          affectedBlocks.add(block);
+        }
+      });
+
+      return {
+        dimension,
+        affectedBlocks: [...affectedBlocks],
+        invalidTargets,
+      };
+    },
+  );
+  const filters = (dashboard.globalControls?.filters ?? []).map((filter) => {
+    const affectedBlocks = new Set<DashboardGlobalControlSupportedBlock>();
+    const invalidTargets: DashboardGlobalFilterTarget[] = [];
+
+    filter.targets.forEach((target) => {
+      const blockIndex = dashboard.blocks.findIndex((block) => {
+        if (!isDashboardGlobalControlSupportedBlock(block)) return false;
+        const blockId = dashboardBlockHasIds(block)
+          ? block.id
+          : getTemporaryDashboardBlockId(
+              dashboard.blocks.findIndex((candidate) => candidate === block),
+            );
+        return blockId === target.blockId;
+      });
+      const block =
+        blockIndex >= 0 &&
+        isDashboardGlobalControlSupportedBlock(dashboard.blocks[blockIndex])
+          ? dashboard.blocks[blockIndex]
+          : undefined;
+      if (!block || !targetMatchesCurrentBlock(block, target, blockIndex)) {
+        invalidTargets.push(target);
+        return;
+      }
+      const filterEvaluation = evaluateDashboardGlobalControlsForBlock(
+        block,
+        dashboard,
+        blockIndex,
+      ).filters.find(
+        (filterEvaluation) => filterEvaluation.filter.id === filter.id,
+      );
+      if (filterEvaluation?.skippedReason === "invalid-target") {
+        invalidTargets.push(target);
+        return;
+      }
+      if (filterEvaluation?.applied) {
+        affectedBlocks.add(block);
+      }
+    });
+
+    return {
+      filter,
+      affectedBlocks: [...affectedBlocks],
+      invalidTargets,
+    };
+  });
+
+  return {
+    supportedBlocks,
+    unsupportedBlocks,
+    dateControlledBlocks,
+    dimensions,
+    filters,
+  };
+}
+
+type DatasourceMap = ReadonlyMap<
+  string,
+  Pick<DataSourceInterface, "type"> | undefined
+>;
+type DatasourceRecord = Readonly<
+  Record<string, Pick<DataSourceInterface, "type"> | undefined>
+>;
+type DatasourceLookup = DatasourceMap | DatasourceRecord;
+
+function isDatasourceMap(
+  datasourcesById: DatasourceLookup,
+): datasourcesById is DatasourceMap {
+  return datasourcesById instanceof Map;
+}
+
+function getDatasourceFromLookup(
+  datasourcesById: DatasourceLookup,
+  datasourceId: string,
+): Pick<DataSourceInterface, "type"> | undefined {
+  if (isDatasourceMap(datasourcesById)) {
+    return datasourcesById.get(datasourceId);
+  }
+
+  return datasourcesById[datasourceId];
+}
+
+export function canAutoRefreshDashboard(
+  dashboard: {
+    globalControls?: DashboardInterface["globalControls"];
+    blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  },
+  datasourcesById: DatasourceLookup,
+): boolean {
+  const applicability = getDashboardGlobalControlApplicability(dashboard);
+  const affectedBlocks = new Set([
+    ...applicability.dateControlledBlocks,
+    ...applicability.dimensions.flatMap(({ affectedBlocks }) => affectedBlocks),
+    ...applicability.filters.flatMap(({ affectedBlocks }) => affectedBlocks),
+  ]);
+
+  return [...affectedBlocks].every((block) => {
+    const datasource = getDatasourceFromLookup(
+      datasourcesById,
+      block.config.datasource,
+    );
+    return datasource ? isManagedWarehouse(datasource) : false;
+  });
 }
 
 export function isDifferenceType(

@@ -2,6 +2,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Collapsible from "react-collapsible";
+import type { DashboardGlobalDimensionSkippedReason } from "shared/enterprise";
 import Button from "@/ui/Button";
 import { getMaxDimensions } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -9,8 +10,31 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
+import Switch from "@/ui/Switch";
 
-export default function GroupBySection() {
+export type InheritedDashboardDimension = {
+  id: string;
+  label: string;
+  column: string;
+  maxValues: number;
+  enabled: boolean;
+  applied: boolean;
+  skippedReason?: DashboardGlobalDimensionSkippedReason;
+};
+
+interface Props {
+  inheritedDashboardDimensions?: InheritedDashboardDimension[];
+  onInheritedDashboardDimensionToggle?: (
+    dimensionId: string,
+    enabled: boolean,
+  ) => void;
+}
+
+export default function GroupBySection({
+  inheritedDashboardDimensions = [],
+  onInheritedDashboardDimensionToggle,
+}: Props) {
   const { draftExploreState, setDraftExploreState, commonColumns } =
     useExplorerContext();
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(
@@ -21,6 +45,15 @@ export default function GroupBySection() {
   >({});
   const latestMaxValuesRef = useRef<Record<number, string>>({});
   const skipBlurCommitRef = useRef(false);
+  const inheritedDimensionsByColumn = useMemo(
+    () =>
+      new Map(
+        inheritedDashboardDimensions
+          .filter((dimension) => dimension.applied)
+          .map((dimension) => [dimension.column, dimension]),
+      ),
+    [inheritedDashboardDimensions],
+  );
 
   const prevDimensionsLengthRef = useRef(draftExploreState.dimensions.length);
   useEffect(() => {
@@ -40,6 +73,10 @@ export default function GroupBySection() {
     );
     return commonColumns.filter((c) => !usedColumns.has(c.column));
   }, [commonColumns, draftExploreState.dimensions]);
+  const hasAvailableDimensionSlot =
+    getMaxDimensions(draftExploreState.dataset) >
+      draftExploreState.dimensions.length &&
+    draftExploreState.chartType !== "bigNumber";
 
   const getColumnOptionsForDimension = (index: number) => {
     const dim = draftExploreState.dimensions[index];
@@ -140,8 +177,7 @@ export default function GroupBySection() {
             size="xs"
             variant="ghost"
             disabled={
-              getMaxDimensions(draftExploreState.dataset) <=
-                draftExploreState.dimensions.length ||
+              !hasAvailableDimensionSlot ||
               availableColumns.length === 0 ||
               draftExploreState.chartType === "bigNumber"
             }
@@ -157,6 +193,60 @@ export default function GroupBySection() {
       {draftExploreState.dimensions.map((dim, i) => {
         if (dim.dimensionType === "date") return null; // Skip date dimension as it's usually handled separately or fixed
         if (dim.dimensionType !== "dynamic") return null; // Skip static and slice dimensions for now
+        const inheritedDimension = dim.column
+          ? inheritedDimensionsByColumn.get(dim.column)
+          : undefined;
+        if (inheritedDimension) {
+          return (
+            <Flex
+              key={`${inheritedDimension.id}-${i}`}
+              direction="column"
+              gap="2"
+              style={{
+                border: "1px solid var(--violet-a5)",
+                borderRadius: "var(--radius-3)",
+                padding: "var(--space-2)",
+                backgroundColor: "var(--violet-a2)",
+              }}
+            >
+              <Flex direction="row" gap="2" align="center">
+                <SelectField
+                  containerStyle={{ flex: 1, minWidth: 0 }}
+                  value={dim.column || ""}
+                  options={[
+                    {
+                      label: inheritedDimension.label,
+                      value: inheritedDimension.column,
+                    },
+                  ]}
+                  disabled
+                  sort={false}
+                  forceUndefinedValueToNull
+                />
+                <Badge label="Global" color="violet" variant="soft" />
+              </Flex>
+              <Flex direction="row" gap="2" align="center" justify="between">
+                <Text size="small" color="text-low">
+                  Inherited from dashboard controls. Max values:{" "}
+                  {inheritedDimension.maxValues}
+                </Text>
+                {onInheritedDashboardDimensionToggle ? (
+                  <Switch
+                    size="1"
+                    value={inheritedDimension.enabled}
+                    onChange={(checked) =>
+                      onInheritedDashboardDimensionToggle(
+                        inheritedDimension.id,
+                        checked,
+                      )
+                    }
+                    label="Apply"
+                  />
+                ) : null}
+              </Flex>
+            </Flex>
+          );
+        }
         return (
           <Flex
             key={i}
@@ -271,6 +361,53 @@ export default function GroupBySection() {
           </Flex>
         );
       })}
+      {inheritedDashboardDimensions
+        .filter((dimension) => !dimension.applied)
+        .map((dimension) => {
+          const canEnable =
+            dimension.skippedReason !== "invalid-target" &&
+            hasAvailableDimensionSlot;
+          return (
+            <Flex
+              key={dimension.id}
+              direction="column"
+              gap="2"
+              style={{
+                border: "1px solid var(--gray-a3)",
+                borderRadius: "var(--radius-3)",
+                padding: "var(--space-2)",
+                backgroundColor: "var(--gray-a2)",
+              }}
+            >
+              <Flex direction="row" gap="2" align="center" justify="between">
+                <Flex direction="column" gap="1">
+                  <Flex align="center" gap="2">
+                    <Text weight="medium">{dimension.label}</Text>
+                    <Badge label="Global" color="gray" variant="soft" />
+                  </Flex>
+                  <Text size="small" color="text-low">
+                    {dimension.skippedReason === "capacity"
+                      ? "Dashboard group-by is not applied because this block has reached its group-by limit."
+                      : dimension.skippedReason === "invalid-target"
+                        ? "Dashboard group-by is not available for this block."
+                        : "Dashboard group-by disabled for this block."}
+                  </Text>
+                </Flex>
+                {onInheritedDashboardDimensionToggle ? (
+                  <Switch
+                    size="1"
+                    value={false}
+                    disabled={!canEnable}
+                    onChange={(checked) =>
+                      onInheritedDashboardDimensionToggle(dimension.id, checked)
+                    }
+                    label="Apply"
+                  />
+                ) : null}
+              </Flex>
+            </Flex>
+          );
+        })}
     </Flex>
   );
 }
