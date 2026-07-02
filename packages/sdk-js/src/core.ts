@@ -1,6 +1,8 @@
 import {
   EvalContext,
+  ContextualBanditInfo,
   FeatureDefinition,
+  FeatureRule,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -101,6 +103,14 @@ function onExperimentViewed(
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
     calls.push(safeCall(() => cb(experiment, result)));
+  }
+  if (result.leafId !== undefined && ctx.global.trackingCallbackWithAttribute) {
+    const cb = ctx.global.trackingCallbackWithAttribute;
+    const attributes = {
+      ...ctx.user.attributes,
+      ...ctx.user.attributeOverrides,
+    };
+    calls.push(safeCall(() => cb(experiment, result, attributes)));
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -350,8 +360,31 @@ export function evalFeature<V = unknown>(
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
 
+      let cbInfo: ContextualBanditInfo | undefined;
+      if (
+        rule.type === "contextual-bandit" &&
+        rule.contexts &&
+        rule.contexts.length
+      ) {
+        const leaf = getContextualBanditLeaf(rule, ctx);
+        if (!leaf) {
+          process.env.NODE_ENV !== "production" &&
+            ctx.global.log(
+              "Skip contextual bandit rule (missing required attribute or no matching leaf)",
+              { id, rule },
+            );
+          continue;
+        }
+        exp.weights = leaf.weights;
+        cbInfo = {
+          leafId: leaf.leafId,
+          variationWeights: leaf.weights,
+          banditVersion: rule.banditVersion,
+        };
+      }
+
       // Only return a value if the user is part of the experiment
-      const { result } = runExperiment(exp, id, ctx);
+      const { result } = runExperiment(exp, id, ctx, cbInfo);
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
@@ -386,6 +419,7 @@ export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
   ctx: EvalContext,
+  cbInfo?: ContextualBanditInfo,
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -722,6 +756,7 @@ export function runExperiment<T>(
     featureId,
     n,
     foundStickyBucket,
+    cbInfo,
   );
 
   // 13.5. Persist sticky bucket
@@ -818,6 +853,28 @@ function getAttributes(ctx: EvalContext) {
   };
 }
 
+function getContextualBanditLeaf(
+  rule: FeatureRule,
+  ctx: EvalContext,
+): { leafId: number; weights: number[] } | null {
+  if (rule.attributesRequired && rule.attributesRequired.length) {
+    const attributes = getAttributes(ctx);
+    for (const attr of rule.attributesRequired) {
+      if (attributes[attr] === undefined || attributes[attr] === null) {
+        return null;
+      }
+    }
+  }
+
+  for (const context of rule.contexts || []) {
+    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+      return { leafId: context.leafId, weights: context.weights };
+    }
+  }
+
+  return null;
+}
+
 function conditionPasses(
   condition: ConditionInterface,
   ctx: EvalContext,
@@ -875,6 +932,7 @@ export function getExperimentResult<T>(
   featureId: string | null,
   bucket?: number,
   stickyBucketUsed?: boolean,
+  cbInfo?: ContextualBanditInfo,
 ): Result<T> {
   let inExperiment = true;
   // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -910,6 +968,12 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
+  if (cbInfo && inExperiment) {
+    res.leafId = cbInfo.leafId;
+    res.variationWeights = cbInfo.variationWeights;
+    if (cbInfo.banditVersion !== undefined)
+      res.banditVersion = cbInfo.banditVersion;
+  }
 
   return res;
 }

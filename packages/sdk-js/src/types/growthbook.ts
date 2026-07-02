@@ -48,6 +48,14 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
+  type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
+  attributesRequired?: string[];
+  contexts?: {
+    leafId: number;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
+  banditVersion?: number;
 };
 
 export interface FeatureDefinition<T = any> {
@@ -152,7 +160,16 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
+  leafId?: number;
+  variationWeights?: number[];
+  banditVersion?: number;
 }
+
+export type ContextualBanditInfo = {
+  leafId: number;
+  variationWeights: number[];
+  banditVersion?: number;
+};
 
 export type Attributes = Record<string, any>;
 
@@ -176,6 +193,12 @@ export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
   user: UserContext,
+) => Promise<void> | void;
+
+export type TrackingCallbackWithAttribute = (
+  experiment: Experiment<any>,
+  result: Result<any>,
+  attributes: Attributes,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
@@ -242,6 +265,7 @@ export type Options = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: FeatureUsageCallback;
   eventLogger?: EventLogger;
   cacheKeyAttributes?: (keyof Attributes)[];
@@ -285,6 +309,7 @@ export type ClientOptions = {
   qaMode?: boolean;
   disableCache?: boolean;
   trackingCallback?: TrackingCallbackWithUser;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
@@ -312,6 +337,7 @@ export type GlobalContext = {
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
+  trackingCallbackWithAttribute?: TrackingCallbackWithAttribute;
   onFeatureUsage?: FeatureUsageCallbackWithUser;
   onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
   saveDeferredTrack?: (data: TrackingData) => void;

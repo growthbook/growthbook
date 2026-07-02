@@ -953,13 +953,14 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
+            rule.type = "contextual-bandit";
             rule.attributesRequired = cb.contextualAttributes;
             rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
               leafId: lw.leafId,
               condition: lw.condition,
               weights: pairedWeightsToPositional(lw.weights, cb.variations),
             }));
+            rule.banditVersion = cb.banditVersion;
           }
 
           rule.key = cb.trackingKey;

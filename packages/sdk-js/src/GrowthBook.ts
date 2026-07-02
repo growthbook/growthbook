@@ -670,6 +670,8 @@ export class GrowthBook<
       recordChangeId: this._recordChangedId,
       saveDeferredTrack: this._saveDeferredTrack,
       eventLogger: this._options.eventLogger,
+      trackingCallbackWithAttribute:
+        this._options.trackingCallbackWithAttribute,
     };
   }
 
