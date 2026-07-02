@@ -9,7 +9,7 @@ import {
 } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -539,45 +539,49 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         {...form.register("hypothesis")}
       />
 
-      <Box mb="4">
-        <Text as="label" weight="semibold" mb="1">
-          Assignment Attribute
-        </Text>
-        <Text as="div" color="text-mid" mb="2">
-          Will be hashed together with the Tracking Key to determine which
-          variation to assign variation to assign
-        </Text>
-        <SelectField
-          required
-          className={hashAttributeHoldoutMismatch ? "warning" : undefined}
-          value={form.watch("hashAttribute") ?? ""}
-          onChange={(v) => form.setValue("hashAttribute", v)}
-          options={attributeSchema
-            .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
-          formatOptionLabel={(o, meta) => (
-            <AttributeOptionWithTooltip
-              option={o as AttributeOptionForTooltip}
-              context={meta.context}
-            >
-              {o.label}
-            </AttributeOptionWithTooltip>
-          )}
-        />
-        {hashAttributeHoldoutMismatch && (
-          <HelperText status="warning" size="sm" mt="2">
-            The hash attribute of this experiment does not match the hash
-            attribute of the holdout this experiment will belong to.
-          </HelperText>
+      <SelectField
+        required
+        label={
+          <>
+            <Text weight="semibold" mb="1">
+              Assignment Attribute
+            </Text>
+            <Text as="div" color="text-mid">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
+          </>
+        }
+        className={hashAttributeHoldoutMismatch ? "warning" : undefined}
+        value={form.watch("hashAttribute") ?? ""}
+        onChange={(v) => form.setValue("hashAttribute", v)}
+        options={attributeSchema
+          .filter((s) => !hasHashAttributes || s.hashAttribute)
+          .map((s) => ({
+            label: s.property,
+            value: s.property,
+            description: s.description,
+            tags: s.tags,
+            datatype: s.datatype,
+            hashAttribute: s.hashAttribute,
+          }))}
+        formatOptionLabel={(o, meta) => (
+          <AttributeOptionWithTooltip
+            option={o as AttributeOptionForTooltip}
+            context={meta.context}
+          >
+            {o.label}
+          </AttributeOptionWithTooltip>
         )}
-      </Box>
+        helpText={
+          hashAttributeHoldoutMismatch ? (
+            <HelperText status="warning" size="sm" mt="2">
+              The hash attribute of this experiment does not match the hash
+              attribute of the holdout this experiment will belong to.
+            </HelperText>
+          ) : undefined
+        }
+      />
       {showLinkIdentifierCallout && autoDatasource && (
         <Callout status="info" mb="3">
           Link the <strong>{watchedHashAttribute}</strong> attribute to an
