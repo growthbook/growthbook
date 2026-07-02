@@ -1030,7 +1030,7 @@ export default function ResultsTable({
                                             <VariationLabel
                                               number={v.index}
                                               name={v.name}
-                                              size="small"
+                                              size="medium"
                                             />
                                           </div>
                                         ) : (
