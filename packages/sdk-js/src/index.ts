@@ -57,6 +57,7 @@ export type {
   EventProperties,
   Plugin,
   LogUnion,
+  FeatureEvalOptions,
 } from "./types/growthbook";
 
 export type {

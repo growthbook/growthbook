@@ -6,6 +6,7 @@ import type {
   ClientOptions,
   DestroyOptions,
   EvalContext,
+  FeatureEvalOptions,
   EventLogger,
   EventProperties,
   Experiment,
@@ -250,16 +251,20 @@ export class GrowthBookClient<
   public runInlineExperiment<T>(
     experiment: Experiment<T>,
     userContext: UserContext,
+    options?: FeatureEvalOptions,
   ): Result<T> {
     const { result } = runExperiment(
       experiment,
       null,
-      this._getEvalContext(userContext),
+      this._getEvalContext(userContext, options),
     );
     return result;
   }
 
-  private _getEvalContext(userContext: UserContext): EvalContext {
+  private _getEvalContext(
+    userContext: UserContext,
+    options?: FeatureEvalOptions,
+  ): EvalContext {
     if (this._options.globalAttributes) {
       userContext = {
         ...userContext,
@@ -275,6 +280,7 @@ export class GrowthBookClient<
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
+        disableTracking: options?.disableTracking,
       },
     };
   }
@@ -297,24 +303,32 @@ export class GrowthBookClient<
   public isOn<K extends string & keyof AppFeatures = string>(
     key: K,
     userContext: UserContext,
+    options?: FeatureEvalOptions,
   ): boolean {
-    return this.evalFeature(key, userContext).on;
+    return this.evalFeature(key, userContext, options).on;
   }
 
   public isOff<K extends string & keyof AppFeatures = string>(
     key: K,
     userContext: UserContext,
+    options?: FeatureEvalOptions,
   ): boolean {
-    return this.evalFeature(key, userContext).off;
+    return this.evalFeature(key, userContext, options).off;
   }
 
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V, userContext: UserContext): WidenPrimitives<V> {
+  >(
+    key: K,
+    defaultValue: V,
+    userContext: UserContext,
+    options?: FeatureEvalOptions,
+  ): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(
       key,
       userContext,
+      options,
     ).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
@@ -322,8 +336,12 @@ export class GrowthBookClient<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(id: K, userContext: UserContext): FeatureResult<V | null> {
-    return _evalFeature(id, this._getEvalContext(userContext));
+  >(
+    id: K,
+    userContext: UserContext,
+    options?: FeatureEvalOptions,
+  ): FeatureResult<V | null> {
+    return _evalFeature(id, this._getEvalContext(userContext, options));
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
@@ -403,30 +421,44 @@ export class UserScopedGrowthBook<
     }
   }
 
-  public runInlineExperiment<T>(experiment: Experiment<T>): Result<T> {
-    return this._gb.runInlineExperiment(experiment, this._userContext);
+  public runInlineExperiment<T>(
+    experiment: Experiment<T>,
+    options?: FeatureEvalOptions,
+  ): Result<T> {
+    return this._gb.runInlineExperiment(experiment, this._userContext, options);
   }
 
-  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
-    return this._gb.isOn(key, this._userContext);
+  public isOn<K extends string & keyof AppFeatures = string>(
+    key: K,
+    options?: FeatureEvalOptions,
+  ): boolean {
+    return this._gb.isOn(key, this._userContext, options);
   }
 
-  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
-    return this._gb.isOff(key, this._userContext);
+  public isOff<K extends string & keyof AppFeatures = string>(
+    key: K,
+    options?: FeatureEvalOptions,
+  ): boolean {
+    return this._gb.isOff(key, this._userContext, options);
   }
 
   public getFeatureValue<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(key: K, defaultValue: V): WidenPrimitives<V> {
-    return this._gb.getFeatureValue(key, defaultValue, this._userContext);
+  >(key: K, defaultValue: V, options?: FeatureEvalOptions): WidenPrimitives<V> {
+    return this._gb.getFeatureValue(
+      key,
+      defaultValue,
+      this._userContext,
+      options,
+    );
   }
 
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string,
-  >(id: K): FeatureResult<V | null> {
-    return this._gb.evalFeature(id, this._userContext);
+  >(id: K, options?: FeatureEvalOptions): FeatureResult<V | null> {
+    return this._gb.evalFeature(id, this._userContext, options);
   }
 
   public logEvent(eventName: string, properties?: EventProperties) {

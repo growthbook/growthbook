@@ -373,6 +373,63 @@ describe("features", () => {
     growthbook.destroy();
   });
 
+  it("skips feature usage when disableTracking is set", () => {
+    const context: Context = {
+      attributes: { id: "1" },
+      features: {
+        feature1: {
+          defaultValue: 0,
+        },
+      },
+    };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
+
+    // Value is still evaluated and returned normally
+    const res = growthbook.evalFeature("feature1", {
+      disableTracking: true,
+    });
+    expect(res.value).toEqual(0);
+    // But no usage callback fired
+    expect(mock.calls.length).toEqual(0);
+
+    // getFeatureValue / isOn / isOff also respect the flag
+    expect(
+      growthbook.getFeatureValue("feature1", 5, {
+        disableTracking: true,
+      }),
+    ).toEqual(0);
+    growthbook.isOn("feature1", { disableTracking: true });
+    growthbook.isOff("feature1", { disableTracking: true });
+    expect(mock.calls.length).toEqual(0);
+
+    growthbook.destroy();
+  });
+
+  it("does not pollute the dedupe cache when tracking is disabled", () => {
+    const context: Context = {
+      attributes: { id: "1" },
+      features: {
+        feature1: {
+          defaultValue: 0,
+        },
+      },
+    };
+    const growthbook = new GrowthBook(context);
+    const mock = mockCallback(context);
+
+    // Suppressed evaluation does not record the feature as tracked
+    growthbook.evalFeature("feature1", { disableTracking: true });
+    expect(mock.calls.length).toEqual(0);
+
+    // A later normal evaluation still fires the usage callback
+    const res = growthbook.evalFeature("feature1");
+    expect(mock.calls.length).toEqual(1);
+    expect(mock.calls[0]).toEqual(["feature1", res]);
+
+    growthbook.destroy();
+  });
+
   it("uses fallbacks get getFeatureValue", () => {
     const growthbook = new GrowthBook({
       features: {
