@@ -25,7 +25,6 @@ import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFunnelUsersCTE } from "back-end/src/integrations/sql/ctes/funnel-users-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -36,7 +35,7 @@ import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 
-export function getExperimentMetricQuery(
+export function getSnapshotMetricQuery(
   dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentMetricQueryParams,
@@ -51,7 +50,6 @@ export function getExperimentMetricQuery(
 
   const factTableMap = params.factTableMap;
 
-  // clone the metrics before we mutate them
   const metric = cloneDeep<MetricInterface>(metricDoc);
   const denominatorMetrics = cloneDeep<MetricInterface[]>(
     denominatorMetricsDocs,
@@ -64,7 +62,6 @@ export function getExperimentMetricQuery(
   applyMetricOverrides(metric, settings);
   denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
-  // Replace any placeholders in the user defined dimension SQL
   const { unitDimensions } = processDimensions(
     dialect,
     params.dimensions,
@@ -72,29 +69,23 @@ export function getExperimentMetricQuery(
     activationMetric,
   );
 
-  const userIdType =
-    params.forcedUserIdType ??
-    getExposureQuery(datasource, settings.exposureQueryId || "").userIdType;
+  const userIdType = params.unitsSettings.exposureQuery.userIdType;
+  if (!userIdType) {
+    throw new Error("Unable to determine user id type from exposureQuery");
+  }
 
   const denominator =
     denominatorMetrics.length > 0
       ? denominatorMetrics[denominatorMetrics.length - 1]
       : undefined;
-  // If the denominator is a binomial, it's just acting as a filter
-  // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
-  // When the denominator is a count, it's a real ratio, dividing two quantities
-  // e.g. "Pages/Session" is dividing number of page views by number of sessions
   const ratioMetric = isRatioMetric(metric, denominator);
   const funnelMetric = isFunnelMetric(metric, denominator);
 
   const banditDates = getBanditDates(settings.banditSettings);
 
-  // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
-  // where RA is actually possible
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator) &&
-    // and block RA for experiment metric query only, only works for optimized queries
     !isRatioMetric(metric, denominator);
 
   const regressionAdjustmentHours = regressionAdjusted
@@ -105,7 +96,6 @@ export function getExperimentMetricQuery(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
-  // Get capping settings and final coalesce statement
   const isPercentileCapped = isPercentileCappedMetric(metric);
   const computeUncappedMetric = eligibleForUncappedMetric(metric);
 
@@ -180,7 +170,6 @@ export function getExperimentMetricQuery(
     capTablePrefix: "cap",
     columnRef: null,
   });
-  // Get rough date filter for metrics to improve performance
   const orderedMetrics = (activationMetric ? [activationMetric] : [])
     .concat(denominatorMetrics)
     .concat([metric]);
@@ -196,14 +185,11 @@ export function getExperimentMetricQuery(
     overrideConversionWindows,
   );
 
-  // Get any required identity join queries
   const idTypeObjects = [
     [userIdType],
     getUserIdTypes(metric, factTableMap),
     ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
   ];
-  // add idTypes usually handled in units query here in the case where
-  // we don't have a separate table for the units query
   if (params.unitsSource === "exposureQuery") {
     idTypeObjects.push(
       ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
@@ -223,7 +209,6 @@ export function getExperimentMetricQuery(
     },
   );
 
-  // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(
     settings,
     getMaxHoursToConvert(
@@ -236,9 +221,6 @@ export function getExperimentMetricQuery(
   const dimensionCols = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
   );
-  // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
-  // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
-  // column specified. See `BANDIT_DIMENSION` in gbstats.py.
   if (banditDates?.length && dimensionCols.length === 0) {
     dimensionCols.push({
       alias: "dimension",
@@ -491,7 +473,7 @@ WITH
         JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-      WHERE 
+      WHERE
         m.timestamp >= d.preexposure_start
         AND m.timestamp < d.preexposure_end
       GROUP BY
