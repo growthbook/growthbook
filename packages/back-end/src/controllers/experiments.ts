@@ -1628,9 +1628,20 @@ export async function postExperiment(
   }
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const variationCountChanged =
+  const existingKeyById = new Map(
+    experiment.variations.map((v) => [v.id, v.key]),
+  );
+  const variationIdsChanged =
     !!data.variations &&
-    data.variations.length !== experiment.variations.length;
+    !isEqual(
+      data.variations.map((v) => v.id),
+      latestPhase?.variations.map((v) => v.id),
+    );
+  // Variation keys are emitted in the SDK payload meta, so key edits also count
+  const variationKeysChanged =
+    !!data.variations &&
+    data.variations.some((v) => v.key !== existingKeyById.get(v.id));
+  const variationsChanged = variationIdsChanged || variationKeysChanged;
   const coverageChanged =
     data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
   const variationWeightsChanged =
@@ -1638,7 +1649,7 @@ export async function postExperiment(
     !isEqual(data.variationWeights, latestPhase?.variationWeights);
   if (
     experiment.status === "running" &&
-    (variationCountChanged || coverageChanged || variationWeightsChanged)
+    (variationsChanged || coverageChanged || variationWeightsChanged)
   ) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
@@ -1650,8 +1661,11 @@ export async function postExperiment(
     );
     if (inPayload) {
       const fields = [];
-      if (variationCountChanged) {
-        fields.push("variations");
+      if (variationIdsChanged) {
+        fields.push("variation IDs");
+      }
+      if (variationKeysChanged) {
+        fields.push("variation keys");
       }
       if (coverageChanged) {
         fields.push("coverage");
@@ -1661,7 +1675,7 @@ export async function postExperiment(
       }
       res.status(400).json({
         status: 400,
-        message: `Cannot change field(s): [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+        message: `Cannot change: [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
       });
       return;
     }

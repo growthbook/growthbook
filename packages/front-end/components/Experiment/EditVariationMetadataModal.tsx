@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -23,7 +24,14 @@ const EditVariationMetadataModal: FC<Props> = ({
   source,
 }) => {
   const { apiCall } = useAuth();
-  const variation = experiment.variations[variationIndex];
+  const variations = getLatestPhaseVariations(experiment).map((v) => ({
+    id: v.id,
+    key: v.key,
+    name: v.name,
+    description: v.description,
+    screenshots: v.screenshots,
+  }));
+  const variation = variations[variationIndex];
 
   const form = useForm({
     defaultValues: {
@@ -43,7 +51,7 @@ const EditVariationMetadataModal: FC<Props> = ({
       close={close}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const variations = experiment.variations.map((v, i) =>
+        const updatedVariations = variations.map((v, i) =>
           i === variationIndex
             ? {
                 ...v,
@@ -55,7 +63,7 @@ const EditVariationMetadataModal: FC<Props> = ({
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify({ variations }),
+          body: JSON.stringify({ variations: updatedVariations }),
         });
         mutate();
         track("edited-variation-metadata");
