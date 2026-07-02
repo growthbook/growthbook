@@ -95,6 +95,16 @@ const EditVariationsForm: FC<{
         });
         mutate();
         track("edited-variations");
+
+        const numVariationsAdded =
+          data.variations.length - experiment.variations.length;
+        if (numVariationsAdded > 0) {
+          track("Added Variations", {
+            source: "edit-variations-form",
+            numVariationsAdded,
+            totalVariations: data.variations.length,
+          });
+        }
       })}
       cta="Save"
     >
