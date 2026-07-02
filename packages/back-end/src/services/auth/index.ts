@@ -43,7 +43,10 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { licenseInit, getEffectiveAccountPlan } from "back-end/src/enterprise";
-import { getGrowthBookClient } from "back-end/src/services/growthbook";
+import {
+  getGrowthBookClient,
+  getGrowthBookRequestUrl,
+} from "back-end/src/services/growthbook";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
@@ -345,7 +348,7 @@ export async function processJWT(
         const attributes = {
           id: user.id,
           user_id: user.id,
-          url: req.originalUrl,
+          url: req.path,
           freeSeats: org?.freeSeats,
           discountCode: org?.discountCode,
           organizationId: hashedOrganizationId,
@@ -372,6 +375,7 @@ export async function processJWT(
           const userContext = await gbClient.applyStickyBuckets(
             {
               attributes,
+              url: getGrowthBookRequestUrl(req),
               enableDevMode: true,
             },
             stickyBucketService,

@@ -6,6 +6,7 @@ import {
 } from "@growthbook/growthbook";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
+import { Request } from "express";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -78,6 +79,27 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
   });
 
   return client;
+}
+
+/**
+ * Full page URL for GrowthBook tracking events (userContext.url).
+ * Prefers the Referer (front-end page) when present; otherwise builds from the request.
+ * Matches the front-end's growthbook.setURL(window.location.href).
+ */
+export function getGrowthBookRequestUrl(
+  req: Pick<Request, "protocol" | "get" | "originalUrl">,
+): string {
+  const referer = req.get("referer");
+  if (referer) {
+    return referer;
+  }
+
+  const host = req.get("host");
+  if (!host) {
+    return req.originalUrl;
+  }
+
+  return `${req.protocol}://${host}${req.originalUrl}`;
 }
 
 /**
