@@ -1,4 +1,10 @@
-import { GrowthBookClient, setPolyfills } from "@growthbook/growthbook";
+import {
+  GrowthBookClient,
+  setPolyfills,
+  EVENT_EXPERIMENT_VIEWED,
+  EVENT_FEATURE_EVALUATED,
+} from "@growthbook/growthbook";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import * as EventSource from "eventsource";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
@@ -7,6 +13,9 @@ import {
   IS_CLOUD,
   IS_LOCALHOST,
   IS_MULTI_ORG,
+  getIngestorHost,
+  isGrowthBookTelemetryDebug,
+  isGrowthBookTelemetryEnabled,
 } from "back-end/src/util/secrets";
 
 // Set up Node.js polyfills for streaming support
@@ -14,6 +23,62 @@ setPolyfills({ EventSource });
 
 let gbClient: GrowthBookClient<AppFeatures> | null = null;
 let initPromise: Promise<void> | null = null;
+
+function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
+  const client = new GrowthBookClient<AppFeatures>({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: GB_SDK_ID,
+    globalAttributes: {
+      cloud: IS_CLOUD,
+      multiOrg: IS_MULTI_ORG,
+      requestSource: "backend",
+    },
+    plugins: [
+      growthbookTrackingPlugin({
+        ingestorHost: getIngestorHost(),
+        enable: isGrowthBookTelemetryEnabled(),
+        debug: isGrowthBookTelemetryDebug(),
+        eventFilter: (event) => {
+          // Wait for account plan to load before sending events
+          if (event.attributes.accountPlan === "loading") return false;
+          return true;
+        },
+        dedupeKeyAttributes: ["id", "organizationId"],
+      }),
+    ],
+    onFeatureUsage: (key, result, userContext) => {
+      client.logEvent(
+        EVENT_FEATURE_EVALUATED,
+        {
+          feature: key,
+          source: result.source,
+          value: result.value,
+          ruleId:
+            result.source === "defaultValue" ? "$default" : result.ruleId || "",
+          variationId: result.experimentResult
+            ? result.experimentResult.key
+            : "",
+        },
+        userContext,
+      );
+    },
+  });
+
+  // GrowthBookClient does not pass eventLogger into the eval context (unlike the
+  // browser SDK), so route experiment callbacks through logEvent for the plugin.
+  client.setTrackingCallback((experiment, result, userContext) => {
+    client.logEvent(
+      EVENT_EXPERIMENT_VIEWED,
+      {
+        experimentId: experiment.key,
+        variationId: result.key,
+      },
+      userContext,
+    );
+  });
+
+  return client;
+}
 
 /**
  * Get the singleton GrowthBookClient instance
@@ -24,15 +89,7 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
   if (!IS_CLOUD && !IS_LOCALHOST) return null;
 
   if (!gbClient) {
-    gbClient = new GrowthBookClient<AppFeatures>({
-      apiHost: "https://cdn.growthbook.io",
-      clientKey: GB_SDK_ID,
-      globalAttributes: {
-        cloud: IS_CLOUD,
-        multiOrg: IS_MULTI_ORG,
-        requestSource: "backend",
-      },
-    });
+    gbClient = createGrowthBookClient();
   }
 
   return gbClient;

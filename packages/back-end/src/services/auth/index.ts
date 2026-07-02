@@ -379,13 +379,6 @@ export async function processJWT(
 
           // Create scoped instance for this request (reuses singleton)
           req.gb = gbClient.createScopedInstance(userContext);
-
-          // Optional: Set tracking callback
-          if (req.gb) {
-            req.gb.setTrackingCallback(() => {
-              // TODO: How to send event to Jitsu?
-            });
-          }
         } catch (error) {
           logger.error("Failed to create GrowthBook scoped instance", {
             error,
