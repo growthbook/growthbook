@@ -158,7 +158,7 @@ export default function SetupTabOverview({
             Overview
           </Heading>
           <Flex align="center" gap="4">
-            {canEditExperiment && !experiment.description ? (
+            {canEditExperiment && !experiment.description && !isHoldout ? (
               <Link onClick={() => setShowDescriptionModal(true)}>
                 <Flex align="center" gap="1">
                   <PiPlus size="15" />
@@ -329,7 +329,7 @@ export default function SetupTabOverview({
           </Frame>
         )}
 
-        {experiment.description ? (
+        {experiment.description || isHoldout ? (
           <Frame>
             <Collapsible
               open={!!experiment.description && expandDescription}
