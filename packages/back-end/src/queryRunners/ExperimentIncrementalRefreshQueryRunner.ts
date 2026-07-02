@@ -50,6 +50,7 @@ import {
   getMetricSettingsHashForIncrementalRefresh,
   getFactTablesNeedingRebuild,
   assertIncrementalRefreshPrerequisites,
+  pickSegmentFieldsForHash,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
@@ -527,6 +528,10 @@ const startExperimentIncrementalRefreshQueries = async (
               experimentSettingsHash:
                 getExperimentSettingsHashForIncrementalRefresh(
                   snapshotSettings,
+                  {
+                    segment: pickSegmentFieldsForHash(segmentObj),
+                    exposureQuerySql: exposureQuery.query,
+                  },
                 ),
               unitsDimensions: eligibleDimensions.map((d) => d.id),
             },
@@ -1216,7 +1221,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     // Throws if any settings/experiment is not supported
     await assertIncrementalRefreshPrerequisites({
-      org: this.context.org,
+      context: this.context,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
       metricMap: params.metricMap,

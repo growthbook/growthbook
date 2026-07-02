@@ -64,6 +64,10 @@ jest.mock("back-end/src/enterprise", () => ({
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
   assertIncrementalRefreshPrerequisites: jest.fn(),
   exploratoryOverallRequiresFullRefresh: jest.fn(),
+  resolveSettingsRefsForIncrementalRefresh: jest.fn().mockResolvedValue({
+    segment: null,
+    exposureQuerySql: undefined,
+  }),
 }));
 
 const {
@@ -145,6 +149,9 @@ function makeContext(): ApiReqContext {
     models: {
       metricGroups: {
         getAll: jest.fn().mockResolvedValue([]),
+      },
+      segments: {
+        getById: jest.fn().mockResolvedValue(null),
       },
     },
   } as unknown as ApiReqContext;
@@ -425,7 +432,10 @@ describe("snapshot planning", () => {
     expect(staleMetricHash).not.toEqual(currentMetricHash);
 
     const experimentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings, {
+        segment: null,
+        exposureQuerySql: undefined,
+      });
 
     const context = makeContext();
     context.models.incrementalRefresh = {

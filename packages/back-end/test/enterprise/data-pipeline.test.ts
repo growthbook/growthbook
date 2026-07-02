@@ -3,6 +3,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { ReqContext } from "back-end/types/request";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import {
@@ -10,6 +11,7 @@ import {
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
   exploratoryOverallRequiresFullRefresh,
+  ResolvedSettingsRefs,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -48,6 +50,23 @@ function makeSnapshotSettings(
   } as ExperimentSnapshotSettings;
 }
 
+const baseRefs: ResolvedSettingsRefs = {
+  segment: null,
+  exposureQuerySql: "select * from exposures",
+};
+
+function segmentRefs(sql: string): ResolvedSettingsRefs {
+  return {
+    ...baseRefs,
+    segment: {
+      sql,
+      factTableId: undefined,
+      filters: undefined,
+      userIdType: "user_id",
+    },
+  };
+}
+
 function makeIntegration(): SourceIntegrationInterface {
   return {
     datasource: {
@@ -56,6 +75,9 @@ function makeIntegration(): SourceIntegrationInterface {
           allowWriting: true,
           mode: "incremental",
         },
+        queries: {
+          exposure: [{ id: "exposure_1", query: baseRefs.exposureQuerySql }],
+        },
       },
     },
     getSourceProperties: () => ({
@@ -63,6 +85,23 @@ function makeIntegration(): SourceIntegrationInterface {
       hasQuantileSketch: true,
     }),
   } as unknown as SourceIntegrationInterface;
+}
+
+function makeContext(segmentSql?: string): ReqContext {
+  return {
+    org: { id: "org_123" } as OrganizationInterface,
+    models: {
+      segments: {
+        getById: jest
+          .fn()
+          .mockResolvedValue(
+            segmentSql
+              ? { id: "seg_1", sql: segmentSql, userIdType: "user_id" }
+              : null,
+          ),
+      },
+    },
+  } as unknown as ReqContext;
 }
 
 function makeIncrementalRefreshModel(
@@ -79,6 +118,7 @@ function makeIncrementalRefreshModel(
     metricCovariateSources: [],
     experimentSettingsHash: getExperimentSettingsHashForIncrementalRefresh(
       makeSnapshotSettings(),
+      baseRefs,
     ),
     currentExecutionSnapshotId: null,
     dateCreated: new Date(),
@@ -90,7 +130,7 @@ function makeIncrementalRefreshModel(
 describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   const metric = factMetricFactory.build({ id: "m1" });
   const metricMap = new Map([[metric.id, metric]]);
-  const org = { id: "org_123" } as OrganizationInterface;
+  const context = makeContext();
   const experiment = {
     id: "exp_123",
     activationMetric: undefined,
@@ -105,14 +145,17 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     const snapshotSettings = makeSnapshotSettings();
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings,
         metricMap,
         experiment,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            getExperimentSettingsHashForIncrementalRefresh(
+              snapshotSettings,
+              baseRefs,
+            ),
         }),
         analysisType: "main-update",
       }),
@@ -122,7 +165,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   it("throws on main-update when experimentSettingsHash is null", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings: makeSnapshotSettings(),
         metricMap,
@@ -138,7 +181,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   it("throws on main-update when the stored hash differs", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings: makeSnapshotSettings({ segment: "seg_changed" }),
         metricMap,
@@ -154,7 +197,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   it("skips hash validation on exploratory even when the stored hash differs", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings: makeSnapshotSettings({ segment: "seg_changed" }),
         metricMap,
@@ -171,14 +214,17 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     const snapshotSettings = makeSnapshotSettings();
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings,
         metricMap,
         experiment,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+            getExperimentSettingsHashForIncrementalRefresh(
+              snapshotSettings,
+              baseRefs,
+            ),
         }),
         analysisType: "exploratory",
       }),
@@ -188,7 +234,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   it("skips hash validation on main-fullRefresh even when hash is null", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
-        org,
+        context,
         integration,
         snapshotSettings: makeSnapshotSettings(),
         metricMap,
@@ -197,6 +243,48 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
           experimentSettingsHash: null,
         }),
         analysisType: "main-fullRefresh",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when segment SQL changes but the segment ID is unchanged", async () => {
+    const snapshotSettings = makeSnapshotSettings({ segment: "seg_1" });
+    const storedHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      segmentRefs("select user_id from t where plan = 'pro'"),
+    );
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        context: makeContext("select user_id from t where plan = 'team'"),
+        integration,
+        snapshotSettings,
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: storedHash,
+        }),
+        analysisType: "main-update",
+      }),
+    ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+  });
+
+  it("allows main-update when segment SQL is unchanged", async () => {
+    const snapshotSettings = makeSnapshotSettings({ segment: "seg_1" });
+    const storedHash = getExperimentSettingsHashForIncrementalRefresh(
+      snapshotSettings,
+      segmentRefs("select user_id from t where plan = 'pro'"),
+    );
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        context: makeContext("select user_id from t where plan = 'pro'"),
+        integration,
+        snapshotSettings,
+        metricMap,
+        experiment,
+        incrementalRefreshModel: makeIncrementalRefreshModel({
+          experimentSettingsHash: storedHash,
+        }),
+        analysisType: "main-update",
       }),
     ).resolves.toBeUndefined();
   });
@@ -422,9 +510,48 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     variations: [],
   } as ExperimentSnapshotSettings;
 
+  const GOLDEN_REFS: ResolvedSettingsRefs = {
+    segment: null,
+    exposureQuerySql: "select * from exposures",
+  };
+
   it("produces the pinned md5 for the fixed input", () => {
-    expect(getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT)).toBe(
-      "1c14c7b3c695413e66101563d2b606ab",
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT, GOLDEN_REFS),
+    ).toBe("929ca8f2ff79e4121a1d4945eaafefb6");
+  });
+
+  it("changes when only the resolved exposure-query SQL changes", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT, {
+        ...GOLDEN_REFS,
+        exposureQuerySql: "select * from exposures_v2",
+      }),
+    ).not.toBe(
+      getExperimentSettingsHashForIncrementalRefresh(GOLDEN_INPUT, GOLDEN_REFS),
+    );
+  });
+
+  it("changes when only a FACT segment's filters change", () => {
+    const factSegment = (filters: string[]): ResolvedSettingsRefs => ({
+      ...GOLDEN_REFS,
+      segment: {
+        sql: undefined,
+        factTableId: "ft_users",
+        filters,
+        userIdType: "user_id",
+      },
+    });
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        GOLDEN_INPUT,
+        factSegment(["filt_a"]),
+      ),
+    ).not.toBe(
+      getExperimentSettingsHashForIncrementalRefresh(
+        GOLDEN_INPUT,
+        factSegment(["filt_b"]),
+      ),
     );
   });
 });
@@ -434,6 +561,7 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "stale_hash",
         }),
@@ -446,6 +574,7 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: makeSnapshotSettings({ metricSettings: [] }),
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash: "",
         }),
@@ -461,9 +590,13 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: settingsWithMetric,
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settingsWithMetric),
+            getExperimentSettingsHashForIncrementalRefresh(
+              settingsWithMetric,
+              baseRefs,
+            ),
           metricSources: [],
         }),
         latestOverallSnapshotId: null,
@@ -476,9 +609,10 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: settings,
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, baseRefs),
           materializedBySnapshotId: "snp_old",
         }),
         latestOverallSnapshotId: "snp_new",
@@ -491,9 +625,10 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: settings,
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, baseRefs),
           materializedBySnapshotId: "snp_old",
         }),
         latestOverallSnapshotId: "snp_old",
@@ -506,9 +641,10 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     expect(
       exploratoryOverallRequiresFullRefresh({
         snapshotSettings: settings,
+        refs: baseRefs,
         incrementalRefreshModel: makeIncrementalRefreshModel({
           experimentSettingsHash:
-            getExperimentSettingsHashForIncrementalRefresh(settings),
+            getExperimentSettingsHashForIncrementalRefresh(settings, baseRefs),
           materializedBySnapshotId: undefined,
         }),
         latestOverallSnapshotId: "snp_new",
