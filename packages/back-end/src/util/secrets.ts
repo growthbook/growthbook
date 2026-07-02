@@ -233,6 +233,13 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
+// Kill-switch for the proactive managed-warehouse JSON migration sweep. Default
+// off; enabled in cloud to drain legacy materialized-column warehouses in the
+// background. Self-hosted has no managed warehouses, so it stays off there.
+export const MANAGED_WAREHOUSE_MIGRATION_SWEEP_ENABLED = stringToBoolean(
+  process.env.MANAGED_WAREHOUSE_MIGRATION_SWEEP_ENABLED,
+);
+
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
