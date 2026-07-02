@@ -608,6 +608,22 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   }, [data, displayedConfig]);
 
+  // Other family members whose effective rules fail against the displayed
+  // (draft-aware) state. Above the loading guard for stable hook order.
+  const familyInvariantViolations = useMemo(() => {
+    if (!data || !displayedConfig) return [] as LineageNode[];
+    const nodes = [
+      ...data.lineage,
+      ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
+    ];
+    const seen = new Set<string>([displayedConfig.key]);
+    return nodes.filter((n) => {
+      if (seen.has(n.key) || !n.invariantViolations?.length) return false;
+      seen.add(n.key);
+      return true;
+    });
+  }, [data, displayedConfig]);
+
   // Derived from the displayed revision (drafts export their proposed state).
   // Above the loading guard for stable hook order.
   const exportPayloads = useMemo<ConfigExportPayloads>(() => {
@@ -1631,6 +1647,22 @@ export default function ConfigDetailPage(): React.ReactElement {
                               : "those fields"}
                             , so the descendant keeps only a value override
                             (base wins).
+                          </Callout>
+                        )}
+                        {familyInvariantViolations.length > 0 && (
+                          <Callout status="warning" mt="3">
+                            {familyInvariantViolations.length === 1
+                              ? "A config in this family violates its validation rules"
+                              : `${familyInvariantViolations.length} configs in this family violate their validation rules`}{" "}
+                            against the values shown here:{" "}
+                            {familyInvariantViolations
+                              .map(
+                                (n) =>
+                                  `${n.name} — ${(n.invariantViolations ?? [])
+                                    .map((v) => v.message)
+                                    .join("; ")}`,
+                              )
+                              .join(" · ")}
                           </Callout>
                         )}
                         {parentKey && (

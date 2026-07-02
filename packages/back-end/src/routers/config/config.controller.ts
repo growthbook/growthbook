@@ -24,6 +24,7 @@ import {
   getConfigSpineSubtree,
   configIsExtensible,
   findIncompatibleConfigValueKeys,
+  collectConfigInvariantViolations,
   stripConfigExtends,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
@@ -282,6 +283,12 @@ export const getConfigResolved = async (
           // declares the same key).
           fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
           incompatibleFields: incompatibleFieldsFor(node.key),
+          // Failing effective invariants per node (draft leaf substituted), so
+          // the editor can flag descendants a draft would leave in violation.
+          invariantViolations: collectConfigInvariantViolations(
+            node.key,
+            byKey,
+          ),
         },
       ];
     });

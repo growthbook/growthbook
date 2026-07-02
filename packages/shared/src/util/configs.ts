@@ -1,7 +1,11 @@
 import { SimpleSchema, SchemaField } from "shared/types/feature";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { parsePlainJSONObject } from "./features";
-import { collectInvalidConfigValueKeys } from "./config-schema";
+import {
+  collectInvalidConfigValueKeys,
+  evaluateInvariants,
+  InvariantViolation,
+} from "./config-schema";
 import { deepMergePatch } from "./deep-merge";
 
 // Inheritance is modeled by a `parent` key (the primary lineage spine) plus an
@@ -510,4 +514,49 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
   });
 
   return { effectiveSchema: [...schemaByKey.values()], fields };
+}
+
+// Every invariant that fails against `leafKey`'s resolved (inherited + own)
+// value. Rules accumulate base → leaf (leaf wins on name) — the same set that
+// gates the config's own publish. Skips value resolution when the chain
+// declares no rules, so invariant-free families stay cheap.
+export function collectConfigInvariantViolations(
+  leafKey: string,
+  byKey: Map<string, ConfigDagNode>,
+): InvariantViolation[] {
+  const chain = linearizeConfigDag(leafKey, byKey);
+  type Invariant = NonNullable<SimpleSchema["invariants"]>[number];
+  const invByName = new Map<string, Invariant>();
+  for (const node of chain) {
+    for (const inv of node.schema?.invariants ?? []) {
+      invByName.set(inv.name, inv);
+    }
+  }
+  if (!invByName.size) return [];
+  const resolvedValue: Record<string, unknown> = {};
+  for (const f of resolveConfigChain(chain).fields) {
+    if (f.source !== null) resolvedValue[f.key] = f.value;
+  }
+  return evaluateInvariants(resolvedValue, [...invByName.values()]);
+}
+
+// Descendants of `rootKey` (every base edge — parent + extends, transitively)
+// whose effective invariants fail against their resolved value. Substitute a
+// proposed root into `byKey` to preview a publish's effect on the family.
+export function collectDescendantInvariantViolations(
+  rootKey: string,
+  byKey: Map<string, ConfigDagNode>,
+): {
+  configKey: string;
+  configName?: string;
+  violations: InvariantViolation[];
+}[] {
+  return getConfigSubtree(rootKey, [...byKey.values()])
+    .filter((key) => key !== rootKey)
+    .map((key) => ({
+      configKey: key,
+      configName: byKey.get(key)?.name,
+      violations: collectConfigInvariantViolations(key, byKey),
+    }))
+    .filter((d) => d.violations.length > 0);
 }

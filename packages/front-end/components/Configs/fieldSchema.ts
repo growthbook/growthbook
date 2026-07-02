@@ -43,6 +43,9 @@ export type LineageNode = {
   // Own value keys that no longer conform to the effective schema ("incompatible,
   // must fix"). Non-empty flags the node in the tree.
   incompatibleFields?: string[];
+  // Effective invariants (inherited + own) failing against the node's resolved
+  // value. Non-empty flags the node in the tree.
+  invariantViolations?: { name: string; message: string }[];
 };
 
 export const FIELD_TYPE_OPTIONS = [

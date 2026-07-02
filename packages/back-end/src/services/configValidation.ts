@@ -6,7 +6,8 @@ import {
   parsePlainJSONObject,
   validateConfigValue,
   findIncompatibleConfigValueKeys,
-  evaluateInvariants,
+  collectConfigInvariantViolations,
+  collectDescendantInvariantViolations,
 } from "shared/util";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
@@ -165,37 +166,58 @@ async function collectMissingRequiredFields(
 // Invariants accumulate across the lineage (base→leaf, leaf wins on name) so a
 // base config's rules also guard its descendants. Returns each failed rule's
 // human message.
+//
+// Descendants are checked too: this publish changes every descendant's resolved
+// value, so each descendant's effective rules run against its would-be state.
+// Only violations INTRODUCED by this publish are reported (diffed against the
+// live family), so a pre-existing broken descendant — possibly in a project the
+// publisher can't edit — never blocks unrelated publishes. Snapshot-based, same
+// accepted TOCTOU race as assertConfigDescendantsReconcilable.
 async function collectInvariantViolations(
   context: Context,
   leaf: ConfigLeaf,
   rawValue: string | undefined,
 ): Promise<string[]> {
   const all = await context.models.configs.getAllForReconcile();
-  const byKey = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
-  byKey.set(leaf.key, {
-    ...byKey.get(leaf.key),
+  const proposed = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
+  proposed.set(leaf.key, {
+    ...proposed.get(leaf.key),
     ...leaf,
     value: rawValue ?? leaf.value,
   } as ConfigInterface);
-  const chain = linearizeConfigDag(leaf.key, byKey);
 
-  type Invariant = NonNullable<SimpleSchema["invariants"]>[number];
-  const invByName = new Map<string, Invariant>();
-  for (const node of chain) {
-    for (const inv of node.schema?.invariants ?? []) {
-      invByName.set(inv.name, inv);
+  const rootViolations = collectConfigInvariantViolations(leaf.key, proposed);
+  const errors = rootViolations.map((vi) => vi.message);
+
+  const descendants = collectDescendantInvariantViolations(leaf.key, proposed);
+  if (!descendants.length) return errors;
+
+  // Live-family baseline for the introduced-only diff.
+  const preExisting = new Set(
+    collectDescendantInvariantViolations(
+      leaf.key,
+      new Map<string, ConfigInterface>(all.map((c) => [c.key, c])),
+    ).flatMap((d) =>
+      d.violations.map((vi) => `${d.configKey}\n${vi.name}\n${vi.message}`),
+    ),
+  );
+  // A root violation echoes into every non-overriding descendant; the root's
+  // own message subsumes those.
+  const reportedOnRoot = new Set(
+    rootViolations.map((vi) => `${vi.name}\n${vi.message}`),
+  );
+  for (const d of descendants) {
+    for (const vi of d.violations) {
+      if (preExisting.has(`${d.configKey}\n${vi.name}\n${vi.message}`)) {
+        continue;
+      }
+      if (reportedOnRoot.has(`${vi.name}\n${vi.message}`)) continue;
+      errors.push(
+        `descendant "${d.configName ?? d.configKey}" (${d.configKey}): ${vi.message}`,
+      );
     }
   }
-  const invariants = [...invByName.values()];
-  if (!invariants.length) return [];
-
-  // The resolved (inherited+own) value object the rules run against.
-  const { fields } = resolveConfigChain(chain);
-  const resolvedValue: Record<string, unknown> = {};
-  for (const f of fields) {
-    if (f.source !== null) resolvedValue[f.key] = f.value;
-  }
-  return evaluateInvariants(resolvedValue, invariants).map((vi) => vi.message);
+  return errors;
 }
 
 // Publish-time safety net for configs (the analog of

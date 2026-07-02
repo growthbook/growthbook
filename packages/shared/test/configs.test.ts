@@ -15,6 +15,8 @@ import {
   stripConfigExtends,
   linearizeConfigDag,
   getConfigSpineRootKey,
+  collectConfigInvariantViolations,
+  collectDescendantInvariantViolations,
   findSiblingSchemaConflicts,
   findIncompatibleConfigValueKeys,
   resolveConfigChain,
@@ -746,5 +748,235 @@ describe("computeConfigReconciliationPreview", () => {
     expect(
       computeConfigReconciliationPreview(lineage, "grandchild", ["a"]),
     ).toEqual([]);
+  });
+});
+
+// --- Cross-field invariants across a family --------------------------------
+
+const inv = (name: string, rule: unknown, message: string) => ({
+  name,
+  rule: typeof rule === "string" ? rule : JSON.stringify(rule),
+  message,
+});
+
+type DagNode = {
+  key: string;
+  name?: string;
+  parent?: string;
+  extends?: string[];
+  value?: string;
+  schema?: SimpleSchema;
+};
+const dagMap = (nodes: DagNode[]) => new Map(nodes.map((n) => [n.key, n]));
+
+const noRealtime = inv(
+  "no-realtime",
+  { stream_priority: { $ne: "realtime" } },
+  "This device tier cannot sustain realtime.",
+);
+
+describe("collectConfigInvariantViolations", () => {
+  it("evaluates rules accumulated base → leaf against the resolved value", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: { ...objSchema("stream_priority"), invariants: [noRealtime] },
+        value: '{"stream_priority":"high"}',
+      },
+      { key: "child", parent: "base", value: '{"stream_priority":"realtime"}' },
+    ]);
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
+    expect(collectConfigInvariantViolations("child", byKey)).toEqual([
+      {
+        name: "no-realtime",
+        message: "This device tier cannot sustain realtime.",
+      },
+    ]);
+  });
+
+  it("lets a leaf override a same-named inherited rule (leaf wins)", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("n"),
+          invariants: [inv("cap", { n: { $lte: 5 } }, "base cap")],
+        },
+        value: '{"n":1}',
+      },
+      {
+        key: "child",
+        parent: "base",
+        schema: {
+          type: "object",
+          fields: [],
+          invariants: [inv("cap", { n: { $lte: 10 } }, "child cap")],
+        },
+        value: '{"n":7}',
+      },
+    ]);
+    // n=7 fails the base's cap but satisfies the child's override.
+    expect(collectConfigInvariantViolations("child", byKey)).toEqual([]);
+    byKey.set("child", { ...byKey.get("child"), value: '{"n":12}' } as DagNode);
+    expect(collectConfigInvariantViolations("child", byKey)).toEqual([
+      { name: "cap", message: "child cap" },
+    ]);
+  });
+
+  it("supports field-to-field $ref rules", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("a", "b"),
+          invariants: [inv("order", { a: { $lte: { $ref: "b" } } }, "a > b")],
+        },
+        value: '{"a":1,"b":2}',
+      },
+      { key: "child", parent: "base", value: '{"b":0}' },
+    ]);
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
+    expect(collectConfigInvariantViolations("child", byKey)).toEqual([
+      { name: "order", message: "a > b" },
+    ]);
+  });
+
+  it("surfaces a malformed rule as a violation instead of throwing", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("x"),
+          invariants: [inv("broken", "not json", "broken rule")],
+        },
+        value: '{"x":1}',
+      },
+    ]);
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([
+      { name: "broken", message: "broken rule" },
+    ]);
+  });
+
+  it("returns [] when no config in the chain declares invariants", () => {
+    const byKey = dagMap([
+      { key: "base", schema: objSchema("x"), value: '{"x":1}' },
+      { key: "child", parent: "base", value: '{"x":2}' },
+    ]);
+    expect(collectConfigInvariantViolations("child", byKey)).toEqual([]);
+  });
+});
+
+describe("collectDescendantInvariantViolations", () => {
+  it("reports a descendant whose own rule fails against a violating base value", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: objSchema("stream_priority"),
+        value: '{"stream_priority":"realtime"}',
+      },
+      {
+        key: "child",
+        name: "Embedded Player",
+        parent: "base",
+        schema: { type: "object", fields: [], invariants: [noRealtime] },
+      },
+    ]);
+    expect(collectDescendantInvariantViolations("base", byKey)).toEqual([
+      {
+        configKey: "child",
+        configName: "Embedded Player",
+        violations: [
+          {
+            name: "no-realtime",
+            message: "This device tier cannot sustain realtime.",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("excludes the root's own violations and clean descendants", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: { ...objSchema("stream_priority"), invariants: [noRealtime] },
+        value: '{"stream_priority":"realtime"}',
+      },
+      // Override masks the violating base value.
+      {
+        key: "child",
+        parent: "base",
+        value: '{"stream_priority":"high"}',
+      },
+    ]);
+    expect(collectDescendantInvariantViolations("base", byKey)).toEqual([]);
+  });
+
+  it("reaches a rule declared two levels down (grandchild)", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: objSchema("stream_priority"),
+        value: '{"stream_priority":"realtime"}',
+      },
+      { key: "child", parent: "base" },
+      {
+        key: "grandchild",
+        parent: "child",
+        schema: { type: "object", fields: [], invariants: [noRealtime] },
+      },
+    ]);
+    const hits = collectDescendantInvariantViolations("base", byKey);
+    expect(hits.map((h) => h.configKey)).toEqual(["grandchild"]);
+  });
+
+  it("reaches descendants composed via `extends` (mixin edge)", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: objSchema("stream_priority"),
+        value: '{"stream_priority":"realtime"}',
+      },
+      {
+        key: "composer",
+        extends: ["base"],
+        schema: { type: "object", fields: [], invariants: [noRealtime] },
+      },
+      { key: "unrelated", value: '{"stream_priority":"realtime"}' },
+    ]);
+    expect(
+      collectDescendantInvariantViolations("base", byKey).map(
+        (h) => h.configKey,
+      ),
+    ).toEqual(["composer"]);
+  });
+
+  it("catches a base's own rule failing only at a descendant's override", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("a", "b"),
+          invariants: [inv("order", { a: { $lte: { $ref: "b" } } }, "a > b")],
+        },
+        value: '{"a":1,"b":2}',
+      },
+      { key: "child", parent: "base", value: '{"b":0}' },
+    ]);
+    expect(collectDescendantInvariantViolations("base", byKey)).toEqual([
+      {
+        configKey: "child",
+        configName: undefined,
+        violations: [{ name: "order", message: "a > b" }],
+      },
+    ]);
+  });
+
+  it("returns [] when no family member declares invariants", () => {
+    const byKey = dagMap([
+      { key: "base", schema: objSchema("x"), value: '{"x":1}' },
+      { key: "child", parent: "base", value: '{"x":2}' },
+    ]);
+    expect(collectDescendantInvariantViolations("base", byKey)).toEqual([]);
   });
 });

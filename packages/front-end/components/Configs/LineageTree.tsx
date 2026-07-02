@@ -203,6 +203,7 @@ export default function LineageTree({
       const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH;
       const indentChildren = depth < MAX_INDENT_DEPTH;
       const hasIncompatible = (n.incompatibleFields?.length ?? 0) > 0;
+      const hasViolations = (n.invariantViolations?.length ?? 0) > 0;
       const isArchived = !!archivedByKey?.[n.key];
       const isDraftNode = !!draftKeys?.[n.key];
       // Mixins listed first, then child configs.
@@ -303,6 +304,15 @@ export default function LineageTree({
                 size={12}
                 title={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
                 style={{ flexShrink: 0, color: "var(--amber-11)" }}
+              />
+            )}
+            {hasViolations && (
+              <PiWarningFill
+                size={12}
+                title={`Violates validation rule(s): ${n.invariantViolations
+                  ?.map((v) => v.message)
+                  .join("; ")}`}
+                style={{ flexShrink: 0, color: "var(--red-11)" }}
               />
             )}
             {n.fieldCount !== undefined && countBadge(n.fieldCount)}
