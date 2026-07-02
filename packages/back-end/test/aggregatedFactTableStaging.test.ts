@@ -5,6 +5,11 @@ import {
 } from "back-end/src/integrations/sql/queries/aggregated-fact-table-staging-query";
 import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
+import { ReqContext } from "back-end/types/request";
+import {
+  AggregatedFactTableUpdateOutcome,
+  acquireAllAggregatedFactTableLocks,
+} from "back-end/src/services/aggregatedFactTables";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 
@@ -177,5 +182,76 @@ describe("getInsertAggregatedFactTableDataQuery with sourceTableFullName", () =>
         expect(readSql).toContain(col);
       }
     }
+  });
+});
+
+describe("acquireAllAggregatedFactTableLocks", () => {
+  const makeContext = (
+    acquireLock: jest.Mock,
+    releaseLock: jest.Mock,
+  ): ReqContext =>
+    ({
+      models: { aggregatedFactTables: { acquireLock, releaseLock } },
+    }) as unknown as ReqContext;
+
+  it("returns per-idType executionIds when every lock is acquired", async () => {
+    const acquireLock = jest.fn().mockResolvedValue(true);
+    const releaseLock = jest.fn().mockResolvedValue(undefined);
+    const result = await acquireAllAggregatedFactTableLocks(
+      makeContext(acquireLock, releaseLock),
+      "ds_1",
+      FT_ID,
+      ["id_a", "id_b", "id_c"],
+    );
+    expect(result).not.toBeNull();
+    expect(result?.size).toBe(3);
+    expect(acquireLock).toHaveBeenCalledTimes(3);
+    expect(releaseLock).not.toHaveBeenCalled();
+  });
+
+  it("releases every acquired lock and returns null when any acquire fails (all-or-nothing)", async () => {
+    const acquireLock = jest
+      .fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const releaseLock = jest.fn().mockResolvedValue(undefined);
+    const result = await acquireAllAggregatedFactTableLocks(
+      makeContext(acquireLock, releaseLock),
+      "ds_1",
+      FT_ID,
+      ["id_a", "id_b", "id_c"],
+    );
+    expect(result).toBeNull();
+    // The two acquired locks are rolled back.
+    expect(releaseLock).toHaveBeenCalledTimes(2);
+    expect(releaseLock).toHaveBeenCalledWith(
+      { datasourceId: "ds_1", factTableId: FT_ID, idType: "id_a" },
+      expect.any(String),
+    );
+    expect(releaseLock).toHaveBeenCalledWith(
+      { datasourceId: "ds_1", factTableId: FT_ID, idType: "id_b" },
+      expect.any(String),
+    );
+  });
+});
+
+describe("AggregatedFactTableUpdateOutcome", () => {
+  // Compile-time check that the shared-staging coordinator's terminal
+  // discrimination ("completed" vs "failed") is expressible on the outcome
+  // type. If someone narrows the union back to just "started", this fails to
+  // typecheck.
+  it("distinguishes completed from failed for awaitResults callers", () => {
+    const completed: AggregatedFactTableUpdateOutcome = {
+      status: "completed",
+      runId: "r1",
+    };
+    const failed: AggregatedFactTableUpdateOutcome = {
+      status: "failed",
+      runId: "r1",
+      error: "boom",
+    };
+    expect(completed.status === "completed").toBe(true);
+    expect(failed.status === "completed").toBe(false);
   });
 });

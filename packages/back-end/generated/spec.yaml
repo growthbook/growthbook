@@ -40935,6 +40935,7 @@ components:
           type: string
           enum:
             - started
+            - completed
             - failed
             - skipped
         reason:

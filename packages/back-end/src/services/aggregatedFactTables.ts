@@ -310,6 +310,8 @@ export function toAggregatedTableRunApiInterface(
 
 export type AggregatedFactTableUpdateOutcome =
   | { status: "started"; runId: string }
+  // awaitResults:true only — the runner ran to a terminal state.
+  | { status: "completed"; runId: string }
   | { status: "failed"; runId: string; error: string }
   | { status: "skipped"; reason: AggregatedTableRefreshSkipReason };
 
@@ -319,10 +321,7 @@ export function toAggregatedTableRefreshTriggerResult(
 ) {
   return {
     idType,
-    runId:
-      outcome.status === "started" || outcome.status === "failed"
-        ? outcome.runId
-        : null,
+    runId: outcome.status === "skipped" ? null : outcome.runId,
     status: outcome.status,
     reason: outcome.status === "skipped" ? outcome.reason : null,
     error: outcome.status === "failed" ? outcome.error : null,
@@ -509,31 +508,32 @@ export async function runAggregatedFactTableUpdate(
     return { status: "failed", runId: run.id, error };
   }
 
-  const waitForCompletion = async () => {
-    try {
-      await runner.waitForResults();
-      executionLogger.logUpdateCompleted(context, { status: "success" });
-      logger.debug(
-        `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
-      );
-    } catch (e) {
-      await handleFailure(e);
-    }
-  };
+  const waitForCompletion =
+    async (): Promise<AggregatedFactTableUpdateOutcome> => {
+      try {
+        await runner.waitForResults();
+        executionLogger.logUpdateCompleted(context, { status: "success" });
+        logger.debug(
+          `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
+        );
+        return { status: "completed", runId: run.id };
+      } catch (e) {
+        const error = await handleFailure(e);
+        return { status: "failed", runId: run.id, error };
+      }
+    };
 
   if (awaitResults) {
-    await waitForCompletion();
-  } else {
-    void waitForCompletion();
+    return waitForCompletion();
   }
-
+  void waitForCompletion();
   return { status: "started", runId: run.id };
 }
 
 // Acquire the per-idType lock for every listed idType, or none. Returns the
 // per-idType executionIds on success; on any failure, releases the locks it
 // took and returns null so the caller can fall back to the per-idType path.
-async function acquireAllAggregatedFactTableLocks(
+export async function acquireAllAggregatedFactTableLocks(
   context: ReqContext,
   datasourceId: string,
   factTableId: string,
@@ -640,121 +640,151 @@ export async function runAggregatedFactTableSharedStagingUpdate(
     return runPerIdTypeFallback();
   }
 
-  // Partition by resolved mode. Incrementals never touch staging.
-  const restateIdTypes: string[] = [];
-  const incrementalIdTypes: string[] = [];
-  for (const idType of idTypes) {
-    const registry = await context.models.aggregatedFactTables.getByKey({
-      datasourceId: datasource.id,
-      factTableId: factTable.id,
-      idType,
-    });
-    const restateReason = registry
-      ? getAggregatedFactTableRestateReason({
-          registry,
-          factTableSettingsHash,
-          metricState,
-        })
-      : null;
-    const mode: AggregatedFactTableRunMode =
-      forceRestate || !registry?.tableFullName || restateReason !== null
-        ? "restate"
-        : "incremental";
-    (mode === "restate" ? restateIdTypes : incrementalIdTypes).push(idType);
-  }
-
-  if (restateIdTypes.length < 2) {
-    // No shared-scan benefit; release the pre-acquired locks and fall back.
-    for (const [idType, executionId] of executionIds) {
+  // executionIds not yet handed to a runner. A handed-off runner owns its lock
+  // (releases it on success or in handleFailure); the finally below releases
+  // any that never got handed off if this coordinator throws.
+  const unhanded = new Map(executionIds);
+  const releaseUnhanded = async () => {
+    for (const [idType, executionId] of unhanded) {
       await context.models.aggregatedFactTables
         .releaseLock(
           { datasourceId: datasource.id, factTableId: factTable.id, idType },
           executionId,
         )
-        .catch(() => {});
+        .catch((e) =>
+          logger.error(
+            e,
+            `Failed to release unhanded aggregated fact table lock for ${factTable.id}/${idType}`,
+          ),
+        );
     }
-    return runPerIdTypeFallback();
-  }
+    unhanded.clear();
+  };
 
-  const sharedExecutionId = uniqid("aftshared_");
-  const stagingTableFullName = integration.generateTablePath(
-    `${AGGREGATED_FACT_TABLE_STAGING_PREFIX}_${factTable.id}_${sharedExecutionId}`,
-    pipelineSettings.writeDataset,
-    pipelineSettings.writeDatabase,
-    true,
-  );
+  try {
+    // Partition by resolved mode. Incrementals never touch staging.
+    const restateIdTypes: string[] = [];
+    const incrementalIdTypes: string[] = [];
+    for (const idType of idTypes) {
+      const registry = await context.models.aggregatedFactTables.getByKey({
+        datasourceId: datasource.id,
+        factTableId: factTable.id,
+        idType,
+      });
+      const restateReason = registry
+        ? getAggregatedFactTableRestateReason({
+            registry,
+            factTableSettingsHash,
+            metricState,
+          })
+        : null;
+      const mode: AggregatedFactTableRunMode =
+        forceRestate || !registry?.tableFullName || restateReason !== null
+          ? "restate"
+          : "incremental";
+      (mode === "restate" ? restateIdTypes : incrementalIdTypes).push(idType);
+    }
 
-  logger.info(
-    {
-      event: "aggregated_fact_table_shared_staging_started",
-      organization: context.org.id,
-      factTableId: factTable.id,
-      restateIdTypes,
-      incrementalIdTypes,
-      stagingTableFullName,
-    },
-    "Aggregated fact table shared-staging restate started",
-  );
+    if (restateIdTypes.length < 2) {
+      // No shared-scan benefit; release everything and fall back.
+      await releaseUnhanded();
+      return runPerIdTypeFallback();
+    }
 
-  // First restating idType's runner builds the staging table (staging queries
-  // are prepended so they show up in that idType's run history), then reads its
-  // own restate from it. Remaining restating idTypes wait for that runner to
-  // complete, then read staging concurrently. The last idType drops staging
-  // after its coverage query; the partition-expiration set at CREATE guarantees
-  // eventual cleanup regardless.
-  const [firstRestateIdType, ...restRestateIdTypes] = restateIdTypes;
-  const staging = (
-    buildStaging: boolean,
-    dropStagingOnComplete: boolean,
-  ): AggregatedFactTableSharedStaging => ({
-    stagingTableFullName,
-    allIdTypes: idTypes,
-    buildStaging,
-    dropStagingOnComplete,
-  });
-
-  outcomes.set(
-    firstRestateIdType,
-    await runAggregatedFactTableUpdate(context, factTable, firstRestateIdType, {
-      forceRestate,
-      awaitResults: true,
-      preAcquiredExecutionId: executionIds.get(firstRestateIdType),
-      sharedStaging: staging(true, restRestateIdTypes.length === 0),
-    }),
-  );
-
-  const stagingBuilt = outcomes.get(firstRestateIdType)?.status === "started";
-  if (!stagingBuilt) {
-    logger.warn(
-      `Shared-staging restate for ${factTable.id}: staging build failed; remaining idTypes fall back to raw restate`,
+    const sharedExecutionId = uniqid("aftshared_");
+    const stagingTableFullName = integration.generateTablePath(
+      `${AGGREGATED_FACT_TABLE_STAGING_PREFIX}_${factTable.id}_${sharedExecutionId}`,
+      pipelineSettings.writeDataset,
+      pipelineSettings.writeDatabase,
+      true,
     );
-  }
 
-  await Promise.all(
-    restRestateIdTypes.map(async (idType, i) => {
-      const isLast = i === restRestateIdTypes.length - 1;
+    logger.info(
+      {
+        event: "aggregated_fact_table_shared_staging_started",
+        organization: context.org.id,
+        factTableId: factTable.id,
+        restateIdTypes,
+        incrementalIdTypes,
+        stagingTableFullName,
+      },
+      "Aggregated fact table shared-staging restate started",
+    );
+
+    // First restating idType's runner builds the staging table (staging queries
+    // are prepended so they show up in that idType's run history), then reads its
+    // own restate from it. Remaining restating idTypes wait for that runner to
+    // complete, then read staging concurrently. The last idType drops staging
+    // after its coverage query; the partition-expiration set at CREATE guarantees
+    // eventual cleanup regardless.
+    const [firstRestateIdType, ...restRestateIdTypes] = restateIdTypes;
+    const staging = (
+      buildStaging: boolean,
+      dropStagingOnComplete: boolean,
+    ): AggregatedFactTableSharedStaging => ({
+      stagingTableFullName,
+      // Only restating idTypes read staging, so only their columns are projected.
+      allIdTypes: restateIdTypes,
+      buildStaging,
+      dropStagingOnComplete,
+    });
+
+    unhanded.delete(firstRestateIdType);
+    outcomes.set(
+      firstRestateIdType,
+      await runAggregatedFactTableUpdate(
+        context,
+        factTable,
+        firstRestateIdType,
+        {
+          forceRestate,
+          awaitResults: true,
+          preAcquiredExecutionId: executionIds.get(firstRestateIdType),
+          sharedStaging: staging(true, restRestateIdTypes.length === 0),
+        },
+      ),
+    );
+
+    // With awaitResults:true the outcome is terminal ("completed" or "failed");
+    // only proceed to read staging when the build actually completed.
+    const stagingBuilt =
+      outcomes.get(firstRestateIdType)?.status === "completed";
+    if (!stagingBuilt) {
+      logger.warn(
+        `Shared-staging restate for ${factTable.id}: staging build failed; remaining idTypes fall back to raw restate`,
+      );
+    }
+
+    await Promise.all(
+      restRestateIdTypes.map(async (idType, i) => {
+        const isLast = i === restRestateIdTypes.length - 1;
+        unhanded.delete(idType);
+        outcomes.set(
+          idType,
+          await runAggregatedFactTableUpdate(context, factTable, idType, {
+            forceRestate,
+            awaitResults,
+            preAcquiredExecutionId: executionIds.get(idType),
+            sharedStaging: stagingBuilt ? staging(false, isLast) : undefined,
+          }),
+        );
+      }),
+    );
+
+    for (const idType of incrementalIdTypes) {
+      unhanded.delete(idType);
       outcomes.set(
         idType,
         await runAggregatedFactTableUpdate(context, factTable, idType, {
-          forceRestate,
+          forceRestate: false,
           awaitResults,
           preAcquiredExecutionId: executionIds.get(idType),
-          sharedStaging: stagingBuilt ? staging(false, isLast) : undefined,
         }),
       );
-    }),
-  );
+    }
 
-  for (const idType of incrementalIdTypes) {
-    outcomes.set(
-      idType,
-      await runAggregatedFactTableUpdate(context, factTable, idType, {
-        forceRestate: false,
-        awaitResults,
-        preAcquiredExecutionId: executionIds.get(idType),
-      }),
-    );
+    return outcomes;
+  } finally {
+    await releaseUnhanded();
   }
-
-  return outcomes;
 }
