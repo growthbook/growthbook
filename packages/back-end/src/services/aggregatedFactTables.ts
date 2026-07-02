@@ -221,11 +221,15 @@ export function buildAggregatedFactTableStatus({
   idType,
   doc,
   factTableSettingsHash,
+  factTableNonSqlSettingsHash,
+  factTableColumnsFingerprint,
   metricState,
 }: {
   idType: string;
   doc: AggregatedFactTableInterface | undefined;
   factTableSettingsHash: string;
+  factTableNonSqlSettingsHash?: string;
+  factTableColumnsFingerprint?: string | null;
   metricState: AggregatedFactTableMetricStateInterface[];
 }): AggregatedFactTableStatus {
   const status = getAggregatedFactTableMaterializationStatus(doc);
@@ -235,6 +239,8 @@ export function buildAggregatedFactTableStatus({
       ? getAggregatedFactTableRestateReason({
           registry: doc,
           factTableSettingsHash,
+          factTableNonSqlSettingsHash,
+          factTableColumnsFingerprint,
           metricState,
         })
       : null;
@@ -393,18 +399,43 @@ export async function runAggregatedFactTableUpdate(
     );
   }
 
-  const { factTableSettingsHash, metricState } =
-    buildAggregatedFactTableSchemaState({ factTable, metrics });
+  const {
+    factTableSettingsHash,
+    factTableNonSqlSettingsHash,
+    factTableColumnsFingerprint,
+    metricState,
+  } = buildAggregatedFactTableSchemaState({ factTable, metrics });
 
   const restateReason = getAggregatedFactTableRestateReason({
     registry,
     factTableSettingsHash,
+    factTableNonSqlSettingsHash,
+    factTableColumnsFingerprint,
     metricState,
   });
   const mode: AggregatedFactTableRunMode =
     forceRestate || !registry.tableFullName || restateReason !== null
       ? "restate"
       : "incremental";
+
+  // Observability: log when a SQL-text change was tolerated so operators can
+  // audit and force-restate if the edit was value-affecting.
+  if (
+    mode === "incremental" &&
+    factTableSettingsHash !== registry.factTableSettingsHash
+  ) {
+    logger.info(
+      {
+        event: "aggregated_fact_table_sql_drift_tolerated",
+        organization: context.org.id,
+        factTableId: factTable.id,
+        idType,
+        registryFactTableSettingsHash: registry.factTableSettingsHash,
+        newFactTableSettingsHash: factTableSettingsHash,
+      },
+      "Aggregated fact table SQL text changed but output schema is unchanged; skipping restate",
+    );
+  }
 
   const run = await context.models.aggregatedFactTableRuns.create({
     aggregatedFactTableId: registry.id,
@@ -483,6 +514,8 @@ export async function runAggregatedFactTableUpdate(
       executionId,
       aggregatedFactTable: registry,
       factTableSettingsHash,
+      factTableNonSqlSettingsHash,
+      factTableColumnsFingerprint,
       metricState,
       lookbackWindowDays:
         factTable.aggregatedFactTableSettings?.lookbackWindow ?? 60,

@@ -14,6 +14,8 @@ import { precedingUtcDayStart, snapToUtcDayStart } from "shared/dates";
 import { ApiReqContext } from "back-end/types/api";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  getFactTableColumnsFingerprint,
+  getFactTableNonSqlSettingsHashForAggregatedFactTable,
   getFactTableSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
@@ -140,10 +142,28 @@ async function resolveCovariateInsertPathInner({
     getFactTableSettingsHashForAggregatedFactTable(factTable) !==
     registry.factTableSettingsHash
   ) {
-    log("legacy: fact table definition changed, restate pending", {
-      registryFactTableSettingsHash: registry.factTableSettingsHash,
-    });
-    return { path: "legacy", reason: "pending-restate" };
+    // Full-definition hash mismatch. If only the SQL text changed (eventName,
+    // filters, and output columns unchanged), the materialized data is still
+    // schema-compatible — keep reading it. The next maintenance run will roll
+    // the stored hash forward. Without stored sub-fingerprints (legacy doc) or
+    // resolved columns, fall back to legacy as before.
+    const currentColumnsFingerprint = getFactTableColumnsFingerprint(factTable);
+    const sqlOnlySchemaCompatible =
+      registry.factTableNonSqlSettingsHash != null &&
+      registry.factTableColumnsFingerprint != null &&
+      currentColumnsFingerprint != null &&
+      getFactTableNonSqlSettingsHashForAggregatedFactTable(factTable) ===
+        registry.factTableNonSqlSettingsHash &&
+      currentColumnsFingerprint === registry.factTableColumnsFingerprint;
+    if (!sqlOnlySchemaCompatible) {
+      log("legacy: fact table definition changed, restate pending", {
+        registryFactTableSettingsHash: registry.factTableSettingsHash,
+      });
+      return { path: "legacy", reason: "pending-restate" };
+    }
+    log(
+      "fact table SQL text changed but output schema unchanged; continuing on aggregated path",
+    );
   }
 
   // Freshness = does the table cover the covariate window (plus a buffer so the
