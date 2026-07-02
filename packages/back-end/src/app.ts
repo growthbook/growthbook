@@ -471,6 +471,7 @@ app.use(
       "X-GB-Session-Id",
       "X-GB-Device-Id",
       "X-GB-Page-Id",
+      "X-GB-Page-Url",
     ],
   }),
 );

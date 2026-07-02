@@ -83,12 +83,17 @@ function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
 
 /**
  * Full page URL for GrowthBook tracking events (userContext.url).
- * Prefers the Referer (front-end page) when present; otherwise builds from the request.
- * Matches the front-end's growthbook.setURL(window.location.href).
+ * Prefers X-GB-Page-Url from the front-end (Referer is origin-only on cross-origin
+ * requests under the default strict-origin-when-cross-origin policy).
  */
 export function getGrowthBookRequestUrl(
   req: Pick<Request, "protocol" | "get" | "originalUrl">,
 ): string {
+  const pageUrl = req.get(GB_PAGE_URL_HEADER);
+  if (pageUrl) {
+    return pageUrl;
+  }
+
   const referer = req.get("referer");
   if (referer) {
     return referer;
@@ -105,6 +110,7 @@ export function getGrowthBookRequestUrl(
 const GB_SESSION_ID_HEADER = "x-gb-session-id";
 const GB_DEVICE_ID_HEADER = "x-gb-device-id";
 const GB_PAGE_ID_HEADER = "x-gb-page-id";
+const GB_PAGE_URL_HEADER = "x-gb-page-url";
 
 /**
  * Session, device, and page IDs from the front-end (headers) or shared cookies.
