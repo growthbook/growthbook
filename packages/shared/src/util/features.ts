@@ -1446,14 +1446,14 @@ export {
 } from "../revisions/scheduledPublish";
 
 // True if publishing the draft would change anything outside the target
-// experiment's experiment-ref rule(s). Compares effective post-publish state
+// ref rule(s) matched by `isTargetRef`. Compares effective post-publish state
 // (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
 // phantom diffs from sparse legacy revisions. Skips environmentsEnabled
 // (auto-toggled on link) and metadata (no SDK payload impact).
-export function draftHasChangesOutsideExperiment(
+export function draftHasChangesOutsideTargetRef(
   draftRevision: RevisionFields,
   filledLive: RevisionFields,
-  experimentId: string,
+  isTargetRef: (rule: FeatureRule) => boolean,
 ): boolean {
   const effective = buildEffectiveDraft(draftRevision, filledLive);
 
@@ -1466,16 +1466,14 @@ export function draftHasChangesOutsideExperiment(
     return true;
 
   const stripTargetRefs = (rules: FeatureRule[] | undefined) =>
-    (rules ?? []).filter(
-      (rule) =>
-        !(rule.type === "experiment-ref" && rule.experimentId === experimentId),
-    );
+    (rules ?? []).filter((rule) => !isTargetRef(rule));
   const liveOther = stripTargetRefs(naiveFlattenV1Rules(filledLive.rules));
   const draftOther = stripTargetRefs(naiveFlattenV1Rules(effective.rules));
   if (!isEqual(liveOther, draftOther)) return true;
 
   return false;
 }
+
 // Normalize a metadata field value for comparison.
 export function normalizeMetadataValue(
   k: keyof RevisionMetadata,
