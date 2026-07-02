@@ -268,7 +268,8 @@ export default function TrafficAllocationFunnel({
             }
             disabled={!safeToEdit}
           >
-            <Flex direction="column" gap="3">
+            <Flex direction="column" gap="4">
+              <AssignmentAttribute experiment={experiment} />
               {hasConfiguredTargeting ? (
                 <>
                   {hasCondition ? (
@@ -299,7 +300,6 @@ export default function TrafficAllocationFunnel({
                   ) : null}
                 </>
               ) : null}
-              <AssignmentAttribute experiment={experiment} />
             </Flex>
           </FunnelCard>
 
