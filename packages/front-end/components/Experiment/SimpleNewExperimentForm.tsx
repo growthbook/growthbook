@@ -9,7 +9,7 @@ import {
 } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import { isProjectListValidForProject } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -43,6 +43,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import Text from "@/ui/Text";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -249,6 +250,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("hashAttribute", holdoutHashAttribute);
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hashAttributeHoldoutMismatch =
+    !!holdoutHashAttribute &&
+    form.watch("hashAttribute") !== holdoutHashAttribute;
 
   const watchedHashAttribute = form.watch("hashAttribute") || "id";
   const watchedTemplateId = form.watch("templateId");
@@ -534,39 +539,45 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         {...form.register("hypothesis")}
       />
 
-      <SelectField
-        required
-        label="Assignment Attribute"
-        value={form.watch("hashAttribute") ?? ""}
-        helpText="Will be hashed together with the Tracking Key to determine which variation to assign"
-        onChange={(v) => form.setValue("hashAttribute", v)}
-        options={attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({
-            label: s.property,
-            value: s.property,
-            description: s.description,
-            tags: s.tags,
-            datatype: s.datatype,
-            hashAttribute: s.hashAttribute,
-          }))}
-        formatOptionLabel={(o, meta) => (
-          <AttributeOptionWithTooltip
-            option={o as AttributeOptionForTooltip}
-            context={meta.context}
-          >
-            {o.label}
-          </AttributeOptionWithTooltip>
-        )}
-      />
-      {!!holdoutHashAttribute &&
-        form.watch("hashAttribute") !== holdoutHashAttribute && (
-          <HelperText status="warning" size="sm" mb="2">
+      <Box mb="4">
+        <Text as="label" weight="semibold" mb="1">
+          Assignment Attribute
+        </Text>
+        <Text as="div" color="text-mid" mb="2">
+          Will be hashed together with the Tracking Key to determine which
+          variation to assign variation to assign
+        </Text>
+        <SelectField
+          required
+          className={hashAttributeHoldoutMismatch ? "warning" : undefined}
+          value={form.watch("hashAttribute") ?? ""}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          options={attributeSchema
+            .filter((s) => !hasHashAttributes || s.hashAttribute)
+            .map((s) => ({
+              label: s.property,
+              value: s.property,
+              description: s.description,
+              tags: s.tags,
+              datatype: s.datatype,
+              hashAttribute: s.hashAttribute,
+            }))}
+          formatOptionLabel={(o, meta) => (
+            <AttributeOptionWithTooltip
+              option={o as AttributeOptionForTooltip}
+              context={meta.context}
+            >
+              {o.label}
+            </AttributeOptionWithTooltip>
+          )}
+        />
+        {hashAttributeHoldoutMismatch && (
+          <HelperText status="warning" size="sm" mt="2">
             The hash attribute of this experiment does not match the hash
             attribute of the holdout this experiment will belong to.
           </HelperText>
         )}
-
+      </Box>
       {showLinkIdentifierCallout && autoDatasource && (
         <Callout status="info" mb="3">
           Link the <strong>{watchedHashAttribute}</strong> attribute to an
