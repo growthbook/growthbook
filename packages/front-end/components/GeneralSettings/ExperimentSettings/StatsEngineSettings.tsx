@@ -32,6 +32,7 @@ interface FormValues {
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
   postStratificationEnabled: boolean;
+  oneSidedIntervals: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;

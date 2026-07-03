@@ -15359,6 +15359,11 @@ paths:
                     pValueThreshold:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
+                    oneSidedIntervals:
+                      description: >-
+                        Whether to use one-sided intervals for Frequentist
+                        tests.
+                      type: boolean
                   additionalProperties: false
               required:
                 - name
@@ -15450,6 +15455,11 @@ paths:
                     pValueThreshold:
                       description: Frequentist p-value threshold (e.g. 0.05).
                       type: number
+                    oneSidedIntervals:
+                      description: >-
+                        Whether to use one-sided intervals for Frequentist
+                        tests.
+                      type: boolean
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -40916,6 +40926,8 @@ components:
               type: number
             pValueThreshold:
               type: number
+            oneSidedIntervals:
+              type: boolean
           additionalProperties: false
       required:
         - id
@@ -43277,6 +43289,8 @@ components:
           type: string
         pValueThreshold:
           type: number
+        oneSidedIntervals:
+          type: boolean
         regressionAdjustmentEnabled:
           type: boolean
         regressionAdjustmentDays:

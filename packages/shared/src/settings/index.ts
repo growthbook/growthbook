@@ -126,6 +126,11 @@ export const resolvers: Record<
   topValuesLookbackValue: genDefaultResolver("topValuesLookbackValue"),
   topValuesLookbackUnit: genDefaultResolver("topValuesLookbackUnit"),
   useStickyBucketing: genDefaultResolver("useStickyBucketing"),
+  oneSidedIntervals: genDefaultResolver("oneSidedIntervals", {
+    project: "settings.oneSidedIntervals",
+    experiment: true,
+    report: true,
+  }),
   // TODO prior resolvers
 };
 

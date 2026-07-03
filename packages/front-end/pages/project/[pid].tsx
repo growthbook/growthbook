@@ -35,6 +35,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import SelectField from "@/components/Forms/SelectField";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -324,6 +325,39 @@ const ProjectPage: FC = () => {
                                     rules={{
                                       setValueAs: emptyStringToUndefined,
                                     }}
+                                  />
+                                </div>
+                                <div className="form-group mb-2 mr-2 form-inline">
+                                  <SelectField
+                                    label="One-tailed tests: "
+                                    className="m-2"
+                                    options={[
+                                      {
+                                        label: `Default (${
+                                          parentSettings.oneSidedIntervals.value
+                                            ? "On"
+                                            : "Off"
+                                        })`,
+                                        value: "",
+                                      },
+                                      { label: "On", value: "true" },
+                                      { label: "Off", value: "false" },
+                                    ]}
+                                    value={
+                                      form.watch("oneSidedIntervals") ===
+                                      undefined
+                                        ? ""
+                                        : form.watch("oneSidedIntervals")
+                                          ? "true"
+                                          : "false"
+                                    }
+                                    onChange={(v) => {
+                                      form.setValue(
+                                        "oneSidedIntervals",
+                                        v === "" ? undefined : v === "true",
+                                      );
+                                    }}
+                                    helpText="Replaces two-tailed confidence intervals with one-tailed variants (directional intervals)."
                                   />
                                 </div>
                               </Box>

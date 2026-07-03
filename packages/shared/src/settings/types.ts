@@ -99,6 +99,7 @@ interface BaseSettings {
   topValuesLookbackValue: number;
   topValuesLookbackUnit: "days";
   useStickyBucketing: boolean;
+  oneSidedIntervals: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

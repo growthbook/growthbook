@@ -241,6 +241,7 @@ export interface OrganizationSettings {
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;
+  oneSidedIntervals?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;

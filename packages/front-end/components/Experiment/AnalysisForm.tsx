@@ -197,6 +197,7 @@ const AnalysisForm: FC<{
             }
         : undefined,
       statsEngine: experiment.statsEngine,
+      oneSidedIntervals: experiment.oneSidedIntervals,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
       postStratificationEnabled: experiment.postStratificationEnabled,
       type: experiment.type || "standard",
@@ -460,6 +461,11 @@ const AnalysisForm: FC<{
           body.sequentialTestingTuningParameter =
             orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+        }
+
+        if (value.oneSidedIntervals === undefined) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          body.oneSidedIntervals = null as any;
         }
 
         // bandits
@@ -952,7 +958,47 @@ const AnalysisForm: FC<{
                   />
                 ) : null}
               </Box>
-              <Box style={{ flex: 1, minWidth: 0 }} />
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <SelectField
+                  label={
+                    <PremiumTooltip commercialFeature="one-sided-intervals">
+                      Alternative Hypothesis
+                    </PremiumTooltip>
+                  }
+                  value={
+                    form.watch("oneSidedIntervals") == null
+                      ? ""
+                      : form.watch("oneSidedIntervals")
+                        ? "on"
+                        : "off"
+                  }
+                  onChange={(v) => {
+                    form.setValue(
+                      "oneSidedIntervals",
+                      v === "" ? undefined : v === "on",
+                    );
+                  }}
+                  options={[
+                    {
+                      label: `Default (${
+                        orgSettings.oneSidedIntervals
+                          ? "One-tailed"
+                          : "Two-tailed"
+                      })`,
+                      value: "",
+                    },
+                    { label: "One-tailed", value: "on" },
+                    { label: "Two-tailed", value: "off" },
+                  ]}
+                  formatOptionLabel={({ value, label }) => {
+                    if (value === "") {
+                      return <em className="text-muted">{label}</em>;
+                    }
+                    return label;
+                  }}
+                  sort={false}
+                />
+              </Box>
             </Flex>
           )}
 

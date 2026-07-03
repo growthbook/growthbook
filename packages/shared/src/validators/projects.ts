@@ -12,6 +12,7 @@ export const projectSettingsValidator = z.object({
   statsEngine: statsEnginesValidator.optional(),
   confidenceLevel: z.number().min(0.5).max(1).optional(),
   pValueThreshold: z.number().gt(0).max(0.5).optional(),
+  oneSidedIntervals: z.boolean().optional(),
 });
 
 export const projectValidator = baseSchema
@@ -51,6 +52,7 @@ export const apiProjectValidator = namedSchema(
           statsEngine: z.string().optional(),
           confidenceLevel: z.number().optional(),
           pValueThreshold: z.number().optional(),
+          oneSidedIntervals: z.boolean().optional(),
         })
         .optional(),
     })
@@ -82,6 +84,10 @@ const postProjectBody = z
         pValueThreshold: z
           .number()
           .describe("Frequentist p-value threshold (e.g. 0.05).")
+          .optional(),
+        oneSidedIntervals: z
+          .boolean()
+          .describe("Whether to use one-sided intervals for Frequentist tests.")
           .optional(),
       })
       .describe(
@@ -116,6 +122,10 @@ const putProjectBody = z
         pValueThreshold: z
           .number()
           .describe("Frequentist p-value threshold (e.g. 0.05).")
+          .optional(),
+        oneSidedIntervals: z
+          .boolean()
+          .describe("Whether to use one-sided intervals for Frequentist tests.")
           .optional(),
       })
       .describe(

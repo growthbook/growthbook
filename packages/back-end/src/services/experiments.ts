@@ -361,6 +361,7 @@ export function getDefaultExperimentAnalysisSettings({
   dimension,
   pValueThreshold,
   metricGroups = [],
+  oneSidedIntervals,
 }: {
   statsEngine: StatsEngine;
   experiment: ExperimentInterface | ExperimentReportAnalysisSettings;
@@ -370,6 +371,7 @@ export function getDefaultExperimentAnalysisSettings({
   dimension?: string;
   pValueThreshold?: number;
   metricGroups?: MetricGroupInterface[];
+  oneSidedIntervals?: boolean;
 }): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -400,6 +402,9 @@ export function getDefaultExperimentAnalysisSettings({
       experiment?.sequentialTestingTuningParameter ??
       organization.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    oneSidedIntervals:
+      statsEngine === "frequentist" &&
+      (experiment?.oneSidedIntervals ?? (oneSidedIntervals || false)),
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueThreshold:
@@ -2285,6 +2290,7 @@ export async function planExperimentSnapshot({
     postStratificationEnabled,
     dimension,
     pValueThreshold: settings.pValueThreshold.value,
+    oneSidedIntervals: settings.oneSidedIntervals.value,
     metricGroups,
   });
 

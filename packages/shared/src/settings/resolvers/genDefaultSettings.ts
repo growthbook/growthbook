@@ -24,6 +24,7 @@ import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
   DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+  DEFAULT_ONE_SIDED_INTERVALS,
 } from "../../constants";
 import { Settings } from "../types";
 
@@ -111,5 +112,6 @@ export default function genDefaultSettings(): Settings {
     topValuesLookbackUnit: DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     useStickyBucketing: DEFAULT_USE_STICKY_BUCKETING,
     targetMDE: DEFAULT_TARGET_MDE,
+    oneSidedIntervals: DEFAULT_ONE_SIDED_INTERVALS,
   };
 }

@@ -67,6 +67,23 @@ export default function FrequentistTab({
         />
       </div>
 
+      <div className="form-group mb-3 mr-2 ml-2">
+        <Switch
+          id={"toggle-oneSidedIntervals"}
+          value={form.watch("oneSidedIntervals")}
+          label="Use one-tailed tests by default"
+          onChange={(value) => {
+            form.setValue("oneSidedIntervals", value);
+          }}
+          disabled={hasFileConfig()}
+          mb="0"
+        />
+        <small className="form-text text-muted">
+          Replaces two-tailed confidence intervals with one-tailed variants
+          (directional intervals).
+        </small>
+      </div>
+
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="sequential-testing">
