@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REVISION_CONFIGURATION,
+  DEFAULT_ONE_SIDED_INTERVALS,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -156,7 +157,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
-      oneSidedIntervals: false,
+      oneSidedIntervals: DEFAULT_ONE_SIDED_INTERVALS,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,

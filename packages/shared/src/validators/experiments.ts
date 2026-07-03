@@ -269,7 +269,7 @@ export const experimentAnalysisSettings = z
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
-    oneSidedIntervals: z.boolean().optional(),
+    oneSidedIntervals: z.boolean().nullable().optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<

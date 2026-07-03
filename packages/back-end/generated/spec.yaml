@@ -15363,7 +15363,9 @@ paths:
                       description: >-
                         Whether to use one-sided intervals for Frequentist
                         tests.
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
               required:
                 - name
@@ -15459,7 +15461,9 @@ paths:
                       description: >-
                         Whether to use one-sided intervals for Frequentist
                         tests.
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
               additionalProperties: false
       responses:
@@ -40927,7 +40931,9 @@ components:
             pValueThreshold:
               type: number
             oneSidedIntervals:
-              type: boolean
+              anyOf:
+                - type: boolean
+                - type: 'null'
           additionalProperties: false
       required:
         - id
@@ -43290,7 +43296,9 @@ components:
         pValueThreshold:
           type: number
         oneSidedIntervals:
-          type: boolean
+          anyOf:
+            - type: boolean
+            - type: 'null'
         regressionAdjustmentEnabled:
           type: boolean
         regressionAdjustmentDays:

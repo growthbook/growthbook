@@ -464,8 +464,7 @@ const AnalysisForm: FC<{
         }
 
         if (value.oneSidedIntervals === undefined) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          body.oneSidedIntervals = null as any;
+          body.oneSidedIntervals = null;
         }
 
         // bandits
@@ -960,11 +959,7 @@ const AnalysisForm: FC<{
               </Box>
               <Box style={{ flex: 1, minWidth: 0 }}>
                 <SelectField
-                  label={
-                    <PremiumTooltip commercialFeature="one-sided-intervals">
-                      Alternative Hypothesis
-                    </PremiumTooltip>
-                  }
+                  label="Alternative Hypothesis"
                   value={
                     form.watch("oneSidedIntervals") == null
                       ? ""

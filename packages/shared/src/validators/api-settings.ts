@@ -45,7 +45,7 @@ export const apiSettingsValidator = namedSchema(
       }),
       statsEngine: z.string(),
       pValueThreshold: z.coerce.number(),
-      oneSidedIntervals: z.boolean().optional(),
+      oneSidedIntervals: z.boolean().nullable().optional(),
       regressionAdjustmentEnabled: z.boolean(),
       regressionAdjustmentDays: z.coerce.number(),
       sequentialTestingEnabled: z.boolean(),

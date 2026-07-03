@@ -184,6 +184,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   datasource: "analysis",
   trackingKey: "analysis",
   statsEngine: "analysis",
+  oneSidedIntervals: "analysis",
   regressionAdjustmentEnabled: "analysis",
   postStratificationEnabled: "analysis",
   sequentialTestingEnabled: "analysis",
