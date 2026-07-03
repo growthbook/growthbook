@@ -222,6 +222,12 @@ const metricExperimentsBlockInterface = baseBlockInterface
     bandits: z.boolean(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
+    // Ordered column config for the results table. Omitted = default order,
+    // all columns visible. The "Experiment" column is always shown first and
+    // is not included/managed here.
+    columns: z
+      .array(z.object({ id: z.string(), visible: z.boolean() }))
+      .optional(),
   })
   .strict();
 

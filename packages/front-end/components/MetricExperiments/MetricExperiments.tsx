@@ -38,6 +38,62 @@ import track from "@/services/track";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
+// Stored per-block column config (order + visibility). The "Experiment" column
+// is always shown first and is intentionally NOT managed here.
+export interface MetricExperimentColumnConfig {
+  id: string;
+  visible: boolean;
+}
+
+interface ManagedColumnDef {
+  // Doubles as the sort field, so it must be a key of MetricExperimentData.
+  id: keyof MetricExperimentData;
+  label: string;
+  // Not applicable to bandit tables (no lift shown for bandits).
+  hideForBandits?: boolean;
+}
+
+// The reorderable / hideable columns, in their default order. "Experiment" is
+// pinned separately and excluded from this list.
+export const METRIC_EXPERIMENT_MANAGED_COLUMNS: ManagedColumnDef[] = [
+  { id: "variationId", label: "Variation" },
+  { id: "date", label: "Date" },
+  { id: "status", label: "Status" },
+  { id: "users", label: "Variation Units" },
+  { id: "lift", label: "Lift", hideForBandits: true },
+];
+
+/**
+ * Resolve the effective ordered column list from a stored config. Missing
+ * config = default order, all visible. Stored ids are applied in their saved
+ * order; any known columns not present in the config are appended (visible) so
+ * nothing silently disappears. Lift is dropped entirely for bandit tables.
+ */
+export function resolveMetricExperimentColumns(
+  stored: MetricExperimentColumnConfig[] | undefined,
+  bandits: boolean,
+): Array<ManagedColumnDef & { visible: boolean }> {
+  const base = METRIC_EXPERIMENT_MANAGED_COLUMNS.filter(
+    (c) => !(bandits && c.hideForBandits),
+  );
+  if (!stored || stored.length === 0) {
+    return base.map((c) => ({ ...c, visible: true }));
+  }
+  const byId = new Map(base.map((c) => [c.id as string, c]));
+  const ordered: Array<ManagedColumnDef & { visible: boolean }> = [];
+  const seen = new Set<string>();
+  stored.forEach((s) => {
+    const col = byId.get(s.id);
+    if (!col) return;
+    ordered.push({ ...col, visible: s.visible });
+    seen.add(s.id);
+  });
+  base.forEach((c) => {
+    if (!seen.has(c.id)) ordered.push({ ...c, visible: true });
+  });
+  return ordered;
+}
+
 interface MetricAnalysisProps {
   metric: ExperimentMetricInterface;
   outerClassName?: string;
@@ -46,6 +102,7 @@ interface MetricAnalysisProps {
   dataWithSnapshot?: ExperimentWithSnapshot[];
   numPerPage?: number;
   differenceType?: DifferenceType;
+  columns?: MetricExperimentColumnConfig[];
 }
 
 interface Props {
@@ -54,6 +111,7 @@ interface Props {
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;
+  columns?: MetricExperimentColumnConfig[];
 }
 
 export interface MetricExperimentData {
@@ -91,6 +149,7 @@ function MetricExperimentResultTab({
   bandits,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",
+  columns,
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const start = (currentPage - 1) * numPerPage;
@@ -193,6 +252,104 @@ function MetricExperimentResultTab({
     disableUrlSearchTerm: true,
   });
 
+  // Effective visible columns (order + visibility) after applying the stored
+  // config. "Experiment" is always rendered first, outside this list.
+  const visibleColumns = resolveMetricExperimentColumns(
+    columns,
+    !!bandits,
+  ).filter((c) => c.visible);
+
+  const renderCell = (
+    colId: string,
+    e: MetricExperimentData,
+    resultsHighlightClassname: string,
+  ) => {
+    switch (colId) {
+      case "variationId":
+        return (
+          <td>
+            <div
+              className={`variation variation${e.variationId} with-variation-label d-flex my-1`}
+            >
+              <span className="label" style={{ width: 20, height: 20 }}>
+                {e.variationId}
+              </span>
+              <span
+                className="d-inline-block text-ellipsis hover"
+                style={{
+                  maxWidth: 200,
+                }}
+              >
+                {e.variationName}
+                {e.shipped ? (
+                  <Tooltip body={"Variation marked as the winner"}>
+                    <FaShippingFast className="ml-1" />{" "}
+                  </Tooltip>
+                ) : null}
+              </span>
+            </div>
+          </td>
+        );
+      case "date":
+        return (
+          <td className="nowrap" title={datetime(e.date)}>
+            {e.status === "running"
+              ? "started"
+              : e.status === "draft"
+                ? "created"
+                : e.status === "stopped"
+                  ? "ended"
+                  : ""}{" "}
+            {date(e.date)}
+          </td>
+        );
+      case "status":
+        return (
+          <td>
+            <div className="my-1">
+              <ExperimentStatusIndicator experimentData={e} />
+            </div>
+          </td>
+        );
+      case "users":
+        return <td>{e.users ? formatNumber(e.users) : ""}</td>;
+      case "lift":
+        return e.variationResults ? (
+          <ChangeColumn
+            metric={metric}
+            pValueThreshold={
+              (
+                significanceThresholdsByProject.get(e.project || "") ??
+                defaultSignificanceThresholds
+              ).pValueThreshold
+            }
+            stats={e.variationResults}
+            rowResults={{
+              enoughData: true,
+              directionalStatus: e.directionalStatus ?? "losing",
+              hasScaledImpact: true,
+              significant: e.significant ?? false,
+              resultsStatus:
+                (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
+              suspiciousChange: false,
+              suspiciousThreshold: 0,
+              minPercentChange: 0,
+              currentMetricTotal: e.variationResults?.value ?? 0,
+            }}
+            showPlusMinus={false}
+            statsEngine={e.statsEngine}
+            differenceType={differenceType}
+            showCI={true}
+            className={resultsHighlightClassname}
+          />
+        ) : (
+          <td>No results available</td>
+        );
+      default:
+        return null;
+    }
+  };
+
   const expRows = items.slice(start, end).map((e) => {
     const resultsHighlightClassname = clsx(e.resultsStatus, {
       "non-significant": !e.significant,
@@ -210,79 +367,11 @@ function MetricExperimentResultTab({
             </Link>
           </div>
         </td>
-
-        <td>
-          <div
-            key={`var-experiment${e.id}-variation${e.variationId}`}
-            className={`variation variation${e.variationId} with-variation-label d-flex my-1`}
-          >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {e.variationId}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {e.variationName}
-              {e.shipped ? (
-                <Tooltip body={"Variation marked as the winner"}>
-                  <FaShippingFast className="ml-1" />{" "}
-                </Tooltip>
-              ) : null}
-            </span>
-          </div>
-        </td>
-        <td className="nowrap" title={datetime(e.date)}>
-          {e.status === "running"
-            ? "started"
-            : e.status === "draft"
-              ? "created"
-              : e.status === "stopped"
-                ? "ended"
-                : ""}{" "}
-          {date(e.date)}
-        </td>
-        <td>
-          <div className="my-1">
-            <ExperimentStatusIndicator experimentData={e} />
-          </div>
-        </td>
-        <td>{e.users ? formatNumber(e.users) : ""}</td>
-        {!bandits ? (
-          e.variationResults ? (
-            <ChangeColumn
-              metric={metric}
-              pValueThreshold={
-                (
-                  significanceThresholdsByProject.get(e.project || "") ??
-                  defaultSignificanceThresholds
-                ).pValueThreshold
-              }
-              stats={e.variationResults}
-              rowResults={{
-                enoughData: true,
-                directionalStatus: e.directionalStatus ?? "losing",
-                hasScaledImpact: true,
-                significant: e.significant ?? false,
-                resultsStatus:
-                  (e.resultsStatus as RowResults["resultsStatus"]) ?? "",
-                suspiciousChange: false,
-                suspiciousThreshold: 0,
-                minPercentChange: 0,
-                currentMetricTotal: e.variationResults?.value ?? 0,
-              }}
-              showPlusMinus={false}
-              statsEngine={e.statsEngine}
-              differenceType={differenceType}
-              showCI={true}
-              className={resultsHighlightClassname}
-            />
-          ) : (
-            <td>No results available</td>
-          )
-        ) : null}
+        {visibleColumns.map((c) => (
+          <React.Fragment key={`${e.id}-${e.variationId}-${c.id}`}>
+            {renderCell(c.id, e, resultsHighlightClassname)}
+          </React.Fragment>
+        ))}
       </tr>
     );
   });
@@ -293,12 +382,11 @@ function MetricExperimentResultTab({
         <thead className="bg-light">
           <tr>
             <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="variationId">Variation</SortableTH>
-            <SortableTH field="date">Date</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="users">Variation Units</SortableTH>
-            {/* <th>Won/lost</th> */}
-            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
+            {visibleColumns.map((c) => (
+              <SortableTH key={c.id} field={c.id}>
+                {c.label}
+              </SortableTH>
+            ))}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
@@ -323,6 +411,7 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
   dataWithSnapshot,
   numPerPage = NUM_PER_PAGE,
   differenceType = "relative",
+  columns,
 }) => {
   const { data } = useApi<{
     data: ExperimentWithSnapshot[];
@@ -358,6 +447,7 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
       bandits={bandits}
       numPerPage={numPerPage}
       differenceType={differenceType}
+      columns={columns}
     />
   );
 

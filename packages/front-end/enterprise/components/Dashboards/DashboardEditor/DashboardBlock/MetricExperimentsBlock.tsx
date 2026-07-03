@@ -51,6 +51,7 @@ export default function MetricExperimentsBlock({
       dataWithSnapshot={data?.data ?? []}
       bandits={block.bandits}
       differenceType={block.differenceType}
+      columns={block.columns}
       outerClassName=""
     />
   );
