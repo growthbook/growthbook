@@ -5,6 +5,8 @@ export {
   buildErrorEventProperties,
   parseStackFrames,
 } from "./growthbook-error-tracking";
+export { GrowthBookErrorBoundary } from "./GrowthBookErrorBoundary";
+export type { GrowthBookErrorBoundaryProps } from "./GrowthBookErrorBoundary";
 export type {
   BuiltErrorEventProps,
   CaptureErrorOptions,
