@@ -129,6 +129,24 @@ const updateSchema = <
     .strict() as unknown as UpdateZodObject<T, PKey, readonly string[]>;
 };
 
+// Drop `undefined` for top-level schema fields that can't be absent (required,
+// or .nullable() without .optional()). Matches ORM "ignore undefined" semantics
+// and keeps bulkWrite aligned with update().
+const dropNonClearableUndefined = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  fields: Record<string, unknown>,
+): void => {
+  for (const [k, v] of Object.entries(fields)) {
+    if (
+      v === undefined &&
+      k in schema.shape &&
+      !z.safeParse(schema.shape[k], undefined).success
+    ) {
+      delete fields[k];
+    }
+  }
+};
+
 // Explicitly-undefined $set fields mean "clear this field" — translate them to
 // $unset, since ignoreUndefined would otherwise silently drop them
 const translateUndefinedSetToUnset = (
@@ -147,6 +165,23 @@ const translateUndefinedSetToUnset = (
     ...(Object.keys(setFields).length ? { $set: setFields } : {}),
     ...(Object.keys(unsetFields).length ? { $unset: unsetFields } : {}),
   } as UpdateFilter<Document>;
+};
+
+const normalizeUpdateOneDocument = (
+  schema: z.ZodObject<z.ZodRawShape>,
+  update: UpdateFilter<Document>,
+): UpdateFilter<Document> => {
+  const { $set, $unset, ...rest } = update;
+  if (!$set || typeof $set !== "object" || Array.isArray($set)) {
+    return translateUndefinedSetToUnset(update);
+  }
+  const setFields = { ...($set as Record<string, unknown>) };
+  dropNonClearableUndefined(schema, setFields);
+  return translateUndefinedSetToUnset({
+    ...rest,
+    ...($unset ? { $unset } : {}),
+    $set: setFields,
+  });
 };
 
 // DeepPartial makes all properties (including nested) optional
@@ -1018,14 +1053,10 @@ export abstract class BaseModel<
     // field to null, pass `null` explicitly. Dropped before the diff so the key
     // never reaches newDoc or the write, keeping the returned doc equal to a
     // subsequent read.
-    for (const [k, v] of Object.entries(updates)) {
-      if (
-        v === undefined &&
-        !z.safeParse(this.config.schema.shape[k], undefined).success
-      ) {
-        delete (updates as Record<string, unknown>)[k];
-      }
-    }
+    dropNonClearableUndefined(
+      this.config.schema,
+      updates as Record<string, unknown>,
+    );
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -1179,7 +1210,10 @@ export abstract class BaseModel<
               filter,
               update: Array.isArray(op.updateOne.update)
                 ? op.updateOne.update
-                : translateUndefinedSetToUnset(op.updateOne.update),
+                : normalizeUpdateOneDocument(
+                    this.config.schema,
+                    op.updateOne.update,
+                  ),
             },
           };
         }

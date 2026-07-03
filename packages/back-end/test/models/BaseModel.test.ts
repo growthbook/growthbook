@@ -216,6 +216,78 @@ class CompositeTestModel extends CompositeBaseModel {
   }
 }
 
+const NullableOnlyBaseModel = MakeModelClass({
+  schema: z
+    .object({
+      id: z.string(),
+      organization: z.string(),
+      dateCreated: z.date(),
+      dateUpdated: z.date(),
+      name: z.string(),
+      statusField: z.string().nullable(),
+    })
+    .strict(),
+  collectionName: "nullable_only_test",
+  idPrefix: "nullable_only__",
+});
+
+class NullableOnlyTestModel extends NullableOnlyBaseModel {
+  public canReadMock: jest.Mock;
+  public canCreateMock: jest.Mock;
+  public canUpdateMock: jest.Mock;
+  public canDeleteMock: jest.Mock;
+  public dangerousGetCollectionMock: jest.Mock;
+  public migrateMock: jest.Mock;
+  public populateForeignRefsMock: jest.Mock;
+
+  public constructor(context: Context) {
+    super(context);
+    this.canReadMock = jest.fn(() => true);
+    this.canCreateMock = jest.fn(() => true);
+    this.canUpdateMock = jest.fn(() => true);
+    this.canDeleteMock = jest.fn(() => true);
+    this.dangerousGetCollectionMock = jest.fn();
+    this.migrateMock = jest.fn((doc) => doc);
+    this.populateForeignRefsMock = jest.fn();
+  }
+
+  public exposeBulkWrite(ops: AnyBulkWriteOperation[]) {
+    return this.bulkWrite(ops);
+  }
+
+  protected canRead(...args): boolean {
+    return this.canReadMock(...args);
+  }
+
+  protected canCreate(...args): boolean {
+    return this.canCreateMock(...args);
+  }
+
+  protected canUpdate(...args): boolean {
+    return this.canUpdateMock(...args);
+  }
+
+  protected canDelete(...args): boolean {
+    return this.canDeleteMock(...args);
+  }
+
+  protected updateIndexes(...args) {
+    updateIndexesMock(...args);
+  }
+
+  protected migrate(...args) {
+    return this.migrateMock(...args);
+  }
+
+  protected populateForeignRefs(...args) {
+    return this.populateForeignRefsMock(...args);
+  }
+
+  protected _dangerousGetCollection(...args): Collection {
+    return this.dangerousGetCollectionMock(...args);
+  }
+}
+
 const auditLogMock = jest.fn();
 
 const defaultContext = {
@@ -912,6 +984,29 @@ describe("BaseModel", () => {
     expect(updated).toBe(existing);
   });
 
+  it("ignores an explicitly-undefined value for a .nullable() field without .optional()", async () => {
+    const model = new NullableOnlyTestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      statusField: "active",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, { statusField: undefined });
+
+    expect(updateOneMock).not.toHaveBeenCalled();
+    expect(updated).toBe(existing);
+  });
+
   it("writes an explicit null to a nullable field instead of unsetting it", async () => {
     const model = new TestModel(defaultContext);
 
@@ -1080,6 +1175,36 @@ describe("BaseModel", () => {
           updateOne: {
             filter: { id: "aabb", organization: "a" },
             update: { $set: { name: "gni" }, $unset: { testDefaultField: "" } },
+          },
+        },
+      ],
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("ignores undefined $set values for .nullable() fields without .optional() in bulkWrite", async () => {
+    const model = new NullableOnlyTestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await model.exposeBulkWrite([
+      {
+        updateOne: {
+          filter: { id: "aabb" },
+          update: { $set: { name: "gni", statusField: undefined } },
+        },
+      },
+    ]);
+
+    expect(bulkWriteMock).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { id: "aabb", organization: "a" },
+            update: { $set: { name: "gni" } },
           },
         },
       ],
