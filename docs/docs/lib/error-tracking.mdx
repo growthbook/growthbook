@@ -18,7 +18,7 @@ The GrowthBook JavaScript SDK can capture browser errors and send them to a Grow
 
 ## Install the plugins
 
-Register `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` on the same `GrowthBook` instance. The tracking plugin sends events to the managed warehouse ingest endpoint. The error tracking plugin listens for uncaught errors and unhandled promise rejections, and also exposes `captureGrowthBookError` for manual reporting.
+Register `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` on the same `GrowthBook` instance. The tracking plugin sends events to the managed warehouse ingest endpoint. The error tracking plugin listens for uncaught errors and unhandled promise rejections, and also exposes `captureError` for manual reporting.
 
 ```js
 import { GrowthBook } from "@growthbook/growthbook";
@@ -57,15 +57,15 @@ await gb.init();
 
 ### Manual capture
 
-Use `captureGrowthBookError` when you handle an error yourself but still want it in GrowthBook Error Tracker.
+Use `captureError` when you handle an error yourself but still want it in GrowthBook Error Tracker.
 
 ```js
-import { captureGrowthBookError } from "@growthbook/growthbook/plugins";
+import { captureError } from "@growthbook/growthbook/plugins";
 
 try {
   await riskyOperation();
 } catch (error) {
-  await captureGrowthBookError({
+  await captureError({
     gb,
     error,
     props: {
@@ -79,7 +79,7 @@ try {
 On a multi-user `GrowthBookClient`, pass `userContext` (same shape as feature evaluation):
 
 ```js
-await captureGrowthBookError({
+await captureError({
   gb: client,
   error,
   userContext: { attributes: { id: userId } },
@@ -97,12 +97,12 @@ For instance, when you know the logical issue bucket (for example checkout failu
 
 ```js
 import {
-  captureGrowthBookError,
+  captureError,
   setFingerprint,
 } from "@growthbook/growthbook/plugins";
 
 setFingerprint({ gb, fingerprint: ["checkout", "payment", "failed"] });
-await captureGrowthBookError({
+await captureError({
   gb,
   error,
   props: {

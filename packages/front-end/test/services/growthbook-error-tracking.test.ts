@@ -3,7 +3,7 @@ import { vi } from "vitest";
 import {
   GROWTHBOOK_ERROR_EVENT,
   buildErrorEventProperties,
-  captureGrowthBookError,
+  captureError,
 } from "@/services/growthbook/plugins";
 
 describe("growthbookErrorTracking helpers", () => {
@@ -39,7 +39,7 @@ describe("growthbookErrorTracking helpers", () => {
     const logEvent = vi.fn();
     client.logEvent = logEvent;
 
-    await captureGrowthBookError({
+    await captureError({
       gb: client,
       error: new Error("server error"),
       userContext: { attributes: { id: "user-1" } },
@@ -60,13 +60,13 @@ describe("growthbookErrorTracking helpers", () => {
     const client = new GrowthBookClient({ clientKey: "sdk-test" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await captureGrowthBookError({
+    await captureError({
       gb: client,
       error: new Error("orphan"),
     });
 
     expect(warn).toHaveBeenCalledWith(
-      "captureGrowthBookError: pass userContext when gb is a GrowthBookClient.",
+      "captureError: pass userContext when gb is a GrowthBookClient.",
     );
     warn.mockRestore();
   });

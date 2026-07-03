@@ -9,7 +9,7 @@ import type {
   Context,
   WidenPrimitives,
 } from "@growthbook/growthbook";
-import { GrowthBook, captureGrowthBookError } from "@growthbook/growthbook";
+import { GrowthBook, captureError } from "@growthbook/growthbook";
 
 export type GrowthBookContextValue = {
   growthbook: GrowthBook;
@@ -180,7 +180,7 @@ export type GrowthBookErrorBoundaryProps = {
 type GrowthBookErrorBoundaryState = { error: Error | null };
 
 /**
- * Reports React render errors via {@link captureGrowthBookError} (requires
+ * Reports React render errors via {@link captureError} (requires
  * `growthbookTrackingPlugin` before `growthbookErrorTrackingPlugin` in the same instance).
  */
 export class GrowthBookErrorBoundary extends React.Component<
@@ -195,7 +195,7 @@ export class GrowthBookErrorBoundary extends React.Component<
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     const gb = this.context?.growthbook;
     if (gb) {
-      void captureGrowthBookError({
+      void captureError({
         gb,
         error,
         props: {

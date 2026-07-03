@@ -15,10 +15,10 @@ export type ErrorTrackingStackFrame = {
   colno?: number;
 };
 
-/** Optional metadata passed to {@link captureGrowthBookError} as `props` (like `logEvent`). */
+/** Optional metadata passed to {@link captureError} as `props` (like `logEvent`). */
 export type GrowthBookErrorEventProps = Record<string, unknown>;
 
-export type CaptureGrowthBookErrorOptions = {
+export type CaptureErrorOptions = {
   gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient;
   error: unknown;
   props?: GrowthBookErrorEventProps;
@@ -192,7 +192,7 @@ async function logError({
   props,
   fingerprint,
   userContext,
-}: CaptureGrowthBookErrorOptions): Promise<void> {
+}: CaptureErrorOptions): Promise<void> {
   const fingerprintProps: GrowthBookErrorEventProps =
     fingerprint !== undefined
       ? typeof fingerprint === "string"
@@ -212,7 +212,7 @@ async function logError({
   if (gb instanceof GrowthBookClient) {
     if (!userContext) {
       console.warn(
-        "captureGrowthBookError: pass userContext when gb is a GrowthBookClient.",
+        "captureError: pass userContext when gb is a GrowthBookClient.",
       );
       return;
     }
@@ -220,8 +220,8 @@ async function logError({
   }
 }
 
-export async function captureGrowthBookError(
-  options: CaptureGrowthBookErrorOptions,
+export async function captureError(
+  options: CaptureErrorOptions,
 ): Promise<void> {
   await logError(options);
 }
