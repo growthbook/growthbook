@@ -15,6 +15,7 @@ import { useUser } from "@/services/UserContext";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";
@@ -149,12 +150,10 @@ export default function SRMCard({
                     isBandit={false}
                   />
                 ) : (
-                  <div className="alert alert-info">
-                    <b>
-                      More traffic is required to detect a Sample Ratio Mismatch
-                      (SRM).
-                    </b>
-                  </div>
+                  <Callout status="info">
+                    More traffic is required to detect a Sample Ratio Mismatch
+                    (SRM).
+                  </Callout>
                 )}
               </div>
             </div>
