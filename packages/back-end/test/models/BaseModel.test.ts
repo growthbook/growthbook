@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Collection } from "mongodb";
+import { AnyBulkWriteOperation, Collection } from "mongodb";
 import { Context, MakeModelClass } from "../../src/models/BaseModel";
 
 type WriteOptions = {
@@ -17,6 +17,7 @@ const BaseModel = MakeModelClass({
       name: z.string(),
       readonlyField: z.string().optional(),
       testDefaultField: z.string().optional(),
+      nullableField: z.string().nullable().optional(),
     })
     .strict(),
   collectionName: "test_model",
@@ -29,6 +30,7 @@ const BaseModel = MakeModelClass({
     deleteEvent: "metric.delete",
   },
   readonlyFields: ["readonlyField"],
+  skipDateUpdatedFields: ["testDefaultField"],
   indexesToRemove: ["my_old_index"],
 });
 
@@ -67,6 +69,10 @@ class TestModel extends BaseModel<WriteOptions> {
 
   public find(...args) {
     return this._find(...args);
+  }
+
+  public exposeBulkWrite(ops: AnyBulkWriteOperation[]) {
+    return this.bulkWrite(ops);
   }
 
   public applyDefaultValues(
@@ -175,6 +181,78 @@ class CompositeTestModel extends CompositeBaseModel {
 
   public exposeGetEntityId(doc: Record<string, unknown>): string {
     return this.getEntityId(doc);
+  }
+
+  protected canRead(...args): boolean {
+    return this.canReadMock(...args);
+  }
+
+  protected canCreate(...args): boolean {
+    return this.canCreateMock(...args);
+  }
+
+  protected canUpdate(...args): boolean {
+    return this.canUpdateMock(...args);
+  }
+
+  protected canDelete(...args): boolean {
+    return this.canDeleteMock(...args);
+  }
+
+  protected updateIndexes(...args) {
+    updateIndexesMock(...args);
+  }
+
+  protected migrate(...args) {
+    return this.migrateMock(...args);
+  }
+
+  protected populateForeignRefs(...args) {
+    return this.populateForeignRefsMock(...args);
+  }
+
+  protected _dangerousGetCollection(...args): Collection {
+    return this.dangerousGetCollectionMock(...args);
+  }
+}
+
+const NullableOnlyBaseModel = MakeModelClass({
+  schema: z
+    .object({
+      id: z.string(),
+      organization: z.string(),
+      dateCreated: z.date(),
+      dateUpdated: z.date(),
+      name: z.string(),
+      statusField: z.string().nullable(),
+    })
+    .strict(),
+  collectionName: "nullable_only_test",
+  idPrefix: "nullable_only__",
+});
+
+class NullableOnlyTestModel extends NullableOnlyBaseModel {
+  public canReadMock: jest.Mock;
+  public canCreateMock: jest.Mock;
+  public canUpdateMock: jest.Mock;
+  public canDeleteMock: jest.Mock;
+  public dangerousGetCollectionMock: jest.Mock;
+  public migrateMock: jest.Mock;
+  public populateForeignRefsMock: jest.Mock;
+
+  public constructor(context: Context) {
+    super(context);
+    this.canReadMock = jest.fn(() => true);
+    this.canCreateMock = jest.fn(() => true);
+    this.canUpdateMock = jest.fn(() => true);
+    this.canDeleteMock = jest.fn(() => true);
+    this.dangerousGetCollectionMock = jest.fn();
+    this.migrateMock = jest.fn((doc) => doc);
+    this.populateForeignRefsMock = jest.fn();
+  }
+
+  public exposeBulkWrite(ops: AnyBulkWriteOperation[]) {
+    return this.bulkWrite(ops);
   }
 
   protected canRead(...args): boolean {
@@ -518,7 +596,9 @@ describe("BaseModel", () => {
       readonlyField: "bla",
     });
 
-    expect(insertOneMock).toHaveBeenCalledWith(expectedModel);
+    expect(insertOneMock).toHaveBeenCalledWith(expectedModel, {
+      ignoreUndefined: true,
+    });
     expect(model.afterCreateMock).toHaveBeenCalledWith(expectedModel, {
       option: true,
     });
@@ -727,6 +807,7 @@ describe("BaseModel", () => {
     expect(updateOneMock).toHaveBeenCalledWith(
       { id: "aabb", organization: "a" },
       { $set: expectedSet },
+      { ignoreUndefined: true },
     );
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
@@ -744,6 +825,414 @@ describe("BaseModel", () => {
     expect(model.afterCreateOrUpdateMock).toHaveBeenCalledWith(expectedSet, {
       option: true,
     });
+  });
+
+  it("translates explicitly-undefined update fields to $unset", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      testDefaultField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, {
+      name: "gni",
+      testDefaultField: undefined,
+    });
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      {
+        $set: { name: "gni", dateUpdated: expect.any(Date) },
+        $unset: { testDefaultField: "" },
+      },
+      { ignoreUndefined: true },
+    );
+    expect(updated.testDefaultField).toBeUndefined();
+  });
+
+  it("update() return value matches a subsequent read after clearing an optional field", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    const findOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+      findOne: findOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      testDefaultField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, {
+      testDefaultField: undefined,
+    });
+
+    // The write removes the field from the stored document...
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      { $unset: { testDefaultField: "" } },
+      { ignoreUndefined: true },
+    );
+
+    // ...so a fresh read of that document (field now absent) returns the same
+    // shape as update()'s return value. This is the core BaseModel invariant —
+    // newDoc equals a subsequent read — that the old undefined->null write
+    // violated (it stored null, which read back as null and failed validation).
+    findOneMock.mockReturnValueOnce({
+      _id: "removed",
+      id: "aabb",
+      name: "foo",
+      organization: "a",
+      dateCreated: existing.dateCreated,
+      dateUpdated: updated.dateUpdated,
+    });
+
+    const reRead = await model.getById("aabb");
+
+    expect(reRead).toEqual(updated);
+    expect(reRead).not.toHaveProperty("testDefaultField");
+  });
+
+  it("omits $set entirely when an update only unsets fields", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      testDefaultField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    // testDefaultField is in skipDateUpdatedFields, so no dateUpdated $set
+    await model.update(existing, { testDefaultField: undefined });
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      { $unset: { testDefaultField: "" } },
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("treats an explicitly-undefined update of an absent field as a no-op", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, {
+      testDefaultField: undefined,
+    });
+
+    expect(updateOneMock).not.toHaveBeenCalled();
+    expect(updated).toBe(existing);
+  });
+
+  it("ignores an explicitly-undefined value for a field that can't be undefined", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    // `name` is required — it can't be undefined, so an undefined value is a
+    // no-op (not an error, not a write) rather than a clear.
+    const updated = await model.update(existing, { name: undefined });
+
+    expect(updateOneMock).not.toHaveBeenCalled();
+    expect(updated).toBe(existing);
+  });
+
+  it("ignores an explicitly-undefined value for a .nullable() field without .optional()", async () => {
+    const model = new NullableOnlyTestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      statusField: "active",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const updated = await model.update(existing, { statusField: undefined });
+
+    expect(updateOneMock).not.toHaveBeenCalled();
+    expect(updated).toBe(existing);
+  });
+
+  it("writes an explicit null to a nullable field instead of unsetting it", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      nullableField: "bar",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    // A null (not undefined) is a real value on a nullable field — it's written
+    // as null, not dropped by ignoreUndefined and not translated to $unset.
+    const updated = await model.update(existing, { nullableField: null });
+
+    expect(updateOneMock).toHaveBeenCalledWith(
+      { id: "aabb", organization: "a" },
+      { $set: { nullableField: null, dateUpdated: expect.any(Date) } },
+      { ignoreUndefined: true },
+    );
+    expect(updated.nullableField).toBeNull();
+  });
+
+  it("throws when updating a doc with an undefined primary key value", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: undefined as unknown as string,
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "gni" })).rejects.toThrow(
+      'Missing primary key field "id"',
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
+  it("strips legacy nulls from fields whose schema rejects null", async () => {
+    const model = new TestModel(defaultContext);
+    // Return a copy so the recorded call args aren't mutated by the strip
+    model.migrateMock.mockImplementation((doc) => ({ ...doc }));
+
+    const mockFind = jest.fn();
+    mockFind.mockReturnValueOnce({
+      _id: "removed",
+      id: "aabb",
+      name: "foo",
+      testDefaultField: null,
+    });
+
+    model.dangerousGetCollectionMock.mockReturnValueOnce({
+      findOne: mockFind,
+    });
+
+    const ret = await model.getById("aabb");
+    expect(ret).toEqual({ id: "aabb", name: "foo" });
+    expect(ret).not.toHaveProperty("testDefaultField");
+    // Normalization runs after migrate, which still sees the raw null
+    expect(model.migrateMock).toHaveBeenCalledWith({
+      id: "aabb",
+      name: "foo",
+      testDefaultField: null,
+    });
+  });
+
+  it("preserves nulls on fields whose schema allows null", async () => {
+    const model = new TestModel(defaultContext);
+
+    const mockFind = jest.fn();
+    mockFind.mockReturnValueOnce({
+      _id: "removed",
+      id: "aabb",
+      name: "foo",
+      nullableField: null,
+    });
+
+    model.dangerousGetCollectionMock.mockReturnValueOnce({
+      findOne: mockFind,
+    });
+
+    const ret = await model.getById("aabb");
+    expect(ret).toEqual({ id: "aabb", name: "foo", nullableField: null });
+  });
+
+  it("strips legacy nulls in _find results", async () => {
+    const model = new TestModel(defaultContext);
+
+    const mockFind = jest.fn();
+    mockFind.mockReturnValueOnce({
+      toArray: () => [
+        { _id: "removed", id: "aabb", name: "foo", testDefaultField: null },
+        { _id: "removed", id: "ccdd", name: "bla", testDefaultField: "set" },
+      ],
+    });
+
+    model.dangerousGetCollectionMock.mockReturnValueOnce({
+      find: mockFind,
+    });
+
+    const ret = await model.getAll();
+    expect(ret).toEqual([
+      { id: "aabb", name: "foo" },
+      { id: "ccdd", name: "bla", testDefaultField: "set" },
+    ]);
+    expect(ret[0]).not.toHaveProperty("testDefaultField");
+  });
+
+  it("passes ignoreUndefined through bulkWrite", async () => {
+    const model = new TestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await model.exposeBulkWrite([
+      { insertOne: { document: { id: "aabb", name: "foo" } } },
+    ]);
+
+    expect(bulkWriteMock).toHaveBeenCalledWith(
+      [
+        {
+          insertOne: {
+            document: { id: "aabb", name: "foo", organization: "a" },
+          },
+        },
+      ],
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("translates undefined $set fields to $unset in bulkWrite", async () => {
+    const model = new TestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await model.exposeBulkWrite([
+      {
+        updateOne: {
+          filter: { id: "aabb" },
+          update: { $set: { name: "gni", testDefaultField: undefined } },
+        },
+      },
+    ]);
+
+    expect(bulkWriteMock).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { id: "aabb", organization: "a" },
+            update: { $set: { name: "gni" }, $unset: { testDefaultField: "" } },
+          },
+        },
+      ],
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("ignores undefined $set values for .nullable() fields without .optional() in bulkWrite", async () => {
+    const model = new NullableOnlyTestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await model.exposeBulkWrite([
+      {
+        updateOne: {
+          filter: { id: "aabb" },
+          update: { $set: { name: "gni", statusField: undefined } },
+        },
+      },
+    ]);
+
+    expect(bulkWriteMock).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { id: "aabb", organization: "a" },
+            update: { $set: { name: "gni" } },
+          },
+        },
+      ],
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("rejects bulkWrite updateOne filters containing undefined values", async () => {
+    const model = new TestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await expect(
+      model.exposeBulkWrite([
+        {
+          updateOne: {
+            filter: { testDefaultField: undefined },
+            update: { $set: { name: "gni" } },
+          },
+        },
+      ]),
+    ).rejects.toThrow(
+      "bulkWrite updateOne filter must not contain undefined values",
+    );
+    expect(bulkWriteMock).not.toHaveBeenCalled();
   });
 
   it("raises an error when attempting to delete a document without delete access", () => {
@@ -819,6 +1308,7 @@ describe("BaseModel", () => {
       expect(updateOneMock).toHaveBeenCalledWith(
         { userId: "u1", organization: "a" },
         { $set: expect.objectContaining({ name: "new" }) },
+        { ignoreUndefined: true },
       );
     });
 

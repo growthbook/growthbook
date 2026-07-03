@@ -109,6 +109,7 @@ function EditTrafficForm({
   });
 
   const submit = form.handleSubmit(async (value) => {
+    const originalVariationCount = getLatestPhaseVariations(experiment).length;
     const data = { ...value };
     data.variations = [...value.variations].map((variation, i) => {
       if (!variation.key) variation.key = i + "";
@@ -148,11 +149,20 @@ function EditTrafficForm({
     });
     mutate();
     track("edited-traffic");
+
+    const numVariationsAdded = data.variations.length - originalVariationCount;
+    if (numVariationsAdded > 0) {
+      track("Added Variations", {
+        source: "edit-traffic-modal",
+        numVariationsAdded,
+        totalVariations: data.variations.length,
+      });
+    }
   });
 
   return (
     <ModalStandard
-      trackingEventModalType=""
+      trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
       header="Edit Traffic & Variations"
@@ -259,7 +269,7 @@ function LegacyEditTrafficForm({
 
   return (
     <ModalStandard
-      trackingEventModalType=""
+      trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
       header="Edit Traffic"

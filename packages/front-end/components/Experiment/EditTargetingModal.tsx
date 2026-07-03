@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
@@ -13,6 +14,7 @@ import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import HashVersionSelector, {
@@ -45,6 +47,30 @@ export default function EditTargetingModal({
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
+
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+
+  // Fire once on a successful save when targeting was newly added
+  const trackAddedTargeting = () => {
+    const values = form.getValues();
+    const conditionAdded =
+      !hasAttributeCondition(latestPhase?.condition) &&
+      hasAttributeCondition(values.condition);
+    const savedGroupsAdded =
+      (values.savedGroups?.length ?? 0) >
+      (latestPhase?.savedGroups?.length ?? 0);
+    const prerequisitesAdded =
+      (values.prerequisites?.length ?? 0) >
+      (latestPhase?.prerequisites?.length ?? 0);
+
+    if (conditionAdded || savedGroupsAdded || prerequisitesAdded) {
+      track("Added targeting", {
+        conditionAdded,
+        savedGroupsAdded,
+        prerequisitesAdded,
+      });
+    }
+  };
 
   const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
     useSDKConnections();
@@ -92,12 +118,15 @@ export default function EditTargetingModal({
   if (safeToEdit) {
     return (
       <ModalStandard
-        trackingEventModalType=""
+        trackingEventModalType="edit-targeting-modal"
         open={true}
         close={close}
         header="Edit Targeting"
         ctaEnabled={canSubmit}
-        submit={onSubmit(mutate, "targeting")}
+        submit={async () => {
+          await onSubmit(mutate, "targeting")();
+          trackAddedTargeting();
+        }}
         size="lg"
       >
         <div className="pt-2">
