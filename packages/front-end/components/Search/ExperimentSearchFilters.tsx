@@ -16,7 +16,6 @@ const ExperimentSearchFilters: FC<
     experiments: ExperimentInterfaceStringDates[];
     allowDrafts?: boolean;
     showStatusFilter?: boolean;
-    wrap?: boolean;
   }
 > = ({
   searchInputProps,
@@ -25,7 +24,6 @@ const ExperimentSearchFilters: FC<
   setSearchValue,
   allowDrafts = true,
   showStatusFilter = true,
-  wrap = false,
 }) => {
   const {
     dropdownFilterOpen,
@@ -142,7 +140,7 @@ const ExperimentSearchFilters: FC<
   ];
 
   return (
-    <Flex gapX="5" gapY="3" align="center" wrap={wrap ? "wrap" : "nowrap"}>
+    <Flex gap="5" align="center">
       {!project && projects.length > 0 && (
         <FilterDropdown
           filter="project"

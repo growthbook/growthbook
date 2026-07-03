@@ -3,29 +3,13 @@ import {
   MetricExperimentsBlockInterface,
   differenceTypes,
 } from "shared/enterprise";
-import React, { ChangeEvent, useMemo } from "react";
+import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import { useExperiments } from "@/hooks/useExperiments";
-import { transformQuery } from "@/services/search";
-import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
-import Field from "@/components/Forms/Field";
-import Link from "@/ui/Link";
-
-// Filter keys ExperimentSearchFilters emits into the raw search string. Kept in
-// sync with the searchTermFilters used by useExperimentSearch so the parsed
-// syntax filters light up the correct dropdowns.
-const EXPERIMENT_FILTER_KEYS = [
-  "project",
-  "metric",
-  "owner",
-  "is",
-  "status",
-  "tag",
-  "has",
-];
 
 const DIFFERENCE_TYPE_LABELS: Record<(typeof differenceTypes)[number], string> =
   {
@@ -53,17 +37,6 @@ export default function MetricExperimentsSettings({
   const setSearchValue = (value: string) =>
     setBlock({ ...block, experimentSearchString: value });
 
-  const searchInputProps = {
-    value: searchValue,
-    onChange: (e: ChangeEvent<HTMLInputElement>) =>
-      setSearchValue(e.target.value),
-  };
-
-  const syntaxFilters = useMemo(
-    () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS).syntaxFilters,
-    [searchValue],
-  );
-
   return (
     <Flex direction="column" gap="5">
       <Box>
@@ -83,30 +56,10 @@ export default function MetricExperimentsSettings({
         <Box mb="2">
           <Text weight="semibold">Filter Experiments</Text>
         </Box>
-        <Flex gap="3" align="center" mb="2">
-          <Box flexGrow="1">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </Box>
-          {(syntaxFilters.length > 0 || !!searchValue) && (
-            <Link
-              size="1"
-              onClick={() => setSearchValue("")}
-              style={{ whiteSpace: "nowrap" }}
-            >
-              Clear filters
-            </Link>
-          )}
-        </Flex>
-        <ExperimentSearchFilters
-          searchInputProps={searchInputProps}
-          syntaxFilters={syntaxFilters}
+        <SidebarExperimentFilters
+          searchValue={searchValue}
           setSearchValue={setSearchValue}
           experiments={experiments}
-          wrap
         />
       </Box>
 
