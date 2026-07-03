@@ -26789,6 +26789,19 @@ paths:
                                 type: string
                               endDate:
                                 type: string
+                              columns:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    visible:
+                                      type: boolean
+                                  required:
+                                    - id
+                                    - visible
+                                  additionalProperties: false
                             required:
                               - type
                               - title
@@ -26797,6 +26810,171 @@ paths:
                               - experimentSearchString
                               - differenceType
                               - bandits
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: experiments-scaled-impact
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              metricId:
+                                type: string
+                            required:
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
+                              - metricId
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: experiments-win-rate
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              showProjectBreakdown:
+                                type: boolean
+                            required:
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
+                              - showProjectBreakdown
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              type:
+                                type: string
+                                const: experiments-status
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
                             additionalProperties: false
                           - type: object
                             properties:
@@ -27692,6 +27870,19 @@ paths:
                                 type: string
                               endDate:
                                 type: string
+                              columns:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                    visible:
+                                      type: boolean
+                                  required:
+                                    - id
+                                    - visible
+                                  additionalProperties: false
                             required:
                               - organization
                               - id
@@ -27703,6 +27894,198 @@ paths:
                               - experimentSearchString
                               - differenceType
                               - bandits
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              organization:
+                                type: string
+                              id:
+                                type: string
+                              uid:
+                                type: string
+                              type:
+                                type: string
+                                const: experiments-scaled-impact
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              metricId:
+                                type: string
+                            required:
+                              - organization
+                              - id
+                              - uid
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
+                              - metricId
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              organization:
+                                type: string
+                              id:
+                                type: string
+                              uid:
+                                type: string
+                              type:
+                                type: string
+                                const: experiments-win-rate
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                              showProjectBreakdown:
+                                type: boolean
+                            required:
+                              - organization
+                              - id
+                              - uid
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
+                              - showProjectBreakdown
+                            additionalProperties: false
+                          - type: object
+                            properties:
+                              organization:
+                                type: string
+                              id:
+                                type: string
+                              uid:
+                                type: string
+                              type:
+                                type: string
+                                const: experiments-status
+                              title:
+                                type: string
+                              description:
+                                type: string
+                              snapshotId:
+                                type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
+                              dateRange:
+                                type: string
+                              startDate:
+                                type: string
+                              endDate:
+                                type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - organization
+                              - id
+                              - uid
+                              - type
+                              - title
+                              - description
+                              - dateRange
+                              - projects
                             additionalProperties: false
                           - type: object
                             properties:
@@ -29505,6 +29888,19 @@ paths:
                             type: string
                           endDate:
                             type: string
+                          columns:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                visible:
+                                  type: boolean
+                              required:
+                                - id
+                                - visible
+                              additionalProperties: false
                         required:
                           - type
                           - title
@@ -29513,6 +29909,171 @@ paths:
                           - experimentSearchString
                           - differenceType
                           - bandits
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            const: experiments-scaled-impact
+                          title:
+                            type: string
+                          description:
+                            type: string
+                          snapshotId:
+                            type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
+                          dateRange:
+                            type: string
+                          startDate:
+                            type: string
+                          endDate:
+                            type: string
+                          projects:
+                            type: array
+                            items:
+                              type: string
+                          metricId:
+                            type: string
+                        required:
+                          - type
+                          - title
+                          - description
+                          - dateRange
+                          - projects
+                          - metricId
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            const: experiments-win-rate
+                          title:
+                            type: string
+                          description:
+                            type: string
+                          snapshotId:
+                            type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
+                          dateRange:
+                            type: string
+                          startDate:
+                            type: string
+                          endDate:
+                            type: string
+                          projects:
+                            type: array
+                            items:
+                              type: string
+                          showProjectBreakdown:
+                            type: boolean
+                        required:
+                          - type
+                          - title
+                          - description
+                          - dateRange
+                          - projects
+                          - showProjectBreakdown
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          type:
+                            type: string
+                            const: experiments-status
+                          title:
+                            type: string
+                          description:
+                            type: string
+                          snapshotId:
+                            type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
+                          dateRange:
+                            type: string
+                          startDate:
+                            type: string
+                          endDate:
+                            type: string
+                          projects:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - type
+                          - title
+                          - description
+                          - dateRange
+                          - projects
                         additionalProperties: false
                       - type: object
                         properties:
@@ -45396,6 +45957,19 @@ components:
                     type: string
                   endDate:
                     type: string
+                  columns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        visible:
+                          type: boolean
+                      required:
+                        - id
+                        - visible
+                      additionalProperties: false
                 required:
                   - organization
                   - id
@@ -45407,6 +45981,198 @@ components:
                   - experimentSearchString
                   - differenceType
                   - bandits
+                additionalProperties: false
+              - type: object
+                properties:
+                  organization:
+                    type: string
+                  id:
+                    type: string
+                  uid:
+                    type: string
+                  type:
+                    type: string
+                    const: experiments-scaled-impact
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  snapshotId:
+                    type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
+                  dateRange:
+                    type: string
+                  startDate:
+                    type: string
+                  endDate:
+                    type: string
+                  projects:
+                    type: array
+                    items:
+                      type: string
+                  metricId:
+                    type: string
+                required:
+                  - organization
+                  - id
+                  - uid
+                  - type
+                  - title
+                  - description
+                  - dateRange
+                  - projects
+                  - metricId
+                additionalProperties: false
+              - type: object
+                properties:
+                  organization:
+                    type: string
+                  id:
+                    type: string
+                  uid:
+                    type: string
+                  type:
+                    type: string
+                    const: experiments-win-rate
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  snapshotId:
+                    type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
+                  dateRange:
+                    type: string
+                  startDate:
+                    type: string
+                  endDate:
+                    type: string
+                  projects:
+                    type: array
+                    items:
+                      type: string
+                  showProjectBreakdown:
+                    type: boolean
+                required:
+                  - organization
+                  - id
+                  - uid
+                  - type
+                  - title
+                  - description
+                  - dateRange
+                  - projects
+                  - showProjectBreakdown
+                additionalProperties: false
+              - type: object
+                properties:
+                  organization:
+                    type: string
+                  id:
+                    type: string
+                  uid:
+                    type: string
+                  type:
+                    type: string
+                    const: experiments-status
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  snapshotId:
+                    type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
+                  dateRange:
+                    type: string
+                  startDate:
+                    type: string
+                  endDate:
+                    type: string
+                  projects:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - organization
+                  - id
+                  - uid
+                  - type
+                  - title
+                  - description
+                  - dateRange
+                  - projects
                 additionalProperties: false
               - type: object
                 properties:
