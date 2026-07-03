@@ -6,7 +6,7 @@ import "@/styles/global.scss";
 
 import { AppProps } from "next/app";
 import Head from "next/head";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
@@ -87,6 +87,10 @@ function App({
   const noLoadingOverlay = Component.noLoadingOverlay || false;
 
   const { orgId } = useAuth();
+  const routerPathRef = useRef(router.asPath);
+  routerPathRef.current = router.asPath;
+  const trackingPluginInstalledRef = useRef(false);
+  const errorTrackingPluginInstalledRef = useRef(false);
 
   useEffect(() => {
     initEnv()
@@ -101,26 +105,33 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
-    growthbookTrackingPlugin({
-      ingestorHost: getIngestorHost(),
-      enable: isTelemetryEnabled(),
-      debug: inTelemetryDebugMode(),
-      eventFilter: (event) => {
-        // Wait for account plan to load before sending events
-        // When the plan does load, the app will re-render, so no events will be lost
-        if (event.attributes.accountPlan === "loading") return false;
-        return true;
-      },
-      dedupeKeyAttributes: ["id", "organizationId"],
-    })(growthbook);
 
-    // Register after growthbookTrackingPlugin (required for warehouse ingest).
-    growthbookErrorTrackingPlugin({
-      enable: isTelemetryEnabled(),
-      getRelease: () => getGrowthBookBuild().sha || undefined,
-      getTransaction: () => router.asPath,
-    })(growthbook);
-  }, [ready, router.asPath]);
+    if (!trackingPluginInstalledRef.current) {
+      trackingPluginInstalledRef.current = true;
+      growthbookTrackingPlugin({
+        ingestorHost: getIngestorHost(),
+        enable: isTelemetryEnabled(),
+        debug: inTelemetryDebugMode(),
+        eventFilter: (event) => {
+          // Wait for account plan to load before sending events
+          // When the plan does load, the app will re-render, so no events will be lost
+          if (event.attributes.accountPlan === "loading") return false;
+          return true;
+        },
+        dedupeKeyAttributes: ["id", "organizationId"],
+      })(growthbook);
+    }
+
+    if (!errorTrackingPluginInstalledRef.current) {
+      errorTrackingPluginInstalledRef.current = true;
+      // Register after growthbookTrackingPlugin (required for warehouse ingest).
+      growthbookErrorTrackingPlugin({
+        enable: isTelemetryEnabled(),
+        getRelease: () => getGrowthBookBuild().sha || undefined,
+        getTransaction: () => routerPathRef.current,
+      })(growthbook);
+    }
+  }, [ready]);
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
