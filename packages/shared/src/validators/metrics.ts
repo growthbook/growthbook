@@ -845,10 +845,16 @@ export const listMetricExperimentsValidator = {
         .optional(),
       startDate: z
         .string()
+        .refine((v) => !Number.isNaN(Date.parse(v)), {
+          message: "Invalid date",
+        })
         .describe("Only include experiments whose last phase ended on or after")
         .optional(),
       endDate: z
         .string()
+        .refine((v) => !Number.isNaN(Date.parse(v)), {
+          message: "Invalid date",
+        })
         .describe(
           "Only include experiments whose last phase ended on or before",
         )
@@ -864,7 +870,7 @@ export const listMetricExperimentsValidator = {
   ),
   summary: "Get results for all experiments that use a metric",
   description:
-    "Returns, for each experiment that uses the given metric (directly or via a metric group), the per-variation results for that metric from the latest snapshot. Supports the same filtering as the experiment list views via a raw search string or structured query params.",
+    "Returns, for each experiment that uses the given metric (directly or via a metric group), the per-variation results for that metric from the latest snapshot. Supports the same filtering as the experiment list views via a raw search string or structured query params. Note: at most the 1000 most recent experiments using the metric are considered; filters and pagination are applied within that set, so results may be incomplete for metrics used by more than 1000 experiments.",
   operationId: "listMetricExperiments",
   tags: ["metrics"],
   method: "get" as const,

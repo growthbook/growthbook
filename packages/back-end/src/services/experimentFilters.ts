@@ -224,6 +224,15 @@ export function filterExperiments({
 }): ExperimentInterface[] {
   const searchTerm = filters.search?.toLowerCase();
 
+  // Ignore unparseable dates so a bad input can't silently filter everything
+  // out (an Invalid Date is truthy but fails every comparison). Callers that
+  // want a hard error should validate before reaching here (the public API
+  // does via its zod schema).
+  const validStart =
+    startDate && !Number.isNaN(startDate.getTime()) ? startDate : undefined;
+  const validEnd =
+    endDate && !Number.isNaN(endDate.getTime()) ? endDate : undefined;
+
   return experiments.filter((e) => {
     // Bandit scoping: only applied when an explicit preference is provided so
     // existing callers that omit it keep receiving all experiment types.
@@ -290,9 +299,9 @@ export function filterExperiments({
     }
 
     // Phase-end date-range constraint (matches getMetricExperimentResults)
-    if (startDate || endDate) {
-      const start = startDate ?? new Date(0);
-      const end = endDate ?? new Date();
+    if (validStart || validEnd) {
+      const start = validStart ?? new Date(0);
+      const end = validEnd ?? new Date();
       const inRange = e.phases.some((p) => {
         if (!p.dateEnded) return false;
         const ended = new Date(p.dateEnded);

@@ -254,4 +254,27 @@ describe("filterExperiments", () => {
     });
     expect(result.map((e) => e.id)).toEqual(["recent"]);
   });
+
+  it("ignores an invalid date instead of filtering everything out", () => {
+    const experiments = [
+      makeExperiment({
+        id: "recent",
+        phases: [
+          {
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: new Date("2024-02-01"),
+            name: "Main",
+          },
+        ] as ExperimentInterface["phases"],
+      }),
+    ];
+    const result = filterExperiments({
+      experiments,
+      filters: {},
+      resolvers,
+      // e.g. from a bad `?startDate=garbage` query param
+      startDate: new Date("not a date"),
+    });
+    expect(result.map((e) => e.id)).toEqual(["recent"]);
+  });
 });

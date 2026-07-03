@@ -14721,7 +14721,10 @@ paths:
         Returns, for each experiment that uses the given metric (directly or via
         a metric group), the per-variation results for that metric from the
         latest snapshot. Supports the same filtering as the experiment list
-        views via a raw search string or structured query params.
+        views via a raw search string or structured query params. Note: at most
+        the 1000 most recent experiments using the metric are considered;
+        filters and pagination are applied within that set, so results may be
+        incomplete for metrics used by more than 1000 experiments.
       tags:
         - metrics
       parameters:
