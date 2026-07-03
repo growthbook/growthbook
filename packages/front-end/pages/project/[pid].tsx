@@ -344,8 +344,7 @@ const ProjectPage: FC = () => {
                                       { label: "Off", value: "false" },
                                     ]}
                                     value={
-                                      form.watch("oneSidedIntervals") ===
-                                      undefined
+                                      form.watch("oneSidedIntervals") == null
                                         ? ""
                                         : form.watch("oneSidedIntervals")
                                           ? "true"
