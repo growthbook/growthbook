@@ -328,59 +328,68 @@ const SidebarExperimentFilters: FC<Props> = ({
           const showCategorySearch = isOpen && c.items.length > 10;
           return (
             <Box key={c.key}>
-              <Flex
-                align="center"
-                justify="between"
-                px="2"
-                py="1"
-                className="cursor-pointer"
+              {/* Header (and per-category search) pin to the top while the
+                  open section's options scroll under them. */}
+              <Box
                 style={{
-                  borderRadius: 6,
-                  marginBottom: 2,
-                  backgroundColor: isOpen
-                    ? "var(--accent-3)"
-                    : "var(--surface-1)",
-                  color: isOpen ? "var(--accent-11)" : undefined,
-                  // Pin the open section's header while its options scroll under.
                   position: isOpen ? "sticky" : undefined,
                   top: 0,
                   zIndex: isOpen ? 1 : undefined,
+                  // Solid (opaque) so scrolling options don't leak through the
+                  // pinned header + search box.
+                  backgroundColor: isOpen
+                    ? "var(--color-panel-solid)"
+                    : undefined,
                 }}
-                onClick={() => toggleCategory(c.key)}
               >
-                <Flex align="center" gap="1">
-                  {isOpen ? (
-                    <PiCaretDown size={12} />
-                  ) : (
-                    <PiCaretRight size={12} className="text-muted" />
+                <Flex
+                  align="center"
+                  justify="between"
+                  px="2"
+                  py="1"
+                  className="cursor-pointer"
+                  style={{
+                    borderRadius: 6,
+                    marginBottom: 2,
+                    backgroundColor: isOpen ? "var(--accent-3)" : undefined,
+                    color: isOpen ? "var(--accent-11)" : undefined,
+                  }}
+                  onClick={() => toggleCategory(c.key)}
+                >
+                  <Flex align="center" gap="1">
+                    {isOpen ? (
+                      <PiCaretDown size={12} />
+                    ) : (
+                      <PiCaretRight size={12} className="text-muted" />
+                    )}
+                    <span style={{ fontWeight: isOpen ? 500 : 400 }}>
+                      {c.heading}
+                    </span>
+                  </Flex>
+                  {count > 0 && (
+                    <span
+                      style={{ fontSize: 12 }}
+                      className={isOpen ? undefined : "text-muted"}
+                    >
+                      {count}
+                    </span>
                   )}
-                  <span style={{ fontWeight: isOpen ? 500 : 400 }}>
-                    {c.heading}
-                  </span>
                 </Flex>
-                {count > 0 && (
-                  <span
-                    style={{ fontSize: 12 }}
-                    className={isOpen ? undefined : "text-muted"}
-                  >
-                    {count}
-                  </span>
+                {showCategorySearch && (
+                  <Box px="2" pb="1">
+                    <Field
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                      type="search"
+                      placeholder={`Search ${c.heading}`}
+                      autoFocus
+                    />
+                  </Box>
                 )}
-              </Flex>
+              </Box>
 
               {isOpen && (
                 <Box pl="2" pb="1">
-                  {showCategorySearch && (
-                    <Box px="2" pb="1">
-                      <Field
-                        value={filterSearch}
-                        onChange={(e) => setFilterSearch(e.target.value)}
-                        type="search"
-                        placeholder={`Search ${c.heading}`}
-                        autoFocus
-                      />
-                    </Box>
-                  )}
                   {visibleItems.length === 0 && (
                     <Box
                       px="2"
