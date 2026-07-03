@@ -1,22 +1,30 @@
 import { useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  CompletedExperimentsBlockFilters,
+  resolveCompletedExperimentsFilters,
+} from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
 
 /**
  * Shared data source for the "Completed Experiments" block family (Scaled
- * Impact, Win Percentage, Experiment Status). Returns the org's finished
- * (stopped) experiments scoped to the given date range and projects, matching
- * the "Completed Experiments" section of the Executive Report.
+ * Impact, Win Percentage, Experiment Status). Resolves the block's stored
+ * date range + project scoping and returns the org's finished (stopped)
+ * experiments within it, matching the "Completed Experiments" section of the
+ * Executive Report.
  */
-export function useCompletedExperiments({
-  startDate,
-  endDate,
-  projects,
-}: {
-  startDate: Date;
-  endDate: Date;
-  projects: string[];
-}): { experiments: ExperimentInterfaceStringDates[]; loading: boolean } {
+export function useCompletedExperiments(
+  block: CompletedExperimentsBlockFilters,
+): {
+  experiments: ExperimentInterfaceStringDates[];
+  loading: boolean;
+  filters: { startDate: Date; endDate: Date; projects: string[] };
+} {
+  const filters = useMemo(
+    () => resolveCompletedExperimentsFilters(block),
+    [block],
+  );
+  const { startDate, endDate, projects } = filters;
   const { experiments, loading } = useExperiments("", true, "standard");
 
   const filtered = useMemo(() => {
@@ -37,5 +45,5 @@ export function useCompletedExperiments({
       );
   }, [experiments, projects, startDate, endDate]);
 
-  return { experiments: filtered, loading };
+  return { experiments: filtered, loading, filters };
 }

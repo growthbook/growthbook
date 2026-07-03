@@ -1,8 +1,4 @@
-import { useMemo } from "react";
-import {
-  ExperimentsWinRateBlockInterface,
-  resolveCompletedExperimentsFilters,
-} from "shared/enterprise";
+import { ExperimentsWinRateBlockInterface } from "shared/enterprise";
 import ExperimentWinRate from "@/components/ExecReports/ExperimentWinRate";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useCompletedExperiments } from "./completedExperiments";
@@ -11,13 +7,7 @@ import { BlockProps } from ".";
 export default function ExperimentsWinRateBlock({
   block,
 }: BlockProps<ExperimentsWinRateBlockInterface>) {
-  const filters = useMemo(
-    () => resolveCompletedExperimentsFilters(block),
-    // Recompute only when the block's stored filters change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [block.dateRange, block.startDate, block.endDate, block.projects],
-  );
-  const { experiments, loading } = useCompletedExperiments(filters);
+  const { experiments, loading, filters } = useCompletedExperiments(block);
 
   if (loading) return <LoadingSpinner />;
 

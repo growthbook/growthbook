@@ -1,8 +1,4 @@
-import { useMemo } from "react";
-import {
-  ExperimentsStatusBlockInterface,
-  resolveCompletedExperimentsFilters,
-} from "shared/enterprise";
+import { ExperimentsStatusBlockInterface } from "shared/enterprise";
 import ExecExperimentsGraph from "@/components/ExecReports/ExecExperimentsGraph";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useCompletedExperiments } from "./completedExperiments";
@@ -11,12 +7,7 @@ import { BlockProps } from ".";
 export default function ExperimentsStatusBlock({
   block,
 }: BlockProps<ExperimentsStatusBlockInterface>) {
-  const filters = useMemo(
-    () => resolveCompletedExperimentsFilters(block),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [block.dateRange, block.startDate, block.endDate, block.projects],
-  );
-  const { experiments, loading } = useCompletedExperiments(filters);
+  const { experiments, loading, filters } = useCompletedExperiments(block);
 
   if (loading) return <LoadingSpinner />;
 

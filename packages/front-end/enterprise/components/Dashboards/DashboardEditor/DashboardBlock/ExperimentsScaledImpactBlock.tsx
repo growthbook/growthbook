@@ -1,8 +1,5 @@
-import { useMemo, useState } from "react";
-import {
-  ExperimentsScaledImpactBlockInterface,
-  resolveCompletedExperimentsFilters,
-} from "shared/enterprise";
+import { useState } from "react";
+import { ExperimentsScaledImpactBlockInterface } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import ExecExperimentImpact from "@/enterprise/components/ExecReports/ExecExperimentImpact";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -18,12 +15,7 @@ export default function ExperimentsScaledImpactBlock({
   // The impact table's won/lost/other filter is interactive (not persisted).
   const [experimentsToShow, setExperimentsToShow] = useState("all");
 
-  const filters = useMemo(
-    () => resolveCompletedExperimentsFilters(block),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [block.dateRange, block.startDate, block.endDate, block.projects],
-  );
-  const { experiments, loading } = useCompletedExperiments(filters);
+  const { experiments, loading, filters } = useCompletedExperiments(block);
 
   if (!hasCommercialFeature("experiment-impact")) {
     return (

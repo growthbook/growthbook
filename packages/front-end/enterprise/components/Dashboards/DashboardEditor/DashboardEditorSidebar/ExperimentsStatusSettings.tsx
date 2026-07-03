@@ -22,12 +22,7 @@ export default function ExperimentsStatusSettings({
   return (
     <Flex direction="column" gap="5">
       <CompletedExperimentsFilterFields
-        value={{
-          dateRange: block.dateRange,
-          startDate: block.startDate,
-          endDate: block.endDate,
-          projects: block.projects,
-        }}
+        value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
       />
