@@ -80,30 +80,27 @@ export default function MetricExperimentsSettings({
             padding: "8px 10px",
           }}
         >
-          <span
-            style={{
-              flex: 1,
-              minWidth: 0,
-              fontSize: 13,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              color: "var(--text-secondary)",
-            }}
-            title={
-              hiddenCount > 0
-                ? `${columnsSummary} · ${hiddenCount} hidden`
-                : columnsSummary
-            }
-          >
-            {columnsSummary}
-            {hiddenCount > 0 && (
-              <span style={{ color: "var(--text-muted)" }}>
-                {" "}
-                · {hiddenCount} hidden
-              </span>
-            )}
-          </span>
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              as="div"
+              size="small"
+              color="text-mid"
+              truncate
+              title={
+                hiddenCount > 0
+                  ? `${columnsSummary} · ${hiddenCount} hidden`
+                  : columnsSummary
+              }
+            >
+              {columnsSummary}
+              {hiddenCount > 0 && (
+                <Text as="span" color="text-low">
+                  {" "}
+                  · {hiddenCount} hidden
+                </Text>
+              )}
+            </Text>
+          </Box>
           <Box style={{ flexShrink: 0 }}>
             <Popover
               open={columnsOpen}

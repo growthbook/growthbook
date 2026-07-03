@@ -13,10 +13,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiEye, PiEyeSlash } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 
 export interface ManagedColumn {
   id: string;
@@ -65,15 +66,16 @@ function SortableColumnRow({
       >
         <RiDraggable />
       </span>
-      <span
-        style={{
-          flex: 1,
-          fontSize: 13,
-          color: column.visible ? "var(--color-text-high)" : "var(--gray-10)",
-        }}
-      >
-        {column.label}
-      </span>
+      <Box style={{ flex: 1, minWidth: 0 }}>
+        <Text
+          as="div"
+          size="small"
+          color={column.visible ? "text-high" : "text-low"}
+          truncate
+        >
+          {column.label}
+        </Text>
+      </Box>
       <Tooltip body={column.visible ? "Hide column" : "Show column"}>
         <IconButton
           size="1"
