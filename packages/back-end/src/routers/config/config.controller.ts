@@ -24,6 +24,8 @@ import {
   getConfigSpineSubtree,
   configIsExtensible,
   findIncompatibleConfigValueKeys,
+  findOrphanedConfigValueKeys,
+  formatAncestorFieldConflictMessage,
   collectConfigInvariantViolations,
   stripConfigExtends,
 } from "shared/util";
@@ -51,6 +53,7 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
+  assertConfigSchemaChangeSafeForDescendants,
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigValueValid,
@@ -61,7 +64,10 @@ import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
 } from "back-end/src/services/configLock";
-import { PlanDoesNotAllowError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PlanDoesNotAllowError,
+} from "back-end/src/util/errors";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 type PutConfigBody = z.infer<typeof putConfigBodyValidator>;
@@ -240,14 +246,19 @@ export const getConfigResolved = async (
     }));
 
   // Own value keys that no longer conform to a node's effective schema (the
-  // "incompatible, must fix" state). Reuses `byKey` so it's a pure in-memory walk.
-  const incompatibleFieldsFor = (nodeKey: string): string[] => {
+  // "incompatible, must fix" state) or that it no longer declares at all
+  // (`orphaned` — what an ancestor's field removal leaves behind). Draft-aware
+  // via the substituted leaf; reuses `byKey` so it's a pure in-memory walk.
+  const valueFlagsFor = (
+    nodeKey: string,
+  ): { incompatibleFields: string[]; orphanedFields: string[] } => {
     const node = byKey.get(nodeKey);
-    if (!node) return [];
+    if (!node) return { incompatibleFields: [], orphanedFields: [] };
     const nodeFields = resolveConfigChain(
       linearizeConfigDag(nodeKey, byKey),
     ).effectiveSchema;
     const incompatible = new Set<string>();
+    const orphaned = new Set<string>();
     for (const raw of [node.value]) {
       const obj = parsePlainJSONObject(raw ?? "");
       if (!obj) continue;
@@ -257,8 +268,17 @@ export const getConfigResolved = async (
       })) {
         incompatible.add(k);
       }
+      for (const k of findOrphanedConfigValueKeys({
+        value: obj,
+        fields: nodeFields,
+      })) {
+        orphaned.add(k);
+      }
     }
-    return [...incompatible];
+    return {
+      incompatibleFields: [...incompatible],
+      orphanedFields: [...orphaned],
+    };
   };
 
   // The sidebar tree keeps the `parent` spine shape, so root it at the spine
@@ -270,6 +290,7 @@ export const getConfigResolved = async (
     getConfigSpineSubtree(rootKey, allConfigs).flatMap((key) => {
       const node = byKey.get(key);
       if (!node) return [];
+      const { incompatibleFields, orphanedFields } = valueFlagsFor(node.key);
       return [
         {
           key: node.key,
@@ -282,7 +303,8 @@ export const getConfigResolved = async (
           // reconciliation (a descendant's field is stripped when an ancestor
           // declares the same key).
           fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
-          incompatibleFields: incompatibleFieldsFor(node.key),
+          incompatibleFields,
+          orphanedFields,
           // Failing effective invariants per node (draft leaf substituted), so
           // the editor can flag descendants a draft would leave in violation.
           invariantViolations: collectConfigInvariantViolations(
@@ -389,8 +411,10 @@ export const postConfig = async (
   const extendsKeys = body.extends;
 
   // A child created under a base can't re-declare an inherited field ("base
-  // wins"); strip any colliding keys from its appended schema up front.
-  const normalizedSchema =
+  // wins"): identical re-declarations are stripped up front (the editor
+  // pre-blocks and previews these client-side); differing ones are rejected —
+  // a strip can't preserve their intent.
+  const { schema: normalizedSchema, conflicting } =
     await context.models.configs.normalizeSchemaAgainstAncestors(
       {
         key: body.key,
@@ -400,6 +424,9 @@ export const postConfig = async (
       },
       body.schema,
     );
+  if (conflicting.length) {
+    throw new BadRequestError(formatAncestorFieldConflictMessage(conflicting));
+  }
 
   // Validate the value against its schema (incl. cross-field invariants) and run
   // customer validateConfig hooks — same as the REST create path, so a config
@@ -604,15 +631,18 @@ export const putConfig = async (
   }
 
   // Enforce "base wins": never let a child config persist a schema field whose
-  // key a published ancestor already owns. A lineage change (parent/extends)
-  // shifts which keys the bases own, so re-normalize the config's own schema even
-  // when the caller didn't send one. The publish path (adapter) re-runs this
-  // against ancestors-at-publish; doing it here keeps drafts honest too.
+  // key a published ancestor already owns — an identical re-declaration strips
+  // silently (the editor pre-blocks these and previews the strip client-side);
+  // a contract-DIFFERING one is rejected, since a strip can't preserve its
+  // intent. A lineage change (parent/extends) shifts which keys the bases own,
+  // so re-normalize the config's own schema even when the caller didn't send
+  // one. The publish path (adapter) re-runs this against ancestors-at-publish;
+  // doing it here keeps drafts honest too.
   const lineageChanged =
     fieldsToUpdate.parent !== undefined || "extends" in fieldsToUpdate;
   const schemaToNormalize = fieldsToUpdate.schema ?? existing.schema;
   if ((fieldsToUpdate.schema || lineageChanged) && schemaToNormalize) {
-    const normalized =
+    const { schema: normalized, conflicting } =
       await context.models.configs.normalizeSchemaAgainstAncestors(
         {
           key: existing.key,
@@ -622,6 +652,11 @@ export const putConfig = async (
         },
         schemaToNormalize,
       );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
+      );
+    }
     // Stage a schema write if normalization changed the schema we were about to
     // persist (the sent schema or the existing one) — not vs. `existing.schema`,
     // which would skip persisting a normalized form of a freshly-sent schema.
@@ -746,17 +781,20 @@ export const putConfig = async (
       // Dry run BEFORE claiming the merge / writing the root: reject a publish
       // that would create an unresolvable sibling conflict at a descendant, so
       // nothing is persisted (vs. committing the root and then throwing from the
-      // post-write cascade). See assertConfigDescendantsReconcilable for the
-      // accepted residual race.
+      // post-write cascade — see assertConfigDescendantsReconcilable for the
+      // accepted residual race), then soft-warn when the change removes or
+      // retypes fields descendants still use (?ignoreWarnings=true proceeds).
       if (
         fieldsToUpdate.schema !== undefined ||
         fieldsToUpdate.parent !== undefined ||
         "extends" in fieldsToUpdate
       ) {
-        await assertConfigDescendantsReconcilable(context, {
+        const proposedRoot = {
           ...existing,
           ...fieldsToUpdate,
-        } as ConfigInterface);
+        } as ConfigInterface;
+        await assertConfigDescendantsReconcilable(context, proposedRoot);
+        await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
       // Publish-time safety net (adds required-field enforcement on top of the

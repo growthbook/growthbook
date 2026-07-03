@@ -1,5 +1,10 @@
 import { isEqual } from "lodash";
 import { putConfigRevisionMetadataValidator } from "shared/validators";
+import {
+  formatAncestorFieldConflictMessage,
+  ancestorCollisionWarnings,
+  SchemaWarning,
+} from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -62,6 +67,8 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
   }
   if (typeof extensible !== "undefined") fieldsToUpdate.extensible = extensible;
 
+  const warnings: SchemaWarning[] = [];
+
   await ensureLiveRevisionExists(
     req.context,
     "config",
@@ -122,20 +129,32 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
 
       // "Base wins": re-normalize now on a lineage change so reviewers don't see
       // a stale schema until publish. Extensibility alone doesn't change ownership.
+      // Re-parenting can turn an existing own field into a re-declaration of a
+      // NEW ancestor's: identical → strip + warn; differing → reject (the strip
+      // can't preserve its intent).
       if (
         draft.schema &&
         (typeof parent !== "undefined" || typeof extendsKeys !== "undefined")
       ) {
-        const normalizedSchema =
-          await req.context.models.configs.normalizeSchemaAgainstAncestors(
-            {
-              key: config.key,
-              parent: effectiveParent || undefined,
-              extends: effectiveExtends,
-              value: draft.value,
-            },
-            draft.schema,
+        const {
+          schema: normalizedSchema,
+          identical,
+          conflicting,
+        } = await req.context.models.configs.normalizeSchemaAgainstAncestors(
+          {
+            key: config.key,
+            parent: effectiveParent || undefined,
+            extends: effectiveExtends,
+            value: draft.value,
+          },
+          draft.schema,
+        );
+        if (conflicting.length) {
+          throw new BadRequestError(
+            formatAncestorFieldConflictMessage(conflicting),
           );
+        }
+        warnings.push(...ancestorCollisionWarnings(identical));
         if (!isEqual(normalizedSchema, draft.schema)) {
           fieldsToUpdate.schema = normalizedSchema;
         }
@@ -156,7 +175,10 @@ export const putConfigRevisionMetadata = createApiRequestHandler(
       created ? { type: "created" } : { type: "updated", change: "metadata" },
     );
 
-    return { revision: await toApiConfigRevision(updated, req.context) };
+    return {
+      revision: await toApiConfigRevision(updated, req.context),
+      ...(warnings.length ? { warnings } : {}),
+    };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

@@ -8,8 +8,9 @@ import {
 import {
   getConfigBaseKeys,
   withConfigExtends,
-  getAncestorSchemaKeys,
-  stripAncestorOwnedFields,
+  getAncestorSchemaFieldOwners,
+  classifyAncestorOwnedFields,
+  AncestorFieldCollision,
   findSiblingSchemaConflicts,
   fieldsToJsonSchema,
   storedInvariantsToApi,
@@ -307,9 +308,12 @@ export class ConfigModel extends BaseClass {
   }
 
   // Strip from a config's appended schema any field key already owned by a
-  // published ancestor (closest base wins). Returns the reconciled schema, or
-  // the input unchanged when there are no collisions. Call before every schema
-  // write so a child can never re-declare an inherited field.
+  // published ancestor (closest base wins), reporting each collision split by
+  // whether the re-declaration matches the owner's contract. The model only
+  // computes; policy lives at the call sites — contract-differing collisions
+  // reject on user-authored write paths (mirroring the $extends fix), identical
+  // ones surface as warnings. Call before every schema write so a child can
+  // never persist a re-declared inherited field.
   public async normalizeSchemaAgainstAncestors(
     config: {
       key?: string;
@@ -318,14 +322,26 @@ export class ConfigModel extends BaseClass {
       value?: string;
     },
     schema: SimpleSchema | undefined,
-  ): Promise<SimpleSchema | undefined> {
-    if (!schema?.fields?.length) return schema;
-    if (!getConfigBaseKeys(config).length) return schema;
+  ): Promise<{
+    schema: SimpleSchema | undefined;
+    identical: AncestorFieldCollision[];
+    conflicting: AncestorFieldCollision[];
+  }> {
+    if (!schema?.fields?.length || !getConfigBaseKeys(config).length) {
+      return { schema, identical: [], conflicting: [] };
+    }
     const all = await this.getAllForReconcile();
     const byKey = new Map(all.map((c) => [c.key, c]));
-    const ancestorKeys = getAncestorSchemaKeys(config, byKey);
-    const kept = stripAncestorOwnedFields(schema, ancestorKeys);
-    return kept ? { ...schema, fields: kept } : schema;
+    const owners = getAncestorSchemaFieldOwners(config, byKey);
+    const { kept, identical, conflicting } = classifyAncestorOwnedFields(
+      schema,
+      owners,
+    );
+    return {
+      schema: kept ? { ...schema, fields: kept } : schema,
+      identical,
+      conflicting,
+    };
   }
 
   // Project a config into its external REST shape. `ownerEmail` is left blank

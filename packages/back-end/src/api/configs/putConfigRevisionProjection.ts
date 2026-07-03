@@ -1,4 +1,8 @@
 import { putConfigRevisionProjectionValidator } from "shared/validators";
+import {
+  formatAncestorFieldConflictMessage,
+  ancestorCollisionWarnings,
+} from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -69,17 +73,28 @@ export const putConfigRevisionProjection = createApiRequestHandler(
       );
     }
 
-    // Enforce "base wins" against ancestors-at-stage-time (re-checked at publish).
-    const normalizedSchema =
-      await req.context.models.configs.normalizeSchemaAgainstAncestors(
-        {
-          key: config.key,
-          parent: draft.parent,
-          extends: draft.extends,
-          value: draft.value,
-        },
-        schema,
+    // Enforce "base wins" against ancestors-at-stage-time (re-checked at
+    // publish): identical re-declarations strip with a warning; differing ones
+    // reject — a strip can't preserve their intent.
+    const {
+      schema: normalizedSchema,
+      identical,
+      conflicting,
+    } = await req.context.models.configs.normalizeSchemaAgainstAncestors(
+      {
+        key: config.key,
+        parent: draft.parent,
+        extends: draft.extends,
+        value: draft.value,
+      },
+      schema,
+    );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
       );
+    }
+    warnings.push(...ancestorCollisionWarnings(identical));
 
     // The derived schema must still admit the draft's value(s).
     await assertConfigValueValid(

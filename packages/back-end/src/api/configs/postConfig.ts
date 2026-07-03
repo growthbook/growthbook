@@ -3,7 +3,14 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { stripConfigExtends, apiInvariantsToStored } from "shared/util";
+import {
+  stripConfigExtends,
+  apiInvariantsToStored,
+  formatAncestorFieldConflictMessage,
+  ancestorCollisionWarnings,
+  findUndeclaredInvariantRuleFields,
+  undeclaredRuleFieldWarnings,
+} from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -11,7 +18,10 @@ import {
   PlanDoesNotAllowError,
 } from "back-end/src/util/errors";
 import { assertKeyAvailable } from "back-end/src/services/constants";
-import { assertConfigValueValid } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValid,
+  getEffectiveConfigSchema,
+} from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { ensureLiveRevisionExists } from "back-end/src/revisions/util";
 import { resolveConfigSchemaSource } from "./validations";
@@ -84,12 +94,45 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       }
     : resolvedSchema;
 
-  // "Base wins": strip any inherited field keys a child tries to re-declare.
-  const normalizedSchema =
-    await req.context.models.configs.normalizeSchemaAgainstAncestors(
-      { key, parent: parent || undefined, extends: extendsKeys, value },
-      schemaWithInvariants,
+  // "Base wins": strip inherited field keys the child re-declares identically
+  // (with a warning); a re-declaration with a DIFFERING definition is rejected
+  // — its intent can't be preserved by a strip.
+  const {
+    schema: normalizedSchema,
+    identical,
+    conflicting,
+  } = await req.context.models.configs.normalizeSchemaAgainstAncestors(
+    { key, parent: parent || undefined, extends: extendsKeys, value },
+    schemaWithInvariants,
+  );
+  if (conflicting.length) {
+    throw new BadRequestError(formatAncestorFieldConflictMessage(conflicting));
+  }
+  warnings.push(...ancestorCollisionWarnings(identical));
+
+  // Warn (never block) when a rule references a field the effective schema
+  // doesn't declare — it would just read null at evaluation time.
+  if (normalizedSchema?.invariants?.length) {
+    const { fields: effectiveFields } = await getEffectiveConfigSchema(
+      req.context,
+      {
+        key,
+        name,
+        value,
+        schema: normalizedSchema,
+        parent: parent || undefined,
+        extends: extendsKeys,
+      },
     );
+    warnings.push(
+      ...undeclaredRuleFieldWarnings(
+        findUndeclaredInvariantRuleFields(
+          normalizedSchema.invariants,
+          effectiveFields.map((f) => f.key),
+        ),
+      ),
+    );
+  }
 
   const storedValue = stripConfigExtends(value);
   await assertConfigValueValid(

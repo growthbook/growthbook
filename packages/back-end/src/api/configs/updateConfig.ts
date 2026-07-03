@@ -5,7 +5,14 @@ import {
   validateResolvableValue,
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
-import { stripConfigExtends, apiInvariantsToStored } from "shared/util";
+import {
+  stripConfigExtends,
+  apiInvariantsToStored,
+  formatAncestorFieldConflictMessage,
+  ancestorCollisionWarnings,
+  findUndeclaredInvariantRuleFields,
+  undeclaredRuleFieldWarnings,
+} from "shared/util";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -17,8 +24,12 @@ import {
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
+  assertConfigSchemaChangeSafeForDescendants,
 } from "back-end/src/services/configReconcile";
-import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
+import {
+  assertConfigValueValidForPublish,
+  getEffectiveConfigSchema,
+} from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -162,20 +173,60 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       (fieldsToUpdate.schema || parentChanged || extendsChanged) &&
       schemaToNormalize
     ) {
-      const normalized =
-        await req.context.models.configs.normalizeSchemaAgainstAncestors(
-          {
-            key: config.key,
-            parent: effectiveParent || undefined,
-            extends: effectiveExtends,
-            value: fieldsToUpdate.value ?? config.value,
-          },
-          schemaToNormalize,
+      const {
+        schema: normalized,
+        identical,
+        conflicting,
+      } = await req.context.models.configs.normalizeSchemaAgainstAncestors(
+        {
+          key: config.key,
+          parent: effectiveParent || undefined,
+          extends: effectiveExtends,
+          value: fieldsToUpdate.value ?? config.value,
+        },
+        schemaToNormalize,
+      );
+      // Re-declaring an ancestor-owned field with a different definition can't
+      // be honored (base wins) — reject rather than silently drop the intent.
+      if (conflicting.length) {
+        throw new BadRequestError(
+          formatAncestorFieldConflictMessage(conflicting),
         );
+      }
+      warnings.push(...ancestorCollisionWarnings(identical));
       // Compare against the schema about to be persisted, not `config.schema`,
       // so a normalization change (e.g. stripped ancestor fields) is persisted.
       if (!isEqual(normalized, schemaToNormalize)) {
         fieldsToUpdate.schema = normalized;
+      }
+    }
+
+    // Warn (never block) when a rule references a field the effective schema
+    // doesn't declare — it would just read null at evaluation time. Runs on the
+    // post-update state so a schema edit that un-declares a field an existing
+    // rule references warns too.
+    {
+      const postSchema = fieldsToUpdate.schema ?? config.schema;
+      if (postSchema?.invariants?.length) {
+        const { fields: effectiveFields } = await getEffectiveConfigSchema(
+          req.context,
+          {
+            key: config.key,
+            name: config.name,
+            value: fieldsToUpdate.value ?? config.value,
+            schema: postSchema,
+            parent: effectiveParent || undefined,
+            extends: effectiveExtends,
+          },
+        );
+        warnings.push(
+          ...undeclaredRuleFieldWarnings(
+            findUndeclaredInvariantRuleFields(
+              postSchema.invariants,
+              effectiveFields.map((f) => f.key),
+            ),
+          ),
+        );
       }
     }
 
@@ -230,13 +281,19 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       fieldsToUpdate.schema !== undefined || parentChanged || extendsChanged;
 
     // Dry run BEFORE any write so an unresolvable descendant conflict rejects
-    // without committing the root. See assertConfigDescendantsReconcilable for
-    // the accepted residual race.
+    // without committing the root (see assertConfigDescendantsReconcilable for
+    // the accepted residual race), then soft-warn when the change removes or
+    // retypes fields descendants still use (?ignoreWarnings=true proceeds).
     if (needsDescendantReconcile) {
-      await assertConfigDescendantsReconcilable(req.context, {
+      const proposedRoot = {
         ...config,
         ...fieldsToUpdate,
-      } as ConfigInterface);
+      } as ConfigInterface;
+      await assertConfigDescendantsReconcilable(req.context, proposedRoot);
+      await assertConfigSchemaChangeSafeForDescendants(
+        req.context,
+        proposedRoot,
+      );
     }
 
     // Change-aware approval gate: value/schema changes require review under

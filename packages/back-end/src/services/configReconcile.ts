@@ -3,9 +3,11 @@ import {
   getAncestorSchemaKeys,
   stripAncestorOwnedFields,
   findSiblingSchemaConflicts,
+  computeConfigSchemaChangeImpact,
+  ConfigSchemaChangeImpact,
 } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
 
 // Throw if any descendant of `rootKey` (via ANY base edge — `parent` or
@@ -67,6 +69,71 @@ export async function assertConfigDescendantsReconcilable(
   // change's effect on descendants.
   byKey.set(proposedRoot.key, proposedRoot);
   assertNoSiblingConflictsInSubtree(byKey, proposedRoot.key);
+}
+
+function formatImpactLine(impact: ConfigSchemaChangeImpact): string {
+  const quote = (keys: string[]) => keys.map((k) => `"${k}"`).join(", ");
+  const parts: string[] = [];
+  if (impact.orphanedKeys.length) {
+    parts.push(`overrides removed field(s) ${quote(impact.orphanedKeys)}`);
+  }
+  if (impact.newlyIncompatibleKeys.length) {
+    parts.push(
+      `has value(s) that no longer match retyped field(s) ` +
+        quote(impact.newlyIncompatibleKeys),
+    );
+  }
+  if (impact.conflictingStripKeys.length) {
+    parts.push(
+      `declares conflicting field(s) ${quote(impact.conflictingStripKeys)} ` +
+        `that would be dropped`,
+    );
+  }
+  for (const ref of impact.invariantRefs) {
+    parts.push(
+      `validation rule "${ref.name}" references removed field(s) ` +
+        quote(ref.keys),
+    );
+  }
+  const name = impact.configName
+    ? `"${impact.configName}" (${impact.configKey})`
+    : `"${impact.configKey}"`;
+  return `${name}: ${parts.join("; ")}`;
+}
+
+/**
+ * Soft publish gate: warn when a proposed root schema/lineage change removes or
+ * retypes fields that descendants still override or reference, or would drop a
+ * descendant's contract-differing declaration via the cascade. Bypassable with
+ * `?ignoreWarnings=true` (and inherently bypassed by background publishes —
+ * scheduler/autopublish contexts have no request, matching the other soft
+ * gates). Always soft, regardless of `blockPublishOnSchemaError`: the warning
+ * is about OTHER configs' state, not the written value, so it must never
+ * hard-block an ancestor's own legitimate publish — and for the same reason it
+ * ignores `skipSchemaValidation`.
+ */
+export async function assertConfigSchemaChangeSafeForDescendants(
+  context: Context,
+  proposedRoot: ConfigInterface,
+): Promise<void> {
+  if (context.ignoreWarnings) return;
+  const before = await context.models.configs.getAllForReconcile();
+  const after = before.map((c) =>
+    c.key === proposedRoot.key ? proposedRoot : c,
+  );
+  const impacts = computeConfigSchemaChangeImpact({
+    rootKey: proposedRoot.key,
+    before,
+    after,
+  });
+  if (!impacts.length) return;
+  const lines = impacts.map(formatImpactLine);
+  throw new SoftWarningError(
+    `This change removes, retypes, or takes over fields that ` +
+      `${impacts.length} descendant config(s) still use:\n` +
+      lines.join("\n"),
+    lines,
+  );
 }
 
 /**

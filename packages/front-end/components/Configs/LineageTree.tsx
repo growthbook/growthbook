@@ -5,6 +5,7 @@ import {
   PiCaretDown,
   PiCaretRight,
   PiDotOutline,
+  PiLinkBreak,
   PiWarningFill,
   PiPlusBold,
 } from "react-icons/pi";
@@ -24,6 +25,7 @@ export default function LineageTree({
   namesByKey,
   archivedByKey,
   draftKeys,
+  extensible,
 }: {
   nodes: LineageNode[];
   currentKey: string;
@@ -40,6 +42,9 @@ export default function LineageTree({
   // local/active draft). Marked with an amber dot so it's clear the tree is
   // showing staged, not live, data for that node.
   draftKeys?: Record<string, boolean>;
+  // Family extensibility: in a non-extensible family an orphaned override is a
+  // future publish error (amber); in an extensible one it's informational.
+  extensible?: boolean;
 }): React.ReactElement {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -203,6 +208,7 @@ export default function LineageTree({
       const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH;
       const indentChildren = depth < MAX_INDENT_DEPTH;
       const hasIncompatible = (n.incompatibleFields?.length ?? 0) > 0;
+      const hasOrphaned = (n.orphanedFields?.length ?? 0) > 0;
       const hasViolations = (n.invariantViolations?.length ?? 0) > 0;
       const isArchived = !!archivedByKey?.[n.key];
       const isDraftNode = !!draftKeys?.[n.key];
@@ -304,6 +310,25 @@ export default function LineageTree({
                 size={12}
                 title={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
                 style={{ flexShrink: 0, color: "var(--amber-11)" }}
+              />
+            )}
+            {hasOrphaned && (
+              <PiLinkBreak
+                size={12}
+                title={
+                  `Undeclared value key(s): ${n.orphanedFields?.join(", ")} — ` +
+                  `the effective schema no longer declares them; they still ` +
+                  `resolve, but nothing validates them and validation rules ` +
+                  `read them as null.` +
+                  (extensible === false
+                    ? " This family is not extensible, so the next changing publish of this config will be rejected until they are removed or re-declared."
+                    : "")
+                }
+                style={{
+                  flexShrink: 0,
+                  color:
+                    extensible === false ? "var(--amber-11)" : "var(--slate-9)",
+                }}
               />
             )}
             {hasViolations && (

@@ -6,6 +6,7 @@ import {
   linearizeConfigDag,
   resolveConfigChain,
   findIncompatibleConfigValueKeys,
+  findOrphanedConfigValueKeys,
   parsePlainJSONObject,
 } from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -28,14 +29,19 @@ export const getConfigLineage = createApiRequestHandler(
   const all = await req.context.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
 
-  // Own value keys that no longer conform to a node's effective schema.
-  const incompatibleFieldsFor = (nodeKey: string): string[] => {
+  // Own value keys that no longer conform to a node's effective schema
+  // (`incompatible`) or that it no longer declares at all (`orphaned` — what an
+  // ancestor's field removal leaves behind).
+  const valueFlagsFor = (
+    nodeKey: string,
+  ): { incompatibleFields: string[]; orphanedFields: string[] } => {
     const node = byKey.get(nodeKey);
-    if (!node) return [];
+    if (!node) return { incompatibleFields: [], orphanedFields: [] };
     const fields = resolveConfigChain(
       linearizeConfigDag(nodeKey, byKey),
     ).effectiveSchema;
     const incompatible = new Set<string>();
+    const orphaned = new Set<string>();
     for (const raw of [node.value]) {
       const obj = parsePlainJSONObject(raw ?? "");
       if (!obj) continue;
@@ -45,8 +51,14 @@ export const getConfigLineage = createApiRequestHandler(
       })) {
         incompatible.add(k);
       }
+      for (const k of findOrphanedConfigValueKeys({ value: obj, fields })) {
+        orphaned.add(k);
+      }
     }
-    return [...incompatible];
+    return {
+      incompatibleFields: [...incompatible],
+      orphanedFields: [...orphaned],
+    };
   };
 
   // Walk up the `parent` spine to the root, ancestors root-first.
@@ -72,7 +84,7 @@ export const getConfigLineage = createApiRequestHandler(
     const p = getConfigParentKey(c);
     const d = key === root ? 0 : (depth.get(p ?? "") ?? 0) + 1;
     depth.set(key, d);
-    const incompatibleFields = incompatibleFieldsFor(c.key);
+    const { incompatibleFields, orphanedFields } = valueFlagsFor(c.key);
     return [
       {
         key: c.key,
@@ -84,6 +96,7 @@ export const getConfigLineage = createApiRequestHandler(
         depth: d,
         isTarget: key === config.key,
         ...(incompatibleFields.length ? { incompatibleFields } : {}),
+        ...(orphanedFields.length ? { orphanedFields } : {}),
       },
     ];
   });

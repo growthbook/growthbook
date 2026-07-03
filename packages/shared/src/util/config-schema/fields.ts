@@ -233,13 +233,19 @@ export function canonicalSchemaString(fields: SchemaField[]): string {
   return canonicalJSON(canonical);
 }
 
-// Contract-only canonical form: canonicalField minus `description`. Used solely
-// to LABEL a diff (docs-only vs contract) — never for the fingerprint, which
-// includes description.
+// Contract-only canonical form: canonicalField minus `description`. Used to
+// LABEL a diff (docs-only vs contract) and for contract equality — never for
+// the fingerprint, which includes description.
 function canonicalContractJSON(f: SchemaField): string {
   const out: Record<string, unknown> = { ...canonicalField(f) };
   delete out.description;
   return canonicalJSON(out);
+}
+
+// Whether two fields agree on everything that validates (type/enum/required/
+// nullable/bounds/nested structure) — description may differ.
+export function fieldsContractEqual(a: SchemaField, b: SchemaField): boolean {
+  return canonicalContractJSON(a) === canonicalContractJSON(b);
 }
 
 export type SchemaFieldChange = {

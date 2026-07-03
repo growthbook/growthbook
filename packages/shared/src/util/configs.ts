@@ -4,7 +4,10 @@ import { parsePlainJSONObject } from "./features";
 import {
   collectInvalidConfigValueKeys,
   evaluateInvariants,
+  fieldsContractEqual,
+  invariantRuleFields,
   InvariantViolation,
+  SchemaWarning,
 } from "./config-schema";
 import { deepMergePatch } from "./deep-merge";
 
@@ -311,6 +314,36 @@ export function getAncestorSchemaKeys(
   return keys;
 }
 
+// Field key → the closest ancestor that declares it, with that declaration.
+// BFS over the base DAG (parent/mixin precedence order within a level) so the
+// closest base wins a transient duplicate; at rest exactly one ancestor owns a
+// key (sibling conflicts are hard errors, child re-declarations are stripped).
+// Cycle-safe; dangling base keys are skipped (same tolerance as
+// getAncestorSchemaKeys).
+export function getAncestorSchemaFieldOwners(
+  config: { parent?: string; extends?: string[] },
+  byKey: Map<
+    string,
+    { parent?: string; extends?: string[]; schema?: SimpleSchema }
+  >,
+): Map<string, { owner: string; field: SchemaField }> {
+  const owners = new Map<string, { owner: string; field: SchemaField }>();
+  const seen = new Set<string>();
+  const queue = [...getConfigBaseKeys(config)];
+  while (queue.length) {
+    const baseKey = queue.shift() as string;
+    if (seen.has(baseKey)) continue;
+    seen.add(baseKey);
+    const base = byKey.get(baseKey);
+    if (!base) continue;
+    for (const f of base.schema?.fields ?? []) {
+      if (!owners.has(f.key)) owners.set(f.key, { owner: baseKey, field: f });
+    }
+    for (const b of getConfigBaseKeys(base)) queue.push(b);
+  }
+  return owners;
+}
+
 // A config (with its lineage edges) keyed for DAG walks.
 type ConfigDagNode = ConfigChainNode & {
   parent?: string;
@@ -439,6 +472,27 @@ export function findIncompatibleConfigValueKeys({
   });
 }
 
+// Own top-level value keys the effective schema no longer declares — what an
+// ancestor's field removal leaves behind. They still resolve and are served,
+// but nothing validates them and rules read them as null (and a non-extensible
+// family rejects them on the next changing publish). Empty when the effective
+// schema declares no fields at all: a value-first, schema-less family isn't
+// "orphaned". Reference-backed values are NOT exempt (orphanhood is about
+// declaration, not type — cf. findIncompatibleConfigValueKeys).
+export function findOrphanedConfigValueKeys({
+  value,
+  fields,
+}: {
+  value: Record<string, unknown>;
+  fields: SchemaField[];
+}): string[] {
+  if (!fields.length) return [];
+  const declared = new Set(fields.map((f) => f.key));
+  return Object.keys(value).filter(
+    (k) => k !== CONSTANT_EXTENDS_KEY && !declared.has(k),
+  );
+}
+
 // Remove schema fields whose key is owned by an ancestor (base wins). Returns
 // the reconciled field list, or null when nothing changes (no collisions).
 export function stripAncestorOwnedFields(
@@ -449,6 +503,72 @@ export function stripAncestorOwnedFields(
   if (!fields.length || !ancestorKeys.size) return null;
   const kept = fields.filter((f) => !ancestorKeys.has(f.key));
   return kept.length === fields.length ? null : kept;
+}
+
+export type AncestorFieldCollision = { key: string; owner: string };
+
+// Split a schema's re-declarations of ancestor-owned fields by whether the
+// child's definition matches the owner's contract (description differences
+// don't count — the ancestor's wins anyway). `kept` mirrors
+// stripAncestorOwnedFields: the field list with every collision removed, or
+// null when there are none. Policy (reject vs warn) is the caller's.
+export function classifyAncestorOwnedFields(
+  schema: SimpleSchema | undefined,
+  owners: Map<string, { owner: string; field: SchemaField }>,
+): {
+  kept: SchemaField[] | null;
+  identical: AncestorFieldCollision[];
+  conflicting: AncestorFieldCollision[];
+} {
+  const fields = schema?.fields ?? [];
+  const identical: AncestorFieldCollision[] = [];
+  const conflicting: AncestorFieldCollision[] = [];
+  if (!fields.length || !owners.size) {
+    return { kept: null, identical, conflicting };
+  }
+  const kept: SchemaField[] = [];
+  for (const f of fields) {
+    const owned = owners.get(f.key);
+    if (!owned) {
+      kept.push(f);
+    } else if (fieldsContractEqual(f, owned.field)) {
+      identical.push({ key: f.key, owner: owned.owner });
+    } else {
+      conflicting.push({ key: f.key, owner: owned.owner });
+    }
+  }
+  return {
+    kept: kept.length === fields.length ? null : kept,
+    identical,
+    conflicting,
+  };
+}
+
+export function formatAncestorFieldConflictMessage(
+  conflicting: AncestorFieldCollision[],
+): string {
+  const detail = conflicting
+    .map((c) => `"${c.key}" (owned by "${c.owner}")`)
+    .join(", ");
+  return (
+    `This schema re-declares field(s) an ancestor config already defines, ` +
+    `with a different definition: ${detail}. A descendant may override a ` +
+    `field's value but not its schema — remove the re-declaration or make ` +
+    `it identical to the ancestor's definition.`
+  );
+}
+
+export function ancestorCollisionWarnings(
+  identical: AncestorFieldCollision[],
+): SchemaWarning[] {
+  return identical.map((c) => ({
+    code: "redundant-declaration",
+    path: c.key,
+    message:
+      `Field "${c.key}" re-declares ancestor config "${c.owner}"'s ` +
+      `definition and was removed — the ancestor owns the field's schema ` +
+      `("base wins"); this config still inherits it.`,
+  }));
 }
 
 // Effective extensibility for a config family. Only the spine root (the topmost
@@ -580,4 +700,171 @@ export function collectDescendantInvariantViolations(
       violations: collectConfigInvariantViolations(key, byKey),
     }))
     .filter((d) => d.violations.length > 0);
+}
+
+export type ConfigFamilyMember = {
+  key: string;
+  name?: string;
+  parent?: string;
+  extends?: string[];
+  value?: string;
+  schema?: SimpleSchema;
+  archived?: boolean;
+};
+
+export type ConfigSchemaChangeImpact = {
+  configKey: string;
+  configName?: string;
+  // Own value keys the change un-declares (overrides orphaned by a removal).
+  orphanedKeys: string[];
+  // Own value keys that stop conforming to the effective schema (retype/narrow).
+  newlyIncompatibleKeys: string[];
+  // Own schema fields the change newly ancestor-owns with a DIFFERING contract
+  // — the cascade would drop the member's definition, losing its intent.
+  // (Contract-identical strips are lossless and deliberately not reported.)
+  conflictingStripKeys: string[];
+  // Own rules referencing fields the change removes (they'd read null).
+  invariantRefs: { name: string; keys: string[] }[];
+};
+
+// What a proposed root schema/lineage change does to the rest of the family
+// (`after` = `before` with the proposed root substituted). Per member, in BFS
+// order, root excluded; members with no impact are omitted, so an additive or
+// contract-identical change returns []. Archived members are included — their
+// values still resolve (consistent with collectDescendantInvariantViolations).
+export function computeConfigSchemaChangeImpact({
+  rootKey,
+  before,
+  after,
+}: {
+  rootKey: string;
+  before: ConfigFamilyMember[];
+  after: ConfigFamilyMember[];
+}): ConfigSchemaChangeImpact[] {
+  const beforeByKey = new Map(before.map((c) => [c.key, c]));
+  const afterByKey = new Map(after.map((c) => [c.key, c]));
+
+  // Union of both subtrees, defensively: the proposed change only rewrites the
+  // root's own node, but membership math is cheap and this stays correct if a
+  // caller ever substitutes more than the root.
+  const memberKeys: string[] = [];
+  const seen = new Set<string>([rootKey]);
+  for (const key of [
+    ...getConfigSubtree(rootKey, before),
+    ...getConfigSubtree(rootKey, after),
+  ]) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    memberKeys.push(key);
+  }
+
+  const impacts: ConfigSchemaChangeImpact[] = [];
+  for (const key of memberKeys) {
+    const member = afterByKey.get(key) ?? beforeByKey.get(key);
+    if (!member) continue;
+
+    const effBefore = resolveConfigChain(
+      linearizeConfigDag(key, beforeByKey),
+    ).effectiveSchema;
+    // First-seen-wins resolution already models the post-cascade family: a
+    // member's own re-declaration of a root-owned key doesn't contribute here.
+    const effAfter = resolveConfigChain(
+      linearizeConfigDag(key, afterByKey),
+    ).effectiveSchema;
+    const declaredBefore = new Set(effBefore.map((f) => f.key));
+    const declaredAfter = new Set(effAfter.map((f) => f.key));
+    const removedKeys = [...declaredBefore].filter(
+      (k) => !declaredAfter.has(k),
+    );
+
+    const ownValue = parsePlainJSONObject(member.value ?? "") ?? {};
+    const ownKeys = Object.keys(ownValue).filter(
+      (k) => k !== CONSTANT_EXTENDS_KEY,
+    );
+
+    const orphanedKeys = ownKeys.filter(
+      (k) => declaredBefore.has(k) && !declaredAfter.has(k),
+    );
+
+    const incompatibleBefore = new Set(
+      ownKeys.length
+        ? findIncompatibleConfigValueKeys({
+            value: ownValue,
+            fields: effBefore,
+          })
+        : [],
+    );
+    const newlyIncompatibleKeys = (
+      ownKeys.length
+        ? findIncompatibleConfigValueKeys({ value: ownValue, fields: effAfter })
+        : []
+    ).filter((k) => !incompatibleBefore.has(k));
+
+    const conflictingBefore = new Set(
+      classifyAncestorOwnedFields(
+        member.schema,
+        getAncestorSchemaFieldOwners(member, beforeByKey),
+      ).conflicting.map((c) => c.key),
+    );
+    const conflictingStripKeys = classifyAncestorOwnedFields(
+      member.schema,
+      getAncestorSchemaFieldOwners(member, afterByKey),
+    )
+      .conflicting.map((c) => c.key)
+      .filter((k) => !conflictingBefore.has(k));
+
+    const removed = new Set(removedKeys);
+    const invariantRefs = (member.schema?.invariants ?? [])
+      .map((inv) => ({
+        name: inv.name,
+        keys: invariantRuleFields(inv.rule).filter((k) => removed.has(k)),
+      }))
+      .filter((r) => r.keys.length > 0);
+
+    if (
+      orphanedKeys.length ||
+      newlyIncompatibleKeys.length ||
+      conflictingStripKeys.length ||
+      invariantRefs.length
+    ) {
+      impacts.push({
+        configKey: key,
+        configName: member.name,
+        orphanedKeys,
+        newlyIncompatibleKeys,
+        conflictingStripKeys,
+        invariantRefs,
+      });
+    }
+  }
+  return impacts;
+}
+
+// Rules whose referenced top-level fields aren't declared by the effective
+// schema. A warning, never an error: extensible families accept undeclared
+// keys, and a base's rule may reference a field only its descendants declare.
+export function findUndeclaredInvariantRuleFields(
+  invariants: { name: string; rule: string }[] | undefined,
+  declaredKeys: Iterable<string>,
+): { name: string; keys: string[] }[] {
+  const declared = new Set(declaredKeys);
+  return (invariants ?? [])
+    .map((inv) => ({
+      name: inv.name,
+      keys: invariantRuleFields(inv.rule).filter((k) => !declared.has(k)),
+    }))
+    .filter((r) => r.keys.length > 0);
+}
+
+export function undeclaredRuleFieldWarnings(
+  undeclared: { name: string; keys: string[] }[],
+): SchemaWarning[] {
+  return undeclared.map((u) => ({
+    code: "undeclared-rule-field",
+    path: u.keys[0],
+    message:
+      `Validation rule "${u.name}" references undeclared field(s) ` +
+      `${u.keys.map((k) => `"${k}"`).join(", ")} — undeclared fields ` +
+      `evaluate as null when the rule runs.`,
+  }));
 }

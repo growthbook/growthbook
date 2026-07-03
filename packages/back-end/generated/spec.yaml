@@ -251,15 +251,18 @@ tags:
       TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves
       like a `json` constant, composed via `$extends`. Inheritance is expressed
       via `parent`, never an in-value `@config:` entry. Schema fields colliding
-      with a published ancestor's key are stripped ('base wins').
+      with a published ancestor's key follow 'base wins': identical
+      re-declarations are stripped with a warning, differing ones are rejected.
   - name: config-revisions
     x-displayName: Config Revisions
     description: >-
       Draft revisions for configs, including value and schema edits, schema
       import (JSON Schema / TypeScript / inferred), approvals, and lifecycle
       (publish, discard, revert). Publishing a schema change cascades the "base
-      wins" normalization to descendant configs. Pass `version: "new"` on edit
-      endpoints to auto-create a draft.
+      wins" normalization to descendant configs; a publish that removes or
+      retypes fields descendants still use soft-blocks with a 422 unless
+      `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to
+      auto-create a draft.
   - name: custom-hooks
     x-displayName: Custom Hooks
     description: >-
@@ -19338,6 +19341,14 @@ paths:
                     type: string
                   drift:
                     $ref: '#/components/schemas/drift'
+                  ancestorOwnedFields:
+                    description: >-
+                      Supplied fields an ancestor config already owns ("base
+                      wins"). Subtract these from `drift.contract` adds when
+                      round-tripping a full effective schema.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ancestorOwnedFields'
                   warnings:
                     type: array
                     items:
@@ -20092,6 +20103,10 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConfigRevision'
+                  warnings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConfigSchemaWarning'
                 required:
                   - revision
                 additionalProperties: false
@@ -20212,8 +20227,10 @@ paths:
         - `infer: true`: derive the schema from the draft's value.
 
 
-        Fields whose key a published ancestor already owns are stripped ("base
-        wins"). Pass `version: "new"` to auto-create a draft.
+        Fields whose key a published ancestor already owns follow "base wins":
+        an identical re-declaration is stripped with a `redundant-declaration`
+        warning; one with a differing definition is rejected. Pass `version:
+        "new"` to auto-create a draft.
       tags:
         - config-revisions
       parameters:
@@ -43719,6 +43736,8 @@ components:
             - non-object-root
             - unresolved-type
             - unsupported-member
+            - redundant-declaration
+            - undeclared-rule-field
         message:
           type: string
         path:
@@ -49416,6 +49435,16 @@ components:
                 type: array
                 items:
                   type: string
+              orphanedFields:
+                description: >-
+                  Own value keys the effective schema no longer declares (e.g.
+                  an ancestor removed the field). They still resolve and are
+                  served, but nothing validates them and validation rules read
+                  them as null; a non-extensible family rejects them on the next
+                  changing publish.
+                type: array
+                items:
+                  type: string
             required:
               - key
               - name
@@ -49589,6 +49618,31 @@ components:
             - contract
             - docs
           additionalProperties: false
+        ancestorOwnedFields:
+          description: >-
+            Supplied fields an ancestor config already owns ("base wins").
+            Subtract these from `drift.contract` adds when round-tripping a full
+            effective schema.
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              ownedBy:
+                description: Key of the ancestor config that owns the field.
+                type: string
+              identical:
+                description: >-
+                  True when the supplied definition matches the ancestor's
+                  contract — a save would strip it harmlessly (with a warning).
+                  False means a save would be rejected.
+                type: boolean
+            required:
+              - key
+              - ownedBy
+              - identical
+            additionalProperties: false
         warnings:
           type: array
           items:
@@ -49610,6 +49664,8 @@ components:
                 - non-object-root
                 - unresolved-type
                 - unsupported-member
+                - redundant-declaration
+                - undeclared-rule-field
             message:
               type: string
             path:
@@ -51689,6 +51745,15 @@ components:
           type: array
           items:
             type: string
+        orphanedFields:
+          description: >-
+            Own value keys the effective schema no longer declares (e.g. an
+            ancestor removed the field). They still resolve and are served, but
+            nothing validates them and validation rules read them as null; a
+            non-extensible family rejects them on the next changing publish.
+          type: array
+          items:
+            type: string
       required:
         - key
         - name
@@ -51743,6 +51808,25 @@ components:
       required:
         - contract
         - docs
+      additionalProperties: false
+    ancestorOwnedFields:
+      type: object
+      properties:
+        key:
+          type: string
+        ownedBy:
+          description: Key of the ancestor config that owns the field.
+          type: string
+        identical:
+          description: >-
+            True when the supplied definition matches the ancestor's contract —
+            a save would strip it harmlessly (with a warning). False means a
+            save would be rejected.
+          type: boolean
+      required:
+        - key
+        - ownedBy
+        - identical
       additionalProperties: false
     updatedMember:
       type: object

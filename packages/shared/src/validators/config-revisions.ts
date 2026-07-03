@@ -494,7 +494,9 @@ export const putConfigRevisionMetadataValidator = {
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  // Warnings channel: a lineage change can strip identical re-declarations of
+  // the new ancestors' fields from the staged schema ("base wins").
+  responseSchema: revisionResponseWithWarnings,
 };
 
 export const putConfigRevisionValueValidator = {
@@ -532,7 +534,7 @@ export const putConfigRevisionSchemaValidator = {
   operationId: "putConfigRevisionSchema",
   summary: "Update or import the schema of a config draft revision",
   description:
-    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a schema document — `{ type: "json-schema", value }` (a JSON Schema object) or `{ type: "typescript", value }` (TypeScript source). **JSON Schema is the recommended ("happy path") format** — it is the canonical pivot, preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so generator output with referenced types works). `typescript` is a best-effort convenience parser. All conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns are stripped ("base wins"). Pass `version: "new"` to auto-create a draft.',
+    'Stages this config\'s field schema on the draft. Provide exactly ONE source:\n- `schema`: a schema document — `{ type: "json-schema", value }` (a JSON Schema object) or `{ type: "typescript", value }` (TypeScript source). **JSON Schema is the recommended ("happy path") format** — it is the canonical pivot, preserves nested objects/arrays, and resolves local `$ref`/`$defs` (so generator output with referenced types works). `typescript` is a best-effort convenience parser. All conversions are lossy-by-design and degrade exotic constructs to permissive types WITH warnings (returned in `warnings`).\n- `infer: true`: derive the schema from the draft\'s value.\n\nFields whose key a published ancestor already owns follow "base wins": an identical re-declaration is stripped with a `redundant-declaration` warning; one with a differing definition is rejected. Pass `version: "new"` to auto-create a draft.',
   tags: ["config-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z

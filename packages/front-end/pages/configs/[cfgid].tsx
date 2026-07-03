@@ -608,6 +608,19 @@ export default function ConfigDetailPage(): React.ReactElement {
     );
   }, [data, displayedConfig]);
 
+  // Descendants the displayed draft would leave with orphaned (undeclared) or
+  // type-incompatible overrides — the lineage is computed draft-aware server-side,
+  // so this is pure collection. Above the loading guard for stable hook order.
+  const draftDescendantImpact = useMemo(() => {
+    if (!data || !displayedConfig) return [] as LineageNode[];
+    return data.lineage.filter(
+      (n) =>
+        n.key !== displayedConfig.key &&
+        ((n.orphanedFields?.length ?? 0) > 0 ||
+          (n.incompatibleFields?.length ?? 0) > 0),
+    );
+  }, [data, displayedConfig]);
+
   // Other family members whose effective rules fail against the displayed
   // (draft-aware) state. Above the loading guard for stable hook order.
   const familyInvariantViolations = useMemo(() => {
@@ -1300,6 +1313,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     archivedByKey={data.archivedByKey}
                     // Only this node's draft is merged into the tree, so flag only it.
                     draftKeys={isDraft ? { [config.key]: true } : undefined}
+                    extensible={effectiveExtensible}
                   />
                 </Box>
                 {canUpdate && (
@@ -1649,6 +1663,29 @@ export default function ConfigDetailPage(): React.ReactElement {
                             (base wins).
                           </Callout>
                         )}
+                        {isDraft && draftDescendantImpact.length > 0 && (
+                          <Callout status="warning" mt="3">
+                            These staged changes leave{" "}
+                            {draftDescendantImpact.length === 1
+                              ? "a descendant config"
+                              : `${draftDescendantImpact.length} descendant configs`}{" "}
+                            with overrides of removed or retyped fields:{" "}
+                            {draftDescendantImpact
+                              .map((n) => {
+                                const parts = [
+                                  ...(n.orphanedFields ?? []).map(
+                                    (k) => `"${k}" (no longer declared)`,
+                                  ),
+                                  ...(n.incompatibleFields ?? []).map(
+                                    (k) => `"${k}" (type mismatch)`,
+                                  ),
+                                ];
+                                return `${n.name} — ${parts.join(", ")}`;
+                              })
+                              .join(" · ")}
+                            . Publishing will warn before proceeding.
+                          </Callout>
+                        )}
                         {familyInvariantViolations.length > 0 && (
                           <Callout status="warning" mt="3">
                             {familyInvariantViolations.length === 1
@@ -1856,6 +1893,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <ConfigInvariantsEditor
                   invariants={ownSchema().invariants ?? []}
                   fieldKeys={resolved.fields.map((f) => f.key)}
+                  declaredKeys={resolved.effectiveSchema.map((f) => f.key)}
                   resolvedValue={invariantValue}
                   canEdit={canEditInline}
                   onChange={(next) =>

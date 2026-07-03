@@ -3,6 +3,8 @@ import {
   stripConfigExtends,
   parsePlainJSONObject,
   inferFieldsFromValue,
+  ancestorCollisionWarnings,
+  SchemaWarning,
 } from "shared/util";
 import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -46,6 +48,8 @@ export const putConfigRevisionValue = createApiRequestHandler(
   }
 
   assertValidConfigValueEdit(value);
+
+  const warnings: SchemaWarning[] = [];
 
   // Inheritance lives on `parent`; strip any `@config:` ref from the stored value.
   const strippedValue = stripConfigExtends(value);
@@ -92,6 +96,10 @@ export const putConfigRevisionValue = createApiRequestHandler(
 
     // Derive a schema from the value only when the draft has none, so a
     // value-first import gets typing; existing schemas are never overwritten here.
+    // Ancestor-owned collisions here warn instead of rejecting — even a
+    // contract-differing one: inferred fields are type GUESSES from the value,
+    // not user declarations, so a pure value write must never 400 because a
+    // guess differs from an ancestor's richer definition.
     if (
       inferSchemaIfMissing &&
       !draft.schema?.fields?.length &&
@@ -102,7 +110,7 @@ export const putConfigRevisionValue = createApiRequestHandler(
         type: "object",
         fields: inferFieldsFromValue(obj),
       };
-      fieldsToUpdate.schema =
+      const { schema, identical, conflicting } =
         await req.context.models.configs.normalizeSchemaAgainstAncestors(
           {
             key: config.key,
@@ -112,6 +120,10 @@ export const putConfigRevisionValue = createApiRequestHandler(
           },
           inferred,
         );
+      fieldsToUpdate.schema = schema;
+      warnings.push(
+        ...ancestorCollisionWarnings([...identical, ...conflicting]),
+      );
     }
 
     // Validate against the proposed (inferred) schema when this request sets one,
@@ -143,7 +155,10 @@ export const putConfigRevisionValue = createApiRequestHandler(
       created ? { type: "created" } : { type: "updated", change: "value" },
     );
 
-    return { revision: await toApiConfigRevision(updated, req.context) };
+    return {
+      revision: await toApiConfigRevision(updated, req.context),
+      ...(warnings.length ? { warnings } : {}),
+    };
   } catch (err) {
     await discardIfJustCreated(req.context, revision, created);
     throw err;

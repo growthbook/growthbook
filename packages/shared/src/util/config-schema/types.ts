@@ -12,7 +12,13 @@ export type SchemaWarningCode =
   // A named/union/exotic type couldn't be resolved and collapsed to `any`.
   | "unresolved-type"
   // A member couldn't be understood and was skipped (index sigs, junk).
-  | "unsupported-member";
+  | "unsupported-member"
+  // A contract-identical re-declaration of an ancestor-owned field was
+  // stripped ("base wins"). Contract-DIFFERING re-declarations reject instead.
+  | "redundant-declaration"
+  // An invariant rule references a field the effective schema doesn't declare;
+  // the path evaluates as null at rule time.
+  | "undeclared-rule-field";
 
 export type SchemaWarning = {
   code: SchemaWarningCode;

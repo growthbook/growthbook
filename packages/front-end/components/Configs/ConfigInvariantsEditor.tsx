@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { PiXBold } from "react-icons/pi";
-import { evaluateInvariants, describeInvariantRule } from "shared/util";
+import {
+  evaluateInvariants,
+  describeInvariantRule,
+  invariantRuleFields,
+} from "shared/util";
 import type { ConfigInvariant } from "shared/util";
 import {
   ConditionRow,
@@ -23,8 +27,13 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 type Props = {
   invariants: ConfigInvariant[];
-  // Field keys available to reference in rules (effective schema).
+  // Field keys available to reference in rules (effective schema fields plus
+  // stray value keys, so existing rules stay representable).
   fieldKeys: string[];
+  // Keys the effective SCHEMA declares. A rule referencing anything else gets
+  // an inline "reads as null" hint (undeclared fields resolve to null at
+  // evaluation time — usually a typo or a field an ancestor removed).
+  declaredKeys?: string[];
   // The resolved (inherited+own) value, for live pass/fail feedback.
   resolvedValue: Record<string, unknown>;
   canEdit: boolean;
@@ -331,6 +340,7 @@ function safeParse(text: string): Record<string, unknown> | null {
 export default function ConfigInvariantsEditor({
   invariants,
   fieldKeys,
+  declaredKeys,
   resolvedValue,
   canEdit,
   onChange,
@@ -487,6 +497,15 @@ export default function ConfigInvariantsEditor({
         { name, rule: JSON.stringify(currentRule), message },
       ]).length > 0
     : null;
+
+  const undeclaredIn = (ruleJson: string): string[] => {
+    if (!declaredKeys) return [];
+    const declared = new Set(declaredKeys);
+    return invariantRuleFields(ruleJson).filter((k) => !declared.has(k));
+  };
+  const previewUndeclared = currentRule
+    ? undeclaredIn(JSON.stringify(currentRule))
+    : [];
 
   const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
 
@@ -728,6 +747,16 @@ export default function ConfigInvariantsEditor({
                 : "Current value passes this rule"
             }
           />
+          {previewUndeclared.length > 0 && (
+            <Text as="div" size="small" color="text-low" mt="1">
+              References undeclared field
+              {previewUndeclared.length === 1 ? "" : "s"}{" "}
+              {previewUndeclared.map((k) => `"${k}"`).join(", ")} — the schema
+              doesn&apos;t declare{" "}
+              {previewUndeclared.length === 1 ? "it" : "them"}, so the rule
+              reads null there (check for a typo).
+            </Text>
+          )}
         </Box>
       )}
     </>
@@ -802,6 +831,16 @@ export default function ConfigInvariantsEditor({
           >
             {describeInvariantRule(iv.rule)}
           </Box>
+          {undeclaredIn(iv.rule).length > 0 && (
+            <Text as="div" size="small" color="text-low" mt="1">
+              References undeclared field
+              {undeclaredIn(iv.rule).length === 1 ? "" : "s"}{" "}
+              {undeclaredIn(iv.rule)
+                .map((k) => `"${k}"`)
+                .join(", ")}{" "}
+              — undeclared fields evaluate as null.
+            </Text>
+          )}
           <Text as="div" size="small" color="text-low" mt="1">
             {iv.message}
           </Text>

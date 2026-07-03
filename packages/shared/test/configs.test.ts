@@ -24,7 +24,17 @@ import {
   computeConfigReconciliationPreview,
   isConfigLocked,
   ConfigChainNode,
+  getAncestorSchemaFieldOwners,
+  classifyAncestorOwnedFields,
+  formatAncestorFieldConflictMessage,
+  ancestorCollisionWarnings,
+  findOrphanedConfigValueKeys,
+  computeConfigSchemaChangeImpact,
+  ConfigFamilyMember,
+  findUndeclaredInvariantRuleFields,
+  undeclaredRuleFieldWarnings,
 } from "../src/util/configs";
+import { fieldsContractEqual } from "../src/util/config-schema";
 import { SimpleSchema, SchemaField } from "../types/feature";
 
 const field = (key: string): SchemaField => ({
@@ -1029,5 +1039,452 @@ describe("collectDescendantInvariantViolations", () => {
       { key: "child", parent: "base", value: '{"x":2}' },
     ]);
     expect(collectDescendantInvariantViolations("base", byKey)).toEqual([]);
+  });
+});
+
+describe("fieldsContractEqual", () => {
+  const base: SchemaField = {
+    key: "count",
+    type: "integer",
+    required: true,
+    default: "1",
+    description: "how many",
+    enum: [],
+  };
+
+  it("ignores description differences", () => {
+    expect(
+      fieldsContractEqual(base, { ...base, description: "different docs" }),
+    ).toBe(true);
+  });
+
+  it("treats a redundant nullable:false as equal to absent", () => {
+    expect(fieldsContractEqual(base, { ...base, nullable: false })).toBe(true);
+  });
+
+  it("distinguishes every contract property", () => {
+    expect(fieldsContractEqual(base, { ...base, type: "float" })).toBe(false);
+    expect(fieldsContractEqual(base, { ...base, required: false })).toBe(false);
+    expect(fieldsContractEqual(base, { ...base, default: "2" })).toBe(false);
+    expect(fieldsContractEqual(base, { ...base, enum: ["1", "2"] })).toBe(
+      false,
+    );
+    expect(fieldsContractEqual(base, { ...base, min: 0 })).toBe(false);
+    expect(fieldsContractEqual(base, { ...base, max: 10 })).toBe(false);
+    expect(fieldsContractEqual(base, { ...base, nullable: true })).toBe(false);
+    expect(
+      fieldsContractEqual(base, { ...base, jsonSchema: '{"type":"string"}' }),
+    ).toBe(false);
+  });
+});
+
+describe("getAncestorSchemaFieldOwners", () => {
+  type Node = {
+    parent?: string;
+    extends?: string[];
+    schema?: SimpleSchema;
+  };
+  const map = (entries: Record<string, Node>) =>
+    new Map(Object.entries(entries));
+
+  it("maps each inherited field to its declaring ancestor with the definition", () => {
+    const byKey = map({
+      root: { schema: objSchema("a") },
+      mid: { parent: "root", schema: objSchema("b") },
+    });
+    const owners = getAncestorSchemaFieldOwners({ parent: "mid" }, byKey);
+    expect(owners.get("a")).toEqual({ owner: "root", field: field("a") });
+    expect(owners.get("b")).toEqual({ owner: "mid", field: field("b") });
+    expect(owners.size).toBe(2);
+  });
+
+  it("prefers the closest ancestor on a transient duplicate (BFS order)", () => {
+    const conflicting: SchemaField = { ...field("a"), type: "boolean" };
+    const byKey = map({
+      root: { schema: objSchema("a") },
+      mid: {
+        parent: "root",
+        schema: { type: "object", fields: [conflicting] },
+      },
+    });
+    const owners = getAncestorSchemaFieldOwners({ parent: "mid" }, byKey);
+    expect(owners.get("a")).toEqual({ owner: "mid", field: conflicting });
+  });
+
+  it("walks extends mixins and dedupes a diamond base", () => {
+    const byKey = map({
+      shared: { schema: objSchema("s") },
+      left: { parent: "shared", schema: objSchema("l") },
+      right: { parent: "shared", schema: objSchema("r") },
+    });
+    const owners = getAncestorSchemaFieldOwners(
+      { parent: "left", extends: ["right"] },
+      byKey,
+    );
+    expect([...owners.keys()].sort()).toEqual(["l", "r", "s"]);
+    expect(owners.get("s")?.owner).toBe("shared");
+  });
+
+  it("is cycle-safe and skips dangling bases", () => {
+    const byKey = map({
+      a: { parent: "b", schema: objSchema("x") },
+      b: { parent: "a", schema: objSchema("y") },
+    });
+    const owners = getAncestorSchemaFieldOwners(
+      { parent: "a", extends: ["missing"] },
+      byKey,
+    );
+    expect([...owners.keys()].sort()).toEqual(["x", "y"]);
+  });
+});
+
+describe("classifyAncestorOwnedFields", () => {
+  const owners = new Map([
+    ["a", { owner: "base", field: field("a") }],
+    ["b", { owner: "base", field: field("b") }],
+  ]);
+
+  it("returns kept:null and empty buckets when nothing collides", () => {
+    expect(classifyAncestorOwnedFields(objSchema("own"), owners)).toEqual({
+      kept: null,
+      identical: [],
+      conflicting: [],
+    });
+    expect(classifyAncestorOwnedFields(undefined, owners)).toEqual({
+      kept: null,
+      identical: [],
+      conflicting: [],
+    });
+  });
+
+  it("splits identical vs conflicting re-declarations and strips both", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        field("a"), // identical to the owner's
+        { ...field("b"), type: "integer" }, // contract differs
+        field("own"),
+      ],
+    };
+    expect(classifyAncestorOwnedFields(schema, owners)).toEqual({
+      kept: [field("own")],
+      identical: [{ key: "a", owner: "base" }],
+      conflicting: [{ key: "b", owner: "base" }],
+    });
+  });
+
+  it("treats a description-only difference as identical", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [{ ...field("a"), description: "my own words" }],
+    };
+    const out = classifyAncestorOwnedFields(schema, owners);
+    expect(out.identical).toEqual([{ key: "a", owner: "base" }]);
+    expect(out.conflicting).toEqual([]);
+    expect(out.kept).toEqual([]);
+  });
+});
+
+describe("ancestor collision messages", () => {
+  it("names each conflicting field and its owning ancestor", () => {
+    const msg = formatAncestorFieldConflictMessage([
+      { key: "timeout", owner: "base" },
+      { key: "retries", owner: "net-defaults" },
+    ]);
+    expect(msg).toContain('"timeout" (owned by "base")');
+    expect(msg).toContain('"retries" (owned by "net-defaults")');
+    expect(msg).toContain("override a field's value but not its schema");
+  });
+
+  it("emits a redundant-declaration warning per identical strip", () => {
+    expect(ancestorCollisionWarnings([{ key: "a", owner: "base" }])).toEqual([
+      {
+        code: "redundant-declaration",
+        path: "a",
+        message: expect.stringContaining('re-declares ancestor config "base"'),
+      },
+    ]);
+  });
+});
+
+describe("findOrphanedConfigValueKeys", () => {
+  it("returns own keys the effective schema does not declare", () => {
+    expect(
+      findOrphanedConfigValueKeys({
+        value: { a: 1, gone: 2 },
+        fields: [field("a")],
+      }),
+    ).toEqual(["gone"]);
+  });
+
+  it("skips the $extends directive", () => {
+    expect(
+      findOrphanedConfigValueKeys({
+        value: { $extends: ["@const:x"], gone: 2 },
+        fields: [field("a")],
+      }),
+    ).toEqual(["gone"]);
+  });
+
+  it("returns [] for a schema-less (value-first) family", () => {
+    expect(
+      findOrphanedConfigValueKeys({ value: { a: 1 }, fields: [] }),
+    ).toEqual([]);
+  });
+
+  it("counts reference-backed values (declaration, not type, is what matters)", () => {
+    expect(
+      findOrphanedConfigValueKeys({
+        value: { gone: "{{ @const:n }}" },
+        fields: [field("a")],
+      }),
+    ).toEqual(["gone"]);
+  });
+});
+
+describe("computeConfigSchemaChangeImpact", () => {
+  const optInt = (key: string): SchemaField => ({
+    key,
+    type: "integer",
+    required: false,
+    default: "",
+    description: "",
+    enum: [],
+  });
+  const optStr = (key: string): SchemaField => ({
+    key,
+    type: "string",
+    required: false,
+    default: "",
+    description: "",
+    enum: [],
+  });
+  const schemaOf = (...fields: SchemaField[]): SimpleSchema => ({
+    type: "object",
+    fields,
+  });
+  const impact = (
+    rootKey: string,
+    before: ConfigFamilyMember[],
+    proposedRoot: ConfigFamilyMember,
+  ) =>
+    computeConfigSchemaChangeImpact({
+      rootKey,
+      before,
+      after: before.map((c) => (c.key === rootKey ? proposedRoot : c)),
+    });
+
+  it("reports a removed field only on descendants that override it", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a"), optInt("b")) },
+      { key: "child", parent: "base", value: '{"b":2}' },
+      { key: "bystander", parent: "base", value: '{"a":1}' },
+    ];
+    expect(
+      impact("base", before, { key: "base", schema: schemaOf(optInt("a")) }),
+    ).toEqual([
+      {
+        configKey: "child",
+        configName: undefined,
+        orphanedKeys: ["b"],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: [],
+        invariantRefs: [],
+      },
+    ]);
+  });
+
+  it("reports a retype as newly-incompatible, excluding pre-existing mismatches", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a"), optStr("b")) },
+      // `a` is ALREADY incompatible before the change; `b` becomes so after.
+      { key: "child", parent: "base", value: '{"a":"nope","b":"text"}' },
+    ];
+    expect(
+      impact("base", before, {
+        key: "base",
+        schema: schemaOf(optInt("a"), optInt("b")),
+      }),
+    ).toEqual([
+      {
+        configKey: "child",
+        configName: undefined,
+        orphanedKeys: [],
+        newlyIncompatibleKeys: ["b"],
+        conflictingStripKeys: [],
+        invariantRefs: [],
+      },
+    ]);
+  });
+
+  it("reports a destructive add (cascade would drop a differing declaration)", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a")) },
+      { key: "child", parent: "base", schema: schemaOf(optStr("c")) },
+    ];
+    expect(
+      impact("base", before, {
+        key: "base",
+        schema: schemaOf(optInt("a"), optInt("c")),
+      }),
+    ).toEqual([
+      {
+        configKey: "child",
+        configName: undefined,
+        orphanedKeys: [],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: ["c"],
+        invariantRefs: [],
+      },
+    ]);
+  });
+
+  it("does NOT report a contract-identical add (lossless strip)", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a")) },
+      { key: "child", parent: "base", schema: schemaOf(optInt("c")) },
+    ];
+    expect(
+      impact("base", before, {
+        key: "base",
+        schema: schemaOf(optInt("a"), optInt("c")),
+      }),
+    ).toEqual([]);
+  });
+
+  it("reports descendant rules referencing a removed field", () => {
+    const rule = JSON.stringify({ b: { $lte: { $ref: "a" } } });
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a"), optInt("b")) },
+      {
+        key: "child",
+        parent: "base",
+        name: "Child",
+        schema: {
+          type: "object",
+          fields: [],
+          invariants: [{ name: "order", rule, message: "b <= a" }],
+        },
+      },
+    ];
+    expect(
+      impact("base", before, { key: "base", schema: schemaOf(optInt("b")) }),
+    ).toEqual([
+      {
+        configKey: "child",
+        configName: "Child",
+        orphanedKeys: [],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: [],
+        invariantRefs: [{ name: "order", keys: ["a"] }],
+      },
+    ]);
+  });
+
+  it("reports orphans introduced by a lineage change (re-parent)", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "baseA", schema: schemaOf(optInt("x")) },
+      { key: "baseB", schema: schemaOf(optInt("y")) },
+      { key: "mid", parent: "baseA" },
+      { key: "leaf", parent: "mid", value: '{"x":1}' },
+    ];
+    expect(impact("mid", before, { key: "mid", parent: "baseB" })).toEqual([
+      {
+        configKey: "leaf",
+        configName: undefined,
+        orphanedKeys: ["x"],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: [],
+        invariantRefs: [],
+      },
+    ]);
+  });
+
+  it("includes archived descendants (their values still resolve)", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a")) },
+      { key: "child", parent: "base", value: '{"a":1}', archived: true },
+    ];
+    expect(impact("base", before, { key: "base", schema: schemaOf() })).toEqual(
+      [
+        {
+          configKey: "child",
+          configName: undefined,
+          orphanedKeys: ["a"],
+          newlyIncompatibleKeys: [],
+          conflictingStripKeys: [],
+          invariantRefs: [],
+        },
+      ],
+    );
+  });
+
+  it("returns [] for a purely additive change", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a")) },
+      { key: "child", parent: "base", value: '{"a":1}' },
+    ];
+    expect(
+      impact("base", before, {
+        key: "base",
+        schema: schemaOf(optInt("a"), optInt("z")),
+      }),
+    ).toEqual([]);
+  });
+
+  it("walks extends edges, reporting mixin composers too", () => {
+    const before: ConfigFamilyMember[] = [
+      { key: "mixin", schema: schemaOf(optInt("m")) },
+      { key: "composer", extends: ["mixin"], value: '{"m":3}' },
+    ];
+    expect(
+      impact("mixin", before, { key: "mixin", schema: schemaOf() }),
+    ).toEqual([
+      {
+        configKey: "composer",
+        configName: undefined,
+        orphanedKeys: ["m"],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: [],
+        invariantRefs: [],
+      },
+    ]);
+  });
+});
+
+describe("findUndeclaredInvariantRuleFields", () => {
+  const rules = [
+    {
+      name: "order",
+      rule: JSON.stringify({ min: { $lte: { $ref: "max" } } }),
+    },
+    { name: "flag", rule: JSON.stringify({ enabled: true }) },
+  ];
+
+  it("reports rule fields (LHS and $ref) the schema does not declare", () => {
+    expect(
+      findUndeclaredInvariantRuleFields(rules, ["min", "enabled"]),
+    ).toEqual([{ name: "order", keys: ["max"] }]);
+  });
+
+  it("returns [] when every referenced field is declared", () => {
+    expect(
+      findUndeclaredInvariantRuleFields(rules, ["min", "max", "enabled"]),
+    ).toEqual([]);
+    expect(findUndeclaredInvariantRuleFields(undefined, [])).toEqual([]);
+  });
+
+  it("formats a warning naming the rule and its undeclared fields", () => {
+    expect(
+      undeclaredRuleFieldWarnings([{ name: "order", keys: ["max", "mn"] }]),
+    ).toEqual([
+      {
+        code: "undeclared-rule-field",
+        path: "max",
+        message: expect.stringContaining(
+          'Validation rule "order" references undeclared field(s) "max", "mn"',
+        ),
+      },
+    ]);
   });
 });

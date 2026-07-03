@@ -227,6 +227,8 @@ export const apiSchemaWarningValidator = namedSchema(
         "non-object-root",
         "unresolved-type",
         "unsupported-member",
+        "redundant-declaration",
+        "undeclared-rule-field",
       ]),
       message: z.string(),
       path: z.string().optional(),
@@ -400,7 +402,7 @@ const postConfigApiBody = z
     owner: optionalOwnerInputField,
     schema: configSchemaSourceValidator
       .describe(
-        'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns are stripped on create (\'base wins\'); a field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
+        'Field definitions for this config, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`) — converted server-side in one call. Fields whose key an ancestor (via `parent`/`extends`) already owns follow "base wins": an identical re-declaration is stripped with a `redundant-declaration` warning; one with a differing definition is rejected. A field owned by two sibling bases is a conflict and is rejected. Omit to leave the config schema-less. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     source: z
@@ -445,7 +447,7 @@ const updateConfigApiBody = z
     owner: ownerInputField.optional(),
     schema: configSchemaSourceValidator
       .describe(
-        'Replace this config\'s field definitions, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`). Fields colliding with a published ancestor\'s key are stripped (\'base wins\'). A schema change cascades the \'base wins\' normalization to descendants when published. Conversion warnings are returned in `warnings`.',
+        'Replace this config\'s field definitions, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`). Fields whose key a published ancestor already owns follow "base wins": an identical re-declaration is stripped with a `redundant-declaration` warning; one with a differing definition is rejected. A schema change cascades the \'base wins\' normalization to descendants when published; a change that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     source: z
@@ -540,6 +542,12 @@ const apiConfigLineageNodeValidator = z
         "Own value keys whose value no longer conforms to the effective (inherited) field type and must be fixed. Empty when all conform.",
       )
       .optional(),
+    orphanedFields: z
+      .array(z.string())
+      .describe(
+        "Own value keys the effective schema no longer declares (e.g. an ancestor removed the field). They still resolve and are served, but nothing validates them and validation rules read them as null; a non-extensible family rejects them on the next changing publish.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -625,6 +633,26 @@ const apiConfigSchemaVerifyValidator = namedSchema(
         .strict()
         .optional()
         .describe("Present only when `inSync` is false."),
+      ancestorOwnedFields: z
+        .array(
+          z
+            .object({
+              key: z.string(),
+              ownedBy: z
+                .string()
+                .describe("Key of the ancestor config that owns the field."),
+              identical: z
+                .boolean()
+                .describe(
+                  "True when the supplied definition matches the ancestor's contract — a save would strip it harmlessly (with a warning). False means a save would be rejected.",
+                ),
+            })
+            .strict(),
+        )
+        .optional()
+        .describe(
+          'Supplied fields an ancestor config already owns ("base wins"). Subtract these from `drift.contract` adds when round-tripping a full effective schema.',
+        ),
       warnings: z.array(apiSchemaWarningValidator).optional(),
     })
     .strict(),

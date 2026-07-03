@@ -5,6 +5,7 @@ import {
   constantRequiresReview,
   constantResetReviewOnChange,
   constantAutopublishOnApproval,
+  formatAncestorFieldConflictMessage,
 } from "shared/util";
 import {
   configValidator,
@@ -15,12 +16,15 @@ import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdap
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
+  assertConfigSchemaChangeSafeForDescendants,
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigInvariantsValid,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { BadRequestError } from "back-end/src/util/errors";
+import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
@@ -158,52 +162,45 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
     if (Object.keys(filteredChanges).length === 0) return;
 
-    // Publish-time "base wins" reconciliation: strip any field this config
-    // declares whose key a published ancestor now owns (ancestors may have
-    // changed since the draft was authored), then apply. A lineage change
-    // (parent/extends) shifts which keys the bases own, so re-normalize the
-    // config's own schema even when this revision didn't touch `schema`.
-    const lineageChanged =
-      filteredChanges.parent !== undefined || "extends" in filteredChanges;
-    const schemaToNormalize =
-      (filteredChanges.schema as ConfigInterface["schema"]) ?? entity.schema;
-    if ((filteredChanges.schema || lineageChanged) && schemaToNormalize) {
-      const normalized =
-        await context.models.configs.normalizeSchemaAgainstAncestors(
-          {
-            key: entity.key,
-            parent:
-              (filteredChanges.parent as string | undefined) ?? entity.parent,
-            extends:
-              "extends" in filteredChanges
-                ? (filteredChanges.extends as string[] | undefined)
-                : entity.extends,
-            value:
-              (filteredChanges.value as string | undefined) ?? entity.value,
-          },
-          schemaToNormalize,
-        );
-      // Compare against the schema we were about to apply (the revision's schema
-      // or the entity's), not `entity.schema`: a normalized form of a freshly
-      // staged schema must still be written.
-      if (!isEqual(normalized, schemaToNormalize)) {
-        filteredChanges.schema = normalized;
-      }
+    // Publish-time "base wins" reconciliation: strip any contract-identical
+    // field this config declares whose key a published ancestor now owns
+    // (ancestors may have changed since the draft was authored); a
+    // contract-DIFFERING re-declaration is rejected instead — its intent can't
+    // be preserved by a strip. A lineage change (parent/extends) shifts which
+    // keys the bases own, so the config's own schema is re-normalized even
+    // when this revision didn't touch `schema`.
+    const { changes: normalizedChanges, conflicting } =
+      await normalizeConfigChangesAgainstAncestors(
+        entity,
+        filteredChanges,
+        (config, schema) =>
+          context.models.configs.normalizeSchemaAgainstAncestors(
+            config,
+            schema,
+          ),
+      );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
+      );
     }
 
     const touchesLineageOrSchema =
-      filteredChanges.schema !== undefined ||
-      filteredChanges.parent !== undefined ||
-      "extends" in filteredChanges;
+      normalizedChanges.schema !== undefined ||
+      normalizedChanges.parent !== undefined ||
+      "extends" in normalizedChanges;
 
     // Dry run BEFORE the write: reject a publish that would create an
     // unresolvable sibling conflict at a descendant, so nothing is persisted
-    // (vs. committing the root and then throwing from the post-write cascade).
+    // (vs. committing the root and then throwing from the post-write cascade),
+    // then soft-warn when the change removes/retypes fields descendants use.
     if (touchesLineageOrSchema) {
-      await assertConfigDescendantsReconcilable(context, {
+      const proposedRoot = {
         ...entity,
-        ...filteredChanges,
-      } as ConfigInterface);
+        ...normalizedChanges,
+      } as ConfigInterface;
+      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
     }
 
     // Enforce cross-field invariants here — the chokepoint every publish path
@@ -214,22 +211,23 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       {
         key: entity.key,
         name: entity.name,
-        value: (filteredChanges.value as string | undefined) ?? entity.value,
+        value: (normalizedChanges.value as string | undefined) ?? entity.value,
         schema:
-          (filteredChanges.schema as ConfigInterface["schema"]) ??
+          (normalizedChanges.schema as ConfigInterface["schema"]) ??
           entity.schema,
-        parent: (filteredChanges.parent as string | undefined) ?? entity.parent,
+        parent:
+          (normalizedChanges.parent as string | undefined) ?? entity.parent,
         extends:
-          "extends" in filteredChanges
-            ? (filteredChanges.extends as string[] | undefined)
+          "extends" in normalizedChanges
+            ? (normalizedChanges.extends as string[] | undefined)
             : entity.extends,
       },
-      (filteredChanges.value as string | undefined) ?? entity.value,
+      (normalizedChanges.value as string | undefined) ?? entity.value,
     );
 
     await context.models.configs.update(
       entity,
-      filteredChanges as Parameters<typeof context.models.configs.update>[1],
+      normalizedChanges as Parameters<typeof context.models.configs.update>[1],
     );
 
     // Cascade the change down to descendants when the schema or lineage changed.
@@ -266,20 +264,42 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     }
     if (Object.keys(filteredChanges).length === 0) return;
 
+    // Normalize BEFORE the descendant dry-run (otherwise it sees an
+    // un-normalized root that still declares an ancestor-owned key and reports
+    // a spurious sibling conflict at a composing descendant), rejecting
+    // contract-differing re-declarations pre-merge like applyChanges does.
+    const { changes: normalizedChanges, conflicting } =
+      await normalizeConfigChangesAgainstAncestors(
+        entity,
+        filteredChanges,
+        (config, schema) =>
+          context.models.configs.normalizeSchemaAgainstAncestors(
+            config,
+            schema,
+          ),
+      );
+    if (conflicting.length) {
+      throw new BadRequestError(
+        formatAncestorFieldConflictMessage(conflicting),
+      );
+    }
+
     const touchesLineageOrSchema =
-      filteredChanges.schema !== undefined ||
-      filteredChanges.parent !== undefined ||
-      "extends" in filteredChanges;
+      normalizedChanges.schema !== undefined ||
+      normalizedChanges.parent !== undefined ||
+      "extends" in normalizedChanges;
 
     if (touchesLineageOrSchema) {
-      await assertConfigDescendantsReconcilable(context, {
+      const proposedRoot = {
         ...entity,
-        ...filteredChanges,
-      } as ConfigInterface);
+        ...normalizedChanges,
+      } as ConfigInterface;
+      await assertConfigDescendantsReconcilable(context, proposedRoot);
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
     }
 
     const postValue =
-      (filteredChanges.value as string | undefined) ?? entity.value;
+      (normalizedChanges.value as string | undefined) ?? entity.value;
     await assertConfigValueValidForPublish(
       context,
       {
@@ -287,12 +307,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         name: entity.name,
         value: postValue,
         schema:
-          (filteredChanges.schema as ConfigInterface["schema"]) ??
+          (normalizedChanges.schema as ConfigInterface["schema"]) ??
           entity.schema,
-        parent: (filteredChanges.parent as string | undefined) ?? entity.parent,
+        parent:
+          (normalizedChanges.parent as string | undefined) ?? entity.parent,
         extends:
-          "extends" in filteredChanges
-            ? (filteredChanges.extends as string[] | undefined)
+          "extends" in normalizedChanges
+            ? (normalizedChanges.extends as string[] | undefined)
             : entity.extends,
         extensible: entity.extensible,
       },
