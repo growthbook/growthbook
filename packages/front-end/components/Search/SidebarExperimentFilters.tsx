@@ -10,6 +10,7 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
+  filterToString,
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
@@ -49,18 +50,6 @@ type FilterCategory = {
   heading: string;
   items: SearchFiltersItem[];
 };
-
-// Rebuild a `field:[!][op]value1,value2` token from a parsed filter, matching
-// the serialization in useSearchFiltersBase so free-text edits preserve tokens.
-function filterToToken(filter: SyntaxFilter): string {
-  return (
-    filter.field +
-    ":" +
-    (filter.negated ? "!" : "") +
-    filter.operator +
-    filter.values.map((v) => (v.includes(" ") ? '"' + v + '"' : v)).join(",")
-  );
-}
 
 interface Props {
   searchValue: string;
@@ -189,7 +178,7 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   const handleFreeTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
-    const tokens = syntaxFilters.map(filterToToken).join(" ");
+    const tokens = syntaxFilters.map(filterToString).join(" ");
     setSearchValue(tokens ? (text ? `${tokens} ${text}` : tokens) : text);
   };
 
@@ -197,7 +186,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   const removeFilter = (filter: SyntaxFilter) => {
     const tokens = syntaxFilters
       .filter((f) => f !== filter)
-      .map(filterToToken)
+      .map(filterToString)
       .join(" ");
     setSearchValue(
       tokens ? (searchTerm ? `${tokens} ${searchTerm}` : tokens) : searchTerm,

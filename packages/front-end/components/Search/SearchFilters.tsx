@@ -22,6 +22,19 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 const USE_SEARCH_BOX = true;
 
+// Serialize a parsed filter back into `field:[!][op]v1,v2` search-string syntax.
+// Exported so other filter UIs (e.g. SidebarExperimentFilters) reuse the same
+// round-trip format instead of re-implementing it.
+export function filterToString(filter: SyntaxFilter): string {
+  return (
+    filter.field +
+    ":" +
+    (filter.negated ? "!" : "") +
+    filter.operator +
+    filter.values.map((v) => (v.includes(" ") ? '"' + v + '"' : v)).join(",")
+  );
+}
+
 // Common interfaces
 export interface SearchFiltersItem {
   id: string;
@@ -249,20 +262,6 @@ export const useSearchFiltersBase = ({
   const [dropdownFilterOpen, setDropdownFilterOpen] = useState("");
   const { projects, project } = useDefinitions();
 
-  const filterToString = useCallback((filter: SyntaxFilter) => {
-    return (
-      filter.field +
-      ":" +
-      (filter.negated ? "!" : "") +
-      filter.operator +
-      filter.values
-        .map((v) => {
-          return v.includes(" ") ? '"' + v + '"' : v;
-        })
-        .join(",")
-    );
-  }, []);
-
   const addFilterToSearch = useCallback(
     (filter: SyntaxFilter) => {
       const term = filterToString(filter);
@@ -273,7 +272,7 @@ export const useSearchFiltersBase = ({
         ).trim(),
       );
     },
-    [filterToString, searchInputProps.value, setSearchValue],
+    [searchInputProps.value, setSearchValue],
   );
 
   const updateFilterToSearch = useCallback(
@@ -287,7 +286,7 @@ export const useSearchFiltersBase = ({
       );
       setSearchValue(newValue.trim());
     },
-    [filterToString, searchInputProps, setSearchValue],
+    [searchInputProps, setSearchValue],
   );
 
   const removeFilterToSearch = useCallback(
