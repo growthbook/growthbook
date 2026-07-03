@@ -17,7 +17,6 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -161,16 +160,18 @@ export default function AnalysisSettings({
           </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
-            <Button variant="ghost" onClick={() => setAnalysisModal(true)}>
-              Edit
-            </Button>
+            <Link onClick={() => setAnalysisModal(true)}>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           ) : null}
         </div>
 
         {!isPublic && (
           <div className="row">
             <div className="col-4 mb-4">
-              <div className="h5">Data Source</div>
+              <Text color="text-high" weight="semibold">
+                Data Source
+              </Text>
               <div>
                 <Text color="text-mid">
                   {datasource ? datasource.name : "--"}
@@ -179,7 +180,9 @@ export default function AnalysisSettings({
             </div>
 
             <div className="col-4 mb-4">
-              <div className="h5">Experiment Assignment Table</div>
+              <Text color="text-high" weight="semibold">
+                Experiment Assignment Table
+              </Text>
               <div>
                 <Text color="text-mid">
                   {assignmentQuery ? assignmentQuery.name : "--"}
@@ -189,7 +192,9 @@ export default function AnalysisSettings({
 
             {experiment.activationMetric && (
               <div className="col-4 mb-4">
-                <div className="h5">Activation Metric</div>
+                <Text color="text-high" weight="semibold">
+                  Activation Metric
+                </Text>
                 <div>
                   <Text color="text-mid">
                     {getExperimentMetricById(experiment.activationMetric)?.name}
@@ -199,7 +204,9 @@ export default function AnalysisSettings({
             )}
             {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
-                <div className="h5">Segment</div>
+                <Text color="text-high" weight="semibold">
+                  Segment
+                </Text>
                 <div>
                   <Text color="text-mid">
                     {experiment.segment
@@ -214,9 +221,9 @@ export default function AnalysisSettings({
 
         <div className="row mt-4">
           <div className="col-4 mb-4">
-            <div className="h5">
+            <Text color="text-high" weight="semibold">
               {!isBandit ? "Goal Metrics" : "Decision Metric"}
-            </div>
+            </Text>
             <div>
               {goalsWithTargetMDE.length ? (
                 <ul className="list-unstyled mb-0">
@@ -256,7 +263,9 @@ export default function AnalysisSettings({
           </div>
 
           <div className="col-4">
-            <div className="h5">Secondary Metrics</div>
+            <Text color="text-high" weight="semibold">
+              Secondary Metrics
+            </Text>
             <div>
               {secondary.length ? (
                 <ul className="list-unstyled mb-0">
@@ -273,7 +282,9 @@ export default function AnalysisSettings({
           </div>
           {!isHoldout && (
             <div className="col-4">
-              <div className="h5">Guardrail Metrics</div>
+              <Text color="text-high" weight="semibold">
+                Guardrail Metrics
+              </Text>
               <div>
                 {guardrails.length ? (
                   <ul className="list-unstyled mb-0">
@@ -295,7 +306,9 @@ export default function AnalysisSettings({
         {isBandit && (
           <div className="row mt-4">
             <div className="col-4">
-              <div className="h5">Exploratory Stage</div>
+              <Text color="text-high" weight="semibold">
+                Exploratory Stage
+              </Text>
               <div>
                 <Text color="text-mid">
                   {experiment.banditBurnInValue ?? 1}{" "}
@@ -308,7 +321,9 @@ export default function AnalysisSettings({
             </div>
 
             <div className="col-4">
-              <div className="h5">Update Cadence</div>
+              <Text color="text-high" weight="semibold">
+                Update Cadence
+              </Text>
               <div>
                 <Text color="text-mid">
                   Every {experiment.banditScheduleValue ?? 1}{" "}
