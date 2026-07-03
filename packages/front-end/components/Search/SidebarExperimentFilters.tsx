@@ -1,5 +1,5 @@
 import React, { ChangeEvent, FC, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
@@ -8,13 +8,22 @@ import {
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import { useUser } from "@/services/UserContext";
+import { useExperimentFilterCategories } from "@/components/Search/experimentFilterCategories";
 import { SyntaxFilter, transformQuery } from "@/services/search";
 import { Popover } from "@/ui/Popover";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
+
+// Activate a role="button" element on Enter/Space, matching native button keys.
+function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    fn();
+  }
+}
 
 // Filter keys this component understands, kept in sync with the syntax filters
 // useExperimentSearch recognizes. Mirrors ExperimentSearchFilters so the parsed
@@ -87,67 +96,21 @@ const SidebarExperimentFilters: FC<Props> = ({
     setSearchValue,
   });
 
-  const { getOwnerDisplay } = useUser();
-  const allMetrics = useCombinedMetrics({});
-
   const [open, setOpen] = useState(false);
   // Which category's panel is expanded inside the popover ("" = all collapsed).
   // Only one is open at a time (single-open accordion).
   const [expandedCategory, setExpandedCategory] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
 
-  const availableTags = useMemo(() => {
-    const tags: string[] = [];
-    experiments.forEach((item) => {
-      item.tags?.forEach((tag) => {
-        if (!tags.includes(tag)) tags.push(tag);
-      });
-    });
-    return tags;
-  }, [experiments]);
-
-  const metricItems = useMemo(() => {
-    const map = new Map<string, SearchFiltersItem>();
-    allMetrics.forEach((m) => {
-      map.set(m.id, {
-        name: m.name,
-        id: m.id,
-        searchValue: m.name,
-        disabled: true,
-      });
-    });
-    experiments.forEach((e) => {
-      const enableMetric = (m: string) => {
-        if (m && map.has(m)) {
-          map.set(m, { ...map.get(m)!, disabled: false });
-        }
-      };
-      e.goalMetrics?.forEach(enableMetric);
-      e.secondaryMetrics?.forEach(enableMetric);
-      e.guardrailMetrics?.forEach(enableMetric);
-    });
-    return Array.from(map.values());
-  }, [allMetrics, experiments]);
-
-  const owners = useMemo(() => {
-    const set = new Set<string>();
-    experiments.forEach((e) => {
-      if (e.owner) set.add(getOwnerDisplay(e.owner));
-    });
-    return Array.from(set).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" }),
-    );
-  }, [experiments, getOwnerDisplay]);
-
-  const availableExperimentTypes = useMemo(() => {
-    const types = new Set<string>();
-    experiments.forEach((e) => {
-      if (e.linkedFeatures) types.add("feature");
-      if (e.hasURLRedirects) types.add("redirect");
-      if (e.hasVisualChangesets) types.add("visualChange");
-    });
-    return types;
-  }, [experiments]);
+  // Shared source of truth for the filter taxonomy (see ExperimentSearchFilters).
+  const {
+    availableTags,
+    metricItems,
+    owners,
+    resultItems,
+    statusItems,
+    typeItems,
+  } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   const categories = useMemo<FilterCategory[]>(() => {
     const cats: FilterCategory[] = [];
@@ -164,48 +127,16 @@ const SidebarExperimentFilters: FC<Props> = ({
       });
     }
 
-    cats.push({
-      key: "metric",
-      heading: "Metric",
-      items: metricItems,
-    });
-
+    cats.push({ key: "metric", heading: "Metric", items: metricItems });
     cats.push({
       key: "owner",
       heading: "Owner",
       items: owners.map((o) => ({ name: o, id: o, searchValue: o })),
     });
-
-    cats.push({
-      key: "is",
-      heading: "Result",
-      items: [
-        { searchValue: "won", id: "isWon", name: "Won" },
-        { searchValue: "lost", id: "isLost", name: "Lost" },
-        {
-          searchValue: "inconclusive",
-          id: "isInconclusive",
-          name: "Inconclusive",
-        },
-        { searchValue: "dnf", id: "isDNF", name: "Did not finish" },
-      ],
-    });
+    cats.push({ key: "is", heading: "Result", items: resultItems });
 
     if (showStatusFilter) {
-      cats.push({
-        key: "status",
-        heading: "Status",
-        items: [
-          {
-            searchValue: "draft",
-            id: "draft",
-            name: "Draft",
-            disabled: !allowDrafts,
-          },
-          { searchValue: "running", id: "running", name: "Running" },
-          { searchValue: "stopped", id: "stopped", name: "Stopped" },
-        ],
-      });
+      cats.push({ key: "status", heading: "Status", items: statusItems });
     }
 
     cats.push({
@@ -217,31 +148,7 @@ const SidebarExperimentFilters: FC<Props> = ({
         searchValue: t,
       })),
     });
-
-    cats.push({
-      key: "has",
-      heading: "Type",
-      items: [
-        {
-          name: "Feature Flag",
-          id: "exp-type-flag",
-          searchValue: "feature",
-          disabled: !availableExperimentTypes.has("feature"),
-        },
-        {
-          name: "Visual Change",
-          id: "exp-type-visual",
-          searchValue: "visualChange",
-          disabled: !availableExperimentTypes.has("visualChange"),
-        },
-        {
-          name: "URL Redirect",
-          id: "exp-type-redirect",
-          searchValue: "redirect",
-          disabled: !availableExperimentTypes.has("redirect"),
-        },
-      ],
-    });
+    cats.push({ key: "has", heading: "Type", items: typeItems });
 
     return cats;
   }, [
@@ -249,10 +156,11 @@ const SidebarExperimentFilters: FC<Props> = ({
     projects,
     metricItems,
     owners,
+    resultItems,
+    statusItems,
+    typeItems,
     availableTags,
-    availableExperimentTypes,
     showStatusFilter,
-    allowDrafts,
   ]);
 
   const categoryByKey = useMemo(() => {
@@ -348,6 +256,9 @@ const SidebarExperimentFilters: FC<Props> = ({
                   px="2"
                   py="1"
                   className="cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
                   style={{
                     borderRadius: 6,
                     marginBottom: 2,
@@ -355,6 +266,9 @@ const SidebarExperimentFilters: FC<Props> = ({
                     color: isOpen ? "var(--accent-11)" : undefined,
                   }}
                   onClick={() => toggleCategory(c.key)}
+                  onKeyDown={(e) =>
+                    activateOnKey(e, () => toggleCategory(c.key))
+                  }
                 >
                   <Flex align="center" gap="1">
                     {isOpen ? (
@@ -362,17 +276,14 @@ const SidebarExperimentFilters: FC<Props> = ({
                     ) : (
                       <PiCaretRight size={12} className="text-muted" />
                     )}
-                    <span style={{ fontWeight: isOpen ? 500 : 400 }}>
+                    <Text size="small" weight={isOpen ? "medium" : "regular"}>
                       {c.heading}
-                    </span>
+                    </Text>
                   </Flex>
                   {count > 0 && (
-                    <span
-                      style={{ fontSize: 12 }}
-                      className={isOpen ? undefined : "text-muted"}
-                    >
+                    <Text size="small" color={isOpen ? undefined : "text-low"}>
                       {count}
-                    </span>
+                    </Text>
                   )}
                 </Flex>
                 {showCategorySearch && (
@@ -409,11 +320,24 @@ const SidebarExperimentFilters: FC<Props> = ({
                             v.toLowerCase() === item.searchValue.toLowerCase(),
                         ),
                     );
+                    const selectItem = () => {
+                      if (item.disabled) return;
+                      updateQuery({
+                        field: c.key,
+                        values: [item.searchValue],
+                        operator: "",
+                        negated: false,
+                      });
+                    };
                     return (
                       <Box
                         key={item.id}
                         px="2"
                         py="1"
+                        role="button"
+                        tabIndex={item.disabled ? -1 : 0}
+                        aria-disabled={item.disabled || undefined}
+                        aria-pressed={exists}
                         className={
                           item.disabled
                             ? "text-muted"
@@ -424,15 +348,8 @@ const SidebarExperimentFilters: FC<Props> = ({
                           opacity: item.disabled ? 0.5 : 1,
                           pointerEvents: item.disabled ? "none" : undefined,
                         }}
-                        onClick={() => {
-                          if (item.disabled) return;
-                          updateQuery({
-                            field: c.key,
-                            values: [item.searchValue],
-                            operator: "",
-                            negated: false,
-                          });
-                        }}
+                        onClick={selectItem}
+                        onKeyDown={(e) => activateOnKey(e, selectItem)}
                       >
                         <FilterItem item={item.name} exists={exists} />
                       </Box>
@@ -457,37 +374,40 @@ const SidebarExperimentFilters: FC<Props> = ({
       />
 
       <Flex align="center" gap="2" wrap="wrap">
-        {chipFilters.map((filter) => (
-          <Flex
-            key={filter.field}
-            align="center"
-            gap="1"
-            px="2"
-            py="1"
-            style={{
-              fontSize: 12,
-              borderRadius: 16,
-              backgroundColor: "var(--accent-3)",
-              color: "var(--accent-11)",
-              border: "1px solid var(--accent-6)",
-            }}
-          >
-            <span style={{ opacity: 0.75 }}>
-              {categoryByKey.get(filter.field)?.heading}:
-            </span>
-            <span>
-              {filter.values
-                .map((value) => labelFor(filter.field, value))
-                .join(", ")}
-            </span>
-            <PiX
-              size={13}
-              style={{ cursor: "pointer" }}
-              aria-label="Remove filter"
-              onClick={() => removeFilter(filter)}
+        {chipFilters.map((filter) => {
+          const heading = categoryByKey.get(filter.field)?.heading;
+          const valueText = filter.values
+            .map((value) => labelFor(filter.field, value))
+            .join(", ");
+          return (
+            <Badge
+              key={filter.field}
+              color="violet"
+              variant="soft"
+              radius="full"
+              label={
+                <Flex align="center" gap="1">
+                  <Text size="small">
+                    <Text as="span" color="text-low">
+                      {heading}:
+                    </Text>{" "}
+                    {valueText}
+                  </Text>
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="violet"
+                    radius="full"
+                    aria-label={`Remove ${heading} filter`}
+                    onClick={() => removeFilter(filter)}
+                  >
+                    <PiX size={12} />
+                  </IconButton>
+                </Flex>
+              }
             />
-          </Flex>
-        ))}
+          );
+        })}
 
         <Popover
           open={open}

@@ -4,15 +4,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
-
-const dateRanges = [
-  { label: "30 days", value: "30" },
-  { label: "60 days", value: "60" },
-  { label: "90 days", value: "90" },
-  { label: "180 days", value: "180" },
-  { label: "1 year", value: "365" },
-  { label: "Custom", value: "custom" },
-];
+import { experimentDateRanges as dateRanges } from "@/components/ExecReports/dateRanges";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: string;

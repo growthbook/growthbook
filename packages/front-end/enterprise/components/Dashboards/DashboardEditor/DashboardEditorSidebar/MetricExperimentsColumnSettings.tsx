@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiEye, PiEyeSlash } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -75,19 +75,15 @@ function SortableColumnRow({
         {column.label}
       </span>
       <Tooltip body={column.visible ? "Hide column" : "Show column"}>
-        <span
-          role="button"
+        <IconButton
+          size="1"
+          variant="ghost"
+          color={column.visible ? "violet" : "gray"}
           aria-label={column.visible ? "Hide column" : "Show column"}
           onClick={() => onToggle(!column.visible)}
-          style={{
-            cursor: "pointer",
-            display: "flex",
-            fontSize: 16,
-            color: column.visible ? "var(--violet-11)" : "var(--gray-9)",
-          }}
         >
-          {column.visible ? <PiEye /> : <PiEyeSlash />}
-        </span>
+          {column.visible ? <PiEye size={16} /> : <PiEyeSlash size={16} />}
+        </IconButton>
       </Tooltip>
     </Flex>
   );

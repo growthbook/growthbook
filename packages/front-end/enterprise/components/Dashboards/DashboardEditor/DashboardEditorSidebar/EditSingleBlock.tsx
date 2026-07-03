@@ -161,11 +161,7 @@ function shouldShowEditorField(
   const SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE = {
     sortBy: ["experiment-metric", "experiment-dimension"],
     sortDirection: ["experiment-metric", "experiment-dimension"],
-    differenceType: [
-      "experiment-metric",
-      "experiment-dimension",
-      "metric-experiments",
-    ],
+    differenceType: ["experiment-metric", "experiment-dimension"],
     baselineRow: ["experiment-metric", "experiment-dimension"],
     variationIds: ["experiment-metric", "experiment-dimension"],
   };

@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
-import { FaShippingFast } from "react-icons/fa";
+import { PiTrophyDuotone } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
@@ -283,7 +283,7 @@ function MetricExperimentResultTab({
                 {e.variationName}
                 {e.shipped ? (
                   <Tooltip body={"Variation marked as the winner"}>
-                    <FaShippingFast className="ml-1" />{" "}
+                    <PiTrophyDuotone className="ml-1" />{" "}
                   </Tooltip>
                 ) : null}
               </span>

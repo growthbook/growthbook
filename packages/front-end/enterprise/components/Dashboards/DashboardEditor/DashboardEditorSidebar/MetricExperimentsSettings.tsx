@@ -1,7 +1,6 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExperimentsBlockInterface,
-  differenceTypes,
 } from "shared/enterprise";
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -12,16 +11,8 @@ import { Popover } from "@/ui/Popover";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import SelectField from "@/components/Forms/SelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
-
-const DIFFERENCE_TYPE_LABELS: Record<(typeof differenceTypes)[number], string> =
-  {
-    relative: "Relative",
-    absolute: "Absolute",
-    scaled: "Scaled Impact",
-  };
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExperimentsBlockInterface>;
@@ -55,18 +46,15 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Metric</Text>
-        </Box>
-        <MetricSelector
-          value={block.metricId}
-          onChange={(metricId) => setBlock({ ...block, metricId })}
-          includeFacts={true}
-          projects={projects}
-          placeholder="Select a metric..."
-        />
-      </Box>
+      <MetricSelector
+        label="Metric"
+        labelClassName="font-weight-bold"
+        value={block.metricId}
+        onChange={(metricId) => setBlock({ ...block, metricId })}
+        includeFacts={true}
+        projects={projects}
+        placeholder="Select a metric..."
+      />
 
       <Box>
         <Box mb="2">
@@ -76,27 +64,6 @@ export default function MetricExperimentsSettings({
           searchValue={searchValue}
           setSearchValue={setSearchValue}
           experiments={experiments}
-        />
-      </Box>
-
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Difference Type</Text>
-        </Box>
-        <SelectField
-          value={block.differenceType}
-          onChange={(value) =>
-            setBlock({
-              ...block,
-              differenceType:
-                value as MetricExperimentsBlockInterface["differenceType"],
-            })
-          }
-          options={differenceTypes.map((dt) => ({
-            label: DIFFERENCE_TYPE_LABELS[dt],
-            value: dt,
-          }))}
-          sort={false}
         />
       </Box>
 

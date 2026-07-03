@@ -21,15 +21,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import Field from "@/components/Forms/Field";
 import ExperimentWinRate from "./ExperimentWinRate";
 import ExecExperimentsGraph from "./ExecExperimentsGraph";
-
-const dateRanges = [
-  { label: "30 days", value: "30" },
-  { label: "60 days", value: "60" },
-  { label: "90 days", value: "90" },
-  { label: "180 days", value: "180" },
-  { label: "1 year", value: "365" },
-  { label: "Custom", value: "custom" },
-];
+import { experimentDateRanges as dateRanges } from "./dateRanges";
 
 export default function ExecReport() {
   const { project: currentProject, projects } = useDefinitions();
