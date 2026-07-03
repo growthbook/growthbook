@@ -75,6 +75,9 @@ import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/ut
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
 import MetricExperimentsSettings from "./MetricExperimentsSettings";
+import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
+import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
+import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
 
 type RequiredField = {
   field: string;
@@ -90,6 +93,13 @@ const REQUIRED_FIELDS: {
     },
   ],
   "metric-experiments": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
+    },
+  ],
+  "experiments-scaled-impact": [
     {
       field: "metricId",
       validation: (metricId) =>
@@ -1686,6 +1696,27 @@ export default function EditSingleBlock({
             )}
             {block.type === "metric-experiments" && (
               <MetricExperimentsSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-scaled-impact" && (
+              <ExperimentsScaledImpactSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-win-rate" && (
+              <ExperimentsWinRateSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-status" && (
+              <ExperimentsStatusSettings
                 block={block}
                 setBlock={setBlock}
                 projects={projects}

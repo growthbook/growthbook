@@ -56,6 +56,14 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "experiment-traffic": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-metric": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "metric-experiments": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
+  "experiments-scaled-impact": {
+    w: DASHBOARD_GRID_COLS,
+    h: 8,
+    minW: 12,
+    minH: 4,
+  },
+  "experiments-win-rate": { w: 12, h: 8, minW: 8, minH: 4 },
+  "experiments-status": { w: 12, h: 8, minW: 8, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
@@ -220,6 +228,93 @@ const metricExperimentsBlockInterface = baseBlockInterface
 export type MetricExperimentsBlockInterface = z.infer<
   typeof metricExperimentsBlockInterface
 >;
+
+// Shared fields for the "Completed Experiments" block family (Scaled Impact,
+// Win Percentage, Experiment Status). Date range + project scoping mirror the
+// Executive Report controls. Kept per-block for now, but always read through
+// resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
+// override them (see resolveBlockComparison for the same pattern).
+const completedExperimentsBlockCommon = {
+  // Preset key: "30" | "60" | "90" | "180" | "365" | "custom".
+  dateRange: z.string(),
+  // Populated only when dateRange === "custom".
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  // Project ids to scope to; empty array means all projects.
+  projects: z.array(z.string()),
+};
+
+const experimentsScaledImpactBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-scaled-impact"),
+    ...completedExperimentsBlockCommon,
+    metricId: z.string(),
+  })
+  .strict();
+
+export type ExperimentsScaledImpactBlockInterface = z.infer<
+  typeof experimentsScaledImpactBlockInterface
+>;
+
+const experimentsWinRateBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-win-rate"),
+    ...completedExperimentsBlockCommon,
+    showProjectBreakdown: z.boolean(),
+  })
+  .strict();
+
+export type ExperimentsWinRateBlockInterface = z.infer<
+  typeof experimentsWinRateBlockInterface
+>;
+
+const experimentsStatusBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiments-status"),
+    ...completedExperimentsBlockCommon,
+  })
+  .strict();
+
+export type ExperimentsStatusBlockInterface = z.infer<
+  typeof experimentsStatusBlockInterface
+>;
+
+export type CompletedExperimentsBlockFilters = {
+  dateRange: string;
+  startDate?: string;
+  endDate?: string;
+  projects: string[];
+};
+
+/**
+ * Effective filters for a "Completed Experiments" block. Today these come
+ * straight from the block; the `dashboard` arg is the forward-compat seam for a
+ * future dashboard-wide filter bar (project / date range) that would take
+ * precedence — mirrors resolveBlockComparison so render code never changes.
+ */
+export function resolveCompletedExperimentsFilters(
+  block: CompletedExperimentsBlockFilters,
+  dashboard?: { projects?: string[] } | null,
+): { startDate: Date; endDate: Date; projects: string[] } {
+  const projects =
+    dashboard?.projects && dashboard.projects.length > 0
+      ? dashboard.projects
+      : block.projects;
+
+  if (block.dateRange === "custom") {
+    return {
+      startDate: block.startDate ? new Date(block.startDate) : new Date(0),
+      endDate: block.endDate ? new Date(block.endDate) : new Date(),
+      projects,
+    };
+  }
+
+  const days = parseInt(block.dateRange, 10) || 90;
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  return { startDate, endDate, projects };
+}
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -423,6 +518,9 @@ const standardAndApiCommonBlocks = [
   experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
   metricExperimentsBlockInterface,
+  experimentsScaledImpactBlockInterface,
+  experimentsWinRateBlockInterface,
+  experimentsStatusBlockInterface,
   experimentDimensionBlockInterface,
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
@@ -473,6 +571,9 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
   metricExperimentsBlockInterface.omit(createOmits),
+  experimentsScaledImpactBlockInterface.omit(createOmits),
+  experimentsWinRateBlockInterface.omit(createOmits),
+  experimentsStatusBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -487,6 +588,9 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
   metricExperimentsBlockInterface.omit(createOmits),
+  experimentsScaledImpactBlockInterface.omit(createOmits),
+  experimentsWinRateBlockInterface.omit(createOmits),
+  experimentsStatusBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -512,6 +616,18 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   metricExperimentsBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsScaledImpactBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsWinRateBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  experimentsStatusBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),
