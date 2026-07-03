@@ -1,10 +1,15 @@
 import React, { ChangeEvent, FC, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight, PiPlus, PiX } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiCheck,
+  PiPlus,
+  PiX,
+} from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
-  FilterItem,
   SearchFiltersItem,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
@@ -287,20 +292,21 @@ const SidebarExperimentFilters: FC<Props> = ({
                   )}
                 </Flex>
                 {showCategorySearch && (
-                  <Box px="2" pb="1">
+                  <Box px="1" style={{ paddingBottom: 4 }}>
                     <Field
                       value={filterSearch}
                       onChange={(e) => setFilterSearch(e.target.value)}
                       type="search"
                       placeholder={`Search ${c.heading}`}
                       autoFocus
+                      style={{ height: 30, fontSize: 13, padding: "0 8px" }}
                     />
                   </Box>
                 )}
               </Box>
 
               {isOpen && (
-                <Box pl="2" pb="1">
+                <Box px="1" pb="1">
                   {visibleItems.length === 0 && (
                     <Box
                       px="2"
@@ -311,7 +317,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                       No options
                     </Box>
                   )}
-                  {visibleItems.map((item) => {
+                  {visibleItems.map((item, idx) => {
                     const exists = syntaxFilters.some(
                       (f) =>
                         f.field === c.key &&
@@ -330,28 +336,61 @@ const SidebarExperimentFilters: FC<Props> = ({
                       });
                     };
                     return (
+                      // Outer holds the zebra stripe; inner keeps the hover
+                      // highlight so both are visible together.
                       <Box
                         key={item.id}
-                        px="2"
-                        py="1"
-                        role="button"
-                        tabIndex={item.disabled ? -1 : 0}
-                        aria-disabled={item.disabled || undefined}
-                        aria-pressed={exists}
-                        className={
-                          item.disabled
-                            ? "text-muted"
-                            : "cursor-pointer hover-highlight"
-                        }
                         style={{
                           borderRadius: 6,
-                          opacity: item.disabled ? 0.5 : 1,
-                          pointerEvents: item.disabled ? "none" : undefined,
+                          backgroundColor:
+                            idx % 2 === 1 ? "var(--gray-a2)" : undefined,
                         }}
-                        onClick={selectItem}
-                        onKeyDown={(e) => activateOnKey(e, selectItem)}
                       >
-                        <FilterItem item={item.name} exists={exists} />
+                        <Flex
+                          align="center"
+                          justify="between"
+                          gap="2"
+                          px="2"
+                          py="1"
+                          role="button"
+                          tabIndex={item.disabled ? -1 : 0}
+                          aria-disabled={item.disabled || undefined}
+                          aria-pressed={exists}
+                          className={
+                            item.disabled
+                              ? "text-muted"
+                              : "cursor-pointer hover-highlight"
+                          }
+                          style={{
+                            borderRadius: 6,
+                            fontSize: 13,
+                            opacity: item.disabled ? 0.5 : 1,
+                            pointerEvents: item.disabled ? "none" : undefined,
+                          }}
+                          onClick={selectItem}
+                          onKeyDown={(e) => activateOnKey(e, selectItem)}
+                        >
+                          <span
+                            style={{
+                              minWidth: 0,
+                              flex: 1,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {item.name}
+                          </span>
+                          {exists && (
+                            <PiCheck
+                              size={12}
+                              style={{
+                                flexShrink: 0,
+                                color: "var(--violet-11)",
+                              }}
+                            />
+                          )}
+                        </Flex>
                       </Box>
                     );
                   })}
