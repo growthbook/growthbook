@@ -976,7 +976,7 @@ const AnalysisForm: FC<{
                   options={[
                     {
                       label: `Default (${
-                        orgSettings.oneSidedIntervals
+                        parentScopedSettings.oneSidedIntervals.value
                           ? "One-tailed"
                           : "Two-tailed"
                       })`,
