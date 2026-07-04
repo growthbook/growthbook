@@ -7,11 +7,14 @@ import {
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
+  isComputedColumnRef,
+  getComputedColumnRef,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
 import {
   ColumnRef,
+  ComputedColumn,
   FactMetricInterface,
   FactMetricType,
   FactTableInterface,
@@ -85,6 +88,7 @@ function validateUserFilter({
     const columnType = getSelectedColumnDatatype({
       factTable,
       column: numerator.aggregateFilterColumn,
+      computedColumns: numerator.computedColumns,
     });
     if (
       !(
@@ -138,6 +142,117 @@ function validateSavedFilterIds({
     ) {
       throw new Error(`Invalid ${filterType} filter id: ${filterId}`);
     }
+  }
+}
+
+// Validate the metric-scoped computed columns on a ColumnRef: unique ids/names,
+// well-formed operator arrays, operand columns that exist with the right
+// datatype, and that every `$$computed:<id>` reference resolves.
+function validateComputedColumns({
+  columnRef,
+  factTable,
+  errorPrefix,
+}: {
+  columnRef: ColumnRef;
+  factTable: FactTableInterface;
+  errorPrefix: string;
+}): void {
+  const computedColumns = columnRef.computedColumns || [];
+
+  const seenIds = new Set<string>();
+  const seenNames = new Set<string>();
+
+  const isNumericColumn = (col: string) =>
+    getSelectedColumnDatatype({ factTable, column: col }) === "number";
+  const isStringColumn = (col: string) =>
+    getSelectedColumnDatatype({ factTable, column: col }) === "string";
+
+  for (const cc of computedColumns) {
+    if (!cc.name.trim()) {
+      throw new Error(`${errorPrefix}Computed column name is required.`);
+    }
+    if (seenIds.has(cc.id)) {
+      throw new Error(`${errorPrefix}Duplicate computed column id '${cc.id}'.`);
+    }
+    seenIds.add(cc.id);
+    if (seenNames.has(cc.name)) {
+      throw new Error(
+        `${errorPrefix}Duplicate computed column name '${cc.name}'.`,
+      );
+    }
+    seenNames.add(cc.name);
+
+    if (cc.kind === "number") {
+      if (cc.termOperators.length !== cc.terms.length - 1) {
+        throw new Error(
+          `${errorPrefix}Computed column '${cc.name}' has a mismatched number of term operators.`,
+        );
+      }
+      for (const term of cc.terms) {
+        if (term.operators.length !== term.operands.length - 1) {
+          throw new Error(
+            `${errorPrefix}Computed column '${cc.name}' has a mismatched number of operators.`,
+          );
+        }
+        for (const operand of term.operands) {
+          if (operand.type === "column" && !isNumericColumn(operand.column)) {
+            throw new Error(
+              `${errorPrefix}Computed column '${cc.name}' references non-numeric column '${operand.column}'.`,
+            );
+          }
+        }
+      }
+    } else {
+      for (const part of cc.parts) {
+        if (part.type === "column" && !isStringColumn(part.column)) {
+          throw new Error(
+            `${errorPrefix}Computed column '${cc.name}' concatenates non-string column '${part.column}'.`,
+          );
+        }
+      }
+    }
+  }
+
+  // Every `$$computed:<id>` reference (the value, the user filter, and each row
+  // filter) must resolve to a defined computed column.
+  const definedRefs = new Set(
+    computedColumns.map((cc) => getComputedColumnRef(cc.id)),
+  );
+  const referenced: string[] = [];
+  if (isComputedColumnRef(columnRef.column)) referenced.push(columnRef.column);
+  if (isComputedColumnRef(columnRef.aggregateFilterColumn)) {
+    referenced.push(columnRef.aggregateFilterColumn as string);
+  }
+  columnRef.rowFilters?.forEach((f) => {
+    if (isComputedColumnRef(f.column)) referenced.push(f.column as string);
+  });
+  for (const ref of referenced) {
+    if (!definedRefs.has(ref)) {
+      throw new Error(
+        `${errorPrefix}References computed column '${ref}' which is not defined.`,
+      );
+    }
+  }
+
+  // A string computed column produces text, so it can't be the numeric metric
+  // value or the user-filter column.
+  const stringRefs = new Set(
+    computedColumns
+      .filter((cc: ComputedColumn) => cc.kind === "string")
+      .map((cc) => getComputedColumnRef(cc.id)),
+  );
+  if (stringRefs.has(columnRef.column)) {
+    throw new Error(
+      `${errorPrefix}A string computed column cannot be used as the metric value.`,
+    );
+  }
+  if (
+    columnRef.aggregateFilterColumn &&
+    stringRefs.has(columnRef.aggregateFilterColumn)
+  ) {
+    throw new Error(
+      `${errorPrefix}A string computed column cannot be used as the user filter column.`,
+    );
   }
 }
 
@@ -366,6 +481,12 @@ export class FactMetricModel extends BaseClass {
       filterType: "numerator",
     });
 
+    validateComputedColumns({
+      columnRef: data.numerator,
+      factTable: numeratorFactTable,
+      errorPrefix: "Numerator misspecified. ",
+    });
+
     // Validate aggregation/datatype constraints (runs for every code path
     // that hits BaseModel — internal UI controllers, external API,
     // bulk import, etc.)
@@ -429,6 +550,12 @@ export class FactMetricModel extends BaseClass {
         columnRef: data.denominator,
         factTable: denominatorFactTable,
         filterType: "denominator",
+      });
+
+      validateComputedColumns({
+        columnRef: data.denominator,
+        factTable: denominatorFactTable,
+        errorPrefix: "Denominator misspecified. ",
       });
 
       validateAggregationSpecification({

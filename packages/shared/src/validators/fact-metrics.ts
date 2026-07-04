@@ -4,8 +4,19 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { computedColumnValidator } from "./fact-table";
 
 // Shared sub-schemas for fact metric column references
+
+// Metric-scoped computed columns, shared by request and response ref schemas.
+// Reference one from `column`, `aggregateFilterColumn`, or a row filter's
+// `column` using the marker `$$computed:<id>`.
+const apiComputedColumnsField = z
+  .array(computedColumnValidator)
+  .describe(
+    "Metric-scoped computed (derived) columns. A numeric computed column is a sum-of-products of columns and numeric literals; a string computed column concatenates parts. Reference one from `column`, `aggregateFilterColumn`, or a row filter's `column` using the marker `$$computed:<id>`.",
+  )
+  .optional();
 
 const apiRowFilterValidator = z.object({
   operator: z.enum([
@@ -78,6 +89,7 @@ const apiNumeratorRef = z.object({
       "Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.",
     )
     .optional(),
+  computedColumns: apiComputedColumnsField,
 });
 
 const apiDenominatorRef = z.object({
@@ -103,6 +115,7 @@ const apiDenominatorRef = z.object({
       "Filters to apply to the rows of the fact table before aggregation.",
     )
     .optional(),
+  computedColumns: apiComputedColumnsField,
 });
 
 const apiQuantileSettings = z
@@ -345,6 +358,7 @@ const postNumeratorRef = z.object({
       "Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.",
     )
     .optional(),
+  computedColumns: apiComputedColumnsField,
 });
 
 const postDenominatorRef = z
@@ -381,6 +395,7 @@ const postDenominatorRef = z
         "Filters to apply to the rows of the fact table before aggregation.",
       )
       .optional(),
+    computedColumns: apiComputedColumnsField,
   })
   .describe("Only when metricType is 'ratio'");
 

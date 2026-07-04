@@ -10,9 +10,11 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
+import { COMPUTED_COLUMN_PREFIX } from "shared/validators";
 import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
+  ComputedColumn,
   FactMetricInterface,
   FactTableColumnType,
   FactTableInterface,
@@ -140,6 +142,178 @@ export function getColumnExpression(
   return alias ? `${alias}.${column}` : column;
 }
 
+// ---- Computed columns ----
+
+/** SQL builders for computed columns that differ by warehouse dialect. */
+export interface ComputedColumnDialect {
+  // ROUND / FLOOR / CEIL to an optional number of decimal places
+  round?: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => string;
+  // CONCAT of already-stringified parts
+  concat?: (parts: string[]) => string;
+}
+
+function defaultRound(
+  expr: string,
+  mode: "round" | "floor" | "ceil",
+  decimals?: number,
+): string {
+  const d = decimals ?? 0;
+  if (mode === "round") return `ROUND(${expr}, ${d})`;
+  const fn = mode === "floor" ? "FLOOR" : "CEIL";
+  if (d > 0) {
+    const factor = Math.pow(10, d);
+    return `${fn}((${expr}) * ${factor}) / ${factor}`;
+  }
+  return `${fn}(${expr})`;
+}
+
+function defaultConcat(parts: string[]): string {
+  return `CONCAT(${parts.join(", ")})`;
+}
+
+// Render a numeric literal without scientific notation for typical ranges.
+function formatNumericLiteral(n: number): string {
+  if (!Number.isFinite(n)) return "0";
+  return n.toString();
+}
+
+/** True if a `column` string references a computed column (`$$computed:<id>`). */
+export function isComputedColumnRef(column: string | undefined): boolean {
+  return !!column && column.startsWith(COMPUTED_COLUMN_PREFIX);
+}
+
+/** Build the `$$computed:<id>` marker used to reference a computed column. */
+export function getComputedColumnRef(id: string): string {
+  return `${COMPUTED_COLUMN_PREFIX}${id}`;
+}
+
+/** Resolve a `$$computed:<id>` marker to its definition on a ColumnRef. */
+export function findComputedColumn(
+  computedColumns: ComputedColumn[] | undefined,
+  column: string | undefined,
+): ComputedColumn | undefined {
+  if (!computedColumns || !isComputedColumnRef(column)) return undefined;
+  const id = (column as string).slice(COMPUTED_COLUMN_PREFIX.length);
+  return computedColumns.find((c) => c.id === id);
+}
+
+/**
+ * Build the SQL expression for a computed column.
+ *
+ * Numeric computed columns are a sum-of-products: `(a * b) + (c / d) - e`.
+ * Multiplicative operands within a term are combined first (so precedence is
+ * correct without a parser), divisors are wrapped in `NULLIF(x, 0)` to avoid
+ * divide-by-zero, and column operands can optionally be wrapped in
+ * `COALESCE(col, 0)`. String computed columns concatenate their parts.
+ */
+export function buildComputedColumnSQL({
+  computedColumn,
+  factTable,
+  jsonExtract,
+  escapeStringLiteral,
+  dialect,
+  alias = "",
+}: {
+  computedColumn: ComputedColumn;
+  factTable: Pick<FactTableInterface, "columns">;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  escapeStringLiteral: (s: string) => string;
+  dialect?: ComputedColumnDialect;
+  alias?: string;
+}): string {
+  const concat = dialect?.concat ?? defaultConcat;
+  const round = dialect?.round ?? defaultRound;
+
+  if (computedColumn.kind === "string") {
+    const parts = computedColumn.parts.map((part) =>
+      part.type === "literal"
+        ? `'${escapeStringLiteral(part.value)}'`
+        : getColumnExpression(part.column, factTable, jsonExtract, alias),
+    );
+    return concat(parts);
+  }
+
+  const termSQLs = computedColumn.terms.map((term) => {
+    const operandSQLs = term.operands.map((operand) => {
+      if (operand.type === "literal") {
+        return formatNumericLiteral(operand.value);
+      }
+      const colExpr = getColumnExpression(
+        operand.column,
+        factTable,
+        jsonExtract,
+        alias,
+      );
+      return computedColumn.coalesceZero ? `COALESCE(${colExpr}, 0)` : colExpr;
+    });
+
+    let expr = operandSQLs[0];
+    term.operators.forEach((op, i) => {
+      const rhs =
+        op === "/" ? `NULLIF(${operandSQLs[i + 1]}, 0)` : operandSQLs[i + 1];
+      expr = `${expr} ${op} ${rhs}`;
+    });
+    // Parenthesize multi-operand terms so `*`/`/` bind tighter than `+`/`-`
+    return term.operators.length > 0 ? `(${expr})` : expr;
+  });
+
+  let expr = termSQLs[0];
+  computedColumn.termOperators.forEach((op, i) => {
+    expr = `${expr} ${op} ${termSQLs[i + 1]}`;
+  });
+
+  if (computedColumn.rounding) {
+    return round(
+      expr,
+      computedColumn.rounding.mode,
+      computedColumn.rounding.decimals,
+    );
+  }
+
+  // Wrap in parens when the expression combines multiple terms so it composes
+  // safely wherever it is embedded (comparisons, aggregations, etc.).
+  return computedColumn.termOperators.length > 0 ? `(${expr})` : expr;
+}
+
+/**
+ * Resolve a `column` string to SQL, transparently handling computed-column
+ * markers. Falls back to {@link getColumnExpression} for regular columns.
+ */
+export function resolveColumnExpression({
+  column,
+  factTable,
+  computedColumns,
+  jsonExtract,
+  escapeStringLiteral,
+  dialect,
+  alias = "",
+}: {
+  column: string;
+  factTable: Pick<FactTableInterface, "columns">;
+  computedColumns: ComputedColumn[] | undefined;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  escapeStringLiteral: (s: string) => string;
+  dialect?: ComputedColumnDialect;
+  alias?: string;
+}): string {
+  const computed = findComputedColumn(computedColumns, column);
+  if (computed) {
+    return buildComputedColumnSQL({
+      computedColumn: computed,
+      factTable,
+      jsonExtract,
+      escapeStringLiteral,
+      dialect,
+      alias,
+    });
+  }
+  return getColumnExpression(column, factTable, jsonExtract, alias);
+}
+
 export function getColumnRefWhereClause({
   factTable,
   columnRef,
@@ -149,6 +323,7 @@ export function getColumnRefWhereClause({
   evalBoolean,
   showSourceComment = false,
   sliceInfo,
+  dialect,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -158,6 +333,8 @@ export function getColumnRefWhereClause({
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
+  // Dialect-specific builders used when a row filter targets a computed column
+  dialect?: ComputedColumnDialect;
 }): string[] {
   const where = new Set<string>();
 
@@ -221,6 +398,8 @@ export function getColumnRefWhereClause({
       stringMatch,
       evalBoolean,
       showSourceComment,
+      computedColumns: columnRef.computedColumns,
+      dialect,
     });
     if (filterSQL) {
       where.add(filterSQL);
@@ -238,6 +417,8 @@ export function getRowFilterSQL({
   stringMatch,
   evalBoolean,
   showSourceComment = false,
+  computedColumns,
+  dialect,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -246,6 +427,9 @@ export function getRowFilterSQL({
   stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
+  // Computed columns defined on the ColumnRef; a filter may target one via `$$computed:<id>`
+  computedColumns?: ComputedColumn[];
+  dialect?: ComputedColumnDialect;
 }): string | null {
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {
@@ -268,15 +452,22 @@ export function getRowFilterSQL({
   if (!rowFilter.column) {
     return null;
   }
-  const columnExpr = getColumnExpression(
-    rowFilter.column,
-    factTable,
-    jsonExtract,
-  );
-  const columnType = getSelectedColumnDatatype({
-    factTable,
-    column: rowFilter.column,
-  });
+  const computedColumn = findComputedColumn(computedColumns, rowFilter.column);
+  const columnExpr = computedColumn
+    ? buildComputedColumnSQL({
+        computedColumn,
+        factTable,
+        jsonExtract,
+        escapeStringLiteral,
+        dialect,
+      })
+    : getColumnExpression(rowFilter.column, factTable, jsonExtract);
+  const columnType = computedColumn
+    ? computedColumn.kind
+    : getSelectedColumnDatatype({
+        factTable,
+        column: rowFilter.column,
+      });
 
   // If a boolean column is using equals operator, convert to is_true/is_false
   let operator = rowFilter.operator;
@@ -534,12 +725,19 @@ export function getSelectedColumnDatatype({
   factTable,
   column,
   excludeDeleted = false,
+  computedColumns,
 }: {
   factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
   excludeDeleted?: boolean;
+  // Computed columns defined on a ColumnRef; `$$computed:<id>` resolves to their kind
+  computedColumns?: ComputedColumn[];
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Computed columns carry their own datatype (number or string)
+  const computedColumn = findComputedColumn(computedColumns, column);
+  if (computedColumn) return computedColumn.kind;
 
   // Might be a JSON column, look at nested field
   const parts = column.split(".");

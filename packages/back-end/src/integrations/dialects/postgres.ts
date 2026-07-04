@@ -25,6 +25,21 @@ export const postgresDialect: SqlDialect = {
   },
   percentileApprox: (column: string, percentile: number | string) =>
     `PERCENTILE_CONT(${percentile}) WITHIN GROUP (ORDER BY ${column})`,
+  // Postgres has no ROUND(double precision, int); cast to numeric first.
+  round: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => {
+    const d = decimals ?? 0;
+    if (mode === "round") return `ROUND(CAST(${expr} AS numeric), ${d})`;
+    const fn = mode === "floor" ? "FLOOR" : "CEIL";
+    if (d > 0) {
+      const factor = Math.pow(10, d);
+      return `${fn}((${expr}) * ${factor}) / ${factor}`;
+    }
+    return `${fn}(${expr})`;
+  },
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(
       postgresDialect,

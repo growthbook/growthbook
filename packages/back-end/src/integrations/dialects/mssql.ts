@@ -52,6 +52,22 @@ export const mssqlDialect: SqlDialect = {
 
   stringLength: (column: string) => `LEN(${column})`,
 
+  // SQL Server uses CEILING, not CEIL.
+  round: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => {
+    const d = decimals ?? 0;
+    if (mode === "round") return `ROUND(${expr}, ${d})`;
+    const fn = mode === "floor" ? "FLOOR" : "CEILING";
+    if (d > 0) {
+      const factor = Math.pow(10, d);
+      return `${fn}((${expr}) * ${factor}) / ${factor}`;
+    }
+    return `${fn}(${expr})`;
+  },
+
   arrayElement: (arrayCol: string, index: number) =>
     mssqlDialect.castToFloat(`JSON_VALUE(${arrayCol}, '$[${index}]')`),
 

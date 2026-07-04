@@ -19,6 +19,8 @@ import {
   getRowFilterSQL,
   getEffectiveLookbackOverride,
   getIntersectionBaseMetricIds,
+  buildComputedColumnSQL,
+  getComputedColumnRef,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -202,6 +204,216 @@ describe("Experiments", () => {
         expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.b`)).toBe(
           false,
         );
+      });
+    });
+
+    describe("buildComputedColumnSQL", () => {
+      it("adds single-operand terms and wraps the sum-of-products", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "sum",
+              kind: "number",
+              terms: [
+                {
+                  operands: [{ type: "column", column: "event_count" }],
+                  operators: [],
+                },
+                {
+                  operands: [{ type: "column", column: "data.b" }],
+                  operators: [],
+                },
+              ],
+              termOperators: ["+"],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`(event_count + data:'b'::float)`);
+      });
+
+      it("respects multiplicative precedence within a term", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "revenue",
+              kind: "number",
+              terms: [
+                {
+                  operands: [
+                    { type: "column", column: "event_count" },
+                    { type: "column", column: "data.b" },
+                  ],
+                  operators: ["*"],
+                },
+                {
+                  operands: [{ type: "column", column: "event_count" }],
+                  operators: [],
+                },
+              ],
+              termOperators: ["+"],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`((event_count * data:'b'::float) + event_count)`);
+      });
+
+      it("guards division with NULLIF and supports numeric literals", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "ratio",
+              kind: "number",
+              terms: [
+                {
+                  operands: [
+                    { type: "column", column: "event_count" },
+                    { type: "literal", value: 100 },
+                  ],
+                  operators: ["/"],
+                },
+              ],
+              termOperators: [],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`(event_count / NULLIF(100, 0))`);
+      });
+
+      it("wraps column operands in COALESCE when coalesceZero is set", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "safe",
+              kind: "number",
+              terms: [
+                {
+                  operands: [{ type: "column", column: "event_count" }],
+                  operators: [],
+                },
+              ],
+              termOperators: [],
+              coalesceZero: true,
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`COALESCE(event_count, 0)`);
+      });
+
+      it("applies rounding modes (default dialect)", () => {
+        const base = {
+          id: "1",
+          name: "r",
+          kind: "number" as const,
+          terms: [
+            {
+              operands: [{ type: "column" as const, column: "event_count" }],
+              operators: [],
+            },
+          ],
+          termOperators: [],
+        };
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              ...base,
+              rounding: { mode: "round", decimals: 2 },
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`ROUND(event_count, 2)`);
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: { ...base, rounding: { mode: "floor" } },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`FLOOR(event_count)`);
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              ...base,
+              rounding: { mode: "ceil", decimals: 2 },
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`CEIL((event_count) * 100) / 100`);
+      });
+
+      it("concatenates string parts (default dialect)", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "label",
+              kind: "string",
+              parts: [
+                { type: "column", column: "event_name" },
+                { type: "literal", value: " - " },
+                { type: "column", column: "page" },
+              ],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`CONCAT(event_name, ' - ', page)`);
+      });
+
+      it("resolves a computed column referenced from a row filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "$$count",
+              factTableId: "",
+              computedColumns: [
+                {
+                  id: "cc1",
+                  name: "ratio",
+                  kind: "number",
+                  terms: [
+                    {
+                      operands: [
+                        { type: "column", column: "event_count" },
+                        { type: "literal", value: 100 },
+                      ],
+                      operators: ["/"],
+                    },
+                  ],
+                  termOperators: [],
+                },
+              ],
+              rowFilters: [
+                {
+                  column: getComputedColumnRef("cc1"),
+                  operator: ">",
+                  values: ["5"],
+                },
+              ],
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            stringMatch,
+          }),
+        ).toStrictEqual([`((event_count / NULLIF(100, 0)) > 5)`]);
       });
     });
 

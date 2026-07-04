@@ -23,6 +23,12 @@ import {
   jsonColumnFieldsValidator,
   rowFilterValidator,
   aggregatedFactTableSettingsValidator,
+  computedColumnValidator,
+  numericComputedColumnValidator,
+  stringComputedColumnValidator,
+  computedColumnTermValidator,
+  computedColumnOperandValidator,
+  computedColumnStringPartValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -120,6 +126,21 @@ export type LegacyColumnRef = ColumnRef & {
 };
 
 export type RowFilter = z.infer<typeof rowFilterValidator>;
+
+export type ComputedColumn = z.infer<typeof computedColumnValidator>;
+export type NumericComputedColumn = z.infer<
+  typeof numericComputedColumnValidator
+>;
+export type StringComputedColumn = z.infer<
+  typeof stringComputedColumnValidator
+>;
+export type ComputedColumnTerm = z.infer<typeof computedColumnTermValidator>;
+export type ComputedColumnOperand = z.infer<
+  typeof computedColumnOperandValidator
+>;
+export type ComputedColumnStringPart = z.infer<
+  typeof computedColumnStringPartValidator
+>;
 
 export type LegacyFactMetricInterface = Omit<
   FactMetricInterface,

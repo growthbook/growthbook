@@ -21,12 +21,16 @@ import {
   ColumnAggregation,
   FactTableColumnType,
   RowFilter,
+  ComputedColumn,
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
+  getComputedColumnRef,
+  findComputedColumn,
+  buildComputedColumnSQL,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -68,6 +72,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { ComputedColumnInput } from "@/components/FactTables/ComputedColumnInput";
 import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -181,6 +186,7 @@ function getColumnOptions({
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
+  computedColumns,
 }: {
   factTable: FactTableInterface | null;
   datasource: DataSourceInterfaceWithParams | null;
@@ -194,6 +200,7 @@ function getColumnOptions({
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
   groupPrefix?: string;
+  computedColumns?: ComputedColumn[];
 }): GroupedValue[] {
   const numericColumnOptions: SingleValue[] = getNumericColumns(factTable).map(
     (col) => ({
@@ -201,6 +208,16 @@ function getColumnOptions({
       value: col.column,
     }),
   );
+
+  // Numeric computed columns can be aggregated like any numeric column.
+  computedColumns?.forEach((cc) => {
+    if (cc.kind !== "number") return;
+    const label = cc.name || cc.id;
+    numericColumnOptions.push({
+      label: showColumnsAsSums ? `SUM(${label})` : label,
+      value: getComputedColumnRef(cc.id),
+    });
+  });
 
   const specialColumnOptions: SingleValue[] = [];
   if (includeCountDistinct) {
@@ -445,11 +462,13 @@ function ColumnRefSelector({
     includeStringColumns:
       datasource.properties?.hasCountDistinctHLL && aggregationType === "unit",
     includeJSONFields: true,
+    computedColumns: value.computedColumns,
   });
 
   const selectedColumnDatatype = getSelectedColumnDatatype({
     factTable,
     column: value.column,
+    computedColumns: value.computedColumns,
   });
 
   const aggregationOptions = getAggregationOptions(selectedColumnDatatype);
@@ -537,6 +556,7 @@ function ColumnRefSelector({
                 const newDatatype = getSelectedColumnDatatype({
                   factTable,
                   column,
+                  computedColumns: value.computedColumns,
                 });
 
                 let aggregation = value.aggregation;
@@ -557,7 +577,8 @@ function ColumnRefSelector({
           </div>
         )}
         {includeColumn &&
-          !value.column.startsWith("$$") &&
+          (!value.column.startsWith("$$") ||
+            value.column.startsWith(getComputedColumnRef(""))) &&
           aggregationType === "unit" && (
             <div className="col-auto">
               <SelectField
@@ -579,9 +600,44 @@ function ColumnRefSelector({
 
       {factTable && (
         <div className="mb-3">
+          <ComputedColumnInput
+            factTable={factTable}
+            value={value.computedColumns || []}
+            setValue={(computedColumns) => {
+              // When a computed column is removed, clear any reference to it so
+              // the metric doesn't point at a `$$computed:<id>` that no longer
+              // exists.
+              const validRefs = new Set(
+                computedColumns.map((cc) => getComputedColumnRef(cc.id)),
+              );
+              const isDangling = (col?: string) =>
+                !!col &&
+                col.startsWith(getComputedColumnRef("")) &&
+                !validRefs.has(col);
+
+              const next: ColumnRef = { ...value, computedColumns };
+              if (isDangling(next.column)) next.column = "$$count";
+              if (isDangling(next.aggregateFilterColumn)) {
+                next.aggregateFilterColumn = "";
+                next.aggregateFilter = "";
+              }
+              if (next.rowFilters?.some((f) => isDangling(f.column))) {
+                next.rowFilters = next.rowFilters.filter(
+                  (f) => !isDangling(f.column),
+                );
+              }
+              setValue(next);
+            }}
+          />
+        </div>
+      )}
+
+      {factTable && (
+        <div className="mb-3">
           <RowFilterInput
             factTable={factTable}
             value={value.rowFilters || []}
+            computedColumns={value.computedColumns}
             setValue={(rowFilters) =>
               setValue({
                 ...value,
@@ -626,6 +682,7 @@ function ColumnRefSelector({
                       includeStringColumns: false,
                       showColumnsAsSums: true,
                       groupPrefix: "Filter by ",
+                      computedColumns: value.computedColumns,
                     })}
                     initialOption="Any User"
                     autoFocus
@@ -787,6 +844,32 @@ function getPreviewSQL({
   const denominatorName =
     "`" + (denominatorFactTable?.name || "Fact Table") + "`";
 
+  // Resolve the column to a SQL expression, expanding computed-column markers
+  // so the preview shows the underlying arithmetic (e.g. SUM((price * qty))).
+  const previewColExpr = (
+    columnRef: ColumnRef,
+    factTable: FactTableInterface | null,
+  ): string => {
+    const computed = findComputedColumn(
+      columnRef.computedColumns,
+      columnRef.column,
+    );
+    if (computed && factTable) {
+      return buildComputedColumnSQL({
+        computedColumn: computed,
+        factTable,
+        jsonExtract: (col, path) => `${col}.${path}`,
+        escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+      });
+    }
+    return columnRef.column;
+  };
+
+  const numeratorColExpr = previewColExpr(numerator, numeratorFactTable);
+  const denominatorColExpr = denominator
+    ? previewColExpr(denominator, denominatorFactTable)
+    : "";
+
   const numeratorCol =
     type === "dailyParticipation" || numerator.column === "$$distinctDates"
       ? `COUNT(DISTINCT DATE(timestamp))`
@@ -795,9 +878,9 @@ function getPreviewSQL({
         : numerator.column === "$$distinctUsers"
           ? "1"
           : numerator.aggregation === "count distinct"
-            ? `COUNT(DISTINCT ${numerator.column})`
+            ? `COUNT(DISTINCT ${numeratorColExpr})`
             : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-                numerator.column
+                numeratorColExpr
               })`;
   const numeratorAdjustment =
     type === "dailyParticipation" ? "\n\t/ CEIL(days_since_exposure)" : "";
@@ -810,9 +893,9 @@ function getPreviewSQL({
         : denominator?.column === "$$distinctDates"
           ? `COUNT(DISTINCT DATE(timestamp))`
           : denominator?.aggregation === "count distinct"
-            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+            ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominatorColExpr})`
             : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-                denominator?.column
+                denominatorColExpr
               })`;
 
   const WHERE = getWHERE({

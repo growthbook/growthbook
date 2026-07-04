@@ -110,6 +110,24 @@ if(
   // than JS .length but fine for the document-size guard.
   stringLength: (column: string) => `length(${column})`,
 
+  // ClickHouse math/string functions are lowercase.
+  round: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => {
+    const d = decimals ?? 0;
+    if (mode === "round") return `round(${expr}, ${d})`;
+    const fn = mode === "floor" ? "floor" : "ceil";
+    if (d > 0) {
+      const factor = Math.pow(10, d);
+      return `${fn}((${expr}) * ${factor}) / ${factor}`;
+    }
+    return `${fn}(${expr})`;
+  },
+
+  concat: (parts: string[]) => `concat(${parts.join(", ")})`,
+
   // topK(k)(expr) returns the k most frequent values in descending-frequency
   // order with NO counts. Since the outer query sorts by `count DESC`, we
   // synthesize a `count` from the inverse array position (`limit - i + 1`) to

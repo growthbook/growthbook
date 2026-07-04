@@ -134,6 +134,21 @@ export interface SqlDialect {
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
   /**
+   * Round a numeric expression. `mode` is round-half / floor / ceil; `decimals`
+   * is the number of decimal places to keep (defaults to 0). Used by computed
+   * columns.
+   */
+  round: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => string;
+  /**
+   * Concatenate already-stringified expressions into a single string. Used by
+   * string computed columns.
+   */
+  concat: (parts: string[]) => string;
+  /**
    * Positional access into an array column, returning a numeric expression.
    * `index` is 0-based logical; each dialect translates to its own array
    * semantics (1-based vs 0-based, native array vs JSON).

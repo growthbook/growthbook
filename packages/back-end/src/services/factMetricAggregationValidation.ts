@@ -26,6 +26,7 @@ export function validateAggregationSpecification({
   const datatype = getSelectedColumnDatatype({
     factTable,
     column: column.column,
+    computedColumns: column.computedColumns,
   });
   if (column.aggregation === "count distinct" && datatype !== "string") {
     throw new Error(

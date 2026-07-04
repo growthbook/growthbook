@@ -1,4 +1,9 @@
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import {
+  ComputedColumn,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
+import { findComputedColumn } from "shared/experiments";
 
 export const NUMBER_PATTERN = "^-?(\\d+|\\d*\\.\\d+)$";
 
@@ -88,9 +93,16 @@ export function getAttributeFieldsExposedAsColumns(
 export function getColumnInfo(
   factTable: Pick<FactTableInterface, "columns">,
   column: string | undefined,
+  computedColumns?: ComputedColumn[],
 ) {
   if (!column) {
     return { datatype: "" as const, topValues: [] as string[] };
+  }
+
+  // Computed columns carry their own datatype (number or string)
+  const computed = findComputedColumn(computedColumns, column);
+  if (computed) {
+    return { datatype: computed.kind, topValues: [] as string[] };
   }
 
   // First, look for exact match

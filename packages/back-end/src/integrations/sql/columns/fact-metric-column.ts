@@ -1,7 +1,7 @@
 import {
   getAggregateFilters,
-  getColumnExpression,
   isBinomialMetric,
+  resolveColumnExpression,
 } from "shared/experiments";
 import type {
   ColumnRef,
@@ -39,13 +39,19 @@ export function getFactMetricColumn(
       : column === "$$distinctDates"
         ? dialect.dateTrunc(timestampColumn, "day")
         : factTable && column
-          ? getColumnExpression(
+          ? resolveColumnExpression({
               column,
               factTable,
-              (jsonCol: string, path: string, isNumeric: boolean): string =>
-                dialect.jsonExtract(jsonCol, path, isNumeric),
+              computedColumns: columnRef?.computedColumns,
+              jsonExtract: (
+                jsonCol: string,
+                path: string,
+                isNumeric: boolean,
+              ): string => dialect.jsonExtract(jsonCol, path, isNumeric),
+              escapeStringLiteral: dialect.escapeStringLiteral,
+              dialect: { round: dialect.round, concat: dialect.concat },
               alias,
-            )
+            })
           : `${alias}.${column}`;
 
   return {

@@ -150,6 +150,23 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   stringLength: (column: string) => `LENGTH(${column})`,
 
+  round: (
+    expr: string,
+    mode: "round" | "floor" | "ceil",
+    decimals?: number,
+  ) => {
+    const d = decimals ?? 0;
+    if (mode === "round") return `ROUND(${expr}, ${d})`;
+    const fn = mode === "floor" ? "FLOOR" : "CEIL";
+    if (d > 0) {
+      const factor = Math.pow(10, d);
+      return `${fn}((${expr}) * ${factor}) / ${factor}`;
+    }
+    return `${fn}(${expr})`;
+  },
+
+  concat: (parts: string[]) => `CONCAT(${parts.join(", ")})`,
+
   arrayElement: (arrayCol: string, index: number) =>
     `${arrayCol}[${index + 1}]`,
 };

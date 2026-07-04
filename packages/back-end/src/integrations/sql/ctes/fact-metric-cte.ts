@@ -117,6 +117,7 @@ export function getFactMetricCTE(
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,
+        dialect: { round: dialect.round, concat: dialect.concat },
       });
 
       const column =
@@ -175,6 +176,7 @@ export function getFactMetricCTE(
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,
+        dialect: { round: dialect.round, concat: dialect.concat },
       });
       const column =
         filters.length > 0

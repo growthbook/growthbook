@@ -186,6 +186,79 @@ export const rowFilterValidator = z.object({
   values: z.array(z.string()).optional(),
 });
 
+// ---- Computed columns ----
+// Metric-scoped derived columns. They live on a ColumnRef and are referenced
+// elsewhere (the metric value, row filters, the user filter) by the string
+// marker `$$computed:<id>` — the same pseudo-column convention as `$$count`.
+
+// Prefix used to reference a computed column from a `column` string field.
+export const COMPUTED_COLUMN_PREFIX = "$$computed:";
+
+export const computedColumnRoundModeValidator = z.enum([
+  "round",
+  "floor",
+  "ceil",
+]);
+
+// A single operand within a numeric term: either an existing fact-table column
+// (by name or JSON path) or a numeric literal constant (e.g. `/ 100`).
+export const computedColumnOperandValidator = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("column"), column: z.string() }).strict(),
+  z.object({ type: z.literal("literal"), value: z.number() }).strict(),
+]);
+
+// A term is one or more operands combined with `*` / `/` (multiplicative).
+// `operators` has exactly `operands.length - 1` entries.
+export const computedColumnTermValidator = z
+  .object({
+    operands: z.array(computedColumnOperandValidator).min(1),
+    operators: z.array(z.enum(["*", "/"])),
+  })
+  .strict();
+
+// A numeric computed column is a sum-of-products: terms combined with `+` / `-`.
+// `termOperators` has exactly `terms.length - 1` entries.
+export const numericComputedColumnValidator = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.literal("number"),
+    terms: z.array(computedColumnTermValidator).min(1),
+    termOperators: z.array(z.enum(["+", "-"])),
+    // When true, wrap column operands in COALESCE(col, 0) so NULLs count as zero.
+    coalesceZero: z.boolean().optional(),
+    rounding: z
+      .object({
+        mode: computedColumnRoundModeValidator,
+        decimals: z.number().int().min(0).max(10).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+// A single part of a string concat: an existing column or a string literal.
+export const computedColumnStringPartValidator = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("column"), column: z.string() }).strict(),
+  z.object({ type: z.literal("literal"), value: z.string() }).strict(),
+]);
+
+// A string computed column is a concatenation of parts. String computed columns
+// can only be used in row filters / slices, never as a numeric metric value.
+export const stringComputedColumnValidator = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    kind: z.literal("string"),
+    parts: z.array(computedColumnStringPartValidator).min(1),
+  })
+  .strict();
+
+export const computedColumnValidator = z.discriminatedUnion("kind", [
+  numericComputedColumnValidator,
+  stringComputedColumnValidator,
+]);
+
 export const columnRefValidator = z
   .object({
     factTableId: z.string(),
@@ -194,6 +267,8 @@ export const columnRefValidator = z
     rowFilters: z.array(rowFilterValidator).optional(),
     aggregateFilter: z.string().optional(),
     aggregateFilterColumn: z.string().optional(),
+    // Metric-scoped derived columns; referenced via `$$computed:<id>`.
+    computedColumns: z.array(computedColumnValidator).optional(),
   })
   .strict();
 

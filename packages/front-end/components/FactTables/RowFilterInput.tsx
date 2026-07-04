@@ -1,5 +1,10 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableInterface, RowFilter } from "shared/types/fact-table";
+import {
+  ComputedColumn,
+  FactTableInterface,
+  RowFilter,
+} from "shared/types/fact-table";
+import { getComputedColumnRef } from "shared/experiments";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
@@ -23,10 +28,13 @@ export function RowFilterInput({
   value,
   setValue,
   factTable,
+  computedColumns,
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  // Metric-scoped computed columns available to filter on (`$$computed:<id>`)
+  computedColumns?: ComputedColumn[];
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
@@ -61,6 +69,14 @@ export function RowFilterInput({
               });
             });
           }
+        });
+
+        // Metric-scoped computed columns can also be filtered on
+        computedColumns?.forEach((cc) => {
+          columnOptions.push({
+            label: cc.name || cc.id,
+            value: getComputedColumnRef(cc.id),
+          });
         });
         if (
           filter.column &&
@@ -131,6 +147,7 @@ export function RowFilterInput({
           const { datatype, topValues } = getColumnInfo(
             factTable,
             filter.column,
+            computedColumns,
           );
 
           const allowedOperators = getAllowedOperators(datatype);
@@ -235,7 +252,11 @@ export function RowFilterInput({
                     values: [],
                   });
                 } else {
-                  const { datatype } = getColumnInfo(factTable, v);
+                  const { datatype } = getColumnInfo(
+                    factTable,
+                    v,
+                    computedColumns,
+                  );
 
                   let newOperator = filter.operator;
                   let newValues = filter.values || [];

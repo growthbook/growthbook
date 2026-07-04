@@ -60,4 +60,8 @@ export const redshiftDialect: SqlDialect = {
 
   arrayElement: (arrayCol: string, index: number) =>
     redshiftDialect.castToFloat(`${arrayCol}[${index}]`),
+
+  // Redshift's CONCAT only accepts two arguments; use the || operator instead.
+  concat: (parts: string[]) =>
+    parts.length === 1 ? parts[0] : `(${parts.join(" || ")})`,
 };
