@@ -505,7 +505,6 @@ export function ComputedColumnInput({
 
   return (
     <Flex direction="column" gap="2">
-      <strong>Computed Columns</strong>
       {value.map((column, i) => (
         <Box
           key={column.id}

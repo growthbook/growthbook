@@ -66,6 +66,7 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
@@ -474,6 +475,34 @@ function ColumnRefSelector({
   const aggregationOptions = getAggregationOptions(selectedColumnDatatype);
   const [addUserFilter, setAddUserFilter] = useState(false);
 
+  // Computed columns are hidden behind a toggle. Start expanded when the ref
+  // already has definitions (e.g. editing an existing metric).
+  const [showComputedColumns, setShowComputedColumns] = useState(
+    () => (value.computedColumns?.length || 0) > 0,
+  );
+  const [confirmClearComputed, setConfirmClearComputed] = useState(false);
+
+  // Update the ref's computed columns, clearing any reference to a removed one
+  // so the metric never points at a `$$computed:<id>` that no longer exists.
+  const setComputedColumns = (computedColumns: ComputedColumn[]) => {
+    const validRefs = new Set(
+      computedColumns.map((cc) => getComputedColumnRef(cc.id)),
+    );
+    const isDangling = (col?: string) =>
+      !!col && col.startsWith(getComputedColumnRef("")) && !validRefs.has(col);
+
+    const next: ColumnRef = { ...value, computedColumns };
+    if (isDangling(next.column)) next.column = "$$count";
+    if (isDangling(next.aggregateFilterColumn)) {
+      next.aggregateFilterColumn = "";
+      next.aggregateFilter = "";
+    }
+    if (next.rowFilters?.some((f) => isDangling(f.column))) {
+      next.rowFilters = next.rowFilters.filter((f) => !isDangling(f.column));
+    }
+    setValue(next);
+  };
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-top">
@@ -600,36 +629,45 @@ function ColumnRefSelector({
 
       {factTable && (
         <div className="mb-3">
-          <ComputedColumnInput
-            factTable={factTable}
-            value={value.computedColumns || []}
-            setValue={(computedColumns) => {
-              // When a computed column is removed, clear any reference to it so
-              // the metric doesn't point at a `$$computed:<id>` that no longer
-              // exists.
-              const validRefs = new Set(
-                computedColumns.map((cc) => getComputedColumnRef(cc.id)),
-              );
-              const isDangling = (col?: string) =>
-                !!col &&
-                col.startsWith(getComputedColumnRef("")) &&
-                !validRefs.has(col);
-
-              const next: ColumnRef = { ...value, computedColumns };
-              if (isDangling(next.column)) next.column = "$$count";
-              if (isDangling(next.aggregateFilterColumn)) {
-                next.aggregateFilterColumn = "";
-                next.aggregateFilter = "";
+          <Switch
+            label={<strong>Enable Computed Columns</strong>}
+            value={showComputedColumns}
+            onChange={(checked) => {
+              if (checked) {
+                setShowComputedColumns(true);
+              } else if (value.computedColumns?.length) {
+                // Warn before discarding existing definitions
+                setConfirmClearComputed(true);
+              } else {
+                setShowComputedColumns(false);
               }
-              if (next.rowFilters?.some((f) => isDangling(f.column))) {
-                next.rowFilters = next.rowFilters.filter(
-                  (f) => !isDangling(f.column),
-                );
-              }
-              setValue(next);
             }}
           />
+          {showComputedColumns && (
+            <div className="mt-2">
+              <ComputedColumnInput
+                factTable={factTable}
+                value={value.computedColumns || []}
+                setValue={setComputedColumns}
+              />
+            </div>
+          )}
         </div>
+      )}
+
+      {confirmClearComputed && (
+        <ConfirmDialog
+          title="Remove computed columns?"
+          content="Turning this off will delete all computed column definitions on this metric. Any values or filters that use them will be reset. This cannot be undone."
+          yesText="Remove"
+          noText="Cancel"
+          onConfirm={() => {
+            setComputedColumns([]);
+            setShowComputedColumns(false);
+            setConfirmClearComputed(false);
+          }}
+          onCancel={() => setConfirmClearComputed(false)}
+        />
       )}
 
       {factTable && (
