@@ -528,6 +528,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                     label: s.property,
                     value: s.property,
                     description: s.description,
+                    documentationUrl: s.documentationUrl,
                     tags: s.tags,
                     datatype: s.datatype,
                     hashAttribute: s.hashAttribute,

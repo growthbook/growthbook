@@ -15728,6 +15728,9 @@ paths:
                 archived:
                   description: The attribute is archived
                   type: boolean
+                documentationUrl:
+                  type: string
+                  format: uri
                 hashAttribute:
                   description: Shall the attribute be hashed
                   type: boolean
@@ -15806,6 +15809,9 @@ paths:
                 archived:
                   description: The attribute is archived
                   type: boolean
+                documentationUrl:
+                  type: string
+                  format: uri
                 hashAttribute:
                   description: Shall the attribute be hashed
                   type: boolean
@@ -40965,6 +40971,9 @@ components:
             - secureString[]
         description:
           type: string
+        documentationUrl:
+          type: string
+          format: uri
         hashAttribute:
           type: boolean
         archived:

@@ -11,6 +11,7 @@ export interface AttributeOptionForTooltip {
   label: string;
   value: string;
   description?: string;
+  documentationUrl?: string;
   tags?: string[];
   datatype?: string;
   hashAttribute?: boolean;
@@ -34,6 +35,16 @@ export function AttributeOptionTooltipContent({
         </span>
         <PiArrowSquareOut />
       </Link>
+      {option.documentationUrl && (
+        <Link
+          href={option.documentationUrl}
+          target="_blank"
+          rel="noreferrer"
+          size="2"
+        >
+          Docs <PiArrowSquareOut />
+        </Link>
+      )}
       <Text size="small" as="div">
         <Text size="small" as="span" weight="semibold">
           Type:{" "}

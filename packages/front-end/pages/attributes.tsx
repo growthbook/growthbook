@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -247,6 +247,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
               maxWidth={ATTRIBUTE_NAME_COLUMN_MAX_WIDTH}
             />
           </Link>{" "}
+          {v.documentationUrl && (
+            <a
+              href={v.documentationUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Documentation"
+            >
+              <PiArrowSquareOut className="ml-1" />
+            </a>
+          )}
           {v.archived && (
             <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
               archived
