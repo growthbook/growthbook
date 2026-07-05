@@ -108,6 +108,9 @@ const bigQueryEscapeStringLiteral = (value: string) =>
 
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
+  // BigQuery uses REGEXP_EXTRACT (no REGEXP_SUBSTR).
+  regexpExtract: (expr: string, pattern: string) =>
+    `REGEXP_EXTRACT(${expr}, ${pattern})`,
   formatDialect: "bigquery",
   addTime: (
     col: string,

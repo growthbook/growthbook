@@ -128,6 +128,17 @@ if(
 
   concat: (parts: string[]) => `concat(${parts.join(", ")})`,
 
+  // ClickHouse string functions are lowercase and use different names.
+  replace: (expr: string, find: string, replaceWith: string) =>
+    `replaceAll(${expr}, ${find}, ${replaceWith})`,
+  regexpReplace: (expr: string, pattern: string, replaceWith: string) =>
+    `replaceRegexpAll(${expr}, ${pattern}, ${replaceWith})`,
+  regexpExtract: (expr: string, pattern: string) =>
+    `extract(${expr}, ${pattern})`,
+  upper: (expr: string) => `upper(${expr})`,
+  lower: (expr: string) => `lower(${expr})`,
+  trim: (expr: string) => `trimBoth(${expr})`,
+
   // topK(k)(expr) returns the k most frequent values in descending-frequency
   // order with NO counts. Since the outer query sorts by `count DESC`, we
   // synthesize a `count` from the inverse array position (`limit - i + 1`) to

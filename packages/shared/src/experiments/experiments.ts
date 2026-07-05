@@ -160,6 +160,48 @@ export interface ComputedColumnDialect {
   ) => string;
   // CONCAT of already-stringified parts
   concat?: (parts: string[]) => string;
+  // Literal substring replace. `find`/`replaceWith` are already-quoted SQL
+  // string literals.
+  replace?: (expr: string, find: string, replaceWith: string) => string;
+  // Regular-expression replace (all matches). `pattern`/`replaceWith` are
+  // already-quoted SQL string literals.
+  regexpReplace?: (
+    expr: string,
+    pattern: string,
+    replaceWith: string,
+  ) => string;
+  // Extract the first regular-expression match. `pattern` is an already-quoted
+  // SQL string literal.
+  regexpExtract?: (expr: string, pattern: string) => string;
+  upper?: (expr: string) => string;
+  lower?: (expr: string) => string;
+  trim?: (expr: string) => string;
+}
+
+/**
+ * Build a {@link ComputedColumnDialect} from a full SQL dialect by picking just
+ * the builders computed columns need.
+ */
+export function computedColumnDialectFromSql(d: {
+  round: ComputedColumnDialect["round"];
+  concat: ComputedColumnDialect["concat"];
+  replace: ComputedColumnDialect["replace"];
+  regexpReplace: ComputedColumnDialect["regexpReplace"];
+  regexpExtract: ComputedColumnDialect["regexpExtract"];
+  upper: ComputedColumnDialect["upper"];
+  lower: ComputedColumnDialect["lower"];
+  trim: ComputedColumnDialect["trim"];
+}): ComputedColumnDialect {
+  return {
+    round: d.round,
+    concat: d.concat,
+    replace: d.replace,
+    regexpReplace: d.regexpReplace,
+    regexpExtract: d.regexpExtract,
+    upper: d.upper,
+    lower: d.lower,
+    trim: d.trim,
+  };
 }
 
 function defaultRound(
@@ -181,6 +223,36 @@ function defaultConcat(parts: string[]): string {
   return `CONCAT(${parts.join(", ")})`;
 }
 
+// Default string-operation builders. These use the most broadly-portable
+// spellings; dialects override where their syntax differs (e.g. Postgres needs
+// a `'g'` flag for a global regexp replace, ClickHouse uses `replaceAll`).
+function defaultReplace(
+  expr: string,
+  find: string,
+  replaceWith: string,
+): string {
+  return `REPLACE(${expr}, ${find}, ${replaceWith})`;
+}
+function defaultRegexpReplace(
+  expr: string,
+  pattern: string,
+  replaceWith: string,
+): string {
+  return `REGEXP_REPLACE(${expr}, ${pattern}, ${replaceWith})`;
+}
+function defaultRegexpExtract(expr: string, pattern: string): string {
+  return `REGEXP_SUBSTR(${expr}, ${pattern})`;
+}
+function defaultUpper(expr: string): string {
+  return `UPPER(${expr})`;
+}
+function defaultLower(expr: string): string {
+  return `LOWER(${expr})`;
+}
+function defaultTrim(expr: string): string {
+  return `TRIM(${expr})`;
+}
+
 // Render a numeric literal without scientific notation for typical ranges.
 function formatNumericLiteral(n: number): string {
   if (!Number.isFinite(n)) return "0";
@@ -195,6 +267,14 @@ export function isComputedColumnRef(column: string | undefined): boolean {
 /** Build the `$$computed:<id>` marker used to reference a computed column. */
 export function getComputedColumnRef(id: string): string {
   return `${COMPUTED_COLUMN_PREFIX}${id}`;
+}
+
+// Warehouses that can't run REGEXP_REPLACE / REGEXP_SUBSTR, so regexp-based
+// string operations are hidden in the UI and rejected by validation. MSSQL has
+// no regex functions before SQL Server 2025. (MySQL needs 8.0+, which we assume.)
+const DATA_SOURCES_WITHOUT_REGEXP = new Set(["mssql"]);
+export function dataSourceSupportsRegexp(type?: string | null): boolean {
+  return !!type && !DATA_SOURCES_WITHOUT_REGEXP.has(type);
 }
 
 /** Resolve a `$$computed:<id>` marker to its definition on a ColumnRef. */
@@ -271,7 +351,40 @@ export function buildComputedColumnSQL({
         ? `'${escapeStringLiteral(part.value)}'`
         : resolveColumn(part.column),
     );
-    return concat(parts);
+    // A single part needs no CONCAT wrapper (keeps transforms readable).
+    let expr = parts.length === 1 ? parts[0] : concat(parts);
+
+    const replace = dialect?.replace ?? defaultReplace;
+    const regexpReplace = dialect?.regexpReplace ?? defaultRegexpReplace;
+    const regexpExtract = dialect?.regexpExtract ?? defaultRegexpExtract;
+    const upper = dialect?.upper ?? defaultUpper;
+    const lower = dialect?.lower ?? defaultLower;
+    const trim = dialect?.trim ?? defaultTrim;
+    const lit = (s: string) => `'${escapeStringLiteral(s)}'`;
+
+    (computedColumn.operations ?? []).forEach((op) => {
+      switch (op.type) {
+        case "replace":
+          expr = replace(expr, lit(op.find), lit(op.replaceWith));
+          break;
+        case "regexpReplace":
+          expr = regexpReplace(expr, lit(op.pattern), lit(op.replaceWith));
+          break;
+        case "regexpExtract":
+          expr = regexpExtract(expr, lit(op.pattern));
+          break;
+        case "upper":
+          expr = upper(expr);
+          break;
+        case "lower":
+          expr = lower(expr);
+          break;
+        case "trim":
+          expr = trim(expr);
+          break;
+      }
+    });
+    return expr;
   }
 
   const operandSQL = (operand: ComputedColumnOperand): string => {

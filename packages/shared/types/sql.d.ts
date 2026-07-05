@@ -149,6 +149,18 @@ export interface SqlDialect {
    */
   concat: (parts: string[]) => string;
   /**
+   * String operations for string computed columns. `find` / `pattern` /
+   * `replaceWith` are already-quoted SQL string literals.
+   */
+  replace: (expr: string, find: string, replaceWith: string) => string;
+  /** Regular-expression replace (all matches). */
+  regexpReplace: (expr: string, pattern: string, replaceWith: string) => string;
+  /** Extract the first regular-expression match. */
+  regexpExtract: (expr: string, pattern: string) => string;
+  upper: (expr: string) => string;
+  lower: (expr: string) => string;
+  trim: (expr: string) => string;
+  /**
    * Positional access into an array column, returning a numeric expression.
    * `index` is 0-based logical; each dialect translates to its own array
    * semantics (1-based vs 0-based, native array vs JSON).

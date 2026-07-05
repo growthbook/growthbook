@@ -2,6 +2,7 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   resolveColumnExpression,
+  computedColumnDialectFromSql,
 } from "shared/experiments";
 import type {
   ColumnRef,
@@ -49,7 +50,7 @@ export function getFactMetricColumn(
                 isNumeric: boolean,
               ): string => dialect.jsonExtract(jsonCol, path, isNumeric),
               escapeStringLiteral: dialect.escapeStringLiteral,
-              dialect: { round: dialect.round, concat: dialect.concat },
+              dialect: computedColumnDialectFromSql(dialect),
               alias,
             })
           : `${alias}.${column}`;

@@ -40,6 +40,14 @@ export const postgresDialect: SqlDialect = {
     }
     return `${fn}(${expr})`;
   },
+  // Postgres REGEXP_REPLACE replaces only the first match unless the `'g'` flag
+  // is passed.
+  regexpReplace: (expr: string, pattern: string, replaceWith: string) =>
+    `REGEXP_REPLACE(${expr}, ${pattern}, ${replaceWith}, 'g')`,
+  // Postgres has no REGEXP_SUBSTR before v15; `substring(x from 'pat')` returns
+  // the first match and works everywhere.
+  regexpExtract: (expr: string, pattern: string) =>
+    `SUBSTRING(${expr} FROM ${pattern})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(
       postgresDialect,

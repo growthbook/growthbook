@@ -6,9 +6,13 @@ import {
   FactTableInterface,
   NumericComputedColumn,
   StringComputedColumn,
+  StringComputedColumnOperation,
 } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
-import { getComputedColumnRef } from "shared/experiments";
+import {
+  getComputedColumnRef,
+  dataSourceSupportsRegexp,
+} from "shared/experiments";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -43,6 +47,36 @@ function newNumericComputedColumn(): NumericComputedColumn {
 function newStringComputedColumn(): StringComputedColumn {
   return { id: genId(), name: "", kind: "string", parts: [newStringPart()] };
 }
+
+function newStringOperation(
+  type: StringComputedColumnOperation["type"],
+): StringComputedColumnOperation {
+  switch (type) {
+    case "replace":
+      return { type: "replace", find: "", replaceWith: "" };
+    case "regexpReplace":
+      return { type: "regexpReplace", pattern: "", replaceWith: "" };
+    case "regexpExtract":
+      return { type: "regexpExtract", pattern: "" };
+    case "upper":
+      return { type: "upper" };
+    case "lower":
+      return { type: "lower" };
+    case "trim":
+      return { type: "trim" };
+  }
+}
+
+// Options for the string-operation type dropdown. `regex` ops are filtered out
+// for datasources that can't run regular expressions.
+const STRING_OPERATION_OPTIONS: (SingleValue & { regex?: boolean })[] = [
+  { label: "Replace text", value: "replace" },
+  { label: "Replace (regex)", value: "regexpReplace", regex: true },
+  { label: "Extract (regex)", value: "regexpExtract", regex: true },
+  { label: "Uppercase", value: "upper" },
+  { label: "Lowercase", value: "lower" },
+  { label: "Trim whitespace", value: "trim" },
+];
 
 function getNumericColumnOptions(
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">,
@@ -187,11 +221,13 @@ function NumericComputedColumnEditor({
   factTable,
   priorColumns,
   setValue,
+  onRemove,
 }: {
   value: NumericComputedColumn;
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
   priorColumns: ComputedColumn[];
   setValue: (v: NumericComputedColumn) => void;
+  onRemove: () => void;
 }) {
   const columnOptions = [
     ...getNumericColumnOptions(factTable),
@@ -204,6 +240,12 @@ function NumericComputedColumnEditor({
     setValue({ ...value, operands });
   };
   const removeOperand = (i: number) => {
+    // Removing the only operand leaves no logic — delete the whole computed
+    // column instead of keeping an empty (invalid) formula.
+    if (value.operands.length <= 1) {
+      onRemove();
+      return;
+    }
     const operands = [...value.operands];
     operands.splice(i, 1);
     const operators = [...value.operators];
@@ -244,19 +286,14 @@ function NumericComputedColumnEditor({
               columnOptions={columnOptions}
               onChange={(o) => updateOperand(i, o)}
             />
-            {value.operands.length > 1 && (
-              <span className={styles.removeButton}>
-                <Button
-                  variant="ghost"
-                  color="red"
-                  size="xs"
-                  aria-label="Remove operand"
-                  onClick={() => removeOperand(i)}
-                >
-                  <PiX size={11} />
-                </Button>
-              </span>
-            )}
+            <button
+              type="button"
+              className={styles.removeButton}
+              aria-label="Remove operand"
+              onClick={() => removeOperand(i)}
+            >
+              <PiX size={9} />
+            </button>
           </div>
         ))}
         <a
@@ -332,16 +369,186 @@ function NumericComputedColumnEditor({
   );
 }
 
+// Ordered list of string transforms applied after the concat (trim, replace,
+// regex replace/extract, upper/lower). Regex ops are hidden when the datasource
+// can't run regular expressions.
+function StringOperationsEditor({
+  operations,
+  supportsRegexp,
+  setOperations,
+}: {
+  operations: StringComputedColumnOperation[];
+  supportsRegexp: boolean;
+  setOperations: (ops: StringComputedColumnOperation[]) => void;
+}) {
+  const typeOptions = STRING_OPERATION_OPTIONS.filter(
+    (o) => supportsRegexp || !o.regex,
+  );
+
+  const updateOp = (i: number, op: StringComputedColumnOperation) => {
+    const next = [...operations];
+    next[i] = op;
+    setOperations(next);
+  };
+  const removeOp = (i: number) => {
+    const next = [...operations];
+    next.splice(i, 1);
+    setOperations(next);
+  };
+
+  return (
+    <Flex direction="column" gap="2">
+      {operations.map((op, i) => (
+        <Flex align="center" gap="2" key={i} wrap="wrap">
+          <Box style={{ width: 160 }}>
+            <SelectField
+              value={op.type}
+              onChange={(v) =>
+                updateOp(
+                  i,
+                  newStringOperation(
+                    v as StringComputedColumnOperation["type"],
+                  ),
+                )
+              }
+              options={typeOptions}
+              sort={false}
+            />
+          </Box>
+          {(op.type === "replace" || op.type === "regexpReplace") && (
+            <>
+              <Field
+                value={op.type === "replace" ? op.find : op.pattern}
+                onChange={(e) =>
+                  updateOp(
+                    i,
+                    op.type === "replace"
+                      ? { ...op, find: e.target.value }
+                      : { ...op, pattern: e.target.value },
+                  )
+                }
+                placeholder={op.type === "replace" ? "find" : "pattern"}
+                style={{ maxWidth: 150 }}
+              />
+              <Text size="small" color="text-low">
+                →
+              </Text>
+              <Field
+                value={op.replaceWith}
+                onChange={(e) =>
+                  updateOp(i, { ...op, replaceWith: e.target.value })
+                }
+                placeholder="replace with"
+                style={{ maxWidth: 150 }}
+              />
+            </>
+          )}
+          {op.type === "regexpExtract" && (
+            <Field
+              value={op.pattern}
+              onChange={(e) => updateOp(i, { ...op, pattern: e.target.value })}
+              placeholder="pattern"
+              style={{ maxWidth: 200 }}
+            />
+          )}
+          <Button
+            variant="ghost"
+            color="red"
+            size="xs"
+            aria-label="Remove transform"
+            onClick={() => removeOp(i)}
+          >
+            <PiX />
+          </Button>
+        </Flex>
+      ))}
+      <div>
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            setOperations([...operations, newStringOperation("replace")]);
+          }}
+        >
+          <PiPlus /> Add transform
+        </a>
+      </div>
+    </Flex>
+  );
+}
+
+// Sentinel option for "this part is a static text literal" — selecting it
+// reveals a text input beside the dropdown (mirrors NUMBER_OPTION_VALUE).
+const TEXT_OPTION_VALUE = "$$text";
+
+function StringPartInput({
+  part,
+  columnOptions,
+  onChange,
+}: {
+  part: ComputedColumnStringPart;
+  columnOptions: SingleValue[];
+  onChange: (p: ComputedColumnStringPart) => void;
+}) {
+  const isLiteral = part.type === "literal";
+  const options: GroupedValue[] = [];
+  if (columnOptions.length > 0) {
+    options.push({ label: "Columns", options: columnOptions });
+  }
+  options.push({
+    label: "Static",
+    options: [{ label: "Static Text", value: TEXT_OPTION_VALUE }],
+  });
+  return (
+    <Flex align="center" gap="2">
+      <Box style={{ minWidth: 100, width: "fit-content" }}>
+        <SelectField
+          value={isLiteral ? TEXT_OPTION_VALUE : part.column}
+          onChange={(v) =>
+            onChange(
+              v === TEXT_OPTION_VALUE
+                ? { type: "literal", value: isLiteral ? part.value : "" }
+                : { type: "column", column: v },
+            )
+          }
+          options={options}
+          placeholder="Column or text..."
+          sort={false}
+          required
+          containerStyles={{
+            input: (base) => ({
+              ...base,
+              gridTemplateColumns: "0 minmax(2px, min-content)",
+            }),
+          }}
+        />
+      </Box>
+      {isLiteral && (
+        <Field
+          value={part.value}
+          onChange={(e) => onChange({ type: "literal", value: e.target.value })}
+          placeholder="text"
+          style={{ maxWidth: 150, height: 38 }}
+        />
+      )}
+    </Flex>
+  );
+}
+
 function StringComputedColumnEditor({
   value,
   factTable,
   priorColumns,
+  supportsRegexp,
   setValue,
+  onRemove,
 }: {
   value: StringComputedColumn;
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
   priorColumns: ComputedColumn[];
+  supportsRegexp: boolean;
   setValue: (v: StringComputedColumn) => void;
+  onRemove: () => void;
 }) {
   const columnOptions = [
     ...getStringColumnOptions(factTable),
@@ -354,85 +561,68 @@ function StringComputedColumnEditor({
     setValue({ ...value, parts });
   };
   const removePart = (i: number) => {
+    // Removing the only part leaves nothing — delete the whole computed column.
+    if (value.parts.length <= 1) {
+      onRemove();
+      return;
+    }
     const parts = [...value.parts];
     parts.splice(i, 1);
     setValue({ ...value, parts });
   };
-  const addPart = (part: ComputedColumnStringPart) => {
-    setValue({ ...value, parts: [...value.parts, part] });
+  const addPart = () => {
+    setValue({ ...value, parts: [...value.parts, newStringPart()] });
   };
 
   return (
     <Flex direction="column" gap="2">
+      {/* Concatenation: part [concat] part [concat] part ... */}
       <Flex align="center" gap="2" wrap="wrap">
         {value.parts.map((part, i) => (
-          <Flex align="center" gap="2" key={i} wrap="wrap">
-            {i > 0 && <Text size="small">+</Text>}
-            <Box style={{ width: 104 }}>
-              <SelectField
-                value={part.type}
-                onChange={(v) =>
-                  updatePart(
-                    i,
-                    v === "literal"
-                      ? { type: "literal", value: "" }
-                      : { type: "column", column: "" },
-                  )
-                }
-                options={[
-                  { label: "Column", value: "column" },
-                  { label: "Text", value: "literal" },
-                ]}
-                sort={false}
-              />
-            </Box>
-            {part.type === "column" ? (
-              <Box style={{ minWidth: 170 }}>
-                <SelectField
-                  value={part.column}
-                  onChange={(column) =>
-                    updatePart(i, { type: "column", column })
-                  }
-                  options={columnOptions}
-                  placeholder="Select column..."
-                  required
-                />
-              </Box>
-            ) : (
-              <Field
-                value={part.value}
-                onChange={(e) =>
-                  updatePart(i, { type: "literal", value: e.target.value })
-                }
-                placeholder="text..."
-              />
+          <div className={styles.operandBlock} key={i}>
+            {i > 0 && (
+              <Text size="small" color="text-low">
+                concat
+              </Text>
             )}
-            {value.parts.length > 1 && (
-              <Button variant="ghost" color="red" onClick={() => removePart(i)}>
-                <PiX />
-              </Button>
-            )}
-          </Flex>
+            <StringPartInput
+              part={part}
+              columnOptions={columnOptions}
+              onChange={(p) => updatePart(i, p)}
+            />
+            <button
+              type="button"
+              className={styles.removeButton}
+              aria-label="Remove part"
+              onClick={() => removePart(i)}
+            >
+              <PiX size={9} />
+            </button>
+          </div>
         ))}
         <a
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            addPart(newStringPart());
+            addPart();
           }}
         >
-          <PiPlus /> Column
-        </a>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            addPart({ type: "literal", value: "" });
-          }}
-        >
-          <PiPlus /> Text
+          <PiPlus /> Add
         </a>
       </Flex>
+
+      <Box mt="1">
+        <Text size="small" color="text-low">
+          Then transform (optional)
+        </Text>
+        <StringOperationsEditor
+          operations={value.operations || []}
+          supportsRegexp={supportsRegexp}
+          setOperations={(ops) =>
+            setValue({ ...value, operations: ops.length ? ops : undefined })
+          }
+        />
+      </Box>
     </Flex>
   );
 }
@@ -441,11 +631,16 @@ export function ComputedColumnInput({
   value,
   setValue,
   factTable,
+  datasourceType,
 }: {
   value: ComputedColumn[];
   setValue: (value: ComputedColumn[]) => void;
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
+  // Datasource engine (e.g. "postgres"); gates regexp string operations.
+  datasourceType?: string;
 }) {
+  const supportsRegexp = dataSourceSupportsRegexp(datasourceType);
+
   const updateColumn = (i: number, column: ComputedColumn) => {
     const next = [...value];
     next[i] = column;
@@ -504,7 +699,7 @@ export function ComputedColumnInput({
                 }
                 options={[
                   { label: "Number", value: "number" },
-                  { label: "String (concat)", value: "string" },
+                  { label: "String", value: "string" },
                 ]}
                 sort={false}
               />
@@ -525,13 +720,16 @@ export function ComputedColumnInput({
               factTable={factTable}
               priorColumns={value.slice(0, i)}
               setValue={(v) => updateColumn(i, v)}
+              onRemove={() => removeColumn(i)}
             />
           ) : (
             <StringComputedColumnEditor
               value={column}
               factTable={factTable}
               priorColumns={value.slice(0, i)}
+              supportsRegexp={supportsRegexp}
               setValue={(v) => updateColumn(i, v)}
+              onRemove={() => removeColumn(i)}
             />
           )}
         </Box>

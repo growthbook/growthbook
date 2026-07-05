@@ -348,6 +348,71 @@ describe("Experiments", () => {
         ).toBe(`CONCAT(event_name, ' - ', page)`);
       });
 
+      it("applies string operations in order (default dialect)", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "clean",
+              kind: "string",
+              parts: [{ type: "column", column: "event_name" }],
+              operations: [
+                { type: "trim" },
+                { type: "lower" },
+                { type: "replace", find: "-", replaceWith: "_" },
+              ],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`REPLACE(LOWER(TRIM(event_name)), '-', '_')`);
+      });
+
+      it("supports regexp replace/extract and escapes literals (default dialect)", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "re",
+              kind: "string",
+              parts: [{ type: "column", column: "event_name" }],
+              operations: [
+                { type: "regexpReplace", pattern: "a'b", replaceWith: "" },
+                { type: "regexpExtract", pattern: "\\d+" },
+              ],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`REGEXP_SUBSTR(REGEXP_REPLACE(event_name, 'a''b', ''), '\\d+')`);
+      });
+
+      it("uses dialect overrides for string operations", () => {
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: {
+              id: "1",
+              name: "re",
+              kind: "string",
+              parts: [{ type: "column", column: "event_name" }],
+              operations: [
+                { type: "regexpReplace", pattern: "x", replaceWith: "y" },
+              ],
+            },
+            factTable,
+            jsonExtract,
+            escapeStringLiteral,
+            dialect: {
+              // Mimic Postgres' global-flag override.
+              regexpReplace: (e, p, r) =>
+                `REGEXP_REPLACE(${e}, ${p}, ${r}, 'g')`,
+            },
+          }),
+        ).toBe(`REGEXP_REPLACE(event_name, 'x', 'y', 'g')`);
+      });
+
       it("expands a reference to an earlier computed column", () => {
         const avg = {
           id: "avg",

@@ -1,51 +1,42 @@
 // Groups an operand's operator + column/number + remove control in a subtle
 // block so they read as one unit.
 .operandBlock {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   background: var(--gray-a3);
   border-radius: var(--radius-3);
-  padding: var(--space-1);
-  // Snug on the right while the remove button is hidden; expands on hover.
-  padding-right: var(--space-1);
-  transition: padding-right 0.15s ease;
+  padding: var(--space-1) var(--space-2);
 }
 
-.operandBlock:hover,
-.operandBlock:focus-within {
-  padding-right: var(--space-2);
-}
-
-// The remove (X) is hidden until the block is hovered so the equation stays
-// clean. While hidden it collapses to zero width and its flex gap is cancelled
-// so the block sits snug; on hover it expands in next to the column/number.
+// Small floating delete badge in the block's top-right corner. Absolutely
+// positioned so it never affects layout (no reflow, no jump) and stays compact.
 .removeButton {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
-  overflow: hidden;
-  max-width: 0;
-  margin-left: calc(-1 * var(--space-2));
-  opacity: 0;
-  transition:
-    max-width 0.15s ease,
-    margin-left 0.15s ease,
-    opacity 0.12s ease;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--gray-a5);
+  border-radius: 50%;
+  background: var(--color-panel-solid);
+  box-shadow: var(--shadow-2);
+  color: var(--red-9);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.operandBlock:hover .removeButton,
-.operandBlock:focus-within .removeButton {
-  max-width: 40px;
-  // Sit close to the column/number to its left.
-  margin-left: calc(-1 * var(--space-1));
-  opacity: 1;
-}
-
-// Trim the ghost button to an icon-only box so the X reads small.
-.removeButton button {
-  padding: 2px !important;
-  min-width: 0 !important;
-  height: auto !important;
+.removeButton:hover {
+  background: var(--red-3);
+  border-color: var(--red-7);
+  color: var(--red-10);
 }
 
 // Hide the native up/down spinner on the literal Number input.

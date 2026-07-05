@@ -10,6 +10,7 @@ import {
   isComputedColumnRef,
   getComputedColumnRef,
   findComputedColumn,
+  dataSourceSupportsRegexp,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
@@ -153,10 +154,13 @@ function validateComputedColumns({
   columnRef,
   factTable,
   errorPrefix,
+  supportsRegexp,
 }: {
   columnRef: ColumnRef;
   factTable: FactTableInterface;
   errorPrefix: string;
+  // Whether the datasource can run REGEXP_REPLACE / REGEXP_SUBSTR.
+  supportsRegexp: boolean;
 }): void {
   const computedColumns = columnRef.computedColumns || [];
 
@@ -230,6 +234,16 @@ function validateComputedColumns({
       for (const part of cc.parts) {
         if (part.type === "column") {
           validateColumnRef(cc, part.column, "string");
+        }
+      }
+      // Regexp operations aren't supported on every warehouse (e.g. MSSQL).
+      if (!supportsRegexp) {
+        for (const op of cc.operations || []) {
+          if (op.type === "regexpReplace" || op.type === "regexpExtract") {
+            throw new Error(
+              `${errorPrefix}Computed column '${cc.name}' uses a regular-expression operation, which this datasource does not support.`,
+            );
+          }
         }
       }
     }
@@ -499,6 +513,11 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Could not find numerator fact table");
     }
 
+    // Used to gate regexp-based computed-column operations, which not every
+    // warehouse supports.
+    const datasource = await getDataSourceById(this.context, data.datasource);
+    const supportsRegexp = dataSourceSupportsRegexp(datasource?.type);
+
     validateSavedFilterIds({
       columnRef: data.numerator,
       factTable: numeratorFactTable,
@@ -509,6 +528,7 @@ export class FactMetricModel extends BaseClass {
       columnRef: data.numerator,
       factTable: numeratorFactTable,
       errorPrefix: "Numerator misspecified. ",
+      supportsRegexp,
     });
 
     // Validate aggregation/datatype constraints (runs for every code path
@@ -580,6 +600,7 @@ export class FactMetricModel extends BaseClass {
         columnRef: data.denominator,
         factTable: denominatorFactTable,
         errorPrefix: "Denominator misspecified. ",
+        supportsRegexp,
       });
 
       validateAggregationSpecification({

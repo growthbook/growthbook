@@ -4,6 +4,9 @@ import { baseDialect } from "./base";
 
 export const athenaDialect: SqlDialect = {
   ...baseDialect,
+  // Trino/Presto uses regexp_extract (no REGEXP_SUBSTR).
+  regexpExtract: (expr: string, pattern: string) =>
+    `regexp_extract(${expr}, ${pattern})`,
   formatDialect: "trino",
   toTimestamp: (date: Date) =>
     `from_iso8601_timestamp('${date.toISOString()}')`,

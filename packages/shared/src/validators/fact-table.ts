@@ -241,14 +241,50 @@ export const computedColumnStringPartValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("literal"), value: z.string() }).strict(),
 ]);
 
-// A string computed column is a concatenation of parts. String computed columns
-// can only be used in row filters / slices, never as a numeric metric value.
+// A transform applied to a string computed column after its parts are
+// concatenated. Operations are applied in order, each wrapping the previous
+// result (e.g. concat -> trim -> lower). `regexpReplace` / `regexpExtract` are
+// not supported on every warehouse (e.g. MSSQL), so the UI hides them and
+// validation blocks them for unsupported datasources.
+export const stringComputedColumnOperationValidator = z.discriminatedUnion(
+  "type",
+  [
+    // Literal substring replace. "Subtract" = replace with an empty string.
+    z
+      .object({
+        type: z.literal("replace"),
+        find: z.string(),
+        replaceWith: z.string(),
+      })
+      .strict(),
+    // Regular-expression replace (all matches).
+    z
+      .object({
+        type: z.literal("regexpReplace"),
+        pattern: z.string(),
+        replaceWith: z.string(),
+      })
+      .strict(),
+    // Extract the first regular-expression match.
+    z
+      .object({ type: z.literal("regexpExtract"), pattern: z.string() })
+      .strict(),
+    z.object({ type: z.literal("upper") }).strict(),
+    z.object({ type: z.literal("lower") }).strict(),
+    z.object({ type: z.literal("trim") }).strict(),
+  ],
+);
+
+// A string computed column concatenates its parts, then applies an optional
+// ordered list of string operations. String computed columns can only be used
+// in row filters / slices, never as a numeric metric value.
 export const stringComputedColumnValidator = z
   .object({
     id: z.string(),
     name: z.string(),
     kind: z.literal("string"),
     parts: z.array(computedColumnStringPartValidator).min(1),
+    operations: z.array(stringComputedColumnOperationValidator).optional(),
   })
   .strict();
 

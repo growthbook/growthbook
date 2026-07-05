@@ -3,6 +3,7 @@ import {
   getFactTableTemplateVariables,
   isRatioMetric,
   parseSliceMetricId,
+  computedColumnDialectFromSql,
 } from "shared/experiments";
 import { buildMinimalOrCondition } from "shared/sql";
 import type { PhaseSQLVar, SqlDialect } from "shared/types/sql";
@@ -117,7 +118,7 @@ export function getFactMetricCTE(
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,
-        dialect: { round: dialect.round, concat: dialect.concat },
+        dialect: computedColumnDialectFromSql(dialect),
       });
 
       const column =
@@ -176,7 +177,7 @@ export function getFactMetricCTE(
         jsonExtract: dialect.jsonExtract,
         evalBoolean: dialect.evalBoolean,
         sliceInfo,
-        dialect: { round: dialect.round, concat: dialect.concat },
+        dialect: computedColumnDialectFromSql(dialect),
       });
       const column =
         filters.length > 0

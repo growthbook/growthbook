@@ -649,6 +649,7 @@ function ColumnRefSelector({
                 factTable={factTable}
                 value={value.computedColumns || []}
                 setValue={setComputedColumns}
+                datasourceType={datasource?.type}
               />
             </div>
           )}

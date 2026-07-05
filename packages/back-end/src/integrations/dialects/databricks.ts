@@ -13,6 +13,9 @@ const databricksEscapeStringLiteral = (value: string) =>
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
+  // Spark's regexp_extract requires a capture-group index; 0 = the whole match.
+  regexpExtract: (expr: string, pattern: string) =>
+    `regexp_extract(${expr}, ${pattern}, 0)`,
   formatDialect: "spark",
   toTimestamp: (date: Date) => `TIMESTAMP'${date.toISOString()}'`,
   addTime: (

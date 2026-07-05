@@ -167,6 +167,20 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   concat: (parts: string[]) => `CONCAT(${parts.join(", ")})`,
 
+  // String operations for computed columns. `find`/`pattern`/`replaceWith` are
+  // already-quoted SQL string literals.
+  replace: (expr: string, find: string, replaceWith: string) =>
+    `REPLACE(${expr}, ${find}, ${replaceWith})`,
+  // Most warehouses' REGEXP_REPLACE replaces all matches by default; Postgres
+  // is the exception and overrides this to add a `'g'` flag.
+  regexpReplace: (expr: string, pattern: string, replaceWith: string) =>
+    `REGEXP_REPLACE(${expr}, ${pattern}, ${replaceWith})`,
+  regexpExtract: (expr: string, pattern: string) =>
+    `REGEXP_SUBSTR(${expr}, ${pattern})`,
+  upper: (expr: string) => `UPPER(${expr})`,
+  lower: (expr: string) => `LOWER(${expr})`,
+  trim: (expr: string) => `TRIM(${expr})`,
+
   arrayElement: (arrayCol: string, index: number) =>
     `${arrayCol}[${index + 1}]`,
 };

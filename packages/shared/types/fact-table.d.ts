@@ -26,6 +26,7 @@ import {
   computedColumnValidator,
   numericComputedColumnValidator,
   stringComputedColumnValidator,
+  stringComputedColumnOperationValidator,
   computedColumnStringPartValidator,
   computedColumnOperandValidator,
 } from "shared/validators";
@@ -138,6 +139,9 @@ export type ComputedColumnOperand = z.infer<
 >;
 export type ComputedColumnStringPart = z.infer<
   typeof computedColumnStringPartValidator
+>;
+export type StringComputedColumnOperation = z.infer<
+  typeof stringComputedColumnOperationValidator
 >;
 
 export type LegacyFactMetricInterface = Omit<
