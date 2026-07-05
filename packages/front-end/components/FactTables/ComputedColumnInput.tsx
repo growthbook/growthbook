@@ -17,6 +17,7 @@ import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import styles from "./ComputedColumnInput.module.scss";
 
 // A stable-enough client-side id for referencing a computed column via
 // `$$computed:<id>`. Uniqueness only needs to hold within a single metric.
@@ -117,18 +118,6 @@ const ARITHMETIC_OPERATORS: SingleValue[] = [
 // a number input beside the dropdown.
 const NUMBER_OPTION_VALUE = "$$number";
 
-// A thin horizontal rule used to separate the columns from the "Number" option.
-function OperandOptionDivider() {
-  return (
-    <div
-      style={{
-        borderTop: "1px solid var(--border-color-200)",
-        margin: "2px 0",
-      }}
-    />
-  );
-}
-
 function NumericOperandInput({
   operand,
   columnOptions,
@@ -139,14 +128,19 @@ function NumericOperandInput({
   onChange: (o: ComputedColumnOperand) => void;
 }) {
   const isLiteral = operand.type === "literal";
-  // Columns (and earlier computed columns) on top, a divider, then "Number".
-  const options: (SingleValue | GroupedValue)[] = [
-    ...columnOptions,
-    { label: "", options: [{ label: "Number", value: NUMBER_OPTION_VALUE }] },
-  ];
+  // Two labeled sections: "Columns" (fact + earlier computed columns) and
+  // "Static" (a literal number).
+  const options: GroupedValue[] = [];
+  if (columnOptions.length > 0) {
+    options.push({ label: "Columns", options: columnOptions });
+  }
+  options.push({
+    label: "Static",
+    options: [{ label: "Number", value: NUMBER_OPTION_VALUE }],
+  });
   return (
     <Flex align="center" gap="2">
-      <Box style={{ minWidth: 200 }}>
+      <Box style={{ minWidth: 100, width: "fit-content" }}>
         <SelectField
           value={isLiteral ? NUMBER_OPTION_VALUE : operand.column}
           onChange={(v) =>
@@ -157,10 +151,19 @@ function NumericOperandInput({
             )
           }
           options={options}
-          formatGroupLabel={() => <OperandOptionDivider />}
-          placeholder="Select column or number..."
+          placeholder="Column or number..."
           sort={false}
           required
+          // The default focused-input style stretches the control to fill its
+          // container (`1fr`); inside a fit-content wrapper that makes the
+          // trigger jump wider when opened. Size the search input to its own
+          // content instead so the trigger keeps its closed width.
+          containerStyles={{
+            input: (base) => ({
+              ...base,
+              gridTemplateColumns: "0 minmax(2px, min-content)",
+            }),
+          }}
         />
       </Box>
       {isLiteral && (
@@ -171,7 +174,8 @@ function NumericOperandInput({
           onChange={(e) =>
             onChange({ type: "literal", value: e.target.valueAsNumber || 0 })
           }
-          style={{ maxWidth: 110, height: 38 }}
+          className={styles.numberInput}
+          style={{ width: 50, height: 38 }}
         />
       )}
     </Flex>
@@ -224,9 +228,9 @@ function NumericComputedColumnEditor({
       {/* Flat formula row: operand [op] operand [op] operand ... */}
       <Flex align="center" gap="2" wrap="wrap">
         {value.operands.map((operand, i) => (
-          <Flex align="center" gap="2" key={i} wrap="wrap">
+          <div className={styles.operandBlock} key={i}>
             {i > 0 && (
-              <Box style={{ width: 64 }}>
+              <Box style={{ width: 50 }}>
                 <SelectField
                   value={value.operators[i - 1] || "+"}
                   onChange={(v) => setOperator(i - 1, v)}
@@ -241,15 +245,19 @@ function NumericComputedColumnEditor({
               onChange={(o) => updateOperand(i, o)}
             />
             {value.operands.length > 1 && (
-              <Button
-                variant="ghost"
-                color="red"
-                onClick={() => removeOperand(i)}
-              >
-                <PiX />
-              </Button>
+              <span className={styles.removeButton}>
+                <Button
+                  variant="ghost"
+                  color="red"
+                  size="xs"
+                  aria-label="Remove operand"
+                  onClick={() => removeOperand(i)}
+                >
+                  <PiX size={11} />
+                </Button>
+              </span>
             )}
-          </Flex>
+          </div>
         ))}
         <a
           href="#"

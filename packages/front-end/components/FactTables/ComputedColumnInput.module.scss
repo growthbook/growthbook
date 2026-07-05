@@ -1,0 +1,62 @@
+// Groups an operand's operator + column/number + remove control in a subtle
+// block so they read as one unit.
+.operandBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--gray-a3);
+  border-radius: var(--radius-3);
+  padding: var(--space-1);
+  // Snug on the right while the remove button is hidden; expands on hover.
+  padding-right: var(--space-1);
+  transition: padding-right 0.15s ease;
+}
+
+.operandBlock:hover,
+.operandBlock:focus-within {
+  padding-right: var(--space-2);
+}
+
+// The remove (X) is hidden until the block is hovered so the equation stays
+// clean. While hidden it collapses to zero width and its flex gap is cancelled
+// so the block sits snug; on hover it expands in next to the column/number.
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  max-width: 0;
+  margin-left: calc(-1 * var(--space-2));
+  opacity: 0;
+  transition:
+    max-width 0.15s ease,
+    margin-left 0.15s ease,
+    opacity 0.12s ease;
+}
+
+.operandBlock:hover .removeButton,
+.operandBlock:focus-within .removeButton {
+  max-width: 40px;
+  // Sit close to the column/number to its left.
+  margin-left: calc(-1 * var(--space-1));
+  opacity: 1;
+}
+
+// Trim the ghost button to an icon-only box so the X reads small.
+.removeButton button {
+  padding: 2px !important;
+  min-width: 0 !important;
+  height: auto !important;
+}
+
+// Hide the native up/down spinner on the literal Number input.
+.numberInput {
+  appearance: textfield;
+  -moz-appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

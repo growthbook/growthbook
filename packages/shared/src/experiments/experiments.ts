@@ -10,7 +10,11 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
-import { COMPUTED_COLUMN_PREFIX } from "shared/validators";
+// Import directly from the fact-table validator module rather than the
+// `shared/validators` barrel: the barrel pulls in `safe-rollout-snapshot`, which
+// imports from `shared/enterprise`, creating an enterprise → experiments →
+// validators → enterprise initialization cycle (leaves the enterprise validator
+// undefined at load time). See comparison.test.ts.
 import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
@@ -52,6 +56,7 @@ import {
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { StringMatchFn, TemplateVariables } from "shared/types/sql";
+import { COMPUTED_COLUMN_PREFIX } from "../validators/fact-table";
 import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
