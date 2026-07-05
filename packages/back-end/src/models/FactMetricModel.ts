@@ -9,6 +9,7 @@ import {
   getSelectedColumnDatatype,
   isComputedColumnRef,
   getComputedColumnRef,
+  findComputedColumn,
 } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import { factMetricValidator, ApiFactMetric } from "shared/validators";
@@ -161,11 +162,43 @@ function validateComputedColumns({
 
   const seenIds = new Set<string>();
   const seenNames = new Set<string>();
+  // Computed columns can reference earlier ones (e.g. `avg` then `avg * 100`).
+  // Tracking the ids defined so far both enforces that ordering and guarantees
+  // the reference graph is acyclic.
+  const priorIds = new Set<string>();
 
-  const isNumericColumn = (col: string) =>
-    getSelectedColumnDatatype({ factTable, column: col }) === "number";
-  const isStringColumn = (col: string) =>
-    getSelectedColumnDatatype({ factTable, column: col }) === "string";
+  // A column operand/part may be a plain fact-table column or a `$$computed:<id>`
+  // reference to an earlier computed column. Validate whichever it is against the
+  // required datatype.
+  const validateColumnRef = (
+    cc: ComputedColumn,
+    col: string,
+    requiredKind: "number" | "string",
+  ): void => {
+    if (isComputedColumnRef(col)) {
+      const nested = findComputedColumn(computedColumns, col);
+      if (!nested || !priorIds.has(nested.id)) {
+        throw new Error(
+          `${errorPrefix}Computed column '${cc.name}' references computed column '${col}', which must be defined before it.`,
+        );
+      }
+      if (nested.kind !== requiredKind) {
+        throw new Error(
+          `${errorPrefix}Computed column '${cc.name}' references computed column '${nested.name}', which is not a ${requiredKind}.`,
+        );
+      }
+      return;
+    }
+    if (
+      getSelectedColumnDatatype({ factTable, column: col }) !== requiredKind
+    ) {
+      throw new Error(
+        requiredKind === "number"
+          ? `${errorPrefix}Computed column '${cc.name}' references non-numeric column '${col}'.`
+          : `${errorPrefix}Computed column '${cc.name}' concatenates non-string column '${col}'.`,
+      );
+    }
+  };
 
   for (const cc of computedColumns) {
     if (!cc.name.trim()) {
@@ -183,34 +216,25 @@ function validateComputedColumns({
     seenNames.add(cc.name);
 
     if (cc.kind === "number") {
-      if (cc.termOperators.length !== cc.terms.length - 1) {
+      if (cc.operators.length !== cc.operands.length - 1) {
         throw new Error(
-          `${errorPrefix}Computed column '${cc.name}' has a mismatched number of term operators.`,
+          `${errorPrefix}Computed column '${cc.name}' has a mismatched number of operators.`,
         );
       }
-      for (const term of cc.terms) {
-        if (term.operators.length !== term.operands.length - 1) {
-          throw new Error(
-            `${errorPrefix}Computed column '${cc.name}' has a mismatched number of operators.`,
-          );
-        }
-        for (const operand of term.operands) {
-          if (operand.type === "column" && !isNumericColumn(operand.column)) {
-            throw new Error(
-              `${errorPrefix}Computed column '${cc.name}' references non-numeric column '${operand.column}'.`,
-            );
-          }
+      for (const operand of cc.operands) {
+        if (operand.type === "column") {
+          validateColumnRef(cc, operand.column, "number");
         }
       }
     } else {
       for (const part of cc.parts) {
-        if (part.type === "column" && !isStringColumn(part.column)) {
-          throw new Error(
-            `${errorPrefix}Computed column '${cc.name}' concatenates non-string column '${part.column}'.`,
-          );
+        if (part.type === "column") {
+          validateColumnRef(cc, part.column, "string");
         }
       }
     }
+
+    priorIds.add(cc.id);
   }
 
   // Every `$$computed:<id>` reference (the value, the user filter, and each row

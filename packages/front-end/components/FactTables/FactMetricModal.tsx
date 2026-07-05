@@ -896,6 +896,7 @@ function getPreviewSQL({
       return buildComputedColumnSQL({
         computedColumn: computed,
         factTable,
+        computedColumns: columnRef.computedColumns,
         jsonExtract: (col, path) => `${col}.${path}`,
         escapeStringLiteral: (s) => s.replace(/'/g, "''"),
       });

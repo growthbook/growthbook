@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "front-end",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "front-end", "dev"],
+      "port": 3000
+    }
+  ]
+}

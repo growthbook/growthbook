@@ -15,6 +15,7 @@ import { MetricInterface } from "shared/types/metric";
 import {
   ColumnRef,
   ComputedColumn,
+  ComputedColumnOperand,
   FactMetricInterface,
   FactTableColumnType,
   FactTableInterface,
@@ -204,66 +205,85 @@ export function findComputedColumn(
 /**
  * Build the SQL expression for a computed column.
  *
- * Numeric computed columns are a sum-of-products: `(a * b) + (c / d) - e`.
- * Multiplicative operands within a term are combined first (so precedence is
- * correct without a parser), divisors are wrapped in `NULLIF(x, 0)` to avoid
- * divide-by-zero, and column operands can optionally be wrapped in
- * `COALESCE(col, 0)`. String computed columns concatenate their parts.
+ * Numeric computed columns are a flat arithmetic expression — operands joined by
+ * `+ - * /` (e.g. `price * quantity + shipping`). SQL's native precedence makes
+ * `*` / `/` bind before `+` / `-`, so no parentheses are needed. Divisors are
+ * wrapped in `NULLIF(x, 0)` to avoid divide-by-zero, and column operands can
+ * optionally be wrapped in `COALESCE(col, 0)`. String computed columns
+ * concatenate their parts.
  */
 export function buildComputedColumnSQL({
   computedColumn,
   factTable,
+  computedColumns,
   jsonExtract,
   escapeStringLiteral,
   dialect,
   alias = "",
+  seen = new Set<string>(),
 }: {
   computedColumn: ComputedColumn;
   factTable: Pick<FactTableInterface, "columns">;
+  // Sibling computed columns, so a `$$computed:<id>` operand/part can be resolved
+  // to another computed column defined earlier on the same ColumnRef.
+  computedColumns?: ComputedColumn[];
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   escapeStringLiteral: (s: string) => string;
   dialect?: ComputedColumnDialect;
   alias?: string;
+  // Ids currently being expanded, used to guard against reference cycles.
+  seen?: Set<string>;
 }): string {
   const concat = dialect?.concat ?? defaultConcat;
   const round = dialect?.round ?? defaultRound;
+
+  // Resolve a column reference, transparently expanding nested computed columns.
+  const nestedSeen = new Set(seen).add(computedColumn.id);
+  const resolveColumn = (col: string): string => {
+    const nested = findComputedColumn(computedColumns, col);
+    if (nested) {
+      // A cycle should be impossible (the UI only lets you reference earlier
+      // columns and validation enforces it), but guard against it anyway so a
+      // malformed doc can't blow the stack.
+      if (nestedSeen.has(nested.id)) return "NULL";
+      return buildComputedColumnSQL({
+        computedColumn: nested,
+        factTable,
+        computedColumns,
+        jsonExtract,
+        escapeStringLiteral,
+        dialect,
+        alias,
+        seen: nestedSeen,
+      });
+    }
+    return getColumnExpression(col, factTable, jsonExtract, alias);
+  };
 
   if (computedColumn.kind === "string") {
     const parts = computedColumn.parts.map((part) =>
       part.type === "literal"
         ? `'${escapeStringLiteral(part.value)}'`
-        : getColumnExpression(part.column, factTable, jsonExtract, alias),
+        : resolveColumn(part.column),
     );
     return concat(parts);
   }
 
-  const termSQLs = computedColumn.terms.map((term) => {
-    const operandSQLs = term.operands.map((operand) => {
-      if (operand.type === "literal") {
-        return formatNumericLiteral(operand.value);
-      }
-      const colExpr = getColumnExpression(
-        operand.column,
-        factTable,
-        jsonExtract,
-        alias,
-      );
-      return computedColumn.coalesceZero ? `COALESCE(${colExpr}, 0)` : colExpr;
-    });
+  const operandSQL = (operand: ComputedColumnOperand): string => {
+    if (operand.type === "literal") {
+      return formatNumericLiteral(operand.value);
+    }
+    const colExpr = resolveColumn(operand.column);
+    return computedColumn.coalesceZero ? `COALESCE(${colExpr}, 0)` : colExpr;
+  };
 
-    let expr = operandSQLs[0];
-    term.operators.forEach((op, i) => {
-      const rhs =
-        op === "/" ? `NULLIF(${operandSQLs[i + 1]}, 0)` : operandSQLs[i + 1];
-      expr = `${expr} ${op} ${rhs}`;
-    });
-    // Parenthesize multi-operand terms so `*`/`/` bind tighter than `+`/`-`
-    return term.operators.length > 0 ? `(${expr})` : expr;
-  });
-
-  let expr = termSQLs[0];
-  computedColumn.termOperators.forEach((op, i) => {
-    expr = `${expr} ${op} ${termSQLs[i + 1]}`;
+  const operandSQLs = computedColumn.operands.map(operandSQL);
+  let expr = operandSQLs[0];
+  computedColumn.operators.forEach((op, i) => {
+    // Guard division against divide-by-zero
+    const rhs =
+      op === "/" ? `NULLIF(${operandSQLs[i + 1]}, 0)` : operandSQLs[i + 1];
+    expr = `${expr} ${op} ${rhs}`;
   });
 
   if (computedColumn.rounding) {
@@ -274,9 +294,9 @@ export function buildComputedColumnSQL({
     );
   }
 
-  // Wrap in parens when the expression combines multiple terms so it composes
-  // safely wherever it is embedded (comparisons, aggregations, etc.).
-  return computedColumn.termOperators.length > 0 ? `(${expr})` : expr;
+  // Wrap in parens when the expression has any operator so it composes safely
+  // wherever it is embedded (comparisons, aggregations, etc.).
+  return computedColumn.operators.length > 0 ? `(${expr})` : expr;
 }
 
 /**
@@ -305,6 +325,7 @@ export function resolveColumnExpression({
     return buildComputedColumnSQL({
       computedColumn: computed,
       factTable,
+      computedColumns,
       jsonExtract,
       escapeStringLiteral,
       dialect,
@@ -457,6 +478,7 @@ export function getRowFilterSQL({
     ? buildComputedColumnSQL({
         computedColumn,
         factTable,
+        computedColumns,
         jsonExtract,
         escapeStringLiteral,
         dialect,

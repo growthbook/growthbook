@@ -26,9 +26,8 @@ import {
   computedColumnValidator,
   numericComputedColumnValidator,
   stringComputedColumnValidator,
-  computedColumnTermValidator,
-  computedColumnOperandValidator,
   computedColumnStringPartValidator,
+  computedColumnOperandValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -134,7 +133,6 @@ export type NumericComputedColumn = z.infer<
 export type StringComputedColumn = z.infer<
   typeof stringComputedColumnValidator
 >;
-export type ComputedColumnTerm = z.infer<typeof computedColumnTermValidator>;
 export type ComputedColumnOperand = z.infer<
   typeof computedColumnOperandValidator
 >;

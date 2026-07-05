@@ -3,13 +3,16 @@ import {
   ComputedColumn,
   ComputedColumnOperand,
   ComputedColumnStringPart,
-  ComputedColumnTerm,
   FactTableInterface,
   NumericComputedColumn,
   StringComputedColumn,
 } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
-import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import { getComputedColumnRef } from "shared/experiments";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
@@ -24,9 +27,6 @@ function genId(): string {
 function newOperand(): ComputedColumnOperand {
   return { type: "column", column: "" };
 }
-function newTerm(): ComputedColumnTerm {
-  return { operands: [newOperand()], operators: [] };
-}
 function newStringPart(): ComputedColumnStringPart {
   return { type: "column", column: "" };
 }
@@ -35,15 +35,14 @@ function newNumericComputedColumn(): NumericComputedColumn {
     id: genId(),
     name: "",
     kind: "number",
-    terms: [newTerm()],
-    termOperators: [],
+    operands: [newOperand()],
+    operators: [],
   };
 }
 function newStringComputedColumn(): StringComputedColumn {
   return { id: genId(), name: "", kind: "string", parts: [newStringPart()] };
 }
 
-// Numeric columns (and numeric JSON fields) usable as operands.
 function getNumericColumnOptions(
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">,
 ): SingleValue[] {
@@ -68,7 +67,6 @@ function getNumericColumnOptions(
   return options;
 }
 
-// String columns (and string JSON fields) usable as concat parts.
 function getStringColumnOptions(
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">,
 ): SingleValue[] {
@@ -93,58 +91,79 @@ function getStringColumnOptions(
   return options;
 }
 
-const MULTIPLICATIVE_OPERATORS: SingleValue[] = [
+// Map already-defined computed columns to selectable `$$computed:<id>` options
+// so a column can be built on top of an earlier one (e.g. `avg` then `avg * 100`).
+function getComputedColumnOptions(
+  priorColumns: ComputedColumn[],
+  kind: "number" | "string",
+): SingleValue[] {
+  return priorColumns
+    .filter((c) => c.kind === kind)
+    .map((c) => ({
+      label: c.name || "(unnamed)",
+      value: getComputedColumnRef(c.id),
+    }));
+}
+
+// Unified operator between two operands: + − × ÷.
+const ARITHMETIC_OPERATORS: SingleValue[] = [
+  { label: "+", value: "+" },
+  { label: "−", value: "-" },
   { label: "×", value: "*" },
   { label: "÷", value: "/" },
 ];
-const ADDITIVE_OPERATORS: SingleValue[] = [
-  { label: "+", value: "+" },
-  { label: "−", value: "-" },
-];
 
-function OperandEditor({
+// Sentinel option for "this operand is a literal number" — selecting it reveals
+// a number input beside the dropdown.
+const NUMBER_OPTION_VALUE = "$$number";
+
+// A thin horizontal rule used to separate the columns from the "Number" option.
+function OperandOptionDivider() {
+  return (
+    <div
+      style={{
+        borderTop: "1px solid var(--border-color-200)",
+        margin: "2px 0",
+      }}
+    />
+  );
+}
+
+function NumericOperandInput({
   operand,
   columnOptions,
   onChange,
-  onRemove,
-  canRemove,
 }: {
   operand: ComputedColumnOperand;
   columnOptions: SingleValue[];
   onChange: (o: ComputedColumnOperand) => void;
-  onRemove: () => void;
-  canRemove: boolean;
 }) {
+  const isLiteral = operand.type === "literal";
+  // Columns (and earlier computed columns) on top, a divider, then "Number".
+  const options: (SingleValue | GroupedValue)[] = [
+    ...columnOptions,
+    { label: "", options: [{ label: "Number", value: NUMBER_OPTION_VALUE }] },
+  ];
   return (
-    <Flex align="center" gap="1">
-      <Box style={{ width: 110 }}>
+    <Flex align="center" gap="2">
+      <Box style={{ minWidth: 200 }}>
         <SelectField
-          value={operand.type}
+          value={isLiteral ? NUMBER_OPTION_VALUE : operand.column}
           onChange={(v) =>
             onChange(
-              v === "literal"
-                ? { type: "literal", value: 0 }
-                : { type: "column", column: "" },
+              v === NUMBER_OPTION_VALUE
+                ? { type: "literal", value: isLiteral ? operand.value : 0 }
+                : { type: "column", column: v },
             )
           }
-          options={[
-            { label: "Column", value: "column" },
-            { label: "Number", value: "literal" },
-          ]}
+          options={options}
+          formatGroupLabel={() => <OperandOptionDivider />}
+          placeholder="Select column or number..."
           sort={false}
+          required
         />
       </Box>
-      {operand.type === "column" ? (
-        <Box style={{ minWidth: 180 }}>
-          <SelectField
-            value={operand.column}
-            onChange={(column) => onChange({ type: "column", column })}
-            options={columnOptions}
-            placeholder="Select column..."
-            required
-          />
-        </Box>
-      ) : (
+      {isLiteral && (
         <Field
           type="number"
           step="any"
@@ -152,86 +171,86 @@ function OperandEditor({
           onChange={(e) =>
             onChange({ type: "literal", value: e.target.valueAsNumber || 0 })
           }
-          style={{ maxWidth: 120 }}
+          style={{ maxWidth: 110, height: 38 }}
         />
-      )}
-      {canRemove && (
-        <Button variant="ghost" color="red" onClick={onRemove}>
-          <PiX />
-        </Button>
       )}
     </Flex>
   );
 }
 
-// Editor for a single term: operands combined with × / ÷.
-function TermEditor({
-  term,
-  columnOptions,
-  setTerm,
+function NumericComputedColumnEditor({
+  value,
+  factTable,
+  priorColumns,
+  setValue,
 }: {
-  term: ComputedColumnTerm;
-  columnOptions: SingleValue[];
-  setTerm: (t: ComputedColumnTerm) => void;
+  value: NumericComputedColumn;
+  factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
+  priorColumns: ComputedColumn[];
+  setValue: (v: NumericComputedColumn) => void;
 }) {
+  const columnOptions = [
+    ...getNumericColumnOptions(factTable),
+    ...getComputedColumnOptions(priorColumns, "number"),
+  ];
+
   const updateOperand = (i: number, operand: ComputedColumnOperand) => {
-    const operands = [...term.operands];
+    const operands = [...value.operands];
     operands[i] = operand;
-    setTerm({ ...term, operands });
+    setValue({ ...value, operands });
   };
   const removeOperand = (i: number) => {
-    const operands = [...term.operands];
+    const operands = [...value.operands];
     operands.splice(i, 1);
-    const operators = [...term.operators];
-    // The operator that joined this operand to the previous one is dropped.
+    const operators = [...value.operators];
     operators.splice(Math.max(0, i - 1), 1);
-    setTerm({ ...term, operands, operators });
+    setValue({ ...value, operands, operators });
   };
   const addOperand = () => {
-    setTerm({
-      ...term,
-      operands: [...term.operands, newOperand()],
-      operators: [...term.operators, "*"],
+    setValue({
+      ...value,
+      operands: [...value.operands, newOperand()],
+      operators: [...value.operators, "+"],
     });
   };
-  const setOperator = (i: number, op: "*" | "/") => {
-    const operators = [...term.operators];
-    operators[i] = op;
-    setTerm({ ...term, operators });
+  const setOperator = (i: number, op: string) => {
+    const operators = [...value.operators];
+    operators[i] = op as "+" | "-" | "*" | "/";
+    setValue({ ...value, operators });
   };
 
   return (
-    <Box
-      style={{
-        border: "1px solid var(--slate-a4)",
-        borderRadius: 6,
-        padding: "8px",
-      }}
-    >
-      <Flex direction="column" gap="2">
-        {term.operands.map((operand, i) => (
-          <Flex align="center" gap="1" key={i}>
+    <Flex direction="column" gap="3">
+      {/* Flat formula row: operand [op] operand [op] operand ... */}
+      <Flex align="center" gap="2" wrap="wrap">
+        {value.operands.map((operand, i) => (
+          <Flex align="center" gap="2" key={i} wrap="wrap">
             {i > 0 && (
-              <Box style={{ width: 70 }}>
+              <Box style={{ width: 64 }}>
                 <SelectField
-                  value={term.operators[i - 1] || "*"}
-                  onChange={(v) => setOperator(i - 1, v as "*" | "/")}
-                  options={MULTIPLICATIVE_OPERATORS}
+                  value={value.operators[i - 1] || "+"}
+                  onChange={(v) => setOperator(i - 1, v)}
+                  options={ARITHMETIC_OPERATORS}
                   sort={false}
                 />
               </Box>
             )}
-            <OperandEditor
+            <NumericOperandInput
               operand={operand}
               columnOptions={columnOptions}
               onChange={(o) => updateOperand(i, o)}
-              onRemove={() => removeOperand(i)}
-              canRemove={term.operands.length > 1}
             />
+            {value.operands.length > 1 && (
+              <Button
+                variant="ghost"
+                color="red"
+                onClick={() => removeOperand(i)}
+              >
+                <PiX />
+              </Button>
+            )}
           </Flex>
         ))}
-      </Flex>
-      <Box mt="2">
         <a
           href="#"
           onClick={(e) => {
@@ -239,92 +258,12 @@ function TermEditor({
             addOperand();
           }}
         >
-          <PiPlus /> Multiply / divide by another column
+          <PiPlus /> Add
         </a>
-      </Box>
-    </Box>
-  );
-}
-
-function NumericComputedColumnEditor({
-  value,
-  factTable,
-  setValue,
-}: {
-  value: NumericComputedColumn;
-  factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
-  setValue: (v: NumericComputedColumn) => void;
-}) {
-  const columnOptions = getNumericColumnOptions(factTable);
-
-  const setTerm = (i: number, term: ComputedColumnTerm) => {
-    const terms = [...value.terms];
-    terms[i] = term;
-    setValue({ ...value, terms });
-  };
-  const removeTerm = (i: number) => {
-    const terms = [...value.terms];
-    terms.splice(i, 1);
-    const termOperators = [...value.termOperators];
-    termOperators.splice(Math.max(0, i - 1), 1);
-    setValue({ ...value, terms, termOperators });
-  };
-  const addTerm = () => {
-    setValue({
-      ...value,
-      terms: [...value.terms, newTerm()],
-      termOperators: [...value.termOperators, "+"],
-    });
-  };
-  const setTermOperator = (i: number, op: "+" | "-") => {
-    const termOperators = [...value.termOperators];
-    termOperators[i] = op;
-    setValue({ ...value, termOperators });
-  };
-
-  return (
-    <Flex direction="column" gap="2">
-      {value.terms.map((term, i) => (
-        <Flex direction="column" gap="2" key={i}>
-          {i > 0 && (
-            <Flex align="center" gap="2">
-              <Box style={{ width: 70 }}>
-                <SelectField
-                  value={value.termOperators[i - 1] || "+"}
-                  onChange={(v) => setTermOperator(i - 1, v as "+" | "-")}
-                  options={ADDITIVE_OPERATORS}
-                  sort={false}
-                />
-              </Box>
-              {value.terms.length > 1 && (
-                <Button
-                  variant="ghost"
-                  color="red"
-                  onClick={() => removeTerm(i)}
-                >
-                  <PiX /> Remove term
-                </Button>
-              )}
-            </Flex>
-          )}
-          <TermEditor
-            term={term}
-            columnOptions={columnOptions}
-            setTerm={(t) => setTerm(i, t)}
-          />
-        </Flex>
-      ))}
-      <Box>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            addTerm();
-          }}
-        >
-          <PiPlus /> Add / subtract another term
-        </a>
-      </Box>
+      </Flex>
+      <Text size="small" color="text-low">
+        × and ÷ are calculated before + and −.
+      </Text>
 
       <Flex align="center" gap="3" wrap="wrap">
         <Checkbox
@@ -388,13 +327,18 @@ function NumericComputedColumnEditor({
 function StringComputedColumnEditor({
   value,
   factTable,
+  priorColumns,
   setValue,
 }: {
   value: StringComputedColumn;
   factTable: Pick<FactTableInterface, "columns" | "userIdTypes">;
+  priorColumns: ComputedColumn[];
   setValue: (v: StringComputedColumn) => void;
 }) {
-  const columnOptions = getStringColumnOptions(factTable);
+  const columnOptions = [
+    ...getStringColumnOptions(factTable),
+    ...getComputedColumnOptions(priorColumns, "string"),
+  ];
 
   const updatePart = (i: number, part: ComputedColumnStringPart) => {
     const parts = [...value.parts];
@@ -412,54 +356,56 @@ function StringComputedColumnEditor({
 
   return (
     <Flex direction="column" gap="2">
-      {value.parts.map((part, i) => (
-        <Flex align="center" gap="1" key={i}>
-          {i > 0 && <Text size="small">+</Text>}
-          <Box style={{ width: 110 }}>
-            <SelectField
-              value={part.type}
-              onChange={(v) =>
-                updatePart(
-                  i,
-                  v === "literal"
-                    ? { type: "literal", value: "" }
-                    : { type: "column", column: "" },
-                )
-              }
-              options={[
-                { label: "Column", value: "column" },
-                { label: "Text", value: "literal" },
-              ]}
-              sort={false}
-            />
-          </Box>
-          {part.type === "column" ? (
-            <Box style={{ minWidth: 180 }}>
+      <Flex align="center" gap="2" wrap="wrap">
+        {value.parts.map((part, i) => (
+          <Flex align="center" gap="2" key={i} wrap="wrap">
+            {i > 0 && <Text size="small">+</Text>}
+            <Box style={{ width: 104 }}>
               <SelectField
-                value={part.column}
-                onChange={(column) => updatePart(i, { type: "column", column })}
-                options={columnOptions}
-                placeholder="Select column..."
-                required
+                value={part.type}
+                onChange={(v) =>
+                  updatePart(
+                    i,
+                    v === "literal"
+                      ? { type: "literal", value: "" }
+                      : { type: "column", column: "" },
+                  )
+                }
+                options={[
+                  { label: "Column", value: "column" },
+                  { label: "Text", value: "literal" },
+                ]}
+                sort={false}
               />
             </Box>
-          ) : (
-            <Field
-              value={part.value}
-              onChange={(e) =>
-                updatePart(i, { type: "literal", value: e.target.value })
-              }
-              placeholder="text..."
-            />
-          )}
-          {value.parts.length > 1 && (
-            <Button variant="ghost" color="red" onClick={() => removePart(i)}>
-              <PiX />
-            </Button>
-          )}
-        </Flex>
-      ))}
-      <Flex gap="3">
+            {part.type === "column" ? (
+              <Box style={{ minWidth: 170 }}>
+                <SelectField
+                  value={part.column}
+                  onChange={(column) =>
+                    updatePart(i, { type: "column", column })
+                  }
+                  options={columnOptions}
+                  placeholder="Select column..."
+                  required
+                />
+              </Box>
+            ) : (
+              <Field
+                value={part.value}
+                onChange={(e) =>
+                  updatePart(i, { type: "literal", value: e.target.value })
+                }
+                placeholder="text..."
+              />
+            )}
+            {value.parts.length > 1 && (
+              <Button variant="ghost" color="red" onClick={() => removePart(i)}>
+                <PiX />
+              </Button>
+            )}
+          </Flex>
+        ))}
         <a
           href="#"
           onClick={(e) => {
@@ -467,7 +413,7 @@ function StringComputedColumnEditor({
             addPart(newStringPart());
           }}
         >
-          <PiPlus /> Add column
+          <PiPlus /> Column
         </a>
         <a
           href="#"
@@ -476,7 +422,7 @@ function StringComputedColumnEditor({
             addPart({ type: "literal", value: "" });
           }}
         >
-          <PiPlus /> Add text
+          <PiPlus /> Text
         </a>
       </Flex>
     </Flex>
@@ -523,6 +469,9 @@ export function ComputedColumnInput({
                 }
                 placeholder="e.g. revenue_per_item"
                 required
+                // Match the react-select control height (38px) so the Name input
+                // and Type dropdown line up.
+                style={{ height: 38 }}
               />
             </Box>
             <Box style={{ width: 140 }}>
@@ -566,12 +515,14 @@ export function ComputedColumnInput({
             <NumericComputedColumnEditor
               value={column}
               factTable={factTable}
+              priorColumns={value.slice(0, i)}
               setValue={(v) => updateColumn(i, v)}
             />
           ) : (
             <StringComputedColumnEditor
               value={column}
               factTable={factTable}
+              priorColumns={value.slice(0, i)}
               setValue={(v) => updateColumn(i, v)}
             />
           )}

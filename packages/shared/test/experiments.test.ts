@@ -208,24 +208,18 @@ describe("Experiments", () => {
     });
 
     describe("buildComputedColumnSQL", () => {
-      it("adds single-operand terms and wraps the sum-of-products", () => {
+      it("joins operands with + and wraps the expression", () => {
         expect(
           buildComputedColumnSQL({
             computedColumn: {
               id: "1",
               name: "sum",
               kind: "number",
-              terms: [
-                {
-                  operands: [{ type: "column", column: "event_count" }],
-                  operators: [],
-                },
-                {
-                  operands: [{ type: "column", column: "data.b" }],
-                  operators: [],
-                },
+              operands: [
+                { type: "column", column: "event_count" },
+                { type: "column", column: "data.b" },
               ],
-              termOperators: ["+"],
+              operators: ["+"],
             },
             factTable,
             jsonExtract,
@@ -234,58 +228,46 @@ describe("Experiments", () => {
         ).toBe(`(event_count + data:'b'::float)`);
       });
 
-      it("respects multiplicative precedence within a term", () => {
+      it("relies on SQL precedence (* / before + -), no parens", () => {
         expect(
           buildComputedColumnSQL({
             computedColumn: {
               id: "1",
               name: "revenue",
               kind: "number",
-              terms: [
-                {
-                  operands: [
-                    { type: "column", column: "event_count" },
-                    { type: "column", column: "data.b" },
-                  ],
-                  operators: ["*"],
-                },
-                {
-                  operands: [{ type: "column", column: "event_count" }],
-                  operators: [],
-                },
+              operands: [
+                { type: "column", column: "event_count" },
+                { type: "column", column: "data.b" },
+                { type: "column", column: "event_count" },
               ],
-              termOperators: ["+"],
+              operators: ["*", "+"],
             },
             factTable,
             jsonExtract,
             escapeStringLiteral,
           }),
-        ).toBe(`((event_count * data:'b'::float) + event_count)`);
+        ).toBe(`(event_count * data:'b'::float + event_count)`);
       });
 
-      it("guards division with NULLIF and supports numeric literals", () => {
+      it("guards only the divisor with NULLIF and supports literals", () => {
         expect(
           buildComputedColumnSQL({
             computedColumn: {
               id: "1",
               name: "ratio",
               kind: "number",
-              terms: [
-                {
-                  operands: [
-                    { type: "column", column: "event_count" },
-                    { type: "literal", value: 100 },
-                  ],
-                  operators: ["/"],
-                },
+              operands: [
+                { type: "column", column: "event_count" },
+                { type: "column", column: "data.b" },
+                { type: "literal", value: 100 },
               ],
-              termOperators: [],
+              operators: ["+", "/"],
             },
             factTable,
             jsonExtract,
             escapeStringLiteral,
           }),
-        ).toBe(`(event_count / NULLIF(100, 0))`);
+        ).toBe(`(event_count + data:'b'::float / NULLIF(100, 0))`);
       });
 
       it("wraps column operands in COALESCE when coalesceZero is set", () => {
@@ -295,13 +277,8 @@ describe("Experiments", () => {
               id: "1",
               name: "safe",
               kind: "number",
-              terms: [
-                {
-                  operands: [{ type: "column", column: "event_count" }],
-                  operators: [],
-                },
-              ],
-              termOperators: [],
+              operands: [{ type: "column", column: "event_count" }],
+              operators: [],
               coalesceZero: true,
             },
             factTable,
@@ -316,13 +293,8 @@ describe("Experiments", () => {
           id: "1",
           name: "r",
           kind: "number" as const,
-          terms: [
-            {
-              operands: [{ type: "column" as const, column: "event_count" }],
-              operators: [],
-            },
-          ],
-          termOperators: [],
+          operands: [{ type: "column" as const, column: "event_count" }],
+          operators: [],
         };
         expect(
           buildComputedColumnSQL({
@@ -376,6 +348,70 @@ describe("Experiments", () => {
         ).toBe(`CONCAT(event_name, ' - ', page)`);
       });
 
+      it("expands a reference to an earlier computed column", () => {
+        const avg = {
+          id: "avg",
+          name: "avg",
+          kind: "number" as const,
+          operands: [
+            { type: "column" as const, column: "event_count" },
+            { type: "literal" as const, value: 10 },
+          ],
+          operators: ["/" as const],
+        };
+        const avgPct = {
+          id: "avgPct",
+          name: "avgPct",
+          kind: "number" as const,
+          operands: [
+            { type: "column" as const, column: getComputedColumnRef("avg") },
+            { type: "literal" as const, value: 100 },
+          ],
+          operators: ["*" as const],
+        };
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: avgPct,
+            factTable,
+            computedColumns: [avg, avgPct],
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`((event_count / NULLIF(10, 0)) * 100)`);
+      });
+
+      it("guards against reference cycles", () => {
+        const a = {
+          id: "a",
+          name: "a",
+          kind: "number" as const,
+          operands: [
+            { type: "column" as const, column: getComputedColumnRef("b") },
+          ],
+          operators: [],
+        };
+        const b = {
+          id: "b",
+          name: "b",
+          kind: "number" as const,
+          operands: [
+            { type: "column" as const, column: getComputedColumnRef("a") },
+          ],
+          operators: [],
+        };
+        // Should terminate rather than recurse infinitely; the cyclic branch
+        // resolves to NULL.
+        expect(
+          buildComputedColumnSQL({
+            computedColumn: a,
+            factTable,
+            computedColumns: [a, b],
+            jsonExtract,
+            escapeStringLiteral,
+          }),
+        ).toBe(`NULL`);
+      });
+
       it("resolves a computed column referenced from a row filter", () => {
         expect(
           getColumnRefWhereClause({
@@ -388,16 +424,11 @@ describe("Experiments", () => {
                   id: "cc1",
                   name: "ratio",
                   kind: "number",
-                  terms: [
-                    {
-                      operands: [
-                        { type: "column", column: "event_count" },
-                        { type: "literal", value: 100 },
-                      ],
-                      operators: ["/"],
-                    },
+                  operands: [
+                    { type: "column", column: "event_count" },
+                    { type: "literal", value: 100 },
                   ],
-                  termOperators: [],
+                  operators: ["/"],
                 },
               ],
               rowFilters: [

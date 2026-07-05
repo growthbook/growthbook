@@ -200,31 +200,29 @@ export const computedColumnRoundModeValidator = z.enum([
   "ceil",
 ]);
 
-// A single operand within a numeric term: either an existing fact-table column
-// (by name or JSON path) or a numeric literal constant (e.g. `/ 100`).
+// Numeric computed columns are a flat arithmetic expression: a list of operands
+// joined by `+ - * /` (e.g. `price * quantity + shipping`). There is no explicit
+// grouping — SQL's native operator precedence applies, so `*` / `/` bind before
+// `+` / `-`. `operators` always has exactly `operands.length - 1` entries.
+
+// An operand is an existing fact-table column (name or JSON path) or a numeric
+// literal constant (e.g. `/ 100`).
 export const computedColumnOperandValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("column"), column: z.string() }).strict(),
   z.object({ type: z.literal("literal"), value: z.number() }).strict(),
 ]);
 
-// A term is one or more operands combined with `*` / `/` (multiplicative).
-// `operators` has exactly `operands.length - 1` entries.
-export const computedColumnTermValidator = z
-  .object({
-    operands: z.array(computedColumnOperandValidator).min(1),
-    operators: z.array(z.enum(["*", "/"])),
-  })
-  .strict();
+export const computedColumnOperatorValidator = z.enum(["+", "-", "*", "/"]);
 
-// A numeric computed column is a sum-of-products: terms combined with `+` / `-`.
-// `termOperators` has exactly `terms.length - 1` entries.
+// A numeric computed column is a flat expression, optionally null-safe and
+// rounded.
 export const numericComputedColumnValidator = z
   .object({
     id: z.string(),
     name: z.string(),
     kind: z.literal("number"),
-    terms: z.array(computedColumnTermValidator).min(1),
-    termOperators: z.array(z.enum(["+", "-"])),
+    operands: z.array(computedColumnOperandValidator).min(1),
+    operators: z.array(computedColumnOperatorValidator),
     // When true, wrap column operands in COALESCE(col, 0) so NULLs count as zero.
     coalesceZero: z.boolean().optional(),
     rounding: z
