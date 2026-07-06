@@ -64,7 +64,7 @@ import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-function pairedWeightsToPositional(
+export function pairedWeightsToPositional(
   paired: VariationWeightPair[],
   variations: { id: string }[],
 ): number[] {
@@ -954,13 +954,10 @@ export function getFeatureDefinition({
             capabilities.includes("contextualBandits");
           if (cbCapable) {
             rule.type = "contextual-bandit";
-            rule.attributesRequired = cb.contextualAttributes;
-            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
-              leafId: lw.leafId,
-              condition: lw.condition,
-              weights: pairedWeightsToPositional(lw.weights, cb.variations),
-            }));
-            rule.banditVersion = cb.banditVersion;
+            // Contexts live once per CB in the payload's top-level
+            // `contextualBandits` map (see filterUsedContextualBandits);
+            // the rule only carries a pointer.
+            rule.contextualBanditRef = cb.id;
           }
 
           rule.key = cb.trackingKey;

@@ -1,0 +1,224 @@
+import { ContextualBanditInterface } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import { FeatureDefinition } from "shared/types/sdk";
+import { GroupMap } from "shared/types/saved-group";
+import { getFeatureDefinition } from "back-end/src/util/features";
+import { filterUsedContextualBandits } from "back-end/src/services/features";
+
+// services/features.ts transitively imports datasource integrations, which
+// load native modules (kerberos, lz4) that aren't available in all
+// environments. Nothing in these tests touches datasources.
+jest.mock("back-end/src/services/datasource", () => ({}));
+
+const groupMap: GroupMap = new Map();
+const experimentMap = new Map();
+const safeRolloutMap = new Map();
+
+function makeCb(
+  overrides: Partial<ContextualBanditInterface> = {},
+): ContextualBanditInterface {
+  return {
+    id: "cb_1",
+    organization: "org_1",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    project: "",
+    name: "CB 1",
+    trackingKey: "cb_1_tk",
+    status: "running",
+    stage: "exploit",
+    coverage: 1,
+    hashAttribute: "id",
+    seed: "cb_1_seed",
+    contextualAttributes: ["country", "device"],
+    variations: [
+      { id: "v0", name: "Control", key: "0", screenshots: [] },
+      { id: "v1", name: "Treatment", key: "1", screenshots: [] },
+    ],
+    variationWeights: [
+      { variationId: "v0", weight: 0.5 },
+      { variationId: "v1", weight: 0.5 },
+    ],
+    currentLeafWeights: [
+      {
+        leafId: 0,
+        condition: { country: "US" },
+        weights: [
+          { variationId: "v0", weight: 0.3 },
+          { variationId: "v1", weight: 0.7 },
+        ],
+      },
+      {
+        leafId: 1,
+        condition: { country: { $in: ["CA", "MX"] } },
+        weights: [
+          { variationId: "v0", weight: 0.6 },
+          { variationId: "v1", weight: 0.4 },
+        ],
+      },
+    ],
+    banditVersion: 7,
+    linkedFeatures: ["feature"],
+    ...overrides,
+  } as unknown as ContextualBanditInterface;
+}
+
+function makeFeature(
+  overrides: Partial<FeatureInterface> = {},
+): FeatureInterface {
+  return {
+    id: "feature",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    defaultValue: "control",
+    organization: "org_1",
+    owner: "",
+    valueType: "string",
+    archived: false,
+    description: "",
+    version: 1,
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "contextual-bandit-ref",
+            id: "rule_1",
+            description: "",
+            enabled: true,
+            contextualBanditId: "cb_1",
+            variations: [
+              { variationId: "v0", value: "control" },
+              { variationId: "v1", value: "treatment" },
+            ],
+          },
+        ],
+      },
+    },
+    ...overrides,
+  } as unknown as FeatureInterface;
+}
+
+describe("getFeatureDefinition contextual-bandit-ref rules", () => {
+  it("emits a contextualBanditRef pointer instead of inline contexts", () => {
+    const cb = makeCb();
+    const def = getFeatureDefinition({
+      feature: makeFeature(),
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      cbMap: new Map([[cb.id, cb]]),
+    });
+
+    expect(def).toBeTruthy();
+    const rule = def?.rules?.[0];
+    expect(rule?.type).toEqual("contextual-bandit");
+    expect(rule?.contextualBanditRef).toEqual("cb_1");
+    // Nothing bulky on the rule — it all lives in the top-level map
+    expect(rule).not.toHaveProperty("contexts");
+    expect(rule).not.toHaveProperty("attributesRequired");
+    expect(rule).not.toHaveProperty("banditVersion");
+    // Aggregate fallback fields still present for non-capable SDK behavior
+    expect(rule?.variations).toEqual(["control", "treatment"]);
+    expect(rule?.weights).toEqual([0.5, 0.5]);
+  });
+
+  it("does not emit a contextualBanditRef for non-capable SDKs", () => {
+    const cb = makeCb();
+    const def = getFeatureDefinition({
+      feature: makeFeature(),
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      cbMap: new Map([[cb.id, cb]]),
+      capabilities: ["bucketingV2"],
+    });
+
+    const rule = def?.rules?.[0];
+    expect(rule).toBeTruthy();
+    expect(rule).not.toHaveProperty("contextualBanditRef");
+    expect(rule).not.toHaveProperty("type");
+    // Degrades to a plain experiment rule with aggregate weights
+    expect(rule?.variations).toEqual(["control", "treatment"]);
+    expect(rule?.weights).toEqual([0.5, 0.5]);
+  });
+});
+
+describe("filterUsedContextualBandits", () => {
+  const featuresWithRef: Record<string, FeatureDefinition> = {
+    feature_a: {
+      defaultValue: "control",
+      rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_1" }],
+    },
+    feature_b: {
+      defaultValue: "off",
+      rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_1" }],
+    },
+  };
+
+  it("emits one map entry per referenced CB with positional leaf weights", () => {
+    const cb = makeCb();
+    const map = filterUsedContextualBandits(
+      new Map([[cb.id, cb]]),
+      featuresWithRef,
+    );
+
+    // Two rules, ONE entry — this is the dedup
+    expect(map).toEqual({
+      cb_1: {
+        banditVersion: 7,
+        attributesRequired: ["country", "device"],
+        contexts: [
+          { leafId: 0, condition: { country: "US" }, weights: [0.3, 0.7] },
+          {
+            leafId: 1,
+            condition: { country: { $in: ["CA", "MX"] } },
+            weights: [0.6, 0.4],
+          },
+        ],
+      },
+    });
+  });
+
+  it("prunes CBs that no emitted rule references", () => {
+    const cb = makeCb();
+    const unreferenced = makeCb({ id: "cb_2" });
+    const map = filterUsedContextualBandits(
+      new Map([
+        [cb.id, cb],
+        [unreferenced.id, unreferenced],
+      ]),
+      featuresWithRef,
+    );
+
+    expect(Object.keys(map ?? {})).toEqual(["cb_1"]);
+  });
+
+  it("returns undefined when no rules carry a ref", () => {
+    const cb = makeCb();
+    const map = filterUsedContextualBandits(new Map([[cb.id, cb]]), {
+      plain: { defaultValue: "x", rules: [{ force: "y" }] },
+    });
+    expect(map).toBeUndefined();
+  });
+
+  it("returns undefined when cbMap is empty or missing", () => {
+    expect(filterUsedContextualBandits(undefined, featuresWithRef)).toBe(
+      undefined,
+    );
+    expect(filterUsedContextualBandits(new Map(), featuresWithRef)).toBe(
+      undefined,
+    );
+  });
+
+  it("emits empty contexts for an explore-stage CB (no leaf weights yet)", () => {
+    const cb = makeCb({ currentLeafWeights: [] });
+    const map = filterUsedContextualBandits(
+      new Map([[cb.id, cb]]),
+      featuresWithRef,
+    );
+    expect(map?.cb_1?.contexts).toEqual([]);
+  });
+});

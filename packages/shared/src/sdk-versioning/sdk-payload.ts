@@ -46,11 +46,11 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
 // Preserved only when the SDK declares `contextualBandits` capability.
+// Contexts/attributesRequired/banditVersion live in the payload's top-level
+// `contextualBandits` map (keyed by `contextualBanditRef`), not on the rule.
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   "type",
-  "attributesRequired",
-  "contexts",
-  "banditVersion",
+  "contextualBanditRef",
 ] as const;
 
 export function getPayloadAllowedKeys(capabilities: SDKCapability[]): {

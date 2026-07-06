@@ -49,14 +49,23 @@ export type FeatureRule<T = any> = {
     result: Result<T>;
   }>;
   type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
+  // Pointer into the payload's top-level `contextualBandits` map, which holds
+  // the leaf contexts once per CB (savedGroups-style) instead of inline per rule.
+  contextualBanditRef?: string;
+};
+
+// One entry in the payload's top-level `contextualBandits` map, keyed by CB id.
+export type ContextualBanditData = {
+  banditVersion?: number;
   attributesRequired?: string[];
-  contexts?: {
+  contexts: {
     leafId: number;
     condition: Record<string, unknown>;
     weights: number[];
   }[];
-  banditVersion?: number;
 };
+
+export type ContextualBanditsMap = Record<string, ContextualBanditData>;
 
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
@@ -296,6 +305,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditsMap;
   plugins?: Plugin[];
 };
 
@@ -323,6 +333,7 @@ export type ClientOptions = {
   clientKey?: string;
   decryptionKey?: string;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditsMap;
   plugins?: Plugin[];
 };
 
@@ -334,6 +345,7 @@ export type GlobalContext = {
   enabled?: boolean;
   qaMode?: boolean;
   savedGroups?: SavedGroupsValues;
+  contextualBandits?: ContextualBanditsMap;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
@@ -471,6 +483,8 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditsMap;
+  encryptedContextualBandits?: string;
 };
 
 // Alias

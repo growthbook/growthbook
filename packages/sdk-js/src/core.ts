@@ -1,8 +1,8 @@
 import {
   EvalContext,
+  ContextualBanditData,
   ContextualBanditInfo,
   FeatureDefinition,
-  FeatureRule,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -361,26 +361,35 @@ export function evalFeature<V = unknown>(
       if (rule.condition) exp.condition = rule.condition;
 
       let cbInfo: ContextualBanditInfo | undefined;
-      if (
-        rule.type === "contextual-bandit" &&
-        rule.contexts &&
-        rule.contexts.length
-      ) {
-        const leaf = getContextualBanditLeaf(rule, ctx);
-        if (!leaf) {
+      if (rule.type === "contextual-bandit" && rule.contextualBanditRef) {
+        const cbData = ctx.global.contextualBandits?.[rule.contextualBanditRef];
+        if (!cbData) {
+          // Dangling ref (map entry missing). Fall through and run as a plain
+          // experiment with the rule's aggregate weights.
           process.env.NODE_ENV !== "production" &&
             ctx.global.log(
-              "Skip contextual bandit rule (missing required attribute or no matching leaf)",
+              "Contextual bandit ref not found in payload, using aggregate weights",
               { id, rule },
             );
-          continue;
+        } else if (cbData.contexts.length) {
+          // No leaf weights yet (e.g. explore stage) also falls through to the
+          // plain-experiment path above via the else branch.
+          const leaf = getContextualBanditLeaf(cbData, ctx);
+          if (!leaf) {
+            process.env.NODE_ENV !== "production" &&
+              ctx.global.log(
+                "Skip contextual bandit rule (missing required attribute or no matching leaf)",
+                { id, rule },
+              );
+            continue;
+          }
+          exp.weights = leaf.weights;
+          cbInfo = {
+            leafId: leaf.leafId,
+            variationWeights: leaf.weights,
+            banditVersion: cbData.banditVersion,
+          };
         }
-        exp.weights = leaf.weights;
-        cbInfo = {
-          leafId: leaf.leafId,
-          variationWeights: leaf.weights,
-          banditVersion: rule.banditVersion,
-        };
       }
 
       // Only return a value if the user is part of the experiment
@@ -854,19 +863,19 @@ function getAttributes(ctx: EvalContext) {
 }
 
 function getContextualBanditLeaf(
-  rule: FeatureRule,
+  cbData: ContextualBanditData,
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
-  if (rule.attributesRequired && rule.attributesRequired.length) {
+  if (cbData.attributesRequired && cbData.attributesRequired.length) {
     const attributes = getAttributes(ctx);
-    for (const attr of rule.attributesRequired) {
+    for (const attr of cbData.attributesRequired) {
       if (attributes[attr] === undefined || attributes[attr] === null) {
         return null;
       }
     }
   }
 
-  for (const context of rule.contexts || []) {
+  for (const context of cbData.contexts || []) {
     if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
       return { leafId: context.leafId, weights: context.weights };
     }
@@ -1268,6 +1277,16 @@ export async function decryptPayload(
       console.error(e);
     }
     delete data.encryptedSavedGroups;
+  }
+  if (data.encryptedContextualBandits) {
+    try {
+      data.contextualBandits = JSON.parse(
+        await decrypt(data.encryptedContextualBandits, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedContextualBandits;
   }
   return data;
 }

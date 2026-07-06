@@ -63,24 +63,32 @@
         "$and": [
           {
             "$groups": {
-              "$elemMatch": { "$eq": "a" }
+              "$elemMatch": {
+                "$eq": "a"
+              }
             }
           },
           {
             "$groups": {
-              "$elemMatch": { "$eq": "b" }
+              "$elemMatch": {
+                "$eq": "b"
+              }
             }
           },
           {
             "$or": [
               {
                 "$groups": {
-                  "$elemMatch": { "$eq": "c" }
+                  "$elemMatch": {
+                    "$eq": "c"
+                  }
                 }
               },
               {
                 "$groups": {
-                  "$elemMatch": { "$eq": "e" }
+                  "$elemMatch": {
+                    "$eq": "e"
+                  }
                 }
               }
             ]
@@ -88,14 +96,18 @@
           {
             "$not": {
               "$groups": {
-                "$elemMatch": { "$eq": "f" }
+                "$elemMatch": {
+                  "$eq": "f"
+                }
               }
             }
           },
           {
             "$not": {
               "$groups": {
-                "$elemMatch": { "$eq": "g" }
+                "$elemMatch": {
+                  "$eq": "g"
+                }
               }
             }
           }
@@ -112,24 +124,32 @@
         "$and": [
           {
             "$groups": {
-              "$elemMatch": { "$eq": "a" }
+              "$elemMatch": {
+                "$eq": "a"
+              }
             }
           },
           {
             "$groups": {
-              "$elemMatch": { "$eq": "b" }
+              "$elemMatch": {
+                "$eq": "b"
+              }
             }
           },
           {
             "$or": [
               {
                 "$groups": {
-                  "$elemMatch": { "$eq": "c" }
+                  "$elemMatch": {
+                    "$eq": "c"
+                  }
                 }
               },
               {
                 "$groups": {
-                  "$elemMatch": { "$eq": "e" }
+                  "$elemMatch": {
+                    "$eq": "e"
+                  }
                 }
               }
             ]
@@ -137,14 +157,18 @@
           {
             "$not": {
               "$groups": {
-                "$elemMatch": { "$eq": "d" }
+                "$elemMatch": {
+                  "$eq": "d"
+                }
               }
             }
           },
           {
             "$not": {
               "$groups": {
-                "$elemMatch": { "$eq": "g" }
+                "$elemMatch": {
+                  "$eq": "g"
+                }
               }
             }
           }
@@ -1370,7 +1394,9 @@
     [
       "$size empty - pass",
       {
-        "tags": { "$size": 0 }
+        "tags": {
+          "$size": 0
+        }
       },
       {
         "tags": []
@@ -1380,7 +1406,9 @@
     [
       "$size empty - fail",
       {
-        "tags": { "$size": 0 }
+        "tags": {
+          "$size": 0
+        }
       },
       {
         "tags": [10]
@@ -2018,7 +2046,9 @@
     [
       "false strict condition - missing attribute",
       {
-        "userId": { "$eq": false }
+        "userId": {
+          "$eq": false
+        }
       },
       {},
       false
@@ -3129,7 +3159,14 @@
     [
       "$or pass but second condition fail",
       {
-        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [
+          {
+            "foo": 1
+          },
+          {
+            "bar": 1
+          }
+        ],
         "baz": 2
       },
       {
@@ -3142,7 +3179,14 @@
     [
       "$or and second condition both pass",
       {
-        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [
+          {
+            "foo": 1
+          },
+          {
+            "bar": 1
+          }
+        ],
         "baz": 2
       },
       {
@@ -3155,8 +3199,22 @@
     [
       "$and condition pass but $or fail",
       {
-        "$and": [{ "foo": 1 }, { "bar": 1 }],
-        "$or": [{ "baz": 1 }, { "empty": 1 }]
+        "$and": [
+          {
+            "foo": 1
+          },
+          {
+            "bar": 1
+          }
+        ],
+        "$or": [
+          {
+            "baz": 1
+          },
+          {
+            "empty": 1
+          }
+        ]
       },
       {
         "foo": 1,
@@ -3168,8 +3226,22 @@
     [
       "$and and $or both pass",
       {
-        "$and": [{ "foo": 1 }, { "bar": 1 }],
-        "$or": [{ "baz": 1 }, { "empty": 1 }]
+        "$and": [
+          {
+            "foo": 1
+          },
+          {
+            "bar": 1
+          }
+        ],
+        "$or": [
+          {
+            "baz": 1
+          },
+          {
+            "empty": 1
+          }
+        ]
       },
       {
         "foo": 1,
@@ -3182,74 +3254,122 @@
     [
       "$inGroup passes for member of known group id",
       {
-        "id": { "$inGroup": "group_id" }
+        "id": {
+          "$inGroup": "group_id"
+        }
       },
-      { "id": 1 },
+      {
+        "id": 1
+      },
       true,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$inGroup fails for non-member of known group id",
       {
-        "id": { "$inGroup": "group_id" }
+        "id": {
+          "$inGroup": "group_id"
+        }
       },
-      { "id": 5 },
+      {
+        "id": 5
+      },
       false,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$inGroup fails for unknown group id",
       {
-        "id": { "$inGroup": "unknowngroup_id" }
+        "id": {
+          "$inGroup": "unknowngroup_id"
+        }
       },
-      { "id": 1 },
+      {
+        "id": 1
+      },
       false,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$notInGroup fails for member of known group id",
       {
-        "id": { "$notInGroup": "group_id" }
+        "id": {
+          "$notInGroup": "group_id"
+        }
       },
-      { "id": 1 },
+      {
+        "id": 1
+      },
       false,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$notInGroup passes for non-member of known group id",
       {
-        "id": { "$notInGroup": "group_id" }
+        "id": {
+          "$notInGroup": "group_id"
+        }
       },
-      { "id": 5 },
+      {
+        "id": 5
+      },
       true,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$notInGroup passes for unknown group id",
       {
-        "id": { "$notInGroup": "unknowngroup_id" }
+        "id": {
+          "$notInGroup": "unknowngroup_id"
+        }
       },
-      { "id": 1 },
+      {
+        "id": 1
+      },
       true,
-      { "group_id": [1, 2, 3] }
+      {
+        "group_id": [1, 2, 3]
+      }
     ],
     [
       "$inGroup passes for properly typed data",
       {
-        "id": { "$inGroup": "group_id" }
+        "id": {
+          "$inGroup": "group_id"
+        }
       },
-      { "id": "2" },
+      {
+        "id": "2"
+      },
       true,
-      { "group_id": [1, "2", 3] }
+      {
+        "group_id": [1, "2", 3]
+      }
     ],
     [
       "$inGroup fails for improperly typed data",
       {
-        "id": { "$inGroup": "group_id" }
+        "id": {
+          "$inGroup": "group_id"
+        }
       },
-      { "id": "3" },
+      {
+        "id": "3"
+      },
       false,
-      { "group_id": [1, "2", 3] }
+      {
+        "group_id": [1, "2", 3]
+      }
     ]
   ],
   "hash": [
@@ -3396,7 +3516,11 @@
     ],
     [
       "defaults when empty",
-      { "features": { "feature": {} } },
+      {
+        "features": {
+          "feature": {}
+        }
+      },
       "feature",
       {
         "value": null,
@@ -3408,7 +3532,13 @@
     ],
     [
       "uses defaultValue - number",
-      { "features": { "feature": { "defaultValue": 1 } } },
+      {
+        "features": {
+          "feature": {
+            "defaultValue": 1
+          }
+        }
+      },
       "feature",
       {
         "value": 1,
@@ -3420,7 +3550,13 @@
     ],
     [
       "uses custom values - string",
-      { "features": { "feature": { "defaultValue": "yes" } } },
+      {
+        "features": {
+          "feature": {
+            "defaultValue": "yes"
+          }
+        }
+      },
       "feature",
       {
         "value": "yes",
@@ -3649,7 +3785,9 @@
               {
                 "force": 1,
                 "condition": {
-                  "country": { "$in": ["US", "CA"] },
+                  "country": {
+                    "$in": ["US", "CA"]
+                  },
                   "browser": "firefox"
                 }
               }
@@ -3680,7 +3818,9 @@
               {
                 "force": 1,
                 "condition": {
-                  "country": { "$in": ["US", "CA"] },
+                  "country": {
+                    "$in": ["US", "CA"]
+                  },
                   "browser": "firefox"
                 }
               }
@@ -3965,7 +4105,9 @@
                 "key": "hello",
                 "variations": [true, false],
                 "weights": [0.1, 0.9],
-                "condition": { "premium": true },
+                "condition": {
+                  "premium": true
+                },
                 "foo": "bar"
               }
             ]
@@ -4010,7 +4152,9 @@
           "key": "hello",
           "variations": [true, false],
           "weights": [0.1, 0.9],
-          "condition": { "premium": true }
+          "condition": {
+            "premium": true
+          }
         },
         "experimentResult": {
           "featureId": "feature",
@@ -4040,15 +4184,21 @@
             "rules": [
               {
                 "force": 1,
-                "condition": { "browser": "chrome" }
+                "condition": {
+                  "browser": "chrome"
+                }
               },
               {
                 "force": 2,
-                "condition": { "browser": "firefox" }
+                "condition": {
+                  "browser": "firefox"
+                }
               },
               {
                 "force": 3,
-                "condition": { "browser": "safari" }
+                "condition": {
+                  "browser": "safari"
+                }
               }
             ]
           }
@@ -4076,17 +4226,23 @@
               {
                 "force": 1,
                 "id": "1",
-                "condition": { "browser": "chrome" }
+                "condition": {
+                  "browser": "chrome"
+                }
               },
               {
                 "id": "2",
                 "force": 2,
-                "condition": { "browser": "firefox" }
+                "condition": {
+                  "browser": "firefox"
+                }
               },
               {
                 "id": "3",
                 "force": 3,
-                "condition": { "browser": "safari" }
+                "condition": {
+                  "browser": "safari"
+                }
               }
             ]
           }
@@ -4113,15 +4269,21 @@
             "rules": [
               {
                 "force": 1,
-                "condition": { "browser": "chrome" }
+                "condition": {
+                  "browser": "chrome"
+                }
               },
               {
                 "force": 2,
-                "condition": { "browser": "firefox" }
+                "condition": {
+                  "browser": "firefox"
+                }
               },
               {
                 "force": 3,
-                "condition": { "browser": "safari" }
+                "condition": {
+                  "browser": "safari"
+                }
               }
             ]
           }
@@ -4139,7 +4301,9 @@
     [
       "skips experiment on coverage",
       {
-        "attributes": { "id": "123" },
+        "attributes": {
+          "id": "123"
+        },
         "features": {
           "feature": {
             "defaultValue": 0,
@@ -4167,7 +4331,9 @@
     [
       "skips experiment on namespace",
       {
-        "attributes": { "id": "123" },
+        "attributes": {
+          "id": "123"
+        },
         "features": {
           "feature": {
             "defaultValue": 0,
@@ -4195,7 +4361,9 @@
     [
       "handles integer hashAttribute",
       {
-        "attributes": { "id": 123 },
+        "attributes": {
+          "id": 123
+        },
         "features": {
           "feature": {
             "defaultValue": 0,
@@ -4235,7 +4403,9 @@
     [
       "skip experiment on missing hashAttribute",
       {
-        "attributes": { "id": "123" },
+        "attributes": {
+          "id": "123"
+        },
         "features": {
           "feature": {
             "defaultValue": 0,
@@ -4263,7 +4433,9 @@
     [
       "include experiments when forced",
       {
-        "attributes": { "id": "123" },
+        "attributes": {
+          "id": "123"
+        },
         "forcedVariations": {
           "feature": 1
         },
@@ -4604,11 +4776,17 @@
             "defaultValue": "silver",
             "rules": [
               {
-                "condition": { "country": "Canada" },
+                "condition": {
+                  "country": "Canada"
+                },
                 "force": "red"
               },
               {
-                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "condition": {
+                  "country": {
+                    "$in": ["USA", "Mexico"]
+                  }
+                },
                 "force": "green"
               }
             ]
@@ -4620,13 +4798,17 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": "green" },
+                    "condition": {
+                      "value": "green"
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4658,13 +4840,17 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": "green" },
+                    "condition": {
+                      "value": "green"
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4693,11 +4879,17 @@
             "defaultValue": "silver",
             "rules": [
               {
-                "condition": { "country": "Canada" },
+                "condition": {
+                  "country": "Canada"
+                },
                 "force": "red"
               },
               {
-                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "condition": {
+                  "country": {
+                    "$in": ["USA", "Mexico"]
+                  }
+                },
                 "force": "green"
               }
             ]
@@ -4709,13 +4901,17 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": "green" },
+                    "condition": {
+                      "value": "green"
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4744,11 +4940,17 @@
             "defaultValue": "silver",
             "rules": [
               {
-                "condition": { "country": "Canada" },
+                "condition": {
+                  "country": "Canada"
+                },
                 "force": "red"
               },
               {
-                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "condition": {
+                  "country": {
+                    "$in": ["USA", "Mexico"]
+                  }
+                },
                 "force": "green"
               }
             ]
@@ -4757,7 +4959,9 @@
             "defaultValue": 0,
             "rules": [
               {
-                "condition": { "id": "123" },
+                "condition": {
+                  "id": "123"
+                },
                 "force": 2
               }
             ]
@@ -4769,7 +4973,9 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag1",
-                    "condition": { "value": "green" },
+                    "condition": {
+                      "value": "green"
+                    },
                     "gate": true
                   }
                 ]
@@ -4778,13 +4984,19 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag2",
-                    "condition": { "value": { "$gt": 1 } },
+                    "condition": {
+                      "value": {
+                        "$gt": 1
+                      }
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4816,17 +5028,27 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag2",
-                    "condition": { "value": { "$gt": 1 } },
+                    "condition": {
+                      "value": {
+                        "$gt": 1
+                      }
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "country": "Canada" },
+                "condition": {
+                  "country": "Canada"
+                },
                 "force": "red"
               },
               {
-                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "condition": {
+                  "country": {
+                    "$in": ["USA", "Mexico"]
+                  }
+                },
                 "force": "green"
               }
             ]
@@ -4835,7 +5057,9 @@
             "defaultValue": 0,
             "rules": [
               {
-                "condition": { "id": "123" },
+                "condition": {
+                  "id": "123"
+                },
                 "force": 2
               }
             ]
@@ -4847,13 +5071,17 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag1",
-                    "condition": { "value": "green" },
+                    "condition": {
+                      "value": "green"
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4900,13 +5128,17 @@
                 "parentConditions": [
                   {
                     "id": "parentExperimentFlag",
-                    "condition": { "value": 1 },
+                    "condition": {
+                      "value": 1
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4953,13 +5185,17 @@
                 "parentConditions": [
                   {
                     "id": "parentExperimentFlag",
-                    "condition": { "value": 0 },
+                    "condition": {
+                      "value": 0
+                    },
                     "gate": true
                   }
                 ]
               },
               {
-                "condition": { "memberType": "basic" },
+                "condition": {
+                  "memberType": "basic"
+                },
                 "force": "success"
               }
             ]
@@ -4989,7 +5225,9 @@
                 "parentConditions": [
                   {
                     "id": "flag2",
-                    "condition": { "value": true },
+                    "condition": {
+                      "value": true
+                    },
                     "gate": true
                   }
                 ]
@@ -5003,7 +5241,9 @@
                 "parentConditions": [
                   {
                     "id": "flag1",
-                    "condition": { "value": true },
+                    "condition": {
+                      "value": true
+                    },
                     "gate": true
                   }
                 ]
@@ -5036,12 +5276,18 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": { "$ne": false } },
+                    "condition": {
+                      "value": {
+                        "$ne": false
+                      }
+                    },
                     "gate": true
                   },
                   {
                     "id": "parentFlag",
-                    "condition": { "value": true },
+                    "condition": {
+                      "value": true
+                    },
                     "gate": true
                   }
                 ]
@@ -5053,19 +5299,25 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": true }
+                    "condition": {
+                      "value": true
+                    }
                   }
                 ],
                 "force": "C"
               },
               {
                 "condition": {
-                  "browser": { "$ne": "safari" }
+                  "browser": {
+                    "$ne": "safari"
+                  }
                 },
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "value": true }
+                    "condition": {
+                      "value": true
+                    }
                   }
                 ],
                 "force": "T"
@@ -5098,7 +5350,11 @@
             "rules": [
               {
                 "force": true,
-                "condition": { "id": { "$inGroup": "group_id" } }
+                "condition": {
+                  "id": {
+                    "$inGroup": "group_id"
+                  }
+                }
               }
             ]
           }
@@ -5128,7 +5384,11 @@
             "rules": [
               {
                 "key": "experiment",
-                "condition": { "id": { "$inGroup": "group_id" } },
+                "condition": {
+                  "id": {
+                    "$inGroup": "group_id"
+                  }
+                },
                 "hashVersion": 2,
                 "variations": [1, 2],
                 "ranges": [
@@ -5151,7 +5411,11 @@
         "source": "experiment",
         "experiment": {
           "hashVersion": 2,
-          "condition": { "id": { "$inGroup": "group_id" } },
+          "condition": {
+            "id": {
+              "$inGroup": "group_id"
+            }
+          },
           "variations": [1, 2],
           "ranges": [
             [0, 0.5],
@@ -5191,14 +5455,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  1,
-                  0
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [1, 0],
                 "meta": [
                   {
                     "key": "0"
@@ -5208,13 +5466,16 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": []
+                "contextualBanditRef": "cb_promo_bandit"
               }
             ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": []
           }
         }
       },
@@ -5226,16 +5487,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -5278,14 +5533,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  1,
-                  0
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [1, 0],
                 "meta": [
                   {
                     "key": "0"
@@ -5295,12 +5544,16 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
               }
             ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": []
           }
         }
       },
@@ -5312,16 +5565,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -5364,14 +5611,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0,
-                  1
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0, 1],
                 "meta": [
                   {
                     "key": "0"
@@ -5381,13 +5622,16 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": []
+                "contextualBanditRef": "cb_promo_bandit"
               }
             ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": []
           }
         }
       },
@@ -5399,16 +5643,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0,
-            1
-          ],
+          "weights": [0, 1],
           "hashAttribute": "id",
           "meta": [
             {
@@ -5450,14 +5688,8 @@
                 "seed": "promo_bandit",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -5480,16 +5712,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "meta": [
             {
               "key": "0"
@@ -5530,14 +5756,8 @@
                 "seed": "promo_bandit",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -5560,16 +5780,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "meta": [
             {
               "key": "0"
@@ -5610,14 +5824,8 @@
                 "seed": "promo_bandit",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -5640,16 +5848,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "meta": [
             {
               "key": "0"
@@ -5695,14 +5897,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -5712,13 +5908,16 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": []
+                "contextualBanditRef": "cb_promo_bandit"
               }
             ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": []
           }
         }
       },
@@ -5730,16 +5929,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "hashAttribute": "id",
           "meta": [
             {
@@ -5769,328 +5962,631 @@
   "run": [
     [
       "default weights - 1",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "default weights - 2",
-      { "attributes": { "id": "2" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "2"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       true,
       true
     ],
     [
       "default weights - 3",
-      { "attributes": { "id": "3" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "3"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       true,
       true
     ],
     [
       "default weights - 4",
-      { "attributes": { "id": "4" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "4"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "default weights - 5",
-      { "attributes": { "id": "5" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "5"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "default weights - 6",
-      { "attributes": { "id": "6" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "6"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "default weights - 7",
-      { "attributes": { "id": "7" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "7"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       true,
       true
     ],
     [
       "default weights - 8",
-      { "attributes": { "id": "8" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "8"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "default weights - 9",
-      { "attributes": { "id": "9" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "9"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       true,
       true
     ],
     [
       "uneven weights - 1",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 2",
-      { "attributes": { "id": "2" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "2"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 3",
-      { "attributes": { "id": "3" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "3"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       0,
       true,
       true
     ],
     [
       "uneven weights - 4",
-      { "attributes": { "id": "4" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "4"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 5",
-      { "attributes": { "id": "5" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "5"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 6",
-      { "attributes": { "id": "6" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "6"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 7",
-      { "attributes": { "id": "7" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "7"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       0,
       true,
       true
     ],
     [
       "uneven weights - 8",
-      { "attributes": { "id": "8" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "8"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "uneven weights - 9",
-      { "attributes": { "id": "9" } },
-      { "key": "my-test", "variations": [0, 1], "weights": [0.1, 0.9] },
+      {
+        "attributes": {
+          "id": "9"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "weights": [0.1, 0.9]
+      },
       1,
       true,
       true
     ],
     [
       "coverage - 1",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       false,
       false
     ],
     [
       "coverage - 2",
-      { "attributes": { "id": "2" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "2"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       true,
       true
     ],
     [
       "coverage - 3",
-      { "attributes": { "id": "3" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "3"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       true,
       true
     ],
     [
       "coverage - 4",
-      { "attributes": { "id": "4" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "4"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       false,
       false
     ],
     [
       "coverage - 5",
-      { "attributes": { "id": "5" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "5"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       1,
       true,
       true
     ],
     [
       "coverage - 6",
-      { "attributes": { "id": "6" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "6"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       false,
       false
     ],
     [
       "coverage - 7",
-      { "attributes": { "id": "7" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "7"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       true,
       true
     ],
     [
       "coverage - 8",
-      { "attributes": { "id": "8" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "8"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       1,
       true,
       true
     ],
     [
       "coverage - 9",
-      { "attributes": { "id": "9" } },
-      { "key": "my-test", "variations": [0, 1], "coverage": 0.4 },
+      {
+        "attributes": {
+          "id": "9"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "coverage": 0.4
+      },
       0,
       false,
       false
     ],
     [
       "three way test - 1",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       2,
       true,
       true
     ],
     [
       "three way test - 2",
-      { "attributes": { "id": "2" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "2"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       0,
       true,
       true
     ],
     [
       "three way test - 3",
-      { "attributes": { "id": "3" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "3"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       0,
       true,
       true
     ],
     [
       "three way test - 4",
-      { "attributes": { "id": "4" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "4"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       2,
       true,
       true
     ],
     [
       "three way test - 5",
-      { "attributes": { "id": "5" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "5"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       1,
       true,
       true
     ],
     [
       "three way test - 6",
-      { "attributes": { "id": "6" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "6"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       2,
       true,
       true
     ],
     [
       "three way test - 7",
-      { "attributes": { "id": "7" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "7"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       0,
       true,
       true
     ],
     [
       "three way test - 8",
-      { "attributes": { "id": "8" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "8"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       1,
       true,
       true
     ],
     [
       "three way test - 9",
-      { "attributes": { "id": "9" } },
-      { "key": "my-test", "variations": [0, 1, 2] },
+      {
+        "attributes": {
+          "id": "9"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1, 2]
+      },
       0,
       true,
       true
     ],
     [
       "test name - my-test",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       1,
       true,
       true
     ],
     [
       "test name - my-test-3",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test-3", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test-3",
+        "variations": [0, 1]
+      },
       0,
       true,
       true
     ],
     [
       "empty id",
-      { "attributes": { "id": "" } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": ""
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       false,
       false
     ],
     [
       "null id",
-      { "attributes": { "id": null } },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {
+          "id": null
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       false,
       false
     ],
     [
       "missing id",
-      { "attributes": {} },
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "attributes": {}
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       false,
       false
@@ -6098,31 +6594,57 @@
     [
       "missing attributes",
       {},
-      { "key": "my-test", "variations": [0, 1] },
+      {
+        "key": "my-test",
+        "variations": [0, 1]
+      },
       0,
       false,
       false
     ],
     [
       "single variation",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0] },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0]
+      },
       0,
       false,
       false
     ],
     [
       "negative forced variation",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1], "force": -8 },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "force": -8
+      },
       0,
       false,
       false
     ],
     [
       "high forced variation",
-      { "attributes": { "id": "1" } },
-      { "key": "my-test", "variations": [0, 1], "force": 25 },
+      {
+        "attributes": {
+          "id": "1"
+        }
+      },
+      {
+        "key": "my-test",
+        "variations": [0, 1],
+        "force": 25
+      },
       0,
       false,
       false
@@ -6310,8 +6832,12 @@
     [
       "Force variation from context",
       {
-        "attributes": { "id": "1" },
-        "forcedVariations": { "my-test": 0 }
+        "attributes": {
+          "id": "1"
+        },
+        "forcedVariations": {
+          "my-test": 0
+        }
       },
       {
         "key": "my-test",
@@ -6324,7 +6850,9 @@
     [
       "Skips experiments in QA mode",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "qaMode": true
       },
       {
@@ -6338,9 +6866,13 @@
     [
       "Works in QA mode if forced in context",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "qaMode": true,
-        "forcedVariations": { "my-test": 1 }
+        "forcedVariations": {
+          "my-test": 1
+        }
       },
       {
         "key": "my-test",
@@ -6353,7 +6885,9 @@
     [
       "Works in QA mode if forced in experiment",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "qaMode": true
       },
       {
@@ -6598,7 +7132,9 @@
     [
       "Prerequisite condition passes",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "features": {
           "parentFlag": {
             "defaultValue": true
@@ -6624,7 +7160,9 @@
     [
       "Prerequisite condition fails",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "features": {
           "parentFlag": {
             "defaultValue": false
@@ -6650,13 +7188,19 @@
     [
       "SavedGroups correctly pulled from context for experiment",
       {
-        "attributes": { "id": "4" },
-        "savedGroups": { "group_id": ["4", "5", "6"] }
+        "attributes": {
+          "id": "4"
+        },
+        "savedGroups": {
+          "group_id": ["4", "5", "6"]
+        }
       },
       {
         "key": "group-filtered-test",
         "condition": {
-          "id": { "$inGroup": "group_id" }
+          "id": {
+            "$inGroup": "group_id"
+          }
         },
         "variations": [0, 1, 2]
       },
@@ -6919,7 +7463,9 @@
     [
       "use fallbackAttribute when missing hashAttribute",
       {
-        "attributes": { "anonymousId": "123" },
+        "attributes": {
+          "anonymousId": "123"
+        },
         "features": {
           "feature": {
             "defaultValue": 0,
@@ -6949,7 +7495,9 @@
       },
       {
         "anonymousId||123": {
-          "assignments": { "feature__0": "3" },
+          "assignments": {
+            "feature__0": "3"
+          },
           "attributeName": "anonymousId",
           "attributeValue": "123"
         }
@@ -6975,9 +7523,21 @@
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7003,7 +7563,9 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -7029,9 +7591,21 @@
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7064,7 +7638,9 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__0": "2" },
+          "assignments": {
+            "feature-exp__0": "2"
+          },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -7090,9 +7666,21 @@
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7125,7 +7713,9 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -7151,9 +7741,21 @@
                 "fallbackAttribute": "anonymousId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7186,12 +7788,16 @@
       },
       {
         "anonymousId||ses123": {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "anonymousId",
           "attributeValue": "ses123"
         },
         "id||i123": {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -7217,9 +7823,21 @@
                 "fallbackAttribute": "anonymousId",
                 "hashVersion": 2,
                 "bucketVersion": 0,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7259,12 +7877,16 @@
       },
       {
         "anonymousId||ses123": {
-          "assignments": { "feature-exp__0": "2" },
+          "assignments": {
+            "feature-exp__0": "2"
+          },
           "attributeName": "anonymousId",
           "attributeValue": "ses123"
         },
         "id||i123": {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -7289,9 +7911,21 @@
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
                 "bucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7302,7 +7936,9 @@
       },
       [
         {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -7351,9 +7987,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 3,
                 "minBucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7364,7 +8012,9 @@
       },
       [
         {
-          "assignments": { "feature-exp__0": "1" },
+          "assignments": {
+            "feature-exp__0": "1"
+          },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -7402,9 +8052,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 3,
                 "minBucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7437,7 +8099,9 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__3": "2" },
+          "assignments": {
+            "feature-exp__3": "2"
+          },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -7464,9 +8128,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 3,
                 "minBucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7488,7 +8164,9 @@
       null,
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__2": "2" },
+          "assignments": {
+            "feature-exp__2": "2"
+          },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -7515,9 +8193,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 3,
                 "minBucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7580,9 +8270,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 4,
                 "minBucketVersion": 3,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7644,9 +8346,21 @@
                 "hashVersion": 2,
                 "bucketVersion": 1,
                 "disableStickyBucketing": true,
-                "condition": { "country": "USA" },
+                "condition": {
+                  "country": "USA"
+                },
                 "variations": ["control", "red", "blue"],
-                "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
+                "meta": [
+                  {
+                    "key": "0"
+                  },
+                  {
+                    "key": "1"
+                  },
+                  {
+                    "key": "2"
+                  }
+                ],
                 "coverage": 1,
                 "weights": [0.3334, 0.3333, 0.3333],
                 "phase": "0"
@@ -7659,7 +8373,9 @@
         {
           "attributeName": "id",
           "attributeValue": "i123",
-          "assignments": { "feature-exp__0": "1" }
+          "assignments": {
+            "feature-exp__0": "1"
+          }
         }
       ],
       "exp1",
@@ -7679,7 +8395,9 @@
         "id||i123": {
           "attributeName": "id",
           "attributeValue": "i123",
-          "assignments": { "feature-exp__0": "1" }
+          "assignments": {
+            "feature-exp__0": "1"
+          }
         }
       }
     ]
@@ -7688,7 +8406,9 @@
     [
       "redirects correctly without query strings",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "url": "http://www.example.com/home",
         "experiments": [
           {
@@ -7721,7 +8441,9 @@
     [
       "redirects with query string on original url and persistQueryString enabled",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "url": "http://www.example.com/home?color=blue&food=sushi",
         "experiments": [
           {
@@ -7755,7 +8477,9 @@
     [
       "merges query strings on original url & redirect url with param conflicts correctly when persistQueryString enabled",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "url": "http://www.example.com/home?color=blue&food=sushi&title=original",
         "experiments": [
           {
@@ -7789,7 +8513,9 @@
     [
       "only performs a redirect for first eligible experiment when there are multiple eligible experiments",
       {
-        "attributes": { "id": "1" },
+        "attributes": {
+          "id": "1"
+        },
         "url": "http://www.example.com/home",
         "experiments": [
           {
@@ -7872,14 +8598,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -7889,20 +8609,20 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [1, 0]
               }
             ]
           }
@@ -7916,16 +8636,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -7950,10 +8664,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -7975,14 +8686,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -7992,30 +8697,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8029,16 +8731,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8063,10 +8759,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -8088,14 +8781,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8105,30 +8792,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8142,16 +8826,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0,
-            1
-          ],
+          "weights": [0, 1],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8176,10 +8854,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 2,
-          "variationWeights": [
-            0,
-            1
-          ],
+          "variationWeights": [0, 1],
           "banditVersion": 7
         }
       }
@@ -8202,14 +8877,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8219,48 +8888,38 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan",
-                  "cartValue"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": {
-                        "$in": [
-                          "free",
-                          "basic"
-                        ]
-                      }
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {
-                      "cartValue": {
-                        "$gte": 500
-                      }
-                    },
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  },
-                  {
-                    "leafId": 3,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan", "cartValue"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": {
+                    "$in": ["free", "basic"]
                   }
-                ]
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "cartValue": {
+                    "$gte": 500
+                  }
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -8274,16 +8933,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8308,10 +8961,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -8334,14 +8984,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8351,48 +8995,38 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan",
-                  "cartValue"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": {
-                        "$in": [
-                          "free",
-                          "basic"
-                        ]
-                      }
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {
-                      "cartValue": {
-                        "$gte": 500
-                      }
-                    },
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  },
-                  {
-                    "leafId": 3,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan", "cartValue"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": {
+                    "$in": ["free", "basic"]
                   }
-                ]
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "cartValue": {
+                    "$gte": 500
+                  }
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -8406,16 +9040,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0,
-            1
-          ],
+          "weights": [0, 1],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8440,10 +9068,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 2,
-          "variationWeights": [
-            0,
-            1
-          ],
+          "variationWeights": [0, 1],
           "banditVersion": 7
         }
       }
@@ -8466,14 +9091,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8483,41 +9102,34 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan",
-                  "country"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "pro"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {
-                      "country": "US"
-                    },
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  },
-                  {
-                    "leafId": 3,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan", "country"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "pro"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {
+                  "country": "US"
+                },
+                "weights": [0, 1]
+              },
+              {
+                "leafId": 3,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -8531,16 +9143,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8565,10 +9171,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -8589,14 +9192,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8606,30 +9203,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8660,14 +9254,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8677,33 +9265,30 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
               },
               {
                 "force": "forced"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8735,14 +9320,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8752,33 +9331,30 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ],
                 "condition": {
                   "country": "US"
-                }
+                },
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8810,14 +9386,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.01,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -8827,30 +9397,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -8882,16 +9449,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "c0",
-                  "c1",
-                  "c2"
-                ],
-                "weights": [
-                  0.34,
-                  0.33,
-                  0.33
-                ],
+                "variations": ["c0", "c1", "c2"],
+                "weights": [0.34, 0.33, 0.33],
                 "meta": [
                   {
                     "key": "0"
@@ -8904,32 +9463,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      0,
-                      0,
-                      1
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0.34,
-                      0.33,
-                      0.33
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [0, 0, 1]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0.34, 0.33, 0.33]
               }
             ]
           }
@@ -8943,18 +9497,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "c0",
-            "c1",
-            "c2"
-          ],
+          "variations": ["c0", "c1", "c2"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0,
-            0,
-            1
-          ],
+          "weights": [0, 0, 1],
           "hashAttribute": "id",
           "meta": [
             {
@@ -8982,11 +9528,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            0,
-            0,
-            1
-          ],
+          "variationWeights": [0, 0, 1],
           "banditVersion": 7
         }
       }
@@ -9008,14 +9550,8 @@
                 "seed": "first",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9034,14 +9570,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9051,30 +9581,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -9088,16 +9615,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9122,10 +9643,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -9146,14 +9664,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9163,17 +9675,19 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -9187,16 +9701,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9221,10 +9729,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            0.5,
-            0.5
-          ],
+          "variationWeights": [0.5, 0.5],
           "banditVersion": 7
         }
       }
@@ -9245,14 +9750,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9262,17 +9761,19 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -9286,16 +9787,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9320,10 +9815,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.7366,
           "leafId": 1,
-          "variationWeights": [
-            0.5,
-            0.5
-          ],
+          "variationWeights": [0.5, 0.5],
           "banditVersion": 7
         }
       }
@@ -9344,14 +9836,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9361,17 +9847,19 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      0.5,
-                      0.5
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.5, 0.5]
               }
             ]
           }
@@ -9385,16 +9873,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.5,
-            0.5
-          ],
+          "weights": [0.5, 0.5],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9419,10 +9901,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3854,
           "leafId": 1,
-          "variationWeights": [
-            0.5,
-            0.5
-          ],
+          "variationWeights": [0.5, 0.5],
           "banditVersion": 7
         }
       }
@@ -9443,14 +9922,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9460,17 +9933,19 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      0.1,
-                      0.9
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.1, 0.9]
               }
             ]
           }
@@ -9484,16 +9959,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.1,
-            0.9
-          ],
+          "weights": [0.1, 0.9],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9518,10 +9987,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            0.1,
-            0.9
-          ],
+          "variationWeights": [0.1, 0.9],
           "banditVersion": 7
         }
       }
@@ -9542,14 +10008,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9559,17 +10019,19 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      0.1,
-                      0.9
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [0.1, 0.9]
               }
             ]
           }
@@ -9583,16 +10045,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            0.1,
-            0.9
-          ],
+          "weights": [0.1, 0.9],
           "hashAttribute": "id",
           "meta": [
             {
@@ -9617,10 +10073,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.1604,
           "leafId": 1,
-          "variationWeights": [
-            0.1,
-            0.9
-          ],
+          "variationWeights": [0.1, 0.9],
           "banditVersion": 7
         }
       }
@@ -9642,14 +10095,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9659,30 +10106,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -9714,14 +10158,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9731,30 +10169,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -9785,14 +10220,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9802,30 +10231,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -9857,14 +10283,8 @@
                 "hashAttribute": "anonId",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9874,30 +10294,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -9911,16 +10328,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "anonId",
           "meta": [
             {
@@ -9945,10 +10356,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.2512,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -9973,14 +10381,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -9990,30 +10392,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10027,16 +10426,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10080,14 +10473,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10097,30 +10484,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10134,16 +10518,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10187,14 +10565,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10204,30 +10576,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10263,14 +10632,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10280,30 +10643,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10317,16 +10677,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10370,14 +10724,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10387,30 +10735,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10452,10 +10797,7 @@
                     "color": "green"
                   }
                 ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10465,30 +10807,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10514,10 +10853,7 @@
           ],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10544,10 +10880,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -10569,31 +10902,28 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control"
-                ],
-                "weights": [
-                  1
-                ],
+                "variations": ["control"],
+                "weights": [1],
                 "meta": [
                   {
                     "key": "0"
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {},
-                    "weights": [
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {},
+                "weights": [1]
               }
             ]
           }
@@ -10626,14 +10956,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10643,33 +10967,30 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ],
                 "condition": {
                   "country": "US"
-                }
+                },
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10683,16 +11004,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10720,10 +11035,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -10745,14 +11057,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.5,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10762,30 +11068,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }
@@ -10799,16 +11102,10 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
-          "variations": [
-            "control",
-            "treatment"
-          ],
+          "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 0.5,
-          "weights": [
-            1,
-            0
-          ],
+          "weights": [1, 0],
           "hashAttribute": "id",
           "meta": [
             {
@@ -10833,10 +11130,7 @@
           "stickyBucketUsed": false,
           "bucket": 0.3094,
           "leafId": 1,
-          "variationWeights": [
-            1,
-            0
-          ],
+          "variationWeights": [1, 0],
           "banditVersion": 7
         }
       }
@@ -10858,14 +11152,8 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.5,
-                "variations": [
-                  "control",
-                  "treatment"
-                ],
-                "weights": [
-                  0.5,
-                  0.5
-                ],
+                "variations": ["control", "treatment"],
+                "weights": [0.5, 0.5],
                 "meta": [
                   {
                     "key": "0"
@@ -10875,30 +11163,27 @@
                   }
                 ],
                 "type": "contextual-bandit",
-                "banditVersion": 7,
-                "attributesRequired": [
-                  "plan"
-                ],
-                "contexts": [
-                  {
-                    "leafId": 1,
-                    "condition": {
-                      "plan": "enterprise"
-                    },
-                    "weights": [
-                      1,
-                      0
-                    ]
-                  },
-                  {
-                    "leafId": 2,
-                    "condition": {},
-                    "weights": [
-                      0,
-                      1
-                    ]
-                  }
-                ]
+                "contextualBanditRef": "cb_promo_bandit"
+              }
+            ]
+          }
+        },
+        "contextualBandits": {
+          "cb_promo_bandit": {
+            "banditVersion": 7,
+            "attributesRequired": ["plan"],
+            "contexts": [
+              {
+                "leafId": 1,
+                "condition": {
+                  "plan": "enterprise"
+                },
+                "weights": [1, 0]
+              },
+              {
+                "leafId": 2,
+                "condition": {},
+                "weights": [0, 1]
               }
             ]
           }

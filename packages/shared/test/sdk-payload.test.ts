@@ -318,20 +318,21 @@ describe("expandNestedSavedGroups", () => {
 });
 
 describe("getPayloadAllowedKeys (contextual bandits)", () => {
-  it("preserves contextual-bandit rule keys (incl. type + contexts) when the capability is present", () => {
+  it("preserves contextual-bandit rule keys (type + contextualBanditRef) when the capability is present", () => {
     const { featureRuleKeys } = getPayloadAllowedKeys(["contextualBandits"]);
     expect(featureRuleKeys).toContain("type");
-    expect(featureRuleKeys).toContain("attributesRequired");
-    expect(featureRuleKeys).toContain("contexts");
-    expect(featureRuleKeys).toContain("banditVersion");
+    expect(featureRuleKeys).toContain("contextualBanditRef");
+    // Contexts/attributesRequired/banditVersion live in the payload's
+    // top-level `contextualBandits` map now, never on the rule.
+    expect(featureRuleKeys).not.toContain("contexts");
+    expect(featureRuleKeys).not.toContain("attributesRequired");
+    expect(featureRuleKeys).not.toContain("banditVersion");
   });
 
   it("scrubs contextual-bandit rule keys when the capability is absent", () => {
     const { featureRuleKeys } = getPayloadAllowedKeys(["bucketingV2"]);
     expect(featureRuleKeys).not.toContain("type");
-    expect(featureRuleKeys).not.toContain("attributesRequired");
-    expect(featureRuleKeys).not.toContain("contexts");
-    expect(featureRuleKeys).not.toContain("banditVersion");
+    expect(featureRuleKeys).not.toContain("contextualBanditRef");
     expect(featureRuleKeys).toContain("weights");
   });
 });

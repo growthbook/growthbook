@@ -1,29 +1,41 @@
 import { GrowthBook } from "../src";
+import { ContextualBanditsMap } from "../src/types/growthbook";
+
+function cbRule(overrides: Record<string, unknown> = {}) {
+  return {
+    key: "promo_bandit",
+    seed: "promo_bandit",
+    hashAttribute: "id",
+    hashVersion: 2,
+    coverage: 1,
+    variations: ["control", "treatment"],
+    weights: [1, 0],
+    meta: [{ key: "0" }, { key: "1" }],
+    type: "contextual-bandit" as const,
+    contextualBanditRef: "cb_promo",
+    ...overrides,
+  };
+}
 
 function cbFeatures(overrides: Record<string, unknown> = {}) {
   return {
     promo: {
       defaultValue: "default",
-      rules: [
-        {
-          key: "promo_bandit",
-          seed: "promo_bandit",
-          hashAttribute: "id",
-          hashVersion: 2,
-          coverage: 1,
-          variations: ["control", "treatment"],
-          weights: [1, 0],
-          meta: [{ key: "0" }, { key: "1" }],
-          type: "contextual-bandit" as const,
-          banditVersion: 7,
-          attributesRequired: ["plan"],
-          contexts: [
-            { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
-            { leafId: 2, condition: {}, weights: [0, 1] },
-          ],
-          ...overrides,
-        },
+      rules: [cbRule(overrides)],
+    },
+  };
+}
+
+function cbMap(overrides: Record<string, unknown> = {}): ContextualBanditsMap {
+  return {
+    cb_promo: {
+      banditVersion: 7,
+      attributesRequired: ["plan"],
+      contexts: [
+        { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
+        { leafId: 2, condition: {}, weights: [0, 1] },
       ],
+      ...overrides,
     },
   };
 }
@@ -33,6 +45,7 @@ describe("contextual bandit feature rules", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: cbFeatures(),
+      contextualBandits: cbMap(),
     });
 
     const res = gb.evalFeature("promo");
@@ -51,6 +64,7 @@ describe("contextual bandit feature rules", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
       features: cbFeatures(),
+      contextualBandits: cbMap(),
     });
 
     const res = gb.evalFeature("promo");
@@ -63,12 +77,40 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("resolves the same contextualBandits entry from multiple linked features", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      features: {
+        ...cbFeatures(),
+        banner: {
+          defaultValue: "off",
+          rules: [
+            cbRule({
+              variations: ["off", "on"],
+            }),
+          ],
+        },
+      },
+      contextualBandits: cbMap(),
+    });
+
+    const promo = gb.evalFeature("promo");
+    const banner = gb.evalFeature("banner");
+    expect(promo.experimentResult?.leafId).toEqual(1);
+    expect(banner.experimentResult?.leafId).toEqual(1);
+    expect(banner.value).toEqual("off");
+    expect(banner.experimentResult?.banditVersion).toEqual(7);
+
+    gb.destroy();
+  });
+
   it("fails closed (skips the rule, no exposure) when a required attribute is missing", () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       trackingCallback,
       features: cbFeatures(),
+      contextualBandits: cbMap(),
     });
 
     const res = gb.evalFeature("promo");
@@ -88,6 +130,7 @@ describe("contextual bandit feature rules", () => {
       trackingCallback,
       trackingCallbackWithAttribute,
       features: cbFeatures(),
+      contextualBandits: cbMap(),
     });
 
     gb.evalFeature("promo");
@@ -142,7 +185,8 @@ describe("contextual bandit feature rules", () => {
   it("falls back to marginal weights when contexts[] is empty (MAB behavior)", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1" },
-      features: cbFeatures({ contexts: [] }),
+      features: cbFeatures(),
+      contextualBandits: cbMap({ contexts: [] }),
     });
 
     const res = gb.evalFeature("promo");
@@ -152,6 +196,39 @@ describe("contextual bandit feature rules", () => {
     expect(res.experimentResult?.leafId).toBeUndefined();
     expect(res.experimentResult?.variationWeights).toBeUndefined();
     expect(res.experimentResult?.banditVersion).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("falls back to marginal weights when the contextualBanditRef is dangling", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1" },
+      features: cbFeatures(),
+      // No contextualBandits map at all
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.variationId).toEqual(0);
+    expect(res.experimentResult?.leafId).toBeUndefined();
+    expect(res.experimentResult?.banditVersion).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("ingests contextualBandits from a payload via setPayload", async () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+    });
+    await gb.setPayload({
+      features: cbFeatures(),
+      contextualBandits: cbMap(),
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.experimentResult?.leafId).toEqual(1);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
 
     gb.destroy();
   });

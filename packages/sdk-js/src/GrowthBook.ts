@@ -221,6 +221,9 @@ export class GrowthBook<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     if (data.experiments) {
       this._options.experiments = data.experiments;
       this._updateAllAutoExperiments();
@@ -664,6 +667,7 @@ export class GrowthBook<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._onExperimentEval,

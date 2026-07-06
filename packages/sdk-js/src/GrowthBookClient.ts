@@ -95,6 +95,9 @@ export class GrowthBookClient<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     this.ready = true;
   }
 
@@ -287,6 +290,7 @@ export class GrowthBookClient<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,

@@ -16,14 +16,24 @@ export type ExperimentMetadata = {
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
   type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
+  // Pointer into the payload's top-level `contextualBandits` map. Contexts are
+  // stored once per CB there (savedGroups-style) instead of inline per rule, so
+  // a CB linked to F features costs one copy instead of F.
+  contextualBanditRef?: string;
+};
+
+// One entry in the payload's top-level `contextualBandits` map, keyed by CB id.
+export type ContextualBanditData = {
+  banditVersion?: number;
   attributesRequired?: string[];
-  contexts?: {
+  contexts: {
     leafId: number;
     condition: Record<string, unknown>;
     weights: number[];
   }[];
-  banditVersion?: number;
 };
+
+export type ContextualBanditsMap = Record<string, ContextualBanditData>;
 
 export type AutoExperimentWithMetadata = AutoExperiment & {
   metadata?: ExperimentMetadata;

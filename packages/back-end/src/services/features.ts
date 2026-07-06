@@ -52,6 +52,7 @@ import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
+  ContextualBanditsMap,
   ExperimentMetadata,
   FeatureDefinition,
 } from "shared/types/sdk";
@@ -109,6 +110,7 @@ import {
   getFeatureDefinition,
   getHoldoutFeatureDefId,
   getParsedCondition,
+  pairedWeightsToPositional,
 } from "back-end/src/util/features";
 import { getEnabledEnvironments as getEnabledHoldoutEnvironments } from "back-end/src/util/holdouts";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
@@ -675,6 +677,43 @@ export function filterUsedSavedGroups(
   );
 }
 
+// Build the payload's top-level `contextualBandits` map (savedGroups-style
+// dedup): one entry per CB id, only for CBs referenced by at least one emitted
+// rule. Deriving from emitted rules (not cbMap) matters — cbMap can contain
+// draft/stopped CBs whose rules returned null and CBs filtered per environment.
+export function filterUsedContextualBandits(
+  cbMap: Map<string, ContextualBanditInterface> | undefined,
+  features: Record<string, FeatureDefinition>,
+): ContextualBanditsMap | undefined {
+  if (!cbMap || cbMap.size === 0) return undefined;
+
+  const usedIds = new Set<string>();
+  Object.values(features).forEach((feature) => {
+    feature.rules?.forEach((rule) => {
+      if (rule.contextualBanditRef) {
+        usedIds.add(rule.contextualBanditRef);
+      }
+    });
+  });
+
+  const map: ContextualBanditsMap = {};
+  usedIds.forEach((id) => {
+    const cb = cbMap.get(id);
+    if (!cb) return;
+    map[id] = {
+      banditVersion: cb.banditVersion,
+      attributesRequired: cb.contextualAttributes,
+      contexts: (cb.currentLeafWeights ?? []).map((lw) => ({
+        leafId: lw.leafId,
+        condition: lw.condition,
+        weights: pairedWeightsToPositional(lw.weights, cb.variations),
+      })),
+    };
+  });
+
+  return Object.keys(map).length > 0 ? map : undefined;
+}
+
 export function isSDKConnectionAffectedByPayloadKey(
   connection: SDKConnectionInterface,
   payloadKey: SDKPayloadKey,
@@ -1009,6 +1048,9 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
+  // Top-level dedup map for contextual bandit contexts (shares its spelling
+  // with the `contextualBandits` capability — different namespaces).
+  contextualBandits?: ContextualBanditsMap;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1022,6 +1064,7 @@ export async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   capabilities,
   usedSavedGroups,
+  contextualBandits,
   savedGroupReferencesEnabled,
   organization,
 }: FeatureDefinitionsResponseArgs): Promise<{
@@ -1032,6 +1075,8 @@ export async function getFeatureDefinitionsResponse({
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditsMap;
+  encryptedContextualBandits?: string;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1106,12 +1151,22 @@ export async function getFeatureDefinitionsResponse({
       ? savedGroupsValues
       : undefined;
 
+  // Contexts are only meaningful to SDKs with the `contextualBandits`
+  // capability; non-capable SDKs already had `contextualBanditRef` scrubbed
+  // from rules, so the map would be dead weight.
+  const contextualBanditsForPayload = capabilities.includes("contextualBandits")
+    ? contextualBandits
+    : undefined;
+
   if (!encryptPayload || !encryptionKey) {
     return {
       features,
       ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
       savedGroups: savedGroupsForPayload,
+      ...(contextualBanditsForPayload !== undefined && {
+        contextualBandits: contextualBanditsForPayload,
+      }),
     };
   }
 
@@ -1128,6 +1183,10 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(savedGroupsForPayload), encryptionKey)
     : undefined;
 
+  const encryptedContextualBandits = contextualBanditsForPayload
+    ? await encrypt(JSON.stringify(contextualBanditsForPayload), encryptionKey)
+    : undefined;
+
   return {
     features: {},
     ...(experiments !== undefined && { experiments: [] }),
@@ -1135,6 +1194,9 @@ export async function getFeatureDefinitionsResponse({
     encryptedFeatures,
     ...(encryptedExperiments !== undefined && { encryptedExperiments }),
     encryptedSavedGroups: encryptedSavedGroups,
+    ...(encryptedContextualBandits !== undefined && {
+      encryptedContextualBandits,
+    }),
   };
 }
 
@@ -1401,6 +1463,11 @@ export async function buildSDKPayloadForConnection(
     ...holdoutsInUse,
   };
 
+  const contextualBanditsInUse = filterUsedContextualBandits(
+    cbMap,
+    featuresWithHoldouts,
+  );
+
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
@@ -1425,6 +1492,7 @@ export async function buildSDKPayloadForConnection(
     savedGroupReferencesEnabled:
       !!savedGroupReferencesEnabled &&
       capabilities.includes("savedGroupReferences"),
+    contextualBandits: contextualBanditsInUse,
     organization: context.org,
   });
 }
@@ -1437,6 +1505,8 @@ export type FeatureDefinitionSDKPayload = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditsMap;
+  encryptedContextualBandits?: string;
 };
 
 export async function getFeatureDefinitions(
