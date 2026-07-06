@@ -79,6 +79,7 @@ import {
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
 import { ReqContext } from "back-end/types/request";
+import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCacheStore";
 import {
   applyEnvironmentInheritance,
   buildInheritedChildrenByAncestor,
@@ -993,6 +994,7 @@ async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1019,6 +1021,7 @@ async function onFeatureDelete(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getAffectedSDKPayloadKeys(
@@ -1047,6 +1050,7 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string,
 ) {
+  invalidateFeatureGraph(context.org.id);
   queueSDKPayloadRefresh({
     context,
     payloadKeys: getSDKPayloadKeysByDiff(

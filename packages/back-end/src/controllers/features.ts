@@ -6789,12 +6789,13 @@ export async function getFeaturesStaleStates(
     : undefined;
 
   // Cached per org (short TTL) — the features UI calls this endpoint once
-  // per feature, and an uncached org-wide load per call is what saturated a
-  // pod in the 2026-07-06 slow-requests incident.
+  // per feature, and an uncached org-wide load per call blocks the event
+  // loop long enough for one browser session to saturate a pod.
   const {
     features: allFeatures,
     experiments: allExperiments,
     mostRecentDraftDateByFeatureId,
+    loadedAt,
   } = await getOrgFeatureGraph(context);
 
   const targetFeatures = featureIds
@@ -6803,17 +6804,20 @@ export async function getFeaturesStaleStates(
 
   const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
-  const computedAt = new Date().toISOString();
+  // The snapshot's load time, not the request time — with the cache these
+  // can differ by up to the TTL, and clients must see the true data age.
+  const computedAt = loadedAt.toISOString();
   const result: Record<
     string,
     IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
   > = {};
 
+  const orgEnvironments = getEnvironments(context.org);
   for (let i = 0; i < targetFeatures.length; i++) {
     await yieldEventLoop(i);
     const feature = targetFeatures[i];
 
-    const applicableEnvIds = getEnvironments(context.org)
+    const applicableEnvIds = orgEnvironments
       .filter(
         (env) =>
           !feature.project ||
@@ -6898,7 +6902,9 @@ export async function getFeaturesDependents(
 
   // Cached per org (short TTL) — same rationale as getFeaturesStaleStates.
   const { features: allFeatures, experiments: allExperiments } =
-    await getOrgFeatureGraph(context, { includeArchived: true });
+    await getOrgFeatureGraph(context, {
+      includeArchived: true,
+    });
 
   const {
     featuresMap,

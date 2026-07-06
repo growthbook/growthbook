@@ -1,50 +1,41 @@
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { ExperimentInterface } from "shared/types/experiment";
-import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { fetchAllFeaturesForStaleGraphUnfiltered } from "back-end/src/models/FeatureModel";
 import { fetchAllExperimentsForStaleGraphUnfiltered } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  FEATURE_GRAPH_MAX_ORGS,
+  FEATURE_GRAPH_TTL_MS,
+  FeatureGraphCacheEntry,
+  FeatureGraphSnapshot,
+  featureGraphSnapshotCache,
+  invalidateFeatureGraph,
+} from "back-end/src/services/featureGraphCacheStore";
 
 /**
  * Per-org snapshot of the inputs to the features-UI graph endpoints
- * (`/features/stale`, `/features/dependents`). Those endpoints are called
- * once per feature by the UI (single-id N+1), and each uncached call loads
- * every feature + experiment + active draft revision in the org and blocks
- * the event loop for the whole load+migrate phase — one busy browser session
- * can saturate a pod (2026-07-06 StarlingGrowthBookSlowRequestsElevated).
- * The snapshot bounds that to one load per org per TTL window.
+ * (`/features/stale`, `/features/dependents`). The UI calls those endpoints
+ * once per feature, and each uncached call loads every feature + experiment +
+ * active draft revision in the org and blocks the event loop for the whole
+ * load+migrate phase — one busy browser session can saturate a pod. The
+ * snapshot bounds that to one load per org per TTL window.
  *
  * The cached snapshot is shared across requesters, so it is NOT
  * permission-filtered and MUST stay inside this module; `getOrgFeatureGraph`
  * applies the same per-user project filter the uncached model fetches apply.
- * Writes become visible to these endpoints at most TTL+jitter later — same
- * trade-off as the userEmail cache in services/owner.ts.
+ * The returned arrays and Map are per-request copies, but their ELEMENTS are
+ * shared across requests — consumers must treat them as read-only.
+ *
+ * Freshness: feature/experiment write hooks invalidate the writing pod's
+ * entry (see featureGraphCacheStore.ts); other pods serve at most
+ * TTL+jitter-old data. Responses carry the snapshot's `loadedAt` so clients
+ * see the true data age.
  */
 
-export const FEATURE_GRAPH_TTL_MS = 30_000;
-
-// Expired entries for other orgs are only replaced on their next access, so
-// sweep opportunistically once the map grows past what a single active
-// deployment realistically serves.
-const SWEEP_THRESHOLD = 50;
-
-interface FeatureGraphSnapshot {
-  // Migrated, includes archived, NOT permission-filtered.
-  features: FeatureInterface[];
-  // Projected (stale-graph fields only), includes archived, NOT
-  // permission-filtered.
-  experiments: ExperimentInterface[];
-  mostRecentDraftDateByFeatureId: Map<string, Date>;
-}
-
-interface CacheEntry {
-  promise: Promise<FeatureGraphSnapshot>;
-  expiresAt: number;
-}
-
-const snapshotCache = new Map<string, CacheEntry>();
+export { FEATURE_GRAPH_TTL_MS, invalidateFeatureGraph };
 
 async function loadSnapshot(
   context: ReqContext | ApiReqContext,
@@ -71,7 +62,12 @@ async function loadSnapshot(
     }
   }
 
-  return { features, experiments, mostRecentDraftDateByFeatureId };
+  return {
+    features,
+    experiments,
+    mostRecentDraftDateByFeatureId,
+    loadedAt: new Date(),
+  };
 }
 
 function getSnapshot(
@@ -80,40 +76,59 @@ function getSnapshot(
   const orgId = context.org.id;
   const now = Date.now();
 
-  const existing = snapshotCache.get(orgId);
+  const existing = featureGraphSnapshotCache.get(orgId);
   if (existing && existing.expiresAt > now) {
     return existing.promise;
   }
 
-  if (snapshotCache.size >= SWEEP_THRESHOLD) {
-    for (const [key, entry] of snapshotCache) {
-      if (entry.expiresAt <= now) snapshotCache.delete(key);
+  if (featureGraphSnapshotCache.size >= FEATURE_GRAPH_MAX_ORGS) {
+    for (const [key, entry] of featureGraphSnapshotCache) {
+      if (entry.expiresAt <= now) featureGraphSnapshotCache.delete(key);
+    }
+    // Still full of live entries (many-tenant deployment): evict the
+    // soonest-expiring org so memory stays bounded.
+    if (featureGraphSnapshotCache.size >= FEATURE_GRAPH_MAX_ORGS) {
+      let evictKey: string | undefined;
+      let evictAt = Number.POSITIVE_INFINITY;
+      for (const [key, entry] of featureGraphSnapshotCache) {
+        if (entry.expiresAt <= evictAt) {
+          evictKey = key;
+          evictAt = entry.expiresAt;
+        }
+      }
+      if (evictKey !== undefined) featureGraphSnapshotCache.delete(evictKey);
     }
   }
 
-  // Concurrent cold requests share one in-flight load (the promise is cached
-  // immediately, before it settles).
-  const promise = loadSnapshot(context);
-  // Random jitter to avoid synchronized refresh across orgs.
-  const jitter = Math.floor(Math.random() * FEATURE_GRAPH_TTL_MS * 0.1);
-  const entry: CacheEntry = {
-    promise,
-    expiresAt: now + FEATURE_GRAPH_TTL_MS + jitter,
+  const entry: FeatureGraphCacheEntry = {
+    promise: loadSnapshot(context),
+    expiresAt: Number.POSITIVE_INFINITY,
   };
-  snapshotCache.set(orgId, entry);
-  // A failed load must not poison the whole TTL window — drop it so the next
-  // request retries.
-  promise.catch(() => {
-    if (snapshotCache.get(orgId) === entry) snapshotCache.delete(orgId);
-  });
+  featureGraphSnapshotCache.set(orgId, entry);
+  entry.promise.then(
+    () => {
+      if (featureGraphSnapshotCache.get(orgId) !== entry) return;
+      // Random jitter to avoid synchronized refresh across orgs.
+      const jitter = Math.floor(Math.random() * FEATURE_GRAPH_TTL_MS * 0.1);
+      entry.expiresAt = Date.now() + FEATURE_GRAPH_TTL_MS + jitter;
+    },
+    () => {
+      // A failed load must not poison the cache — drop it so the next
+      // request retries.
+      if (featureGraphSnapshotCache.get(orgId) === entry) {
+        featureGraphSnapshotCache.delete(orgId);
+      }
+    },
+  );
 
-  return promise;
+  return entry.promise;
 }
 
 export interface OrgFeatureGraph {
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
   mostRecentDraftDateByFeatureId: Map<string, Date>;
+  loadedAt: Date;
 }
 
 export async function getOrgFeatureGraph(
@@ -122,29 +137,33 @@ export async function getOrgFeatureGraph(
 ): Promise<OrgFeatureGraph> {
   const snapshot = await getSnapshot(context);
 
-  const features = snapshot.features.filter(
-    (f) =>
-      (includeArchived || !f.archived) &&
-      context.permissions.canReadSingleProjectResource(f.project),
-  );
-  const experiments = snapshot.experiments.filter(
-    (e) =>
-      (includeArchived || !e.archived) &&
-      context.permissions.canReadSingleProjectResource(e.project),
+  // The archived+permission predicate is security-relevant — keep it in one
+  // place for both entity kinds.
+  const visible = <T extends { archived?: boolean; project?: string }>(
+    items: T[],
+  ) =>
+    items.filter(
+      (x) =>
+        (includeArchived || !x.archived) &&
+        context.permissions.canReadSingleProjectResource(x.project),
+    );
+
+  const features = visible(snapshot.features);
+  const experiments = visible(snapshot.experiments);
+
+  // Per-request copy, narrowed to features the requester can read — the Map
+  // must not expose draft activity (or feature ids) from hidden projects.
+  const visibleIds = new Set(features.map((f) => f.id));
+  const mostRecentDraftDateByFeatureId = new Map(
+    [...snapshot.mostRecentDraftDateByFeatureId].filter(([featureId]) =>
+      visibleIds.has(featureId),
+    ),
   );
 
   return {
     features,
     experiments,
-    mostRecentDraftDateByFeatureId: snapshot.mostRecentDraftDateByFeatureId,
+    mostRecentDraftDateByFeatureId,
+    loadedAt: snapshot.loadedAt,
   };
-}
-
-/** Drops one org's snapshot (or all of them) so the next read refetches. */
-export function invalidateFeatureGraph(orgId?: string): void {
-  if (orgId !== undefined) {
-    snapshotCache.delete(orgId);
-  } else {
-    snapshotCache.clear();
-  }
 }

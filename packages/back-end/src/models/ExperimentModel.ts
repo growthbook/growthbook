@@ -24,6 +24,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { ReqContext } from "back-end/types/request";
+import { invalidateFeatureGraph } from "back-end/src/services/featureGraphCacheStore";
 import {
   determineNextDate,
   toExperimentApiInterface,
@@ -2158,6 +2159,7 @@ const onExperimentCreate = async ({
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
 }) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentCreated(context, experiment);
 
   if (context.org.isVercelIntegration)
@@ -2178,6 +2180,7 @@ const onExperimentUpdate = async ({
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentUpdated({
     context,
     current: newExperiment,
@@ -2248,6 +2251,7 @@ const onExperimentDelete = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
+  invalidateFeatureGraph(context.org.id);
   await logExperimentDeleted(context, experiment);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
