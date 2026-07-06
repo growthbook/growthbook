@@ -962,6 +962,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.post(
+  "/feature/:id/:version/contextual-bandit",
+  featuresController.postFeatureContextualBanditRefRule,
+);
 app.delete(
   "/experiment/:id/linked-feature/:featureId",
   experimentsController.deleteExperimentLinkedFeature,

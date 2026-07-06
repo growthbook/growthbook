@@ -2,8 +2,9 @@ import React, { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { decimalToPercent } from "@/services/utils";
+import Metadata from "@/ui/Metadata";
 
 type VariationRowsProps = {
   experiment: ExperimentInterfaceStringDates;
@@ -29,29 +30,20 @@ export default function LinkedChangeVariationRows({
             align={alignContent}
             justify="between"
             width="100%"
-            gap="9"
+            gap="8"
             minHeight="24px"
           >
-            <Flex
-              gap="1"
-              flexBasis="15%"
-              flexShrink="0"
-              className={`variation with-variation-label variation${j}`}
-            >
-              <Box as="span" className="label">
-                {j}
-              </Box>
-              <Box as="span" className="text-ellipsis" title={v.name}>
-                <Text color="text-high" weight="medium">
-                  {v.name}
-                </Text>
-              </Box>
-            </Flex>
-            <Flex flexBasis="90px" flexShrink="0" justify="end">
-              <Text>
-                {decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0)}%
-                Split
-              </Text>
+            <Box flexBasis="25%" flexShrink="0" minWidth="0">
+              <VariationLabel number={j} name={v.name} size="medium" />
+            </Box>
+            <Flex flexBasis="90px" flexShrink="0" justify="start">
+              <Metadata
+                label="Split"
+                value={
+                  decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0) +
+                  "%"
+                }
+              />
             </Flex>
             <Box flexGrow="1">{renderContent(j)}</Box>
             {renderActions && renderActions(j)}

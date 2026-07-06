@@ -248,6 +248,7 @@ const AlignedGraph: FC<Props> = ({
               x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
+              fontWeight: "var(--font-weight-bold)",
             } as const;
           };
           return (
