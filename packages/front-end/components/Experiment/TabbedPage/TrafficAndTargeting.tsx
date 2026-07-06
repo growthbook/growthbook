@@ -1,5 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { calculateNamespaceCoverage } from "shared/util";
+import { hasTargetingConfigured } from "shared/experiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
@@ -15,7 +16,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -55,10 +56,7 @@ export default function TrafficAndTargeting({
   const isHoldout = experiment.type === "holdout";
   const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
 
-  const hasConfiguredTargeting =
-    (phase?.condition && phase.condition !== "{}") ||
-    (phase?.savedGroups && phase.savedGroups.length > 0) ||
-    (phase?.prerequisites && phase.prerequisites.length > 0);
+  const hasConfiguredTargeting = hasTargetingConfigured(phase);
 
   return (
     <>
@@ -71,9 +69,9 @@ export default function TrafficAndTargeting({
               </Heading>
               <div className="flex-1" />
               {editTraffic && !(isBandit && experiment.status === "running") ? (
-                <Button variant="ghost" onClick={editTraffic}>
-                  Edit
-                </Button>
+                <Link onClick={() => editTraffic()}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               ) : null}
             </div>
 
@@ -190,9 +188,9 @@ export default function TrafficAndTargeting({
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
-                <Button variant="ghost" onClick={editTargeting}>
-                  Edit
-                </Button>
+                <Link onClick={editTargeting}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               ) : null}
             </div>
             {hasConfiguredTargeting ? (
@@ -236,7 +234,8 @@ export default function TrafficAndTargeting({
               </div>
             ) : (
               <Text color="text-mid">
-                No targeting (experiment will include all traffic)
+                No targeting ({isHoldout ? "holdout" : "experiment"} will
+                include all traffic)
               </Text>
             )}
           </Frame>
