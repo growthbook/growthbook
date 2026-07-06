@@ -65,7 +65,8 @@ export function getTrustedOrgAttributes(
     orgDateCreated: org.dateCreated ? org.dateCreated.toISOString() : "",
     accountPlan: getEffectiveAccountPlan(org),
     hasLicenseKey: !!org.licenseKey,
-    freeSeats: org.freeSeats || 3,
+    // ?? rather than the FE's || — an explicit freeSeats of 0 must not read as 3
+    freeSeats: org.freeSeats ?? 3,
     discountCode: org.discountCode || "",
     isVercelIntegration: !!org.isVercelIntegration,
   };
