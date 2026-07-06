@@ -1,6 +1,5 @@
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { generalAgentConfig } from "back-end/src/agent/general-agent";
 import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent-handler";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import {
@@ -8,6 +7,10 @@ import {
   updateSlackMessage,
 } from "back-end/src/services/slack/slackWebApi";
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
+import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
+import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import { renderExperimentCard } from "back-end/src/services/slack/chartImage";
+import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 
 export interface SlackAssistantMention {
   teamId: string;
@@ -125,7 +128,7 @@ export async function handleSlackAssistantMention(
   try {
     const result = await runAgentTurnToCompletion({
       context: target.context,
-      config: generalAgentConfig,
+      config: slackAgentConfig,
       input: {
         message: question,
         conversationId: conversationIdFor(
@@ -142,15 +145,64 @@ export async function handleSlackAssistantMention(
       return;
     }
     if (result.pendingAction) {
-      // Phase 1 is read-only from Slack — the agent tried to make a change.
+      // Read-only from Slack — the agent tried to make a change.
       await finish(
         "I can answer questions from Slack, but I can't make changes here yet. Open GrowthBook to apply changes.",
       );
       return;
     }
     await finish(result.reply || "I couldn't find an answer to that.");
+
+    // Attach any experiment results cards the agent asked for, as threaded
+    // follow-up image blocks. Best-effort — a render/upload failure never
+    // affects the text answer that already landed.
+    await attachExperimentCards({
+      experimentIds: result.experimentCardIds,
+      context: target.context,
+      token,
+      channel: channelId,
+      organizationId: target.organizationId,
+      threadTs: rootTs,
+    });
   } catch (e) {
     logger.error(e, "Slack assistant turn failed");
     await finish("Something went wrong answering that — please try again.");
+  }
+}
+
+async function attachExperimentCards({
+  experimentIds,
+  context,
+  token,
+  channel,
+  organizationId,
+  threadTs,
+}: {
+  experimentIds: string[];
+  context: Parameters<typeof buildExperimentCardData>[0];
+  token: string;
+  channel: string;
+  organizationId: string;
+  threadTs: string;
+}): Promise<void> {
+  for (const experimentId of experimentIds) {
+    try {
+      const card = await buildExperimentCardData(context, experimentId);
+      if (!card) continue;
+      const png = await renderExperimentCard(card);
+      await postExperimentCardImage({
+        token,
+        channel,
+        organizationId,
+        png,
+        altText: `${card.name} — experiment results`,
+        threadTs,
+      });
+    } catch (e) {
+      logger.error(
+        e,
+        `Slack assistant: failed to attach card for ${experimentId}`,
+      );
+    }
   }
 }

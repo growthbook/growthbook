@@ -239,6 +239,11 @@ export type RunAgentTurnResult =
       reply: string;
       /** A mutation the agent parked for confirmation, or null. */
       pendingAction: AIAgentPendingAction | null;
+      /**
+       * Experiment ids the agent asked to attach a results card for (via an
+       * `experiment-card` emit from a tool). The caller renders + delivers them.
+       */
+      experimentCardIds: string[];
     }
   | { ok: false; status: number; message: string; retryAfter?: number };
 
@@ -303,9 +308,19 @@ export async function runAgentTurnToCompletion<TParams>({
     config.agentType,
   );
 
-  // No SSE sink — capture nothing, but keep the streamed-at timestamp fresh so
-  // stale-stream detection behaves the same as the HTTP path.
-  const emit: AgentEmit = () => buffer.touchStreamedAt();
+  // No SSE sink — keep the streamed-at timestamp fresh (so stale-stream
+  // detection behaves like the HTTP path) and collect the artifact events a
+  // headless caller cares about (e.g. experiment cards to attach).
+  const experimentCardIds: string[] = [];
+  const emit: AgentEmit = (event, data) => {
+    buffer.touchStreamedAt();
+    if (event === "experiment-card" && data && typeof data === "object") {
+      const id = (data as { experimentId?: unknown }).experimentId;
+      if (typeof id === "string" && id && !experimentCardIds.includes(id)) {
+        experimentCardIds.push(id);
+      }
+    }
+  };
 
   await executeAgentTurn({
     context,
@@ -324,6 +339,7 @@ export async function runAgentTurnToCompletion<TParams>({
     conversationId: buffer.conversationId,
     reply: extractFinalAssistantText(buffer.getMessages()),
     pendingAction: buffer.getPendingAction() ?? null,
+    experimentCardIds,
   };
 }
 
