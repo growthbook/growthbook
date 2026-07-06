@@ -14,7 +14,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  optionalOwnerInputField,
+  requiredUnlessPatOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -1413,7 +1413,7 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: optionalOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])

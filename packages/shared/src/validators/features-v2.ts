@@ -7,7 +7,10 @@ import {
   schemaValidationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
-import { ownerInputField, optionalOwnerInputField } from "./owner-field";
+import {
+  ownerInputField,
+  requiredUnlessPatOwnerInputField,
+} from "./owner-field";
 import {
   apiEventUserValidator,
   apiFeatureBaseRuleValidator,
@@ -535,7 +538,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: optionalOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])

@@ -40,7 +40,7 @@ Constants are referenced by their **key** — a slug auto-generated from the nam
 
 ### String constants — `{{ @const:key }}`
 
-Interpolate a string constant anywhere inside a feature's string value (including inside a string field of a JSON value):
+Interpolate a string constant anywhere inside a feature's or a [config](/features/configs)'s string value (including inside a string field of a JSON value):
 
 ```
 Connect to {{ @const:api-server }} on port {{ @const:api-port }}.
@@ -103,7 +103,7 @@ References are resolved **when the SDK payload is built**, on the server. SDKs r
 
 A few rules:
 
-- **On by default.** Feature values are scanned for references automatically.
+- **On by default.** Feature and config values are scanned for references automatically.
 - **Escape literals.** To keep a literal `{{ @const:... }}` or `@const:` key in a value, wrap it in backticks.
 - **Graceful failure.** An unresolvable `{{ @const:... }}` interpolation — unknown constant, type mismatch, or a cycle — is left in place as literal text rather than failing the build. An unresolvable `$extends` reference is dropped instead (a leftover directive would be invalid config).
 - **Archived references are stripped.** Archiving a referenced constant is blocked (see [Editing and approvals](#editing-and-approvals)), but any reference that still points at an archived constant is removed from the value (string interpolations dropped, JSON references removed) rather than resolved.

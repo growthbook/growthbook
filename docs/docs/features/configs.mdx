@@ -48,7 +48,46 @@ When fields collide, the **closest base wins**: a child cannot redefine a field 
 
 Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk.
 
+A config's value can also interpolate [string constants](/features/constants) with `{{ @const:key }}` inside any string field, exactly as in feature values — including constants with per-environment overrides, which is how an environment-varying value enters an environment-agnostic config.
+
 You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
+
+## Validation rules (invariants)
+
+Schema fields validate one field at a time. **Validation rules** (called `invariants` in the API) express the cross-field constraints a schema can't — "target must not exceed max", "if A is set, B must be too":
+
+```json
+{ "buffer.target_seconds": { "$lte": { "$ref": "buffer.max_seconds" } } }
+```
+
+Each rule has a **name**, the **rule expression**, and a human-readable **message** shown when it fails. Rules are part of the config's schema — edit them alongside the fields in the app, or write the schema's `invariants` array over the REST API.
+
+Rules are inherited: a config is checked against its ancestors' rules plus its own, accumulated base → leaf, and a rule with the same name as an ancestor's overrides it. That means a base config's rules guard every descendant.
+
+### Rule formats
+
+The canonical form is a **MongoDB-style condition** — the same condition syntax as feature targeting rules — extended with `{ "$ref": "path" }` to compare against another field of the value instead of a literal. The REST API accepts any of three formats on write and normalizes to the canonical form (responses always return the MongoDB-style object):
+
+- **MongoDB-style condition** — `{ "buffer.target_seconds": { "$lte": { "$ref": "buffer.max_seconds" } } }`, with the full condition operator set (`$eq`, `$ne`, `$lt`/`$lte`/`$gt`/`$gte`, `$exists`, `$and`/`$or`/`$not`/`$nor`, …).
+- **CEL-style expression string** — `"buffer.target_seconds <= buffer.max_seconds"`: comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`), `&&`, `||`, `!`, and parentheses; a bare identifier on the right-hand side references another field.
+- **JSONLogic object** — `{ "<=": [{ "var": "buffer.target_seconds" }, { "var": "buffer.max_seconds" }] }`, with `and`/`or`/`!`.
+
+**Nested fields are supported.** A dot-separated path like `buffer.target_seconds` reaches into nested objects — as the tested field and as a `$ref`/`var` target alike. A path that doesn't exist evaluates as `null` rather than erroring.
+
+### Where rules run
+
+Rules are enforced on the GrowthBook server **when a config publishes** — on every publish path (direct API writes, publishing a revision, scheduled and auto-publish) — and are evaluated against the **fully-resolved** value (own keys plus everything inherited). They never run in SDKs; payloads carry resolved values only.
+
+While editing, the schema editor shows live pass/fail per rule, but a draft can be saved in a violating state — only publishing enforces.
+
+Because publishing a config changes every descendant's resolved value, the publish also re-checks each descendant against its effective rules. Only violations **introduced by that publish** block it: a pre-existing violation elsewhere in the family never blocks an unrelated edit.
+
+Violations share the enforcement gate with schema errors — the **Block publishing on JSON schema errors** organization setting (on by default):
+
+- **On** — a publish that violates a rule fails (HTTP 400 on the API), listing the failed rules' messages.
+- **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds with `?ignoreWarnings=true`.
+
+`?skipSchemaValidation=true` skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
 
 ## Using a config as a feature flag's value
 
