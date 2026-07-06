@@ -20,15 +20,17 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47"
-# cryptography version is specified above to override transitive dependency and fix vulnerability
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
 
-# Strip poetry and its build-time-only footprint so non-runtime deps don't ship in the venv.
-# These are poetry's own dependencies, not gbstats' (`poetry install --without dev` above already
-# drops gbstats' dev group): poetry pulls in dulwich, keyring and jaraco.classes, and
-# setuptools/wheel are build tooling. Removing them also keeps their CVEs out of the image —
-# e.g. dulwich (CVE-2026-42305 / GHSA-897w-fcg9-f6xj).
-RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
+# Remove poetry's build-only footprint (poetry + its keyring/cryptography backend, setuptools,
+# wheel, etc.) from the runtime venv. None are gbstats runtime deps, so dropping them shrinks the
+# image and its vulnerability surface. The list lives in check_stripped_deps.STRIPPED so it stays
+# in sync with the guard below.
+RUN pip uninstall -y $(python -c "from check_stripped_deps import STRIPPED; print(*STRIPPED)")
+
+# Verify the strip held: gbstats still imports with only its runtime deps, and nothing pulled a
+# removed package back in. Fails the build otherwise.
+RUN python check_stripped_deps.py
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
@@ -55,6 +57,7 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
 # Apply patches
@@ -70,6 +73,7 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && rm -rf packages/shared/node_modules \
+  && rm -rf packages/stats-ts/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \

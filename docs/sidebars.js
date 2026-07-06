@@ -62,6 +62,7 @@ export default {
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
             "features/prerequisites", // Prerequisite Features
+            "features/constants", // Constants (reusable referenced values)
           ],
         },
         {
@@ -442,6 +443,28 @@ export default {
             },
           ],
         },
+        // {
+        //   type: "category",
+        //   label: "Contextual Bandits",
+        //   collapsed: true,
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/overview",
+        //       label: "Overview",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/config",
+        //       label: "Setting up a Contextual Bandit",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/contextual-bandit-via-api",
+        //       label: "Driving a Contextual Bandit via API",
+        //     },
+        //   ],
+        // },
         {
           type: "doc",
           id: "running-experiments/running-holdouts",
@@ -897,6 +920,11 @@ export default {
           type: "doc",
           id: "kb/glossary",
           label: "Glossary",
+        },
+        {
+          type: "doc",
+          id: "command-palette",
+          label: "Command Palette",
         },
       ],
     },
