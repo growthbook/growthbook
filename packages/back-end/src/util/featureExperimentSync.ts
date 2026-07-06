@@ -23,7 +23,7 @@ function getExperimentIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
 ): string[] {
   // Accept v2 (FeatureRule[]) and legacy v1 (Record<envId, FeatureRule[]>):
-  // raw-doc readers (e.g. getNonDiscardedRevisionSummaries) hand us v1 shapes
+  // raw-doc readers (e.g. getLinkageSyncRevisionSummaries) hand us v1 shapes
   // until the migration completes.
   const flat: unknown[] = Array.isArray(rules)
     ? rules

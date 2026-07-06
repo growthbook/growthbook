@@ -138,7 +138,7 @@ import {
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -2221,7 +2221,7 @@ export async function postExperimentUnarchive(
     if (linkedFeatureIds.length > 0) {
       Promise.all(
         linkedFeatureIds.map(async (featureId) => {
-          const revisions = await getNonDiscardedRevisionSummaries(
+          const revisions = await getLinkageSyncRevisionSummaries(
             context.org.id,
             featureId,
           );

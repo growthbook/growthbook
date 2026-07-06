@@ -336,18 +336,32 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
-/** Returns the version/status/rules of all non-discarded revisions for a feature.
- * Used by syncFeatureExperimentLinkages callers that don't already have the
- * Mongoose model in scope. */
-export async function getNonDiscardedRevisionSummaries(
+/** Returns the version/status/rules of only the revisions that
+ * syncFeatureExperimentLinkages/syncFeatureContextualBanditLinkages actually
+ * use: open drafts, plus the single latest published revision. A feature
+ * that's been published many times can accumulate thousands of superseded
+ * published revisions that are never discarded — fetching those in full
+ * wastes memory and network transfer since the sync functions only ever
+ * look at the live version anyway. */
+export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
 ): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
-  const docs = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-    status: { $nin: ["discarded"] },
-  }).select("version status rules");
+  const [openDrafts, liveRevision] = await Promise.all([
+    FeatureRevisionModel.find({
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    }).select("version status rules"),
+    FeatureRevisionModel.findOne({
+      organization,
+      featureId,
+      status: "published",
+    })
+      .sort({ version: -1 })
+      .select("version status rules"),
+  ]);
+  const docs = liveRevision ? [...openDrafts, liveRevision] : openDrafts;
   return docs.map((d) => ({
     version: d.version,
     status: d.status,
@@ -1200,26 +1214,17 @@ export async function updateRevision(
 
   // Fire-and-forget linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
-    FeatureRevisionModel.find({
-      organization: revision.organization,
-      featureId: revision.featureId,
-      status: { $nin: ["discarded"] },
-    })
-      .then((docs) => {
-        const summaries = docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        }));
-        return Promise.all([
+    getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+      .then((summaries) =>
+        Promise.all([
           syncFeatureExperimentLinkages(context, revision.featureId, summaries),
           syncFeatureContextualBanditLinkages(
             context,
             revision.featureId,
             summaries,
           ),
-        ]);
-      })
+        ]),
+      )
       .catch((e) => {
         logger.error(e, "feature linkage sync failed in updateRevision");
       });
@@ -2235,21 +2240,9 @@ export async function reopenRevision(
     });
 
   // Sync linkages — the reopened revision's rules count as "open drafts" again.
-  FeatureRevisionModel.find({
-    organization: revision.organization,
-    featureId: revision.featureId,
-    status: { $nin: ["discarded"] },
-  })
-    .then((docs) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
-      ),
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then((summaries) =>
+      syncFeatureExperimentLinkages(context, revision.featureId, summaries),
     )
     .catch((e) => {
       logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
@@ -2298,26 +2291,17 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
-  FeatureRevisionModel.find({
-    organization: revision.organization,
-    featureId: revision.featureId,
-    status: { $nin: ["discarded"] },
-  })
-    .then((docs) => {
-      const summaries = docs.map((d) => ({
-        version: d.version,
-        status: d.status,
-        rules: d.rules,
-      }));
-      return Promise.all([
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then((summaries) =>
+      Promise.all([
         syncFeatureExperimentLinkages(context, revision.featureId, summaries),
         syncFeatureContextualBanditLinkages(
           context,
           revision.featureId,
           summaries,
         ),
-      ]);
-    })
+      ]),
+    )
     .catch((e) => {
       logger.error(e, "feature linkage sync failed in discardRevision");
     });
