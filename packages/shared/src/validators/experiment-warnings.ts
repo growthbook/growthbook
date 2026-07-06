@@ -51,12 +51,21 @@ export const scheduledStatusUpdateFailed = z
   })
   .strict();
 
+export const underpowered = z
+  .object({
+    type: z.literal("underpowered"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
 export const experimentWarningNotificationPayload = z.union([
   autoUpdateFailed,
   multipleExposures,
   srm,
   noData,
   scheduledStatusUpdateFailed,
+  underpowered,
 ]);
 
 export type ExperimentWarningNotificationPayload = z.infer<
