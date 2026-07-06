@@ -17,9 +17,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import {
   ContextualBanditResultsQueryRunner,
@@ -343,17 +342,8 @@ export async function persistContextualBanditEvent(
 
   await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
 
-  const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
-  if (payloadKeys.length > 0) {
-    queueSDKPayloadRefresh({
-      context,
-      payloadKeys,
-      auditContext: {
-        event: "contextualBandit.refresh",
-        model: "contextualBandit",
-        id: cb.id,
-      },
-    });
+  if (weightsWereUpdated) {
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
   }
 
   return cbe;

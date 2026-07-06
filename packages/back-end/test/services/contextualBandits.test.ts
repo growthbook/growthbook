@@ -14,8 +14,7 @@ import {
   runContextualBanditSnapshot,
   toContextualBanditSnapshotStatusSummary,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
+import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
 import { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -26,9 +25,7 @@ jest.mock("back-end/src/services/features", () => ({
 }));
 
 jest.mock("back-end/src/services/contextualBanditChanges", () => ({
-  getPayloadKeysForContextualBandit: jest
-    .fn()
-    .mockReturnValue([{ project: "", environment: "production" }]),
+  refreshLinkedFeaturePayloads: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -46,11 +43,9 @@ jest.mock(
   }),
 );
 
-const queueSDKPayloadRefreshMock =
-  queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
-const getPayloadKeysForContextualBanditMock =
-  getPayloadKeysForContextualBandit as jest.MockedFunction<
-    typeof getPayloadKeysForContextualBandit
+const refreshLinkedFeaturePayloadsMock =
+  refreshLinkedFeaturePayloads as jest.MockedFunction<
+    typeof refreshLinkedFeaturePayloads
   >;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
@@ -342,9 +337,7 @@ describe("runContextualBanditSnapshot", () => {
 describe("persistContextualBanditEvent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getPayloadKeysForContextualBanditMock.mockReturnValue([
-      { project: "", environment: "production" },
-    ]);
+    refreshLinkedFeaturePayloadsMock.mockResolvedValue(undefined);
   });
 
   it("creates a CBE with N leaves and patches CB leaf weights to match", async () => {
@@ -409,15 +402,10 @@ describe("persistContextualBanditEvent", () => {
       device: "mobile",
     });
 
-    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        context,
-        auditContext: expect.objectContaining({
-          event: "contextualBandit.refresh",
-          model: "contextualBandit",
-          id: cb.id,
-        }),
-      }),
+    expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalledWith(
+      context,
+      cb,
+      "contextualBandit.refresh",
     );
   });
 
@@ -459,6 +447,8 @@ describe("persistContextualBanditEvent", () => {
     const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toEqual([]);
+    // No weight change → no SDK payload refresh
+    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
   it("throws when the CB doc is missing", async () => {
@@ -522,19 +512,28 @@ describe("persistContextualBanditEvent", () => {
     expect(createCbeMock).toHaveBeenCalledWith(
       expect.objectContaining({ weightsWereUpdated: false }),
     );
-    // ...and persistContextualBanditEvent no longer touches the schedule itself.
+    // ...persistContextualBanditEvent no longer touches the schedule itself...
     expect(updateMock).not.toHaveBeenCalled();
+    // ...and explore-stage runs never queue an SDK payload refresh.
+    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
-  it("skips the SDK payload refresh when there are no payload keys", async () => {
-    getPayloadKeysForContextualBanditMock.mockReturnValueOnce([]);
+  it("skips the SDK payload refresh when the new weights match the current ones", async () => {
+    const result = makeResult();
     const cb = makeCb();
+    // Pre-seed the CB doc with exactly the leaf weights this run will produce
+    // so weightsWereUpdated computes to false.
+    cb.currentLeafWeights = leafWeightsFromContextualBanditResult(
+      result,
+      cb.variations,
+    );
+    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
           getById: jest.fn().mockResolvedValue(cb),
-          patchLeafWeights: jest.fn().mockResolvedValue(cb),
+          patchLeafWeights: patchLeafWeightsMock,
           update: jest.fn().mockResolvedValue(cb),
         },
         contextualBanditEvents: {
@@ -553,9 +552,10 @@ describe("persistContextualBanditEvent", () => {
       },
     } as unknown as ReqContext;
 
-    await persistContextualBanditEvent(context, makeCbs(), makeResult());
+    await persistContextualBanditEvent(context, makeCbs(), result);
 
-    expect(queueSDKPayloadRefreshMock).not.toHaveBeenCalled();
+    expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 });
 
