@@ -11,6 +11,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -62,14 +63,14 @@ export default function JSONValidation({
           </Heading>
           <Badge label="Provided by config" color="violet" variant="soft" />
         </Flex>
-        <em className="text-muted">
+        <Text as="p" size="small" color="text-low" fontStyle="italic">
           This flag&apos;s default value is backed by the{" "}
           <Link href={`/configs/${configBackedKey}`}>
             <code>{configBackedKey}</code>
           </Link>{" "}
           config, which supplies its own schema. The flag-level schema is
           disabled while a config is attached.
-        </em>
+        </Text>
       </Box>
     );
   }

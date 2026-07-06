@@ -418,7 +418,9 @@ export default function FieldDefForm({
       </Flex>
       {canEnum && showEnum && (
         <Box mt="3">
-          <label>Allowed values</label>
+          <Text as="label" size="small" weight="medium">
+            Allowed values
+          </Text>
           <Flex gap="3" align="start">
             <Box style={{ flex: 1 }}>
               <MultiSelectField

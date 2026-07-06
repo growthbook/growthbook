@@ -118,9 +118,9 @@ export default function ConfigCustomHooksSection({
         Custom Hooks
       </Heading>
       <Box mb="3">
-        <em className="text-muted">
+        <Text as="p" size="small" color="text-low" fontStyle="italic">
           Run sandboxed JavaScript validation before this config is published.
-        </em>
+        </Text>
       </Box>
 
       {!hasAccess ? (
@@ -136,7 +136,7 @@ export default function ConfigCustomHooksSection({
             <Heading as="h4" size="small" mb="0">
               Config-specific Hooks
             </Heading>
-            <div className="ml-auto">
+            <Box ml="auto">
               <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
                 <Button
                   onClick={() => setModalData(true)}
@@ -145,7 +145,7 @@ export default function ConfigCustomHooksSection({
                   Add Config Hook
                 </Button>
               </Tooltip>
-            </div>
+            </Box>
           </Flex>
           <HooksTable
             hooks={applicableHooks.filter((h) => !!h.entityId)}
@@ -159,11 +159,11 @@ export default function ConfigCustomHooksSection({
             <Heading as="h4" size="small" mb="0">
               Global/Project Hooks
             </Heading>
-            <div className="ml-auto">
+            <Box ml="auto">
               <LinkButton href="/settings/custom-hooks" variant="soft">
                 Manage in Settings <PiArrowSquareOut />
               </LinkButton>
-            </div>
+            </Box>
           </Flex>
           <HooksTable
             hooks={applicableHooks.filter((h) => !h.entityId)}

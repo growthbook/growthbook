@@ -285,7 +285,11 @@ export default function FeatureValueField({
           placeholder={placeholder}
           disabled={disabled}
         />
-        {helpText && <small className="text-muted">{helpText}</small>}
+        {helpText && (
+          <Text as="p" size="small" color="text-low">
+            {helpText}
+          </Text>
+        )}
       </>
     );
   }
@@ -333,7 +337,11 @@ export default function FeatureValueField({
             }}
           />
         </div>
-        {helpText && <small className="text-muted">{helpText}</small>}
+        {helpText && (
+          <Text as="p" size="small" color="text-low">
+            {helpText}
+          </Text>
+        )}
       </div>
     );
   }
@@ -570,7 +578,11 @@ export default function FeatureValueField({
               </Box>
             )}
           </Box>
-          {helpText && <small className="text-muted">{helpText}</small>}
+          {helpText && (
+            <Text as="p" size="small" color="text-low">
+              {helpText}
+            </Text>
+          )}
         </Box>
       );
     }
@@ -840,7 +852,11 @@ export default function FeatureValueField({
             showDescription={true}
             disabled={disabled}
           />
-          {helpText && <small className="text-muted">{helpText}</small>}
+          {helpText && (
+            <Text as="p" size="small" color="text-low">
+              {helpText}
+            </Text>
+          )}
         </>
       );
     }

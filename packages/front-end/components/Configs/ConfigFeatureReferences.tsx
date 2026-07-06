@@ -5,6 +5,7 @@ import { PiFlag, PiDotOutline } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import styles from "./ConfigFeatureReferences.module.scss";
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -97,7 +98,7 @@ export default function ConfigFeatureReferences({
         gap="1"
         pl="1"
         pr="2"
-        className="config-feature-row"
+        className={styles.row}
         onClick={(e) => {
           e.stopPropagation();
           router.push(`/configs/${key}`);
@@ -155,9 +156,6 @@ export default function ConfigFeatureReferences({
 
   return (
     <Box>
-      <style>{`
-        .config-feature-row:hover { background: var(--slate-a3); }
-      `}</style>
       {references.features.map((f) => (
         <Box key={f.id} mb="2">
           <Flex
@@ -165,7 +163,7 @@ export default function ConfigFeatureReferences({
             gap="1"
             pl="1"
             pr="2"
-            className="config-feature-row"
+            className={styles.row}
             onClick={() => router.push(`/features/${f.id}`)}
             style={{
               height: ROW_HEIGHT,

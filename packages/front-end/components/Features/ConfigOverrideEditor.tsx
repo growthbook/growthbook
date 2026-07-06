@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -141,11 +142,7 @@ function OverrideValueInput({
           inlineConstantButton
           disabled={disabled}
         />
-        {jsonError && (
-          <Text size="small" color="text-mid">
-            {jsonError}
-          </Text>
-        )}
+        {jsonError && <HelperText status="error">{jsonError}</HelperText>}
       </Box>
     );
   }
@@ -171,11 +168,7 @@ function OverrideValueInput({
             }
           }}
         />
-        {numError && (
-          <Text size="small" color="text-mid">
-            {numError}
-          </Text>
-        )}
+        {numError && <HelperText status="error">{numError}</HelperText>}
       </Box>
     );
   }

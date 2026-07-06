@@ -1,9 +1,9 @@
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
@@ -325,7 +325,6 @@ const ConfigReviews: FC = () => {
                       onClick={(e) => e.stopPropagation()}
                       style={{
                         display: "block",
-                        color: "var(--gray-12)",
                         padding: "var(--space-3)",
                       }}
                     >

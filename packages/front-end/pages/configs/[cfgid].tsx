@@ -1393,12 +1393,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         color="orange"
                         label={
                           <>
-                            <PiLockSimple
-                              style={{
-                                marginRight: 4,
-                                verticalAlign: "-2px",
-                              }}
-                            />
+                            <PiLockSimple />{" "}
                             {`Locked · v${config.lock.version}`}
                           </>
                         }

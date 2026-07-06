@@ -1,9 +1,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiBracketsCurly } from "react-icons/pi";
-import { FaMagic } from "react-icons/fa";
+import { PiBracketsCurly, PiMagicWand } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import clsx from "clsx";
 import { SchemaField, SimpleSchema } from "shared/types/feature";
 import {
   fieldsToTsType,
@@ -746,11 +744,10 @@ export default function ConfigJsonEditor({
 
   // Format JSON only applies to the JSON Schema surface.
   const formattedSchema = schemaLang === "json" ? formatJSON(schemaText) : null;
+  const formatDisabled = !formattedSchema || formattedSchema === schemaText;
   const schemaCtas = (
     <Flex gap="3" justify="end" width="100%">
-      <a
-        href="#"
-        className="text-purple"
+      <Link
         style={{ whiteSpace: "nowrap" }}
         onClick={(e) => {
           e.preventDefault();
@@ -759,15 +756,14 @@ export default function ConfigJsonEditor({
       >
         <PiBracketsCurly />{" "}
         {schemaCodeMode ? "Use text editor" : "Use code editor"}
-      </a>
+      </Link>
       {schemaLang === "json" && (
-        <a
-          href="#"
-          className={clsx("text-purple", {
-            "text-muted cursor-default no-underline":
-              !formattedSchema || formattedSchema === schemaText,
-          })}
-          style={{ whiteSpace: "nowrap" }}
+        <Link
+          color={formatDisabled ? "gray" : undefined}
+          style={{
+            whiteSpace: "nowrap",
+            cursor: formatDisabled ? "default" : undefined,
+          }}
           onClick={(e) => {
             e.preventDefault();
             if (formattedSchema && formattedSchema !== schemaText) {
@@ -775,8 +771,8 @@ export default function ConfigJsonEditor({
             }
           }}
         >
-          <FaMagic /> Format JSON
-        </a>
+          <PiMagicWand /> Format JSON
+        </Link>
       )}
     </Flex>
   );
@@ -856,14 +852,12 @@ export default function ConfigJsonEditor({
         </span>
       </HelperText>
       {parsedProjection?.error && (
-        <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
-          {parsedProjection.error}
-        </div>
+        <HelperText status="error">{parsedProjection.error}</HelperText>
       )}
       {!!parsedProjection?.warnings.length && (
-        <div style={{ color: "var(--amber-11)", fontSize: 12, marginTop: 4 }}>
+        <HelperText status="warning">
           {parsedProjection.warnings.map((w) => w.message).join("; ")}
-        </div>
+        </HelperText>
       )}
     </>
   );
@@ -903,11 +897,7 @@ export default function ConfigJsonEditor({
             codeInputDefaultHeight={320}
             constantContext={constantContext}
           />
-          {parseError && (
-            <div style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}>
-              {parseError}
-            </div>
-          )}
+          {parseError && <HelperText status="error">{parseError}</HelperText>}
         </>,
         <>
           {schemaHeader}
@@ -950,22 +940,12 @@ export default function ConfigJsonEditor({
                 />
               )}
               {schemaError && (
-                <div
-                  style={{ color: "var(--red-11)", fontSize: 12, marginTop: 4 }}
-                >
-                  {schemaError}
-                </div>
+                <HelperText status="error">{schemaError}</HelperText>
               )}
               {schemaWarnings.length > 0 && (
-                <div
-                  style={{
-                    color: "var(--amber-11)",
-                    fontSize: 12,
-                    marginTop: 4,
-                  }}
-                >
+                <HelperText status="warning">
                   {schemaWarnings.map((w) => w.message).join("; ")}
-                </div>
+                </HelperText>
               )}
             </>
           )}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiXBold } from "react-icons/pi";
+import { PiPlusBold, PiXBold } from "react-icons/pi";
 import {
   evaluateInvariants,
   describeInvariantRule,
@@ -11,7 +11,6 @@ import type { ConfigInvariant } from "shared/util";
 import {
   ConditionRow,
   ConditionRowLabel,
-  AddConditionButton,
 } from "@/components/Features/TargetingConditionsCard";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -615,10 +614,15 @@ export default function ConfigInvariantsEditor({
             />
           </Box>
         ))}
-        <Box mt="2">
-          <AddConditionButton
+        <Box mt="2" py="1">
+          <Link
+            size="2"
+            weight="medium"
             onClick={() => setG([...g, newCondition(fieldKeys[0] ?? "")])}
-          />
+          >
+            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+            Add condition
+          </Link>
         </Box>
       </Box>
     );
@@ -775,10 +779,12 @@ export default function ConfigInvariantsEditor({
         )}
       </Flex>
       <Box mb="3">
-        <em className="text-muted">
-          Relational checks JSON Schema can&apos;t express — evaluated against
-          the resolved value at publish.
-        </em>
+        <Text as="div" size="small" color="text-low">
+          <em>
+            Relational checks JSON Schema can&apos;t express — evaluated against
+            the resolved value at publish.
+          </em>
+        </Text>
       </Box>
 
       {listError && (

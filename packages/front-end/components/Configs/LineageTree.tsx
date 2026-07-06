@@ -12,6 +12,7 @@ import {
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import styles from "./LineageTree.module.scss";
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -124,7 +125,7 @@ export default function LineageTree({
           gap="1"
           pl="1"
           pr="3"
-          className="lineage-tree-row"
+          className={styles.row}
           title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
           onClick={() => router.push(`/configs/${mk}`)}
           style={{
@@ -238,7 +239,7 @@ export default function LineageTree({
             gap="1"
             pl="1"
             pr="3"
-            className="lineage-tree-row"
+            className={styles.row}
             onClick={() => router.push(`/configs/${n.key}`)}
             style={{
               height: ROW_HEIGHT,
@@ -361,14 +362,5 @@ export default function LineageTree({
       );
     });
 
-  return (
-    <Box>
-      <style>{`
-        .lineage-tree-row:hover {
-          background: var(--slate-a3);
-        }
-      `}</style>
-      {renderNodes(null, 0)}
-    </Box>
-  );
+  return <Box>{renderNodes(null, 0)}</Box>;
 }

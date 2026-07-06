@@ -1,4 +1,5 @@
 import { FeatureValueType, SchemaField } from "shared/types/feature";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -88,7 +89,7 @@ export default function EditSchemaField({
         maxLength={256}
       />
       {inObject && (!hideRequired || allowNullable) && (
-        <div className="form-group">
+        <Box mb="3">
           {!hideRequired && (
             <Checkbox
               id={`schema_required_${i}`}
@@ -107,7 +108,7 @@ export default function EditSchemaField({
               label="Nullable"
             />
           )}
-        </div>
+        </Box>
       )}
       {value.type !== "boolean" && (
         <>
