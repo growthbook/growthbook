@@ -336,14 +336,11 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
-/** Returns the version/rules of only the revisions that
- * syncFeatureExperimentLinkages/syncFeatureContextualBanditLinkages actually
- * use: open drafts, plus the single latest published revision. A feature
- * that's been published many times can accumulate thousands of superseded
- * published revisions that are never discarded — fetching those in full
- * wastes memory and network transfer since the sync functions only ever
- * look at the live version anyway. Returned pre-split so callers don't need
- * to re-derive the same distinction the query already made. */
+/** Returns only the revisions that syncFeatureExperimentLinkages/
+ * syncFeatureContextualBanditLinkages need — open drafts, plus the single
+ * latest published revision — pre-split so callers don't have to re-derive
+ * the distinction themselves. A feature's older superseded published
+ * revisions are irrelevant to linkage syncing and deliberately excluded. */
 export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,

@@ -49,12 +49,9 @@ export async function syncFeatureContextualBanditLinkages(
 
     const cbModel = context.models.contextualBandits;
 
-    // Each cbId is independent (no shared mutable state between
-    // iterations), so this is safe to run with bounded concurrency instead
-    // of one-at-a-time — features with many revisions can reference
-    // thousands of distinct contextual bandits, and a fully sequential loop
-    // here was taking a very long time and holding memory the whole way
-    // through.
+    // Each cbId is independent (no shared mutable state across
+    // iterations), so bounded concurrency is safe — a feature can
+    // reference thousands of distinct contextual bandits.
     await promiseAllChunks(
       Array.from(allCbIds).map((cbId) => async () => {
         const cb = await cbModel.getById(cbId);

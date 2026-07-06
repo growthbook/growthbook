@@ -64,11 +64,9 @@ export async function syncFeatureExperimentLinkages(
     const liveExpIds = new Set(getExperimentIdsFromRules(liveRevision?.rules));
     const allExpIds = new Set([...liveExpIds, ...draftVersionsByExp.keys()]);
 
-    // Each experimentId is independent (no shared mutable state between
-    // iterations), so this is safe to run with bounded concurrency instead
-    // of one-at-a-time — features with many revisions can reference
-    // thousands of distinct experiments, and a fully sequential loop here
-    // was taking a very long time and holding memory the whole way through.
+    // Each experimentId is independent (no shared mutable state across
+    // iterations), so bounded concurrency is safe — a feature can
+    // reference thousands of distinct experiments.
     await promiseAllChunks(
       Array.from(allExpIds).map((experimentId) => async () => {
         const experiment = await getExperimentById(context, experimentId);
