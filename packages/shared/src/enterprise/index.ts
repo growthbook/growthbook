@@ -1,5 +1,6 @@
 export * from "../revisions";
 export * from "./license-consts";
+export * from "./entitlements";
 export * from "./sso";
 export * from "./pipeline";
 export * from "./power";

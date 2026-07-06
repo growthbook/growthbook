@@ -13,6 +13,7 @@ import {
 } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   addMemberToOrg,
+  clampRoleForOrgLimits,
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import {
@@ -706,7 +707,7 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
   await addMemberToOrg({
     organization: org,
     userId: user.id,
-    role: "experimenter",
+    role: clampRoleForOrgLimits(org, "experimenter"),
     projectRoles: [],
     managedByIdp: false,
     environments: [],

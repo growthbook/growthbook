@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
@@ -9,6 +9,7 @@ import {
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Switch from "@/ui/Switch";
 import SelectField, {
@@ -16,6 +17,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import HelperText from "@/ui/HelperText";
 
 export default function SingleRoleSelector({
   value,
@@ -24,6 +26,7 @@ export default function SingleRoleSelector({
   includeAdminRole = false,
   includeProjectAdminRole = false,
   disabled = false,
+  currentRole,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
@@ -31,6 +34,8 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
+  // Existing role to grandfather when the org restricts roles; omit for new members.
+  currentRole?: string;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -39,6 +44,23 @@ export default function SingleRoleSelector({
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
   const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
+
+  const { orgSupportsRoles } = useOrgLimits();
+  const rolesRestricted = includeAdminRole && !orgSupportsRoles();
+  const grandfatheredRoleId =
+    rolesRestricted && currentRole && currentRole !== "admin"
+      ? currentRole
+      : null;
+  const allowedRestrictedRoleIds = grandfatheredRoleId
+    ? [grandfatheredRoleId, "admin"]
+    : ["admin"];
+
+  useEffect(() => {
+    if (rolesRestricted && !allowedRestrictedRoleIds.includes(value.role)) {
+      setValue({ ...value, role: allowedRestrictedRoleIds[0] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesRestricted, grandfatheredRoleId]);
 
   let roleOptions = [...roles];
 
@@ -58,6 +80,12 @@ export default function SingleRoleSelector({
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
   if (hasCustomRolesFeature && deactivatedRoles.length) {
     roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  if (rolesRestricted) {
+    roleOptions = roleOptions.filter((r) =>
+      allowedRestrictedRoleIds.includes(r.id),
+    );
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -144,8 +172,15 @@ export default function SingleRoleSelector({
             </div>
           );
         }}
-        disabled={disabled}
+        disabled={disabled || (rolesRestricted && !grandfatheredRoleId)}
       />
+      {rolesRestricted && (
+        <HelperText status="info" size="sm" mb="2">
+          {grandfatheredRoleId
+            ? "Your plan only supports the admin role for new assignments. You may keep this member's current role or promote them to admin."
+            : "Your plan only supports the admin role. Upgrade your plan to assign other roles."}
+        </HelperText>
+      )}
 
       {roleSupportsEnvLimit(value.role, organization) &&
         envOptions.length > 1 && (

@@ -11,7 +11,6 @@ import {
   getRoles,
   areProjectRolesValid,
   isRoleValid,
-  getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
@@ -42,9 +41,11 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  assertMemberRolesAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
+  getEffectiveDefaultRole,
   getInviteUrl,
   getMembersOfTeam,
   getNumberOfUniqueMembersAndInvites,
@@ -441,6 +442,19 @@ export async function putMemberRole(
     });
   }
 
+  const existingMember =
+    org.members.find((m) => m.id === id) ||
+    org.pendingMembers?.find((m) => m.id === id);
+
+  try {
+    assertMemberRolesAllowed(org, role, projectRoles, existingMember);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+
   let found = false;
   org.members.forEach((m) => {
     if (m.id === id) {
@@ -626,7 +640,7 @@ export async function putMember(
       await addMemberToOrg({
         organization,
         userId: req.userId,
-        ...getDefaultRole(organization),
+        ...getEffectiveDefaultRole(organization),
       });
     } else {
       // otherwise, add user as pending member
@@ -635,7 +649,7 @@ export async function putMember(
         name: req.name || "",
         userId: req.userId,
         email: req.email,
-        ...getDefaultRole(organization),
+        ...getEffectiveDefaultRole(organization),
       });
 
       try {
@@ -710,6 +724,12 @@ export async function postMemberApproval(
       limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
+      // The pending member's role was already vetted/grandfathered when set, so
+      // approving it must not re-trigger the admin-only restriction.
+      existingRoles: {
+        role: pendingMember.role,
+        projectRoles: pendingMember.projectRoles,
+      },
     });
   } catch (e) {
     return res.status(400).json({
@@ -784,6 +804,17 @@ export async function putInviteRole(
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
+    });
+  }
+
+  const existingInvite = org.invites.find((m) => m.key === key);
+
+  try {
+    assertMemberRolesAllowed(org, role, projectRoles, existingInvite);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
     });
   }
 
@@ -964,6 +995,7 @@ export async function getOrganization(
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       isVercelIntegration,
+      limits: org.limits,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,

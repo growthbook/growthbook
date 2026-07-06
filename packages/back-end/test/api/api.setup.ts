@@ -31,6 +31,12 @@ jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   default: jest.fn(),
 }));
 
+const defaultLimits = {
+  getMaxProjects: () => null,
+  isEnvironmentIdAllowed: () => true,
+  orgSupportsRoles: () => true,
+};
+
 export const setupApp = () => {
   let mongodb;
   let reqContext;
@@ -110,6 +116,8 @@ export const setupApp = () => {
     auditMock,
     isReady,
     setReqContext: (v) => {
+      // Mutate in place so tests' own `context` var stays reference-equal to req.context.
+      if (!v.limits) v.limits = defaultLimits;
       reqContext = v;
     },
     updateReqContext: (v) => {

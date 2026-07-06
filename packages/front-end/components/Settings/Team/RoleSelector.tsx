@@ -7,10 +7,12 @@ export default function RoleSelector({
   value,
   setValue,
   showUpgradeModal,
+  currentRole,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal?: () => void;
+  currentRole?: string;
 }) {
   return (
     <div>
@@ -29,6 +31,7 @@ export default function RoleSelector({
         label="Global Role"
         includeAdminRole={true}
         includeProjectAdminRole={true}
+        currentRole={currentRole}
       />
       <ProjectRolesSelector
         projectRoles={value.projectRoles || []}

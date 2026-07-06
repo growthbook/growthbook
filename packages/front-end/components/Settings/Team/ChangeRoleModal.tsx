@@ -43,6 +43,7 @@ const ChangeRoleModal: FC<{
         value={value}
         setValue={setValue}
         showUpgradeModal={() => setUpgradeModal(true)}
+        currentRole={roleInfo.role}
       />
     </ModalStandard>
   );

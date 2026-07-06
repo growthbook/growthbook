@@ -4,6 +4,7 @@ import { MemberRoleWithProjects } from "shared/types/organization";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   addMembersToTeam,
+  assertMemberRolesAllowed,
   getContextFromReq,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
@@ -56,6 +57,12 @@ export const postTeam = async (
       message:
         "A team already exists with the specified name. Please try a unique name.",
     });
+  }
+
+  try {
+    assertMemberRolesAllowed(org, permissions.role, permissions.projectRoles);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
   }
 
   const team = await context.models.teams.create({
@@ -120,6 +127,18 @@ export const updateTeam = async (
   }
 
   const { permissions, ...updates } = req.body;
+
+  try {
+    assertMemberRolesAllowed(
+      context.org,
+      permissions.role,
+      permissions.projectRoles,
+      { role: team.role, projectRoles: team.projectRoles },
+    );
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+
   await context.models.teams.update(team, {
     ...updates,
     projectRoles: [],

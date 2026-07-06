@@ -83,6 +83,13 @@ export type CommercialFeature =
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
+// Missing field/value = unlimited.
+export type OrgLimits = {
+  maxProjects?: number | null;
+  customEnvironments?: boolean;
+  roleManagement?: boolean;
+};
+
 export type SubscriptionInfo = {
   billingPlatform?: "stripe" | "orb";
   externalId: string;
@@ -163,6 +170,7 @@ export interface LicenseInterface {
   lastFailedFetchDate?: Date; // Date of the last failed fetch
   lastServerErrorMessage?: string; // The last error message from a failed fetch
   signedChecksum: string; // Checksum of the license data signed with the private key
+  limits?: OrgLimits; // NOT part of the signed checksum (see verifyLicenseInterface)
 }
 
 // Old/Airgapped style license keys where the license data is encrypted in the key itself

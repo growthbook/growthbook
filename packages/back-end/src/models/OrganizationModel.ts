@@ -4,6 +4,7 @@ import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
+import { FREE_ORG_LIMITS } from "shared/enterprise";
 import {
   DemographicData,
   Invite,
@@ -146,6 +147,11 @@ const organizationSchema = new mongoose.Schema({
   suspended: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
+  limits: {
+    maxProjects: Number,
+    customEnvironments: Boolean,
+    roleManagement: Boolean,
+  },
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -248,6 +254,7 @@ export async function createOrganization({
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
+    limits: { ...FREE_ORG_LIMITS },
   });
   return toInterface(doc);
 }

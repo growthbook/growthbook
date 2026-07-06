@@ -6,6 +6,7 @@ import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -59,6 +60,9 @@ export default function EnvironmentModal({
 
   const { refreshOrganization } = useUser();
 
+  const { isEnvironmentIdAllowed, supportsCustomEnvironments } = useOrgLimits();
+  const customEnvironmentsAllowed = supportsCustomEnvironments();
+
   const { projects } = useDefinitions();
 
   const projectsOptions = projects.map((p) => ({
@@ -103,6 +107,11 @@ export default function EnvironmentModal({
           if (newEnvs.find((e) => e.id === value.id)) {
             throw new Error("Environment id is already in use");
           }
+          if (!isEnvironmentIdAllowed(value.id)) {
+            throw new Error(
+              "Your plan only supports the default environments. Upgrade your plan to create custom environments.",
+            );
+          }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
             description: value.description || "",
@@ -133,7 +142,7 @@ export default function EnvironmentModal({
             value: id,
           }))}
           sort={false}
-          createable
+          createable={customEnvironmentsAllowed}
           isClearable
           formatCreateLabel={(value) =>
             `Use custom environment name "${value}"`
@@ -150,16 +159,23 @@ export default function EnvironmentModal({
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
           label="Id"
           helpText={
-            <>
+            customEnvironmentsAllowed ? (
+              <>
+                <div>
+                  Only letters, numbers, hyphens, and underscores allowed. No
+                  spaces.
+                </div>
+                <div>
+                  Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+                  <code>john_dev</code>
+                </div>
+              </>
+            ) : (
               <div>
-                Only letters, numbers, hyphens, and underscores allowed. No
-                spaces.
+                Your plan only supports the default environments listed above.
+                Upgrade your plan to create custom environments.
               </div>
-              <div>
-                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-                <code>john_dev</code>
-              </div>
-            </>
+            )
           }
         />
       )}
