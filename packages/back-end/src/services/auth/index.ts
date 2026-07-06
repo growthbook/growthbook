@@ -323,7 +323,7 @@ export async function processJWT(
       });
     };
 
-    if (IS_CLOUD || IS_LOCALHOST) {
+    if (IS_CLOUD) {
       const gbClient = getGrowthBookClient();
 
       if (gbClient) {
