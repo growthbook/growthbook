@@ -5,6 +5,11 @@ import {
   LearningStatus,
 } from "shared/types/organization";
 
+// The object property that carries a JSON constant's `$extends` reference list.
+// Single source of truth shared by the resolver (sdk-versioning/resolveConstants)
+// and the reference detector (validators/constant) so they can't drift.
+export const CONSTANT_EXTENDS_KEY = "$extends";
+
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
@@ -45,6 +50,8 @@ export const DEFAULT_POST_STRATIFICATION_ENABLED = true;
 // Lookback Override:
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT = "days";
 export const DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_VALUE = 14;
+export const DEFAULT_TOP_VALUES_LOOKBACK_UNIT = "days";
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
@@ -53,7 +60,15 @@ export const DEFAULT_USE_STICKY_BUCKETING = false;
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
+
+/** SQL column prefix for contextual bandit attributes after bucketing. */
+export const ATTR_CB_PREFIX = "attr_cb_";
+/** SQL column prefix for first-exposure raw contextual bandit attributes (pre-bucketing). */
+export const ATTR_CB_RAW_PREFIX = "attr_cb_raw_";
+/** Bucket value for low-traffic / merged contextual bandit attribute slices. */
+export const CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE = "Combined";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
+export const NULL_ATTRIBUTE_VALUE = "__NULL_ATTRIBUTE";
 export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
@@ -253,6 +268,7 @@ export const entityEvents = {
   organization: ["create", "update", "delete", "disable", "enable"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
+  constant: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
@@ -281,6 +297,7 @@ export const entityEvents = {
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
   insight: ["create", "update", "delete"],
+  contextualBandit: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 

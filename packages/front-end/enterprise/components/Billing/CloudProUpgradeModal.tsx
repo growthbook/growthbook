@@ -231,6 +231,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
   if (success) {
     return (
       <Modal
+        useRadixButton={false}
         header={null}
         close={() => {
           close();
@@ -276,6 +277,7 @@ export default function CloudProUpgradeModal({ close, closeParent }: Props) {
 
   return (
     <PagedModal
+      useRadixButton={false}
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       hideNav={true}

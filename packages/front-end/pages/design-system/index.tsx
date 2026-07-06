@@ -33,6 +33,8 @@ import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import VariationLabelStories from "@/ui/VariationLabel.stories";
+import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 import ModalStories from "@/ui/Modal/Modal.stories";
 
@@ -80,6 +82,8 @@ export default function DesignSystemPage() {
       name: "ExperimentStatusIndicator",
       Stories: ExperimentStatusIndicatorStories,
     },
+    { name: "VariationLabel", Stories: VariationLabelStories },
+    { name: "VariationNumber", Stories: VariationNumberStories },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
     { name: "Heading", Stories: HeadingStories },

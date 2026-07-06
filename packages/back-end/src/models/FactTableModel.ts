@@ -17,6 +17,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -88,6 +89,7 @@ const factTableSchema = new mongoose.Schema({
         },
       },
       lookbackWindow: Number,
+      restateChunkDays: Number,
     },
     default: undefined,
   },
@@ -295,9 +297,13 @@ export async function createFactTable(
     context.permissions.throwPermissionError();
   }
 
-  const doc = await FactTableModel.create(
-    createPropsToInterface(context, data),
-  );
+  const factTableProps = createPropsToInterface(context, data);
+
+  // We claim this slot first to avoid a potential race condition when the FactTable is created at
+  // the same time the background job is scheduling the aggregated table update
+  await deferAggregatedFactTableToNextSlot(context, factTableProps);
+
+  const doc = await FactTableModel.create(factTableProps);
 
   const factTable = toInterface(doc);
 

@@ -37,6 +37,9 @@ type DropdownProps = {
   triggerClassName?: string;
   triggerStyle?: React.CSSProperties;
   menuPlacement?: "start" | "center" | "end";
+  // Preferred side to open toward. Radix auto-flips to the opposite side on
+  // collision, so e.g. "top" opens upward when there's room, else downward.
+  menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
@@ -52,6 +55,7 @@ export function DropdownMenu({
   triggerClassName,
   triggerStyle,
   menuPlacement = "start",
+  menuSide = "bottom",
   menuWidth,
   children,
   color,
@@ -147,11 +151,11 @@ export function DropdownMenu({
           {triggerComponent}
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
+          side={menuSide}
           ref={contentRef}
           align={menuPlacement}
           color={color}
           variant={variant}
-          side="bottom"
           className={
             menuWidth === "full" ? "dropdown-content-width-full" : undefined
           }

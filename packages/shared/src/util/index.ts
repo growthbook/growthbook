@@ -26,6 +26,7 @@ import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
 export * from "./strings";
+export * from "./units-query-settings";
 export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./managedWarehouse";
@@ -38,6 +39,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./diffFormats";
+export * from "./format-json";
 export * from "./datasource";
 export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-warehouse-queries";

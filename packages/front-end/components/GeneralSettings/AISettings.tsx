@@ -212,7 +212,7 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
         AI_PROMPT_DEFAULTS["product-analytics-chat"],
       promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
       promptHelpText:
-        "Optional. Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
+        "Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
       overrideModelHelpText:
         "Tool-heavy assistants often work better with a capable model.",
       overrideModel: data.prompts.find(
@@ -772,7 +772,7 @@ export default function AISettings({
                       placeholder={
                         'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
                       }
-                      helpText="Optional. Prepended to every Visual Editor AI prompt (text edits + image generation) so the AI follows your brand voice and visual identity."
+                      helpText="Prepended to every Visual Editor AI prompt (text edits + image generation) so the AI follows your brand voice and visual identity."
                       {...form.register("visualEditorAIContext")}
                     />
                   </Box>

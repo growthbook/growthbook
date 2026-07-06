@@ -4,7 +4,9 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
@@ -57,19 +59,38 @@ export const postExperimentSnapshot = createApiRequestHandler(
     });
   }
 
-  const createSnapshotPayload = {
-    phase: phaseIndex,
-    dimension,
-    useCache: true,
-  };
+  const createSnapshot = (useCache: boolean) =>
+    createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      triggeredBy,
+      phase: phaseIndex,
+      dimension,
+      useCache,
+    });
 
-  const snapshot = await createExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    triggeredBy,
-    ...createSnapshotPayload,
-  });
+  // A programmatic refresh is non-interactive. When the Incremental Pipeline
+  // requires a Full Refresh we run one transparently instead of surfacing an
+  // error the caller would have to act on. Lesser incremental shortfalls fall
+  // back to the non-incremental results runner during planning.
+  let useCache = true;
+  let result: Awaited<ReturnType<typeof createSnapshot>>;
+  try {
+    result = await createSnapshot(useCache);
+  } catch (error) {
+    if (
+      !(error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError)
+    ) {
+      throw error;
+    }
+    logger.info(
+      `Experiment ${experiment.id}: ${error.details.reason} Running a Full Refresh automatically.`,
+    );
+    useCache = false;
+    result = await createSnapshot(useCache);
+  }
+  const { snapshot } = result;
 
   await req.audit({
     event: "experiment.refresh",
@@ -78,15 +99,17 @@ export const postExperimentSnapshot = createApiRequestHandler(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      ...createSnapshotPayload,
+      phase: phaseIndex,
+      dimension,
+      useCache,
       manual: false,
     }),
   });
   return {
     snapshot: {
-      id: snapshot.snapshot.id,
-      experiment: snapshot.snapshot.experiment,
-      status: snapshot.snapshot.status,
+      id: snapshot.id,
+      experiment: snapshot.experiment,
+      status: snapshot.status,
     },
   };
 });
