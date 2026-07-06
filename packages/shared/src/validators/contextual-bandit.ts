@@ -215,7 +215,10 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-export const apiUpdateContextualBanditBody = z.object({
+// Strict so unsupported fields fail loudly instead of silently stripping —
+// e.g. `namespace`: CBs intentionally do NOT support namespaces (unlike
+// experiment rules); a client sending one should get an error, not a no-op.
+export const apiUpdateContextualBanditBody = z.strictObject({
   name: z.string().optional(),
   description: z.string().optional(),
   project: z.string().optional(),
