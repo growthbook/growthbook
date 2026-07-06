@@ -341,7 +341,10 @@ describe("jsonSchemaStringToFields", () => {
       defs[`D${i}`] =
         i === depth - 1
           ? { type: "string" }
-          : { type: "object", properties: { next: { $ref: `#/$defs/D${i + 1}` } } };
+          : {
+              type: "object",
+              properties: { next: { $ref: `#/$defs/D${i + 1}` } },
+            };
     }
     const { warnings } = jsonSchemaStringToFields(
       JSON.stringify({

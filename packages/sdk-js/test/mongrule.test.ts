@@ -183,9 +183,9 @@ describe("Mongrule", () => {
         .spyOn(console, "error")
         .mockImplementation(() => undefined);
       try {
-        expect(
-          evalCondition({ a: 1 }, { a: { $ref: "missing" } }, {}),
-        ).toBe(false);
+        expect(evalCondition({ a: 1 }, { a: { $ref: "missing" } }, {})).toBe(
+          false,
+        );
         expect(
           evalCondition({ a: "x", b: "x" }, { a: { $ref: "b" } }, {}),
         ).toBe(false);

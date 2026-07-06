@@ -1,9 +1,7 @@
 import { Revision } from "shared/enterprise";
 import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
 
-const mergedConfigRevision = (
-  overrides: Partial<Revision> = {},
-): Revision =>
+const mergedConfigRevision = (overrides: Partial<Revision> = {}): Revision =>
   ({
     id: "rev_1",
     authorId: "u_1",
