@@ -94,9 +94,7 @@ function createHistogramData(values: number[]): HistogramDatapoint[] {
   for (const value of values) {
     // Assign each value to the displayed bin whose (already shifted) [start, end)
     // range actually contains it, so counts always match the rendered edges.
-    let binIndex = bins.findIndex(
-      (b) => value >= b.start && value < b.end,
-    );
+    let binIndex = bins.findIndex((b) => value >= b.start && value < b.end);
     if (binIndex === -1) {
       // Outside the displayed range (e.g. the max value or float edge): clamp to an end bin.
       binIndex = value < bins[0].start ? 0 : bins.length - 1;
