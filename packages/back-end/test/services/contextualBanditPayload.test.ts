@@ -3,7 +3,10 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GroupMap } from "shared/types/saved-group";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import { filterUsedContextualBandits } from "back-end/src/services/features";
+import {
+  filterUsedContextualBandits,
+  measureContextualBanditPayload,
+} from "back-end/src/services/features";
 
 // services/features.ts transitively imports datasource integrations, which
 // load native modules (kerberos, lz4) that aren't available in all
@@ -220,5 +223,84 @@ describe("filterUsedContextualBandits", () => {
       featuresWithRef,
     );
     expect(map?.cb_1?.contexts).toEqual([]);
+  });
+});
+
+describe("measureContextualBanditPayload", () => {
+  const smallEntry = {
+    banditVersion: 1,
+    attributesRequired: ["country"],
+    contexts: [{ leafId: 0, condition: { country: "US" }, weights: [1, 0] }],
+  };
+  const bigEntry = {
+    banditVersion: 2,
+    attributesRequired: ["country"],
+    contexts: [
+      {
+        leafId: 0,
+        condition: { country: { $in: ["US", "CA", "MX", "DE", "FR"] } },
+        weights: [0.5, 0.5],
+      },
+      { leafId: 1, condition: {}, weights: [0.4, 0.6] },
+      { leafId: 2, condition: { country: "GB" }, weights: [0.7, 0.3] },
+    ],
+  };
+
+  it("counts distinct CBs, referencing rules, bytes, and max leaves", () => {
+    const stats = measureContextualBanditPayload(
+      { cb_small: smallEntry, cb_big: bigEntry },
+      {
+        f1: {
+          defaultValue: "x",
+          rules: [
+            { type: "contextual-bandit", contextualBanditRef: "cb_small" },
+          ],
+        },
+        f2: {
+          defaultValue: "y",
+          rules: [
+            { type: "contextual-bandit", contextualBanditRef: "cb_big" },
+            { force: "z" },
+          ],
+        },
+        f3: {
+          defaultValue: "z",
+          rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_big" }],
+        },
+      },
+    );
+
+    expect(stats.cbCount).toEqual(2);
+    // 3 rules point at the map; ratio 3:2 shows a shared CB
+    expect(stats.cbRuleCount).toEqual(3);
+    expect(stats.maxLeaves).toEqual(3);
+
+    const smallBytes = Buffer.byteLength(
+      JSON.stringify({ cb_small: smallEntry }),
+    );
+    const bigBytes = Buffer.byteLength(JSON.stringify({ cb_big: bigEntry }));
+    expect(stats.cbBytes).toEqual(smallBytes + bigBytes);
+    expect(stats.maxSingleCbBytes).toEqual(bigBytes);
+  });
+
+  it("handles features with no CB rules", () => {
+    const stats = measureContextualBanditPayload(
+      { cb_small: smallEntry },
+      { plain: { defaultValue: "x", rules: [{ force: "y" }] } },
+    );
+    expect(stats.cbCount).toEqual(1);
+    expect(stats.cbRuleCount).toEqual(0);
+    expect(stats.cbBytes).toBeGreaterThan(0);
+  });
+
+  it("returns zeros for an empty map", () => {
+    const stats = measureContextualBanditPayload({}, {});
+    expect(stats).toEqual({
+      cbCount: 0,
+      cbRuleCount: 0,
+      cbBytes: 0,
+      maxSingleCbBytes: 0,
+      maxLeaves: 0,
+    });
   });
 });

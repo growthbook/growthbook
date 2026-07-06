@@ -677,10 +677,6 @@ export function filterUsedSavedGroups(
   );
 }
 
-// Build the payload's top-level `contextualBandits` map (savedGroups-style
-// dedup): one entry per CB id, only for CBs referenced by at least one emitted
-// rule. Deriving from emitted rules (not cbMap) matters — cbMap can contain
-// draft/stopped CBs whose rules returned null and CBs filtered per environment.
 export function filterUsedContextualBandits(
   cbMap: Map<string, ContextualBanditInterface> | undefined,
   features: Record<string, FeatureDefinition>,
@@ -712,6 +708,51 @@ export function filterUsedContextualBandits(
   });
 
   return Object.keys(map).length > 0 ? map : undefined;
+}
+
+export const CB_PAYLOAD_WARN_BYTES = 512 * 1024;
+export const CB_PAYLOAD_WARN_FRACTION = 0.5;
+
+export type ContextualBanditPayloadStats = {
+  /** Distinct CBs in the payload's `contextualBandits` map */
+  cbCount: number;
+  /** Rules pointing at the map — cbRuleCount/cbCount > 1 means shared CBs (dedup working) */
+  cbRuleCount: number;
+  /** Sum of serialized map entry sizes (map braces/commas excluded) */
+  cbBytes: number;
+  maxSingleCbBytes: number;
+  maxLeaves: number;
+};
+
+export function measureContextualBanditPayload(
+  contextualBandits: ContextualBanditsMap,
+  features: Record<string, FeatureDefinition>,
+): ContextualBanditPayloadStats {
+  let cbBytes = 0;
+  let maxSingleCbBytes = 0;
+  let maxLeaves = 0;
+  const entries = Object.entries(contextualBandits);
+  entries.forEach(([id, entry]) => {
+    const entryBytes = Buffer.byteLength(JSON.stringify({ [id]: entry }));
+    cbBytes += entryBytes;
+    if (entryBytes > maxSingleCbBytes) maxSingleCbBytes = entryBytes;
+    if (entry.contexts.length > maxLeaves) maxLeaves = entry.contexts.length;
+  });
+
+  let cbRuleCount = 0;
+  Object.values(features).forEach((feature) => {
+    feature.rules?.forEach((rule) => {
+      if (rule.contextualBanditRef) cbRuleCount++;
+    });
+  });
+
+  return {
+    cbCount: entries.length,
+    cbRuleCount,
+    cbBytes,
+    maxSingleCbBytes,
+    maxLeaves,
+  };
 }
 
 export function isSDKConnectionAffectedByPayloadKey(
@@ -763,6 +804,39 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
     getSdkPayloadRefreshDurationHistogram().record(durationMs);
   } catch (e) {
     logger.error({ err: e }, "Error recording sdk_payload refresh metrics");
+  }
+}
+
+let cbPayloadBytesHistogram: Histogram | null = null;
+let cbPayloadFractionHistogram: Histogram | null = null;
+
+function getCbPayloadBytesHistogram() {
+  if (!cbPayloadBytesHistogram) {
+    cbPayloadBytesHistogram = metrics.getHistogram("sdk_payload.cb_bytes");
+  }
+  return cbPayloadBytesHistogram;
+}
+
+function getCbPayloadFractionHistogram() {
+  if (!cbPayloadFractionHistogram) {
+    cbPayloadFractionHistogram = metrics.getHistogram(
+      "sdk_payload.cb_fraction",
+    );
+  }
+  return cbPayloadFractionHistogram;
+}
+
+function recordContextualBanditPayloadMetrics(
+  stats: ContextualBanditPayloadStats,
+  totalBytes: number,
+) {
+  try {
+    getCbPayloadBytesHistogram().record(stats.cbBytes);
+    if (totalBytes > 0) {
+      getCbPayloadFractionHistogram().record(stats.cbBytes / totalBytes);
+    }
+  } catch (e) {
+    logger.error({ err: e }, "Error recording sdk_payload CB size metrics");
   }
 }
 
@@ -1157,6 +1231,45 @@ export async function getFeatureDefinitionsResponse({
   const contextualBanditsForPayload = capabilities.includes("contextualBandits")
     ? contextualBandits
     : undefined;
+
+  // CB payload-size instrumentation. Measured pre-encryption (encrypted base64
+  // is ~1.33× and would distort the fraction) and only when the payload
+  // actually carries CBs, so non-CB payloads pay nothing.
+  if (
+    contextualBanditsForPayload &&
+    Object.keys(contextualBanditsForPayload).length > 0
+  ) {
+    const cbStats = measureContextualBanditPayload(
+      contextualBanditsForPayload,
+      features,
+    );
+    const totalBytes = Buffer.byteLength(
+      JSON.stringify({
+        features,
+        experiments: processedExperiments,
+        savedGroups: savedGroupsForPayload,
+        contextualBandits: contextualBanditsForPayload,
+      }),
+    );
+    recordContextualBanditPayloadMetrics(cbStats, totalBytes);
+    const logData = {
+      orgId: organization?.id,
+      ...cbStats,
+      totalBytes,
+    };
+    if (
+      cbStats.cbBytes > CB_PAYLOAD_WARN_BYTES ||
+      (totalBytes > 0 &&
+        cbStats.cbBytes / totalBytes > CB_PAYLOAD_WARN_FRACTION)
+    ) {
+      logger.warn(
+        logData,
+        "[sdk-payload] contextual bandit payload size above threshold",
+      );
+    } else {
+      logger.debug(logData, "[sdk-payload] contextual bandit payload size");
+    }
+  }
 
   if (!encryptPayload || !encryptionKey) {
     return {
