@@ -82,6 +82,7 @@ export * from "./json-schema";
 export * from "./typescript";
 export * from "./proto";
 export * from "./golang";
+export * from "./go-fields";
 export * from "./rust";
 export * from "./python";
 export * from "./registry";

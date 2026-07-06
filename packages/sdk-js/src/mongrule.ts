@@ -21,24 +21,6 @@ export function evalCondition(
   savedGroups?: SavedGroupsValues,
 ): boolean {
   savedGroups = savedGroups || {};
-  // Resolve any `{ $ref: "path" }` markers against the tested object ONCE, up
-  // front, so a rule can compare one field to another. The whole tree is
-  // resolved here, so the recursive evaluation below never has to re-resolve.
-  return evalConditionResolved(
-    obj,
-    resolveConditionRefs(condition, obj),
-    savedGroups,
-  );
-}
-
-// Evaluate a condition whose `$ref` markers have already been resolved against
-// `obj`. Logical operators recurse here (same object, no re-resolution);
-// `$elemMatch` crosses into a new object and re-enters `evalCondition`.
-function evalConditionResolved(
-  obj: TestedObj,
-  condition: ConditionInterface,
-  savedGroups: SavedGroupsValues,
-): boolean {
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
@@ -53,7 +35,7 @@ function evalConditionResolved(
         if (!evalAnd(obj, v as ConditionInterface[], savedGroups)) return false;
         break;
       case "$not":
-        if (evalConditionResolved(obj, v as ConditionInterface, savedGroups))
+        if (evalCondition(obj, v as ConditionInterface, savedGroups))
           return false;
         break;
       default:
@@ -75,41 +57,6 @@ function getPath(obj: TestedObj, path: string) {
     }
   }
   return current;
-}
-
-// Resolve `{ $ref: "<path>" }` markers in a condition to the tested object's
-// value at that dot-path — enabling field-to-field comparisons, e.g.
-// `{ streams: { $lte: { $ref: "devices" } } }`. Returns the input unchanged
-// (same reference) when there are no refs, so the common path allocates nothing.
-function resolveConditionRefs(node: any, obj: TestedObj): any {
-  if (Array.isArray(node)) {
-    let changed = false;
-    const out = node.map((n) => {
-      const r = resolveConditionRefs(n, obj);
-      if (r !== n) changed = true;
-      return r;
-    });
-    return changed ? out : node;
-  }
-  if (node && typeof node === "object") {
-    const keys = Object.keys(node);
-    if (
-      keys.length === 1 &&
-      keys[0] === "$ref" &&
-      typeof node.$ref === "string"
-    ) {
-      return getPath(obj, node.$ref);
-    }
-    let changed = false;
-    const out: { [k: string]: any } = {};
-    for (const k of keys) {
-      const r = resolveConditionRefs(node[k], obj);
-      out[k] = r;
-      if (r !== node[k]) changed = true;
-    }
-    return changed ? out : node;
-  }
-  return node;
 }
 
 // Transform a regex string into a real RegExp object
@@ -331,8 +278,7 @@ function evalOperatorCondition(
   }
 }
 
-// Recursive $or rule. `conditions` share the already-resolved `obj`, so recurse
-// via evalConditionResolved rather than re-resolving refs per branch.
+// Recursive $or rule
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
@@ -340,7 +286,7 @@ function evalOr(
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalConditionResolved(obj, conditions[i], savedGroups)) {
+    if (evalCondition(obj, conditions[i], savedGroups)) {
       return true;
     }
   }
@@ -354,7 +300,7 @@ function evalAnd(
   savedGroups: SavedGroupsValues,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalConditionResolved(obj, conditions[i], savedGroups)) {
+    if (!evalCondition(obj, conditions[i], savedGroups)) {
       return false;
     }
   }

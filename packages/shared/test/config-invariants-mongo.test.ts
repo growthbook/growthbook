@@ -491,3 +491,87 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     expect(evaluateInvariants(bad, rules(fromJl))).toHaveLength(1);
   });
 });
+
+// $ref resolution and value canonicalization through evaluateInvariants —
+// coverage that used to live in sdk-js before $ref moved out of mongrule.
+describe("$ref resolution through evaluateInvariants", () => {
+  const inv = (rule: unknown): ConfigInvariant[] => [
+    { name: "r", rule: JSON.stringify(rule), message: "violated" },
+  ];
+
+  it("resolves a nested dot-path ref", () => {
+    const rule = {
+      "buffer.target_seconds": { $lte: { $ref: "buffer.max_seconds" } },
+    };
+    expect(
+      evaluateInvariants(
+        { buffer: { target_seconds: 5, max_seconds: 10 } },
+        inv(rule),
+      ),
+    ).toEqual([]);
+    expect(
+      evaluateInvariants(
+        { buffer: { target_seconds: 20, max_seconds: 10 } },
+        inv(rule),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("resolves refs inside $or branches", () => {
+    const rule = {
+      $or: [
+        { unlimited: { $eq: true } },
+        { streams: { $lte: { $ref: "limits.max" } } },
+      ],
+    };
+    expect(
+      evaluateInvariants(
+        { unlimited: false, streams: 2, limits: { max: 4 } },
+        inv(rule),
+      ),
+    ).toEqual([]);
+    expect(
+      evaluateInvariants(
+        { unlimited: true, streams: 9, limits: { max: 4 } },
+        inv(rule),
+      ),
+    ).toEqual([]);
+    expect(
+      evaluateInvariants(
+        { unlimited: false, streams: 9, limits: { max: 4 } },
+        inv(rule),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("resolves a missing ref path to null instead of erroring", () => {
+    const rule = { streams: { $lte: { $ref: "limits.max" } } };
+    // 5 <= null is false — a violation, not a crash.
+    expect(
+      evaluateInvariants({ streams: 5, limits: {} }, inv(rule)),
+    ).toHaveLength(1);
+  });
+
+  it("object equality is key-order-insensitive", () => {
+    const rule = { cfg: { a: 1, b: [2, 3] } };
+    expect(evaluateInvariants({ cfg: { b: [2, 3], a: 1 } }, inv(rule))).toEqual(
+      [],
+    );
+    expect(
+      evaluateInvariants({ cfg: { a: 1, b: [2, 4] } }, inv(rule)),
+    ).toHaveLength(1);
+  });
+
+  it("write-time probe accepts a shorthand $ref rule without console noise", () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const stored = apiInvariantsToStored([
+        { name: "eq", rule: { b: { $ref: "a" } }, message: "b must equal a" },
+      ]);
+      expect(JSON.parse(stored[0].rule)).toEqual({ b: { $ref: "a" } });
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

@@ -7,6 +7,7 @@ import {
   pascalCaseTypeName,
 } from "./naming";
 import { matchBraces, stripSlashComments } from "./parse-utils";
+import { splitGoFieldStatements } from "./go-fields";
 import { jsonSchemaStringToFields } from "./json-schema";
 import {
   SchemaConversionResult,
@@ -62,29 +63,26 @@ type ParsedGoField = {
   optional: boolean;
 };
 
+// null means the field is excluded (json:"-").
+function parseJsonTag(tag: string): { key: string; omitempty: boolean } | null {
+  const jsonTag = tag.match(/json:"([^"]*)"/);
+  const parts = jsonTag ? jsonTag[1].split(",") : [];
+  const key = parts[0] ?? "";
+  if (key === "-") return null;
+  return { key, omitempty: parts.includes("omitempty") };
+}
+
 function parseGoField(line: string): ParsedGoField | null {
   const m = line.match(/^([A-Za-z_]\w*)\s+([^\s`]+)(?:\s+`([^`]*)`)?$/);
   if (!m) return null;
-  const fieldName = m[1];
   const rawType = m[2];
-  const tag = m[3] ?? "";
-  const jsonTag = tag.match(/json:"([^"]*)"/);
-  const parts = jsonTag ? jsonTag[1].split(",") : [];
-  const tagKey = parts[0] ?? "";
-  if (tagKey === "-") return null;
-  const optional = parts.includes("omitempty") || rawType.startsWith("*");
-  return { type: rawType, key: tagKey || fieldName, optional };
-}
-
-function goFieldLines(body: string): string[] {
-  return (
-    body
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      // Skip anonymous-struct braces and embedded-struct lines we can't model.
-      .filter((l) => !l.includes("{") && !l.includes("}"))
-  );
+  const tagInfo = parseJsonTag(m[3] ?? "");
+  if (!tagInfo) return null;
+  return {
+    type: rawType,
+    key: tagInfo.key || m[1],
+    optional: tagInfo.omitempty || rawType.startsWith("*"),
+  };
 }
 
 function typeTokenToNode(
@@ -165,10 +163,76 @@ function structBodyToNode(
   warnings: SchemaWarning[],
 ): Record<string, unknown> | null {
   if (depth > MAX_NEST_DEPTH) return null;
+  const { properties, required } = collectStructProperties(
+    body,
+    byName,
+    seen,
+    depth,
+    path,
+    warnings,
+  );
+  if (!Object.keys(properties).length) return null;
+  const schema: Record<string, unknown> = {
+    type: "object",
+    properties,
+    additionalProperties: false,
+  };
+  if (required.length) schema.required = required;
+  return schema;
+}
+
+function collectStructProperties(
+  body: string,
+  byName: Map<string, GoStruct>,
+  seen: Set<string>,
+  depth: number,
+  path: string,
+  warnings: SchemaWarning[],
+): { properties: Record<string, unknown>; required: string[] } {
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
-  for (const line of goFieldLines(body)) {
-    const field = parseGoField(line);
+  for (const stmt of splitGoFieldStatements(body)) {
+    if (stmt.kind === "anon-struct") {
+      const tagInfo = parseJsonTag(stmt.tag);
+      if (!tagInfo) continue;
+      const key = tagInfo.key || stmt.name;
+      const childPath = path ? `${path}.${key}` : key;
+      let node = structBodyToNode(
+        stmt.innerBody,
+        byName,
+        seen,
+        depth + 1,
+        childPath,
+        warnings,
+      );
+      // Apply wrappers right-to-left so "[]*struct" = slice of nullable objects.
+      for (let mods = stmt.modifiers; node && mods.length; ) {
+        if (mods.endsWith("*")) {
+          if (typeof node.type === "string") {
+            node = { ...node, type: [node.type, "null"] };
+          }
+          mods = mods.slice(0, -1);
+        } else {
+          node = { type: "array", items: node };
+          mods = mods.slice(0, -2);
+        }
+      }
+      if (!node) {
+        warnings.push({
+          code: "unresolved-type",
+          path: childPath,
+          message: `${childPath}: anonymous struct couldn't be modeled; field left untyped.`,
+        });
+        properties[key] = {};
+      } else {
+        properties[key] = node;
+      }
+      if (!tagInfo.omitempty && !stmt.modifiers.startsWith("*")) {
+        required.push(key);
+      }
+      continue;
+    }
+    const field = parseGoField(stmt.line);
     if (!field) continue;
     const childPath = path ? `${path}.${field.key}` : field.key;
     const node = typeTokenToNode(
@@ -191,14 +255,7 @@ function structBodyToNode(
     }
     if (!field.optional) required.push(field.key);
   }
-  if (!Object.keys(properties).length) return null;
-  const schema: Record<string, unknown> = {
-    type: "object",
-    properties,
-    additionalProperties: false,
-  };
-  if (required.length) schema.required = required;
-  return schema;
+  return { properties, required };
 }
 
 // Strip every leading `*`, `[]`, and `map[...]` wrapper to the base type name.
@@ -217,12 +274,19 @@ function goBaseType(token: string): string {
 
 function referencesIn(decl: GoStruct, byName: Map<string, GoStruct>): string[] {
   const refs: string[] = [];
-  for (const line of goFieldLines(decl.body)) {
-    const f = parseGoField(line);
-    if (!f) continue;
-    const token = goBaseType(f.type);
-    if (byName.has(token) && token !== decl.name) refs.push(token);
-  }
+  const walk = (body: string) => {
+    for (const stmt of splitGoFieldStatements(body)) {
+      if (stmt.kind === "anon-struct") {
+        walk(stmt.innerBody);
+        continue;
+      }
+      const f = parseGoField(stmt.line);
+      if (!f) continue;
+      const token = goBaseType(f.type);
+      if (byName.has(token) && token !== decl.name) refs.push(token);
+    }
+  };
+  walk(decl.body);
   return refs;
 }
 
@@ -246,8 +310,21 @@ function captureStructNames(
   out: Record<string, string>,
 ): void {
   if (depth > MAX_NEST_DEPTH) return;
-  for (const line of goFieldLines(body)) {
-    const field = parseGoField(line);
+  for (const stmt of splitGoFieldStatements(body)) {
+    if (stmt.kind === "anon-struct") {
+      // No named type to capture, but named structs inside it live at the
+      // anon field's pointer.
+      const tagInfo = parseJsonTag(stmt.tag);
+      if (!tagInfo) continue;
+      const key = tagInfo.key || stmt.name;
+      const seg = `/properties/${jsonPointerEscape(key)}`;
+      const at = stmt.modifiers.includes("[]")
+        ? `${pointer}${seg}/items`
+        : `${pointer}${seg}`;
+      captureStructNames(stmt.innerBody, byName, at, seen, depth + 1, out);
+      continue;
+    }
+    const field = parseGoField(stmt.line);
     if (!field) continue;
     const isArray = field.type.replace(/^\*/, "").startsWith("[]");
     const token = goBaseType(field.type);
@@ -277,31 +354,14 @@ export function golangToFields(text: string): SchemaConversionResult {
   }
 
   const warnings: SchemaWarning[] = [];
-  const properties: Record<string, unknown> = {};
-  const required: string[] = [];
-  for (const line of goFieldLines(root.body)) {
-    const field = parseGoField(line);
-    if (!field) continue;
-    const node = typeTokenToNode(
-      field.type,
-      byName,
-      new Set([root.name]),
-      1,
-      field.key,
-      warnings,
-    );
-    if (!node) {
-      warnings.push({
-        code: "unresolved-type",
-        path: field.key,
-        message: `${field.key}: unresolved type "${field.type}"`,
-      });
-      properties[field.key] = {};
-    } else {
-      properties[field.key] = node;
-    }
-    if (!field.optional) required.push(field.key);
-  }
+  const { properties, required } = collectStructProperties(
+    root.body,
+    byName,
+    new Set([root.name]),
+    1,
+    "",
+    warnings,
+  );
 
   const doc: Record<string, unknown> = { type: "object", properties };
   if (required.length) doc.required = required;

@@ -173,64 +173,38 @@ describe("Mongrule", () => {
     });
   });
 
-  describe("$ref (field-to-field)", () => {
-    it("compares a field to another field via $ref", () => {
-      // streams <= devices
+  describe("$ref", () => {
+    // The SDK does not resolve `{ $ref: "path" }` markers. Server-side
+    // invariant evaluation pre-resolves them (shared resolveRuleRefs) before
+    // calling evalCondition, so here they must behave like any other unknown
+    // operator: evaluate to false and never throw.
+    it("treats $ref as an unknown operator and never throws", () => {
+      const errorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+      try {
+        expect(
+          evalCondition({ a: 1 }, { a: { $ref: "missing" } }, {}),
+        ).toBe(false);
+        expect(
+          evalCondition({ a: "x", b: "x" }, { a: { $ref: "b" } }, {}),
+        ).toBe(false);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("compares $ref-shaped operands as literal objects", () => {
       expect(
         evalCondition(
           { streams: 2, devices: 5 },
           { streams: { $lte: { $ref: "devices" } } },
           {},
         ),
-      ).toBe(true);
-      expect(
-        evalCondition(
-          { streams: 6, devices: 5 },
-          { streams: { $lte: { $ref: "devices" } } },
-          {},
-        ),
       ).toBe(false);
-    });
-
-    it("supports $eq / $ne between two fields", () => {
       expect(
         evalCondition({ a: "x", b: "x" }, { a: { $eq: { $ref: "b" } } }, {}),
-      ).toBe(true);
-      expect(
-        evalCondition({ a: "x", b: "y" }, { a: { $ne: { $ref: "b" } } }, {}),
-      ).toBe(true);
-    });
-
-    it("resolves a nested dot-path ref", () => {
-      expect(
-        evalCondition(
-          { a: 3, limits: { max: 5 } },
-          { a: { $lte: { $ref: "limits.max" } } },
-          {},
-        ),
-      ).toBe(true);
-    });
-
-    it("resolves a missing ref field to null", () => {
-      expect(
-        evalCondition({ a: 1 }, { a: { $eq: { $ref: "missing" } } }, {}),
       ).toBe(false);
-    });
-
-    it("works inside $or (implication: streams<=devices OR unlimited)", () => {
-      const cond = {
-        $or: [{ unlimited: true }, { streams: { $lte: { $ref: "devices" } } }],
-      };
-      expect(
-        evalCondition({ unlimited: false, streams: 9, devices: 5 }, cond, {}),
-      ).toBe(false);
-      expect(
-        evalCondition({ unlimited: true, streams: 9, devices: 5 }, cond, {}),
-      ).toBe(true);
-    });
-
-    it("leaves ordinary literal conditions unchanged", () => {
-      expect(evalCondition({ a: 3 }, { a: { $lte: 5 } }, {})).toBe(true);
     });
   });
 });

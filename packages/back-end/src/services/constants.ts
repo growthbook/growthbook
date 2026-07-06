@@ -223,9 +223,13 @@ export type ConstantReferences = {
   }[];
 };
 
+// Structurally spans every value-bearing field across the FeatureRule union.
 type ValueBearingRule = {
   value?: unknown;
   variations?: Array<{ value?: unknown }>;
+  values?: Array<{ value?: unknown }>;
+  controlValue?: unknown;
+  variationValue?: unknown;
 };
 
 // Every rule/variation value string a feature holds, from both the v2 `rules`
@@ -234,9 +238,11 @@ function featureRuleValueStrings(feature: FeatureInterface): string[] {
   const out: string[] = [];
   const collect = (rule: ValueBearingRule) => {
     if (typeof rule.value === "string") out.push(rule.value);
-    for (const v of rule.variations ?? []) {
+    for (const v of [...(rule.variations ?? []), ...(rule.values ?? [])]) {
       if (typeof v.value === "string") out.push(v.value);
     }
+    if (typeof rule.controlValue === "string") out.push(rule.controlValue);
+    if (typeof rule.variationValue === "string") out.push(rule.variationValue);
   };
 
   for (const rule of (feature.rules ?? []) as ValueBearingRule[]) collect(rule);

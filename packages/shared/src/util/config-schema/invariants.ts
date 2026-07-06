@@ -60,6 +60,24 @@ function resolveRuleRefs(
   return node;
 }
 
+// JSON clone with object keys sorted recursively (arrays keep their order).
+// mongrule's object/array equality is JSON.stringify comparison, and a config
+// value's key order is an artifact of authoring and merge history — so both
+// sides are canonicalized before evaluation to make object equality
+// key-order-insensitive.
+function canonicalizeKeyOrder(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(canonicalizeKeyOrder);
+  if (node && typeof node === "object") {
+    const obj = node as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(obj).sort()) {
+      out[k] = canonicalizeKeyOrder(obj[k]);
+    }
+    return out;
+  }
+  return node;
+}
+
 // Evaluate a config's cross-field invariants against its resolved value. A rule
 // is SATISFIED when its mongo condition matches the value, a VIOLATION when it
 // doesn't. A malformed rule is surfaced as a violation rather than thrown, so it
@@ -69,13 +87,16 @@ export function evaluateInvariants(
   invariants?: ConfigInvariant[] | null,
 ): InvariantViolation[] {
   if (!invariants?.length) return [];
+  const canonicalValue = canonicalizeKeyOrder(value) as Record<string, unknown>;
   const violations: InvariantViolation[] = [];
   for (const inv of invariants) {
     let satisfied: boolean;
     try {
-      const condition = resolveRuleRefs(JSON.parse(inv.rule), value);
+      const condition = canonicalizeKeyOrder(
+        resolveRuleRefs(JSON.parse(inv.rule), canonicalValue),
+      );
       satisfied = evalCondition(
-        value,
+        canonicalValue,
         condition as Parameters<typeof evalCondition>[1],
         {},
       );
@@ -649,7 +670,14 @@ export function apiInvariantsToStored(
         // broken rule that never matches still surfaces as a violation at
         // evaluation time rather than here — see evaluateInvariants.
         mongo = inv.rule as Record<string, unknown>;
-        evalCondition({}, mongo as Parameters<typeof evalCondition>[1], {});
+        // Pre-resolve $ref markers like evaluation does, so a field-to-field
+        // rule probes as a literal comparison instead of tripping mongrule's
+        // unknown-operator console noise.
+        evalCondition(
+          {},
+          resolveRuleRefs(mongo, {}) as Parameters<typeof evalCondition>[1],
+          {},
+        );
       } else {
         throw new Error(
           "rule must be a mongo/JSONLogic object or a CEL string",
@@ -690,7 +718,8 @@ export function storedInvariantsToApi(
 // ---- Field references (row-level highlighting) -----------------------------
 
 // The field keys a mongo-condition rule references — the non-`$` object keys plus
-// any `$ref` targets. Top-level path segment only (configs are flat). Never throws.
+// any `$ref` targets. Truncated to the top-level path segment because highlighting
+// targets top-level schema rows; evaluation resolves full dotted paths. Never throws.
 const BOOLEAN_MONGO_OPS = new Set(["$and", "$or", "$nor"]);
 export function invariantRuleFields(ruleJson: string): string[] {
   let parsed: unknown;

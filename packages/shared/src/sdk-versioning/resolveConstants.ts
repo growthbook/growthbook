@@ -123,12 +123,14 @@ export function buildConstantValueMap(
 // callback, the resolving feature's project (for scope checks), and a per-pass
 // memo cache (key → resolved value) so a constant referenced many times in a
 // fan-out graph is only resolved once — without it, a diamond reference graph
-// re-resolves exponentially.
+// re-resolves exponentially. `layerCache` memoizes per-config layers (see
+// ConfigLayer) the same way.
 type ResolveContext = {
   map: ConstantValueMap;
   onCycle?: (key: string) => void;
   featureProject: string;
   cache: Map<string, unknown>;
+  layerCache: Map<string, ConfigLayer | null>;
 };
 
 // A reference is scrubbed (removed, not resolved or left verbatim) when the
@@ -195,6 +197,170 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+// A backtick-escaped reserved key (`` `$extends` ``) emits as the literal key
+// it escapes, so a genuine data key named `$extends` is expressible.
+const ESCAPED_EXTENDS_KEY = "`" + EXTENDS_KEY + "`";
+
+// Reuse the value parsed once at map-build time (buildConstantValueMap). Fall
+// back to parsing here for maps built without it (`null` is a valid parsed
+// value, so only `undefined` triggers the fallback). `undefined` = unparseable.
+function parsedEntryValue(entry: ConstantValueMapEntry): unknown {
+  if (entry.parsed !== undefined) return entry.parsed;
+  try {
+    return JSON.parse(entry.value);
+  } catch {
+    return undefined;
+  }
+}
+
+// Resolve a referenced JSON (object) constant to its parsed, recursively
+// resolved value — the whole entry flattened, including its own `$extends`.
+// Returns null when unknown, not JSON, scrubbed (archived/out-of-scope), part
+// of a cycle, non-parseable, or not an object. Memoized per pass.
+function resolveExtendsRef(
+  source: ConstantSource,
+  key: string,
+  visited: Set<string>,
+  ctx: ResolveContext,
+): Record<string, unknown> | null {
+  // The map is namespaced by source, so the lookup itself enforces that a
+  // `@config:` ref only resolves a config (and `@const:` only a constant).
+  const mk = mapKey(source, key);
+  const entry = ctx.map.get(mk);
+  if (!entry || entry.type !== "json" || isScrubbed(entry, ctx)) return null;
+  if (visited.has(mk)) {
+    ctx.onCycle?.(key);
+    return null;
+  }
+  if (ctx.cache.has(mk)) {
+    const cached = ctx.cache.get(mk);
+    return isPlainObject(cached) ? cached : null;
+  }
+  const parsed = parsedEntryValue(entry);
+  if (parsed === undefined) return null;
+  const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
+  // Memoize per pass. Caveat: if this node is first resolved while sitting
+  // beneath a cycle edge, the back-reference was cut (→ null) and the cached
+  // value is truncated; an independent, non-cyclic referrer in the same pass
+  // would then reuse that truncated value. Accepted: cycles are rejected at
+  // write time (assertNoReferenceCycle / ConfigModel.assertNoCycle), so a
+  // stored graph can't actually contain one. See resolveConstants.test.ts.
+  ctx.cache.set(mk, resolved);
+  return isPlainObject(resolved) ? resolved : null;
+}
+
+// One config's contribution to a linearized base DAG: `assign` is its own
+// non-`@config:` `$extends` entries flattened (existing constant/inline
+// semantics — applied wholesale at the layer), then `own` keys merge per-key
+// (chunks stay atomic). This mirrors resolveConfigChain, where each node
+// contributes only its own value keys.
+type ConfigLayer = {
+  assign: Record<string, unknown>;
+  own: { key: string; value: unknown; isChunk: boolean }[];
+};
+
+// The `@config:` base keys declared by a config's own `$extends` list.
+function configBaseKeys(parsed: Record<string, unknown>): string[] {
+  const list = parsed[EXTENDS_KEY];
+  if (!Array.isArray(list)) return [];
+  const keys: string[] = [];
+  for (const ref of list) {
+    const r = extendsRef(ref);
+    if (r?.source === "config") keys.push(r.key);
+  }
+  return keys;
+}
+
+// Linearize the config-base DAG rooted at `keys`: post-order DFS, each config
+// emitted once (ancestor-first, deduped keeping the first emission) — the same
+// order linearizeConfigDag (util/configs.ts) produces, so payload composition
+// matches the editor/validation chain semantics. Scrubbed/unknown configs are
+// skipped without recursing into their bases (an ancestor only contributes if
+// independently reachable); a base already resolving up-stack or a DAG cycle
+// is cut with onCycle.
+function linearizeConfigLayers(
+  keys: string[],
+  visited: Set<string>,
+  ctx: ResolveContext,
+): string[] {
+  const out: string[] = [];
+  const emitted = new Set<string>();
+  const onStack = new Set<string>();
+  const visit = (key: string) => {
+    if (emitted.has(key)) return;
+    const mk = mapKey("config", key);
+    if (onStack.has(key) || visited.has(mk)) {
+      ctx.onCycle?.(key);
+      return;
+    }
+    const entry = ctx.map.get(mk);
+    if (!entry || entry.type !== "json" || isScrubbed(entry, ctx)) return;
+    const parsed = parsedEntryValue(entry);
+    if (!isPlainObject(parsed)) return;
+    onStack.add(key);
+    for (const base of configBaseKeys(parsed)) visit(base);
+    onStack.delete(key);
+    emitted.add(key);
+    out.push(key);
+  };
+  for (const k of keys) visit(k);
+  return out;
+}
+
+// Build (and memoize) a config's layer. Only called with keys emitted by
+// linearizeConfigLayers, so entry/scrub/cycle checks have already passed; the
+// re-check just keeps the function total. Shares the truncated-under-cycle
+// cache caveat documented in resolveExtendsRef.
+function buildConfigLayer(
+  key: string,
+  visited: Set<string>,
+  ctx: ResolveContext,
+): ConfigLayer | null {
+  const mk = mapKey("config", key);
+  const cached = ctx.layerCache.get(mk);
+  if (cached !== undefined) return cached;
+  const entry = ctx.map.get(mk);
+  const parsed =
+    entry && entry.type === "json" && !isScrubbed(entry, ctx)
+      ? parsedEntryValue(entry)
+      : undefined;
+  if (!isPlainObject(parsed)) {
+    ctx.layerCache.set(mk, null);
+    return null;
+  }
+  const layerVisited = new Set([...visited, mk]);
+  const extendsList = parsed[EXTENDS_KEY];
+  const assign: Record<string, unknown> = {};
+  if (Array.isArray(extendsList)) {
+    for (const ref of extendsList) {
+      if (isPlainObject(ref)) {
+        const resolved = resolveValue(ref, layerVisited, ctx);
+        if (isPlainObject(resolved)) Object.assign(assign, resolved);
+        continue;
+      }
+      const r = extendsRef(ref);
+      // `@config:` bases are the linearized layers, not part of this one.
+      if (!r || r.source === "config") continue;
+      const resolved = resolveExtendsRef(r.source, r.key, layerVisited, ctx);
+      if (resolved) Object.assign(assign, resolved);
+    }
+  }
+  const own: ConfigLayer["own"] = [];
+  for (const [k, v] of Object.entries(parsed)) {
+    if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
+    const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
+    if (isUnsafeMergeKey(outKey)) continue;
+    own.push({
+      key: outKey,
+      value: resolveValue(v, layerVisited, ctx),
+      isChunk: isPlainObject(v) && EXTENDS_KEY in v,
+    });
+  }
+  const layer = { assign, own };
+  ctx.layerCache.set(mk, layer);
+  return layer;
+}
+
 function resolveValue(
   value: unknown,
   visited: Set<string>,
@@ -209,57 +375,17 @@ function resolveValue(
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
 
-    // Resolve a referenced JSON (object) constant to its parsed, recursively
-    // resolved value. Returns null when unknown, not JSON, scrubbed
-    // (archived/out-of-scope), part of a cycle, non-parseable, or not an object.
-    // Memoized per pass.
-    const resolveExtendsRef = (
-      source: ConstantSource,
-      key: string,
-    ): Record<string, unknown> | null => {
-      // The map is namespaced by source, so the lookup itself enforces that a
-      // `@config:` ref only resolves a config (and `@const:` only a constant).
-      const mk = mapKey(source, key);
-      const entry = ctx.map.get(mk);
-      if (!entry || entry.type !== "json" || isScrubbed(entry, ctx))
-        return null;
-      if (visited.has(mk)) {
-        ctx.onCycle?.(key);
-        return null;
-      }
-      if (ctx.cache.has(mk)) {
-        const cached = ctx.cache.get(mk);
-        return isPlainObject(cached) ? cached : null;
-      }
-      // Reuse the value parsed once at map-build time (buildConstantValueMap).
-      // Fall back to parsing here for maps built without it (`null` is a valid
-      // parsed value, so only `undefined` triggers the fallback).
-      let parsed = entry.parsed;
-      if (parsed === undefined) {
-        try {
-          parsed = JSON.parse(entry.value);
-        } catch {
-          return null;
-        }
-      }
-      const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
-      // Memoize per pass. Caveat: if this node is first resolved while sitting
-      // beneath a cycle edge, the back-reference was cut (→ null) and the cached
-      // value is truncated; an independent, non-cyclic referrer in the same pass
-      // would then reuse that truncated value. Accepted: cycles are rejected at
-      // write time (assertNoReferenceCycle / ConfigModel.assertNoCycle), so a
-      // stored graph can't actually contain one. See resolveConstants.test.ts.
-      ctx.cache.set(mk, resolved);
-      return isPlainObject(resolved) ? resolved : null;
-    };
-
     const out: Record<string, unknown> = {};
 
-    // `$extends`: merge each referenced object in array order (later refs
-    // override earlier) as the base. Own keys (below) override the merged base,
-    // regardless of where `$extends` appears in the object.
+    // `$extends`: `@const:` refs and inline objects flatten wholesale at their
+    // array position (later overrides earlier — pre-existing semantics).
+    // `@config:` refs instead compose as their linearized base DAG (each config
+    // once, ancestor-first, own keys merged per-key — matching
+    // resolveConfigChain), with all layers applied at the first `@config:`
+    // position. Own keys (below) win last regardless of where `$extends` sits.
     const extendsList = obj[EXTENDS_KEY];
     if (Array.isArray(extendsList)) {
+      let configLayersApplied = false;
       for (const ref of extendsList) {
         // Advanced escape hatch: an inline object literal in the `$extends`
         // list merges as a layer at its array position (so a later reference
@@ -272,18 +398,41 @@ function resolveValue(
         }
         const parsed = extendsRef(ref);
         if (parsed === null) continue;
-        const resolved = resolveExtendsRef(parsed.source, parsed.key);
+        if (parsed.source === "config") {
+          if (configLayersApplied) continue;
+          configLayersApplied = true;
+          const configKeys: string[] = [];
+          for (const r of extendsList) {
+            const pr = extendsRef(r);
+            if (pr?.source === "config") configKeys.push(pr.key);
+          }
+          const layerKeys = linearizeConfigLayers(configKeys, visited, ctx);
+          for (const layerKey of layerKeys) {
+            const layer = buildConfigLayer(layerKey, visited, ctx);
+            if (!layer) continue;
+            Object.assign(out, layer.assign);
+            for (const e of layer.own) {
+              out[e.key] = e.isChunk
+                ? e.value
+                : deepMergePatch(out[e.key], e.value);
+            }
+          }
+          continue;
+        }
+        const resolved = resolveExtendsRef(
+          parsed.source,
+          parsed.key,
+          visited,
+          ctx,
+        );
         if (resolved) Object.assign(out, resolved);
       }
     }
 
     // Own keys deep-merge (targeted patch) onto the merged base — a value
-    // restates only the leaves it changes. Skip `$extends` itself when used as a
-    // merge directive (an array); otherwise treat it as a normal key. A
-    // backtick-escaped reserved key (`` `$extends` ``) emits as the literal key
-    // it escapes, so a genuine data key named `$extends` is expressible. An own
+    // restates only the leaves it changes. Skip `$extends` itself when used as
+    // a merge directive (an array); otherwise treat it as a normal key. An own
     // key whose value is itself a `$extends` chunk is applied wholesale (atomic).
-    const ESCAPED_EXTENDS_KEY = "`" + EXTENDS_KEY + "`";
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
       const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
@@ -317,5 +466,6 @@ export function resolveConstantRefs(
     onCycle,
     featureProject: featureProject || "",
     cache: new Map(),
+    layerCache: new Map(),
   });
 }

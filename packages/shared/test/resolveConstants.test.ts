@@ -674,6 +674,179 @@ describe("resolveConstantRefs — config extends config", () => {
   });
 });
 
+describe("resolveConstantRefs — config DAG linearization (chain parity)", () => {
+  const cfg = (value: string): ConstantValueMapEntry => ({
+    type: "json",
+    source: "config",
+    value,
+    parsed: JSON.parse(value),
+  });
+  const cst = (value: string): ConstantValueMapEntry => ({
+    type: "json",
+    source: "constant",
+    value,
+    parsed: JSON.parse(value),
+  });
+
+  it("resolves a diamond once per ancestor (a child override beats a re-imported root)", () => {
+    const map = nsMap([
+      ["root", cfg('{"a":1,"b":1}')],
+      ["child-a", cfg('{"$extends":["@config:root"],"a":2}')],
+      ["child-b", cfg('{"$extends":["@config:root"],"b":3}')],
+      ["leaf", cfg('{"$extends":["@config:child-a","@config:child-b"]}')],
+    ]);
+    // Chain semantics (linearizeConfigDag + resolveConfigChain): root, child-a,
+    // child-b each contribute their own keys once → child-a's a:2 survives.
+    expect(resolveConstantRefs({ $extends: ["@config:leaf"] }, map)).toEqual({
+      a: 2,
+      b: 3,
+    });
+    // Same when the referring value lists the bases directly.
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@config:child-a", "@config:child-b"] },
+        map,
+      ),
+    ).toEqual({ a: 2, b: 3 });
+  });
+
+  it("deep-merges sibling config bases per key instead of clobbering wholesale", () => {
+    const map = nsMap([
+      ["base-1", cfg('{"cfg":{"x":1}}')],
+      ["base-2", cfg('{"cfg":{"y":2}}')],
+    ]);
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@config:base-1", "@config:base-2"] },
+        map,
+      ),
+    ).toEqual({ cfg: { x: 1, y: 2 } });
+  });
+
+  it("keeps a sibling config's $extends chunk atomic (replaces, no per-key merge)", () => {
+    const map = nsMap([
+      ["chunk", cst('{"x":9}')],
+      ["base-1", cfg('{"k":{"deep":1}}')],
+      ["base-2", cfg('{"k":{"$extends":["@const:chunk"],"extra":2}}')],
+    ]);
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@config:base-1", "@config:base-2"] },
+        map,
+      ),
+    ).toEqual({ k: { x: 9, extra: 2 } });
+  });
+
+  it("keeps a config's own @const base flattening at its layer while linearizing @config bases", () => {
+    const map = nsMap([
+      ["mix", cst('{"m":5,"a":9}')],
+      ["root", cfg('{"a":1,"b":1}')],
+      ["child-a", cfg('{"$extends":["@config:root","@const:mix"],"a":2}')],
+      ["child-b", cfg('{"$extends":["@config:root"],"b":3}')],
+      ["leaf", cfg('{"$extends":["@config:child-a","@config:child-b"]}')],
+    ]);
+    // Layers: root {a:1,b:1} → child-a (mix assigns m:5/a:9, own a:2 wins) →
+    // child-b (own b:3).
+    expect(resolveConstantRefs({ $extends: ["@config:leaf"] }, map)).toEqual({
+      a: 2,
+      b: 3,
+      m: 5,
+    });
+  });
+
+  it("leaves pure-constant $extends chains on flatten semantics (no linearization)", () => {
+    const map = mapOf({
+      root: { type: "json", value: '{"a":1,"b":1}' },
+      "child-a": { type: "json", value: '{"$extends":["@const:root"],"a":2}' },
+      "child-b": { type: "json", value: '{"$extends":["@const:root"],"b":3}' },
+    });
+    // Each @const ref flattens independently and later refs clobber wholesale:
+    // child-b re-imports root's a:1 over child-a's a:2. Pre-existing behavior.
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@const:child-a", "@const:child-b"] },
+        map,
+      ),
+    ).toEqual({ a: 1, b: 3 });
+  });
+
+  it("lets a @const ref after the config refs clobber a config key wholesale (existing position semantics)", () => {
+    const map = nsMap([
+      ["ovr", cst('{"cfg":{"z":9}}')],
+      ["base-1", cfg('{"cfg":{"x":1}}')],
+    ]);
+    expect(
+      resolveConstantRefs({ $extends: ["@config:base-1", "@const:ovr"] }, map),
+    ).toEqual({ cfg: { z: 9 } });
+  });
+
+  it("deep-merges config layers onto keys set by an earlier @const layer", () => {
+    const map = nsMap([
+      ["seed", cst('{"cfg":{"x":1}}')],
+      ["base-2", cfg('{"cfg":{"y":2}}')],
+    ]);
+    expect(
+      resolveConstantRefs({ $extends: ["@const:seed", "@config:base-2"] }, map),
+    ).toEqual({ cfg: { x: 1, y: 2 } });
+  });
+
+  it("skips an archived config layer but keeps ancestors reachable via live paths", () => {
+    const map = nsMap([
+      ["root", cfg('{"a":1,"b":1}')],
+      ["child-a", cfg('{"$extends":["@config:root"],"a":2}')],
+      [
+        "child-b",
+        {
+          type: "json",
+          source: "config",
+          value: "",
+          archived: true,
+        },
+      ],
+      ["leaf", cfg('{"$extends":["@config:child-a","@config:child-b"]}')],
+    ]);
+    expect(resolveConstantRefs({ $extends: ["@config:leaf"] }, map)).toEqual({
+      a: 2,
+      b: 1,
+    });
+  });
+
+  it("does not drag in ancestors reachable only through a scrubbed config", () => {
+    const map = nsMap([
+      ["root", cfg('{"a":1}')],
+      [
+        "child-b",
+        {
+          type: "json",
+          source: "config",
+          value: '{"$extends":["@config:root"],"b":3}',
+          archived: true,
+        },
+      ],
+    ]);
+    expect(resolveConstantRefs({ $extends: ["@config:child-b"] }, map)).toEqual(
+      {},
+    );
+  });
+
+  it("cuts a config DAG cycle, reports it via onCycle, and keeps own keys", () => {
+    const map = nsMap([
+      ["loop-a", cfg('{"$extends":["@config:loop-b"],"a":1}')],
+      ["loop-b", cfg('{"$extends":["@config:loop-a"],"b":2}')],
+    ]);
+    const cycles: string[] = [];
+    expect(
+      resolveConstantRefs(
+        { $extends: ["@config:loop-a"] },
+        map,
+        new Set(),
+        (key) => cycles.push(key),
+      ),
+    ).toEqual({ a: 1, b: 2 });
+    expect(cycles).toEqual(["loop-a"]);
+  });
+});
+
 describe("buildConstantValueMap — source tagging", () => {
   it("tags entries with their source and defaults to constant", () => {
     const map = buildConstantValueMap(

@@ -29,9 +29,36 @@ function localDefName(ref: string): string | null {
 //  - external/unsupported refs (`http://…`, other-file) → `{}` (any)
 //  - unresolvable refs (no matching def) → `{}` (any)
 //  - recursive refs (a def reachable from itself) → `{ type: "object" }` (opaque)
-//  - depth overflow → `{}` (any)
-// Recurses the sub-schema-bearing keywords (properties/items/additionalProperties/
-// anyOf/oneOf/allOf) and strips `$defs`/`definitions` from the output.
+//  - depth overflow → `{}` (any), with a warning
+// Recurses every sub-schema-bearing keyword and strips `$defs`/`definitions`
+// from the output. Keyword lists are explicit so schema-shaped VALUES (`const`,
+// `enum`, `default`, `examples`) are never dereffed.
+
+// keyword → a single schema
+const SCHEMA_KEYWORDS = new Set([
+  "items",
+  "additionalProperties",
+  "not",
+  "if",
+  "then",
+  "else",
+  "propertyNames",
+  "contains",
+]);
+// keyword → a map of schemas
+const SCHEMA_MAP_KEYWORDS = new Set([
+  "properties",
+  "patternProperties",
+  "dependentSchemas",
+]);
+// keyword → a list of schemas
+const SCHEMA_LIST_KEYWORDS = new Set([
+  "anyOf",
+  "oneOf",
+  "allOf",
+  "prefixItems",
+]);
+
 function derefSchema(
   node: unknown,
   defs: Record<string, unknown>,
@@ -39,7 +66,13 @@ function derefSchema(
   depth: number,
   warnings: SchemaWarning[],
 ): unknown {
-  if (depth > MAX_REF_DEPTH) return {};
+  if (depth > MAX_REF_DEPTH) {
+    warnings.push({
+      code: "unresolved-type",
+      message: `$ref resolution exceeded the max depth of ${MAX_REF_DEPTH}; deeper sub-schemas treated as any.`,
+    });
+    return {};
+  }
   if (Array.isArray(node)) {
     return node.map((n) => derefSchema(n, defs, seen, depth + 1, warnings));
   }
@@ -82,22 +115,20 @@ function derefSchema(
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(n)) {
     if (k === "$defs" || k === "definitions") continue; // resolved away
-    if (k === "properties" && v && typeof v === "object" && !Array.isArray(v)) {
+    if (
+      SCHEMA_MAP_KEYWORDS.has(k) &&
+      v &&
+      typeof v === "object" &&
+      !Array.isArray(v)
+    ) {
       const props: Record<string, unknown> = {};
       for (const [pk, pv] of Object.entries(v as Record<string, unknown>)) {
         props[pk] = derefSchema(pv, defs, seen, depth + 1, warnings);
       }
       out[k] = props;
-    } else if (
-      (k === "items" || k === "additionalProperties") &&
-      v &&
-      typeof v === "object"
-    ) {
+    } else if (SCHEMA_KEYWORDS.has(k) && v && typeof v === "object") {
       out[k] = derefSchema(v, defs, seen, depth + 1, warnings);
-    } else if (
-      (k === "anyOf" || k === "oneOf" || k === "allOf") &&
-      Array.isArray(v)
-    ) {
+    } else if (SCHEMA_LIST_KEYWORDS.has(k) && Array.isArray(v)) {
       out[k] = v.map((s) => derefSchema(s, defs, seen, depth + 1, warnings));
     } else {
       out[k] = v;

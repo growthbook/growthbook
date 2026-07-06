@@ -92,11 +92,29 @@ function feat(overrides: Partial<FeatureInterface> = {}): FeatureInterface {
 
 const rule = (value: string): FeatureRule =>
   ({ id: "r", type: "force", value }) as unknown as FeatureRule;
+// Legacy experiment rules store variation values under `values[].value`.
 const expRule = (...values: string[]): FeatureRule =>
   ({
     id: "e",
     type: "experiment",
-    variations: values.map((value) => ({ value })),
+    values: values.map((value) => ({ value, weight: 1 / values.length })),
+  }) as unknown as FeatureRule;
+const expRefRule = (...values: string[]): FeatureRule =>
+  ({
+    id: "er",
+    type: "experiment-ref",
+    experimentId: "exp_1",
+    variations: values.map((value, i) => ({ variationId: `v${i}`, value })),
+  }) as unknown as FeatureRule;
+const safeRolloutRule = (
+  controlValue: string,
+  variationValue: string,
+): FeatureRule =>
+  ({
+    id: "sr",
+    type: "safe-rollout",
+    controlValue,
+    variationValue,
   }) as unknown as FeatureRule;
 
 const ids = (features: FeatureInterface[]) => features.map((f) => f.id).sort();
@@ -124,10 +142,40 @@ describe("featureReferenceTokens", () => {
     const tokens = featureReferenceTokens(
       feat({
         defaultValue: "plain",
-        rules: [rule(constInterp("a")), expRule(constInterp("b"), "lit")],
+        rules: [rule(constInterp("a")), expRefRule(constInterp("b"), "lit")],
       }),
     );
     expect(new Set(tokens)).toEqual(new Set(["constant:a", "constant:b"]));
+  });
+
+  it("extracts references from legacy experiment rule values[].value", () => {
+    const tokens = featureReferenceTokens(
+      feat({
+        defaultValue: "plain",
+        rules: [expRule(constInterp("expref"), "lit")],
+      }),
+    );
+    expect([...tokens]).toEqual(["constant:expref"]);
+  });
+
+  it("extracts references from safe-rollout control and variation values", () => {
+    const tokens = featureReferenceTokens(
+      feat({
+        defaultValue: "plain",
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [
+              safeRolloutRule(constInterp("sr-control"), constInterp("sr-var")),
+            ],
+          },
+          production: { enabled: true, rules: [] },
+        },
+      }),
+    );
+    expect(new Set(tokens)).toEqual(
+      new Set(["constant:sr-control", "constant:sr-var"]),
+    );
   });
 
   it("extracts references from per-environment rules", () => {
@@ -408,7 +456,22 @@ describe("featuresAffectedByResolvable", () => {
       feat({
         id: "varRef",
         defaultValue: "x",
+        rules: [expRefRule("lit", constInterp("c"))],
+      }),
+      feat({
+        id: "expValRef",
+        defaultValue: "x",
         rules: [expRule("lit", constInterp("c"))],
+      }),
+      feat({
+        id: "srControlRef",
+        defaultValue: "x",
+        rules: [safeRolloutRule(constInterp("c"), "lit")],
+      }),
+      feat({
+        id: "srVarRef",
+        defaultValue: "x",
+        rules: [safeRolloutRule("lit", constInterp("c"))],
       }),
       feat({
         id: "envRef",
@@ -429,7 +492,14 @@ describe("featuresAffectedByResolvable", () => {
           "c",
         ),
       ),
-    ).toEqual(["envRef", "ruleRef", "varRef"]);
+    ).toEqual([
+      "envRef",
+      "expValRef",
+      "ruleRef",
+      "srControlRef",
+      "srVarRef",
+      "varRef",
+    ]);
   });
 
   it("matches a feature that references the value only in its holdout", () => {

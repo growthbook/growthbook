@@ -24,6 +24,7 @@ import {
   validateConfigValue,
 } from "../src/util/config-schema";
 import { simpleSchemaFieldToJSONSchema } from "../src/util/features";
+import { splitGoFieldStatements } from "../src/util/config-schema/go-fields";
 
 const field = (over: Partial<SchemaField>): SchemaField => ({
   key: "k",
@@ -220,6 +221,137 @@ describe("jsonSchemaStringToFields", () => {
     expect(JSON.parse(fields[2].jsonSchema as string)).toEqual({});
     expect(warnings.length).toBe(3);
     expect(warnings.every((w) => w.code === "unresolved-type")).toBe(true);
+  });
+
+  it("resolves $refs nested under `not` so the stored subschema is self-contained", () => {
+    const { fields, warnings } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: { a: { type: "string", not: { $ref: "#/$defs/Banned" } } },
+        $defs: { Banned: { enum: ["x"] } },
+      }),
+    );
+    const a = JSON.parse(fields[0].jsonSchema as string);
+    // The $ref must be inlined (no dangling reference to a stripped $def).
+    expect(JSON.stringify(a)).not.toContain("$ref");
+    expect(a.not).toEqual({ enum: ["x"] });
+    expect(warnings).toEqual([]);
+    // The whole point: validation no longer bricks with "can't resolve reference".
+    expect(
+      validateConfigValue({
+        value: { a: "hello" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    expect(
+      validateConfigValue({
+        value: { a: "x" },
+        fields,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("resolves $refs under if/then/else", () => {
+    const { fields } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: {
+          a: {
+            if: { $ref: "#/$defs/Cond" },
+            then: { $ref: "#/$defs/Then" },
+            else: { $ref: "#/$defs/Else" },
+          },
+        },
+        $defs: {
+          Cond: { const: "c" },
+          Then: { type: "string" },
+          Else: { type: "number" },
+        },
+      }),
+    );
+    const a = JSON.parse(fields[0].jsonSchema as string);
+    expect(JSON.stringify(a)).not.toContain("$ref");
+    expect(a.if).toEqual({ const: "c" });
+    expect(a.then).toEqual({ type: "string" });
+    expect(a.else).toEqual({ type: "number" });
+  });
+
+  it("resolves $refs under patternProperties / propertyNames / contains", () => {
+    const { fields } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: {
+          a: {
+            type: "object",
+            patternProperties: { "^x": { $ref: "#/$defs/V" } },
+            propertyNames: { $ref: "#/$defs/N" },
+          },
+          b: { type: "array", contains: { $ref: "#/$defs/V" } },
+        },
+        $defs: {
+          V: { type: "integer" },
+          N: { type: "string" },
+        },
+      }),
+    );
+    const a = JSON.parse(fields[0].jsonSchema as string);
+    const b = JSON.parse(fields[1].jsonSchema as string);
+    expect(JSON.stringify(a)).not.toContain("$ref");
+    expect(JSON.stringify(b)).not.toContain("$ref");
+    expect(a.patternProperties["^x"]).toEqual({ type: "integer" });
+    expect(a.propertyNames).toEqual({ type: "string" });
+    expect(b.contains).toEqual({ type: "integer" });
+  });
+
+  it("resolves $refs under prefixItems / dependentSchemas", () => {
+    const { fields } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: {
+          a: {
+            type: "array",
+            prefixItems: [{ $ref: "#/$defs/First" }],
+          },
+          b: {
+            type: "object",
+            dependentSchemas: { c: { $ref: "#/$defs/Dep" } },
+          },
+        },
+        $defs: {
+          First: { type: "string" },
+          Dep: { type: "object" },
+        },
+      }),
+    );
+    const a = JSON.parse(fields[0].jsonSchema as string);
+    const b = JSON.parse(fields[1].jsonSchema as string);
+    expect(JSON.stringify(a)).not.toContain("$ref");
+    expect(JSON.stringify(b)).not.toContain("$ref");
+    expect(a.prefixItems).toEqual([{ type: "string" }]);
+    expect(b.dependentSchemas.c).toEqual({ type: "object" });
+  });
+
+  it("warns (not silently) when ref resolution overflows the depth cap", () => {
+    // A chain of $defs deeper than MAX_REF_DEPTH forces the depth bail.
+    const depth = 20;
+    const defs: Record<string, unknown> = {};
+    for (let i = 0; i < depth; i++) {
+      defs[`D${i}`] =
+        i === depth - 1
+          ? { type: "string" }
+          : { type: "object", properties: { next: { $ref: `#/$defs/D${i + 1}` } } };
+    }
+    const { warnings } = jsonSchemaStringToFields(
+      JSON.stringify({
+        type: "object",
+        properties: { root: { $ref: "#/$defs/D0" } },
+        $defs: defs,
+      }),
+    );
+    expect(warnings.some((w) => w.code === "unresolved-type")).toBe(true);
+    expect(warnings.some((w) => /depth/i.test(w.message))).toBe(true);
   });
 });
 
@@ -1364,6 +1496,104 @@ type AppConfig struct {
     expect(new Set(names).size).toBe(names.length);
     expect(go).toContain("type Retry struct {");
     expect(go).toContain("type Retry2 struct {");
+  });
+
+  it("does not hoist an inline anonymous struct's inner fields to the parent", () => {
+    const src =
+      `type Cfg struct {
+  Nested struct {
+    Inner int ` +
+      '`json:"inner"`' +
+      `
+  } ` +
+      '`json:"nested"`' +
+      `
+  Name string ` +
+      '`json:"name"`' +
+      `
+}`;
+    const { fields } = golangToFields(src);
+    // "inner" must NOT leak up to the parent; the parent has exactly nested+name.
+    expect(fields.map((f) => f.key).sort()).toEqual(["name", "nested"]);
+    const nested = fields.find((f) => f.key === "nested");
+    // The anonymous struct is preserved as a nested object with its own field.
+    expect(JSON.parse(nested?.jsonSchema as string)).toMatchObject({
+      type: "object",
+      properties: { inner: { type: "integer" } },
+    });
+  });
+});
+
+describe("splitGoFieldStatements", () => {
+  it("splits scalar field lines", () => {
+    const body =
+      `
+  Name string ` +
+      '`json:"name"`' +
+      `
+  Count int ` +
+      '`json:"count"`' +
+      `
+`;
+    const stmts = splitGoFieldStatements(body);
+    expect(stmts.map((s) => s.kind)).toEqual(["scalar", "scalar"]);
+    expect(stmts.map((s) => (s.kind === "scalar" ? s.line : ""))).toEqual([
+      'Name string `json:"name"`',
+      'Count int `json:"count"`',
+    ]);
+  });
+
+  it("collapses an inline anonymous struct into a single field statement", () => {
+    const body =
+      `
+  Nested struct {
+    Inner int ` +
+      '`json:"inner"`' +
+      `
+  } ` +
+      '`json:"nested"`' +
+      `
+  Name string ` +
+      '`json:"name"`' +
+      `
+`;
+    const stmts = splitGoFieldStatements(body);
+    expect(stmts.map((s) => s.kind)).toEqual(["anon-struct", "scalar"]);
+    const anon = stmts[0];
+    if (anon.kind !== "anon-struct") throw new Error("expected anon-struct");
+    expect(anon.name).toBe("Nested");
+    expect(anon.tag).toContain('json:"nested"');
+    // Inner body is returned intact so it can be recursed as a nested object.
+    expect(anon.innerBody).toContain('Inner int `json:"inner"`');
+    // The inner line is NOT emitted as a sibling of the outer struct.
+    expect(
+      stmts.some((s) => s.kind === "scalar" && s.line.startsWith("Inner")),
+    ).toBe(false);
+  });
+
+  it("handles nested anonymous structs (brace-balanced)", () => {
+    const body =
+      `
+  Outer struct {
+    Middle struct {
+      Leaf string ` +
+      '`json:"leaf"`' +
+      `
+    } ` +
+      '`json:"middle"`' +
+      `
+  } ` +
+      '`json:"outer"`' +
+      `
+`;
+    const stmts = splitGoFieldStatements(body);
+    expect(stmts).toHaveLength(1);
+    const anon = stmts[0];
+    if (anon.kind !== "anon-struct") throw new Error("expected anon-struct");
+    expect(anon.name).toBe("Outer");
+    // The full inner body (including the nested Middle struct) is captured.
+    expect(anon.innerBody).toContain("Middle struct {");
+    expect(anon.innerBody).toContain('Leaf string `json:"leaf"`');
   });
 });
 
