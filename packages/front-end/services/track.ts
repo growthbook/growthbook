@@ -92,10 +92,11 @@ const getHost = () => {
   return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
 };
 
-const getURL = () => {
+/** Sanitized page URL for telemetry (pathname only, masked host). */
+export function getTrackingPageUrl(): string {
   const host = getHost();
   return document.location.protocol + "//" + host + location.pathname;
-};
+}
 
 export default function track(
   event: string,
@@ -119,7 +120,7 @@ export default function track(
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: getURL(),
+    url: getTrackingPageUrl(),
     doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
