@@ -9,10 +9,16 @@ import {
   SlackEventWebhookTestResult,
 } from "back-end/src/services/slackBot";
 import {
+  EventWebHookModel,
+  getSlackBotAccessTokenForWebhook,
+} from "back-end/src/models/EventWebhookModel";
+import {
   renderExperimentCard,
   sampleCard,
   CardState,
 } from "back-end/src/services/slack/chartImage";
+import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 
 type PostEventWebhookRequest = AuthRequest<{
   eventWebHookId: string;
@@ -62,7 +68,7 @@ export const postEventWebhook = async (
 type GetChartPreviewRequest = AuthRequest<
   Record<string, never>,
   Record<string, never>,
-  { state?: string }
+  { state?: string; experimentId?: string }
 >;
 
 const CARD_STATES: CardState[] = [
@@ -74,12 +80,12 @@ const CARD_STATES: CardState[] = [
   "warning",
 ];
 
-// Phase 2 POC: render a sample experiment card to PNG so the output quality of
-// the Satori + resvg pipeline can be eyeballed in a browser. `?state=` picks
-// which card state to preview (default "winner").
+// Render an experiment card to PNG for eyeballing in a browser. With
+// `?experimentId=` it renders real snapshot data; otherwise `?state=` picks a
+// sample card state (default "winner").
 export const getChartPreview = async (
   req: GetChartPreviewRequest,
-  res: Response,
+  res: Response<Buffer | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -87,15 +93,76 @@ export const getChartPreview = async (
     context.permissions.throwPermissionError();
   }
 
-  const requested = req.query.state;
-  const state: CardState =
-    requested && CARD_STATES.includes(requested as CardState)
-      ? (requested as CardState)
-      : "winner";
+  const experimentId = req.query.experimentId;
+  const card = experimentId
+    ? await buildExperimentCardData(context, experimentId)
+    : sampleCard(
+        CARD_STATES.includes(req.query.state as CardState)
+          ? (req.query.state as CardState)
+          : "winner",
+      );
 
-  const png = await renderExperimentCard(sampleCard(state));
+  if (!card) {
+    return res
+      .status(404)
+      .json({ message: "Experiment not found or has no results yet" });
+  }
 
+  const png = await renderExperimentCard(card);
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "no-store");
   res.send(png);
+};
+
+type PostChartToSlackRequest = AuthRequest<{ experimentId: string }>;
+
+// Render a real experiment card and post it to the org's connected Slack
+// channel — end-to-end test of the snapshot→card→upload→image-block path.
+export const postChartToSlack = async (
+  req: PostChartToSlackRequest,
+  res: Response<{ posted: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const card = await buildExperimentCardData(context, req.body.experimentId);
+  if (!card) {
+    return res
+      .status(404)
+      .json({ message: "Experiment not found or has no results yet" });
+  }
+
+  const webhook = await EventWebHookModel.findOne({
+    organizationId: context.org.id,
+    payloadType: "slack",
+  }).lean();
+  const channelId = (webhook?.slack as { channelId?: string } | undefined)
+    ?.channelId;
+  if (!webhook || !channelId) {
+    return res
+      .status(400)
+      .json({ message: "No connected Slack channel for this organization" });
+  }
+  const token = await getSlackBotAccessTokenForWebhook({
+    eventWebHookId: webhook.id,
+    organizationId: context.org.id,
+  });
+  if (!token) {
+    return res.status(400).json({ message: "Slack bot token unavailable" });
+  }
+
+  const png = await renderExperimentCard(card);
+  const posted = await postExperimentCardImage({
+    token,
+    channel: channelId,
+    organizationId: context.org.id,
+    png,
+    altText: `${card.name} — experiment results`,
+    fallbackText: `${card.name}: results card couldn't be hosted (Slack needs a public image URL — configure S3/GCS uploads).`,
+  });
+
+  res.json({ posted });
 };
