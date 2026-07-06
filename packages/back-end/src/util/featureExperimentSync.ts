@@ -10,6 +10,7 @@ import {
   removePendingFeatureDraftFromExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 const OPEN_DRAFT_STATUSES = new Set([
   "draft",
@@ -76,47 +77,56 @@ export async function syncFeatureExperimentLinkages(
     const liveExpIds = new Set(getExperimentIdsFromRules(liveRevision?.rules));
     const allExpIds = new Set([...liveExpIds, ...draftVersionsByExp.keys()]);
 
-    for (const experimentId of allExpIds) {
-      const experiment = await getExperimentById(context, experimentId);
-      if (!experiment) continue;
+    // Each experimentId is independent (no shared mutable state between
+    // iterations), so this is safe to run with bounded concurrency instead
+    // of one-at-a-time — features with many revisions can reference
+    // thousands of distinct experiments, and a fully sequential loop here
+    // was taking a very long time and holding memory the whole way through.
+    await promiseAllChunks(
+      Array.from(allExpIds).map((experimentId) => async () => {
+        const experiment = await getExperimentById(context, experimentId);
+        if (!experiment) return;
 
-      if (!experiment.linkedFeatures?.includes(featureId)) {
-        await addLinkedFeatureToExperiment(
-          context,
-          experimentId,
-          featureId,
-          experiment,
+        if (!experiment.linkedFeatures?.includes(featureId)) {
+          await addLinkedFeatureToExperiment(
+            context,
+            experimentId,
+            featureId,
+            experiment,
+          );
+        }
+
+        const desired =
+          draftVersionsByExp.get(experimentId) ?? new Set<number>();
+        const current = new Set(
+          (experiment.pendingFeatureDrafts ?? [])
+            .filter((d) => d.featureId === featureId)
+            .map((d) => d.revisionVersion),
         );
-      }
 
-      const desired = draftVersionsByExp.get(experimentId) ?? new Set<number>();
-      const current = new Set(
-        (experiment.pendingFeatureDrafts ?? [])
-          .filter((d) => d.featureId === featureId)
-          .map((d) => d.revisionVersion),
-      );
-
-      for (const version of desired) {
-        if (!current.has(version)) {
-          await addPendingFeatureDraftToExperiment(
-            context,
-            experimentId,
-            featureId,
-            version,
-          );
+        for (const version of desired) {
+          if (!current.has(version)) {
+            await addPendingFeatureDraftToExperiment(
+              context,
+              experimentId,
+              featureId,
+              version,
+            );
+          }
         }
-      }
-      for (const version of current) {
-        if (!desired.has(version)) {
-          await removePendingFeatureDraftFromExperiment(
-            context,
-            experimentId,
-            featureId,
-            version,
-          );
+        for (const version of current) {
+          if (!desired.has(version)) {
+            await removePendingFeatureDraftFromExperiment(
+              context,
+              experimentId,
+              featureId,
+              version,
+            );
+          }
         }
-      }
-    }
+      }),
+      10,
+    );
 
     // Strip pendingFeatureDrafts on experiments no longer referenced by any
     // live or draft rule. linkedFeatures is preserved — removal is user-driven.

@@ -3,6 +3,7 @@ import { ContextualBanditRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 const OPEN_DRAFT_STATUSES = new Set([
   "draft",
@@ -61,32 +62,41 @@ export async function syncFeatureContextualBanditLinkages(
 
     const cbModel = context.models.contextualBandits;
 
-    for (const cbId of allCbIds) {
-      const cb = await cbModel.getById(cbId);
-      if (!cb) continue;
+    // Each cbId is independent (no shared mutable state between
+    // iterations), so this is safe to run with bounded concurrency instead
+    // of one-at-a-time — features with many revisions can reference
+    // thousands of distinct contextual bandits, and a fully sequential loop
+    // here was taking a very long time and holding memory the whole way
+    // through.
+    await promiseAllChunks(
+      Array.from(allCbIds).map((cbId) => async () => {
+        const cb = await cbModel.getById(cbId);
+        if (!cb) return;
 
-      if (!cb.linkedFeatures?.includes(featureId)) {
-        await cbModel.addLinkedFeature(cbId, featureId);
-      }
-
-      const desired = draftVersionsByCb.get(cbId) ?? new Set<number>();
-      const current = new Set(
-        (cb.pendingFeatureDrafts ?? [])
-          .filter((d) => d.featureId === featureId)
-          .map((d) => d.revisionVersion),
-      );
-
-      for (const version of desired) {
-        if (!current.has(version)) {
-          await cbModel.addPendingFeatureDraft(cbId, featureId, version);
+        if (!cb.linkedFeatures?.includes(featureId)) {
+          await cbModel.addLinkedFeature(cbId, featureId);
         }
-      }
-      for (const version of current) {
-        if (!desired.has(version)) {
-          await cbModel.removePendingFeatureDraft(cbId, featureId, version);
+
+        const desired = draftVersionsByCb.get(cbId) ?? new Set<number>();
+        const current = new Set(
+          (cb.pendingFeatureDrafts ?? [])
+            .filter((d) => d.featureId === featureId)
+            .map((d) => d.revisionVersion),
+        );
+
+        for (const version of desired) {
+          if (!current.has(version)) {
+            await cbModel.addPendingFeatureDraft(cbId, featureId, version);
+          }
         }
-      }
-    }
+        for (const version of current) {
+          if (!desired.has(version)) {
+            await cbModel.removePendingFeatureDraft(cbId, featureId, version);
+          }
+        }
+      }),
+      10,
+    );
 
     await cbModel.clearStalePendingFeatureDrafts(
       featureId,
