@@ -45,6 +45,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
@@ -1204,22 +1205,23 @@ export async function updateRevision(
       featureId: revision.featureId,
       status: { $nin: ["discarded"] },
     })
-      .then((docs) =>
-        syncFeatureExperimentLinkages(
-          context,
-          revision.featureId,
-          docs.map((d) => ({
-            version: d.version,
-            status: d.status,
-            rules: d.rules,
-          })),
-        ),
-      )
+      .then((docs) => {
+        const summaries = docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        }));
+        return Promise.all([
+          syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+          syncFeatureContextualBanditLinkages(
+            context,
+            revision.featureId,
+            summaries,
+          ),
+        ]);
+      })
       .catch((e) => {
-        logger.error(
-          e,
-          "syncFeatureExperimentLinkages failed in updateRevision",
-        );
+        logger.error(e, "feature linkage sync failed in updateRevision");
       });
   }
 
@@ -2301,22 +2303,23 @@ export async function discardRevision(
     featureId: revision.featureId,
     status: { $nin: ["discarded"] },
   })
-    .then((docs) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
-      ),
-    )
+    .then((docs) => {
+      const summaries = docs.map((d) => ({
+        version: d.version,
+        status: d.status,
+        rules: d.rules,
+      }));
+      return Promise.all([
+        syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+        syncFeatureContextualBanditLinkages(
+          context,
+          revision.featureId,
+          summaries,
+        ),
+      ]);
+    })
     .catch((e) => {
-      logger.error(
-        e,
-        "syncFeatureExperimentLinkages failed in discardRevision",
-      );
+      logger.error(e, "feature linkage sync failed in discardRevision");
     });
 }
 

@@ -59,6 +59,7 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
+  ContextualBanditInterface,
   SdkConnectionCacheAuditContext,
   ApiEventUser,
   apiFeatureRevisionValidator,
@@ -160,6 +161,7 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  cbMap,
   includeDraftExperimentRefs,
   rampMonitoredRuleMap,
 }: {
@@ -188,6 +190,7 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  cbMap?: Map<string, ContextualBanditInterface>;
   includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
@@ -233,6 +236,7 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
+      cbMap,
       constantMap: constantMap ?? undefined,
       onConstantCycle: (key) => {
         if (reportedCycles.has(key)) return;
@@ -1258,6 +1262,28 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
+  let cbMap: Map<string, ContextualBanditInterface> | undefined;
+  const cbIdsFromRules: string[] = [];
+  for (const feature of filteredFeatures) {
+    const rules = feature.rules ?? [];
+    for (const rule of rules) {
+      if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
+        cbIdsFromRules.push(rule.contextualBanditId);
+      }
+    }
+  }
+  const cbIds = Array.from(new Set(cbIdsFromRules));
+  if (cbIds.length > 0) {
+    const cbDocs = await Promise.all(
+      cbIds.map((id) => context.models.contextualBandits.getById(id)),
+    );
+    cbMap = new Map(
+      cbDocs
+        .filter((cb): cb is ContextualBanditInterface => cb !== null)
+        .map((cb) => [cb.id, cb]),
+    );
+  }
+
   const featureDefinitions = generateFeaturesPayload({
     features: filteredFeatures,
     environment,
@@ -1282,6 +1308,7 @@ export async function buildSDKPayloadForConnection(
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
     projectsMap,
+    cbMap,
     rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
 
@@ -1943,6 +1970,13 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         experimentId: rule.experimentId,
         sparse: rule.sparse,
       };
+    case "contextual-bandit-ref":
+      return {
+        ...base,
+        type: "contextual-bandit-ref",
+        variations: rule.variations,
+        contextualBanditId: rule.contextualBanditId,
+      };
     case "safe-rollout":
       return {
         ...base,
@@ -2061,7 +2095,10 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
       ...(config !== null && { config }),
     };
   }
-  if (scoped.type === "experiment-ref") {
+  if (
+    scoped.type === "experiment-ref" ||
+    scoped.type === "contextual-bandit-ref"
+  ) {
     return {
       ...scoped,
       variations: scoped.variations.map((v) => {

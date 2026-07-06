@@ -101,6 +101,23 @@ const apiFeatureExperimentRefRuleV2 = z.intersection(
   }),
 );
 
+// Rebuilt (like experiment-ref above) so each variation can carry its own
+// `config`.
+const apiFeatureContextualBanditRefRuleV2 = z.intersection(
+  apiFeatureBaseRuleValidator,
+  z.object({
+    type: z.literal("contextual-bandit-ref"),
+    variations: z.array(
+      z.object({
+        value: z.string(),
+        variationId: z.string(),
+        config: apiRuleConfigField,
+      }),
+    ),
+    contextualBanditId: z.string(),
+  }),
+);
+
 export const apiFeatureRuleV2Validator = namedSchema(
   "FeatureRuleV2",
   z.intersection(
@@ -109,6 +126,7 @@ export const apiFeatureRuleV2Validator = namedSchema(
       apiFeatureRolloutRuleV2,
       apiFeatureExperimentRuleValidator,
       apiFeatureExperimentRefRuleV2,
+      apiFeatureContextualBanditRefRuleV2,
       apiFeatureSafeRolloutRuleValidator,
     ]),
     apiRuleScopeExtension,
