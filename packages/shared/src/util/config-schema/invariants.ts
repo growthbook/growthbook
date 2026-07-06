@@ -1,6 +1,7 @@
 import { evalCondition } from "@growthbook/growthbook";
 import { z } from "zod";
 import { configInvariantValidator } from "../../validators/features";
+import { isUnsafeMergeKey } from "../deep-merge";
 
 export type ConfigInvariant = z.infer<typeof configInvariantValidator>;
 export type InvariantViolation = { name: string; message: string };
@@ -24,7 +25,11 @@ export type InvariantViolation = { name: string; message: string };
 function valueAtPath(obj: unknown, path: string): unknown {
   let current: unknown = obj;
   for (const part of path.split(".")) {
-    if (current && typeof current === "object" && part in current) {
+    if (
+      current &&
+      typeof current === "object" &&
+      Object.prototype.hasOwnProperty.call(current, part)
+    ) {
       current = (current as Record<string, unknown>)[part];
     } else {
       return null;
@@ -54,7 +59,10 @@ function resolveRuleRefs(
       return valueAtPath(value, obj.$ref);
     }
     const out: Record<string, unknown> = {};
-    for (const k of keys) out[k] = resolveRuleRefs(obj[k], value);
+    for (const k of keys) {
+      if (isUnsafeMergeKey(k)) continue;
+      out[k] = resolveRuleRefs(obj[k], value);
+    }
     return out;
   }
   return node;
@@ -261,7 +269,11 @@ function jsonLogicToAst(node: unknown): Ast {
   if ((op === "and" || op === "or") && Array.isArray(arg)) {
     return { k: op, items: arg.map(jsonLogicToAst) };
   }
-  if (op === "!") return { k: "not", item: jsonLogicToAst(arg) };
+  if (op === "!") {
+    // json-logic-js normalizes `{"!": X}` to `{"!": [X]}` — accept both.
+    const inner = Array.isArray(arg) && arg.length === 1 ? arg[0] : arg;
+    return { k: "not", item: jsonLogicToAst(inner) };
+  }
   const cmp = JL_OP_INV[op];
   if (cmp && Array.isArray(arg) && arg.length === 2) {
     const [lhs, rhs] = arg;
@@ -335,7 +347,9 @@ function astToJsonLogic(ast: Ast): Record<string, unknown> {
 
 function celLiteral(v: unknown): string {
   if (v === null) return "null";
-  if (typeof v === "string") return `'${v.replace(/'/g, "\\'")}'`;
+  if (typeof v === "string") {
+    return `'${v.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+  }
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return JSON.stringify(v);
 }

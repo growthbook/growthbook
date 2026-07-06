@@ -99,13 +99,17 @@ export default function ConstantsPage(): React.ReactElement {
     [allConstants, project],
   );
 
-  const constantItems = useAddComputedFields(visibleConstants, (c) => ({
-    ownerName: getOwnerDisplay(c.owner) || "",
-    typeLabel: TYPE_LABEL[c.type],
-    projectNames: c.project
-      ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
-      : [],
-  }));
+  const constantItems = useAddComputedFields(
+    visibleConstants,
+    (c) => ({
+      ownerName: getOwnerDisplay(c.owner) || "",
+      typeLabel: TYPE_LABEL[c.type],
+      projectNames: c.project
+        ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
+        : [],
+    }),
+    [getOwnerDisplay, projects],
+  );
 
   const draftHook = useConstantDraftStates();
   const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;

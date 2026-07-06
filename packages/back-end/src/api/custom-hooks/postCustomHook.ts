@@ -26,8 +26,8 @@ export const postCustomHook = createApiRequestHandler(postCustomHookValidator)(
       hook,
       code,
       enabled: enabled ?? true,
-      // Entity-scoped hooks derive their scope from the entity; keep projects empty.
-      projects: entityType && entityId ? [] : (projects ?? []),
+      // Pass through as-is; the model rejects entity-scoped hooks with projects.
+      projects: projects ?? [],
       ...(entityType !== undefined ? { entityType } : {}),
       ...(entityId !== undefined ? { entityId } : {}),
       ...(includeDescendants !== undefined ? { includeDescendants } : {}),

@@ -44,6 +44,18 @@ describe("getJsonInsertContext", () => {
   it("respects escaped quotes", () => {
     expect(ctx('{ "a": "x\\"y |" }')).toBe("string");
   });
+
+  it("detects object keys as key, not string", () => {
+    expect(ctx('{ "a|": 1 }')).toBe("key");
+    expect(ctx('{ "a": 1, "b|": 2 }')).toBe("key");
+    expect(ctx('{ "a": { "b|": 1 } }')).toBe("key");
+  });
+
+  it("still detects string values after a key", () => {
+    expect(ctx('{ "a": "b|" }')).toBe("string");
+    expect(ctx('{ "a": 1, "b": "c|" }')).toBe("string");
+    expect(ctx('[ "a|" ]')).toBe("string");
+  });
 });
 
 describe("addJsonConstantExtends", () => {
@@ -133,5 +145,13 @@ describe("buildStringRefInsertion", () => {
   it("returns null when no string is within reach", () => {
     expect(run("{ |}", "name")).toBe(null);
     expect(run('{ "a": 12345|6 }', "name")).toBe(null);
+  });
+
+  it("never inserts into an object key", () => {
+    // caret inside a key
+    expect(run('{ "a|bc": 1 }', "name")).toBe(null);
+    // caret adjacent to a key — the ±2 snapping must not land in it
+    expect(run('{ "a":|1 }', "name")).toBe(null);
+    expect(run('{ |"a": 1 }', "name")).toBe(null);
   });
 });

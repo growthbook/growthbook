@@ -113,13 +113,16 @@ export async function runValidateConfigRevisionHooks({
   revision?: ConfigRevisionHookInput;
   original?: ConfigHookInput | null;
 }): Promise<void> {
+  // Args are injected by destructuring, so `revision` must always be bound —
+  // an absent key makes `if (revision)` a ReferenceError inside the hook.
+  // Direct publishes (REST value update, revert) have no revision → null.
   return _runCustomHooks(
     context,
     "validateConfigRevision",
-    revision !== undefined ? { config, revision } : { config },
+    { config, revision: revision ?? null },
     config.project ?? "",
     config.key,
-    original ? { config: original } : undefined,
+    original ? { config: original, revision: revision ?? null } : undefined,
     { parent: config.parent, extends: config.extends },
   );
 }

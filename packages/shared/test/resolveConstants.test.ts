@@ -4,6 +4,12 @@ import {
   ConstantValueMap,
   ConstantValueMapEntry,
 } from "../src/sdk-versioning/resolveConstants";
+import {
+  getConfigBaseKeys,
+  linearizeConfigDag,
+  resolveConfigChain,
+  withConfigExtends,
+} from "../src/util/configs";
 
 // The value map is keyed by `source:key` (see mapKey/buildConstantValueMap), so
 // test maps mirror that. Source defaults to "constant".
@@ -873,5 +879,43 @@ describe("resolveConstantRefs — passthrough", () => {
     const copy = JSON.parse(JSON.stringify(input));
     resolveConstantRefs(input, map);
     expect(input).toEqual(copy);
+  });
+});
+
+// The editor/publish gates resolve via resolveConfigChain while the SDK
+// payload resolves via resolveConstantRefs over `@config:` $extends layers —
+// the two must compose identically or gates disagree with what's served.
+describe("config chain ↔ payload resolution parity", () => {
+  it("resolves a parent + mixin DAG identically on both paths", () => {
+    const configs = [
+      { key: "p", value: '{"opts":{"a":1},"top":1}' },
+      { key: "m", value: '{"opts":{"b":2}}' },
+      { key: "l", parent: "p", extends: ["m"], value: '{"opts":{"c":3}}' },
+    ];
+    const byKey = new Map(configs.map((c) => [c.key, c]));
+
+    const chainValue: Record<string, unknown> = {};
+    for (const f of resolveConfigChain(linearizeConfigDag("l", byKey)).fields) {
+      if (f.source !== null) chainValue[f.key] = f.value;
+    }
+
+    // Payload path: each config's resolvable value synthesizes its bases as
+    // `@config:` $extends entries (see configToResolvable).
+    const map = mapOf(
+      Object.fromEntries(
+        configs.map((c) => [
+          c.key,
+          {
+            type: "json" as const,
+            source: "config" as const,
+            value: withConfigExtends(c.value, getConfigBaseKeys(c)),
+          },
+        ]),
+      ),
+    );
+    const payloadValue = resolveConstantRefs({ $extends: ["@config:l"] }, map);
+
+    expect(chainValue).toEqual({ opts: { a: 1, b: 2, c: 3 }, top: 1 });
+    expect(payloadValue).toEqual(chainValue);
   });
 });

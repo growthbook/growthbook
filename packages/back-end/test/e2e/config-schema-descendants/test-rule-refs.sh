@@ -32,7 +32,7 @@ ORDER_RULE='{"min_replicas": {"$lte": {"$ref": "max_replicas"}}}'
 # passes — so the rule saves fine and ONLY the new warning reveals the typo.
 # (A typo'd rule that fails against null is blocked by the invariant gate with
 # the rule's own message — also fine, but not the silent case.)
-TYPO_RULE='{"max_replicaz": {"$ne": "realtime"}}'
+TYPO_RULE='{"max_replicaz": {"$ne": "x"}}'
 CAP_RULE='{"max_replicas": {"$lte": 20}}'
 
 echo "Setup: base owns min/max_replicas with a min<=max rule"

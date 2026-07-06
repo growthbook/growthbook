@@ -38,7 +38,7 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
-import { resolveScopeFromInput } from "./v2Shared";
+import { assertValidRuleConfigKeys, resolveScopeFromInput } from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   putFeatureRevisionRuleV2Validator,
@@ -86,6 +86,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     }
 
     const oldRule = flatRules[idx];
+
+    await assertValidRuleConfigKeys(
+      req.context,
+      [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
+      revision.defaultValue ?? feature.defaultValue,
+    );
 
     if (oldRule.type === "safe-rollout") {
       const safeRollout = await req.context.models.safeRollout.getById(

@@ -31,12 +31,9 @@ export const listConfigRevisions = createApiRequestHandler(
     );
   }
 
-  let limit: number;
-  let offset: number;
-  if (skipPagination) {
-    limit = req.query.limit ?? 10;
-    offset = req.query.offset ?? 0;
-  } else {
+  let limit = 0;
+  let offset = 0;
+  if (!skipPagination) {
     ({ limit, offset } = validatePagination(req.query));
   }
 
@@ -52,7 +49,7 @@ export const listConfigRevisions = createApiRequestHandler(
       return {
         revisions: [],
         limit: skipPagination ? 0 : limit,
-        offset: skipPagination ? 0 : offset,
+        offset,
         count: 0,
         total: 0,
         hasMore: false,
@@ -79,7 +76,7 @@ export const listConfigRevisions = createApiRequestHandler(
   return {
     revisions: apiRevisions,
     limit: skipPagination ? total : limit,
-    offset: skipPagination ? 0 : offset,
+    offset,
     count: apiRevisions.length,
     total,
     hasMore,

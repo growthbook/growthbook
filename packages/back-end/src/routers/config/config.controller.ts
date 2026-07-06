@@ -57,9 +57,11 @@ import {
 } from "back-end/src/services/configReconcile";
 import {
   assertConfigValueValid,
+  assertConfigValueValidForCreate,
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
@@ -432,19 +434,21 @@ export const postConfig = async (
   // customer validateConfig hooks — same as the REST create path, so a config
   // saved from the UI can't persist a value that violates its own schema.
   const storedValue = stripConfigExtends(body.value);
-  await assertConfigValueValid(
-    context,
-    {
-      key: body.key,
-      name: body.name,
-      value: storedValue,
-      schema: normalizedSchema,
-      parent: parent || undefined,
-      extends: extendsKeys,
-      extensible: body.extensible,
-    },
-    { value: storedValue },
-  );
+  const createLeaf = {
+    key: body.key,
+    name: body.name,
+    value: storedValue,
+    schema: normalizedSchema,
+    parent: parent || undefined,
+    extends: extendsKeys,
+    extensible: body.extensible,
+  };
+  await assertConfigValueValid(context, createLeaf, { value: storedValue });
+  // Creation goes live immediately, so also enforce required fields +
+  // cross-field invariants (the publish-time checks).
+  await assertConfigValueValidForCreate(context, createLeaf, {
+    value: storedValue,
+  });
   await runValidateConfigHooks({
     context,
     config: {
@@ -714,6 +718,33 @@ export const putConfig = async (
     return res.status(200).json({ status: 200 });
   }
 
+  // Customer validateConfig hooks gate updates too (matching the feature
+  // analog and the create path); `original` carries the stored state so
+  // incremental hooks can diff.
+  await runValidateConfigHooks({
+    context,
+    config: {
+      key: proposed.key,
+      name: proposed.name,
+      project: proposed.project || "",
+      value: proposed.value,
+      schema: proposed.schema,
+      parent: proposed.parent || undefined,
+      extends: proposed.extends,
+      extensible: proposed.extensible,
+    },
+    original: {
+      key: existing.key,
+      name: existing.name,
+      project: existing.project || "",
+      value: existing.value,
+      schema: existing.schema,
+      parent: existing.parent || undefined,
+      extends: existing.extends,
+      extensible: existing.extensible,
+    },
+  });
+
   await ensureLiveRevisionExists(
     context,
     "config",
@@ -841,9 +872,23 @@ export const putConfig = async (
         await reconcileConfigDescendants(context, existing.key);
       }
 
+      await dispatchConfigRevisionEvent(context, revision, {
+        type: revision.revertedFrom ? "reverted" : "published",
+      });
+
       return res.status(200).json({ status: 200, revision });
     }
   }
+
+  // Draft path (approval required, no immediate merge). Fire created/updated so
+  // the draft lifecycle is observable via webhooks even from the internal UI.
+  const updatedExisting =
+    wantsDraft && !bypassApproval && !autoPublish && !!revisionId;
+  await dispatchConfigRevisionEvent(
+    context,
+    revision,
+    updatedExisting ? { type: "updated" } : { type: "created" },
+  );
 
   return res.status(202).json({
     status: 202,

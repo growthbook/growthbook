@@ -1,6 +1,10 @@
 import { isEqual } from "lodash";
 import { ConfigInterface } from "shared/types/config";
-import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import {
+  Revision,
+  getConstantRevisionChange,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import {
   constantRequiresReview,
   constantResetReviewOnChange,
@@ -234,6 +238,30 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     if (touchesLineageOrSchema) {
       await reconcileConfigDescendants(context, entity.key);
     }
+  },
+
+  // Self-heal path: a retry after applyChanges wrote the root but failed before
+  // (or during) the descendant cascade arrives here with no net change, so
+  // applyChanges — and its cascade — would never run. Replay the reconcile
+  // (idempotent) whenever the revision touched schema or lineage.
+  async beforeNoOpMerge(
+    context: Context,
+    entity: ConfigInterface,
+    revision: Revision,
+  ): Promise<void> {
+    const touchesLineageOrSchema = normalizeProposedChanges(
+      revision.target.proposedChanges,
+    ).some((op) =>
+      ["schema", "parent", "extends"].includes(op.path.split("/")[1]),
+    );
+    if (!touchesLineageOrSchema) return;
+    await reconcileConfigDescendants(context, entity.key);
+  },
+
+  // Arming a scheduled publish on a locked config would just fail at every
+  // poller tick — reject up front (the REST schedule handler does the same).
+  assertSchedulable(context: Context, entity: ConfigInterface): void {
+    assertConfigNotLocked(entity);
   },
 
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full

@@ -129,7 +129,10 @@ export default function ConstantModal({
               body: JSON.stringify({
                 name: values.name,
                 owner: values.owner,
-                description: values.description || undefined,
+                // The PUT controller treats `undefined` as untouched; send an
+                // explicit "" when clearing a previously-set description.
+                description:
+                  values.description || (existing.description ? "" : undefined),
                 project: values.project,
               }),
             },

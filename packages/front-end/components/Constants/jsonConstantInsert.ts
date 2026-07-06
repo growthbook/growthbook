@@ -4,17 +4,22 @@
 import { formatJsonMultilineObjects } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 
-export type JsonInsertContext = "string" | "object" | "array" | "none";
+export type JsonInsertContext = "string" | "key" | "object" | "array" | "none";
 
 // Classify where `offset` sits within `text` (a JSON document mid-edit):
-// inside a "string" literal, directly inside an "object"/"array", or "none".
+// inside a string-literal value ("string"), inside an object KEY ("key" —
+// never a valid insertion point), directly inside an "object"/"array", or
+// "none".
 export function getJsonInsertContext(
   text: string,
   offset: number,
 ): JsonInsertContext {
   let inString = false;
+  let stringIsKey = false;
   let escaped = false;
-  const stack: ("object" | "array")[] = [];
+  // For objects, `expectingKey` tracks whether the next string opens a key
+  // (true after `{` or `,`, false once the pending pair's `:` is seen).
+  const stack: { type: "object" | "array"; expectingKey?: boolean }[] = [];
   for (let i = 0; i < offset && i < text.length; i++) {
     const ch = text[i];
     if (inString) {
@@ -23,13 +28,18 @@ export function getJsonInsertContext(
       else if (ch === '"') inString = false;
       continue;
     }
-    if (ch === '"') inString = true;
-    else if (ch === "{" || ch === "[")
-      stack.push(ch === "{" ? "object" : "array");
+    const top = stack[stack.length - 1];
+    if (ch === '"') {
+      inString = true;
+      stringIsKey = top?.type === "object" && top.expectingKey !== false;
+    } else if (ch === "{") stack.push({ type: "object", expectingKey: true });
+    else if (ch === "[") stack.push({ type: "array" });
     else if (ch === "}" || ch === "]") stack.pop();
+    else if (ch === ":" && top?.type === "object") top.expectingKey = false;
+    else if (ch === "," && top?.type === "object") top.expectingKey = true;
   }
-  if (inString) return "string";
-  return stack.length ? stack[stack.length - 1] : "none";
+  if (inString) return stringIsKey ? "key" : "string";
+  return stack.length ? stack[stack.length - 1].type : "none";
 }
 
 export type ConstantInsertion = { index: number; text: string };

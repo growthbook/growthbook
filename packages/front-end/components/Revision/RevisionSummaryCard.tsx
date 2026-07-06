@@ -26,6 +26,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
 import RevisionLabel, {
@@ -164,9 +165,11 @@ export default function RevisionSummaryCard({
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(selectedRevision?.title || "");
+  const [actionError, setActionError] = useState<string | null>(null);
   useEffect(() => {
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
+    setActionError(null);
   }, [selectedRevision?.id, selectedRevision?.title]);
 
   const commitTitleEdit = async () => {
@@ -174,7 +177,12 @@ export default function RevisionSummaryCard({
     setEditingTitle(false);
     const next = titleDraft.trim();
     if (next !== (selectedRevision.title ?? "")) {
-      await onTitleCommit(selectedRevision.id, next);
+      try {
+        setActionError(null);
+        await onTitleCommit(selectedRevision.id, next);
+      } catch (e) {
+        setActionError(e.message);
+      }
     }
   };
 
@@ -472,7 +480,12 @@ export default function RevisionSummaryCard({
           </Flex>
           <Flex align="center" justify="end" gap="4" flexGrow="1">
             {isLive && onNewDraft && (
-              <Button onClick={onNewDraft} size="sm" variant="soft">
+              <Button
+                onClick={onNewDraft}
+                setError={setActionError}
+                size="sm"
+                variant="soft"
+              >
                 New Draft
               </Button>
             )}
@@ -480,6 +493,11 @@ export default function RevisionSummaryCard({
             {isDraft && <div ref={ctaSlotRef} />}
           </Flex>
         </Flex>
+        {actionError && (
+          <Callout status="error" mt="2">
+            {actionError}
+          </Callout>
+        )}
         <Separator size="4" my="3" />
         <Flex direction="column">
           <Flex

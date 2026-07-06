@@ -190,15 +190,9 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
-   * Return the existing contributors[] with `userId` appended (deduplicated).
-   * Used to track every user who edited a revision's content. The author is
-   * always included (seeded in `beforeCreate`).
-   *
-   * NOTE: This is read-modify-write; safe today because only one user can edit
-   * a draft at a time (see PUT /revision/:id/proposed-changes which enforces
-   * authorId === userId). If multiple users ever become able to edit a
-   * single draft concurrently, switch to an atomic `$addToSet` against the
-   * underlying collection.
+   * Pure helper: contributors[] with `userId` appended (deduplicated). Used only
+   * to compose the returned doc — the persisted write goes through the atomic
+   * `addContributor` so concurrent edits can't drop a contributor.
    */
   private withContributor(
     existing: Revision["contributors"],
@@ -206,6 +200,30 @@ export class RevisionModel extends BaseClass {
   ): string[] {
     const list = existing ?? [];
     return list.includes(userId) ? list : [...list, userId];
+  }
+
+  // Atomic $addToSet — a read-modify-write $set of the whole array could drop a
+  // concurrent editor and defeat blockSelfApproval.
+  private async addContributor(id: string, userId: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      { $addToSet: { contributors: userId } },
+    );
+  }
+
+  // The revision pipeline only models top-level add/replace ops end-to-end;
+  // remove/move/copy/test are dropped at merge time (buildMergeDesiredState) and
+  // invisible to conflict detection, so accepting them at save would silently
+  // discard the change at publish. Reject at the save boundary; already-stored
+  // docs are unaffected (read paths stay permissive).
+  private assertSupportedPatchOps(ops: JsonPatchOperation[]): void {
+    for (const op of ops) {
+      if (op.op !== "replace" && op.op !== "add") {
+        throw new Error(
+          `Unsupported patch operation "${op.op}" — only top-level "replace" and "add" operations are supported`,
+        );
+      }
+    }
   }
 
   /**
@@ -718,7 +736,7 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "pending-review",
       // Submitting (or re-submitting from changes-requested) starts a fresh
       // review cycle — demote any prior verdicts.
@@ -746,6 +764,20 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    // Submitting with the flag off must scrub any prior dated schedule + locks
+    // (this.update can only flip the flag) — otherwise a later re-arm could
+    // resurrect a stale schedule. Mirrors setAutoPublishOnApproval's disarm.
+    if (
+      !autoPublishOnApproval &&
+      (existing.autoPublishOnApproval ||
+        (existing.scheduledPublishAt ?? null) !== null)
+    ) {
+      const refreshed = await this.disarmScheduledPublish(id);
+      if (refreshed) return refreshed;
+    }
+
+    return updated;
   }
 
   // Arm/disarm auto-publish-on-approval after a draft has already been
@@ -1095,8 +1127,16 @@ export class RevisionModel extends BaseClass {
     proposedChanges: JsonPatchOperation[],
     userId: string,
   ) {
+    this.assertSupportedPatchOps(proposedChanges);
+
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
+
+    if (existing.status === "merged" || existing.status === "discarded") {
+      throw new Error(
+        "Cannot update proposed changes on a discarded or merged revision",
+      );
+    }
 
     // A draft frozen by a pending scheduled publish can't take content edits.
     // Rebasing is still allowed (it goes through `rebase`, not this method) so a
@@ -1113,13 +1153,12 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges,
       },
-      contributors: this.withContributor(existing.contributors, userId),
       // An approval reset starts a new cycle — demote the prior verdicts.
       ...(status
         ? { status, reviews: this.staleVerdicts(existing.reviews) }
@@ -1140,6 +1179,12 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.addContributor(id, userId);
+    return {
+      ...updated,
+      contributors: this.withContributor(updated.contributors, userId),
+    };
   }
 
   async rebase(
@@ -1157,13 +1202,12 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
         proposedChanges: newProposedChanges,
       },
-      contributors: this.withContributor(existing.contributors, userId),
       // An approval reset starts a new cycle — demote the prior verdicts.
       ...(status
         ? { status, reviews: this.staleVerdicts(existing.reviews) }
@@ -1185,6 +1229,12 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.addContributor(id, userId);
+    return {
+      ...updated,
+      contributors: this.withContributor(updated.contributors, userId),
+    };
   }
 
   // Merge / close / reopen
@@ -1282,6 +1332,79 @@ export class RevisionModel extends BaseClass {
       if (refreshed) return refreshed;
     }
     return closed;
+  }
+
+  /**
+   * Roll a just-merged revision back to its pre-merge state after applyChanges
+   * failed. Unlike `reopen`, restores the prior status (so an approval isn't
+   * lost) and re-arms any schedule `merge` scrubbed — otherwise a fire-time
+   * failure would permanently kill the schedule (the poller only sees
+   * autoPublishOnApproval:true) instead of retrying next tick.
+   *
+   * Status-guarded raw write: only applies while the doc is still "merged" from
+   * the failed publish; returns null if something else moved it concurrently.
+   */
+  async reopenAfterFailedApply(
+    id: string,
+    userId: string,
+    prior: Revision,
+  ): Promise<Revision | null> {
+    const now = new Date();
+    const buildSet = (lockOthers: boolean): Record<string, unknown> => ({
+      status: prior.status,
+      dateUpdated: now,
+      autoPublishOnApproval: !!prior.autoPublishOnApproval,
+      ...(prior.autoPublishEnabledBy
+        ? { autoPublishEnabledBy: prior.autoPublishEnabledBy }
+        : {}),
+      ...((prior.scheduledPublishAt ?? null) !== null
+        ? {
+            scheduledPublishAt: prior.scheduledPublishAt,
+            scheduledPublishLockEdits: !!prior.scheduledPublishLockEdits,
+            scheduledPublishLockOthers: lockOthers,
+            ...(prior.scheduledPublishBypassApproval
+              ? { scheduledPublishBypassApproval: true }
+              : {}),
+          }
+        : {}),
+    });
+
+    const filter = {
+      organization: this.context.org.id,
+      id,
+      status: "merged" as const,
+    };
+    const update = (lockOthers: boolean) => ({
+      $set: buildSet(lockOthers),
+      $unset: { resolution: 1 as const },
+      $push: {
+        activityLog: {
+          id: uniqid("act_"),
+          userId,
+          action: "reopened" as const,
+          description: "Reopened revision — publish failed to apply",
+          dateCreated: now,
+        },
+      },
+    });
+
+    let matchedCount: number;
+    try {
+      ({ matchedCount } = await this._dangerousGetCollection().updateOne(
+        filter,
+        update(!!prior.scheduledPublishLockOthers),
+      ));
+    } catch (e) {
+      // A sibling armed a lock-others schedule while we held the merge; restore
+      // without the lock rather than losing the schedule entirely.
+      if (!isPublishLockIndexConflict(e)) throw e;
+      ({ matchedCount } = await this._dangerousGetCollection().updateOne(
+        filter,
+        update(false),
+      ));
+    }
+    if (!matchedCount) return null;
+    return this.getById(id);
   }
 
   async reopen(id: string, userId: string) {
@@ -1580,6 +1703,8 @@ export class RevisionModel extends BaseClass {
     comment?: string;
     revertedFrom?: string;
   }) {
+    this.assertSupportedPatchOps(target.proposedChanges);
+
     // Normalize the snapshot before validation runs in `_createOne`.
     // BaseModel parses `createValidator` *before* `beforeCreate`, so we can't
     // rely on the in-model `beforeUpdate`-style cleanup to strip legacy

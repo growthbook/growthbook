@@ -5,8 +5,9 @@ import {
 } from "shared/validators";
 import { ConfigInterface } from "shared/types/config";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ApiReqContext } from "back-end/types/api";
+import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -27,10 +28,11 @@ async function buildResponse(context: ApiReqContext, config: ConfigInterface) {
 }
 
 async function setArchivedState(
-  context: ApiReqContext,
+  req: Pick<ApiRequestLocals, "context" | "isJwtAuth">,
   key: string,
   archived: boolean,
 ) {
+  const { context } = req;
   const config = await context.models.configs.getByKey(key);
   if (!config) {
     throw new NotFoundError(`Unable to locate the config: ${key}`);
@@ -65,7 +67,7 @@ async function setArchivedState(
 
   if (approvalRequired) {
     const canBypass =
-      !!context.org.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         context,
         config as unknown as Record<string, unknown>,
@@ -116,9 +118,9 @@ async function setArchivedState(
 }
 
 export const archiveConfig = createApiRequestHandler(archiveConfigValidator)(
-  async (req) => setArchivedState(req.context, req.params.key, true),
+  async (req) => setArchivedState(req, req.params.key, true),
 );
 
 export const unarchiveConfig = createApiRequestHandler(
   unarchiveConfigValidator,
-)(async (req) => setArchivedState(req.context, req.params.key, false));
+)(async (req) => setArchivedState(req, req.params.key, false));

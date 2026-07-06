@@ -139,11 +139,18 @@ export function normalizeField(f: SchemaField): SchemaField {
   if (!keys.every((k) => SIMPLE_SCHEMA_KEYS.has(k))) return f;
   if (obj.multipleOf !== undefined && obj.multipleOf !== 1) return f;
   if (obj.format !== undefined && obj.format !== "number") return f;
-  // `{type:"number"}` with an integer marker is really an integer.
+  // `{type:"number"}` with an integer marker — or an all-integer enum — is
+  // really an integer.
+  const impliesInteger =
+    obj.multipleOf === 1 ||
+    obj.format === "number" ||
+    (Array.isArray(obj.enum) &&
+      obj.enum.some((v) => v !== null) &&
+      obj.enum.every(
+        (v) => v === null || (typeof v === "number" && Number.isInteger(v)),
+      ));
   const type: SchemaField["type"] =
-    simple === "float" && (obj.multipleOf === 1 || obj.format === "number")
-      ? "integer"
-      : simple;
+    simple === "float" && impliesInteger ? "integer" : simple;
 
   const enumValues = Array.isArray(obj.enum)
     ? // `null` is carried by the `nullable` flag, not as an enum member — drop

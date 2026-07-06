@@ -132,9 +132,15 @@ export async function publishRevision(
   // requireRebaseBeforePublish: a diverged revision must rebase first unless the
   // caller can bypass. Gating here covers every internal publish path.
   if (context.org.settings?.requireRebaseBeforePublish && !canBypass) {
-    const snapshot = revision.target.snapshot as Record<string, unknown>;
+    // Normalize both sides via buildSnapshot — the stored snapshot has
+    // null/undefined fields stripped but the live doc doesn't, so a raw
+    // comparison false-positives forever on null-valued live fields.
+    const snapshot = adapter.buildSnapshot(
+      revision.target.snapshot as Record<string, unknown>,
+    );
+    const liveSnapshot = adapter.buildSnapshot(entity);
     const diverged = [...adapter.getUpdatableFields()].some(
-      (key) => !isEqual(snapshot[key], entity[key]),
+      (key) => !isEqual(snapshot[key], liveSnapshot[key]),
     );
     if (diverged) {
       throw new ConflictError(
@@ -178,11 +184,23 @@ export async function publishRevision(
     return !isEqual(desiredState[key], entity[key]);
   });
 
+  // Validate BEFORE claiming the merge so a publish that fails validation (e.g. a
+  // config value violating a cross-field rule) errors without ever marking the
+  // revision merged — it stays open and editable. A bypass/admin-override publish
+  // skips approval, not validation. Runs even for the no-op branch below —
+  // publishing (including a no-op merge) is the gated action, and e.g. a locked
+  // config must not have its latest-merged pointer advanced past the pin.
+  await adapter.assertPublishable?.(context, entity, desiredState, revision, {
+    isRevert: !!revision.revertedFrom,
+  });
+
   // No net change vs the live entity: either a genuine no-op or a retry after a
   // partial publish (changes applied, merge failed). Close it out as merged
   // rather than erroring, so stranded drafts self-heal. Mirrors
   // postSavedGroupRevisionPublish.
   if (!hasChanges) {
+    // Runs before the merge so a failure leaves the draft open and retryable.
+    await adapter.beforeNoOpMerge?.(context, entity, revision);
     const merged = await context.models.revisions.merge(
       revision.id,
       context.userId,
@@ -195,15 +213,6 @@ export async function publishRevision(
     );
     return merged;
   }
-
-  // Validate BEFORE claiming the merge so a publish that fails validation (e.g. a
-  // config value violating a cross-field rule) errors without ever marking the
-  // revision merged — it stays open and editable. A bypass/admin-override publish
-  // skips approval, not validation. This is the primary publish-time gate for the
-  // internal flow; applyChanges keeps its own checks as a post-merge backstop.
-  await adapter.assertPublishable?.(context, entity, desiredState, revision, {
-    isRevert: !!revision.revertedFrom,
-  });
 
   // Claim the merge BEFORE touching the live entity. `merge` is CAS-guarded, so
   // a concurrent discard either lost (status already moved → merge throws here,
@@ -221,12 +230,22 @@ export async function publishRevision(
       isRevert: !!revision.revertedFrom,
     });
   } catch (e) {
-    // Couldn't apply after claiming the merge — reopen so the revision isn't
-    // stranded "merged" with the live entity unchanged. A retry then re-runs
-    // the full publish (and the no-op self-heal path above if it was partially
-    // applied). Best-effort: surface the original error regardless.
+    // Couldn't apply after claiming the merge — roll back to the pre-merge
+    // state so the revision isn't stranded "merged" with the live entity
+    // unchanged. Restores status AND any schedule `merge` scrubbed, so a
+    // fire-time failure holds for the poller's next tick instead of silently
+    // killing the schedule. A retry then re-runs the full publish (and the
+    // no-op self-heal path above if it was partially applied). Best-effort:
+    // surface the original error regardless.
     try {
-      await context.models.revisions.reopen(merged.id, context.userId);
+      const restored = await context.models.revisions.reopenAfterFailedApply(
+        merged.id,
+        context.userId,
+        revision,
+      );
+      if (!restored) {
+        await context.models.revisions.reopen(merged.id, context.userId);
+      }
     } catch {
       // ignore — the original applyChanges error is the one that matters
     }

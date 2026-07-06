@@ -129,6 +129,20 @@ export interface EntityRevisionAdapter<
     options?: { isRevert?: boolean },
   ): Promise<void>;
 
+  /**
+   * Called on the no-op merge path (publish with no net entity change — a
+   * genuine no-op or a retry after a partial apply). `applyChanges` is skipped
+   * there, so side effects it would have run (e.g. cascading a schema change to
+   * descendants that never ran because the first attempt failed mid-way) must
+   * be replayed here. Invoked BEFORE the merge is claimed so a failure leaves
+   * the draft open and retryable. Must be idempotent.
+   */
+  beforeNoOpMerge?(
+    context: Context,
+    entity: TSnapshot,
+    revision: Revision,
+  ): Promise<void>;
+
   // ---------- Scheduled publish (optional overrides; sensible defaults) ----------
 
   /**
@@ -146,4 +160,11 @@ export interface EntityRevisionAdapter<
    * environment-scoped publish permission).
    */
   canPublishRevision?(context: Context, snapshot: TSnapshot): boolean;
+
+  /**
+   * Throws when the LIVE entity can't accept a future publish (e.g. a locked
+   * config) — checked when ARMING a schedule so it's rejected up front instead
+   * of failing at every poller tick. Canceling is never gated.
+   */
+  assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
 }

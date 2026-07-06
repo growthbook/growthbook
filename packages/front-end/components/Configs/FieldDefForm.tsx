@@ -44,6 +44,7 @@ export default function FieldDefForm({
   isNew = false,
   initialValue = "",
   initialNull = false,
+  initialUndefined = false,
   constantContext,
   onCancel,
   onSave,
@@ -56,9 +57,16 @@ export default function FieldDefForm({
   isNew?: boolean;
   initialValue?: string;
   initialNull?: boolean;
+  // The field currently has no value; keep it unset unless the user sets one.
+  initialUndefined?: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   onCancel: () => void;
-  onSave: (field: SchemaField, value?: unknown) => void | Promise<void>;
+  // `unset` = explicitly remove the field's value (distinct from "leave as-is").
+  onSave: (
+    field: SchemaField,
+    value?: unknown,
+    unset?: boolean,
+  ) => void | Promise<void>;
 }): React.ReactElement {
   // Normalize so a raw schema that's really a simple type opens in simple mode.
   // Pretty-print a raw schema once on open so imported/minified schemas show with
@@ -77,7 +85,7 @@ export default function FieldDefForm({
   });
   const [valueText, setValueText] = useState(initialValue);
   const [valueIsNull, setValueIsNull] = useState(initialNull);
-  const [valueIsUndefined, setValueIsUndefined] = useState(false);
+  const [valueIsUndefined, setValueIsUndefined] = useState(initialUndefined);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -215,9 +223,10 @@ export default function FieldDefForm({
       }
     }
     // Parse against the value surface so {type:string} saves a string, not JSON.
-    // `undefined` leaves the value unset (the key is omitted by the caller).
+    // `undefined` + the unset flag tells the caller to delete the value key.
+    const unset = withValue && valueIsUndefined;
     let value: unknown = undefined;
-    if (withValue && valueIsUndefined) {
+    if (unset) {
       value = undefined;
     } else if (withValue && valueIsNull) {
       value = null;
@@ -254,7 +263,7 @@ export default function FieldDefForm({
     setErr(null);
     setSaving(true);
     try {
-      await onSave(normalizeField({ ...field, key: trimmedKey }), value);
+      await onSave(normalizeField({ ...field, key: trimmedKey }), value, unset);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to save field");
     } finally {
@@ -553,7 +562,9 @@ export default function FieldDefForm({
             </Flex>
             {(() => {
               const nullable = fieldIsNullable(field) && !valueIsJson;
-              const optional = field.required === false;
+              // Keep the checkbox visible while checked so a required field
+              // seeded from a valueless state can still be given a value.
+              const optional = field.required === false || valueIsUndefined;
               if (!nullable && !optional) return null;
               return (
                 <Flex mt="1" gap="4" align="center">

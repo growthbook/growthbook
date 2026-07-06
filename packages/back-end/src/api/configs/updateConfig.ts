@@ -17,6 +17,7 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildPatchOps,
   ensureLiveRevisionExists,
@@ -31,6 +32,7 @@ import {
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
 
@@ -242,6 +244,33 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       };
     }
 
+    // Customer validateConfig hooks gate updates too (matching the feature
+    // analog and the create path); `original` carries the stored state so
+    // incremental hooks can diff.
+    await runValidateConfigHooks({
+      context: req.context,
+      config: {
+        key: config.key,
+        name: fieldsToUpdate.name ?? config.name,
+        project: fieldsToUpdate.project ?? config.project ?? "",
+        value: fieldsToUpdate.value ?? config.value,
+        schema: fieldsToUpdate.schema ?? config.schema,
+        parent: effectiveParent || undefined,
+        extends: effectiveExtends,
+        extensible: fieldsToUpdate.extensible ?? config.extensible,
+      },
+      original: {
+        key: config.key,
+        name: config.name,
+        project: config.project ?? "",
+        value: config.value,
+        schema: config.schema,
+        parent: config.parent || undefined,
+        extends: config.extends,
+        extensible: config.extensible,
+      },
+    });
+
     // A direct update publishes immediately, so block it while locked (a no-op
     // update short-circuits above and is unaffected). Unlock to publish changes.
     assertConfigNotLocked(config);
@@ -315,7 +344,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         );
       }
       const canBypass =
-        !!req.organization.settings?.restApiBypassesReviews ||
+        canUseRestApiBypassSetting(req) ||
         adapter.canBypassApproval(
           req.context,
           config as unknown as Record<string, unknown>,

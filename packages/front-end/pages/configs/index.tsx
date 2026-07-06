@@ -100,12 +100,16 @@ export default function ConfigsPage(): React.ReactElement {
     [allConfigs, project],
   );
 
-  const configItems = useAddComputedFields(visibleConfigs, (c) => ({
-    ownerName: getOwnerDisplay(c.owner) || "",
-    projectNames: c.project
-      ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
-      : [],
-  }));
+  const configItems = useAddComputedFields(
+    visibleConfigs,
+    (c) => ({
+      ownerName: getOwnerDisplay(c.owner) || "",
+      projectNames: c.project
+        ? [projects.find((p) => p.id === c.project)?.name ?? c.project]
+        : [],
+    }),
+    [getOwnerDisplay, projects],
+  );
 
   const draftHook = useConfigDraftStates();
   const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;

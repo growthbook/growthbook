@@ -8,6 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
   createOrUpdateRevision,
@@ -133,7 +134,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
           } as unknown as Revision)
         : adapter.isApprovalRequired(req.context);
     canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(req.context, config as Record<string, unknown>);
     if (approvalRequired && !canBypass) {
       throw new BadRequestError(

@@ -490,6 +490,53 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     expect(evaluateInvariants(ok, rules(fromCel))).toHaveLength(0);
     expect(evaluateInvariants(bad, rules(fromJl))).toHaveLength(1);
   });
+
+  it("toCel escapes backslashes in string literals and celToMongo re-parses them", () => {
+    const rule = JSON.stringify({ path: { $eq: "C:\\temp" } });
+    const cel = toCel(rule);
+    expect(cel).toBe("path == 'C:\\\\temp'");
+    expect(celToMongo(cel)).toEqual({ path: { $eq: "C:\\temp" } });
+
+    // A trailing backslash must not escape the closing quote.
+    const trailing = toCel(JSON.stringify({ path: { $eq: "end\\" } }));
+    expect(celToMongo(trailing)).toEqual({ path: { $eq: "end\\" } });
+  });
+
+  it("jsonLogicToMongo accepts array-form negation (json-logic-js normalized shape)", () => {
+    expect(jsonLogicToMongo({ "!": [{ var: "a" }] })).toEqual(
+      jsonLogicToMongo({ "!": { var: "a" } }),
+    );
+    expect(jsonLogicToMongo({ "!": [{ var: "a" }] })).toEqual({
+      $not: { a: { $eq: true } },
+    });
+  });
+
+  it("a $ref to a missing field named after an Object.prototype member resolves to null", () => {
+    const invariants: ConfigInvariant[] = [
+      {
+        name: "r",
+        rule: JSON.stringify({ a: { $eq: { $ref: "toString" } } }),
+        message: "m",
+      },
+    ];
+    // `toString` is absent from the value, so `a` compares against null — the
+    // inherited function must not leak in through the prototype chain.
+    expect(evaluateInvariants({ a: null }, invariants)).toHaveLength(0);
+    expect(evaluateInvariants({ a: 1 }, invariants)).toHaveLength(1);
+  });
+
+  it("skips unsafe keys (__proto__) when resolving rule refs", () => {
+    const invariants: ConfigInvariant[] = [
+      {
+        name: "r",
+        rule: '{"__proto__":{"x":{"$ref":"a"}},"b":{"$eq":{"$ref":"a"}}}',
+        message: "m",
+      },
+    ];
+    expect(evaluateInvariants({ a: 2, b: 2 }, invariants)).toHaveLength(0);
+    expect(evaluateInvariants({ a: 2, b: 3 }, invariants)).toHaveLength(1);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+  });
 });
 
 // $ref resolution and value canonicalization through evaluateInvariants —

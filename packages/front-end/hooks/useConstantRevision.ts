@@ -177,9 +177,12 @@ export function useConstantRevision(
         },
         { revalidate: true },
       ).catch(() => undefined);
+      // The revision may have published immediately (bypass/auto-publish or
+      // revert), which mutates the live entity — refresh it too.
+      constantMutate();
       updateUrl(revision);
     },
-    [mutateRevisions, updateUrl],
+    [mutateRevisions, constantMutate, updateUrl],
   );
 
   const handlePublish = useCallback(

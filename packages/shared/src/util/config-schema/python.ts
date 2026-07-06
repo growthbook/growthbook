@@ -183,14 +183,36 @@ function unwrapOptional(annotation: string): string {
   return m ? m[1].trim() : annotation;
 }
 
-function literalValues(annotation: string): string[] | null {
+// String or numeric Literal members. Mixed/empty/other members (True, None, …)
+// return null so the field falls through to the unresolved-type warning instead
+// of silently importing as `{type:"string", enum:[]}`.
+function literalValues(annotation: string): {
+  type: "string" | "integer" | "number";
+  values: (string | number)[];
+} | null {
   const m = annotation.match(/^Literal\s*\[(.+)\]$/);
   if (!m) return null;
-  const out: string[] = [];
-  const re = /"([^"]*)"|'([^']*)'/g;
+  const strings: string[] = [];
+  const numbers: number[] = [];
+  const re = /"([^"]*)"|'([^']*)'|-?\d+(?:\.\d+)?/g;
   let mm: RegExpExecArray | null;
-  while ((mm = re.exec(m[1]))) out.push(mm[1] ?? mm[2] ?? "");
-  return out;
+  while ((mm = re.exec(m[1]))) {
+    if (mm[1] !== undefined || mm[2] !== undefined) {
+      strings.push(mm[1] ?? mm[2] ?? "");
+    } else {
+      numbers.push(Number(mm[0]));
+    }
+  }
+  if (strings.length > 0 && numbers.length === 0) {
+    return { type: "string", values: strings };
+  }
+  if (numbers.length > 0 && strings.length === 0) {
+    return {
+      type: numbers.every((n) => Number.isInteger(n)) ? "integer" : "number",
+      values: numbers,
+    };
+  }
+  return null;
 }
 
 function annotationToNode(
@@ -206,8 +228,11 @@ function annotationToNode(
 
   const literals = literalValues(annotation);
   if (literals) {
-    const node: Record<string, unknown> = { type: "string", enum: literals };
-    return nullable ? { ...node, type: ["string", "null"] } : node;
+    const node: Record<string, unknown> = {
+      type: literals.type,
+      enum: literals.values,
+    };
+    return nullable ? { ...node, type: [literals.type, "null"] } : node;
   }
 
   const listMatch = annotation.match(/^(?:List|list)\s*\[(.+)\]$/);

@@ -87,7 +87,6 @@ export default function ConfigModal({
   const isBaseConfig = editing
     ? getConfigParentKey(existing ?? {}) === null
     : !(parentKey ?? "");
-  const [error, setError] = useState<string | null>(null);
 
   // Description is opt-in behind a "+ Add a description" link, expanded by
   // default when one already exists.
@@ -165,51 +164,46 @@ export default function ConfigModal({
       close={close}
       cta={editing ? "Save" : "Create"}
       submit={form.handleSubmit(async (values) => {
-        setError(null);
-        try {
-          if (editing && existing) {
-            const res = await apiCall<{ revision?: Revision }>(
-              `/configs/${existing.id}${draft.buildQueryString()}`,
-              {
-                method: "PUT",
-                body: JSON.stringify({
-                  name: values.name,
-                  owner: values.owner,
-                  description: values.description || undefined,
-                  project: values.project,
-                  ...(isBaseConfig ? { extensible: values.extensible } : {}),
-                }),
-              },
-            );
-            await mutateDefinitions();
-            if (onSaved && res?.revision) {
-              await onSaved(res.revision);
-            }
-          } else {
-            await apiCall(`/configs`, {
-              method: "POST",
+        if (editing && existing) {
+          const res = await apiCall<{ revision?: Revision }>(
+            `/configs/${existing.id}${draft.buildQueryString()}`,
+            {
+              method: "PUT",
               body: JSON.stringify({
-                key: values.key,
                 name: values.name,
-                parent: values.parent || undefined,
-                // Dedupe and drop the parent (it's the spine, not a mixin) so we
-                // never submit a self-conflicting composition the backend rejects.
-                extends: (() => {
-                  const cleaned = [...new Set(values.extends)].filter(
-                    (k) => k && k !== values.parent,
-                  );
-                  return cleaned.length ? cleaned : undefined;
-                })(),
+                owner: values.owner,
                 description: values.description || undefined,
-                project: values.project || undefined,
-                ...(values.parent ? {} : { extensible: values.extensible }),
+                project: values.project,
+                ...(isBaseConfig ? { extensible: values.extensible } : {}),
               }),
-            });
-            await mutateDefinitions();
-            await router.push(`/configs/${values.key}`);
+            },
+          );
+          await mutateDefinitions();
+          if (onSaved && res?.revision) {
+            await onSaved(res.revision);
           }
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Failed to save config");
+        } else {
+          await apiCall(`/configs`, {
+            method: "POST",
+            body: JSON.stringify({
+              key: values.key,
+              name: values.name,
+              parent: values.parent || undefined,
+              // Dedupe and drop the parent (it's the spine, not a mixin) so we
+              // never submit a self-conflicting composition the backend rejects.
+              extends: (() => {
+                const cleaned = [...new Set(values.extends)].filter(
+                  (k) => k && k !== values.parent,
+                );
+                return cleaned.length ? cleaned : undefined;
+              })(),
+              description: values.description || undefined,
+              project: values.project || undefined,
+              ...(values.parent ? {} : { extensible: values.extensible }),
+            }),
+          });
+          await mutateDefinitions();
+          await router.push(`/configs/${values.key}`);
         }
       })}
     >
@@ -347,12 +341,6 @@ export default function ConfigModal({
             setValue={(v) => form.setValue("extensible", v)}
           />
         </Box>
-      )}
-
-      {error && (
-        <Callout status="error" mt="2">
-          {error}
-        </Callout>
       )}
     </ModalStandard>
   );

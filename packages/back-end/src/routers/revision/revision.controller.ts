@@ -1139,10 +1139,17 @@ export const postApproveAndPublish = async (
       entity as Record<string, unknown>,
     );
     if (!canBypass) {
-      const snapshot = revision.target.snapshot as Record<string, unknown>;
-      const liveEntity = entity as Record<string, unknown>;
+      // Normalize both sides via buildSnapshot — the stored snapshot has
+      // null/undefined fields stripped but the live doc doesn't, so a raw
+      // comparison false-positives forever on null-valued live fields.
+      const snapshot = adapter.buildSnapshot(
+        revision.target.snapshot as Record<string, unknown>,
+      );
+      const liveSnapshot = adapter.buildSnapshot(
+        entity as Record<string, unknown>,
+      );
       const diverged = [...adapter.getUpdatableFields()].some(
-        (key) => !isEqual(snapshot[key], liveEntity[key]),
+        (key) => !isEqual(snapshot[key], liveSnapshot[key]),
       );
       if (diverged) {
         throw new ConflictError(
@@ -1738,6 +1745,18 @@ export const postSchedulePublish = async (
       return res.status(400).json({
         message: "Request review before scheduling this draft's publish.",
       });
+    }
+  }
+
+  // Arming against an entity that can't accept a future publish (e.g. a locked
+  // config) would just fail at every poller tick — reject up front. Canceling
+  // is never gated.
+  if (!isCancel && adapter.assertSchedulable) {
+    const entity = await adapter
+      .getModel(context)
+      ?.getById(existingRevision.target.id);
+    if (entity) {
+      await adapter.assertSchedulable(context, entity);
     }
   }
 

@@ -5,6 +5,7 @@ import {
   validateScheduleRules,
   setConfigBacking,
   getConfigBackingKey,
+  getConfigSubtree,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -31,6 +32,73 @@ export function assertConfigSchemaCompat({
       "A flag cannot define its own JSON schema while its default value is backed by a config. " +
         "The config's schema is authoritative — detach the config from the default value or remove the flag's jsonSchema.",
     );
+  }
+}
+
+// Matches the key charset the payload resolver accepts (`@config:<key>` refs).
+const CONFIG_KEY_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
+async function requireLiveConfig(
+  context: ApiReqContext,
+  key: string,
+): Promise<void> {
+  if (!CONFIG_KEY_RE.test(key)) {
+    throw new BadRequestError(
+      `Invalid config key "${key}". Keys must be lowercase alphanumeric with hyphens/underscores.`,
+    );
+  }
+  const config = await context.models.configs.getByKey(key);
+  if (!config) {
+    throw new BadRequestError(`Config "${key}" does not exist.`);
+  }
+  if (config.archived) {
+    throw new BadRequestError(
+      `Config "${key}" is archived and cannot back a feature value.`,
+    );
+  }
+}
+
+// A request-supplied config key backing the DEFAULT value may be any live
+// config; it defines the feature's config family.
+export async function assertValidDefaultValueConfigKey(
+  context: ApiReqContext,
+  key: string,
+): Promise<void> {
+  await requireLiveConfig(context, key);
+}
+
+// Request-supplied config keys on rules/variations must resolve to a live
+// config within the feature's family: the default value's backing config or a
+// descendant of it (mirrors the UI's getConfigSubtree constraint). `null`
+// (detach) and `undefined` (no change) entries are skipped.
+export async function assertValidRuleConfigKeys(
+  context: ApiReqContext,
+  configKeys: (string | null | undefined)[],
+  effectiveDefaultValue: string | undefined,
+): Promise<void> {
+  const keys = [
+    ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
+  ];
+  if (!keys.length) return;
+
+  for (const key of keys) {
+    await requireLiveConfig(context, key);
+  }
+
+  const defaultConfigKey = getConfigBackingKey(effectiveDefaultValue);
+  if (defaultConfigKey === null) {
+    throw new BadRequestError(
+      "Rule values can only reference a config when the feature's default value is config-backed.",
+    );
+  }
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(defaultConfigKey, allConfigs));
+  for (const key of keys) {
+    if (!family.has(key)) {
+      throw new BadRequestError(
+        `Config "${key}" is not the feature's default config "${defaultConfigKey}" or one of its descendants.`,
+      );
+    }
   }
 }
 

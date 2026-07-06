@@ -27,6 +27,7 @@ import { validateEnvKeys } from "./postFeature";
 import {
   assertConfigSchemaCompat,
   assertValidProjectId,
+  assertValidRuleConfigKeys,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
@@ -116,6 +117,19 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),
+    );
+
+    // Request-supplied config keys must exist, be live, and belong to the
+    // default config's family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      (req.body.rules ?? []).flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      feature.defaultValue,
     );
 
     const jsonSchema = parseApiJsonSchema(

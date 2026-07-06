@@ -40,7 +40,7 @@ const base = {
 };
 const child = {
   key: "child",
-  name: "Embedded Player",
+  name: "Prod API",
   parent: "base",
   value: '{"retries":5}',
 };
@@ -64,7 +64,7 @@ describe("assertConfigSchemaChangeSafeForDescendants", () => {
     expect(err).toBeInstanceOf(SoftWarningError);
     expect(err.message).toContain("1 descendant config(s)");
     expect(err.message).toContain(
-      '"Embedded Player" (child): overrides removed field(s) "retries"',
+      '"Prod API" (child): overrides removed field(s) "retries"',
     );
     expect(err.warnings).toHaveLength(1);
   });

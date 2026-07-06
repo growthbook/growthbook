@@ -850,15 +850,23 @@ function jsonSchemaNodeToTsExpr(
           childRenderCtx(ctx, k),
         )}`;
 
-      const name = ctx ? ctx.projection.typeNames[ctx.pointer] : undefined;
+      let name = ctx ? ctx.projection.typeNames[ctx.pointer] : undefined;
       if (name && ctx) {
-        if (!ctx.named.has(name)) {
-          ctx.named.set(name, ""); // reserve first (cycle guard)
-          ctx.named.set(
-            name,
-            propEntries.map((e) => `  ${memberExpr(e)};`).join("\n"),
-          );
+        const body = propEntries.map((e) => `  ${memberExpr(e)};`).join("\n");
+        const existing = ctx.named.get(name);
+        if (existing !== undefined && existing !== body) {
+          // Two pointers captured the same name but their schemas have since
+          // diverged — disambiguate like the other converters' `emitted` sets.
+          let n = 2;
+          while (
+            ctx.named.has(`${name}${n}`) &&
+            ctx.named.get(`${name}${n}`) !== body
+          ) {
+            n++;
+          }
+          name = `${name}${n}`;
         }
+        ctx.named.set(name, body);
         return withNull(name);
       }
       return withNull(`{ ${propEntries.map(memberExpr).join("; ")} }`);
@@ -899,7 +907,10 @@ export function fieldsToTsType(
   const lines: string[] = [];
   for (const raw of fields) {
     const f = normalizeField(raw);
-    if (f.description) lines.push(`  /** ${f.description} */`);
+    // Escape `*/` so a description can't terminate the block comment early.
+    if (f.description) {
+      lines.push(`  /** ${f.description.replace(/\*\//g, "*\\/")} */`);
+    }
     const fieldCtx = baseCtx
       ? { ...baseCtx, pointer: `/properties/${jsonPointerEscape(f.key)}` }
       : undefined;

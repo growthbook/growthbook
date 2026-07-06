@@ -23,13 +23,12 @@ import {
   PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import {
-  filterEnvironmentsByFeature,
-  getReviewSetting,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-} from "shared/util";
+} from "shared/enterprise";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";

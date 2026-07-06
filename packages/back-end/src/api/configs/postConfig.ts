@@ -20,6 +20,7 @@ import {
 import { assertKeyAvailable } from "back-end/src/services/constants";
 import {
   assertConfigValueValid,
+  assertConfigValueValidForCreate,
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -135,19 +136,23 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   }
 
   const storedValue = stripConfigExtends(value);
-  await assertConfigValueValid(
-    req.context,
-    {
-      key,
-      name,
-      value: storedValue,
-      schema: normalizedSchema,
-      parent: parent || undefined,
-      extends: extendsKeys,
-      extensible,
-    },
-    { value: storedValue },
-  );
+  const createLeaf = {
+    key,
+    name,
+    value: storedValue,
+    schema: normalizedSchema,
+    parent: parent || undefined,
+    extends: extendsKeys,
+    extensible,
+  };
+  await assertConfigValueValid(req.context, createLeaf, {
+    value: storedValue,
+  });
+  // Creation goes live immediately, so also enforce required fields +
+  // cross-field invariants (the publish-time checks).
+  await assertConfigValueValidForCreate(req.context, createLeaf, {
+    value: storedValue,
+  });
 
   // Cycle rejection is enforced in ConfigModel (covers every write path).
 

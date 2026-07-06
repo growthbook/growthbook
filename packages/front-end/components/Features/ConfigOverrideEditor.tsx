@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { SchemaField } from "shared/types/feature";
+import { deepMergePatch } from "shared/util";
+import { isEqual } from "lodash";
 import {
   PiInfo,
   PiPlusBold,
@@ -39,6 +41,10 @@ type ResolvedResponse = {
 // column (1fr) absorbs the remaining width; its min is generous so JSON editing
 // stays usable in narrower layouts.
 const GRID_TEMPLATE = "150px minmax(280px, 1fr) 110px 64px";
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
 
 function parseOverrides(value: string): Record<string, unknown> | null {
   try {
@@ -82,6 +88,7 @@ function OverrideValueInput({
 
   const [text, setText] = useState<string>(() => textForValue(value, vt));
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [numError, setNumError] = useState<string | null>(null);
 
   if (vt === "boolean") {
     return (
@@ -144,19 +151,32 @@ function OverrideValueInput({
   }
 
   // Numbers can't carry a `@const:` ref, so they stay a plain numeric input.
+  // The draft text stays local; only finite numbers are committed to the patch.
   if (vt === "number") {
     return (
-      <Field
-        type="number"
-        value={text}
-        disabled={disabled}
-        onChange={(e) => {
-          const t = e.target.value;
-          setText(t);
-          const n = Number(t);
-          onChange(t.trim() !== "" && Number.isFinite(n) ? n : t);
-        }}
-      />
+      <Box>
+        <Field
+          type="number"
+          value={text}
+          disabled={disabled}
+          onChange={(e) => {
+            const t = e.target.value;
+            setText(t);
+            const n = Number(t);
+            if (t.trim() !== "" && Number.isFinite(n)) {
+              onChange(n);
+              setNumError(null);
+            } else {
+              setNumError("Enter a valid number");
+            }
+          }}
+        />
+        {numError && (
+          <Text size="small" color="text-mid">
+            {numError}
+          </Text>
+        )}
+      </Box>
     );
   }
 
@@ -211,6 +231,14 @@ function OverrideRow({
   // row above.
   const hasJsonEditor = overridden && !isNull && vt === "json";
 
+  // Object patches deep-merge onto the base at resolve time, so the stored
+  // patch isn't the delivered value. Preview the merged result when they differ.
+  const merged =
+    hasJsonEditor && isPlainObject(base) && isPlainObject(value)
+      ? deepMergePatch(base, value)
+      : null;
+  const showMerged = merged !== null && !isEqual(merged, value);
+
   return (
     <Grid
       columns={GRID_TEMPLATE}
@@ -256,6 +284,20 @@ function OverrideRow({
                 constantContext={constantContext}
                 disabled={disabled}
               />
+            )}
+            {showMerged && (
+              <Box mt="1">
+                <Text as="p" size="small" color="text-low" mb="0">
+                  Nested objects deep-merge onto the config; arrays and scalars
+                  replace.
+                </Text>
+                <Text size="small" color="text-low">
+                  Resolved:{" "}
+                  <code style={{ overflowWrap: "anywhere" }}>
+                    {JSON.stringify(merged)}
+                  </code>
+                </Text>
+              </Box>
             )}
             {nullable && vt !== "json" && (
               <Box mt="1">

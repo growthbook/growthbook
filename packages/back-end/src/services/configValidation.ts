@@ -3,6 +3,7 @@ import {
   linearizeConfigDag,
   getConfigSpineRootKey,
   configIsExtensible,
+  configChainDeclaresReferenceLayer,
   parsePlainJSONObject,
   validateConfigValue,
   findIncompatibleConfigValueKeys,
@@ -145,6 +146,10 @@ async function collectMissingRequiredFields(
     value: rawValue ?? leaf.value,
   } as ConfigInterface);
   const chain = linearizeConfigDag(leaf.key, byKey);
+  // A `@const:`/`@config:` `$extends` layer supplies fields we can't resolve at
+  // gate time, so treat required fields as satisfied (same exemption as
+  // reference-backed own keys).
+  if (configChainDeclaresReferenceLayer(chain)) return [];
   const { effectiveSchema, fields } = resolveConfigChain(chain);
   const resolvedKeys = new Set(
     fields.filter((f) => f.source !== null).map((f) => f.key),
@@ -249,6 +254,20 @@ export async function assertConfigValueValidForPublish(
       extends: leaf.extends,
       extensible: leaf.extensible,
     },
+    // Pre-publish state, so `incrementalChangesOnly` hooks can suppress
+    // errors/warnings that already existed before this change.
+    original: stored
+      ? {
+          key: stored.key,
+          name: stored.name,
+          project: stored.project ?? "",
+          value: stored.value,
+          schema: stored.schema,
+          parent: stored.parent,
+          extends: stored.extends,
+          extensible: stored.extensible,
+        }
+      : null,
     revision: revision
       ? {
           version: revision.version,
@@ -293,6 +312,33 @@ export async function assertConfigValueValidForPublish(
 // EVERY publish path (direct, scheduled publish, autopublish-on-approval) runs
 // them against the revision's *proposed* (draft) resolved value — not the live
 // one. Honors the same block-vs-warn + skip settings as the schema check.
+// Creation is a go-live event: a new config is served immediately, so enforce
+// required fields + cross-field invariants with the same block/warn semantics
+// as publish. Schema conformance is already checked by assertConfigValueValid,
+// and validateConfigRevision hooks are deliberately not run — creation isn't a
+// revision event, and validateConfig hooks already gate creates.
+export async function assertConfigValueValidForCreate(
+  context: Context,
+  leaf: ConfigLeaf,
+  values: ConfigValues,
+): Promise<void> {
+  if (context.skipSchemaValidation) return;
+  const errors = [
+    ...(await collectMissingRequiredFields(context, leaf, values.value)),
+    ...(await collectInvariantViolations(context, leaf, values.value)),
+  ];
+  if (!errors.length) return;
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Creating a config whose value doesn't satisfy the schema:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join("; "));
+}
+
 export async function assertConfigInvariantsValid(
   context: Context,
   leaf: ConfigLeaf,

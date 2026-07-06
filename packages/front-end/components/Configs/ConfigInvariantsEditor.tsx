@@ -20,6 +20,7 @@ import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -350,6 +351,7 @@ export default function ConfigInvariantsEditor({
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [advanced, setAdvanced] = useState(false);
+  const [advancedLocked, setAdvancedLocked] = useState(false);
   const [ruleText, setRuleText] = useState("{}");
   const [kind, setKind] = useState<RuleKind>("single");
   const [groupA, setGroupA] = useState<Group>([
@@ -373,6 +375,7 @@ export default function ConfigInvariantsEditor({
 
   const open = (index: number) => {
     setEditingIndex(index);
+    setAdvancedLocked(false);
     const inv = index >= 0 ? invariants[index] : undefined;
     setName(inv?.name ?? "");
     setMessage(inv?.message ?? "");
@@ -413,10 +416,17 @@ export default function ConfigInvariantsEditor({
     if (checked) {
       setRuleText(JSON.stringify(buildRule(kind, groupA, groupB), null, 2));
       setAdvanced(true);
+      setAdvancedLocked(false);
     } else {
       const b = parseRule(safeParse(ruleText) ?? {});
-      if (b) applyParsed(b);
+      if (!b) {
+        // Switching anyway would discard the raw rule for stale builder state.
+        setAdvancedLocked(true);
+        return;
+      }
+      applyParsed(b);
       setAdvanced(false);
+      setAdvancedLocked(false);
     }
   };
 
@@ -682,11 +692,19 @@ export default function ConfigInvariantsEditor({
         />
       </Flex>
 
+      {advanced && advancedLocked && (
+        <HelperText status="warning" size="sm" mb="2">
+          This rule can&apos;t be shown in the builder — edit it as raw JSON.
+        </HelperText>
+      )}
       {advanced ? (
         <CodeTextArea
           language="json"
           value={ruleText}
-          setValue={setRuleText}
+          setValue={(v) => {
+            setRuleText(v);
+            setAdvancedLocked(false);
+          }}
           minLines={4}
           maxLines={16}
           fontSize="0.75rem"

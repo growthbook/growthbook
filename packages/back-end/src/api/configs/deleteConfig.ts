@@ -2,6 +2,7 @@ import { deleteConfigValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { assertConfigDeletable } from "back-end/src/services/constants";
 
 export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
@@ -16,6 +17,8 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     if (!req.context.permissions.canDeleteConfig(config)) {
       req.context.permissions.throwPermissionError();
     }
+
+    assertConfigNotLocked(config);
 
     // Deleting a live config is production-affecting (dependents lose their
     // backing), so require archiving first unless the org opted into bypass.

@@ -5,8 +5,9 @@ import {
 } from "shared/validators";
 import { ConstantInterface } from "shared/types/constant";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
-import { ApiReqContext } from "back-end/types/api";
+import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
@@ -29,10 +30,11 @@ async function buildResponse(
 }
 
 async function setArchivedState(
-  context: ApiReqContext,
+  req: Pick<ApiRequestLocals, "context" | "isJwtAuth">,
   key: string,
   archived: boolean,
 ) {
+  const { context } = req;
   const constant = await context.models.constants.getByKey(key);
   if (!constant) {
     throw new NotFoundError(`Unable to locate the constant: ${key}`);
@@ -71,7 +73,7 @@ async function setArchivedState(
   // removed, JSON refs dropped) rather than resolving to a value.
   if (approvalRequired) {
     const canBypass =
-      !!context.org.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(context, constant);
     if (!canBypass) {
       throw new BadRequestError(
@@ -122,8 +124,8 @@ async function setArchivedState(
 
 export const archiveConstant = createApiRequestHandler(
   archiveConstantValidator,
-)(async (req) => setArchivedState(req.context, req.params.key, true));
+)(async (req) => setArchivedState(req, req.params.key, true));
 
 export const unarchiveConstant = createApiRequestHandler(
   unarchiveConstantValidator,
-)(async (req) => setArchivedState(req.context, req.params.key, false));
+)(async (req) => setArchivedState(req, req.params.key, false));

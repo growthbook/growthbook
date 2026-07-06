@@ -70,12 +70,13 @@ export function useConstantReferences(
 ): {
   references: ConstantReferences | null;
   loading: boolean;
+  error: Error | null;
 } {
   const { apiCall, orgId } = useAuth();
   const path = constantId ? `/${entity}/${constantId}/references` : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
-  const { data, isLoading } = useSWR<
+  const { data, isLoading, error } = useSWR<
     ConstantReferences & { status: 200 },
     Error
   >(key, () => apiCall(path!, { method: "GET" }), {
@@ -87,5 +88,6 @@ export function useConstantReferences(
   return {
     references: data ?? null,
     loading: isLoading,
+    error: error ?? null,
   };
 }

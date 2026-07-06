@@ -49,7 +49,7 @@ import {
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
-import { resolveScopeFromInput } from "./v2Shared";
+import { assertValidRuleConfigKeys, resolveScopeFromInput } from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   postFeatureRevisionRuleAddV2Validator,
@@ -105,6 +105,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    await assertValidRuleConfigKeys(
+      req.context,
+      [ruleLevelConfig, ...variationConfigs],
+      revision.defaultValue ?? feature.defaultValue,
+    );
 
     if (ruleInput.type === "experiment-ref") {
       const anyMissing = ruleInput.variations.some((v) => !v.variationId);

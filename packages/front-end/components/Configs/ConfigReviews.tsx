@@ -114,10 +114,14 @@ const ConfigReviews: FC = () => {
     return Array.from(authorSet).filter(Boolean);
   }, [rows]);
 
-  const reviewItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-  }));
+  const reviewItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
+    }),
+    [getUserDisplay],
+  );
 
   const {
     items,

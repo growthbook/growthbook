@@ -11,6 +11,8 @@ import {
   ensureConfigBacking,
   getAncestorSchemaKeys,
   getConfigAncestorKeys,
+  findBasePrecedenceInversions,
+  configChainDeclaresReferenceLayer,
   stripAncestorOwnedFields,
   configIsExtensible,
   stripConfigExtends,
@@ -351,6 +353,20 @@ describe("config-backed feature values", () => {
     expect(setConfigBacking(null, "true")).toBe("true");
   });
 
+  it("returns a non-object patch verbatim when attaching (replace semantics)", () => {
+    expect(setConfigBacking("my-cfg", "true")).toBe("true");
+    expect(setConfigBacking("my-cfg", "[1,2]")).toBe("[1,2]");
+  });
+
+  it("still backs an empty patch with just the config ref", () => {
+    expect(setConfigBacking("my-cfg", "")).toBe(
+      '{"$extends":["@config:my-cfg"]}',
+    );
+    expect(setConfigBacking("my-cfg", undefined)).toBe(
+      '{"$extends":["@config:my-cfg"]}',
+    );
+  });
+
   it("getConfigBackingPatch keeps @const: refs while dropping the config", () => {
     expect(
       getConfigBackingPatch('{"$extends":["@config:base","@const:c"],"a":1}'),
@@ -465,6 +481,54 @@ describe("getConfigAncestorKeys", () => {
     expect([...getConfigAncestorKeys({ parent: "ghost" }, byKey)]).toEqual([
       "ghost",
     ]);
+  });
+});
+
+describe("findBasePrecedenceInversions", () => {
+  const bases = (
+    nodes: { key: string; parent?: string; extends?: string[] }[],
+  ) => new Map(nodes.map((n) => [n.key, n]));
+
+  it("flags a later base that is an ancestor of an earlier one", () => {
+    const byKey = bases([
+      { key: "root" },
+      { key: "mid", parent: "root" },
+      { key: "leaf" },
+    ]);
+    expect(
+      findBasePrecedenceInversions({ extends: ["mid", "root"] }, byKey),
+    ).toEqual([{ earlier: "mid", ancestor: "root" }]);
+  });
+
+  it("allows the diamond pattern (earlier base is an ancestor of a later one)", () => {
+    const byKey = bases([{ key: "root" }, { key: "mixin", parent: "root" }]);
+    expect(
+      findBasePrecedenceInversions(
+        { parent: "root", extends: ["mixin"] },
+        byKey,
+      ),
+    ).toEqual([]);
+    expect(
+      findBasePrecedenceInversions({ extends: ["root", "mixin"] }, byKey),
+    ).toEqual([]);
+  });
+
+  it("walks transitive ancestry through extends edges", () => {
+    const byKey = bases([
+      { key: "root" },
+      { key: "a", extends: ["root"] },
+      { key: "b", parent: "a" },
+    ]);
+    expect(
+      findBasePrecedenceInversions({ extends: ["b", "root"] }, byKey),
+    ).toEqual([{ earlier: "b", ancestor: "root" }]);
+  });
+
+  it("returns [] for unknown bases or no bases", () => {
+    expect(
+      findBasePrecedenceInversions({ extends: ["x", "y"] }, bases([])),
+    ).toEqual([]);
+    expect(findBasePrecedenceInversions({}, bases([]))).toEqual([]);
   });
 });
 
@@ -830,10 +894,10 @@ type DagNode = {
 };
 const dagMap = (nodes: DagNode[]) => new Map(nodes.map((n) => [n.key, n]));
 
-const noRealtime = inv(
-  "no-realtime",
-  { stream_priority: { $ne: "realtime" } },
-  "This device tier cannot sustain realtime.",
+const noDebug = inv(
+  "no-debug",
+  { log_level: { $ne: "debug" } },
+  "Production configs cannot run at debug verbosity.",
 );
 
 describe("collectConfigInvariantViolations", () => {
@@ -841,16 +905,16 @@ describe("collectConfigInvariantViolations", () => {
     const byKey = dagMap([
       {
         key: "base",
-        schema: { ...objSchema("stream_priority"), invariants: [noRealtime] },
-        value: '{"stream_priority":"high"}',
+        schema: { ...objSchema("log_level"), invariants: [noDebug] },
+        value: '{"log_level":"info"}',
       },
-      { key: "child", parent: "base", value: '{"stream_priority":"realtime"}' },
+      { key: "child", parent: "base", value: '{"log_level":"debug"}' },
     ]);
     expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
     expect(collectConfigInvariantViolations("child", byKey)).toEqual([
       {
-        name: "no-realtime",
-        message: "This device tier cannot sustain realtime.",
+        name: "no-debug",
+        message: "Production configs cannot run at debug verbosity.",
       },
     ]);
   });
@@ -925,6 +989,66 @@ describe("collectConfigInvariantViolations", () => {
     ]);
     expect(collectConfigInvariantViolations("child", byKey)).toEqual([]);
   });
+
+  it("skips rules over reference-backed fields (raw tokens can't be compared)", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("log_level", "n"),
+          invariants: [
+            inv("must-info", { log_level: "info" }, "must run at info"),
+            inv("cap", { n: { $lte: 5 } }, "cap exceeded"),
+          ],
+        },
+        value: '{"log_level":"@const:level","n":7}',
+      },
+    ]);
+    // The ref-backed rule is skipped; the concrete one still evaluates.
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([
+      { name: "cap", message: "cap exceeded" },
+    ]);
+  });
+
+  it("skips rules over interpolated ({{ @const:... }}) fields too", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          ...objSchema("log_level"),
+          invariants: [inv("must-info", { log_level: "info" }, "must info")],
+        },
+        value: '{"log_level":"{{ @const:level }}"}',
+      },
+    ]);
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
+  });
+});
+
+describe("configChainDeclaresReferenceLayer", () => {
+  it("detects a @const $extends layer on any chain node", () => {
+    const chain: ConfigChainNode[] = [
+      { key: "base", value: '{"a":1}' },
+      { key: "leaf", value: '{"$extends":["@const:defaults"],"b":2}' },
+    ];
+    expect(configChainDeclaresReferenceLayer(chain)).toBe(true);
+  });
+
+  it("returns false when no node declares a reference layer", () => {
+    const chain: ConfigChainNode[] = [
+      { key: "base", value: '{"a":1}' },
+      { key: "leaf", value: '{"b":"@const:x"}' },
+      { key: "other", value: undefined },
+    ];
+    expect(configChainDeclaresReferenceLayer(chain)).toBe(false);
+  });
+
+  it("ignores non-reference $extends entries", () => {
+    const chain: ConfigChainNode[] = [
+      { key: "leaf", value: '{"$extends":[{"a":1}]}' },
+    ];
+    expect(configChainDeclaresReferenceLayer(chain)).toBe(false);
+  });
 });
 
 describe("collectDescendantInvariantViolations", () => {
@@ -932,24 +1056,24 @@ describe("collectDescendantInvariantViolations", () => {
     const byKey = dagMap([
       {
         key: "base",
-        schema: objSchema("stream_priority"),
-        value: '{"stream_priority":"realtime"}',
+        schema: objSchema("log_level"),
+        value: '{"log_level":"debug"}',
       },
       {
         key: "child",
-        name: "Embedded Player",
+        name: "Prod API",
         parent: "base",
-        schema: { type: "object", fields: [], invariants: [noRealtime] },
+        schema: { type: "object", fields: [], invariants: [noDebug] },
       },
     ]);
     expect(collectDescendantInvariantViolations("base", byKey)).toEqual([
       {
         configKey: "child",
-        configName: "Embedded Player",
+        configName: "Prod API",
         violations: [
           {
-            name: "no-realtime",
-            message: "This device tier cannot sustain realtime.",
+            name: "no-debug",
+            message: "Production configs cannot run at debug verbosity.",
           },
         ],
       },
@@ -960,14 +1084,14 @@ describe("collectDescendantInvariantViolations", () => {
     const byKey = dagMap([
       {
         key: "base",
-        schema: { ...objSchema("stream_priority"), invariants: [noRealtime] },
-        value: '{"stream_priority":"realtime"}',
+        schema: { ...objSchema("log_level"), invariants: [noDebug] },
+        value: '{"log_level":"debug"}',
       },
       // Override masks the violating base value.
       {
         key: "child",
         parent: "base",
-        value: '{"stream_priority":"high"}',
+        value: '{"log_level":"info"}',
       },
     ]);
     expect(collectDescendantInvariantViolations("base", byKey)).toEqual([]);
@@ -977,14 +1101,14 @@ describe("collectDescendantInvariantViolations", () => {
     const byKey = dagMap([
       {
         key: "base",
-        schema: objSchema("stream_priority"),
-        value: '{"stream_priority":"realtime"}',
+        schema: objSchema("log_level"),
+        value: '{"log_level":"debug"}',
       },
       { key: "child", parent: "base" },
       {
         key: "grandchild",
         parent: "child",
-        schema: { type: "object", fields: [], invariants: [noRealtime] },
+        schema: { type: "object", fields: [], invariants: [noDebug] },
       },
     ]);
     const hits = collectDescendantInvariantViolations("base", byKey);
@@ -995,15 +1119,15 @@ describe("collectDescendantInvariantViolations", () => {
     const byKey = dagMap([
       {
         key: "base",
-        schema: objSchema("stream_priority"),
-        value: '{"stream_priority":"realtime"}',
+        schema: objSchema("log_level"),
+        value: '{"log_level":"debug"}',
       },
       {
         key: "composer",
         extends: ["base"],
-        schema: { type: "object", fields: [], invariants: [noRealtime] },
+        schema: { type: "object", fields: [], invariants: [noDebug] },
       },
-      { key: "unrelated", value: '{"stream_priority":"realtime"}' },
+      { key: "unrelated", value: '{"log_level":"debug"}' },
     ]);
     expect(
       collectDescendantInvariantViolations("base", byKey).map(
@@ -1402,21 +1526,21 @@ describe("computeConfigSchemaChangeImpact", () => {
 
   it("includes archived descendants (their values still resolve)", () => {
     const before: ConfigFamilyMember[] = [
-      { key: "base", schema: schemaOf(optInt("a")) },
+      { key: "base", schema: schemaOf(optInt("a"), optInt("keep")) },
       { key: "child", parent: "base", value: '{"a":1}', archived: true },
     ];
-    expect(impact("base", before, { key: "base", schema: schemaOf() })).toEqual(
-      [
-        {
-          configKey: "child",
-          configName: undefined,
-          orphanedKeys: ["a"],
-          newlyIncompatibleKeys: [],
-          conflictingStripKeys: [],
-          invariantRefs: [],
-        },
-      ],
-    );
+    expect(
+      impact("base", before, { key: "base", schema: schemaOf(optInt("keep")) }),
+    ).toEqual([
+      {
+        configKey: "child",
+        configName: undefined,
+        orphanedKeys: ["a"],
+        newlyIncompatibleKeys: [],
+        conflictingStripKeys: [],
+        invariantRefs: [],
+      },
+    ]);
   });
 
   it("returns [] for a purely additive change", () => {
@@ -1432,13 +1556,28 @@ describe("computeConfigSchemaChangeImpact", () => {
     ).toEqual([]);
   });
 
+  it("does not report orphans when the change removes the entire schema", () => {
+    // A schema-less family is un-orphanable at rest
+    // (findOrphanedConfigValueKeys), so the preview must agree.
+    const before: ConfigFamilyMember[] = [
+      { key: "base", schema: schemaOf(optInt("a"), optInt("b")) },
+      { key: "child", parent: "base", value: '{"a":1,"b":2}' },
+    ];
+    expect(impact("base", before, { key: "base", schema: undefined })).toEqual(
+      [],
+    );
+  });
+
   it("walks extends edges, reporting mixin composers too", () => {
     const before: ConfigFamilyMember[] = [
-      { key: "mixin", schema: schemaOf(optInt("m")) },
+      { key: "mixin", schema: schemaOf(optInt("m"), optInt("keep")) },
       { key: "composer", extends: ["mixin"], value: '{"m":3}' },
     ];
     expect(
-      impact("mixin", before, { key: "mixin", schema: schemaOf() }),
+      impact("mixin", before, {
+        key: "mixin",
+        schema: schemaOf(optInt("keep")),
+      }),
     ).toEqual([
       {
         configKey: "composer",

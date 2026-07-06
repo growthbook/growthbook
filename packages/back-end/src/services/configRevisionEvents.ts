@@ -24,7 +24,17 @@ export function deriveChange(
   const paths = proposedChanges.map((op) => op.path);
   if (paths.some((p) => p.startsWith("/archived"))) return "archive";
   if (paths.some((p) => p.startsWith("/schema"))) return "schema";
-  if (paths.some((p) => p.startsWith("/value"))) return "value";
+  // Lineage changes (re-parent / mixin edits) change the resolved value.
+  if (
+    paths.some(
+      (p) =>
+        p.startsWith("/value") ||
+        p.startsWith("/parent") ||
+        p.startsWith("/extends"),
+    )
+  ) {
+    return "value";
+  }
   return "metadata";
 }
 

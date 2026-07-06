@@ -3,10 +3,10 @@ import { assertConfigInvariantsValid } from "back-end/src/services/configValidat
 import { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 
-const noRealtime = {
-  name: "no-realtime",
-  rule: JSON.stringify({ stream_priority: { $ne: "realtime" } }),
-  message: "This device tier cannot sustain realtime.",
+const noDebug = {
+  name: "no-debug",
+  rule: JSON.stringify({ log_level: { $ne: "debug" } }),
+  message: "Production configs cannot run at debug verbosity.",
 };
 
 const makeContext = ({
@@ -34,13 +34,13 @@ const makeContext = ({
 const base = {
   key: "base",
   name: "Base",
-  value: '{"stream_priority":"high"}',
+  value: '{"log_level":"info"}',
 };
 const child = {
   key: "child",
-  name: "Embedded Player",
+  name: "Prod API",
   parent: "base",
-  schema: { type: "object" as const, fields: [], invariants: [noRealtime] },
+  schema: { type: "object" as const, fields: [], invariants: [noDebug] },
 };
 
 describe("assertConfigInvariantsValid (descendants)", () => {
@@ -50,24 +50,24 @@ describe("assertConfigInvariantsValid (descendants)", () => {
       assertConfigInvariantsValid(
         context,
         { key: "base", name: "Base" },
-        '{"stream_priority":"realtime"}',
+        '{"log_level":"debug"}',
       ),
     ).rejects.toThrow(
       new BadRequestError(
-        'descendant "Embedded Player" (child): This device tier cannot sustain realtime.',
+        'descendant "Prod API" (child): Production configs cannot run at debug verbosity.',
       ),
     );
   });
 
   it("does not block when the descendant violation pre-exists (introduced-only diff)", async () => {
-    const liveBase = { ...base, value: '{"stream_priority":"realtime"}' };
+    const liveBase = { ...base, value: '{"log_level":"debug"}' };
     const context = makeContext({ configs: [liveBase, child] });
     // Unrelated edit; the child's violation predates this publish.
     await expect(
       assertConfigInvariantsValid(
         context,
         { key: "base", name: "Base" },
-        '{"stream_priority":"realtime","other":2}',
+        '{"log_level":"debug","other":2}',
       ),
     ).resolves.toBeUndefined();
   });
@@ -77,24 +77,26 @@ describe("assertConfigInvariantsValid (descendants)", () => {
     // and at the (non-overriding) child.
     const ruledBase = {
       ...base,
-      schema: { type: "object" as const, fields: [], invariants: [noRealtime] },
+      schema: { type: "object" as const, fields: [], invariants: [noDebug] },
     };
     const plainChild = {
       key: "child",
-      name: "Embedded Player",
+      name: "Prod API",
       parent: "base",
     };
     const context = makeContext({ configs: [ruledBase, plainChild] });
     const err = await assertConfigInvariantsValid(
       context,
       { key: "base", name: "Base" },
-      '{"stream_priority":"realtime"}',
+      '{"log_level":"debug"}',
     ).then(
       () => null,
       (e) => e,
     );
     expect(err).toBeInstanceOf(BadRequestError);
-    expect(err.message).toBe("This device tier cannot sustain realtime.");
+    expect(err.message).toBe(
+      "Production configs cannot run at debug verbosity.",
+    );
     expect(err.message).not.toMatch(/descendant/);
   });
 
@@ -107,7 +109,7 @@ describe("assertConfigInvariantsValid (descendants)", () => {
       assertConfigInvariantsValid(
         context,
         { key: "base", name: "Base" },
-        '{"stream_priority":"realtime"}',
+        '{"log_level":"debug"}',
       ),
     ).rejects.toBeInstanceOf(SoftWarningError);
   });
@@ -122,7 +124,7 @@ describe("assertConfigInvariantsValid (descendants)", () => {
       assertConfigInvariantsValid(
         context,
         { key: "base", name: "Base" },
-        '{"stream_priority":"realtime"}',
+        '{"log_level":"debug"}',
       ),
     ).resolves.toBeUndefined();
   });
@@ -136,7 +138,7 @@ describe("assertConfigInvariantsValid (descendants)", () => {
       assertConfigInvariantsValid(
         context,
         { key: "base", name: "Base" },
-        '{"stream_priority":"realtime"}',
+        '{"log_level":"debug"}',
       ),
     ).resolves.toBeUndefined();
   });

@@ -9,6 +9,7 @@ import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildPatchOps,
   ensureLiveRevisionExists,
@@ -117,7 +118,7 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
         );
       }
       const canBypass =
-        !!req.organization.settings?.restApiBypassesReviews ||
+        canUseRestApiBypassSetting(req) ||
         adapter.canBypassApproval(req.context, constant);
       if (!canBypass) {
         req.context.permissions.throwPermissionError();

@@ -51,7 +51,11 @@ export const verifyConfigSchema = createApiRequestHandler(
   );
   warnings.push(...ancestorCollisionWarnings(identical));
   const ancestorOwnedFields = [
-    ...identical.map((c) => ({ key: c.key, ownedBy: c.owner, identical: true })),
+    ...identical.map((c) => ({
+      key: c.key,
+      ownedBy: c.owner,
+      identical: true,
+    })),
     ...conflicting.map((c) => ({
       key: c.key,
       ownedBy: c.owner,

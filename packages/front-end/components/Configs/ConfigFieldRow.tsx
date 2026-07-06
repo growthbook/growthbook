@@ -97,7 +97,9 @@ export default function ConfigFieldRow({
   // Editing a JSON value shows a code editor whose "Insert constant" button
   // floats just above it; give the row extra headroom so it doesn't crowd the
   // row above.
-  const hasJsonEditor = editing && fieldValueType(nf) === "json";
+  // Editing is draft-only; ignore stale editing state if inline edit is off.
+  const isEditing = editing && canEditInline;
+  const hasJsonEditor = isEditing && fieldValueType(nf) === "json";
   // A terse type label (e.g. "advanced", "array", "enum<string>") hides the real
   // shape/validation; offer a click-to-inspect popover with the full JSON Schema.
   const schemaPreview = fieldSchemaPreview(f.field);
@@ -161,7 +163,7 @@ export default function ConfigFieldRow({
       >
         <Flex align="center" style={{ minHeight: 32 }}>
           <Box style={{ width: "100%", minWidth: 0 }}>
-            {editing ? (
+            {isEditing ? (
               <>
                 {(() => {
                   const nullable = fieldIsNullable(nf);
@@ -462,7 +464,7 @@ export default function ConfigFieldRow({
         justify="end"
         style={{ minWidth: 0, minHeight: 32 }}
       >
-        {editing ? (
+        {isEditing ? (
           <>
             <Button size="sm" onClick={onSubmit}>
               Save

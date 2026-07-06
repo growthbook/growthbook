@@ -200,9 +200,12 @@ export function useSavedGroupRevision(
         },
         { revalidate: true },
       ).catch(() => undefined);
+      // The revision may have published immediately (bypass/auto-publish or
+      // revert), which mutates the live entity — refresh it too.
+      savedGroupMutate();
       updateUrl(revision);
     },
-    [mutateRevisions, updateUrl],
+    [mutateRevisions, savedGroupMutate, updateUrl],
   );
 
   const handlePublish = useCallback(

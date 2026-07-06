@@ -538,6 +538,7 @@ export function getFeatureDefinition({
   projectsMap,
   rampMonitoredRuleMap,
   constantMap,
+  onConstantCycle,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -564,11 +565,13 @@ export function getFeatureDefinition({
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
-  // Per-environment constant values. When provided, `@const:` references in
-  // sparse rule values (and the default they merge onto) are resolved BEFORE the
-  // sparse merge, so the rule's own fields are applied last and win over the
-  // resolved constant. Non-sparse values are resolved by the caller afterward.
+  // Per-environment constant values. When provided, EVERY emitted value is
+  // resolved here (exactly once): sparse rule values resolve BEFORE the sparse
+  // merge (so the rule's own fields are applied last and win over the resolved
+  // constant); all other values resolve as they're emitted.
   constantMap?: ConstantValueMap;
+  // Invoked with any constant key left unresolved due to a reference cycle.
+  onConstantCycle?: (key: string) => void;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -587,17 +590,22 @@ export function getFeatureDefinition({
   // emit their value as-is. When a constant map is supplied, resolve the
   // default's `$extends` references first so they form the sparse merge base
   // (the resolved default + its keys), which the patch then overrides.
+  const resolveRefs = (val: unknown): unknown =>
+    constantMap
+      ? resolveConstantRefs(
+          val,
+          constantMap,
+          undefined,
+          onConstantCycle,
+          feature.project || "",
+        )
+      : val;
+
   const jsonDefaultObj = (() => {
     if (feature.valueType !== "json") return null;
     const base = parsePlainJSONObject(defaultValue);
     if (!base || !constantMap) return base;
-    const resolved = resolveConstantRefs(
-      base,
-      constantMap,
-      undefined,
-      undefined,
-      feature.project || "",
-    );
+    const resolved = resolveRefs(base);
     return resolved !== null &&
       typeof resolved === "object" &&
       !Array.isArray(resolved)
@@ -612,9 +620,13 @@ export function getFeatureDefinition({
     feature.valueType === "json" ? getConfigBackingKey(defaultValue) : null;
 
   const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
-    const normalized = defaultConfigKey
-      ? ensureConfigBacking(valueStr, defaultConfigKey)
-      : valueStr;
+    // Non-object values (array/scalar/string) have replace semantics — ship
+    // them as-is rather than prepending a config base they'd never merge with.
+    const normalized =
+      defaultConfigKey &&
+      (valueStr.trim() === "" || parsePlainJSONObject(valueStr) !== null)
+        ? ensureConfigBacking(valueStr, defaultConfigKey)
+        : valueStr;
     if (sparse && jsonDefaultObj) {
       const patch = parsePlainJSONObject(normalized);
       if (patch !== null) {
@@ -622,15 +634,7 @@ export function getFeatureDefinition({
         // spread last and win over the (already-resolved) default — i.e. sparse
         // fields are "further down". Non-object resolutions (e.g. a whole-value
         // JSON constant that resolves to an array) replace the value outright.
-        const resolvedPatch = constantMap
-          ? resolveConstantRefs(
-              patch,
-              constantMap,
-              undefined,
-              undefined,
-              feature.project || "",
-            )
-          : patch;
+        const resolvedPatch = resolveRefs(patch);
         if (
           resolvedPatch !== null &&
           typeof resolvedPatch === "object" &&
@@ -649,8 +653,7 @@ export function getFeatureDefinition({
         return resolvedPatch;
       }
     }
-    // Non-sparse values are resolved by the caller's post-build pass.
-    return getJSONValue(feature.valueType, normalized);
+    return resolveRefs(getJSONValue(feature.valueType, normalized));
   };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
@@ -733,7 +736,9 @@ export function getFeatureDefinition({
                 condition: { value: "holdoutcontrol" },
               },
             ],
-            force: getJSONValue(feature.valueType, feature.holdout.value),
+            force: resolveRefs(
+              getJSONValue(feature.valueType, feature.holdout.value),
+            ),
           },
         ]
       : [];
@@ -941,7 +946,7 @@ export function getFeatureDefinition({
           rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
-            getJSONValue(feature.valueType, v.value),
+            resolveRefs(getJSONValue(feature.valueType, v.value)),
           );
 
           rule.coverage = r.coverage;
@@ -997,7 +1002,7 @@ export function getFeatureDefinition({
 
             rule.variations = [
               valueForSDK(r.value, r.sparse),
-              getJSONValue(feature.valueType, defaultValue),
+              resolveRefs(getJSONValue(feature.valueType, defaultValue)),
             ];
             rule.weights = [0.5, 0.5];
             // Set coverage = 2 * step.coverage so getBucketRanges naturally
@@ -1071,13 +1076,13 @@ export function getFeatureDefinition({
             if (isNil(variationValue)) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variationValue);
+            rule.force = valueForSDK(variationValue);
           } else if (r.status === "rolled-back") {
             const controlValue = r.controlValue;
             if (isNil(controlValue)) return null;
 
             // Return control value if rolled back. Feature default value might not be the same as the control value.
-            rule.force = getJSONValue(feature.valueType, controlValue);
+            rule.force = valueForSDK(controlValue);
           } else {
             if (
               safeRollout?.rampUpSchedule.rampUpCompleted ||
@@ -1098,8 +1103,8 @@ export function getFeatureDefinition({
             rule.hashVersion = 2;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.controlValue),
-              getJSONValue(feature.valueType, r.variationValue),
+              valueForSDK(r.controlValue),
+              valueForSDK(r.variationValue),
             ];
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
@@ -1144,7 +1149,7 @@ export function getFeatureDefinition({
   ];
 
   let def: FeatureDefinition = {
-    defaultValue: getJSONValue(feature.valueType, defaultValue),
+    defaultValue: resolveRefs(getJSONValue(feature.valueType, defaultValue)),
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {

@@ -37,7 +37,6 @@ import {
   replaceSavedGroups,
   SDKCapability,
   buildConstantValueMap,
-  resolveConstantRefs,
   ConstantValueMap,
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
@@ -140,43 +139,6 @@ import {
   getEnvironmentIdsFromOrg,
 } from "./organizations";
 
-// Substitute `@const:` references in a feature definition's values (default,
-// rule force values, and experiment variations) using the per-environment
-// constant map. Mutates the definition in place. `onCycle` is invoked with any
-// constant key left unresolved due to a reference cycle.
-function resolveConstantsInDefinition(
-  def: FeatureDefinition,
-  map: ConstantValueMap,
-  onCycle: (key: string) => void,
-  featureProject: string,
-): void {
-  if (def.defaultValue !== undefined) {
-    def.defaultValue = resolveConstantRefs(
-      def.defaultValue,
-      map,
-      new Set(),
-      onCycle,
-      featureProject,
-    );
-  }
-  def.rules?.forEach((rule) => {
-    if (rule.force !== undefined) {
-      rule.force = resolveConstantRefs(
-        rule.force,
-        map,
-        new Set(),
-        onCycle,
-        featureProject,
-      );
-    }
-    if (rule.variations !== undefined) {
-      rule.variations = rule.variations.map((v) =>
-        resolveConstantRefs(v, map, new Set(), onCycle, featureProject),
-      );
-    }
-  });
-}
-
 export function generateFeaturesPayload({
   features,
   experimentMap,
@@ -248,6 +210,7 @@ export function generateFeaturesPayload({
         : null;
 
   newFeatures.forEach((feature) => {
+    const reportedCycles = new Set<string>();
     const def = getFeatureDefinition({
       feature,
       environment,
@@ -270,32 +233,22 @@ export function generateFeaturesPayload({
         includeTagsInMetadata,
       },
       projectsMap,
-      // Resolves sparse rule values against resolved constants (sparse fields
-      // win); the post-build pass below resolves all other values.
       constantMap: constantMap ?? undefined,
+      onConstantCycle: (key) => {
+        if (reportedCycles.has(key)) return;
+        reportedCycles.add(key);
+        logger.warn(
+          {
+            organization: organization?.id,
+            feature: feature.id,
+            environment,
+            constant: key,
+          },
+          "Cyclic constant reference detected during SDK payload generation; left unresolved",
+        );
+      },
     });
     if (def) {
-      if (constantMap && constantMap.size) {
-        const reported = new Set<string>();
-        resolveConstantsInDefinition(
-          def,
-          constantMap,
-          (key) => {
-            if (reported.has(key)) return;
-            reported.add(key);
-            logger.warn(
-              {
-                organization: organization?.id,
-                feature: feature.id,
-                environment,
-                constant: key,
-              },
-              "Cyclic constant reference detected during SDK payload generation; left unresolved",
-            );
-          },
-          feature.project || "",
-        );
-      }
       defs[feature.id] = def;
     }
   });
@@ -1540,24 +1493,13 @@ export function evaluateFeature({
         safeRolloutMap,
         namespaces: namespaces,
         organization,
-        // Sparse rule values resolve against resolved constants here (sparse
-        // wins); other values resolve in the post-build pass below.
+        // Resolves `@const:` references so the preview matches the served
+        // payload. Cycles are left unresolved (rendered as-is), same as payload
+        // generation — no logging needed in this preview-only path.
         constantMap: envConstantMap ?? undefined,
       });
 
       if (definition) {
-        // Resolve `@const:` references so the preview matches the served
-        // payload. Cycles are left unresolved (rendered as-is), same as payload
-        // generation — no logging needed in this preview-only path.
-        if (envConstantMap) {
-          resolveConstantsInDefinition(
-            definition,
-            envConstantMap,
-            () => undefined,
-            feature.project || "",
-          );
-        }
-
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {

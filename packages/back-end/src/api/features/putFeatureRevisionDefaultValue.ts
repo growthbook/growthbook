@@ -16,6 +16,7 @@ import {
   isDraftStatus,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertConfigSchemaCompat } from "./v2Shared";
 
 export async function setRevisionDefaultValue(
   context: ApiReqContext,
@@ -60,6 +61,12 @@ export async function setRevisionDefaultValue(
       body.defaultValue,
       "Default value",
     );
+
+    // Covers raw `$extends` values too, not just the v2 `config` param.
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      defaultValue,
+    });
 
     const currentDefaultValue =
       revision.defaultValue ?? feature.defaultValue ?? "";

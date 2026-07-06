@@ -93,17 +93,19 @@ type ParsedField = {
   modifier: "repeated" | "optional" | "";
   rawType: string;
   name: string;
+  num: number;
 };
 
 function parseField(stmt: string): ParsedField | null {
   const m = stmt.match(
-    /^(repeated|optional)?\s*(map\s*<[^>]+>|[A-Za-z_][\w.]*)\s+([A-Za-z_]\w*)\s*=\s*\d+(?:\s*\[[^\]]*\])?$/,
+    /^(repeated|optional)?\s*(map\s*<[^>]+>|[A-Za-z_][\w.]*)\s+([A-Za-z_]\w*)\s*=\s*(\d+)(?:\s*\[[^\]]*\])?$/,
   );
   if (!m) return null;
   return {
     modifier: (m[1] as "repeated" | "optional" | undefined) ?? "",
     rawType: m[2].replace(/\s+/g, ""),
     name: m[3],
+    num: parseInt(m[4]),
   };
 }
 
@@ -282,6 +284,36 @@ function captureMessageNames(
   }
 }
 
+// JSON-Pointer path → the source's wire number for that field, so a later
+// export can replay the numbering instead of reassigning by position.
+function captureFieldNumbers(
+  body: string,
+  byName: Map<string, ProtoDecl>,
+  pointer: string,
+  seen: Set<string>,
+  depth: number,
+  out: Record<string, number>,
+): void {
+  if (depth > MAX_NEST_DEPTH) return;
+  for (const stmt of fieldStatements(body)) {
+    const field = parseField(stmt);
+    if (!field) continue;
+    const at = `${pointer}/properties/${field.name}`;
+    out[at] = field.num;
+    if (field.rawType.startsWith("map<")) continue;
+    const decl = byName.get(field.rawType);
+    if (decl?.kind !== "message" || seen.has(field.rawType)) continue;
+    captureFieldNumbers(
+      decl.body,
+      byName,
+      field.modifier === "repeated" ? `${at}/items` : at,
+      new Set([...seen, field.rawType]),
+      depth + 1,
+      out,
+    );
+  }
+}
+
 export function protoToFields(text: string): SchemaConversionResult {
   const clean = stripSlashComments(text);
   const decls = collectDecls(clean);
@@ -334,12 +366,26 @@ export function protoToFields(text: string): SchemaConversionResult {
     1,
     typeNames,
   );
+  const fieldNumbers: Record<string, number> = {};
+  captureFieldNumbers(
+    root.body,
+    byName,
+    "",
+    new Set([root.name]),
+    1,
+    fieldNumbers,
+  );
 
   return {
     fields: result.fields,
     error: result.error,
     warnings: [...warnings, ...result.warnings],
-    projection: { language: "protobuf", rootName: root.name, typeNames },
+    projection: {
+      language: "protobuf",
+      rootName: root.name,
+      typeNames,
+      fieldNumbers,
+    },
   };
 }
 
@@ -429,6 +475,23 @@ function protoTypeFor(
   if (t === "object") {
     const props = node.properties;
     if (!props || typeof props !== "object" || !Object.keys(props).length) {
+      // An open object keyed by a value schema is a proto map — the inverse of
+      // the import's `map<K,V>` handling, so maps round-trip instead of
+      // degrading to a JSON string.
+      const ap = node.additionalProperties;
+      if (ap && typeof ap === "object" && !Array.isArray(ap)) {
+        const value = protoTypeFor(
+          ap as Record<string, unknown>,
+          key,
+          nested,
+          depth + 1,
+          childCtx(ctx, "/additionalProperties"),
+        );
+        return {
+          token: `map<string, ${value.token}>`,
+          comment: value.comment,
+        };
+      }
       return { token: "string", comment: "free-form object (JSON string)" };
     }
     let name =
@@ -495,21 +558,51 @@ function renderField(
       depth,
       childCtx(ctx, "/items"),
     ));
+    // `repeated map<…>` is invalid proto3 — degrade the item to a JSON string.
+    if (token.startsWith("map<")) {
+      token = "string";
+      comment = "free-form object (JSON string)";
+    }
     modifier = "repeated ";
   } else {
     ({ token, comment } = protoTypeFor(node, key, nested, depth, ctx));
     // Nullable scalars → a wrapper type (round-trips). For nullable objects,
     // enums (which carry a `// one of` comment), and anything else a wrapper
-    // can't represent, fall back to presence (`optional`), which is lossy.
+    // can't represent, fall back to presence (`optional`), which is lossy —
+    // except maps, where any label is invalid proto3.
     if (isNullable && comment === undefined && NULLABLE_WRAPPER_FOR[token]) {
       token = NULLABLE_WRAPPER_FOR[token];
       if (!required) modifier = "optional ";
-    } else if (isNullable || !required) {
+    } else if ((isNullable || !required) && !token.startsWith("map<")) {
       modifier = "optional ";
     }
   }
   const line = `${modifier}${token} ${key} = ${num};`;
   return comment ? `${line} // ${comment}` : line;
+}
+
+// Wire numbers for one message's fields: replay the numbers captured on import
+// (keyed by JSON pointer under `basePointer`); fields without a captured number
+// (new since import, or no projection) get max+1 in declaration order.
+function assignFieldNumbers(
+  keys: string[],
+  basePointer: string,
+  projection?: SchemaProjection,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  const captured = projection?.fieldNumbers ?? {};
+  let max = 0;
+  for (const k of keys) {
+    const n = captured[`${basePointer}/properties/${k}`];
+    if (typeof n === "number") {
+      out.set(k, n);
+      if (n > max) max = n;
+    }
+  }
+  for (const k of keys) {
+    if (!out.has(k)) out.set(k, ++max);
+  }
+  return out;
 }
 
 function renderMessage(
@@ -525,11 +618,16 @@ function renderMessage(
       ? parent.required.filter((x): x is string => typeof x === "string")
       : [],
   );
-  const lines = Object.entries(props).map(([k, v], i) =>
+  const nums = assignFieldNumbers(
+    Object.keys(props),
+    ctx.pointer,
+    ctx.projection,
+  );
+  const lines = Object.entries(props).map(([k, v]) =>
     renderField(
       (v && typeof v === "object" ? v : {}) as Record<string, unknown>,
       k,
-      i + 1,
+      nums.get(k) ?? 1,
       required.has(k),
       nested,
       depth + 1,
@@ -555,7 +653,12 @@ export function fieldsToProto(
     projection: opts?.projection,
     emitted: new Set<string>([rootName]),
   };
-  const lines = fields.map((raw, i) => {
+  const nums = assignFieldNumbers(
+    fields.map((f) => f.key),
+    "",
+    opts?.projection,
+  );
+  const lines = fields.map((raw) => {
     const f = normalizeField(raw);
     let node: Record<string, unknown>;
     try {
@@ -569,7 +672,7 @@ export function fieldsToProto(
     return renderField(
       node,
       f.key,
-      i + 1,
+      nums.get(f.key) ?? 1,
       f.required,
       nested,
       1,

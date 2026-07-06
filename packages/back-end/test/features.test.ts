@@ -1321,6 +1321,157 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
   });
 
+  it("ships non-object rule values on a config-backed feature as-is", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "array-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify([1, 2, 3]),
+      },
+      {
+        type: "force",
+        id: "string-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify("plain"),
+      },
+      {
+        type: "force",
+        id: "object-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ x: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Arrays/scalars replace outright — no config base underneath; plain
+    // objects still get the default config flattened beneath them.
+    expect(def?.rules).toEqual([
+      { force: [1, 2, 3] },
+      { force: "plain" },
+      { force: { cfg: 1, x: 2 } },
+    ]);
+  });
+
+  it("routes safe-rollout values through config flattening", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        id: "sr-released",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_1",
+        status: "released",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key",
+      },
+      {
+        type: "safe-rollout",
+        id: "sr-rolled-back",
+        description: "",
+        enabled: true,
+        controlValue: JSON.stringify({ x: 1 }),
+        variationValue: JSON.stringify({ x: 2 }),
+        safeRolloutId: "sr_2",
+        status: "rolled-back",
+        hashAttribute: "id",
+        seed: "seed",
+        trackingKey: "sr-key-2",
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Released forces the variation, rolled-back forces the control — both
+    // flattened onto the backing config like every other rule value.
+    expect(def?.rules).toEqual([
+      { force: { cfg: 1, x: 2 } },
+      { force: { cfg: 1, x: 1 } },
+    ]);
+  });
+
+  it("resolves a backtick-escaped ref in a sparse rule exactly once (full payload)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ msg: "" });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-escaped",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ msg: "`{{ @const:x }}`" }),
+      },
+    ];
+
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [makeConstant({ key: "x", type: "string", value: "real" })],
+    });
+
+    // The escape renders as a literal placeholder; a second resolution pass
+    // would wrongly substitute the constant's value.
+    expect(payload.feature.rules?.[0]).toEqual({
+      force: { msg: "{{ @const:x }}" },
+    });
+  });
+
   // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
   const jsonForceFeature = (ruleValue: string): FeatureInterface => {
     const feature = cloneDeep(baseFeature);

@@ -1798,4 +1798,139 @@ type Cfg struct {
     expect(projection?.rootName).toBe("Cfg");
     expect(projection?.typeNames).toEqual({ "/properties/items/items": "Foo" });
   });
+
+  it("integer enum fields keep integer markers on export and re-import as integer", () => {
+    const schema = simpleSchemaFieldToJSONSchema(
+      field({ key: "n", type: "integer", enum: ["1", "2"] }),
+    );
+    expect(schema.enum).toEqual([1, 2]);
+    expect(schema.multipleOf).toBe(1);
+    expect(schema.format).toBe("number");
+    const back = normalizeField(
+      field({ key: "n", jsonSchema: JSON.stringify(schema) }),
+    );
+    expect(back.type).toBe("integer");
+    expect(back.enum).toEqual(["1", "2"]);
+  });
+
+  it("normalizeField: an all-integer enum implies integer even without markers", () => {
+    const back = normalizeField(
+      field({
+        key: "n",
+        jsonSchema: JSON.stringify({ type: "number", enum: [1, 2] }),
+      }),
+    );
+    expect(back.type).toBe("integer");
+    const float = normalizeField(
+      field({
+        key: "n",
+        jsonSchema: JSON.stringify({ type: "number", enum: [1.5, 2] }),
+      }),
+    );
+    expect(float.type).toBe("float");
+  });
+
+  it("go: parses an anonymous nested struct into a nested object field (no flattening)", () => {
+    const src =
+      "type Cfg struct {\n" +
+      '  Name string `json:"name"`\n' +
+      "  Meta struct {\n" +
+      '    Inner string `json:"inner"`\n' +
+      '  } `json:"meta"`\n' +
+      "}";
+    const { fields, warnings } = golangToFields(src);
+    expect(warnings).toEqual([]);
+    // The inner struct is captured under `meta`, not flattened into the parent.
+    expect(fields.map((f) => f.key)).toEqual(["name", "meta"]);
+    const meta = fields.find((f) => f.key === "meta");
+    expect(meta?.jsonSchema).toContain('"inner"');
+  });
+
+  it("python: imports a numeric Literal as a numeric enum that round-trips", () => {
+    const src = "class Cfg(BaseModel):\n    level: Literal[1, 2, 3]\n";
+    const { fields, warnings } = pythonToFields(src);
+    expect(warnings).toEqual([]);
+    expect(fields).toHaveLength(1);
+    expect(fields[0].enum).toEqual(["1", "2", "3"]);
+    expect(fieldsToPython(fields)).toContain("Literal[1, 2, 3]");
+  });
+
+  it("python: an unparseable Literal warns instead of importing an empty string enum", () => {
+    const src = "class Cfg(BaseModel):\n    flag: Literal[True, False]\n";
+    const { warnings } = pythonToFields(src);
+    expect(warnings.some((w) => w.code === "unresolved-type")).toBe(true);
+  });
+
+  it("proto: a map field round-trips as map<string, V> instead of a JSON string", () => {
+    const src =
+      'syntax = "proto3";\nmessage Cfg {\n  map<string, int32> counts = 1;\n}';
+    const res = protoToFields(src);
+    const out = fieldsToProto(res.fields, { projection: res.projection });
+    expect(out).toContain("map<string, int32> counts = 1;");
+    expect(out).not.toContain("free-form object");
+  });
+
+  it("proto: replays imported field numbers and assigns max+1 to new fields", () => {
+    const src =
+      'syntax = "proto3";\nmessage Cfg {\n  string name = 1;\n  int32 count = 5;\n}';
+    const res = protoToFields(src);
+    const withNew = [...res.fields, field({ key: "extra", type: "boolean" })];
+    const out = fieldsToProto(withNew, { projection: res.projection });
+    expect(out).toContain("string name = 1;");
+    expect(out).toContain("int32 count = 5;");
+    expect(out).toContain("bool extra = 6;");
+  });
+
+  it("ts: disambiguates a shared captured type name when the schemas diverge", () => {
+    const src =
+      "interface Retry { limit: number; }\n" +
+      "interface ConfigSchema {\n  a: Retry;\n  b: Retry;\n}";
+    const res = tsTypesToFields(src);
+    const fields = res.fields.map((f) =>
+      f.key === "b"
+        ? {
+            ...f,
+            jsonSchema: JSON.stringify({
+              type: "object",
+              required: ["other"],
+              properties: { other: { type: "string" } },
+            }),
+          }
+        : f,
+    );
+    const out = fieldsToTsType(fields, { projection: res.projection });
+    expect(out).toContain("interface Retry {");
+    expect(out).toContain("interface Retry2 {");
+    expect(out).toMatch(/b\??: Retry2;/);
+    expect(out).toMatch(/a\??: Retry;/);
+  });
+
+  it("json schema: warns when $ref nesting exceeds the depth cap", () => {
+    const defs: Record<string, unknown> = { D20: { type: "string" } };
+    for (let i = 0; i < 20; i++) {
+      defs[`D${i}`] = {
+        type: "object",
+        properties: { next: { $ref: `#/$defs/D${i + 1}` } },
+      };
+    }
+    const doc = {
+      type: "object",
+      properties: { root: { $ref: "#/$defs/D0" } },
+      $defs: defs,
+    };
+    const { warnings } = jsonSchemaStringToFields(JSON.stringify(doc));
+    expect(
+      warnings.some(
+        (w) => w.code === "unresolved-type" && w.message.includes("depth"),
+      ),
+    ).toBe(true);
+  });
+
+  it("ts: escapes */ in a description so it can't break out of the doc comment", () => {
+    const out = fieldsToTsType([
+      field({ key: "a", description: "evil */ let x = 1; /*" }),
+    ]);
+    expect(out).toContain("/** evil *\\/ let x = 1; /* */");
+    expect(out.indexOf("*/")).toBe(out.lastIndexOf("*/"));
+  });
 });

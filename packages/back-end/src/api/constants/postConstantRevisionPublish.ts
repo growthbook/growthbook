@@ -12,6 +12,7 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
@@ -31,18 +32,19 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     req.params.version,
   );
 
+  const adapter = getAdapter("constant");
+
+  // Re-check edit permission against the LIVE entity (a `project` move in the
+  // proposed changes shouldn't be able to launder write access) before leaking
+  // any revision state.
+  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
+    req.context.permissions.throwPermissionError();
+  }
+
   if (revision.status === "merged" || revision.status === "discarded") {
     throw new BadRequestError(
       `Cannot publish a revision with status "${revision.status}"`,
     );
-  }
-
-  const adapter = getAdapter("constant");
-
-  // Re-check edit permission against the LIVE entity (a `project` move in the
-  // proposed changes shouldn't be able to launder write access).
-  if (!adapter.canUpdate(req.context, constant as Record<string, unknown>)) {
-    req.context.permissions.throwPermissionError();
   }
 
   // Change-aware approval gate (the constant adapter reads target.snapshot).
@@ -51,7 +53,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     : adapter.isApprovalRequired(req.context);
 
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, constant as Record<string, unknown>);
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {

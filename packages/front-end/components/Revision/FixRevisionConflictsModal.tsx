@@ -210,7 +210,8 @@ export default function FixRevisionConflictsModal({
     conflicts.forEach((conflict) => {
       const strategy = strategies[conflict.field];
       if (strategy === "overwrite") {
-        if (conflict.proposedValue != null) {
+        // `undefined` marks a remove-op; `null` is a real proposed value.
+        if (conflict.proposedValue !== undefined) {
           resolvedChanges[conflict.field] = conflict.proposedValue;
         }
       } else if (strategy === "discard") {
@@ -222,7 +223,7 @@ export default function FixRevisionConflictsModal({
 
     // Include non-conflicting proposed changes
     Object.entries(proposedAsPartial).forEach(([field, value]) => {
-      if (value != null && !conflicts.find((c) => c.field === field)) {
+      if (value !== undefined && !conflicts.find((c) => c.field === field)) {
         resolvedChanges[field] = value;
       }
     });
@@ -231,7 +232,7 @@ export default function FixRevisionConflictsModal({
     const newProposedChanges: Record<string, unknown> = {};
     Object.keys(resolvedChanges).forEach((field) => {
       const value = resolvedChanges[field];
-      if (value != null && !isEqual(value, liveSnapshot[field])) {
+      if (value !== undefined && !isEqual(value, liveSnapshot[field])) {
         newProposedChanges[field] = value;
       }
     });

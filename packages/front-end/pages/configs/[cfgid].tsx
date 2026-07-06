@@ -321,28 +321,6 @@ export default function ConfigDetailPage(): React.ReactElement {
   // `next` from a stale snapshot and the second clobbers the first.
   const savingExtendsRef = useRef(false);
 
-  // The page instance is reused across configs, so clear in-progress edits when it changes.
-  useEffect(() => {
-    setEditKey(null);
-    setEditText("");
-    setEditError(null);
-    setComposeError(null);
-    setEditKind("value");
-    setSchemaEdit(null);
-    setShowCreateChild(false);
-    setComposeAdding(false);
-    setShowOverrides(false);
-    // Also close any modal carried over from the previous config.
-    setCompareOpen(false);
-    setConfirmRevert(false);
-    setEditDescriptionModal(false);
-    setShowArchiveModal(false);
-    setShowAuditModal(false);
-    setEditInfoOpen(false);
-    setConfirmDelete(false);
-    setMenuOpen(false);
-  }, [configKey]);
-
   // Page-level tab driven by the URL hash. The hash may carry an inner sub-tab
   // after a comma (`#review,changes`); only the first segment selects the page tab.
   useEffect(() => {
@@ -386,6 +364,29 @@ export default function ConfigDetailPage(): React.ReactElement {
     handleReopen,
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
+
+  // The page instance is reused across configs (and the selected revision can
+  // change under an open editor), so clear in-progress edits when either changes.
+  useEffect(() => {
+    setEditKey(null);
+    setEditText("");
+    setEditError(null);
+    setComposeError(null);
+    setEditKind("value");
+    setSchemaEdit(null);
+    setShowCreateChild(false);
+    setComposeAdding(false);
+    setShowOverrides(false);
+    // Also close any modal carried over from the previous config.
+    setCompareOpen(false);
+    setConfirmRevert(false);
+    setEditDescriptionModal(false);
+    setShowArchiveModal(false);
+    setShowAuditModal(false);
+    setEditInfoOpen(false);
+    setConfirmDelete(false);
+    setMenuOpen(false);
+  }, [configKey, selectedRevisionId]);
 
   // Open-draft counts by status, for the Review & Publish tab badge tooltip.
   const draftStatusCounts: Partial<Record<string, number>> = {};
@@ -928,12 +929,14 @@ export default function ConfigDetailPage(): React.ReactElement {
       } else if (vt === "boolean") {
         parsed = editText === "true";
       } else if (vt === "number") {
-        const n =
-          field?.type === "integer"
-            ? parseInt(editText, 10)
-            : parseFloat(editText);
-        if (Number.isNaN(n)) {
+        const t = editText.trim();
+        const n = Number(t);
+        if (t === "" || !Number.isFinite(n)) {
           setEditError("Value must be a number");
+          return;
+        }
+        if (field?.type === "integer" && !Number.isInteger(n)) {
+          setEditError("Value must be an integer");
           return;
         }
         parsed = n;
@@ -988,15 +991,27 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (res?.revision) await onRevisionCreated(res.revision);
   };
 
-  const saveField = async (field: SchemaField, value?: unknown) => {
+  const saveField = async (
+    field: SchemaField,
+    value?: unknown,
+    unset?: boolean,
+  ) => {
     const fields = ownSchema().fields;
     const idx = fields.findIndex((f) => f.key === schemaEdit);
     const next =
       idx >= 0
         ? fields.map((f, i) => (i === idx ? field : f))
         : [...fields, field];
-    const valueOverride =
-      value !== undefined ? { ...ownValue(), [field.key]: value } : undefined;
+    let valueOverride: Record<string, unknown> | undefined;
+    if (unset) {
+      const v = ownValue();
+      if (field.key in v) {
+        delete v[field.key];
+        valueOverride = v;
+      }
+    } else if (value !== undefined) {
+      valueOverride = { ...ownValue(), [field.key]: value };
+    }
     await saveSchema(next, valueOverride);
     setSchemaEdit(null);
   };
@@ -1177,15 +1192,21 @@ export default function ConfigDetailPage(): React.ReactElement {
               triggerStyle={{ marginRight: 0, marginLeft: 0 }}
               menuPlacement="end"
             >
-              {mixinKeys.map((k) => (
-                <DropdownMenuItem
-                  key={k}
-                  color="red"
-                  onClick={() => saveExtends(mixinKeys.filter((x) => x !== k))}
-                >
-                  Remove mixin
-                </DropdownMenuItem>
-              ))}
+              {mixinKeys.map((k) => {
+                const name =
+                  allConfigsForGraph.find((c) => c.key === k)?.name ?? k;
+                return (
+                  <DropdownMenuItem
+                    key={k}
+                    color="red"
+                    onClick={() =>
+                      saveExtends(mixinKeys.filter((x) => x !== k))
+                    }
+                  >
+                    Remove mixin &ldquo;{name}&rdquo;
+                  </DropdownMenuItem>
+                );
+              })}
             </DropdownMenu>
           )}
         </Flex>
@@ -1715,6 +1736,13 @@ export default function ConfigDetailPage(): React.ReactElement {
                             replace.
                           </Text>
                         )}
+                        {/* Row-level errors render inline while editing; dropdown
+                            actions (remove field/override) have no row editor. */}
+                        {editError && editKey === null && (
+                          <Callout status="error" mt="3">
+                            {editError}
+                          </Callout>
+                        )}
                         <Box style={{ minWidth: 800 }}>
                           <Grid
                             columns={FIELD_GRID_TEMPLATE}
@@ -1797,6 +1825,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                         : String(seedVal)
                                   }
                                   initialNull={seedNull}
+                                  initialUndefined={f.value === undefined}
                                   existingKeys={resolved.fields.map(
                                     (rf) => rf.key,
                                   )}
@@ -1978,9 +2007,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           allRevisions={allRevisions}
           currentRevisionId={selectedRevisionId}
           onClose={() => setCompareOpen(false)}
-          mutate={async () => {
-            await Promise.all([mutateRevisions(), mutate()]);
-          }}
           requiresApproval={approvalRequired}
         />
       )}

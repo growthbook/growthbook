@@ -36,6 +36,8 @@ export interface Props {
   // referencing items); unarchiving is always allowed.
   referenceCount: number;
   referencesLoading: boolean;
+  // The reference lookup failed — block archiving rather than fail open.
+  referencesError?: boolean;
   // The entity's reference list node, rendered when archiving is blocked.
   referencesList: ReactNode;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
@@ -71,6 +73,7 @@ export default function ArchiveModal({
   canBypassApproval,
   referenceCount,
   referencesLoading,
+  referencesError = false,
   referencesList,
   renderDraftSelector,
   trackingEventModalType,
@@ -99,7 +102,9 @@ export default function ArchiveModal({
   // entity would silently drop its config from every referencing item.
   // Unarchiving a referenced entity is safe and always allowed.
   const blockedByReferences = !isArchived && referenceCount > 0;
-  const canSubmit = isArchived || (!referencesLoading && referenceCount === 0);
+  const canSubmit =
+    isArchived ||
+    (!referencesLoading && !referencesError && referenceCount === 0);
   const lowerNoun = entityNoun.toLowerCase();
 
   return (
@@ -175,6 +180,11 @@ export default function ArchiveModal({
         <Text color="text-disabled">
           <LoadingSpinner /> Checking {lowerNoun} references...
         </Text>
+      ) : referencesError ? (
+        <Callout status="error" mb="4">
+          Could not check {lowerNoun} references. Archiving is blocked until
+          references can be verified — try again later.
+        </Callout>
       ) : blockedByReferences ? (
         <>
           <Callout status="error" mb="4">

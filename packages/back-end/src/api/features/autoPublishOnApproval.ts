@@ -7,9 +7,11 @@ import {
   getFeatureAutopublishOnApproval,
   getMatchingRules,
   getNewDraftExperimentsToPublish,
+} from "shared/util";
+import {
   isScheduledPublishDue,
   isScheduledPublishPending,
-} from "shared/util";
+} from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";

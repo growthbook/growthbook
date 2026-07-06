@@ -26,7 +26,7 @@ const INTERP_REF_RE = new RegExp(
   `\\{\\{\\s*@(?:const|config):${REF_KEY}\\s*\\}\\}`,
 );
 
-function valueHasReferenceToken(v: unknown): boolean {
+export function valueHasReferenceToken(v: unknown): boolean {
   if (typeof v === "string")
     return BARE_REF_RE.test(v) || INTERP_REF_RE.test(v);
   if (Array.isArray(v)) return v.some(valueHasReferenceToken);

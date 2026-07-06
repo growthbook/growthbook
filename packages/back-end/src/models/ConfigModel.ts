@@ -8,6 +8,7 @@ import {
 import {
   getConfigBaseKeys,
   withConfigExtends,
+  findBasePrecedenceInversions,
   getAncestorSchemaFieldOwners,
   classifyAncestorOwnedFields,
   AncestorFieldCollision,
@@ -188,6 +189,23 @@ export class ConfigModel extends BaseClass {
     if (missing.length) {
       throw new BadRequestError(
         `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+      );
+    }
+
+    // A base listed after one of its own descendants would resolve with
+    // opposite precedence in the lineage chain vs. the SDK payload.
+    const inversions = findBasePrecedenceInversions(doc, byKey);
+    if (inversions.length) {
+      const detail = inversions
+        .map(
+          (c) =>
+            `"${c.ancestor}" is an ancestor of "${c.earlier}" but is listed after it`,
+        )
+        .join("; ");
+      throw new BadRequestError(
+        `Conflicting base order: ${detail}. A base's ancestor cannot appear ` +
+          `later in the lineage — remove the redundant entry (it is already ` +
+          `inherited) or reorder "extends".`,
       );
     }
 

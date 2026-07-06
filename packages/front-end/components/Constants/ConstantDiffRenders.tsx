@@ -285,7 +285,7 @@ export function renderConfigInvariants(pre: Pre, post: Post): ReactNode | null {
   const postInv = post.schema?.invariants ?? [];
   if (isEqual(preInv, postInv)) return null;
 
-  // Simple, readable view: `field ≠ "4k" — "message"` rather than raw JSONLogic.
+  // Simple, readable view: `field ≠ "value" — "message"` rather than raw JSONLogic.
   const describe = (inv: { rule: string; message: string }): string => {
     const expr = describeInvariantRule(inv.rule);
     return inv.message ? `${expr} — "${inv.message}"` : expr;

@@ -260,39 +260,43 @@ export default function CustomHookModal({
   }>({ status: "" });
 
   const runTest = async () => {
-    const res = await apiCall<{
-      success: boolean;
-      returnVal?: string;
-      error?: string;
-      warnings?: string[];
-      log?: string;
-    }>("/custom-hooks/test", {
-      method: "POST",
-      body: JSON.stringify({
-        functionBody: form.getValues("code"),
-        functionArgs: Object.fromEntries(
-          Object.entries(testValues).map(([k, v]) => {
-            try {
-              return [k, JSON.parse(v)];
-            } catch (e) {
-              return [k, v];
-            }
-          }),
-        ),
-        ...(feature
-          ? { entityType: "feature" as const, entityId: feature.id }
-          : config
-            ? { entityType: "config" as const, entityId: config.key }
-            : {}),
-      }),
-    });
-    setTestResult({
-      status: res.success ? "success" : "error",
-      returnVal: res.returnVal,
-      error: res.error,
-      warnings: res.warnings,
-      log: res.log,
-    });
+    try {
+      const res = await apiCall<{
+        success: boolean;
+        returnVal?: string;
+        error?: string;
+        warnings?: string[];
+        log?: string;
+      }>("/custom-hooks/test", {
+        method: "POST",
+        body: JSON.stringify({
+          functionBody: form.getValues("code"),
+          functionArgs: Object.fromEntries(
+            Object.entries(testValues).map(([k, v]) => {
+              try {
+                return [k, JSON.parse(v)];
+              } catch (e) {
+                return [k, v];
+              }
+            }),
+          ),
+          ...(feature
+            ? { entityType: "feature" as const, entityId: feature.id }
+            : config
+              ? { entityType: "config" as const, entityId: config.key }
+              : {}),
+        }),
+      });
+      setTestResult({
+        status: res.success ? "success" : "error",
+        returnVal: res.returnVal,
+        error: res.error,
+        warnings: res.warnings,
+        log: res.log,
+      });
+    } catch (e) {
+      setTestResult({ status: "error", error: e.message });
+    }
   };
 
   const isMac =

@@ -3265,6 +3265,12 @@ export function simpleSchemaFieldToJSONSchema(
       ...(field.nullable ? [null] : []),
     ];
   }
+  // Integer markers apply with or without an enum — dropping them on an enum
+  // field would re-import `{type:"number", enum:[1,2]}` as a float.
+  if (field.type === "integer") {
+    schema.multipleOf = 1;
+    schema.format = "number";
+  }
   if (!schema.enum) {
     // Bounds are optional — emit only when set.
     const { min, max } = field;
@@ -3280,11 +3286,6 @@ export function simpleSchemaFieldToJSONSchema(
     } else if (field.type === "float" || field.type === "integer") {
       if (min !== undefined) schema.minimum = min;
       if (max !== undefined) schema.maximum = max;
-
-      if (field.type === "integer") {
-        schema.multipleOf = 1;
-        schema.format = "number";
-      }
 
       if (min !== undefined && max !== undefined && max < min) {
         throw new Error(`Invalid min or max for field ${field.key}`);

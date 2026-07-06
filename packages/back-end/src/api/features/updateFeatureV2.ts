@@ -38,6 +38,7 @@ import {
   assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
+  assertValidRuleConfigKeys,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
@@ -173,6 +174,18 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
+    );
+    // Request-supplied config keys must exist, be live, and belong to the
+    // default config's family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      req.body.rules.flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      defaultValue ?? feature.defaultValue,
     );
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema

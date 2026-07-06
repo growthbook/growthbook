@@ -42,6 +42,10 @@ export type SchemaProjection = {
   language: string;
   rootName?: string;
   typeNames: Record<string, string>;
+  // Protobuf wire numbers captured on import, keyed like `typeNames` by the
+  // field's JSON-Pointer path. Replayed on export so re-exporting doesn't
+  // silently renumber the wire format; new fields get max+1.
+  fieldNumbers?: Record<string, number>;
 };
 
 export type SchemaConversionResult = {

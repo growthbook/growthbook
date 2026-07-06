@@ -8,6 +8,7 @@ import {
   invariantRuleFields,
   InvariantViolation,
   SchemaWarning,
+  valueHasReferenceToken,
 } from "./config-schema";
 import { deepMergePatch } from "./deep-merge";
 
@@ -135,15 +136,16 @@ export function getConfigBackingPatch(value: string | undefined): string {
 // Compose a config key + an override patch into the stored value string. The
 // config ref is the first `$extends` entry (the base layer); any `@const:` refs
 // in the patch are preserved after it. With no config key, returns the patch
-// with its `@config:` ref stripped. A non-object patch (e.g. `true`) is returned
-// verbatim when detaching, so plain values aren't clobbered.
+// with its `@config:` ref stripped. A non-empty, non-object patch (e.g. `true`)
+// is returned verbatim — attaching or detaching — so plain values aren't
+// silently discarded and downstream validation sees the caller's value.
 export function setConfigBacking(
   configKey: string | null,
   patch: string | undefined,
 ): string {
   const obj = parsePlainJSONObject(patch ?? "");
   if (!obj) {
-    if (!configKey) return patch ?? "";
+    if (!configKey || (patch ?? "").trim()) return patch ?? "";
     return JSON.stringify({ [CONSTANT_EXTENDS_KEY]: [`@config:${configKey}`] });
   }
   const prior = obj[CONSTANT_EXTENDS_KEY];
@@ -285,6 +287,31 @@ export function getConfigAncestorKeys(
     for (const b of getConfigBaseKeys(base)) stack.push(b);
   }
   return seen;
+}
+
+// Base entries (parent first, then `extends` in order) where a LATER entry is
+// a transitive ancestor of an EARLIER one. linearizeConfigDag emits bases
+// before their dependents while the SDK payload applies `$extends` layers in
+// literal order, so such a list makes the two disagree on precedence — reject
+// it at write time. An EARLIER entry that's an ancestor of a later one (the
+// diamond pattern) orders identically in both and stays allowed.
+export function findBasePrecedenceInversions(
+  config: { parent?: string; extends?: string[] },
+  byKey: Map<string, { parent?: string; extends?: string[] }>,
+): { earlier: string; ancestor: string }[] {
+  const bases = getConfigBaseKeys(config);
+  const out: { earlier: string; ancestor: string }[] = [];
+  for (let i = 0; i < bases.length; i++) {
+    const node = byKey.get(bases[i]);
+    if (!node) continue;
+    const ancestors = getConfigAncestorKeys(node, byKey);
+    for (let j = i + 1; j < bases.length; j++) {
+      if (ancestors.has(bases[j])) {
+        out.push({ earlier: bases[i], ancestor: bases[j] });
+      }
+    }
+  }
+  return out;
 }
 
 // Schema field keys owned by a config's ancestors across the whole base DAG
@@ -657,6 +684,22 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
   return { effectiveSchema: [...schemaByKey.values()], fields };
 }
 
+// Whether any node in a chain declares a `@const:`/`@config:` `$extends`
+// layer. Such a layer can supply arbitrary fields but is unresolvable at gate
+// time, so required-field enforcement treats it as satisfying everything (the
+// analog of the reference-backed own-key exemption).
+export function configChainDeclaresReferenceLayer(
+  chain: ConfigChainNode[],
+): boolean {
+  return chain.some((node) => {
+    const list = parsePlainJSONObject(node.value ?? "")?.[CONSTANT_EXTENDS_KEY];
+    return (
+      Array.isArray(list) &&
+      list.some((r) => typeof r === "string" && /^@(?:const|config):/.test(r))
+    );
+  });
+}
+
 // Every invariant that fails against `leafKey`'s resolved (inherited + own)
 // value. Rules accumulate base → leaf (leaf wins on name) — the same set that
 // gates the config's own publish. Skips value resolution when the chain
@@ -678,7 +721,19 @@ export function collectConfigInvariantViolations(
   for (const f of resolveConfigChain(chain).fields) {
     if (f.source !== null) resolvedValue[f.key] = f.value;
   }
-  return evaluateInvariants(resolvedValue, [...invByName.values()]);
+  // Reference-backed keys hold raw `@const:`/`{{ @const:... }}` tokens here, not
+  // their resolved values — a rule over them would compare against the token
+  // string. Skip those rules (same exemption as type validation).
+  const refBackedKeys = new Set(
+    Object.keys(resolvedValue).filter((k) =>
+      valueHasReferenceToken(resolvedValue[k]),
+    ),
+  );
+  const evaluable = [...invByName.values()].filter(
+    (inv) => !invariantRuleFields(inv.rule).some((k) => refBackedKeys.has(k)),
+  );
+  if (!evaluable.length) return [];
+  return evaluateInvariants(resolvedValue, evaluable);
 }
 
 // Descendants of `rootKey` (every base edge — parent + extends, transitively)
@@ -782,9 +837,12 @@ export function computeConfigSchemaChangeImpact({
       (k) => k !== CONSTANT_EXTENDS_KEY,
     );
 
-    const orphanedKeys = ownKeys.filter(
-      (k) => declaredBefore.has(k) && !declaredAfter.has(k),
-    );
+    // A schema-less family is un-orphanable (findOrphanedConfigValueKeys
+    // returns [] for it), so removing the entire schema orphans nothing here
+    // either — preview and at-rest must agree.
+    const orphanedKeys = effAfter.length
+      ? ownKeys.filter((k) => declaredBefore.has(k) && !declaredAfter.has(k))
+      : [];
 
     const incompatibleBefore = new Set(
       ownKeys.length

@@ -8,6 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
   createOrUpdateRevision,
@@ -55,9 +56,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   for (const field of Object.keys(constantUpdatableFieldsSchema.shape)) {
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (constant as unknown as Record<string, unknown>)[field];
-    if (targetValue !== undefined && !isEqual(targetValue, liveValue)) {
+    if (isEqual(targetValue, liveValue)) continue;
+    if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
+    } else if (field === "environmentValues") {
+      // Absent in target but set live → clear the per-env overrides.
+      fieldsToUpdate[field] = {};
     }
+    // Other optional fields absent in the target are left as-is.
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -91,7 +97,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
           } as unknown as Revision)
         : adapter.isApprovalRequired(req.context);
     canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         req.context,
         constant as Record<string, unknown>,

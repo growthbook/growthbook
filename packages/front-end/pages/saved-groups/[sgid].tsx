@@ -710,10 +710,6 @@ export default function EditSavedGroupPage() {
           allRevisions={allRevisions}
           currentRevisionId={selectedRevisionId}
           onClose={() => setCompareRevisionsModalOpen(false)}
-          mutate={() => {
-            mutateRevisions();
-            mutate();
-          }}
           initialPreviewDraft={
             isDraft && selectedRevisionId ? selectedRevisionId : undefined
           }

@@ -366,6 +366,9 @@ export default function ConfigJsonEditor({
   // definitions carry over (no blank slate / lost work).
   const switchSchemaLang = (next: SchemaLang) => {
     if (next === schemaLang) return;
+    // A buffer with a parse error yields empty fields — switching now would
+    // wipe the draft. Keep the current language until the error is fixed.
+    if (schemaError) return;
     setSchemaText(compileFieldsToText(fields, schemaType, extensible, next));
     setSchemaLang(next);
     seededKeys.current = new Set();
@@ -378,6 +381,9 @@ export default function ConfigJsonEditor({
       setSchemaPreviewSel(null);
       switchSchemaLang(v as SchemaLang);
     } else {
+      // Save ignores the schema buffer while a projection is active, so
+      // switching with unsaved schema edits would silently drop them.
+      if (!schemaPreviewSel && schemaText !== pristineSchema) return;
       setSchemaPreviewSel(v);
     }
   };
