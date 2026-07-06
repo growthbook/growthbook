@@ -2221,11 +2221,14 @@ export async function postExperimentUnarchive(
     if (linkedFeatureIds.length > 0) {
       Promise.all(
         linkedFeatureIds.map(async (featureId) => {
-          const revisions = await getLinkageSyncRevisionSummaries(
-            context.org.id,
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          return syncFeatureExperimentLinkages(
+            context,
             featureId,
+            openDrafts,
+            liveRevision,
           );
-          return syncFeatureExperimentLinkages(context, featureId, revisions);
         }),
       ).catch((e) => {
         logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");

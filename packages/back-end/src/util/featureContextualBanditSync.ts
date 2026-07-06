@@ -1,15 +1,9 @@
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  ACTIVE_DRAFT_STATUSES,
-  ContextualBanditRefRule,
-  RevisionStatus,
-} from "shared/validators";
+import { ContextualBanditRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
-
-const OPEN_DRAFT_STATUSES: Set<RevisionStatus> = new Set(ACTIVE_DRAFT_STATUSES);
 
 function getContextualBanditIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
@@ -34,16 +28,10 @@ function getContextualBanditIdsFromRules(
 export async function syncFeatureContextualBanditLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
-  revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[],
+  liveRevision: Pick<FeatureRevisionInterface, "rules"> | null,
 ): Promise<void> {
   try {
-    const openDrafts = revisions.filter((r) =>
-      OPEN_DRAFT_STATUSES.has(r.status),
-    );
-    const liveRevision = revisions
-      .filter((r) => r.status === "published")
-      .sort((a, b) => b.version - a.version)[0];
-
     const draftVersionsByCb = new Map<string, Set<number>>();
     for (const rev of openDrafts) {
       for (const cbId of getContextualBanditIdsFromRules(rev.rules)) {

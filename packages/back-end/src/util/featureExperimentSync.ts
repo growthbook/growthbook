@@ -1,9 +1,5 @@
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import {
-  ACTIVE_DRAFT_STATUSES,
-  ExperimentRefRule,
-  RevisionStatus,
-} from "shared/validators";
+import { ExperimentRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -15,8 +11,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
-
-const OPEN_DRAFT_STATUSES: Set<RevisionStatus> = new Set(ACTIVE_DRAFT_STATUSES);
 
 function getExperimentIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
@@ -50,16 +44,10 @@ function getExperimentIdsFromRules(
 export async function syncFeatureExperimentLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
-  revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[],
+  liveRevision: Pick<FeatureRevisionInterface, "rules"> | null,
 ): Promise<void> {
   try {
-    const openDrafts = revisions.filter((r) =>
-      OPEN_DRAFT_STATUSES.has(r.status),
-    );
-    const liveRevision = revisions
-      .filter((r) => r.status === "published")
-      .sort((a, b) => b.version - a.version)[0];
-
     // (expId -> set of open-draft versions referencing it). Multiple drafts
     // of this feature referencing the same experiment all stay tracked — they
     // get applied sequentially on experiment start.

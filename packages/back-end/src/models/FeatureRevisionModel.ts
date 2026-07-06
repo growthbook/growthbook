@@ -336,37 +336,44 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
-/** Returns the version/status/rules of only the revisions that
+/** Returns the version/rules of only the revisions that
  * syncFeatureExperimentLinkages/syncFeatureContextualBanditLinkages actually
  * use: open drafts, plus the single latest published revision. A feature
  * that's been published many times can accumulate thousands of superseded
  * published revisions that are never discarded — fetching those in full
  * wastes memory and network transfer since the sync functions only ever
- * look at the live version anyway. */
+ * look at the live version anyway. Returned pre-split so callers don't need
+ * to re-derive the same distinction the query already made. */
 export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
-): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
-  const [openDrafts, liveRevision] = await Promise.all([
+): Promise<{
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
+  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+}> {
+  const [openDraftDocs, liveDoc] = await Promise.all([
     FeatureRevisionModel.find({
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version status rules"),
+    }).select("version rules"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
       status: "published",
     })
       .sort({ version: -1 })
-      .select("version status rules"),
+      .select("version rules"),
   ]);
-  const docs = liveRevision ? [...openDrafts, liveRevision] : openDrafts;
-  return docs.map((d) => ({
-    version: d.version,
-    status: d.status,
-    rules: d.rules,
-  }));
+  return {
+    openDrafts: openDraftDocs.map((d) => ({
+      version: d.version,
+      rules: d.rules,
+    })),
+    liveRevision: liveDoc
+      ? { version: liveDoc.version, rules: liveDoc.rules }
+      : null,
+  };
 }
 
 export async function getMinimalRevisions(
@@ -1215,13 +1222,19 @@ export async function updateRevision(
   // Fire-and-forget linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
     getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-      .then((summaries) =>
+      .then(({ openDrafts, liveRevision }) =>
         Promise.all([
-          syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+          syncFeatureExperimentLinkages(
+            context,
+            revision.featureId,
+            openDrafts,
+            liveRevision,
+          ),
           syncFeatureContextualBanditLinkages(
             context,
             revision.featureId,
-            summaries,
+            openDrafts,
+            liveRevision,
           ),
         ]),
       )
@@ -2241,8 +2254,13 @@ export async function reopenRevision(
 
   // Sync linkages — the reopened revision's rules count as "open drafts" again.
   getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-    .then((summaries) =>
-      syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+    .then(({ openDrafts, liveRevision }) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        openDrafts,
+        liveRevision,
+      ),
     )
     .catch((e) => {
       logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
@@ -2292,13 +2310,19 @@ export async function discardRevision(
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
   getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
-    .then((summaries) =>
+    .then(({ openDrafts, liveRevision }) =>
       Promise.all([
-        syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
         syncFeatureContextualBanditLinkages(
           context,
           revision.featureId,
-          summaries,
+          openDrafts,
+          liveRevision,
         ),
       ]),
     )
