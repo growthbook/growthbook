@@ -5,6 +5,12 @@ import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
+// Upper bound on maxLeaves accepted at the API boundary. Caps the leaf count L
+// in the SDK payload (but NOT per-leaf condition size — that's bounded by the
+// stats engine's output shape). Intentionally absent from the base schema so
+// stored docs are never rejected on read.
+export const MAX_CONTEXTUAL_BANDIT_LEAVES = 15;
+
 export const variationWeightPairValidator = z.object({
   variationId: z.string(),
   weight: z.number(),
@@ -188,7 +194,14 @@ export const apiCreateContextualBanditBody = z.strictObject({
 
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  // Request-boundary cap only (never on the base schema — BaseModel parses
+  // stored docs on read). Bounds the leaf count L in the SDK payload.
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
 
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -220,7 +233,13 @@ export const apiUpdateContextualBanditBody = z.object({
   contextualAttributes: z.array(z.string()).optional(),
   decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  maxLeaves: z.number().int().positive().optional(),
+  // Request-boundary cap only; see apiCreateContextualBanditBody.
+  maxLeaves: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
+    .optional(),
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
   burnInValue: z.number().optional(),

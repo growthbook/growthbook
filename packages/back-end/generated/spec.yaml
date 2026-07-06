@@ -29921,6 +29921,7 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
+                  maximum: 15
                 scheduleValue:
                   type: number
                 scheduleUnit:
@@ -30092,6 +30093,7 @@ paths:
                 maxLeaves:
                   type: integer
                   exclusiveMinimum: 0
+                  maximum: 15
                 scheduleValue:
                   type: number
                 scheduleUnit:
