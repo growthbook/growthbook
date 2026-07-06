@@ -197,7 +197,6 @@ type CodeTextAreaFieldProps = Omit<
   | "multi"
   | "initialOption"
   | "render"
-  | "containerClassName"
   | "ref"
 >;
 
@@ -253,6 +252,7 @@ export default function CodeTextArea({
   showFullscreenButton = false,
   onRequestFullscreen,
   onEditorLoad,
+  containerClassName,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -347,7 +347,7 @@ export default function CodeTextArea({
   return (
     <Field
       {...fieldProps}
-      containerClassName={fullHeight ? "h-100" : ""}
+      containerClassName={clsx(fullHeight ? "h-100" : "", containerClassName)}
       render={(id) => {
         return (
           <>

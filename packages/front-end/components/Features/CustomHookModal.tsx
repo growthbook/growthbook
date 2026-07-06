@@ -21,7 +21,16 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import { DocLink, DocSection } from "@/components/DocLink";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+
+// Per-hook-type example section in the Custom Hooks docs.
+const EXAMPLE_DOC_SECTIONS: Record<CustomHookType, DocSection> = {
+  validateFeature: "customHooks#validatefeature",
+  validateFeatureRevision: "customHooks#validatefeaturerevision",
+  validateConfig: "customHooks#validateconfig",
+  validateConfigRevision: "customHooks#validateconfigrevision",
+};
 
 const dummyFeature: FeatureInterface = {
   id: "new-feature",
@@ -226,6 +235,7 @@ export default function CustomHookModal({
 
   const hookType = form.watch("hook");
   const hookTypeData = hookTypes[hookType];
+  const exampleDocSection = EXAMPLE_DOC_SECTIONS[hookType];
 
   // Hook types offered: filtered to the scoped entity's types, else all.
   const hookTypeOptions = Object.entries(hookTypes)
@@ -411,9 +421,17 @@ export default function CustomHookModal({
             required
             value={form.watch("code")}
             setValue={(value) => form.setValue("code", value)}
-            placeholder={hookTypeData?.example || ""}
+            placeholder="// Your validation logic (throw to block, addWarning to warn)"
             onCtrlEnter={runTest}
+            containerClassName="mb-0"
           />
+          <Text as="div" size="small" color="text-low" mt="1" mb="5">
+            Need a starting point? See an{" "}
+            <DocLink docSection={exampleDocSection}>
+              example {hookEntityType[hookType]} hook
+            </DocLink>
+            .
+          </Text>
 
           <Checkbox
             label="Incremental Changes Only"
