@@ -2,8 +2,9 @@ import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface, hookEntityType } from "shared/validators";
 import { getConfigAncestorKeys } from "shared/util";
 import { useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
@@ -19,8 +20,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import CustomHookModal from "@/components/Features/CustomHookModal";
@@ -281,35 +281,32 @@ function HooksTable({
                   {hook.incrementalChangesOnly ? "Yes" : "No"}
                 </TableCell>
                 <TableCell>
-                  <MoreMenu useRadix={false}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setViewCodeHook(hook);
-                      }}
-                    >
-                      Preview Code
-                    </a>
-                    {canManage && configScoped && (
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModalData(hook);
-                        }}
+                  <DropdownMenu
+                    variant="soft"
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
                       >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                  >
+                    <DropdownMenuItem onClick={() => setViewCodeHook(hook)}>
+                      Preview Code
+                    </DropdownMenuItem>
+                    {canManage && configScoped && (
+                      <DropdownMenuItem onClick={() => setModalData(hook)}>
                         Edit
-                      </a>
+                      </DropdownMenuItem>
                     )}
                     {canManage && configScoped && (
-                      <a
-                        href="#"
-                        className="dropdown-item"
-                        onClick={async (e) => {
-                          e.preventDefault();
+                      <DropdownMenuItem
+                        onClick={async () => {
                           setToggleError(null);
                           try {
                             await apiCall(`/custom-hooks/${hook.id}`, {
@@ -327,24 +324,28 @@ function HooksTable({
                         }}
                       >
                         {hook.enabled ? "Disable" : "Enable"}
-                      </a>
+                      </DropdownMenuItem>
                     )}
                     {canManage && configScoped && (
-                      <DeleteButton
-                        useRadix={false}
-                        useIcon={false}
-                        text="Delete"
-                        displayName="custom hook"
-                        onClick={async () => {
-                          await apiCall(`/custom-hooks/${hook.id}`, {
-                            method: "DELETE",
-                          });
-                          await mutate();
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: async () => {
+                            await apiCall(`/custom-hooks/${hook.id}`, {
+                              method: "DELETE",
+                            });
+                            await mutate();
+                          },
+                          confirmationTitle: "Delete custom hook",
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            "Are you sure? This action cannot be undone.",
                         }}
-                        className="dropdown-item text-danger"
-                      />
+                      >
+                        Delete
+                      </DropdownMenuItem>
                     )}
-                  </MoreMenu>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             );

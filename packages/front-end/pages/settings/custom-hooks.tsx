@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/Features/CustomHookModal";
@@ -161,32 +161,31 @@ export default function CustomHooksPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <MoreMenu iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setViewCodeHook(hook);
-                            }}
+                        <DropdownMenu
+                          variant="soft"
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="1"
+                              highContrast
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                          menuPlacement="end"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => setViewCodeHook(hook)}
                           >
                             Preview Code
-                          </a>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setModalData(hook);
-                            }}
-                          >
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setModalData(hook)}>
                             Edit
-                          </a>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={async (e) => {
-                              e.preventDefault();
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={async () => {
                               await apiCall(`/custom-hooks/${hook.id}`, {
                                 method: "PUT",
                                 body: JSON.stringify({
@@ -197,21 +196,25 @@ export default function CustomHooksPage() {
                             }}
                           >
                             {hook.enabled ? "Disable" : "Enable"}
-                          </a>
-                          <DeleteButton
-                            useRadix={false}
-                            useIcon={false}
-                            text="Delete"
-                            displayName="custom hook"
-                            onClick={async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            color="red"
+                            confirmation={{
+                              submit: async () => {
+                                await apiCall(`/custom-hooks/${hook.id}`, {
+                                  method: "DELETE",
+                                });
+                                await mutate();
+                              },
+                              confirmationTitle: "Delete custom hook",
+                              cta: "Delete",
+                              getConfirmationContent: async () =>
+                                "Are you sure? This action cannot be undone.",
                             }}
-                            className="dropdown-item text-danger"
-                          />
-                        </MoreMenu>
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -252,18 +255,27 @@ export default function CustomHooksPage() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <MoreMenu iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setViewCodeHook(hook);
-                            }}
+                        <DropdownMenu
+                          variant="soft"
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="1"
+                              highContrast
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                          menuPlacement="end"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => setViewCodeHook(hook)}
                           >
                             Preview Code
-                          </a>
-                        </MoreMenu>
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -305,18 +317,27 @@ export default function CustomHooksPage() {
                         {hook.includeDescendants ? " + descendants" : null}
                       </TableCell>
                       <TableCell>
-                        <MoreMenu iconButtonSize="1">
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setViewCodeHook(hook);
-                            }}
+                        <DropdownMenu
+                          variant="soft"
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="1"
+                              highContrast
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                          menuPlacement="end"
+                        >
+                          <DropdownMenuItem
+                            onClick={() => setViewCodeHook(hook)}
                           >
                             Preview Code
-                          </a>
-                        </MoreMenu>
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
