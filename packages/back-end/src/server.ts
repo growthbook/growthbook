@@ -4,6 +4,15 @@ import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
+import {
+  destroyGrowthBookClient,
+  initializeGrowthBookClient,
+} from "./services/growthbook";
+
+// Start the GrowthBook client (fail-soft; no-op when disabled)
+initializeGrowthBookClient().catch((error) => {
+  logger.error({ error }, "Failed to initialize GrowthBook at startup");
+});
 
 const server = app.listen(app.get("port"), () => {
   logger.info(
@@ -38,6 +47,8 @@ function onClose() {
   // stop Express server
   server.close(async () => {
     logger.info("HTTP server closed");
+    // Close GrowthBook SSE connections
+    destroyGrowthBookClient();
     // Gracefully close Agenda
     const agenda = getAgendaInstance();
     await agenda.stop();

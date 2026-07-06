@@ -390,6 +390,17 @@ export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
 );
 
+// Dedicated server-side GrowthBook SDK connection (cloud only). An empty
+// client key disables the back-end SDK entirely; consumers fall back to
+// in-app defaults (fail-open). Must be a separate connection from the
+// front-end's — see services/growthbook.ts for the security constraints.
+export const GROWTHBOOK_SDK_CLIENT_KEY =
+  process.env.GROWTHBOOK_SDK_CLIENT_KEY || "";
+export const GROWTHBOOK_SDK_API_HOST = trimEnd(
+  process.env.GROWTHBOOK_SDK_API_HOST || "https://cdn.growthbook.io",
+  "/",
+);
+
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,
   options?: {
