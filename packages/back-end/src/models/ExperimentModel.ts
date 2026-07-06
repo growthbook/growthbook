@@ -558,6 +558,28 @@ export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<ExperimentInterface[]> {
+  const experiments = await fetchAllExperimentsForStaleGraphUnfiltered(
+    context,
+    { includeArchived },
+  );
+
+  return experiments.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
+}
+
+/**
+ * The fetch half of {@link getAllExperimentsForStaleGraph}, WITHOUT the
+ * per-user permission filter. Nothing here depends on the requesting user,
+ * which is what makes the result cacheable per org — see
+ * services/featureGraphCache.ts, the only intended caller. Anything else must
+ * apply `context.permissions.canReadSingleProjectResource` before using the
+ * result.
+ */
+export async function fetchAllExperimentsForStaleGraphUnfiltered(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
@@ -611,9 +633,7 @@ export async function getAllExperimentsForStaleGraph(
     }
   }
 
-  return (experiments as unknown as ExperimentInterface[]).filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
-  );
+  return experiments as unknown as ExperimentInterface[];
 }
 
 export async function hasArchivedExperiments(

@@ -507,6 +507,27 @@ export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {
+  const features = await fetchAllFeaturesForStaleGraphUnfiltered(context, {
+    includeArchived,
+  });
+
+  return features.filter((feature) =>
+    context.permissions.canReadSingleProjectResource(feature.project),
+  );
+}
+
+/**
+ * The fetch+migrate half of {@link getAllFeaturesForStaleGraph}, WITHOUT the
+ * per-user permission filter. Nothing here depends on the requesting user
+ * (migration reads `context.org` only), which is what makes the result
+ * cacheable per org — see services/featureGraphCache.ts, the only intended
+ * caller. Anything else must apply
+ * `context.permissions.canReadSingleProjectResource` before using the result.
+ */
+export async function fetchAllFeaturesForStaleGraphUnfiltered(
+  context: ReqContext | ApiReqContext,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
   const q = featureListQuery(context.org.id, { includeArchived });
 
   const docs = await FeatureModel.find(q, {
@@ -516,15 +537,11 @@ export async function getAllFeaturesWithoutEditorFields(
     draft: 0,
   }).lean<LegacyFeatureInterface[]>();
 
-  const features = docs.map((raw) =>
+  return docs.map((raw) =>
     migrateRawFeatureToV2(
       omit(raw, ["__v", "_id"]) as LegacyFeatureInterface,
       context,
     ),
-  );
-
-  return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project),
   );
 }
 
