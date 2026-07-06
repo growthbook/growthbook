@@ -1,5 +1,9 @@
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentRefRule } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  ExperimentRefRule,
+  RevisionStatus,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -12,12 +16,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
-const OPEN_DRAFT_STATUSES = new Set([
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-]);
+const OPEN_DRAFT_STATUSES: Set<RevisionStatus> = new Set(ACTIVE_DRAFT_STATUSES);
 
 function getExperimentIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,

@@ -1,16 +1,15 @@
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ContextualBanditRefRule } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  ContextualBanditRefRule,
+  RevisionStatus,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 
-const OPEN_DRAFT_STATUSES = new Set([
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-]);
+const OPEN_DRAFT_STATUSES: Set<RevisionStatus> = new Set(ACTIVE_DRAFT_STATUSES);
 
 function getContextualBanditIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
