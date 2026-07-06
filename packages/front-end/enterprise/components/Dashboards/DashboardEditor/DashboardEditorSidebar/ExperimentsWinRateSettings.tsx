@@ -5,6 +5,7 @@ import {
   ExperimentsWinRateBlockInterface,
 } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 
 interface Props {
@@ -21,11 +22,44 @@ export default function ExperimentsWinRateSettings({
   projects,
 }: Props) {
   return (
-    <Flex direction="column" gap="5">
+    <Flex
+      direction="column"
+      gap="4"
+      p="3"
+      style={{
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+        backgroundColor: "var(--color-panel-translucent)",
+      }}
+    >
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
+        comparisonEnabled={!!block.comparison?.enabled}
+        previousTimeFrame={block.comparison?.previousTimeFrame}
+        onPreviousTimeFrameChange={(previousTimeFrame) =>
+          setBlock({
+            ...block,
+            comparison: {
+              ...(block.comparison ?? {}),
+              enabled: true,
+              previousTimeFrame,
+            },
+          })
+        }
+        dateRangeAccessory={
+          <Switch
+            label="Compare"
+            value={!!block.comparison?.enabled}
+            onChange={(checked) =>
+              setBlock({
+                ...block,
+                comparison: { ...(block.comparison ?? {}), enabled: checked },
+              })
+            }
+          />
+        }
       />
 
       <Checkbox

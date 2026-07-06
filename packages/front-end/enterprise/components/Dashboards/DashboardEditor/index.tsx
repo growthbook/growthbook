@@ -103,7 +103,7 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiGaugeDuotone />,
   },
   "experiments-status": {
-    name: "Experiment Status",
+    name: "Team Velocity",
     icon: <PiChartBarDuotone />,
   },
   "experiment-dimension": {

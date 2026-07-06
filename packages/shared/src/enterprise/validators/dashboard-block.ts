@@ -9,7 +9,10 @@ import {
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   explorationDateRangeValidator,
+  dateGranularity,
+  ExplorationDateRange,
 } from "../../validators/product-analytics";
+import { calculateProductAnalyticsDateRange } from "../product-analytics/sql";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
 // Hard cap on the canonical column count. Used as the zod ceiling on `w`/`x`
@@ -63,7 +66,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
     minH: 4,
   },
   "experiments-win-rate": { w: 12, h: 8, minW: 8, minH: 4 },
-  "experiments-status": { w: 12, h: 8, minW: 8, minH: 4 },
+  "experiments-status": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
@@ -240,14 +243,28 @@ export type MetricExperimentsBlockInterface = z.infer<
 // Executive Report controls. Kept per-block for now, but always read through
 // resolveCompletedExperimentsFilters so a future dashboard-wide filter bar can
 // override them (see resolveBlockComparison for the same pattern).
+// Period comparison for a dashboard block. `enabled` turns the comparison on;
+// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
+// predefined/rolling primaries re-derive (and roll) the previous period on each
+// refresh. Kept as a structured object so a future dashboard-wide compare toggle
+// can resolve to the same shape (see resolveBlockComparison).
+export const blockComparisonValidator = z.object({
+  enabled: z.boolean(),
+  previousTimeFrame: explorationDateRangeValidator.optional(),
+});
+export type BlockComparison = z.infer<typeof blockComparisonValidator>;
+
 const completedExperimentsBlockCommon = {
-  // Preset key: "30" | "60" | "90" | "180" | "365" | "custom".
-  dateRange: z.string(),
-  // Populated only when dateRange === "custom".
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  // Metric-Explorer-style date range (Today / Past 7·30·90 / Custom Lookback /
+  // Custom Date Range). Legacy string presets are migrated to this shape in
+  // migrateBlock.
+  dateRange: explorationDateRangeValidator,
   // Project ids to scope to; empty array means all projects.
   projects: z.array(z.string()),
+  // Compare-to-previous-period. Optional so pre-existing blocks read as "no
+  // comparison". The previous window is derived from the current one on each
+  // refresh (span-shift), so we don't persist `previousTimeFrame` here.
+  comparison: blockComparisonValidator.optional(),
 };
 
 const experimentsScaledImpactBlockInterface = baseBlockInterface
@@ -278,6 +295,9 @@ const experimentsStatusBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiments-status"),
     ...completedExperimentsBlockCommon,
+    // Time bucketing for the velocity bars. Optional so pre-existing blocks
+    // read as "auto"; resolved against the date range via getDateGranularity.
+    dateGranularity: z.enum(dateGranularity).optional(),
   })
   .strict();
 
@@ -286,9 +306,7 @@ export type ExperimentsStatusBlockInterface = z.infer<
 >;
 
 export type CompletedExperimentsBlockFilters = {
-  dateRange: string;
-  startDate?: string;
-  endDate?: string;
+  dateRange: ExplorationDateRange;
   projects: string[];
 };
 
@@ -297,6 +315,7 @@ export type CompletedExperimentsBlockFilters = {
  * straight from the block; the `dashboard` arg is the forward-compat seam for a
  * future dashboard-wide filter bar (project / date range) that would take
  * precedence — mirrors resolveBlockComparison so render code never changes.
+ * The date range is resolved with the same helper Metric Explorer uses.
  */
 export function resolveCompletedExperimentsFilters(
   block: CompletedExperimentsBlockFilters,
@@ -307,18 +326,9 @@ export function resolveCompletedExperimentsFilters(
       ? dashboard.projects
       : block.projects;
 
-  if (block.dateRange === "custom") {
-    return {
-      startDate: block.startDate ? new Date(block.startDate) : new Date(0),
-      endDate: block.endDate ? new Date(block.endDate) : new Date(),
-      projects,
-    };
-  }
-
-  const days = parseInt(block.dateRange, 10) || 90;
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  const { startDate, endDate } = calculateProductAnalyticsDateRange(
+    block.dateRange,
+  );
   return { startDate, endDate, projects };
 }
 
@@ -420,17 +430,6 @@ const legacySqlExplorerBlockInterface = sqlExplorerBlockInterface
 export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
 >;
-
-// Period comparison for a dashboard block. `enabled` turns the comparison on;
-// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
-// predefined/rolling primaries re-derive (and roll) the previous period on each
-// refresh. Kept as a structured object so a future dashboard-wide compare toggle
-// can resolve to the same shape (see resolveBlockComparison).
-export const blockComparisonValidator = z.object({
-  enabled: z.boolean(),
-  previousTimeFrame: explorationDateRangeValidator.optional(),
-});
-export type BlockComparison = z.infer<typeof blockComparisonValidator>;
 
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({

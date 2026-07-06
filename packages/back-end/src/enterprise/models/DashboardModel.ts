@@ -23,9 +23,12 @@ import {
   DASHBOARD_GRID_COLS,
   getBlockSizeBounds,
 } from "shared/enterprise";
+import {
+  ExplorationDateRange,
+  defaultPrimaryKeyShape,
+} from "shared/validators";
 import omit from "lodash/omit";
 import { getValidDate } from "shared/dates";
-import { defaultPrimaryKeyShape } from "shared/validators";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -508,6 +511,75 @@ export function generateDashboardBlockIds(
   return blockToInterface(block);
 }
 
+// Convert a legacy "Completed Experiments" preset ("30" | "60" | "90" | "180" |
+// "365" | "custom") into the Metric-Explorer ExplorationDateRange shape. Fixed
+// presets without a direct equivalent (60/180/365) fold into a Custom Lookback.
+function legacyPresetToExplorationDateRange(
+  preset: string,
+  startDate?: string,
+  endDate?: string,
+): ExplorationDateRange {
+  const toYmd = (iso?: string) =>
+    iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+  switch (preset) {
+    case "custom":
+      return {
+        predefined: "customDateRange",
+        startDate: toYmd(startDate),
+        endDate: toYmd(endDate),
+      };
+    case "7":
+      return { predefined: "last7Days" };
+    case "30":
+      return { predefined: "last30Days" };
+    case "90":
+      return { predefined: "last90Days" };
+    default: {
+      const days = parseInt(preset, 10);
+      if (!isNaN(days) && days > 0) {
+        return {
+          predefined: "customLookback",
+          lookbackValue: days,
+          lookbackUnit: "day",
+        };
+      }
+      return { predefined: "last90Days" };
+    }
+  }
+}
+
+// Rewrite a completed-experiments block's legacy string `dateRange` (+ optional
+// top-level startDate/endDate) into the ExplorationDateRange object. Already
+// migrated blocks (object dateRange) pass through unchanged.
+function migrateCompletedExperimentsDateRange(
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
+  const raw = doc as unknown as {
+    dateRange?: unknown;
+    startDate?: string;
+    endDate?: string;
+  };
+  if (raw.dateRange && typeof raw.dateRange === "object") {
+    return doc as DashboardBlockInterface | CreateDashboardBlockInterface;
+  }
+  const preset = typeof raw.dateRange === "string" ? raw.dateRange : "90";
+  const dateRange = legacyPresetToExplorationDateRange(
+    preset,
+    raw.startDate,
+    raw.endDate,
+  );
+  const copy: Record<string, unknown> = { ...(doc as Record<string, unknown>) };
+  delete copy.startDate;
+  delete copy.endDate;
+  copy.dateRange = dateRange;
+  return copy as unknown as
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface;
+}
+
 export function migrateBlock(
   doc:
     | LegacyDashboardBlockInterface
@@ -717,6 +789,22 @@ export function migrateBlock(
         ...doc,
         blockConfig: doc.blockConfig ?? [],
       };
+    }
+    case "experiments-scaled-impact":
+    case "experiments-win-rate":
+    case "experiments-status": {
+      // Migrate the legacy string date range ("30"/"90"/"custom"…) to the
+      // Metric-Explorer-style ExplorationDateRange object.
+      const migrated = migrateCompletedExperimentsDateRange(doc);
+      // Team Velocity was renamed from "Experiment Status"; rewrite only the
+      // old default title so pre-existing blocks pick up the new name.
+      if (
+        migrated.type === "experiments-status" &&
+        migrated.title === "Experiment Status"
+      ) {
+        return { ...migrated, title: "Team Velocity" };
+      }
+      return migrated;
     }
     default:
       return doc;
