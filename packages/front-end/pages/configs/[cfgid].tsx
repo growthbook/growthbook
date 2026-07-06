@@ -24,8 +24,6 @@ import {
   computeConfigReconciliationPreview,
   evaluateInvariants,
   invariantRuleFields,
-  toCel,
-  mongoToJsonLogic,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -162,10 +160,8 @@ type ConfigExportPayloads = {
   ownSchema: Record<string, string>;
   effectiveSchema: Record<string, string>;
   ownProjections: { source: string; label: string; text: string }[];
-  // Validation rules, empty strings when the config has none.
+  // Validation rules (mongrule), empty string when the config has none.
   validationMongrule: string;
-  validationJsonLogic: string;
-  validationCel: string;
 };
 
 // "Resolved" variants walk the inheritance tree (and resolve constants for the value).
@@ -251,11 +247,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       {payloads.validationMongrule && (
         <>
           <DropdownMenuSeparator />
-          <DropdownSubMenu trigger="Validation">
-            {item("Mongrule", "Stored format", payloads.validationMongrule)}
-            {item("JSONLogic", null, payloads.validationJsonLogic)}
-            {item("CEL", null, payloads.validationCel)}
-          </DropdownSubMenu>
+          {item("Validation rules", null, payloads.validationMongrule)}
         </>
       )}
     </DropdownMenu>
@@ -733,28 +725,6 @@ export default function ConfigDetailPage(): React.ReactElement {
           2,
         )
       : "";
-    const validationJsonLogic = ownInvariants.length
-      ? JSON.stringify(
-          ownInvariants.map((iv) => ({
-            name: iv.name,
-            rule: mongoToJsonLogic(iv.rule),
-            message: iv.message,
-          })),
-          null,
-          2,
-        )
-      : "";
-    const validationCel = ownInvariants.length
-      ? "invariants:\n" +
-        ownInvariants
-          .map(
-            (iv) =>
-              `  - name: ${JSON.stringify(iv.name)}\n` +
-              `    rule: ${JSON.stringify(toCel(iv.rule))}\n` +
-              `    message: ${JSON.stringify(iv.message)}`,
-          )
-          .join("\n")
-      : "";
 
     return {
       ownValue: prettyJSON(displayedConfig?.value ?? "{}"),
@@ -763,8 +733,6 @@ export default function ConfigDetailPage(): React.ReactElement {
       effectiveSchema: renderAll(resolved.effectiveSchema),
       ownProjections,
       validationMongrule,
-      validationJsonLogic,
-      validationCel,
     };
   }, [
     displayedConfig?.value,

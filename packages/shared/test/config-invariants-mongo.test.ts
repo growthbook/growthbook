@@ -1,11 +1,7 @@
 import {
   evaluateInvariants,
   invariantRuleFields,
-  toCel,
   describeInvariantRule,
-  celToMongo,
-  jsonLogicToMongo,
-  mongoToJsonLogic,
   apiInvariantsToStored,
   ConfigInvariant,
 } from "../src/util/config-schema/invariants";
@@ -277,7 +273,7 @@ describe("invariantRuleFields — mongrule engine", () => {
   });
 });
 
-describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", () => {
+describe("describeInvariantRule + apiInvariantsToStored (mongo canonical)", () => {
   const IMPLICATION = {
     $or: [{ $not: { burst_enabled: { $eq: true } } }, { plan: { $eq: "pro" } }],
   };
@@ -293,21 +289,12 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     min_replicas: { $lte: { $ref: "max_replicas" } },
   };
 
-  it("toCel: mongo → CEL", () => {
-    expect(toCel(JSON.stringify(IMPLICATION))).toBe(
-      "!burst_enabled || plan == 'pro'",
-    );
-    expect(toCel(JSON.stringify(EXCLUSIVE))).toBe(
-      "!(allow_overage && hard_cap_enabled)",
-    );
-    expect(toCel(JSON.stringify(ORDERING))).toBe(
-      "min_replicas <= max_replicas",
-    );
-  });
-
   it("describeInvariantRule: mongo → friendly", () => {
     expect(describeInvariantRule(JSON.stringify(IMPLICATION))).toBe(
-      "IF burst_enabled THEN plan == 'pro'",
+      'IF burst_enabled THEN plan == "pro"',
+    );
+    expect(describeInvariantRule(JSON.stringify(EXCLUSIVE))).toBe(
+      "NOT (allow_overage AND hard_cap_enabled)",
     );
     expect(describeInvariantRule(JSON.stringify(ORDERING))).toBe(
       "min_replicas ≤ max_replicas",
@@ -319,78 +306,23 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     ).toBe("max_requests is set");
   });
 
-  it("celToMongo: CEL → mongo", () => {
-    expect(celToMongo("min_replicas <= max_replicas")).toEqual(ORDERING);
-    expect(celToMongo("!burst_enabled || plan == 'pro'")).toEqual(IMPLICATION);
-    expect(celToMongo("!(allow_overage && hard_cap_enabled)")).toEqual(
-      EXCLUSIVE,
-    );
-  });
-
-  it("celToMongo: rejects a malformed number instead of storing null", () => {
-    expect(() => celToMongo("replicas == 1.2.3")).toThrow(/number/i);
-    // a valid number still parses
-    expect(celToMongo("replicas == 3")).toEqual({ replicas: { $eq: 3 } });
-  });
-
-  it("celToMongo: rejects '!' before a comparison (precedence)", () => {
-    // `!a == b` must not be silently reinterpreted as `!(a == b)`.
-    expect(() => celToMongo("!a == b")).toThrow();
-    expect(celToMongo("!a || b == 1")).toEqual({
-      $or: [{ $not: { a: { $eq: true } } }, { b: { $eq: 1 } }],
-    });
-  });
-
   it("describes a logical operator beside a field condition", () => {
     // `{$or:[…], c:…}` — the field must be AND-ed, not read as a field "$or".
     const rule = { $or: [{ a: { $eq: 1 } }, { b: { $eq: 2 } }], c: { $eq: 3 } };
-    expect(toCel(JSON.stringify(rule))).toBe("(a == 1 || b == 2) && c == 3");
+    expect(describeInvariantRule(JSON.stringify(rule))).toBe(
+      "(a == 1 OR b == 2) AND c == 3",
+    );
   });
 
-  it("jsonLogicToMongo: JSONLogic → mongo", () => {
-    expect(
-      jsonLogicToMongo({
-        "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
-      }),
-    ).toEqual(ORDERING);
-    expect(
-      jsonLogicToMongo({
-        or: [
-          { "!": { var: "burst_enabled" } },
-          { "==": [{ var: "plan" }, "pro"] },
-        ],
-      }),
-    ).toEqual(IMPLICATION);
-  });
-
-  it("mongoToJsonLogic: mongo → JSONLogic", () => {
-    expect(mongoToJsonLogic(JSON.stringify(ORDERING))).toEqual({
-      "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
-    });
-  });
-
-  it("keeps every operator in a multi-operator field condition", () => {
-    // A range `{price: {$gte, $lte}}` must not silently drop a bound when
-    // exported to CEL / JSONLogic / a readable description.
+  it("describes every operator in a multi-operator field condition", () => {
+    // A range `{price: {$gte, $lte}}` must not silently drop a bound.
     const RANGE = { price: { $gte: 0, $lte: 100 } };
-    expect(toCel(JSON.stringify(RANGE))).toBe("price >= 0 && price <= 100");
     expect(describeInvariantRule(JSON.stringify(RANGE))).toBe(
       "price ≥ 0 AND price ≤ 100",
     );
-    expect(mongoToJsonLogic(JSON.stringify(RANGE))).toEqual({
-      and: [{ ">=": [{ var: "price" }, 0] }, { "<=": [{ var: "price" }, 100] }],
-    });
   });
 
-  it("converts the both-or-neither (iff) JSONLogic pattern to mongo", () => {
-    // `A == (B != null)` — a comparison whose operand is itself a boolean
-    // expression. Must expand to the iff shape, not leave JSONLogic in $eq.
-    const jl = {
-      "==": [
-        { var: "quota_enabled" },
-        { "!=": [{ var: "max_requests" }, null] },
-      ],
-    };
+  it("describes and evaluates the both-or-neither (iff) shape", () => {
     const IFF = {
       $or: [
         {
@@ -407,7 +339,6 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
         },
       ],
     };
-    expect(jsonLogicToMongo(jl)).toEqual(IFF);
     expect(describeInvariantRule(JSON.stringify(IFF))).toBe(
       "quota_enabled IF AND ONLY IF max_requests is set",
     );
@@ -427,88 +358,22 @@ describe("format converters (mongo canonical, CEL/JSONLogic at the boundary)", (
     ).toHaveLength(1);
   });
 
-  it("apiInvariantsToStored: mongo passes through; JSONLogic + CEL convert", () => {
-    const mongo = {
-      $or: [
-        { $not: { burst_enabled: { $eq: true } } },
-        { plan: { $eq: "pro" } },
-      ],
-    };
-    // Single-key mongo (`$or`) must pass through, not get mis-routed to the
-    // JSONLogic converter (which would throw "Unsupported operator $or").
-    const [fromMongo] = apiInvariantsToStored([
-      { name: "r", rule: mongo, message: "m" },
+  it("apiInvariantsToStored: a mongo condition passes through as the stored string", () => {
+    const [stored] = apiInvariantsToStored([
+      { name: "r", rule: IMPLICATION, message: "m" },
     ]);
-    expect(JSON.parse(fromMongo.rule)).toEqual(mongo);
-
-    const [fromJl] = apiInvariantsToStored([
-      {
-        name: "r",
-        rule: {
-          or: [
-            { "!": { var: "burst_enabled" } },
-            { "==": [{ var: "plan" }, "pro"] },
-          ],
-        },
-        message: "m",
-      },
-    ]);
-    expect(JSON.parse(fromJl.rule)).toEqual(mongo);
-
-    const [fromCel] = apiInvariantsToStored([
-      {
-        name: "r",
-        rule: "!burst_enabled || plan == 'pro'",
-        message: "m",
-      },
-    ]);
-    expect(JSON.parse(fromCel.rule)).toEqual(mongo);
+    expect(JSON.parse(stored.rule)).toEqual(IMPLICATION);
   });
 
-  it("round-trips CEL → mongo → CEL", () => {
-    for (const cel of [
-      "!burst_enabled || plan == 'pro'",
-      "min_replicas <= max_replicas",
-      "!(allow_overage && hard_cap_enabled)",
-      "pricing_mode != 'usage' || overage_rate != null",
-    ]) {
-      expect(toCel(JSON.stringify(celToMongo(cel)))).toBe(cel);
-    }
-  });
-
-  it("uploaded CEL/JSONLogic evaluate the same once stored as mongo", () => {
-    const fromCel = celToMongo("min_replicas <= max_replicas");
-    const fromJl = jsonLogicToMongo({
-      "<=": [{ var: "min_replicas" }, { var: "max_replicas" }],
-    });
-    const rules = (rule: unknown): ConfigInvariant[] => [
-      { name: "r", rule: JSON.stringify(rule), message: "replicas too high" },
-    ];
-    const bad = { min_replicas: 6, max_replicas: 5 };
-    const ok = { min_replicas: 2, max_replicas: 5 };
-    expect(evaluateInvariants(bad, rules(fromCel))).toHaveLength(1);
-    expect(evaluateInvariants(ok, rules(fromCel))).toHaveLength(0);
-    expect(evaluateInvariants(bad, rules(fromJl))).toHaveLength(1);
-  });
-
-  it("toCel escapes backslashes in string literals and celToMongo re-parses them", () => {
-    const rule = JSON.stringify({ path: { $eq: "C:\\temp" } });
-    const cel = toCel(rule);
-    expect(cel).toBe("path == 'C:\\\\temp'");
-    expect(celToMongo(cel)).toEqual({ path: { $eq: "C:\\temp" } });
-
-    // A trailing backslash must not escape the closing quote.
-    const trailing = toCel(JSON.stringify({ path: { $eq: "end\\" } }));
-    expect(celToMongo(trailing)).toEqual({ path: { $eq: "end\\" } });
-  });
-
-  it("jsonLogicToMongo accepts array-form negation (json-logic-js normalized shape)", () => {
-    expect(jsonLogicToMongo({ "!": [{ var: "a" }] })).toEqual(
-      jsonLogicToMongo({ "!": { var: "a" } }),
-    );
-    expect(jsonLogicToMongo({ "!": [{ var: "a" }] })).toEqual({
-      $not: { a: { $eq: true } },
-    });
+  it("apiInvariantsToStored: rejects a non-object rule", () => {
+    expect(() =>
+      apiInvariantsToStored([
+        { name: "r", rule: "min_replicas <= max_replicas", message: "m" },
+      ]),
+    ).toThrow(/mongo condition object/);
+    expect(() =>
+      apiInvariantsToStored([{ name: "r", rule: [1, 2], message: "m" }]),
+    ).toThrow(/mongo condition object/);
   });
 
   it("a $ref to a missing field named after an Object.prototype member resolves to null", () => {

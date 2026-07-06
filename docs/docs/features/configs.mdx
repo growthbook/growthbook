@@ -52,27 +52,36 @@ A config's value can also interpolate [string constants](/features/constants) wi
 
 You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
 
+## How configs are validated
+
+A config's value passes through several layers of validation before it reaches an SDK payload:
+
+1. **Schema conformance** — each field is checked against its schema definition (types, required fields, enums, bounds, nullability, and whether extra keys are allowed). This is the one-field-at-a-time check described in [Type safety and validation](#type-safety-and-validation).
+2. **Cross-field validation rules (invariants)** — mongrule conditions that express constraints across fields, which a per-field schema can't. Covered just below.
+3. **Custom validation hooks** — optional customer-authored JavaScript that runs on save and publish. See [Custom validation hooks](#custom-validation-hooks).
+4. **Descendant enforcement on publish** — publishing a config re-checks every descendant against its effective rules. See [Where rules run](#where-rules-run).
+
+The sections below cover each layer in turn.
+
 ## Validation rules (invariants)
 
-Schema fields validate one field at a time. **Validation rules** (called `invariants` in the API) express the cross-field constraints a schema can't — "target must not exceed max", "if A is set, B must be too":
-
-```json
-{ "buffer.target_seconds": { "$lte": { "$ref": "buffer.max_seconds" } } }
-```
+Schema fields validate one field at a time. **Validation rules** (called `invariants` in the API) express the cross-field constraints a schema can't — "target must not exceed max", "if A is set, B must be too".
 
 Each rule has a **name**, the **rule expression**, and a human-readable **message** shown when it fails. Rules are part of the config's schema — edit them alongside the fields in the app, or write the schema's `invariants` array over the REST API.
 
 Rules are inherited: a config is checked against its ancestors' rules plus its own, accumulated base → leaf, and a rule with the same name as an ancestor's overrides it. That means a base config's rules guard every descendant.
 
-### Rule formats
+### Rule format
 
-The canonical form is a **MongoDB-style condition** — the same condition syntax as feature targeting rules — extended with `{ "$ref": "path" }` to compare against another field of the value instead of a literal. The REST API accepts any of three formats on write and normalizes to the canonical form (responses always return the MongoDB-style object):
+A rule is a **MongoDB-style condition** — the same condition syntax as feature and experiment targeting rules, so it's a familiar, standard GrowthBook concept — extended with `{ "$ref": "path" }` to compare against another field of the value instead of a literal:
 
-- **MongoDB-style condition** — `{ "buffer.target_seconds": { "$lte": { "$ref": "buffer.max_seconds" } } }`, with the full condition operator set (`$eq`, `$ne`, `$lt`/`$lte`/`$gt`/`$gte`, `$exists`, `$and`/`$or`/`$not`/`$nor`, …).
-- **CEL-style expression string** — `"buffer.target_seconds <= buffer.max_seconds"`: comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`), `&&`, `||`, `!`, and parentheses; a bare identifier on the right-hand side references another field.
-- **JSONLogic object** — `{ "<=": [{ "var": "buffer.target_seconds" }, { "var": "buffer.max_seconds" }] }`, with `and`/`or`/`!`.
+```json
+{ "buffer.target_seconds": { "$lte": { "$ref": "buffer.max_seconds" } } }
+```
 
-**Nested fields are supported.** A dot-separated path like `buffer.target_seconds` reaches into nested objects — as the tested field and as a `$ref`/`var` target alike. A path that doesn't exist evaluates as `null` rather than erroring.
+This is the one format everywhere: it's what you author in the UI, what's stored on the schema, what's evaluated at publish, and what the REST API accepts on write and returns on read. The full condition operator set is available (`$eq`, `$ne`, `$lt`/`$lte`/`$gt`/`$gte`, `$exists`, `$and`/`$or`/`$not`/`$nor`, …).
+
+**Nested fields are supported.** A dot-separated path like `buffer.target_seconds` reaches into nested objects — as the tested field and as a `$ref` target alike. A path that doesn't exist evaluates as `null` rather than erroring.
 
 ### Where rules run
 
@@ -88,6 +97,18 @@ Violations share the enforcement gate with schema errors — the **Block publish
 - **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds with `?ignoreWarnings=true`.
 
 `?skipSchemaValidation=true` skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
+
+## Custom validation hooks
+
+Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message, or raise a soft warning that the user can review and bypass.
+
+Hooks are scoped Global, Project, or Config, and a config-scoped hook can opt to cover the whole family via **Include descendant configs**. Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
+
+:::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
+
+:::
+
+For the full hook API, examples, limits, and warning behavior, see [Custom Hooks](/features/custom-hooks).
 
 ## Using a config as a feature flag's value
 

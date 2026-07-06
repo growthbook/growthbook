@@ -236,9 +236,8 @@ export const apiSchemaWarningValidator = namedSchema(
     .strict(),
 );
 
-// Cross-field validation rules. On READ, `rule` is the canonical mongo condition
-// object (mongrule). On WRITE (see input validator below), it may also be a
-// JSONLogic object or a CEL string.
+// Cross-field validation rules. `rule` is a mongo condition object (mongrule) —
+// the single representation on both read and write.
 export const apiConfigInvariantValidator = z
   .object({
     name: z.string().max(128).describe("Unique name for the rule."),
@@ -254,22 +253,26 @@ export const apiConfigInvariantValidator = z
   })
   .strict();
 
-// Write shape: each rule's expression may be a mongo condition object, a
-// JSONLogic object, OR a CEL string (all converted to the canonical mongo
-// condition server-side) — mirroring how a schema can be uploaded as a JSON
-// Schema document or typed-code source.
+// Write shape: `rule` is a mongo condition object (mongrule) — the same
+// condition syntax as feature targeting.
 const apiConfigInvariantInputValidator = z
   .object({
     name: z.string().max(128),
     rule: z
-      .union([z.string(), z.record(z.string(), z.unknown())])
+      .record(z.string(), z.unknown())
       .describe(
-        "The rule expression, as a mongo condition (mongrule) object, a " +
-          'JSONLogic object, or a CEL string (e.g. "min_replicas <= ' +
-          'max_replicas"). Converted to the canonical mongo ' +
-          "condition on write.",
+        "The rule expression, as a mongo condition (mongrule) — the same " +
+          "condition syntax as feature targeting, extended with " +
+          '`{ "$ref": "otherField" }` to compare against another field, e.g. ' +
+          '`{ "min_replicas": { "$lte": { "$ref": "max_replicas" } } }`.',
       ),
-    message: z.string().max(MAX_DESCRIPTION_LENGTH),
+    message: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(
+        "Shown to editors when the rule is violated. Optional — defaults to a generic message naming the rule.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -415,7 +418,7 @@ const postConfigApiBody = z
     invariants: z
       .array(apiConfigInvariantInputValidator)
       .describe(
-        "Cross-field validation rules. Each rule's expression may be a mongo condition (mongrule), JSONLogic, or CEL. Stored on the config schema and enforced at publish.",
+        "Cross-field validation rules. Each rule's expression is a mongo condition (mongrule). Stored on the config schema and enforced at publish.",
       )
       .optional(),
     bypassApproval: bypassApprovalCreateField,
@@ -460,7 +463,7 @@ const updateConfigApiBody = z
     invariants: z
       .array(apiConfigInvariantInputValidator)
       .describe(
-        "Replace the config's cross-field validation rules. Each rule's expression may be a mongo condition (mongrule), JSONLogic, or CEL. Send the complete set; an empty array clears all rules. Omit to leave them unchanged.",
+        "Replace the config's cross-field validation rules. Each rule's expression is a mongo condition (mongrule). Send the complete set; an empty array clears all rules. Omit to leave them unchanged.",
       )
       .optional(),
     bypassApproval: bypassApprovalField,

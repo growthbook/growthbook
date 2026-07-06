@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiXBold } from "react-icons/pi";
 import {
   evaluateInvariants,
   describeInvariantRule,
   invariantRuleFields,
+  defaultInvariantMessage,
 } from "shared/util";
 import type { ConfigInvariant } from "shared/util";
 import {
@@ -23,7 +24,9 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  FormatOptionLabelType,
+} from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 
 type Props = {
@@ -54,17 +57,54 @@ type CompOp = (typeof COMPARISON_OPS)[number];
 type CondOp = CompOp | (typeof UNARY_OPS)[number];
 const ALL_OPS: CondOp[] = [...COMPARISON_OPS, ...UNARY_OPS];
 
+// Labels match the standard condition-builder language used in feature/
+// experiment targeting (see Features/ConditionInput.tsx) so operators read
+// consistently across the product.
 const OP_LABELS: Record<CondOp, string> = {
-  "==": "equals",
-  "!=": "does not equal",
+  "==": "is equal to",
+  "!=": "is not equal to",
   "<": "is less than",
-  "<=": "is at most",
+  "<=": "is less than or equal to",
   ">": "is greater than",
-  ">=": "is at least",
+  ">=": "is greater than or equal to",
   isTrue: "is true",
   isFalse: "is false",
-  isNull: "is empty (null)",
-  isNotNull: "is set (not null)",
+  isNull: "is NULL",
+  isNotNull: "is not NULL",
+};
+
+// Leading glyph per comparison operator (mirrors the targeting condition builder
+// — Features/conditionOperatorOptions, arriving in #5743); unary operators have
+// none. Rendered in a fixed-width box so the labels line up.
+const OP_ICON: Partial<Record<CondOp, string>> = {
+  "==": "=",
+  "!=": "≠",
+  "<": "<",
+  "<=": "≤",
+  ">": ">",
+  ">=": "≥",
+};
+
+const formatOperatorOption: FormatOptionLabelType = (opt, { context }) => {
+  const icon = OP_ICON[opt.value as CondOp] || "";
+  // Selected value: the glyph for comparisons, the full label otherwise.
+  if (context === "value") return icon || opt.label;
+  return (
+    <span style={{ display: "flex", alignItems: "center" }}>
+      <span
+        style={{
+          width: 20,
+          flexShrink: 0,
+          textAlign: "center",
+          fontFamily: "monospace",
+          marginRight: 6,
+        }}
+      >
+        {icon}
+      </span>
+      {opt.label}
+    </span>
+  );
 };
 
 type Condition = {
@@ -77,20 +117,16 @@ type Condition = {
 // A group is an AND-joined list of conditions.
 type Group = Condition[];
 
-type RuleKind = "single" | "implication" | "iff" | "exclusive";
+type RuleKind = "single" | "implication";
 
 const RULE_KIND_OPTIONS: { label: string; value: RuleKind }[] = [
   { label: "Conditions that must hold", value: "single" },
   { label: "If … then …", value: "implication" },
-  { label: "Both or neither", value: "iff" },
-  { label: "Can't all be true", value: "exclusive" },
 ];
 
 const RULE_KIND_HINTS: Record<RuleKind, string> = {
   single: "All of these conditions must hold.",
   implication: "When the IF conditions all hold, the THEN conditions must too.",
-  iff: "The two sides must be true together, or false together.",
-  exclusive: "These conditions can't all be true at the same time.",
 };
 
 function isComp(op: CondOp): op is CompOp {
@@ -185,17 +221,6 @@ function buildRule(
     case "implication":
       // A → B  ≡  ¬A ∨ B
       return { $or: [{ $not: groupToMongo(a) }, groupToMongo(b)] };
-    case "iff":
-      // A ↔ B: both hold, or neither holds.
-      return {
-        $or: [
-          { $and: [groupToMongo(a), groupToMongo(b)] },
-          { $nor: [groupToMongo(a), groupToMongo(b)] },
-        ],
-      };
-    case "exclusive":
-      // Can't all be true: ¬(A ∧ B ∧ …)
-      return { $not: groupToMongo(a) };
   }
 }
 
@@ -270,13 +295,6 @@ function parseRule(obj: Record<string, unknown>): ParsedRule | null {
   const op = keys[0];
   const arg = obj[op];
 
-  // Can't all be true: {$not: <group>}
-  if (op === "$not") {
-    const g = parseGroup(arg);
-    if (g) return { kind: "exclusive", groupA: g };
-    return null;
-  }
-
   if (op === "$or" && Array.isArray(arg) && arg.length === 2) {
     // Implication: {$or: [{$not: A}, B]}
     const x = arg[0];
@@ -291,23 +309,7 @@ function parseRule(obj: Record<string, unknown>): ParsedRule | null {
       const gB = parseGroup(arg[1]);
       if (gA && gB) return { kind: "implication", groupA: gA, groupB: gB };
     }
-    // Both or neither: {$or: [{$and:[A,B]}, {$nor:[A,B]}]}. The $nor arm must
-    // mirror the $and arm, or it isn't an iff — fall through to Advanced rather
-    // than mislabel it and silently rewrite on save.
-    const first = arg[0] as Record<string, unknown> | undefined;
-    const second = arg[1] as Record<string, unknown> | undefined;
-    if (
-      first &&
-      Array.isArray(first.$and) &&
-      first.$and.length === 2 &&
-      second &&
-      Array.isArray(second.$nor) &&
-      JSON.stringify(first.$and) === JSON.stringify(second.$nor)
-    ) {
-      const gA = parseGroup(first.$and[0]);
-      const gB = parseGroup(first.$and[1]);
-      if (gA && gB) return { kind: "iff", groupA: gA, groupB: gB };
-    }
+    // Anything else (incl. the biconditional $and/$nor shape) → Advanced.
     return null;
   }
 
@@ -405,10 +407,6 @@ export default function ConfigInvariantsEditor({
   };
 
   const onKindChange = (k: RuleKind) => {
-    // "Can't all be true" needs at least two conditions to be meaningful.
-    if (k === "exclusive" && groupA.length < 2) {
-      setGroupA([...groupA, newCondition(fieldKeys[0] ?? "")]);
-    }
     setKind(k);
   };
 
@@ -451,10 +449,7 @@ export default function ConfigInvariantsEditor({
   };
 
   const validateBuilder = (): string | null => {
-    if (kind === "exclusive" && groupA.length < 2) {
-      return "Add at least two conditions.";
-    }
-    const twoSided = kind === "implication" || kind === "iff";
+    const twoSided = kind === "implication";
     const a = validateGroup(groupA, twoSided ? "the first group" : "the rule");
     if (a) return a;
     if (twoSided) return validateGroup(groupB, "the second group");
@@ -463,7 +458,6 @@ export default function ConfigInvariantsEditor({
 
   const save = async () => {
     if (!name.trim()) throw new Error("Name is required.");
-    if (!message.trim()) throw new Error("Message is required.");
     if (!advanced) {
       const err = validateBuilder();
       if (err) throw new Error(err);
@@ -475,7 +469,7 @@ export default function ConfigInvariantsEditor({
     const next: ConfigInvariant = {
       name: name.trim(),
       rule: JSON.stringify(rule),
-      message: message.trim(),
+      message: message.trim() || defaultInvariantMessage(name),
     };
     const list =
       editingIndex !== null && editingIndex >= 0
@@ -557,6 +551,7 @@ export default function ConfigInvariantsEditor({
                     label: OP_LABELS[o],
                     value: o,
                   }))}
+                  formatOptionLabel={formatOperatorOption}
                   sort={false}
                 />
               }
@@ -629,16 +624,6 @@ export default function ConfigInvariantsEditor({
     );
   };
 
-  const divider = (label: string) => (
-    <Flex align="center" gap="3" my="3">
-      <Separator style={{ flexGrow: 1 }} />
-      <Text size="small" weight="medium" color="text-low">
-        {label}
-      </Text>
-      <Separator style={{ flexGrow: 1 }} />
-    </Flex>
-  );
-
   const builder = (
     <Box>
       <SelectField
@@ -657,14 +642,6 @@ export default function ConfigInvariantsEditor({
             <Box mt="3">{groupBlock(groupB, setGroupB, "THEN")}</Box>
           </>
         )}
-        {kind === "iff" && (
-          <>
-            {groupBlock(groupA, setGroupA, null)}
-            {divider("if and only if")}
-            {groupBlock(groupB, setGroupB, null)}
-          </>
-        )}
-        {kind === "exclusive" && groupBlock(groupA, setGroupA, null)}
       </Box>
     </Box>
   );
@@ -747,10 +724,15 @@ export default function ConfigInvariantsEditor({
 
       <Box mt="3">
         <Field
-          label="Error message"
+          label="Error message (optional)"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Shown to editors when the rule is violated"
+          placeholder={
+            name.trim()
+              ? defaultInvariantMessage(name)
+              : "Shown to editors when the rule is violated"
+          }
+          helpText="Shown to editors when the rule is violated. Defaults to a generic message if left blank."
         />
       </Box>
 
