@@ -2317,7 +2317,8 @@ export default function ReviewAndPublish({
           </Box>
         )}
 
-        {requireReviews && reviewers.length > 0 && (
+        {requireReviews &&
+          (reviewers.length > 0 || revision.status === "pending-review") && (
           <Box mb="3">
             <Text
               size="medium"
@@ -2328,6 +2329,11 @@ export default function ReviewAndPublish({
             >
               Reviewers
             </Text>
+            {reviewers.length === 0 && revision.status === "pending-review" && (
+              <Text size="small" color="text-mid" as="div">
+                No reviews yet.
+              </Text>
+            )}
             <Flex direction="column" gap="2">
               {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
                 const u = users.get(id);
@@ -2431,6 +2437,22 @@ export default function ReviewAndPublish({
                 align="center"
               />
             </Flex>
+          )}
+
+          {/* Non-reviewers see an explicit status while the draft waits on a
+              review — without it the tab shows only the status badge and the
+              draft reads as stuck. */}
+          {/* Suppressed when the admin-bypass publish section renders below —
+              "waiting for a reviewer" next to a working Publish button reads
+              as a contradiction. */}
+          {state.waitingForReview && !canReview && !showPublishSection && (
+            <Callout status="info" size="sm">
+              Waiting for a reviewer.{" "}
+              {createdBy?.id === user?.id
+                ? "Authors can't approve their own drafts. "
+                : ""}
+              Anyone with review permission on this feature can approve it.
+            </Callout>
           )}
 
           {(() => {
