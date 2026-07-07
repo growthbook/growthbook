@@ -2453,6 +2453,9 @@ export default function ReviewAndPublish({
                 ? "Authors can't approve their own drafts. "
                 : ""}
               Anyone with review permission on this feature can approve it.
+              {state.canRecallReview
+                ? " You can also return the draft to editing, which withdraws the review request."
+                : ""}
             </Callout>
           )}
 
