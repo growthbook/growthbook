@@ -25,6 +25,7 @@ import {
 import { ago, datetime } from "shared/dates";
 import {
   filterEnvironmentsByFeature,
+  getEnvironmentDisplayName,
   getReviewSetting,
   isScheduledPublishPending,
   isScheduledPublishLockActive,
@@ -1105,9 +1106,9 @@ export default function FeaturesOverview({
                         Enabled Environments
                       </span>
                     </Box>
-                    {envs.map((env) => (
+                    {environments.map((en) => (
                       <Box
-                        key={env}
+                        key={en.id}
                         style={{
                           width: 120,
                           flexShrink: 0,
@@ -1115,7 +1116,9 @@ export default function FeaturesOverview({
                         }}
                       >
                         <Text weight="semibold" color="text-mid">
-                          <OverflowText maxWidth={120}>{env}</OverflowText>
+                          <OverflowText maxWidth={120}>
+                            {getEnvironmentDisplayName(en)}
+                          </OverflowText>
                         </Text>
                       </Box>
                     ))}
@@ -1318,7 +1321,9 @@ export default function FeaturesOverview({
                         align="center"
                         mr="2"
                       >
-                        <span className="font-weight-bold">{en.id}:</span>
+                        <span className="font-weight-bold">
+                          {getEnvironmentDisplayName(en)}:
+                        </span>
                         <Tooltip
                           popperClassName="text-left"
                           flipTheme={false}

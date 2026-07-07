@@ -1,7 +1,10 @@
 import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
-import { filterEnvironmentsByFeature } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getEnvironmentDisplayName,
+} from "shared/util";
 import Link from "@/ui/Link";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import { ArchetypeValueDisplay } from "@/components/Features/ValueDisplay";
@@ -196,7 +199,7 @@ const ArchetypeResults: FC<{
             </th>
             {environments.map((env) => (
               <th key={env.id} title={env.description}>
-                {env.id}
+                {getEnvironmentDisplayName(env)}
               </th>
             ))}
           </tr>

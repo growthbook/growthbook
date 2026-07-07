@@ -3,6 +3,7 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { PiWarningCircle } from "react-icons/pi";
 import { Environment } from "shared/types/organization";
+import { getEnvironmentDisplayName } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
@@ -22,11 +23,14 @@ type Props = {
   currentEnvironment?: string;
 } & MarginProps;
 
-function envBadge(envId: string, active: boolean) {
+function envBadge(
+  env: Pick<Environment, "id" | "displayName">,
+  active: boolean,
+) {
   const iconColor = active ? "var(--green-11)" : "var(--gray-8)";
   const textColor = active ? undefined : "var(--gray-8)";
   return (
-    <Flex key={envId} align="center" gap="1">
+    <Flex key={env.id} align="center" gap="1">
       <span
         style={{
           color: textColor,
@@ -34,7 +38,7 @@ function envBadge(envId: string, active: boolean) {
           fontWeight: active ? 500 : 300,
         }}
       >
-        {envId}
+        {getEnvironmentDisplayName(env)}
       </span>
       {active ? (
         <FaRegCircleCheck size={14} style={{ color: iconColor }} />
@@ -127,7 +131,7 @@ export default function RuleEnvScopeBadges({
           </Flex>
         </Tooltip>
       ) : (
-        visible.map((env) => envBadge(env.id, activeSet.has(env.id)))
+        visible.map((env) => envBadge(env, activeSet.has(env.id)))
       )}
       {disallowedEnvIds.map((envId) => disallowedEnvBadge(envId))}
       {!noActiveEnvs && overflow.length > 0 && (
@@ -146,7 +150,7 @@ export default function RuleEnvScopeBadges({
                 {overflow.length === 1 ? "" : "s"}
               </Text>
               <Flex gap="4" wrap="wrap">
-                {overflow.map((env) => envBadge(env.id, activeSet.has(env.id)))}
+                {overflow.map((env) => envBadge(env, activeSet.has(env.id)))}
               </Flex>
             </>
           }

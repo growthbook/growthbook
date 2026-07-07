@@ -3,6 +3,7 @@ import { Invite, MemberRoleInfo } from "shared/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
+import { getEnvironmentDisplayName } from "shared/util";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -158,7 +159,7 @@ const InviteList: FC<{
               <th>{project ? "Project Role" : "Global Role"}</th>
               {!project && <th>Project Roles</th>}
               {environments.map((env) => (
-                <th key={env.id}>{env.id}</th>
+                <th key={env.id}>{getEnvironmentDisplayName(env)}</th>
               ))}
               <th style={{ width: 50 }} />
             </tr>

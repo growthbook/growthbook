@@ -1,6 +1,7 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
 import { date } from "shared/dates";
+import { getEnvironmentDisplayName } from "shared/util";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { RxIdCard } from "react-icons/rx";
 import Link from "@/ui/Link";
@@ -37,7 +38,7 @@ const TeamsList: FC = () => {
                 <th className="col-2">Global Role</th>
                 <th className="col-2">Project Roles</th>
                 {environments.map((env) => (
-                  <th key={env.id}>{env.id}</th>
+                  <th key={env.id}>{getEnvironmentDisplayName(env)}</th>
                 ))}
                 <th className="col-1">Members</th>
                 <th className="w-50" />

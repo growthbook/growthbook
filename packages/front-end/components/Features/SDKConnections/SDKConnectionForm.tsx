@@ -23,6 +23,7 @@ import {
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
+  getEnvironmentDisplayName,
 } from "shared/util";
 import { PiPackage, PiInfo } from "react-icons/pi";
 import { Flex, Box } from "@radix-ui/themes";
@@ -579,7 +580,7 @@ export default function SDKConnectionForm({
             }
           }}
           options={filteredEnvironments.map((e) => ({
-            label: e.id,
+            label: getEnvironmentDisplayName(e),
             value: e.id,
           }))}
           sort={false}

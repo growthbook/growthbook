@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowLeft, PiCaretRight, PiCheckCircleFill } from "react-icons/pi";
 import { isEventWebhookWildcard } from "shared/validators";
+import { getEnvironmentDisplayName } from "shared/util";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -174,7 +175,6 @@ const EventWebHookAddEditSettings = ({
   };
 }) => {
   const environmentSettings = useEnvironments();
-  const environments = environmentSettings.map((env) => env.id);
 
   const selectedPayloadType = form.watch("payloadType");
   const selectedEnvironments = form.watch("environments");
@@ -345,9 +345,9 @@ const EventWebHookAddEditSettings = ({
               labelClassName="w-100"
               sort={false}
               value={form.watch("environments")}
-              options={environments.map((env) => ({
-                label: env,
-                value: env,
+              options={environmentSettings.map((env) => ({
+                label: getEnvironmentDisplayName(env),
+                value: env.id,
               }))}
               onChange={(value: string[]) => {
                 form.setValue("environments", value);

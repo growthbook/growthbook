@@ -1,6 +1,9 @@
 import { useState, FC, useMemo } from "react";
 import { Environment } from "shared/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getEnvironmentDisplayName,
+  isProjectListValidForProject,
+} from "shared/util";
 import { BiShow } from "react-icons/bi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
@@ -86,7 +89,9 @@ const EnvironmentsPage: FC = () => {
       {showConnectionsModal !== null &&
         filteredEnvironments[showConnectionsModal] && (
           <Modal
-            header={`'${filteredEnvironments[showConnectionsModal].id}' SDK Connections`}
+            header={`'${getEnvironmentDisplayName(
+              filteredEnvironments[showConnectionsModal],
+            )}' SDK Connections`}
             trackingEventModalType="show-environment-connections"
             close={() => setShowConnectionsModal(null)}
             open={true}
@@ -156,7 +161,14 @@ const EnvironmentsPage: FC = () => {
               };
               return (
                 <TableRow key={e.id}>
-                  <TableCell>{e.id}</TableCell>
+                  <TableCell>
+                    <div>{getEnvironmentDisplayName(e)}</div>
+                    {e.displayName && e.displayName !== e.id && (
+                      <Text as="p" size="small" color="text-mid" mb="0">
+                        {e.id}
+                      </Text>
+                    )}
+                  </TableCell>
                   <TableCell>{e.description}</TableCell>
                   <TableCell>
                     {(e?.projects?.length || 0) > 0 ? (

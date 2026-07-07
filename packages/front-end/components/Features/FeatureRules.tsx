@@ -12,6 +12,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
+import { getEnvironmentDisplayName } from "shared/util";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -279,7 +280,11 @@ export default function FeatureRules({
     const count = holdout?.environmentSettings?.[e.id]?.enabled
       ? rulesByEnv[e.id].length + 1
       : rulesByEnv[e.id].length;
-    overflowLabels.push({ key: e.id, label: e.id, count });
+    overflowLabels.push({
+      key: e.id,
+      label: getEnvironmentDisplayName(e),
+      count,
+    });
   }
 
   const [moreOpen, setMoreOpen] = useState(false);
@@ -357,7 +362,7 @@ export default function FeatureRules({
                     }
                   >
                     <Flex align="center" gap="2">
-                      {e.id}
+                      {getEnvironmentDisplayName(e)}
                       <Badge
                         label={String(count)}
                         radius="full"

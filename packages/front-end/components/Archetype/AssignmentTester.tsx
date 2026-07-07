@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
-import { filterEnvironmentsByFeature, stemRuleId } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getEnvironmentDisplayName,
+  stemRuleId,
+} from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -399,7 +403,7 @@ export default function AssignmentTester({
                           placeholder="All environments"
                           value={selectedEnvs}
                           options={featureEnvironments.map((env) => ({
-                            label: env.id,
+                            label: getEnvironmentDisplayName(env),
                             value: env.id,
                           }))}
                           onChange={setSelectedEnvs}

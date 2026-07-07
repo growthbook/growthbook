@@ -3,6 +3,7 @@ import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import { getEnvironmentDisplayName } from "shared/util";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
@@ -12,9 +13,9 @@ import UIText from "@/ui/Text";
 
 const MAX_VISIBLE_PREVIEW_ENVIRONMENTS = 3;
 
-function envPreviewItem(envId: string, enabled: boolean) {
+function envPreviewItem(env: Environment, enabled: boolean) {
   return (
-    <Flex key={envId} align="center" gap="1">
+    <Flex key={env.id} align="center" gap="1">
       {enabled ? (
         <FaCircleCheck size={14} style={{ color: featureStatusColors.on }} />
       ) : (
@@ -23,7 +24,7 @@ function envPreviewItem(envId: string, enabled: boolean) {
           style={{ color: featureStatusColors.offMuted }}
         />
       )}
-      <UIText size="small">{envId}</UIText>
+      <UIText size="small">{getEnvironmentDisplayName(env)}</UIText>
     </Flex>
   );
 }
@@ -78,7 +79,7 @@ const EnvironmentSelect: FC<{
       {!expanded ? (
         <Flex gap="3" wrap="wrap" align="center">
           {visible.map((env) =>
-            envPreviewItem(env.id, !!environmentSettings[env.id]?.enabled),
+            envPreviewItem(env, !!environmentSettings[env.id]?.enabled),
           )}
           {overflow.length > 0 && (
             <Tooltip
@@ -86,10 +87,7 @@ const EnvironmentSelect: FC<{
               body={
                 <Flex direction="column" gap="1">
                   {overflow.map((env) =>
-                    envPreviewItem(
-                      env.id,
-                      !!environmentSettings[env.id]?.enabled,
-                    ),
+                    envPreviewItem(env, !!environmentSettings[env.id]?.enabled),
                   )}
                 </Flex>
               }
@@ -141,7 +139,7 @@ const EnvironmentSelect: FC<{
                 disabledMessage="You don't have permission to create features in this environment."
                 value={environmentSettings[env.id].enabled}
                 setValue={(enabled) => setValue(env, enabled === true)}
-                label={env.id}
+                label={getEnvironmentDisplayName(env)}
                 key={env.id}
                 weight="regular"
                 mb="1"

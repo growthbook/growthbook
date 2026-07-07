@@ -14,6 +14,7 @@ export const listEnvironments = createApiRequestHandler(
       ({
         id,
         description = "",
+        displayName,
         toggleOnList = false,
         defaultState = false,
         projects = [],
@@ -21,6 +22,7 @@ export const listEnvironments = createApiRequestHandler(
         id,
         projects,
         description,
+        displayName,
         defaultState,
         toggleOnList,
       }),

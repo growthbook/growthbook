@@ -5,6 +5,7 @@ export const validatePayload = async (
   {
     id,
     description = "",
+    displayName,
     projects = [],
     toggleOnList = false,
     defaultState = false,
@@ -12,6 +13,7 @@ export const validatePayload = async (
   }: {
     id: string;
     description?: string;
+    displayName?: string;
     projects?: string[];
     toggleOnList?: boolean;
     defaultState?: boolean;
@@ -36,5 +38,13 @@ export const validatePayload = async (
     throw new Error("Environment inheritance requires an enterprise license");
   }
 
-  return { id, projects, description, toggleOnList, defaultState, parent };
+  return {
+    id,
+    projects,
+    description,
+    displayName,
+    toggleOnList,
+    defaultState,
+    parent,
+  };
 };

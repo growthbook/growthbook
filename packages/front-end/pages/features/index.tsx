@@ -5,7 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
-import { featureHasEnvironment } from "shared/util";
+import { featureHasEnvironment, getEnvironmentDisplayName } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -354,7 +354,7 @@ export default function FeaturesPage() {
                     key={en.id}
                     style={{ textAlign: "center" }}
                   >
-                    {en.id}
+                    {getEnvironmentDisplayName(en)}
                   </TableColumnHeader>
                 ))}
                 <TableColumnHeader>Data Type</TableColumnHeader>
@@ -467,8 +467,8 @@ export default function FeaturesPage() {
                                   flipTheme={false}
                                   body={
                                     enabled
-                                      ? `${en.id}: enabled`
-                                      : `${en.id}: disabled`
+                                      ? `${getEnvironmentDisplayName(en)}: enabled`
+                                      : `${getEnvironmentDisplayName(en)}: disabled`
                                   }
                                 >
                                   {enabled ? (

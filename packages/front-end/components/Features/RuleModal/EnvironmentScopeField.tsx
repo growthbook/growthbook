@@ -1,6 +1,7 @@
 import { Box } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Environment } from "shared/types/organization";
+import { getEnvironmentDisplayName } from "shared/util";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -29,7 +30,10 @@ export default function RuleEnvironmentScopeField({
   label = "Rule Environments",
   ...marginProps
 }: EnvScopeProps) {
-  const options = environments.map((e) => ({ label: e.id, value: e.id }));
+  const options = environments.map((e) => ({
+    label: getEnvironmentDisplayName(e),
+    value: e.id,
+  }));
 
   const disabledSet = new Set(disabledEnvironmentIds);
   const allEnvsDisabled =

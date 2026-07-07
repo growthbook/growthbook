@@ -3,6 +3,7 @@ import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { PendingMember } from "shared/types/organization";
 import { datetime } from "shared/dates";
 import { getRoleDisplayName } from "shared/permissions";
+import { getEnvironmentDisplayName } from "shared/util";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -60,7 +61,7 @@ const PendingMemberList: FC<{
             <th>{project ? "Project Role" : "Global Role"}</th>
             {!project && <th>Project Roles</th>}
             {environments.map((env) => (
-              <th key={env.id}>{env.id}</th>
+              <th key={env.id}>{getEnvironmentDisplayName(env)}</th>
             ))}
             <th />
             <th style={{ width: 50 }} />

@@ -15615,6 +15615,11 @@ paths:
                 description:
                   description: The description of the new environment
                   type: string
+                displayName:
+                  description: >-
+                    A user-facing name for the environment. Falls back to the id
+                    when not set.
+                  type: string
                 toggleOnList:
                   description: Show on feature list page
                   type: boolean
@@ -15670,6 +15675,11 @@ paths:
               properties:
                 description:
                   description: The description of the new environment
+                  type: string
+                displayName:
+                  description: >-
+                    A user-facing name for the environment. Falls back to the id
+                    when not set.
                   type: string
                 toggleOnList:
                   description: Show on feature list page
@@ -41001,6 +41011,8 @@ components:
         id:
           type: string
         description:
+          type: string
+        displayName:
           type: string
         toggleOnList:
           type: boolean

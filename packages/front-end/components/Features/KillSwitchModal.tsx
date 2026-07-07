@@ -13,6 +13,7 @@ import {
   liveRevisionFromFeature,
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
+  getEnvironmentDisplayName,
 } from "shared/util";
 import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
@@ -91,7 +92,9 @@ function EnvStateGrid({
               style={{ width: COL_W, flexShrink: 0, textAlign: "center" }}
             >
               <Text weight="semibold" color="text-mid">
-                <OverflowText maxWidth={COL_W}>{env.id}</OverflowText>
+                <OverflowText maxWidth={COL_W}>
+                  {getEnvironmentDisplayName(env)}
+                </OverflowText>
               </Text>
             </Box>
           ))}
@@ -465,7 +468,7 @@ export default function KillSwitchModal({
   );
   const modalHeader =
     changedEnvs.length === 1
-      ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${changedEnvs[0].id}`
+      ? `${getEffectiveState(changedEnvs[0].id) ? "Enable" : "Disable"} ${getEnvironmentDisplayName(changedEnvs[0])}`
       : "Change enabled environments";
 
   return (

@@ -2,7 +2,10 @@ import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import {
+  DEFAULT_ENVIRONMENT_IDS,
+  getEnvironmentDisplayName,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -28,6 +31,7 @@ export default function EnvironmentModal({
     defaultValues: {
       id: existing.id || "",
       description: existing.description || "",
+      displayName: existing.displayName || "",
       toggleOnList: existing.toggleOnList || false,
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
@@ -74,7 +78,7 @@ export default function EnvironmentModal({
       close={close}
       header={
         existing.id
-          ? `Edit ${existing.id} Environment`
+          ? `Edit ${getEnvironmentDisplayName(existing as Environment)} Environment`
           : "Create New Environment"
       }
       submit={form.handleSubmit(async (value) => {
@@ -88,6 +92,7 @@ export default function EnvironmentModal({
             body: JSON.stringify({
               environment: {
                 description: value.description,
+                displayName: value.displayName || undefined,
                 toggleOnList: value.toggleOnList,
                 defaultState: value.defaultState,
                 projects: value.projects,
@@ -106,6 +111,7 @@ export default function EnvironmentModal({
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
             description: value.description || "",
+            displayName: value.displayName || undefined,
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,
@@ -164,6 +170,12 @@ export default function EnvironmentModal({
         />
       )}
       <Field
+        label="Display Name"
+        {...form.register("displayName")}
+        placeholder={existing.id || "e.g. Production"}
+        helpText="Optional. Shown throughout the UI instead of the id. Leave blank to just show the id."
+      />
+      <Field
         label="Description"
         {...form.register("description")}
         placeholder=""
@@ -177,7 +189,10 @@ export default function EnvironmentModal({
             onChange={(value) => {
               form.setValue("parent", value || undefined);
             }}
-            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            options={environments.map((e) => ({
+              label: getEnvironmentDisplayName(e),
+              value: e.id,
+            }))}
             isClearable
             disabled={!DEFAULT_ENVIRONMENT_IDS.includes(form.watch("id") || "")}
             helpText={

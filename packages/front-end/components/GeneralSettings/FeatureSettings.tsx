@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { getEnvironmentDisplayName } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -239,7 +240,7 @@ export default function FeatureSettings() {
                   value: FEATURE_RULES_ALL_ENVS,
                 },
                 ...environments.map((env) => ({
-                  label: env.id,
+                  label: getEnvironmentDisplayName(env),
                   value: env.id,
                 })),
               ]}

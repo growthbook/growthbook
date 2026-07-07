@@ -7,6 +7,7 @@ import {
   roleSupportsEnvLimit,
   getRoleDisplayName,
 } from "shared/permissions";
+import { getEnvironmentDisplayName } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -95,7 +96,7 @@ export default function SingleRoleSelector({
     const activeEnvIds = new Set(activeEnvs.map((env) => env.id));
     const envOptions: SingleValue[] = [...activeEnvs].map((env) => {
       return {
-        label: env.id,
+        label: getEnvironmentDisplayName(env),
         value: env.id,
         tooltip: env.description,
       };

@@ -9,6 +9,7 @@ import {
   getEffectiveRolesForProject,
   getRoleDisplayName,
 } from "shared/permissions";
+import { getEnvironmentDisplayName } from "shared/util";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -183,7 +184,7 @@ const MemberList: FC<{
                 </th>
                 {!project && <th>Project Roles</th>}
                 {environments.map((env) => (
-                  <th key={env.id}>{env.id}</th>
+                  <th key={env.id}>{getEnvironmentDisplayName(env)}</th>
                 ))}
                 <SortableTH field="numTeams">Teams</SortableTH>
                 <th style={{ width: 50 }} />

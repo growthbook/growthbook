@@ -14,6 +14,7 @@ export const updateEnvValidator = z.object({
   environment: z
     .object({
       description: z.string(),
+      displayName: z.string().optional(),
       toggleOnList: z.boolean().optional(),
       defaultState: z.any().optional(),
       projects: z.array(z.string()).optional(),
@@ -25,6 +26,7 @@ export const environment = z
   .object({
     id: z.string(),
     description: z.string(),
+    displayName: z.string().optional(),
     toggleOnList: z.boolean().optional(),
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
@@ -51,6 +53,7 @@ export const apiEnvironmentValidator = namedSchema(
     .object({
       id: z.string(),
       description: z.string(),
+      displayName: z.string().optional(),
       toggleOnList: z.boolean(),
       defaultState: z.boolean(),
       projects: z.array(z.string()),
@@ -66,6 +69,12 @@ const postEnvironmentBody = z
     description: z
       .string()
       .describe("The description of the new environment")
+      .optional(),
+    displayName: z
+      .string()
+      .describe(
+        "A user-facing name for the environment. Falls back to the id when not set.",
+      )
       .optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
@@ -88,6 +97,12 @@ const putEnvironmentBody = z
     description: z
       .string()
       .describe("The description of the new environment")
+      .optional(),
+    displayName: z
+      .string()
+      .describe(
+        "A user-facing name for the environment. Falls back to the id when not set.",
+      )
       .optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z

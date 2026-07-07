@@ -2,6 +2,7 @@ import React, { FC } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "shared/types/archetype";
+import { getEnvironmentDisplayName } from "shared/util";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import { useAuth } from "@/services/auth";
@@ -132,7 +133,7 @@ const ArchetypeAttributesModal: FC<{
                 placeholder="All environments"
                 value={form.watch("environments")}
                 options={environments.map((env) => ({
-                  label: env.id,
+                  label: getEnvironmentDisplayName(env),
                   value: env.id,
                 }))}
                 onChange={(v) => form.setValue("environments", v)}

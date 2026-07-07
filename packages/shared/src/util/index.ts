@@ -697,4 +697,5 @@ export function capitalizeFirstCharacter(s: string) {
 export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
+  getEnvironmentDisplayName,
 } from "./environments";
