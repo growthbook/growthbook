@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { format } from "date-fns";
 import {
   dateRangePredefined,
@@ -83,19 +83,12 @@ function LabeledRow({
   children: ReactNode;
 }) {
   return (
-    <Box
-      style={{
-        display: "grid",
-        gridTemplateColumns: "72px minmax(0, 1fr)",
-        alignItems: "center",
-        columnGap: "var(--space-2)",
-      }}
-    >
+    <Grid columns="72px minmax(0, 1fr)" align="center" gapX="2">
       <Text size="small" color="text-low">
         {label}
       </Text>
       {children}
-    </Box>
+    </Grid>
   );
 }
 

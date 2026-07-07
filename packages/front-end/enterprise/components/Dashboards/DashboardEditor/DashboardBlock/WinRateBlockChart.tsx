@@ -9,6 +9,13 @@ import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   WinRateProjectRow,
@@ -188,59 +195,75 @@ export default function WinRateBlockChart({
 
   // Single (non-compare) breakdown table.
   const singleTable = (
-    <table className="table gbtable w-100">
-      <thead>
-        <tr>
-          <th>Project</th>
-          <th style={RIGHT}>Won/Lost/Other</th>
-          <th style={RIGHT}>Win Rate</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Project</TableColumnHeader>
+          <TableColumnHeader style={RIGHT}>Won/Lost/Other</TableColumnHeader>
+          <TableColumnHeader style={RIGHT}>Win Rate</TableColumnHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {tableRows.map(({ row }) => (
-          <tr key={row.id}>
-            <td>{row.name}</td>
-            <td style={RIGHT}>{winLossOther(row)}</td>
-            <td style={RIGHT}>{winRatePct(row)}</td>
-          </tr>
+          <TableRow key={row.id}>
+            <TableCell>{row.name}</TableCell>
+            <TableCell style={RIGHT}>{winLossOther(row)}</TableCell>
+            <TableCell style={RIGHT}>{winRatePct(row)}</TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 
   // Compare breakdown table: each metric (Won/Lost/Other, Win Rate) splits into
   // Current | Previous sub-columns.
   const splitTable = (
-    <table className="table gbtable w-100">
-      <thead>
-        <tr>
-          <th rowSpan={2}>Project</th>
-          <th colSpan={2} style={{ textAlign: "center", ...GROUP_BORDER }}>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader rowSpan={2}>Project</TableColumnHeader>
+          <TableColumnHeader
+            colSpan={2}
+            style={{ textAlign: "center", ...GROUP_BORDER }}
+          >
             Won/Lost/Other
-          </th>
-          <th colSpan={2} style={{ textAlign: "center", ...GROUP_BORDER }}>
+          </TableColumnHeader>
+          <TableColumnHeader
+            colSpan={2}
+            style={{ textAlign: "center", ...GROUP_BORDER }}
+          >
             Win Rate
-          </th>
-        </tr>
-        <tr>
-          <th style={{ ...RIGHT, ...GROUP_BORDER }}>Current</th>
-          <th style={RIGHT}>Previous</th>
-          <th style={{ ...RIGHT, ...GROUP_BORDER }}>Current</th>
-          <th style={RIGHT}>Previous</th>
-        </tr>
-      </thead>
-      <tbody>
+          </TableColumnHeader>
+        </TableRow>
+        <TableRow>
+          <TableColumnHeader style={{ ...RIGHT, ...GROUP_BORDER }}>
+            Current
+          </TableColumnHeader>
+          <TableColumnHeader style={RIGHT}>Previous</TableColumnHeader>
+          <TableColumnHeader style={{ ...RIGHT, ...GROUP_BORDER }}>
+            Current
+          </TableColumnHeader>
+          <TableColumnHeader style={RIGHT}>Previous</TableColumnHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {tableRows.map(({ row, previous: prev }) => (
-          <tr key={row.id}>
-            <td>{row.name}</td>
-            <td style={{ ...RIGHT, ...GROUP_BORDER }}>{winLossOther(row)}</td>
-            <td style={RIGHT}>{prev ? winLossOther(prev) : "-"}</td>
-            <td style={{ ...RIGHT, ...GROUP_BORDER }}>{winRatePct(row)}</td>
-            <td style={RIGHT}>{prev ? winRatePct(prev) : "-"}</td>
-          </tr>
+          <TableRow key={row.id}>
+            <TableCell>{row.name}</TableCell>
+            <TableCell style={{ ...RIGHT, ...GROUP_BORDER }}>
+              {winLossOther(row)}
+            </TableCell>
+            <TableCell style={RIGHT}>
+              {prev ? winLossOther(prev) : "-"}
+            </TableCell>
+            <TableCell style={{ ...RIGHT, ...GROUP_BORDER }}>
+              {winRatePct(row)}
+            </TableCell>
+            <TableCell style={RIGHT}>{prev ? winRatePct(prev) : "-"}</TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 
   if (comparisonEnabled) {
