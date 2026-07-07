@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -47,7 +46,6 @@ export default function LineageTree({
   // future publish error (amber); in an extensible one it's informational.
   extensible?: boolean;
 }): React.ReactElement {
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Index children-by-parent and node-by-key once per `nodes` change so the
@@ -127,7 +125,9 @@ export default function LineageTree({
           pr="3"
           className={styles.row}
           title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
-          onClick={() => router.push(`/configs/${mk}`)}
+          onClick={() =>
+            window.open(`/configs/${mk}`, "_blank", "noopener,noreferrer")
+          }
           style={{
             height: ROW_HEIGHT,
             borderRadius: "var(--radius-2)",
@@ -240,7 +240,9 @@ export default function LineageTree({
             pl="1"
             pr="3"
             className={styles.row}
-            onClick={() => router.push(`/configs/${n.key}`)}
+            onClick={() =>
+              window.open(`/configs/${n.key}`, "_blank", "noopener,noreferrer")
+            }
             style={{
               height: ROW_HEIGHT,
               borderRadius: "var(--radius-2)",

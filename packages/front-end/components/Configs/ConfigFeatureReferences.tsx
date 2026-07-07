@@ -1,5 +1,4 @@
 import React from "react";
-import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiFlag, PiDotOutline } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
@@ -65,8 +64,6 @@ export default function ConfigFeatureReferences({
   references: ConfigFamilyReferences | null;
   loading: boolean;
 }): React.ReactElement {
-  const router = useRouter();
-
   const nodeOf = (key: string) => lineage.find((n) => n.key === key);
 
   if (loading && !references) {
@@ -101,7 +98,7 @@ export default function ConfigFeatureReferences({
         className={styles.row}
         onClick={(e) => {
           e.stopPropagation();
-          router.push(`/configs/${key}`);
+          window.open(`/configs/${key}`, "_blank", "noopener,noreferrer");
         }}
         style={{
           height: ROW_HEIGHT,
@@ -164,7 +161,9 @@ export default function ConfigFeatureReferences({
             pl="1"
             pr="2"
             className={styles.row}
-            onClick={() => router.push(`/features/${f.id}`)}
+            onClick={() =>
+              window.open(`/features/${f.id}`, "_blank", "noopener,noreferrer")
+            }
             style={{
               height: ROW_HEIGHT,
               borderRadius: "var(--radius-2)",
