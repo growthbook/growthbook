@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 # Deploying GrowthBook with Kubernetes
 
 :::tip Deploying GrowthBook with Kubernetes
-Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as a OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
+Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as an OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
 
 - For production and scalable cloud-native deployments, use GCP (GKE) or AWS (EKS).
 - For local testing and development, use Minikube.
@@ -156,7 +156,7 @@ ingress:
       </details>
       Installation:
       ```bash
-      helm install growthbook growthbook/growthbook -f values-aws.yaml
+      helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-aws.yaml
       ```
       <div className="admonition info">
         <p>
@@ -262,7 +262,7 @@ ingress:
       </details>
       Installation:
       ```bash
-      helm install growthbook growthbook/growthbook -f values-gcp.yaml
+      helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-gcp.yaml
       ```
       <div className="admonition info">
         <p>
