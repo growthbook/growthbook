@@ -138,9 +138,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     );
   });
 
-  // No diff vs live (no-op publish or recovery retry): just merge so a stranded
-  // draft self-heals.
+  // No diff vs live (no-op publish or recovery retry): replay the descendant
+  // reconcile (idempotent; only acts on schema/parent/extends changes) so a
+  // retry after a partially-applied publish still heals descendants, then merge.
   if (!hasChanges) {
+    await adapter.beforeNoOpMerge?.(
+      req.context,
+      config as unknown as Record<string, unknown>,
+      revision,
+    );
     const merged = await req.context.models.revisions.merge(
       revision.id,
       req.context.userId,

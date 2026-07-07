@@ -9,6 +9,16 @@ import {
 } from "shared/util";
 import type { ConfigInvariant } from "shared/util";
 import {
+  ALL_OPS,
+  isComp,
+  conditionToMongo,
+  parseCondition,
+} from "@/components/Configs/invariantConditions";
+import type {
+  CondOp,
+  Condition,
+} from "@/components/Configs/invariantConditions";
+import {
   ConditionRow,
   ConditionRowLabel,
 } from "@/components/Features/TargetingConditionsCard";
@@ -49,12 +59,6 @@ type Props = {
 // one or two groups. Rules are emitted as mongo conditions (mongrule syntax,
 // with `$ref` for field-to-field) — the canonical stored form; see the evaluator
 // in shared/util/config-schema.
-
-const COMPARISON_OPS = ["==", "!=", "<=", "<", ">=", ">"] as const;
-const UNARY_OPS = ["isTrue", "isFalse", "isNull", "isNotNull"] as const;
-type CompOp = (typeof COMPARISON_OPS)[number];
-type CondOp = CompOp | (typeof UNARY_OPS)[number];
-const ALL_OPS: CondOp[] = [...COMPARISON_OPS, ...UNARY_OPS];
 
 // Labels match the standard condition-builder language used in feature/
 // experiment targeting (see Features/ConditionInput.tsx) so operators read
@@ -106,13 +110,6 @@ const formatOperatorOption: FormatOptionLabelType = (opt, { context }) => {
   );
 };
 
-type Condition = {
-  field: string;
-  op: CondOp;
-  rhsKind: "value" | "field";
-  rhs: string;
-};
-
 // A group is an AND-joined list of conditions.
 type Group = Condition[];
 
@@ -128,80 +125,8 @@ const RULE_KIND_HINTS: Record<RuleKind, string> = {
   implication: "When the IF conditions all hold, the THEN conditions must too.",
 };
 
-function isComp(op: CondOp): op is CompOp {
-  return (COMPARISON_OPS as readonly string[]).includes(op);
-}
-
 function newCondition(field: string): Condition {
   return { field, op: "==", rhsKind: "value", rhs: "" };
-}
-
-function isRef(x: unknown): x is { $ref: string } {
-  return (
-    !!x &&
-    typeof x === "object" &&
-    !Array.isArray(x) &&
-    Object.keys(x as object).length === 1 &&
-    typeof (x as { $ref?: unknown }).$ref === "string"
-  );
-}
-
-const MONGO_OP: Record<CompOp, string> = {
-  "==": "$eq",
-  "!=": "$ne",
-  "<": "$lt",
-  "<=": "$lte",
-  ">": "$gt",
-  ">=": "$gte",
-};
-const MONGO_OP_INV: Record<string, CompOp> = {
-  $eq: "==",
-  $ne: "!=",
-  $lt: "<",
-  $lte: "<=",
-  $gt: ">",
-  $gte: ">=",
-};
-
-// Parse a typed right-hand-side value: JSON first (so 5, true, null, "quoted",
-// {objects}/[arrays] keep their type), then a bare word falls back to a string.
-function parseLiteral(s: string): unknown {
-  const t = s.trim();
-  try {
-    return JSON.parse(t);
-  } catch {
-    return t.replace(/^['"]|['"]$/g, "");
-  }
-}
-
-// Inverse for the text input: show a string bare unless it would re-parse as a
-// non-string (then quote it); everything else as JSON.
-function formatLiteral(v: unknown): string {
-  if (v === null) return "null";
-  if (typeof v !== "string") return JSON.stringify(v);
-  try {
-    if (typeof JSON.parse(v) !== "string") return JSON.stringify(v);
-  } catch {
-    // not JSON — safe to show bare
-  }
-  return v;
-}
-
-function conditionToMongo(c: Condition): Record<string, unknown> {
-  switch (c.op) {
-    case "isTrue":
-      return { [c.field]: { $eq: true } };
-    case "isFalse":
-      return { [c.field]: { $eq: false } };
-    case "isNull":
-      return { [c.field]: { $exists: false } };
-    case "isNotNull":
-      return { [c.field]: { $exists: true } };
-    default: {
-      const rhs = c.rhsKind === "field" ? { $ref: c.rhs } : parseLiteral(c.rhs);
-      return { [c.field]: { [MONGO_OP[c.op]]: rhs } };
-    }
-  }
 }
 
 function groupToMongo(g: Group): Record<string, unknown> {
@@ -221,49 +146,6 @@ function buildRule(
       // A → B  ≡  ¬A ∨ B
       return { $or: [{ $not: groupToMongo(a) }, groupToMongo(b)] };
   }
-}
-
-// A single mongo field condition → Condition; null if not representable.
-function parseCondition(node: unknown): Condition | null {
-  if (!node || typeof node !== "object" || Array.isArray(node)) return null;
-  const obj = node as Record<string, unknown>;
-  const keys = Object.keys(obj);
-  if (keys.length !== 1) return null;
-  const field = keys[0];
-  if (field.startsWith("$")) return null; // an operator, not a field
-  const val = obj[field];
-  // Shorthand: `{field: <primitive>}`.
-  if (val === null) return { field, op: "isNull", rhsKind: "value", rhs: "" };
-  if (typeof val !== "object" || Array.isArray(val)) {
-    if (val === true) return { field, op: "isTrue", rhsKind: "value", rhs: "" };
-    if (val === false)
-      return { field, op: "isFalse", rhsKind: "value", rhs: "" };
-    return { field, op: "==", rhsKind: "value", rhs: formatLiteral(val) };
-  }
-  const opObj = val as Record<string, unknown>;
-  if (Object.keys(opObj).length !== 1) return null;
-  const op = Object.keys(opObj)[0];
-  const arg = opObj[op];
-  if (op === "$exists") {
-    return {
-      field,
-      op: arg ? "isNotNull" : "isNull",
-      rhsKind: "value",
-      rhs: "",
-    };
-  }
-  const cmp = MONGO_OP_INV[op];
-  if (!cmp) return null;
-  if (cmp === "==" && arg === true)
-    return { field, op: "isTrue", rhsKind: "value", rhs: "" };
-  if (cmp === "==" && arg === false)
-    return { field, op: "isFalse", rhsKind: "value", rhs: "" };
-  if (cmp === "==" && arg === null)
-    return { field, op: "isNull", rhsKind: "value", rhs: "" };
-  if (cmp === "!=" && arg === null)
-    return { field, op: "isNotNull", rhsKind: "value", rhs: "" };
-  if (isRef(arg)) return { field, op: cmp, rhsKind: "field", rhs: arg.$ref };
-  return { field, op: cmp, rhsKind: "value", rhs: formatLiteral(arg) };
 }
 
 // A single condition, or a `$and` group of conditions. OR groups aren't builder-

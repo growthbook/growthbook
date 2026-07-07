@@ -1,4 +1,7 @@
-import { postConfigRevisionSchedulePublishValidator } from "shared/validators";
+import {
+  ACTIVE_DRAFT_STATUSES,
+  postConfigRevisionSchedulePublishValidator,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -24,6 +27,17 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
   const { scheduledPublishAt, lockEdits, lockOthers, bypassApproval } =
     req.body;
   const isCancel = scheduledPublishAt === null;
+
+  // Only an active draft can be armed; a merged/discarded revision would fail
+  // the status-guarded write with a raw Error (500) — reject up front (400).
+  if (
+    !isCancel &&
+    !(ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status)
+  ) {
+    throw new BadRequestError(
+      "This revision can no longer be scheduled — it was already published or discarded.",
+    );
+  }
 
   // Arming a future publish is blocked while locked; canceling a schedule is not.
   if (!isCancel) {
