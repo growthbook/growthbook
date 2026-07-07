@@ -55,9 +55,12 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ? block.comparisonExplorerAnalysisId
       : undefined;
   const compareEnabled = draftExploreState.previousTimeFrame != null;
+  const usesDashboardDateRange =
+    block.globalControlSettings?.dateRange === true &&
+    Boolean(dashboardGlobalControls?.dateRange);
   const getEffectiveDraftConfig = useCallback(
     () =>
-      dashboardGlobalControls
+      usesDashboardDateRange
         ? ({
             ...getEffectiveExplorationConfig(
               {
@@ -69,7 +72,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
             previousTimeFrame: draftExploreState.previousTimeFrame,
           } as typeof draftExploreState)
         : draftExploreState,
-    [block, dashboardGlobalControls, draftExploreState],
+    [block, dashboardGlobalControls, draftExploreState, usesDashboardDateRange],
   );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
@@ -86,19 +89,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState.dateRange.predefined,
     draftExploreState.previousTimeFrame,
   ]);
-
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
-    const nextConfig =
-      block.globalControlSettings?.dateRange === true
-        ? {
-            ...nextDraftConfig,
-            ...(block.globalControlSettings?.dateRange === true &&
-            dashboardGlobalControls?.dateRange
-              ? { dateRange: block.config.dateRange }
-              : {}),
-          }
-        : nextDraftConfig;
+    const nextConfig = usesDashboardDateRange
+      ? {
+          ...nextDraftConfig,
+          dateRange: block.config.dateRange,
+        }
+      : nextDraftConfig;
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       !isEqual(block.comparison, nextComparison)
@@ -126,6 +124,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState,
     dashboardGlobalControls,
     nextComparison,
+    usesDashboardDateRange,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.
@@ -159,7 +158,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     <ExplorerSideBar
       renderingInDashboardSidebar
       dashboardDateRange={dashboardGlobalControls?.dateRange}
-      useDashboardDateControl={block.globalControlSettings?.dateRange === true}
+      useDashboardDateControl={usesDashboardDateRange}
       onSubmit={() =>
         handleSubmit({ force: true, config: getEffectiveDraftConfig() })
       }

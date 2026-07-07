@@ -90,6 +90,9 @@ export default function ProductAnalyticsExplorerSettings({
     block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
   ].join(":");
+  const usesDashboardDateRange =
+    block.globalControlSettings?.dateRange === true &&
+    Boolean(dashboardGlobalControls?.dateRange);
 
   return (
     <ExplorerProvider
@@ -110,15 +113,12 @@ export default function ProductAnalyticsExplorerSettings({
                   "customDateRange" && { previousTimeFrame }),
               }
             : undefined;
-        const nextConfig =
-          block.globalControlSettings?.dateRange === true
-            ? {
-                ...exploration.config,
-                ...(block.globalControlSettings?.dateRange === true
-                  ? { dateRange: block.config.dateRange }
-                  : {}),
-              }
-            : exploration.config;
+        const nextConfig = usesDashboardDateRange
+          ? {
+              ...exploration.config,
+              dateRange: block.config.dateRange,
+            }
+          : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
