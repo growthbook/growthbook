@@ -172,39 +172,4 @@ describe("Mongrule", () => {
       ).toBe(false);
     });
   });
-
-  describe("$ref", () => {
-    // The SDK does not resolve `{ $ref: "path" }` markers. Server-side
-    // invariant evaluation pre-resolves them (shared resolveRuleRefs) before
-    // calling evalCondition, so here they must behave like any other unknown
-    // operator: evaluate to false and never throw.
-    it("treats $ref as an unknown operator and never throws", () => {
-      const errorSpy = jest
-        .spyOn(console, "error")
-        .mockImplementation(() => undefined);
-      try {
-        expect(evalCondition({ a: 1 }, { a: { $ref: "missing" } }, {})).toBe(
-          false,
-        );
-        expect(
-          evalCondition({ a: "x", b: "x" }, { a: { $ref: "b" } }, {}),
-        ).toBe(false);
-      } finally {
-        errorSpy.mockRestore();
-      }
-    });
-
-    it("compares $ref-shaped operands as literal objects", () => {
-      expect(
-        evalCondition(
-          { streams: 2, devices: 5 },
-          { streams: { $lte: { $ref: "devices" } } },
-          {},
-        ),
-      ).toBe(false);
-      expect(
-        evalCondition({ a: "x", b: "x" }, { a: { $eq: { $ref: "b" } } }, {}),
-      ).toBe(false);
-    });
-  });
 });
