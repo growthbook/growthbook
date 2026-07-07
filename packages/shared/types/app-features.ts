@@ -134,4 +134,5 @@ export type AppFeatures = {
   "show-switch-to-old-exp-create": boolean;
   "playstation-new-internal-dashboard": boolean;
   tester123: boolean;
+  "product-analytics-funnels": boolean;
 };

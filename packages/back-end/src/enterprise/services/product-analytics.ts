@@ -7,6 +7,7 @@ import {
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
+  isFunnelSupportedDatasourceType,
 } from "shared/enterprise";
 import {
   FactMetricInterface,
@@ -41,6 +42,12 @@ function withRequestedChartType(
     config: { ...existing.config, chartType: requested.chartType },
   };
 }
+
+// Max time to wait synchronously for an exploration's queries before
+// returning the in-progress model and letting the frontend poll for the
+// result. Bounds request latency for heavy funnel/metric queries over large
+// event tables.
+const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
@@ -130,6 +137,16 @@ export async function runProductAnalyticsExploration(
   } else if (dataset.type === "data_source") {
     // Nothing to fetch or verify
   } else if (dataset.type === "funnel") {
+    // D-PA2: the funnel explorer launches on a validated subset of warehouse
+    // types. Reject datasources whose funnel SQL hasn't been execution-verified
+    // yet, rather than running SQL that may be invalid on that engine. Expand
+    // the allowlist as each type is tested.
+    if (!isFunnelSupportedDatasourceType(datasource.type)) {
+      throw new BadRequestError(
+        "Funnel explorations aren't supported for this data source yet. Supported warehouses will expand as each is validated.",
+      );
+    }
+
     // Load every fact table referenced by any funnel step. We don't fold
     // ids into a Set first because the order in `dataset.steps` is
     // significant for SQL generation; getFactTablesByIds dedupes for us.
@@ -195,16 +212,33 @@ export async function runProductAnalyticsExploration(
     true,
   );
 
+  let syncTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
     });
-    // TODO: add a timeout - if results are taking longer than 5 seconds, return the in progress exploration
-    // Frontend will handle this by showing a loading state and polling for updates
-    await queryRunner.waitForResults();
+    // If results aren't ready within the sync budget, return the in-progress
+    // exploration (status "running") instead of blocking the request. The
+    // warehouse query is NOT cancelled — the QueryRunner keeps driving it and
+    // persists status updates via its own background timers, so the frontend
+    // shows a loading state and polls getExplorationById for the result.
+    // This bounds request latency (no UI hang) without re-running the query.
+    const timeout = new Promise<void>((resolve) => {
+      syncTimer = setTimeout(resolve, PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS);
+    });
+    await Promise.race([
+      // Swallow a late resolve/reject so it can't surface as an unhandled
+      // rejection after the timeout wins; errors are persisted to the model
+      // and surfaced to the client via polling.
+      queryRunner.waitForResults().catch(() => {}),
+      timeout,
+    ]);
   } catch (e) {
     // Ignore errors here, still return the model
+  } finally {
+    // Clear the timer so the fast path doesn't leave a dangling timeout.
+    if (syncTimer) clearTimeout(syncTimer);
   }
 
   return queryRunner.model;

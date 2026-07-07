@@ -12,7 +12,7 @@ import {
   NumberFormat,
   ColumnRef,
 } from "shared/types/fact-table";
-import { DataSourceSettings } from "shared/types/datasource";
+import { DataSourceSettings, DataSourceType } from "shared/types/datasource";
 import {
   ProductAnalyticsDimension,
   ProductAnalyticsDynamicDimension,
@@ -1195,6 +1195,27 @@ function groupFunnelStepsByFactTable(
  *   5. The final SELECT aggregates per dimension: per-step counts +
  *      sum/sum-of-squares of time-from-previous-step (ms).
  */
+/**
+ * Datasource types whose funnel SQL has been execution-verified and are
+ * enabled for the standalone funnel explorer at launch. D-PA2 decision: launch
+ * on a validated subset first, then expand as each remaining dialect's funnel
+ * SQL is execution-tested (see B1a in the deploy-readiness workplan).
+ *
+ * Keyed on datasource `type` (not `SqlDialect.formatDialect`): formatDialect is
+ * the sql-formatter id and is shared across engines (both Athena and Presto are
+ * `"trino"`), so it can't express a per-engine subset. `growthbook_clickhouse`
+ * (managed warehouse) and `clickhouse` both use the ClickHouse dialect.
+ */
+export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
+  "postgres",
+  "clickhouse",
+  "growthbook_clickhouse",
+];
+
+export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {
+  return FUNNEL_SUPPORTED_DATASOURCE_TYPES.includes(type);
+}
+
 export function buildFunnelSql(
   config: ExplorationConfig,
   factTableMap: FactTableMap,
