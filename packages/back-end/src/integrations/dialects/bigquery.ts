@@ -5,6 +5,7 @@ import {
   defaultPercentileCapSelectClause,
   PercentileCapSelectClauseValue,
 } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const APPROX_QUANTILES_MULTIPLIER = 10000;
@@ -213,5 +214,42 @@ export const bigQueryDialect: SqlDialect = {
       keyExpr: "col.column_name",
       valueExpr: "col.value",
     };
+  },
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[SAFE_OFFSET(${index})]`,
+
+  // APPROX_TOP_COUNT(expr, k) returns ARRAY<STRUCT<value, count>> per column;
+  // pack the per-column structs into one array and double-UNNEST back to long
+  // form. It counts NULLs, so disqualified values map to NULL and the NULL
+  // bucket is dropped via `item.value IS NOT NULL`.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const structs = pairs
+      .map(
+        (p) =>
+          `STRUCT('${p.keyLiteral}' AS column_name, APPROX_TOP_COUNT(${eligibleTopValueExpr(
+            bigQueryDialect,
+            p.valueSql,
+            maxValueLength,
+          )}, ${limit}) AS items)`,
+      )
+      .join(",\n      ");
+    return `
+  SELECT __col.column_name AS column_name, __item.value AS value, __item.count AS count
+  FROM (
+    SELECT [
+      ${structs}
+    ] AS cols
+    FROM ${fromTable}
+    WHERE ${whereClause}
+  ) __agg
+  CROSS JOIN UNNEST(__agg.cols) AS __col
+  CROSS JOIN UNNEST(__col.items) AS __item
+  WHERE __item.value IS NOT NULL`;
   },
 };

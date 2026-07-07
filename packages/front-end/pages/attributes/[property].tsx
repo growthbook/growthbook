@@ -178,6 +178,7 @@ export default function AttributeDetailPage() {
     <>
       {showReferencesModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header={`References: ${attribute.property}`}
           close={() => setShowReferencesModal(false)}
@@ -202,6 +203,7 @@ export default function AttributeDetailPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Delete Attribute"
           close={() => setShowDeleteModal(false)}

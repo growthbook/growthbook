@@ -10,6 +10,7 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
@@ -1489,38 +1490,44 @@ describe("full fact metric experiment query - bigquery", () => {
       const startDate = new Date("2023-01-01");
       const endDate = new Date("2023-01-31");
 
+      const settings = {
+        manual: false,
+        dimensions: [],
+        metricSettings: [],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+        activationMetric: null,
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: 0,
+        },
+        regressionAdjustmentEnabled: true,
+        attributionModel: "firstExposure" as const,
+        experimentId: "",
+        queryFilter: "",
+        segment: "",
+        // TODO
+        skipPartialData: false,
+        datasourceId: "",
+        exposureQueryId: "",
+        startDate,
+        endDate,
+        variations: [],
+      };
+
       const sql = getExperimentFactMetricsQuery(
         bigQueryDialect,
         bqIntegration.datasource,
         {
-          settings: {
-            manual: false,
-            dimensions: [],
-            metricSettings: [],
-            goalMetrics: [],
-            secondaryMetrics: [],
-            guardrailMetrics: [],
-            activationMetric: null,
-            defaultMetricPriorSettings: {
-              override: false,
-              proper: false,
-              mean: 0,
-              stddev: 0,
-            },
-            regressionAdjustmentEnabled: true,
-            attributionModel: "firstExposure",
-            experimentId: "",
-            queryFilter: "",
-            segment: "",
-            // TODO
-            skipPartialData: false,
-            datasourceId: "",
-            exposureQueryId: "",
-            startDate,
-            endDate,
-            variations: [],
-          },
+          settings,
           unitsSource: "exposureQuery",
+          unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
+            query: testExposureQuery.query,
+            userIdType: testExposureQuery.userIdType,
+          }),
           activationMetric: null,
           dimensions: [],
           segment: null,
@@ -1585,37 +1592,43 @@ describe("quantile grid array packing is BigQuery-only", () => {
         aggregation: "sum",
       },
     });
+    const settings = {
+      manual: false,
+      dimensions: [],
+      metricSettings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: null,
+      defaultMetricPriorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0,
+      },
+      regressionAdjustmentEnabled: false,
+      attributionModel: "firstExposure" as const,
+      experimentId: "",
+      queryFilter: "",
+      segment: "",
+      skipPartialData: false,
+      datasourceId: "",
+      exposureQueryId: "",
+      startDate: new Date("2023-01-01"),
+      endDate: new Date("2023-01-31"),
+      variations: [],
+    };
+
     return getExperimentFactMetricsQuery(
       dialect,
       datasourceIntegration.datasource,
       {
-        settings: {
-          manual: false,
-          dimensions: [],
-          metricSettings: [],
-          goalMetrics: [],
-          secondaryMetrics: [],
-          guardrailMetrics: [],
-          activationMetric: null,
-          defaultMetricPriorSettings: {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: 0,
-          },
-          regressionAdjustmentEnabled: false,
-          attributionModel: "firstExposure",
-          experimentId: "",
-          queryFilter: "",
-          segment: "",
-          skipPartialData: false,
-          datasourceId: "",
-          exposureQueryId: "",
-          startDate: new Date("2023-01-01"),
-          endDate: new Date("2023-01-31"),
-          variations: [],
-        },
+        settings,
         unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(settings, {
+          query: testExposureQuery.query,
+          userIdType: testExposureQuery.userIdType,
+        }),
         activationMetric: null,
         dimensions: [],
         segment: null,
