@@ -2319,46 +2319,47 @@ export default function ReviewAndPublish({
 
         {requireReviews &&
           (reviewers.length > 0 || revision.status === "pending-review") && (
-          <Box mb="3">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-high"
-              as="div"
-              mb="2"
-            >
-              Reviewers
-            </Text>
-            {reviewers.length === 0 && revision.status === "pending-review" && (
-              <Text size="small" color="text-mid" as="div">
-                No reviews yet.
+            <Box mb="3">
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-high"
+                as="div"
+                mb="2"
+              >
+                Reviewers
               </Text>
-            )}
-            <Flex direction="column" gap="2">
-              {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                const u = users.get(id);
-                const name = u?.name || r.name || "";
-                const email = u?.email || r.email || "";
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={name}
-                    email={email}
-                    trailing={
-                      <ReviewerVerdictIcon
-                        status={status}
-                        name={name || email}
-                        timestamp={timestamp}
-                        stale={stale}
-                      />
-                    }
-                  />
-                );
-              })}
-            </Flex>
-          </Box>
-        )}
+              {reviewers.length === 0 &&
+                revision.status === "pending-review" && (
+                  <Text size="small" color="text-mid" as="div">
+                    No reviews yet.
+                  </Text>
+                )}
+              <Flex direction="column" gap="2">
+                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
+                  const u = users.get(id);
+                  const name = u?.name || r.name || "";
+                  const email = u?.email || r.email || "";
+                  return (
+                    <PersonRow
+                      key={id}
+                      id={id}
+                      name={name}
+                      email={email}
+                      trailing={
+                        <ReviewerVerdictIcon
+                          status={status}
+                          name={name || email}
+                          timestamp={timestamp}
+                          stale={stale}
+                        />
+                      }
+                    />
+                  );
+                })}
+              </Flex>
+            </Box>
+          )}
 
         {!experimentsStep &&
           (approved || !requireReviews) &&
