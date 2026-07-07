@@ -394,8 +394,12 @@ function customIdentifierSelectExpr(property: string): string {
 
 // Non-identifier materialized columns (dimensions) preserved from a legacy migration,
 // re-exposed as top-level SELECT aliases out of `attributes` (under their legacy column
-// name) so bare references keep resolving. Drops any whose name collides with a custom
-// identifier alias (identifiers win) and de-dupes by column name to keep the SELECT valid.
+// name) so bare references keep resolving. Drops any whose name collides with a real
+// `SELECT *` column (reserved names) or a custom identifier alias (identifiers win), and
+// de-dupes by column name to keep the SELECT valid. The write path
+// (getMigratedDimensionColumns) already excludes reserved names; re-checking here keeps
+// the SELECT valid on read even if that invariant drifts (e.g. the reserved set grows in
+// a later release), matching the identifier path which re-filters on every read.
 function dedupeMigratedDimensions(
   customIdentifiers: string[],
   migratedColumns: MaterializedColumn[],
@@ -404,7 +408,14 @@ function dedupeMigratedDimensions(
   const seen = new Set<string>();
   const out: MaterializedColumn[] = [];
   for (const col of migratedColumns) {
-    if (identifiers.has(col.columnName) || seen.has(col.columnName)) continue;
+    if (
+      MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(
+        col.columnName.toLowerCase(),
+      ) ||
+      identifiers.has(col.columnName) ||
+      seen.has(col.columnName)
+    )
+      continue;
     seen.add(col.columnName);
     out.push(col);
   }
@@ -460,10 +471,18 @@ export function buildManagedWarehouseAttributeAliasClause(
   const s = settings as GrowthbookClickhouseSettings | null | undefined;
   if (!s?.useJsonColumns) return "";
 
+  // Mirror getManagedWarehouseCustomIdentifiers: drop builtins (folded into the
+  // identity columns) and any name colliding with a real `SELECT *` column, so an
+  // unexpected reserved name in persisted `userIdTypes` can't produce a duplicate
+  // SELECT alias. Keeps this clause identical to the one the fact table emits.
   const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
   const customIdentifiers = (s.userIdTypes || [])
     .map((u) => u.userIdType)
-    .filter((t) => !builtins.has(t));
+    .filter(
+      (t) =>
+        !builtins.has(t) &&
+        !MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES.has(t.toLowerCase()),
+    );
   return attributeAliasClause(
     customIdentifiers,
     dedupeMigratedDimensions(customIdentifiers, s.migratedColumns || []),

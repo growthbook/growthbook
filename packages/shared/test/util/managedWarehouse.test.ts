@@ -574,4 +574,29 @@ describe("buildManagedWarehouseAttributeAliasClause", () => {
     } as GrowthbookClickhouseSettings);
     expect(clause.match(/AS company_id\b/g)?.length).toBe(1);
   });
+
+  it("drops a preserved dimension whose name collides with a real SELECT * column", () => {
+    const clause = buildManagedWarehouseAttributeAliasClause({
+      useJsonColumns: true,
+      userIdTypes: [{ userIdType: "user_id", description: "" }],
+      migratedColumns: [
+        {
+          columnName: "geo_country",
+          sourceField: "country",
+          datatype: "string",
+          type: "dimension",
+        },
+      ],
+    } as GrowthbookClickhouseSettings);
+    // geo_country is a physical column post-migration; aliasing it would duplicate it.
+    expect(clause).toBe("");
+  });
+
+  it("drops a custom identifier whose name collides with a real SELECT * column", () => {
+    const clause = buildManagedWarehouseAttributeAliasClause({
+      useJsonColumns: true,
+      userIdTypes: [{ userIdType: "session_id", description: "" }],
+    } as GrowthbookClickhouseSettings);
+    expect(clause).toBe("");
+  });
 });
