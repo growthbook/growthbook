@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/Features/CustomHookModal";
+import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Table, {
   TableHeader,
@@ -50,6 +51,9 @@ export default function CustomHooksPage() {
     null,
   );
   const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
+    null,
+  );
+  const [historyHook, setHistoryHook] = useState<CustomHookInterface | null>(
     null,
   );
 
@@ -93,6 +97,14 @@ export default function CustomHooksPage() {
         <CustomHookCodeModal
           hook={viewCodeHook}
           close={() => setViewCodeHook(null)}
+        />
+      )}
+      {historyHook && (
+        <CompareCustomHookEventsModal
+          hook={historyHook}
+          canRevert={!historyHook.entityType}
+          onClose={() => setHistoryHook(null)}
+          onRevert={() => mutate()}
         />
       )}
 
@@ -147,9 +159,14 @@ export default function CustomHooksPage() {
                   {hooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        {hook.name}
+                        <Link
+                          role="button"
+                          onClick={() => setViewCodeHook(hook)}
+                        >
+                          {hook.name}
+                        </Link>
                         {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" />
+                          <Badge color="gray" label="Disabled" ml="2" />
                         ) : null}
                       </TableCell>
                       <TableCell>{hook.hook}</TableCell>
@@ -176,13 +193,13 @@ export default function CustomHooksPage() {
                           }
                           menuPlacement="end"
                         >
-                          <DropdownMenuItem
-                            onClick={() => setViewCodeHook(hook)}
-                          >
-                            Preview Code
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setModalData(hook)}>
                             Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setHistoryHook(hook)}
+                          >
+                            History &amp; revert
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={async () => {
@@ -243,9 +260,14 @@ export default function CustomHooksPage() {
                   {featureHooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        {hook.name}
+                        <Link
+                          role="button"
+                          onClick={() => setViewCodeHook(hook)}
+                        >
+                          {hook.name}
+                        </Link>
                         {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" />
+                          <Badge color="gray" label="Disabled" ml="2" />
                         ) : null}
                       </TableCell>
                       <TableCell>{hook.hook}</TableCell>
@@ -271,9 +293,9 @@ export default function CustomHooksPage() {
                           menuPlacement="end"
                         >
                           <DropdownMenuItem
-                            onClick={() => setViewCodeHook(hook)}
+                            onClick={() => setHistoryHook(hook)}
                           >
-                            Preview Code
+                            History &amp; revert
                           </DropdownMenuItem>
                         </DropdownMenu>
                       </TableCell>
@@ -304,9 +326,14 @@ export default function CustomHooksPage() {
                   {configHooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        {hook.name}
+                        <Link
+                          role="button"
+                          onClick={() => setViewCodeHook(hook)}
+                        >
+                          {hook.name}
+                        </Link>
                         {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" />
+                          <Badge color="gray" label="Disabled" ml="2" />
                         ) : null}
                       </TableCell>
                       <TableCell>{hook.hook}</TableCell>
@@ -333,9 +360,9 @@ export default function CustomHooksPage() {
                           menuPlacement="end"
                         >
                           <DropdownMenuItem
-                            onClick={() => setViewCodeHook(hook)}
+                            onClick={() => setHistoryHook(hook)}
                           >
-                            Preview Code
+                            History &amp; revert
                           </DropdownMenuItem>
                         </DropdownMenu>
                       </TableCell>

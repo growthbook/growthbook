@@ -216,6 +216,17 @@ export class CustomHookModel extends BaseClass {
     );
   }
 
+  // Same as update(), but records a distinct `customHook.revert` audit event so
+  // reverts stand out from ordinary edits in the history.
+  public revertUpdate(
+    existing: CustomHookInterface,
+    updates: UpdateProps<CustomHookInterface>,
+  ) {
+    return this._updateOne(existing, updates, {
+      auditEvent: "customHook.revert",
+    });
+  }
+
   public logSuccess(hook: CustomHookInterface) {
     this.update(hook, {
       lastSuccess: new Date(),

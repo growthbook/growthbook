@@ -12,6 +12,7 @@ import { isCloud } from "@/services/env";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Table, {
   TableHeader,
   TableBody,
@@ -24,6 +25,7 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import CustomHookModal from "@/components/Features/CustomHookModal";
+import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
 import Badge from "@/ui/Badge";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
@@ -132,7 +134,7 @@ export default function ConfigCustomHooksSection({
         </PremiumCallout>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="1">
+          <Flex align="center" gap="1" mb="3">
             <Heading as="h4" size="small" mb="0">
               Config-specific Hooks
             </Heading>
@@ -148,14 +150,43 @@ export default function ConfigCustomHooksSection({
             </Box>
           </Flex>
           <HooksTable
-            hooks={applicableHooks.filter((h) => !!h.entityId)}
+            hooks={applicableHooks.filter(
+              (h) => h.entityType === "config" && h.entityId === config.key,
+            )}
             config={config}
             canManage={canManage}
             setModalData={setModalData}
             mutate={mutate}
           />
 
-          <Flex align="center" gap="1" mb="1" mt="5" pt="5">
+          {applicableHooks.some(
+            (h) => h.entityType === "config" && h.entityId !== config.key,
+          ) && (
+            <>
+              <Flex align="center" gap="1" mb="1" mt="4">
+                <Heading as="h4" size="small" mb="0">
+                  Parent Config Hooks
+                </Heading>
+              </Flex>
+              <Text as="p" size="small" color="text-low" mb="3">
+                Inherited from an ancestor config (scoped to descendants). These
+                run on this config&apos;s changes but are managed from the
+                parent.
+              </Text>
+              <HooksTable
+                hooks={applicableHooks.filter(
+                  (h) => h.entityType === "config" && h.entityId !== config.key,
+                )}
+                config={config}
+                canManage={canManage}
+                setModalData={setModalData}
+                mutate={mutate}
+                showSource
+              />
+            </>
+          )}
+
+          <Flex align="center" gap="1" mb="3" mt="5" pt="5">
             <Heading as="h4" size="small" mb="0">
               Global/Project Hooks
             </Heading>
@@ -206,15 +237,21 @@ function HooksTable({
   canManage,
   mutate,
   setModalData,
+  showSource = false,
 }: {
   hooks: CustomHookInterface[];
   config: ConfigInterface;
   canManage: boolean;
   setModalData: (hook: CustomHookInterface) => void;
   mutate: () => void;
+  // Show a linked "Parent config" column instead of "Scope" (for inherited hooks).
+  showSource?: boolean;
 }) {
   const { apiCall } = useAuth();
   const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
+    null,
+  );
+  const [historyHook, setHistoryHook] = useState<CustomHookInterface | null>(
     null,
   );
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -235,6 +272,18 @@ function HooksTable({
           close={() => setViewCodeHook(null)}
         />
       )}
+      {historyHook && (
+        <CompareCustomHookEventsModal
+          hook={historyHook}
+          canRevert={
+            canManage &&
+            historyHook.entityType === "config" &&
+            historyHook.entityId === config.key
+          }
+          onClose={() => setHistoryHook(null)}
+          onRevert={() => mutate()}
+        />
+      )}
       {toggleError && (
         <Callout status="error" mb="3">
           {toggleError}
@@ -244,10 +293,15 @@ function HooksTable({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Name</TableColumnHeader>
+            {showSource && (
+              <TableColumnHeader width="260px">Parent config</TableColumnHeader>
+            )}
             <TableColumnHeader width="200px">Type</TableColumnHeader>
-            <TableColumnHeader width="150px">Scope</TableColumnHeader>
+            {!showSource && (
+              <TableColumnHeader width="180px">Scope</TableColumnHeader>
+            )}
             <TableColumnHeader width="100px">Incremental</TableColumnHeader>
-            <TableColumnHeader style={{ width: 50 }} />
+            {!showSource && <TableColumnHeader style={{ width: 50 }} />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -270,83 +324,102 @@ function HooksTable({
             return (
               <TableRow key={hook.id}>
                 <TableCell>
-                  {hook.name}
+                  <Link role="button" onClick={() => setViewCodeHook(hook)}>
+                    {hook.name}
+                  </Link>
                   {!hook.enabled ? (
-                    <Badge color="gray" label="Disabled" />
+                    <Badge color="gray" label="Disabled" ml="2" />
                   ) : null}
                 </TableCell>
+                {showSource && (
+                  <TableCell>
+                    {hook.entityId ? (
+                      <Link
+                        href={`/configs/${hook.entityId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {hook.entityId}
+                      </Link>
+                    ) : null}
+                  </TableCell>
+                )}
                 <TableCell>{hook.hook}</TableCell>
-                <TableCell>{scopeLabel}</TableCell>
+                {!showSource && <TableCell>{scopeLabel}</TableCell>}
                 <TableCell>
                   {hook.incrementalChangesOnly ? "Yes" : "No"}
                 </TableCell>
-                <TableCell>
-                  <DropdownMenu
-                    variant="soft"
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
-                  >
-                    <DropdownMenuItem onClick={() => setViewCodeHook(hook)}>
-                      Preview Code
-                    </DropdownMenuItem>
-                    {canManage && configScoped && (
-                      <DropdownMenuItem onClick={() => setModalData(hook)}>
-                        Edit
+                {!showSource && (
+                  <TableCell>
+                    <DropdownMenu
+                      variant="soft"
+                      trigger={
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          radius="full"
+                          size="2"
+                          highContrast
+                        >
+                          <BsThreeDotsVertical size={16} />
+                        </IconButton>
+                      }
+                      menuPlacement="end"
+                    >
+                      {canManage && configScoped && (
+                        <DropdownMenuItem onClick={() => setModalData(hook)}>
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setHistoryHook(hook)}>
+                        History &amp; revert
                       </DropdownMenuItem>
-                    )}
-                    {canManage && configScoped && (
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          setToggleError(null);
-                          try {
-                            await apiCall(`/custom-hooks/${hook.id}`, {
-                              method: "PUT",
-                              body: JSON.stringify({ enabled: !hook.enabled }),
-                            });
-                            await mutate();
-                          } catch (err) {
-                            setToggleError(
-                              err instanceof Error
-                                ? err.message
-                                : "Failed to update hook",
-                            );
-                          }
-                        }}
-                      >
-                        {hook.enabled ? "Disable" : "Enable"}
-                      </DropdownMenuItem>
-                    )}
-                    {canManage && configScoped && (
-                      <DropdownMenuItem
-                        color="red"
-                        confirmation={{
-                          submit: async () => {
-                            await apiCall(`/custom-hooks/${hook.id}`, {
-                              method: "DELETE",
-                            });
-                            await mutate();
-                          },
-                          confirmationTitle: "Delete custom hook",
-                          cta: "Delete",
-                          getConfirmationContent: async () =>
-                            "Are you sure? This action cannot be undone.",
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenu>
-                </TableCell>
+                      {canManage && configScoped && (
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            setToggleError(null);
+                            try {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  enabled: !hook.enabled,
+                                }),
+                              });
+                              await mutate();
+                            } catch (err) {
+                              setToggleError(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to update hook",
+                              );
+                            }
+                          }}
+                        >
+                          {hook.enabled ? "Disable" : "Enable"}
+                        </DropdownMenuItem>
+                      )}
+                      {canManage && configScoped && (
+                        <DropdownMenuItem
+                          color="red"
+                          confirmation={{
+                            submit: async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            },
+                            confirmationTitle: "Delete custom hook",
+                            cta: "Delete",
+                            getConfirmationContent: async () =>
+                              "Are you sure? This action cannot be undone.",
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </TableRow>
             );
           })}

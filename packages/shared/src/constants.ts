@@ -273,7 +273,7 @@ export const entityEvents = {
   dashboardTemplate: ["create", "update", "delete"],
   incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
-  customHook: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete", "revert"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
   rampSchedule: [

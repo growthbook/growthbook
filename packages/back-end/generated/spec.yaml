@@ -21999,6 +21999,94 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/custom-hooks/{id}/history:
+    get:
+      operationId: listCustomHookHistory
+      summary: List a custom hook's version history
+      tags:
+        - custom-hooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the custom hook
+          schema:
+            description: The id of the custom hook
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      versions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/versions'
+                    required:
+                      - versions
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc/history'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/custom-hooks/{id}/revert:
+    post:
+      operationId: revertCustomHook
+      summary: Revert a custom hook to a previous version
+      tags:
+        - custom-hooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the custom hook
+          schema:
+            description: The id of the custom hook
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auditId:
+                  description: The version to restore (from the history endpoint)
+                  type: string
+              required:
+                - auditId
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customHook:
+                    $ref: '#/components/schemas/CustomHook'
+                required:
+                  - customHook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/custom-hooks/hook_123abc/revert' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"auditId":"aud_123abc"}'
   /v1/organizations:
     get:
       operationId: listOrganizations
@@ -53795,6 +53883,30 @@ components:
         - key
         - ownedBy
         - identical
+      additionalProperties: false
+    versions:
+      type: object
+      properties:
+        auditId:
+          description: Identifier for this version, used to revert to it
+          type: string
+        event:
+          description: The audit event that produced this version (create/update)
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+        userName:
+          type: string
+        userEmail:
+          type: string
+        customHook:
+          $ref: '#/components/schemas/CustomHook'
+      required:
+        - auditId
+        - event
+        - dateCreated
+        - customHook
       additionalProperties: false
     updatedMember:
       type: object

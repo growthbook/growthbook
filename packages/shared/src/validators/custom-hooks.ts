@@ -164,6 +164,65 @@ const apiCustomHookResponse = z
   .object({ customHook: apiCustomHookValidator })
   .strict();
 
+export const apiCustomHookVersionValidator = z
+  .object({
+    auditId: z
+      .string()
+      .describe("Identifier for this version, used to revert to it"),
+    event: z
+      .string()
+      .describe("The audit event that produced this version (create/update)"),
+    dateCreated: z.string().meta({ format: "date-time" }),
+    userName: z.string().optional(),
+    userEmail: z.string().optional(),
+    customHook: apiCustomHookValidator.describe(
+      "The hook's full state at this version",
+    ),
+  })
+  .strict();
+
+export type ApiCustomHookVersion = z.infer<
+  typeof apiCustomHookVersionValidator
+>;
+
+export const listCustomHookHistoryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ ...paginationQueryFields }).strict(),
+  paramsSchema: customHookIdParams,
+  responseSchema: z.intersection(
+    z.object({ versions: z.array(apiCustomHookVersionValidator) }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "List a custom hook's version history",
+  operationId: "listCustomHookHistory",
+  tags: ["custom-hooks"],
+  method: "get" as const,
+  path: "/custom-hooks/:id/history",
+  exampleRequest: { params: { id: "hook_123abc" } },
+};
+
+export const revertCustomHookValidator = {
+  bodySchema: z
+    .object({
+      auditId: z
+        .string()
+        .describe("The version to restore (from the history endpoint)"),
+    })
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: customHookIdParams,
+  responseSchema: apiCustomHookResponse,
+  summary: "Revert a custom hook to a previous version",
+  operationId: "revertCustomHook",
+  tags: ["custom-hooks"],
+  method: "post" as const,
+  path: "/custom-hooks/:id/revert",
+  exampleRequest: {
+    params: { id: "hook_123abc" },
+    body: { auditId: "aud_123abc" },
+  },
+};
+
 export const listCustomHooksValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ ...paginationQueryFields }).strict(),
