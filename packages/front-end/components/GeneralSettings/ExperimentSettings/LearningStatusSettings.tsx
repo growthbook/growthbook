@@ -112,7 +112,7 @@ const LearningStatusSettings: React.FC = () => {
   const deleteTarget = deleteIndex !== null ? statuses[deleteIndex] : undefined;
 
   return (
-    <Box className="appbox p-3">
+    <Box className="appbox" p="3">
       <Flex justify="between" align="start" mb="3" gap="3" wrap="wrap">
         <Box>
           <Heading as="h3" size="small" weight="semibold" mb="1">
