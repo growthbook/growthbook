@@ -97,6 +97,12 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import {
+  CB_PAYLOAD_WARN_BYTES,
+  CB_PAYLOAD_WARN_FRACTION,
+  measureContextualBanditPayload,
+  recordContextualBanditPayloadMetrics,
+} from "back-end/src/services/contextualBanditPayload";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
@@ -710,51 +716,6 @@ export function filterUsedContextualBandits(
   return Object.keys(map).length > 0 ? map : undefined;
 }
 
-export const CB_PAYLOAD_WARN_BYTES = 512 * 1024;
-export const CB_PAYLOAD_WARN_FRACTION = 0.5;
-
-export type ContextualBanditPayloadStats = {
-  /** Distinct CBs in the payload's `contextualBandits` map */
-  cbCount: number;
-  /** Rules pointing at the map — cbRuleCount/cbCount > 1 means shared CBs (dedup working) */
-  cbRuleCount: number;
-  /** Sum of serialized map entry sizes (map braces/commas excluded) */
-  cbBytes: number;
-  maxSingleCbBytes: number;
-  maxLeaves: number;
-};
-
-export function measureContextualBanditPayload(
-  contextualBandits: ContextualBanditsMap,
-  features: Record<string, FeatureDefinition>,
-): ContextualBanditPayloadStats {
-  let cbBytes = 0;
-  let maxSingleCbBytes = 0;
-  let maxLeaves = 0;
-  const entries = Object.entries(contextualBandits);
-  entries.forEach(([id, entry]) => {
-    const entryBytes = Buffer.byteLength(JSON.stringify({ [id]: entry }));
-    cbBytes += entryBytes;
-    if (entryBytes > maxSingleCbBytes) maxSingleCbBytes = entryBytes;
-    if (entry.contexts.length > maxLeaves) maxLeaves = entry.contexts.length;
-  });
-
-  let cbRuleCount = 0;
-  Object.values(features).forEach((feature) => {
-    feature.rules?.forEach((rule) => {
-      if (rule.contextualBanditRef) cbRuleCount++;
-    });
-  });
-
-  return {
-    cbCount: entries.length,
-    cbRuleCount,
-    cbBytes,
-    maxSingleCbBytes,
-    maxLeaves,
-  };
-}
-
 export function isSDKConnectionAffectedByPayloadKey(
   connection: SDKConnectionInterface,
   payloadKey: SDKPayloadKey,
@@ -804,39 +765,6 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
     getSdkPayloadRefreshDurationHistogram().record(durationMs);
   } catch (e) {
     logger.error({ err: e }, "Error recording sdk_payload refresh metrics");
-  }
-}
-
-let cbPayloadBytesHistogram: Histogram | null = null;
-let cbPayloadFractionHistogram: Histogram | null = null;
-
-function getCbPayloadBytesHistogram() {
-  if (!cbPayloadBytesHistogram) {
-    cbPayloadBytesHistogram = metrics.getHistogram("sdk_payload.cb_bytes");
-  }
-  return cbPayloadBytesHistogram;
-}
-
-function getCbPayloadFractionHistogram() {
-  if (!cbPayloadFractionHistogram) {
-    cbPayloadFractionHistogram = metrics.getHistogram(
-      "sdk_payload.cb_fraction",
-    );
-  }
-  return cbPayloadFractionHistogram;
-}
-
-function recordContextualBanditPayloadMetrics(
-  stats: ContextualBanditPayloadStats,
-  totalBytes: number,
-) {
-  try {
-    getCbPayloadBytesHistogram().record(stats.cbBytes);
-    if (totalBytes > 0) {
-      getCbPayloadFractionHistogram().record(stats.cbBytes / totalBytes);
-    }
-  } catch (e) {
-    logger.error({ err: e }, "Error recording sdk_payload CB size metrics");
   }
 }
 
@@ -1122,8 +1050,6 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   usedSavedGroups: SavedGroupInterface[];
   savedGroupReferencesEnabled?: boolean;
-  // Top-level dedup map for contextual bandit contexts (shares its spelling
-  // with the `contextualBandits` capability — different namespaces).
   contextualBandits?: ContextualBanditsMap;
   organization: OrganizationInterface;
 };
@@ -1225,16 +1151,10 @@ export async function getFeatureDefinitionsResponse({
       ? savedGroupsValues
       : undefined;
 
-  // Contexts are only meaningful to SDKs with the `contextualBandits`
-  // capability; non-capable SDKs already had `contextualBanditRef` scrubbed
-  // from rules, so the map would be dead weight.
   const contextualBanditsForPayload = capabilities.includes("contextualBandits")
     ? contextualBandits
     : undefined;
 
-  // CB payload-size instrumentation. Measured pre-encryption (encrypted base64
-  // is ~1.33× and would distort the fraction) and only when the payload
-  // actually carries CBs, so non-CB payloads pay nothing.
   if (
     contextualBanditsForPayload &&
     Object.keys(contextualBanditsForPayload).length > 0
@@ -1855,7 +1775,7 @@ export async function evaluateAllFeatures({
       allFeatures[f.id] = {
         ...f,
         project: f.project,
-      } as FeatureDefinition;
+      } as unknown as FeatureDefinition;
     });
   }
   // get all features definitions

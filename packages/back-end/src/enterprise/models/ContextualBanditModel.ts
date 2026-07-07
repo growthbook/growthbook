@@ -340,6 +340,17 @@ export class ContextualBanditModel extends BaseClass {
   public async patchLeafWeights(
     cbId: string,
     leafWeights: LeafWeight[],
+    options?: {
+      /**
+       * Bump `banditVersion` alongside the write. Pass true only when the
+       * leaf set or weights actually changed (`weightsWereUpdated`), so the
+       * version identifies a weights generation — the SDK payload is only
+       * refreshed on real changes, and an unconditional bump would leave the
+       * payload's `banditVersion` (stamped on exposures and grouped on by the
+       * SRM query) trailing the DB.
+       */
+      bumpVersion?: boolean;
+    },
   ): Promise<ContextualBanditInterface> {
     const existingCB = await this.getById(cbId);
     if (!existingCB) {
@@ -362,7 +373,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       {
         $set: set,
-        $inc: { banditVersion: 1 },
+        ...(options?.bumpVersion ? { $inc: { banditVersion: 1 } } : {}),
       },
     );
     if (res.matchedCount === 0) {

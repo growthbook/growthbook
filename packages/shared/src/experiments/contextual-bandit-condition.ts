@@ -84,7 +84,7 @@ function contextToEqualityObject(
  *
  * Output ordering is deterministic for a given set of contexts, so callers can
  * compare two conditions with a plain structural / `JSON.stringify` equality
- * check (this replaces the old `deriveContextId` hash).
+ * check.
  */
 export function leafConditionFromContexts(
   contexts: Record<string, string>[],

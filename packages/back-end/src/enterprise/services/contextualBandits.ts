@@ -29,11 +29,6 @@ import {
   ContextualBanditStatsSettings,
 } from "./contextualBanditStats";
 
-/**
- * Enriched info for the features that link to this Contextual Bandit (via
- * `contextual-bandit-ref` rules). Mirrors `getLinkedFeatureInfo` for experiments
- * so the CB detail page can reuse the same `LinkedFeatureInfo` UI shape.
- */
 export async function getContextualBanditLinkedFeatureInfo(
   context: ReqContext | ApiReqContext,
   contextualBandit: ContextualBanditInterface,
@@ -48,11 +43,6 @@ export async function getContextualBanditLinkedFeatureInfo(
   });
 }
 
-/**
- * Detaches a feature from a Contextual Bandit: removes it from `linkedFeatures`
- * and cancels any queued draft auto-publish. Mirrors `unlinkFeatureFromExperiment`
- * — the feature's `contextual-bandit-ref` rule is intentionally left in place.
- */
 export async function unlinkFeatureFromContextualBandit(
   context: ReqContext | ApiReqContext,
   cbId: string,
@@ -136,12 +126,6 @@ export async function runContextualBanditSnapshot(
   cb: ContextualBanditInterface,
   opts: {
     triggeredBy: "manual" | "scheduled";
-    /**
-     * When true, block until queries + analysis finish and return the resulting
-     * CBE id. Background jobs that own the run lifecycle set this (mirroring
-     * `updateExperimentResults`). Interactive/API callers leave it false so the
-     * request returns immediately with a "running" snapshot the caller can poll.
-     */
     wait?: boolean;
   },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
@@ -225,13 +209,6 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-/**
- * Collapses a run's per-context responses into one `LeafWeight` per tree leaf:
- * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
- * routes a context to the leaf (built from the leaf's member contexts), so the
- * persisted weights are self-contained for the SDK payload without re-joining the
- * event's `leaf_map`. Leaves whose responses carry no updated weights are skipped.
- */
 export function leafWeightsFromContextualBanditResult(
   result: ContextualBanditResult,
   variations: { id: string }[],
@@ -285,15 +262,10 @@ export function contextualBanditWeightsWereUpdated(
     variations,
   );
 
-  // A run with no updated weights leaves the persisted leaf weights untouched
-  // (`patchLeafWeights` skips empty arrays), so there is nothing to sync.
   if (newLeafWeights.length === 0) {
     return false;
   }
 
-  // Conditions are unique per leaf (leaves partition the context space), so a
-  // length mismatch means at least one leaf was added or removed. Additions
-  // are also caught below; this check is what catches pure removals.
   if (newLeafWeights.length !== currentLeafWeights.length) {
     return true;
   }
@@ -356,7 +328,9 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights, {
+    bumpVersion: weightsWereUpdated,
+  });
 
   if (weightsWereUpdated) {
     await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");

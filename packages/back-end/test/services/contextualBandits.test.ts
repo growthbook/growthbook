@@ -389,9 +389,12 @@ describe("persistContextualBanditEvent", () => {
     });
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
-    const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
+    const [cbIdArg, leafWeightsArg, patchOptions] =
+      patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toHaveLength(2);
+    // Weights changed → the version bumps alongside the payload refresh
+    expect(patchOptions).toEqual({ bumpVersion: true });
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       result,
       cb.variations,
@@ -410,7 +413,7 @@ describe("persistContextualBanditEvent", () => {
     );
   });
 
-  it("still patches once with empty weights so banditVersion advances on a no-weight run", async () => {
+  it("patches without bumping banditVersion on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();
     const result = makeResult({ responses: [], leaf_map: [] });
@@ -445,10 +448,13 @@ describe("persistContextualBanditEvent", () => {
     await persistContextualBanditEvent(context, cbs, result);
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
-    const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
+    const [cbIdArg, leafWeightsArg, patchOptions] =
+      patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(leafWeightsArg).toEqual([]);
-    // No weight change → no SDK payload refresh
+    // No weight change → no version bump and no SDK payload refresh, so the
+    // payload's banditVersion stays consistent with the DB.
+    expect(patchOptions).toEqual({ bumpVersion: false });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
@@ -556,6 +562,9 @@ describe("persistContextualBanditEvent", () => {
     await persistContextualBanditEvent(context, makeCbs(), result);
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    expect(patchLeafWeightsMock.mock.calls[0][2]).toEqual({
+      bumpVersion: false,
+    });
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 });

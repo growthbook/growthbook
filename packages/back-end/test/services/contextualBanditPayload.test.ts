@@ -3,10 +3,8 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureDefinition } from "shared/types/sdk";
 import { GroupMap } from "shared/types/saved-group";
 import { getFeatureDefinition } from "back-end/src/util/features";
-import {
-  filterUsedContextualBandits,
-  measureContextualBanditPayload,
-} from "back-end/src/services/features";
+import { filterUsedContextualBandits } from "back-end/src/services/features";
+import { measureContextualBanditPayload } from "back-end/src/services/contextualBanditPayload";
 
 // services/features.ts transitively imports datasource integrations, which
 // load native modules (kerberos, lz4) that aren't available in all
