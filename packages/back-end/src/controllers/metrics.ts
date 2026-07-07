@@ -535,16 +535,21 @@ export const getMetricExperimentResults = async (
       bandits?: string;
       startDate?: string;
       endDate?: string;
+      startedAfter?: string;
+      startedBefore?: string;
     }
   >,
   res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>,
 ) => {
   const context = getContextFromReq(req);
 
-  const startDate = req.query.startDate
-    ? new Date(req.query.startDate)
-    : undefined;
-  const endDate = req.query.endDate ? new Date(req.query.endDate) : undefined;
+  const parseDate = (v?: string) => (v ? new Date(v) : undefined);
+  // End-date window (phase end date).
+  const startDate = parseDate(req.query.startDate);
+  const endDate = parseDate(req.query.endDate);
+  // Start-date window (phase start date; includes running experiments).
+  const startedAfter = parseDate(req.query.startedAfter);
+  const startedBefore = parseDate(req.query.startedBefore);
   const bandits =
     req.query.bandits === "true"
       ? true
@@ -559,6 +564,8 @@ export const getMetricExperimentResults = async (
     bandits,
     startDate,
     endDate,
+    startedAfter,
+    startedBefore,
     limit: 500,
   });
 

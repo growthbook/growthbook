@@ -223,8 +223,13 @@ const metricExperimentsBlockInterface = baseBlockInterface
     experimentSearchString: z.string(), // raw ExperimentSearchFilters query for now
     differenceType: z.enum(differenceTypes),
     bandits: z.boolean(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
+    // Optional Metric-Explorer-style date windows (Today / Past 7·30·90 /
+    // Custom Lookback / Custom Date Range). `startDateRange` filters on the
+    // experiment's phase start date (so in-flight experiments can be included);
+    // `endDateRange` filters on the phase end date. Legacy top-level
+    // startDate/endDate strings are migrated to `endDateRange` in migrateBlock.
+    startDateRange: explorationDateRangeValidator.optional(),
+    endDateRange: explorationDateRangeValidator.optional(),
     // Ordered column config for the results table. Omitted = default order,
     // all columns visible. The "Experiment" column is always shown first and
     // is not included/managed here.

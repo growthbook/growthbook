@@ -1,5 +1,9 @@
-import { MetricExperimentsBlockInterface } from "shared/enterprise";
+import {
+  MetricExperimentsBlockInterface,
+  calculateProductAnalyticsDateRange,
+} from "shared/enterprise";
 import { ExperimentWithSnapshot } from "shared/types/experiment-snapshot";
+import { useMemo } from "react";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
@@ -13,14 +17,41 @@ export default function MetricExperimentsBlock({
   const { getExperimentMetricById } = useDefinitions();
   const metric = getExperimentMetricById(block.metricId);
 
-  const params = new URLSearchParams();
-  if (block.experimentSearchString) {
-    params.set("q", block.experimentSearchString);
-  }
-  params.set("bandits", block.bandits ? "true" : "false");
-  if (block.startDate) params.set("startDate", block.startDate);
-  if (block.endDate) params.set("endDate", block.endDate);
-  const queryString = params.toString();
+  // Memoize the query string. `calculateProductAnalyticsDateRange` resolves
+  // rolling presets against `new Date()`, so rebuilding it every render would
+  // produce a new (millisecond-different) URL each time — that thrashes the
+  // useApi/SWR cache key and refetches in a loop that never settles. Recompute
+  // only when the inputs that actually affect the query change.
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (block.experimentSearchString) {
+      params.set("q", block.experimentSearchString);
+    }
+    params.set("bandits", block.bandits ? "true" : "false");
+    // End-date window filters on the experiment's phase end date.
+    if (block.endDateRange) {
+      const { startDate, endDate } = calculateProductAnalyticsDateRange(
+        block.endDateRange,
+      );
+      params.set("startDate", startDate.toISOString());
+      params.set("endDate", endDate.toISOString());
+    }
+    // Start-date window filters on the phase start date (includes running
+    // experiments).
+    if (block.startDateRange) {
+      const { startDate, endDate } = calculateProductAnalyticsDateRange(
+        block.startDateRange,
+      );
+      params.set("startedAfter", startDate.toISOString());
+      params.set("startedBefore", endDate.toISOString());
+    }
+    return params.toString();
+  }, [
+    block.experimentSearchString,
+    block.bandits,
+    block.startDateRange,
+    block.endDateRange,
+  ]);
 
   const { data, isLoading } = useApi<{
     data: ExperimentWithSnapshot[];

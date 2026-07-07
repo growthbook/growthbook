@@ -214,13 +214,21 @@ export function filterExperiments({
   bandits,
   startDate,
   endDate,
+  startedAfter,
+  startedBefore,
 }: {
   experiments: ExperimentInterface[];
   filters: StructuredExperimentFilters;
   resolvers: ExperimentFilterResolvers;
   bandits?: boolean;
+  // End-date window: keep only experiments whose phase end date falls in
+  // [startDate, endDate]. Excludes still-running experiments (no end date).
   startDate?: Date;
   endDate?: Date;
+  // Start-date window: keep only experiments whose phase start date falls in
+  // [startedAfter, startedBefore]. Includes still-running experiments.
+  startedAfter?: Date;
+  startedBefore?: Date;
 }): ExperimentInterface[] {
   const searchTerm = filters.search?.toLowerCase();
 
@@ -228,10 +236,12 @@ export function filterExperiments({
   // out (an Invalid Date is truthy but fails every comparison). Callers that
   // want a hard error should validate before reaching here (the public API
   // does via its zod schema).
-  const validStart =
-    startDate && !Number.isNaN(startDate.getTime()) ? startDate : undefined;
-  const validEnd =
-    endDate && !Number.isNaN(endDate.getTime()) ? endDate : undefined;
+  const validDate = (d?: Date) =>
+    d && !Number.isNaN(d.getTime()) ? d : undefined;
+  const validStart = validDate(startDate);
+  const validEnd = validDate(endDate);
+  const validStartedAfter = validDate(startedAfter);
+  const validStartedBefore = validDate(startedBefore);
 
   return experiments.filter((e) => {
     // Bandit scoping: only applied when an explicit preference is provided so
@@ -298,7 +308,9 @@ export function filterExperiments({
       }
     }
 
-    // Phase-end date-range constraint (matches getMetricExperimentResults)
+    // Phase-end date-range constraint (matches getMetricExperimentResults).
+    // Only experiments with a phase that ended in the window qualify, so
+    // still-running experiments are excluded by an end-date filter.
     if (validStart || validEnd) {
       const start = validStart ?? new Date(0);
       const end = validEnd ?? new Date();
@@ -306,6 +318,19 @@ export function filterExperiments({
         if (!p.dateEnded) return false;
         const ended = new Date(p.dateEnded);
         return ended >= start && ended <= end;
+      });
+      if (!inRange) return false;
+    }
+
+    // Phase-start date-range constraint. Matches on the phase start date, so
+    // still-running experiments (which have no end date) can be included.
+    if (validStartedAfter || validStartedBefore) {
+      const start = validStartedAfter ?? new Date(0);
+      const end = validStartedBefore ?? new Date();
+      const inRange = e.phases.some((p) => {
+        if (!p.dateStarted) return false;
+        const started = new Date(p.dateStarted);
+        return started >= start && started <= end;
       });
       if (!inRange) return false;
     }
@@ -349,6 +374,8 @@ export async function getFilteredExperimentsUsingMetric({
   bandits,
   startDate,
   endDate,
+  startedAfter,
+  startedBefore,
   limit = 500,
 }: {
   context: ReqContext | ApiReqContext;
@@ -358,6 +385,8 @@ export async function getFilteredExperimentsUsingMetric({
   bandits?: boolean;
   startDate?: Date;
   endDate?: Date;
+  startedAfter?: Date;
+  startedBefore?: Date;
   limit?: number;
 }): Promise<ExperimentInterface[]> {
   const experiments = await getExperimentsUsingMetric({
@@ -376,5 +405,7 @@ export async function getFilteredExperimentsUsingMetric({
     bandits,
     startDate,
     endDate,
+    startedAfter,
+    startedBefore,
   });
 }

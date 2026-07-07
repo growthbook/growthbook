@@ -790,6 +790,31 @@ export function migrateBlock(
         blockConfig: doc.blockConfig ?? [],
       };
     }
+    case "metric-experiments": {
+      // Legacy blocks stored a single top-level startDate/endDate window (a
+      // Custom Date Range applied to phase end dates). Migrate it to the new
+      // `endDateRange` field and drop the deprecated keys.
+      const legacy = doc as {
+        startDate?: string;
+        endDate?: string;
+      };
+      if (legacy.startDate === undefined && legacy.endDate === undefined) {
+        return doc;
+      }
+      const copy = { ...(doc as Record<string, unknown>) };
+      delete copy.startDate;
+      delete copy.endDate;
+      const toYmd = (iso?: string) =>
+        iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+      copy.endDateRange = {
+        predefined: "customDateRange",
+        startDate: toYmd(legacy.startDate),
+        endDate: toYmd(legacy.endDate),
+      };
+      return copy as unknown as
+        | DashboardBlockInterface
+        | CreateDashboardBlockInterface;
+    }
     case "experiments-scaled-impact":
     case "experiments-win-rate":
     case "experiments-status": {

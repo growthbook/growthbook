@@ -215,14 +215,11 @@ export default function VelocityBlockChart({
       return next;
     });
 
-  const {
-    current,
-    previous,
-    loading,
-    window,
-    previousWindow,
-    comparisonEnabled,
-  } = useCompletedExperimentsComparison(block);
+  const { current, previous, loading, window, previousWindow } =
+    useCompletedExperimentsComparison(block);
+  // Team Velocity does not support period comparison — always render the
+  // single-period view, even if an older block still has comparison persisted.
+  const comparisonEnabled = false;
 
   const option = useMemo(() => {
     const resolvedGranularity: ResolvedGranularity = getDateGranularity(

@@ -8,7 +8,6 @@ import {
 } from "shared/enterprise";
 import { dateGranularity } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
-import Switch from "@/ui/Switch";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { getValidDateGranularities } from "@/enterprise/components/ProductAnalytics/util";
@@ -44,34 +43,12 @@ export default function ExperimentsStatusSettings({
 
   return (
     <Flex direction="column" gap="4">
+      {/* Team Velocity does not support period comparison, so no Compare
+          toggle is offered here. */}
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
-        comparisonEnabled={!!block.comparison?.enabled}
-        previousTimeFrame={block.comparison?.previousTimeFrame}
-        onPreviousTimeFrameChange={(previousTimeFrame) =>
-          setBlock({
-            ...block,
-            comparison: {
-              ...(block.comparison ?? {}),
-              enabled: true,
-              previousTimeFrame,
-            },
-          })
-        }
-        dateRangeAccessory={
-          <Switch
-            label="Compare"
-            value={!!block.comparison?.enabled}
-            onChange={(checked) =>
-              setBlock({
-                ...block,
-                comparison: { ...(block.comparison ?? {}), enabled: checked },
-              })
-            }
-          />
-        }
       />
 
       <Box>

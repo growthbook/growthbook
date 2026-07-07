@@ -31,6 +31,7 @@ function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
 // tokens map back onto the same categories.
 const EXPERIMENT_FILTER_KEYS = [
   "project",
+  "metric",
   "owner",
   "is",
   "status",
@@ -45,12 +46,38 @@ type FilterCategory = {
   items: SearchFiltersItem[];
 };
 
+// A caller-supplied pill filter that isn't backed by the search string (e.g. a
+// date-range picker writing to a block field). The component handles the pill /
+// popover / category-list mechanics; the caller owns the value and the panel.
+export interface ExtraFilter {
+  key: string;
+  heading: string;
+  // Whether a pill is currently shown (i.e. the filter has a value).
+  isActive: boolean;
+  // Pill value text rendered after the heading (omit for none).
+  label?: React.ReactNode;
+  // Create the filter (with a sensible default) when picked from the category
+  // list. The pill and its popover open immediately after.
+  onAdd: () => void;
+  // Clear the filter (called from the pill's remove button).
+  onRemove: () => void;
+  // Panel rendered inside the pill's popover (e.g. a date-range picker).
+  renderPanel: () => React.ReactNode;
+  // Panel width in px (defaults to the standard menu width).
+  panelWidth?: number;
+  // Keep the popover open when interacting with nested poppers (a Select
+  // dropdown or calendar) that render in their own portals.
+  keepOpenOnNestedPopper?: boolean;
+}
+
 interface Props {
   searchValue: string;
   setSearchValue: (value: string) => void;
   experiments: ExperimentInterfaceStringDates[];
   allowDrafts?: boolean;
   showStatusFilter?: boolean;
+  // Additional non-search-string pill filters (e.g. date ranges).
+  extraFilters?: ExtraFilter[];
 }
 
 /**
@@ -67,6 +94,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   experiments,
   allowDrafts = true,
   showStatusFilter = true,
+  extraFilters = [],
 }) => {
   const { searchTerm, syntaxFilters } = useMemo(
     () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS),
@@ -95,8 +123,14 @@ const SidebarExperimentFilters: FC<Props> = ({
   const [filterSearch, setFilterSearch] = useState("");
 
   // Shared source of truth for the filter taxonomy (see ExperimentSearchFilters).
-  const { availableTags, owners, resultItems, statusItems, typeItems } =
-    useExperimentFilterCategories({ experiments, allowDrafts });
+  const {
+    availableTags,
+    metricItems,
+    owners,
+    resultItems,
+    statusItems,
+    typeItems,
+  } = useExperimentFilterCategories({ experiments, allowDrafts });
 
   const categories = useMemo<FilterCategory[]>(() => {
     const cats: FilterCategory[] = [];
@@ -113,6 +147,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       });
     }
 
+    cats.push({ key: "metric", heading: "Metric", items: metricItems });
     cats.push({
       key: "owner",
       heading: "Owner",
@@ -139,6 +174,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   }, [
     project,
     projects,
+    metricItems,
     owners,
     resultItems,
     statusItems,
@@ -182,6 +218,25 @@ const SidebarExperimentFilters: FC<Props> = ({
     return fields;
   }, [syntaxFilters, categoryByKey, draftField]);
 
+  const extraByKey = useMemo(() => {
+    const m = new Map<string, ExtraFilter>();
+    extraFilters.forEach((f) => m.set(f.key, f));
+    return m;
+  }, [extraFilters]);
+
+  // Keep a pill's popover open when the click lands inside a nested Radix
+  // popper (e.g. a date-range Select dropdown or calendar) that portals out of
+  // our content; a genuine outside click still dismisses.
+  const keepOpenOnNestedPopper = (e: {
+    target: EventTarget | null;
+    preventDefault: () => void;
+  }) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("[data-radix-popper-content-wrapper]")) {
+      e.preventDefault();
+    }
+  };
+
   const handleFreeTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
     const tokens = syntaxFilters.map(filterToString).join(" ");
@@ -212,6 +267,12 @@ const SidebarExperimentFilters: FC<Props> = ({
   const openCategory = (key: string) => {
     setAddOpen(false);
     setFilterSearch("");
+    const extra = extraByKey.get(key);
+    if (extra) {
+      if (!extra.isActive) extra.onAdd();
+      setActiveField(key);
+      return;
+    }
     setActiveField(key);
     setDraftField(syntaxFilters.some((f) => f.field === key) ? "" : key);
   };
@@ -234,6 +295,12 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   // Remove a chip entirely: its filter values (if any) and its draft state.
   const removeChip = (field: string) => {
+    const extra = extraByKey.get(field);
+    if (extra) {
+      extra.onRemove();
+      if (activeField === field) setActiveField("");
+      return;
+    }
     const filter = syntaxFilters.find((f) => f.field === field);
     if (filter) removeFilter(filter);
     if (draftField === field) setDraftField("");
@@ -268,6 +335,55 @@ const SidebarExperimentFilters: FC<Props> = ({
               <Text size="small">{c.heading}</Text>
             </Flex>
           ))}
+        {/* Extra (non-search-string) filters that aren't already active. */}
+        {extraFilters
+          .filter((f) => !f.isActive)
+          .map((f) => (
+            <Flex
+              key={f.key}
+              align="center"
+              px="2"
+              py="2"
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer hover-highlight"
+              style={{ borderRadius: 6 }}
+              onClick={() => openCategory(f.key)}
+              onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
+            >
+              <Text size="small">{f.heading}</Text>
+            </Flex>
+          ))}
+      </Box>
+    </Box>
+  );
+
+  // Panel rendered inside an extra filter's pill popover: back arrow header +
+  // the caller-supplied content (e.g. a date-range picker).
+  const renderExtraPanel = (extra: ExtraFilter) => (
+    <Box style={{ width: extra.panelWidth ?? 248 }}>
+      <Box style={{ padding: "6px 8px" }}>
+        <Flex
+          align="center"
+          gap="1"
+          px="2"
+          py="1"
+          mb="1"
+          role="button"
+          tabIndex={0}
+          aria-label="Back to filters"
+          className="cursor-pointer"
+          style={{ borderRadius: 6 }}
+          onClick={backToCategories}
+          onKeyDown={(e) => activateOnKey(e, backToCategories)}
+        >
+          <Text size="small" weight="medium">
+            {extra.heading}
+          </Text>
+        </Flex>
+        <Box px="1" pb="1">
+          {extra.renderPanel()}
+        </Box>
       </Box>
     </Box>
   );
@@ -412,7 +528,7 @@ const SidebarExperimentFilters: FC<Props> = ({
                 <Badge
                   color="violet"
                   variant="soft"
-                  radius="full"
+                  radius="small"
                   className="cursor-pointer"
                   // Let the pill grow up to the container width and wrap its
                   // text instead of overflowing on long value lists.
@@ -422,11 +538,10 @@ const SidebarExperimentFilters: FC<Props> = ({
                       <Text
                         size="small"
                         whiteSpace="normal"
+                        weight="medium"
                         overflowWrap="anywhere"
                       >
-                        <Text as="span" size="small" color="text-low">
-                          {category.heading}
-                        </Text>
+                        {category.heading}
                         {valueText ? `: ${valueText}` : ""}
                       </Text>
                       <IconButton
@@ -451,6 +566,70 @@ const SidebarExperimentFilters: FC<Props> = ({
             />
           );
         })}
+
+        {/* Extra (non-search-string) filter pills, e.g. date ranges. */}
+        {extraFilters
+          .filter((f) => f.isActive)
+          .map((extra) => (
+            <Popover
+              key={extra.key}
+              open={activeField === extra.key}
+              onOpenChange={(o) => {
+                if (o) {
+                  setActiveField(extra.key);
+                } else {
+                  closeActiveField();
+                }
+              }}
+              showArrow={false}
+              align="start"
+              contentStyle={{ padding: 0 }}
+              onFocusOutside={(e) => e.preventDefault()}
+              onInteractOutside={
+                extra.keepOpenOnNestedPopper
+                  ? keepOpenOnNestedPopper
+                  : undefined
+              }
+              trigger={
+                <Badge
+                  color="violet"
+                  variant="soft"
+                  radius="small"
+                  className="cursor-pointer"
+                  style={{ maxWidth: "100%", whiteSpace: "normal" }}
+                  label={
+                    <Flex align="center" gap="1">
+                      <Text
+                        size="small"
+                        whiteSpace="normal"
+                        overflowWrap="anywhere"
+                      >
+                        <Text as="span" size="small" color="text-low">
+                          {extra.heading}
+                        </Text>
+                        {extra.label ? <>: {extra.label}</> : ""}
+                      </Text>
+                      <IconButton
+                        size="1"
+                        variant="ghost"
+                        color="violet"
+                        radius="full"
+                        aria-label={`Remove ${extra.heading} filter`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeChip(extra.key);
+                        }}
+                      >
+                        <PiX size={12} />
+                      </IconButton>
+                    </Flex>
+                  }
+                />
+              }
+              content={renderExtraPanel(extra)}
+            />
+          ))}
 
         <Popover
           open={addOpen}

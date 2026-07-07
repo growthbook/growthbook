@@ -3,6 +3,7 @@ import {
   MetricExperimentsBlockInterface,
   isDifferenceType,
 } from "shared/enterprise";
+import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
@@ -10,11 +11,41 @@ import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import { useExperiments } from "@/hooks/useExperiments";
-import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
+import SidebarExperimentFilters, {
+  ExtraFilter,
+} from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
+import BlockDateRangePicker from "./BlockDateRangePicker";
+
+const DATE_RANGE_LABELS: Record<ExplorationDateRange["predefined"], string> = {
+  today: "Today",
+  last7Days: "Past 7 Days",
+  last30Days: "Past 30 Days",
+  last90Days: "Past 90 Days",
+  customLookback: "Custom Lookback",
+  customDateRange: "Custom Date Range",
+};
+
+// Short human-readable label for a date range, shown on the filter pill.
+function formatDateRange(dr: ExplorationDateRange): string {
+  if (
+    dr.predefined === "customLookback" &&
+    dr.lookbackValue &&
+    dr.lookbackUnit
+  ) {
+    const plural = dr.lookbackValue === 1 ? "" : "s";
+    return `Last ${dr.lookbackValue} ${dr.lookbackUnit}${plural}`;
+  }
+  if (dr.predefined === "customDateRange") {
+    return `${dr.startDate ?? "…"} – ${dr.endDate ?? "…"}`;
+  }
+  return DATE_RANGE_LABELS[dr.predefined];
+}
+
+const DEFAULT_DATE_RANGE: ExplorationDateRange = { predefined: "last30Days" };
 
 interface Props {
   block: DashboardBlockInterfaceOrData<MetricExperimentsBlockInterface>;
@@ -45,6 +76,47 @@ export default function MetricExperimentsSettings({
   const searchValue = block.experimentSearchString;
   const setSearchValue = (value: string) =>
     setBlock({ ...block, experimentSearchString: value });
+
+  // Start Date filters on the experiment's phase start (so running experiments
+  // can be included); End Date filters on the phase end date.
+  const dateFilters: ExtraFilter[] = [
+    {
+      key: "startDate",
+      heading: "Start Date",
+      isActive: !!block.startDateRange,
+      label: block.startDateRange
+        ? formatDateRange(block.startDateRange)
+        : undefined,
+      onAdd: () => setBlock({ ...block, startDateRange: DEFAULT_DATE_RANGE }),
+      onRemove: () => setBlock({ ...block, startDateRange: undefined }),
+      panelWidth: 300,
+      keepOpenOnNestedPopper: true,
+      renderPanel: () => (
+        <BlockDateRangePicker
+          value={block.startDateRange ?? DEFAULT_DATE_RANGE}
+          onChange={(startDateRange) => setBlock({ ...block, startDateRange })}
+        />
+      ),
+    },
+    {
+      key: "endDate",
+      heading: "End Date",
+      isActive: !!block.endDateRange,
+      label: block.endDateRange
+        ? formatDateRange(block.endDateRange)
+        : undefined,
+      onAdd: () => setBlock({ ...block, endDateRange: DEFAULT_DATE_RANGE }),
+      onRemove: () => setBlock({ ...block, endDateRange: undefined }),
+      panelWidth: 300,
+      keepOpenOnNestedPopper: true,
+      renderPanel: () => (
+        <BlockDateRangePicker
+          value={block.endDateRange ?? DEFAULT_DATE_RANGE}
+          onChange={(endDateRange) => setBlock({ ...block, endDateRange })}
+        />
+      ),
+    },
+  ];
 
   return (
     <Flex direction="column" gap="5">
@@ -86,6 +158,7 @@ export default function MetricExperimentsSettings({
           searchValue={searchValue}
           setSearchValue={setSearchValue}
           experiments={experiments}
+          extraFilters={dateFilters}
         />
       </Box>
 
