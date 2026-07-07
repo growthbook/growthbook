@@ -165,7 +165,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                           onEdit(key);
                         }}
                       >
-                        Edit
+                        Edit permissions
                       </button>
                     )}
                     {onToggleDisabled && (
