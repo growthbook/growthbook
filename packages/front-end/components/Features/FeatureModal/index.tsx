@@ -5,7 +5,7 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import React, { ReactElement, useState } from "react";
-import { validateFeatureValue } from "shared/util";
+import { validateFeatureValue, getConfigBackingKey } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
@@ -213,6 +213,10 @@ export default function FeatureModal({
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
 
+  // "config" is a UI authoring type: stored as valueType "json" but the default
+  // value must be backed by a config. Tracked separately from the stored type.
+  const [configType, setConfigType] = useState(false);
+
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
     : "Create Feature";
@@ -255,6 +259,11 @@ export default function FeatureModal({
 
         if (!valueType) {
           throw new Error("Please select a value type");
+        }
+
+        // A "config" flag must actually be backed by a config.
+        if (configType && getConfigBackingKey(defaultValue) === null) {
+          throw new Error("Select a base config for this config flag");
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -350,11 +359,19 @@ export default function FeatureModal({
 
         {!featureToDuplicate && (
           <ValueTypeField
-            value={valueType}
+            allowConfig
+            value={configType ? "config" : valueType}
             onChange={(val) => {
-              const defaultValue = getDefaultValue(val);
-              form.setValue("valueType", val);
-              form.setValue("defaultValue", defaultValue);
+              if (val === "config") {
+                setConfigType(true);
+                form.setValue("valueType", "json");
+                // Empty patch; the config picker (required) supplies the base.
+                form.setValue("defaultValue", "{}");
+              } else {
+                setConfigType(false);
+                form.setValue("valueType", val);
+                form.setValue("defaultValue", getDefaultValue(val));
+              }
             }}
           />
         )}
@@ -394,6 +411,9 @@ export default function FeatureModal({
             useCodeInput={true}
             showFullscreenButton={true}
             allowConfigBacking={valueType === "json"}
+            // "config" type: require a base config and edit the override patch.
+            configBackingShowPatch={configType}
+            lockConfigBacking={configType}
           />
         )}
 
