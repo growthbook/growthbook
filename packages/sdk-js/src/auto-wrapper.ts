@@ -21,6 +21,7 @@ import {
 
 type WindowContext = Context & {
   uuidCookieName?: string;
+  uuidCookieDomain?: string;
   uuidKey?: string;
   uuid?: string;
   persistUuidOnLoad?: boolean;
@@ -130,6 +131,8 @@ const plugins: Plugin[] = [
   autoAttributesPlugin({
     uuid,
     uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
+    uuidCookieDomain:
+      windowContext.uuidCookieDomain || dataContext.uuidCookieDomain,
     uuidKey: windowContext.uuidKey || dataContext.uuidKey,
     uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
   }),

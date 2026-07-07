@@ -9,6 +9,10 @@ export type AutoAttributeSettings = {
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
+  // Scope the uuid cookie to a parent domain (e.g. ".example.com") so the same
+  // anonymous id is shared across subdomains. Without this the cookie is
+  // host-only and a redirect to another subdomain mints a brand new id.
+  uuidCookieDomain?: string;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -44,10 +48,11 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
+  const COOKIE_DOMAIN = settings.uuidCookieDomain || "";
   const uuidKey = settings.uuidKey || "id";
   let uuid = settings.uuid || "";
   function persistUUID() {
-    setCookie(COOKIE_NAME, uuid);
+    setCookie(COOKIE_NAME, uuid, COOKIE_DOMAIN);
   }
   function getUUID() {
     // Already stored in memory, return
@@ -129,11 +134,13 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   };
 }
 
-function setCookie(name: string, value: string) {
+function setCookie(name: string, value: string, domain?: string) {
   const d = new Date();
   const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
   d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * COOKIE_DAYS);
-  document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
+  const domainStr = domain ? ";domain=" + domain : "";
+  document.cookie =
+    name + "=" + value + ";path=/" + domainStr + ";expires=" + d.toUTCString();
 }
 
 function getCookie(name: string): string {
