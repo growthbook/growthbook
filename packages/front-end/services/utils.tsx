@@ -16,6 +16,7 @@ import track, {
   getJitsuAnonymousId,
   getTrackingPageUrl,
 } from "@/services/track";
+import { isTelemetryEnabled } from "./env";
 
 const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
@@ -295,7 +296,7 @@ function getOrGenerateSessionId() {
 export function getGrowthBookTrackingHeaders(
   pagePath?: string,
 ): Record<string, string> {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !isTelemetryEnabled()) {
     return {};
   }
 
