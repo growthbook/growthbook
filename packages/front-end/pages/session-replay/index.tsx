@@ -919,7 +919,7 @@ export default function SessionReplayPage() {
             <RrwebPlayer
               key={selectedSessionId}
               events={events}
-              ref={playerHandle}
+              handleRef={playerHandle}
             />
           ) : null}
         </Box>
