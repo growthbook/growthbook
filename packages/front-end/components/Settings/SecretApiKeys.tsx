@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import HistoryTable from "@/components/HistoryTable";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -117,6 +118,17 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           </Button>
         )}
       </div>
+
+      {canCreateKeys && (
+        <div className="mt-4">
+          <h3>Audit Log</h3>
+          <p className="text-gray">
+            History of secret API key changes, including creation, permission
+            edits, enabling/disabling, and deletion.
+          </p>
+          <HistoryTable type="apiKey" showName showType />
+        </div>
+      )}
     </div>
   );
 };

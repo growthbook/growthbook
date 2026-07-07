@@ -212,10 +212,11 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
+  // Returns the deleted doc so callers can audit-log the removed key.
   public async deleteByIdOrKey(
     id: string | undefined,
     key: string | undefined,
-  ): Promise<void> {
+  ): Promise<ApiKeyInterface> {
     if (!id && !key) this.context.throwNotFoundError();
 
     const doc = await this._findOne(id ? { id } : { key }, {
@@ -224,12 +225,18 @@ export class ApiKeyModel extends BaseClass {
     if (!doc) this.context.throwNotFoundError();
 
     await this.delete(doc);
+    return doc;
   }
 
-  public async setDisabled(id: string, disabled: boolean): Promise<void> {
+  // Returns the pre-update doc so callers can audit-log the before/after state.
+  public async setDisabled(
+    id: string,
+    disabled: boolean,
+  ): Promise<ApiKeyInterface> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
     await this.update(doc, { disabled });
+    return doc;
   }
 
   // Admins can edit the permission scope of an existing org secret key in place

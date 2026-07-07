@@ -18,6 +18,7 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
@@ -59,6 +60,8 @@ import { getDataSourcesWithParams } from "back-end/src/services/datasourceRespon
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  auditDetailsCreate,
+  auditDetailsDelete,
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
@@ -1793,6 +1796,21 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
   });
 }
 
+// Projects an API key doc down to a safe, non-sensitive subset for audit
+// details. The raw `key` token (and `encryptionKey`) are NEVER included so the
+// secret value can never leak into the audit log.
+function apiKeyAuditDetails(key: ApiKeyInterface) {
+  return {
+    id: key.id,
+    description: key.description,
+    role: key.role,
+    limitAccessByEnvironment: key.limitAccessByEnvironment,
+    environments: key.environments,
+    projectRoles: key.projectRoles,
+    disabled: key.disabled,
+  };
+}
+
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
@@ -1825,6 +1843,16 @@ export async function postApiKey(
       userId: userId,
     });
 
+    await req.audit({
+      event: "apiKey.create",
+      entity: {
+        object: "apiKey",
+        id: key.id || "",
+        name: key.description,
+      },
+      details: auditDetailsCreate(apiKeyAuditDetails(key)),
+    });
+
     return res.status(200).json({
       status: 200,
       key,
@@ -1838,6 +1866,16 @@ export async function postApiKey(
       limitAccessByEnvironment,
       environments,
       projectRoles,
+    });
+
+    await req.audit({
+      event: "apiKey.create",
+      entity: {
+        object: "apiKey",
+        id: key.id || "",
+        name: key.description,
+      },
+      details: auditDetailsCreate(apiKeyAuditDetails(key)),
     });
 
     return res.status(200).json({
@@ -1877,13 +1915,32 @@ export async function putApiKey(
     context.permissions.throwPermissionError();
   }
 
-  await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+  // Capture the pre-update permission scope so the audit log can diff it
+  // against the new state.
+  const before = await context.models.apiKeys.getUnredactedSecretKey(id);
+
+  const after = await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
     role,
     description,
     limitAccessByEnvironment,
     environments,
     projectRoles,
   });
+
+  if (before) {
+    await req.audit({
+      event: "apiKey.update",
+      entity: {
+        object: "apiKey",
+        id,
+        name: after.description,
+      },
+      details: auditDetailsUpdate(
+        apiKeyAuditDetails(before),
+        apiKeyAuditDetails(after),
+      ),
+    });
+  }
 
   res.status(200).json({ status: 200 });
 }
@@ -1899,10 +1956,20 @@ export async function deleteApiKey(
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  await context.models.apiKeys.deleteByIdOrKey(
+  const deleted = await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
+
+  await req.audit({
+    event: "apiKey.delete",
+    entity: {
+      object: "apiKey",
+      id: deleted.id || "",
+      name: deleted.description,
+    },
+    details: auditDetailsDelete(apiKeyAuditDetails(deleted)),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1917,7 +1984,22 @@ export async function putApiKeyDisabled(
   const { id } = req.params;
   const { disabled } = req.body;
 
-  await context.models.apiKeys.setDisabled(id, disabled);
+  // `setDisabled` returns the pre-update doc so we can log the before/after
+  // `disabled` state.
+  const before = await context.models.apiKeys.setDisabled(id, disabled);
+
+  await req.audit({
+    event: disabled ? "apiKey.disable" : "apiKey.enable",
+    entity: {
+      object: "apiKey",
+      id: before.id || "",
+      name: before.description,
+    },
+    details: auditDetailsUpdate(
+      apiKeyAuditDetails(before),
+      apiKeyAuditDetails({ ...before, disabled }),
+    ),
+  });
 
   res.status(200).json({ status: 200 });
 }
