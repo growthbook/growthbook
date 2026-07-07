@@ -6,6 +6,7 @@ import {
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   getEffectiveExplorationConfig,
+  restoreBlockLocalDateControls,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -92,10 +93,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   useEffect(() => {
     const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
     const nextConfig = usesDashboardDateRange
-      ? {
-          ...nextDraftConfig,
-          dateRange: block.config.dateRange,
-        }
+      ? restoreBlockLocalDateControls(nextDraftConfig, block.config)
       : nextDraftConfig;
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
@@ -174,6 +172,28 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
               settings.dateRange && dashboardGlobalControls?.dateRange
                 ? dashboardGlobalControls.dateRange
                 : block.config.dateRange,
+            dimensions: prev.dimensions.map((dimension) => {
+              if (dimension.dimensionType !== "date") return dimension;
+              if (
+                settings.dateRange &&
+                dashboardGlobalControls?.dateGranularity
+              ) {
+                return {
+                  ...dimension,
+                  dateGranularity: dashboardGlobalControls.dateGranularity,
+                };
+              }
+
+              const blockDateDimension = block.config.dimensions.find(
+                (blockDimension) => blockDimension.dimensionType === "date",
+              );
+              return blockDateDimension
+                ? {
+                    ...dimension,
+                    dateGranularity: blockDateDimension.dateGranularity,
+                  }
+                : dimension;
+            }),
           }));
         }
         setBlock({

@@ -1,7 +1,10 @@
 import { z } from "zod";
+import {
+  dateGranularity,
+  baseExplorationConfigValidator,
+} from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
-import { baseExplorationConfigValidator } from "../../validators/product-analytics";
 import {
   apiCreateDashboardBlockInterface,
   apiDashboardBlockInterface,
@@ -48,6 +51,7 @@ export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
 export const dashboardGlobalControlsValidator = z
   .object({
     dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    dateGranularity: z.enum(dateGranularity).optional(),
   })
   .strict();
 export type DashboardGlobalControls = z.infer<

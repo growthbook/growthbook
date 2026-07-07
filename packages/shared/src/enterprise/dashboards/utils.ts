@@ -14,6 +14,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  dateGranularity,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -108,6 +109,52 @@ export type DashboardGlobalControlsEvaluation<
   };
 };
 
+type DateGranularity = (typeof dateGranularity)[number];
+type DashboardGlobalControlSupportedConfig =
+  | MetricExplorationConfig
+  | FactTableExplorationConfig
+  | DataSourceExplorationConfig;
+
+function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
+  config: T["config"],
+  granularity?: DateGranularity,
+): T["config"] {
+  if (!granularity) return config;
+
+  return {
+    ...config,
+    dimensions: config.dimensions.map((dimension) =>
+      dimension.dimensionType === "date"
+        ? {
+            ...dimension,
+            dateGranularity: granularity,
+          }
+        : dimension,
+    ),
+  };
+}
+
+export function restoreBlockLocalDateControls<
+  T extends DashboardGlobalControlSupportedConfig,
+>(effectiveConfig: T, blockConfig: T): T {
+  const blockDateDimension = blockConfig.dimensions.find(
+    (dimension) => dimension.dimensionType === "date",
+  );
+
+  return {
+    ...effectiveConfig,
+    dateRange: blockConfig.dateRange,
+    dimensions: effectiveConfig.dimensions.map((dimension) =>
+      dimension.dimensionType === "date" && blockDateDimension
+        ? {
+            ...dimension,
+            dateGranularity: blockDateDimension.dateGranularity,
+          }
+        : dimension,
+    ),
+  };
+}
+
 export function evaluateDashboardGlobalControlsForBlock<
   T extends DashboardGlobalControlSupportedBlock,
 >(
@@ -121,10 +168,13 @@ export function evaluateDashboardGlobalControlsForBlock<
     dateRangeEnabled && dashboard.globalControls?.dateRange,
   );
   const config = dateRangeApplied
-    ? {
-        ...block.config,
-        dateRange: dashboard.globalControls!.dateRange!,
-      }
+    ? applyDateGranularity(
+        {
+          ...block.config,
+          dateRange: dashboard.globalControls!.dateRange!,
+        },
+        dashboard.globalControls?.dateGranularity,
+      )
     : block.config;
 
   return {

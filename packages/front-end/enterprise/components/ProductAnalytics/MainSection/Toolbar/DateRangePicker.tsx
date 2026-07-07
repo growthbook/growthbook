@@ -9,6 +9,7 @@ import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { useMergedDateRangeUpdates } from "./useMergedDateRangeUpdates";
 
 const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
   {
@@ -19,16 +20,6 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
     customLookback: "Custom Lookback",
     customDateRange: "Custom Date Range",
   };
-
-const CHART_DEFAULT_VALUE = "chartDefault" as const;
-
-const DEFAULT_DATE_RANGE: ExplorationDateRange = {
-  predefined: "last30Days",
-  lookbackValue: null,
-  lookbackUnit: null,
-  startDate: null,
-  endDate: null,
-};
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
@@ -43,15 +34,11 @@ function DateRangePresetSelect({
   value,
   onChange,
   disabled,
-  includeChartDefault = false,
-  presetIcon,
   fullWidth = false,
 }: {
-  value: ExplorationDateRange | null;
-  onChange: (dateRange: ExplorationDateRange | null) => void;
+  value: ExplorationDateRange;
+  onChange: (dateRange: ExplorationDateRange) => void;
   disabled?: boolean;
-  includeChartDefault?: boolean;
-  presetIcon?: ReactNode;
   /** Stretch the preset dropdown to 100% and lay the lookback # + unit in a row. */
   fullWidth?: boolean;
 }) {
@@ -62,15 +49,13 @@ function DateRangePresetSelect({
   const skipBlurCommitRef = useRef(false);
 
   useEffect(() => {
-    if (value?.predefined !== "customLookback") {
+    if (value.predefined !== "customLookback") {
       setLocalLookbackValue(null);
       latestLookbackRef.current = "";
     }
-  }, [value?.predefined]);
+  }, [value.predefined]);
 
   const commitLookbackValue = (lookbackValue: string) => {
-    if (!value) return;
-
     const parsed = lookbackValue ? parseInt(lookbackValue, 10) : null;
     const isValid = parsed !== null && parsed >= 1 && !Number.isNaN(parsed);
 
@@ -89,7 +74,7 @@ function DateRangePresetSelect({
     latestLookbackRef.current = "";
   };
 
-  const activeDateRange = value ?? DEFAULT_DATE_RANGE;
+  const activeDateRange = value;
   const lookbackNumberField = (
     <Field
       type="number"
@@ -164,15 +149,10 @@ function DateRangePresetSelect({
     <Select
       size="2"
       style={fullWidth ? { width: "100%" } : undefined}
-      value={value?.predefined ?? CHART_DEFAULT_VALUE}
+      value={value.predefined}
       placeholder="Select range"
       disabled={disabled}
-      triggerIcon={presetIcon}
       setValue={(v) => {
-        if (v === CHART_DEFAULT_VALUE) {
-          onChange(null);
-          return;
-        }
         const predefined = v as (typeof dateRangePredefined)[number];
         onChange({
           ...activeDateRange,
@@ -194,9 +174,6 @@ function DateRangePresetSelect({
         });
       }}
     >
-      {includeChartDefault ? (
-        <SelectItem value={CHART_DEFAULT_VALUE}>Chart default</SelectItem>
-      ) : null}
       {dateRangePredefined.map((option) => (
         <SelectItem key={option} value={option}>
           {PREDEFINED_LABELS[option] || option}
@@ -205,7 +182,7 @@ function DateRangePresetSelect({
     </Select>
   );
 
-  const isCustomLookback = value?.predefined === "customLookback";
+  const isCustomLookback = value.predefined === "customLookback";
 
   if (fullWidth) {
     // Custom Lookback keeps the preset dropdown, number, and unit on one row
@@ -245,7 +222,7 @@ function CurrentCustomRangeField({
   label,
   fullWidth = false,
 }: {
-  value: ExplorationDateRange | null;
+  value: ExplorationDateRange;
   onChange: (dateRange: ExplorationDateRange) => void;
   disabled?: boolean;
   shouldWrap?: boolean;
@@ -254,7 +231,9 @@ function CurrentCustomRangeField({
   /** Render as a single full-width range field (no label) that fills its cell. */
   fullWidth?: boolean;
 }) {
-  if (value?.predefined !== "customDateRange") return null;
+  const updateDateRange = useMergedDateRangeUpdates(value, onChange);
+
+  if (value.predefined !== "customDateRange") return null;
 
   const picker = (
     <DatePicker
@@ -267,14 +246,12 @@ function CurrentCustomRangeField({
       }
       date2={value.endDate ? getValidDateOffsetByUTC(value.endDate) : undefined}
       setDate={(d) => {
-        onChange({
-          ...value,
+        updateDateRange({
           startDate: d ? format(d, "yyyy-MM-dd") : null,
         });
       }}
       setDate2={(d) => {
-        onChange({
-          ...value,
+        updateDateRange({
           endDate: d ? format(d, "yyyy-MM-dd") : null,
         });
       }}
@@ -299,11 +276,9 @@ function CurrentCustomRangeField({
 }
 
 export interface ControlledDateRangePickerProps {
-  value: ExplorationDateRange | null;
-  onChange: (dateRange: ExplorationDateRange | null) => void;
+  value: ExplorationDateRange;
+  onChange: (dateRange: ExplorationDateRange) => void;
   disabled?: boolean;
-  includeChartDefault?: boolean;
-  presetIcon?: ReactNode;
   shouldWrap?: boolean;
   /** Micro-label shown before the custom date range field (e.g. "Current"). */
   label?: ReactNode;
@@ -315,8 +290,6 @@ export function ControlledDateRangePicker({
   value,
   onChange,
   disabled,
-  includeChartDefault = false,
-  presetIcon,
   shouldWrap = false,
   label,
   fullWidth = false,
@@ -328,8 +301,6 @@ export function ControlledDateRangePicker({
           value={value}
           onChange={onChange}
           disabled={disabled}
-          includeChartDefault={includeChartDefault}
-          presetIcon={presetIcon}
           fullWidth
         />
         <CurrentCustomRangeField
@@ -353,8 +324,6 @@ export function ControlledDateRangePicker({
         value={value}
         onChange={onChange}
         disabled={disabled}
-        includeChartDefault={includeChartDefault}
-        presetIcon={presetIcon}
       />
       <CurrentCustomRangeField
         value={value}
@@ -379,7 +348,6 @@ function ExplorerDateRangePresetSelect({
     <DateRangePresetSelect
       value={draftExploreState.dateRange}
       onChange={(dateRange) => {
-        if (!dateRange) return;
         setDraftExploreState((prev) => ({
           ...prev,
           dateRange,
@@ -524,7 +492,6 @@ export default function DateRangePicker({
     <ControlledDateRangePicker
       value={draftExploreState.dateRange}
       onChange={(dateRange) => {
-        if (!dateRange) return;
         setDraftExploreState((prev) => ({
           ...prev,
           dateRange,

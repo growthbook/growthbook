@@ -7,6 +7,7 @@ import {
   buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
+  restoreBlockLocalDateControls,
 } from "shared/enterprise";
 import type {
   ExplorationDateRange,
@@ -114,10 +115,7 @@ export default function ProductAnalyticsExplorerSettings({
               }
             : undefined;
         const nextConfig = usesDashboardDateRange
-          ? {
-              ...exploration.config,
-              dateRange: block.config.dateRange,
-            }
+          ? restoreBlockLocalDateControls(exploration.config, block.config)
           : exploration.config;
         setBlock({
           ...block,

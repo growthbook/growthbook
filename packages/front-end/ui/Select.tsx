@@ -18,7 +18,6 @@ type SelectProps = {
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
   triggerClassName?: string;
-  triggerIcon?: ReactNode;
   align?: "start" | "center" | "end";
   /** Portal container — use to render the dropdown inside a parent portal (e.g. Popover). */
   container?: HTMLElement | null;
@@ -38,23 +37,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     placeholder,
     variant = "surface",
     triggerClassName,
-    triggerIcon,
     align = "start",
     container,
     ...containerProps
   }: SelectProps,
   ref,
 ) {
-  const trigger = (
-    <RadixSelect.Trigger
-      placeholder={placeholder}
-      className={clsx(triggerClassName, { error: error })}
-      disabled={disabled}
-      variant={variant}
-      style={triggerIcon ? { paddingLeft: 32, width: "100%" } : undefined}
-    />
-  );
-
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
       {typeof label === "string" ? (
@@ -71,34 +59,12 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         value={value}
         onValueChange={setValue}
       >
-        {triggerIcon ? (
-          <span
-            style={{
-              position: "relative",
-              display: "inline-flex",
-              width: "100%",
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                display: "flex",
-                alignItems: "center",
-                color: "var(--gray-11)",
-                pointerEvents: "none",
-                zIndex: 1,
-              }}
-            >
-              {triggerIcon}
-            </span>
-            {trigger}
-          </span>
-        ) : (
-          trigger
-        )}
+        <RadixSelect.Trigger
+          placeholder={placeholder}
+          className={clsx(triggerClassName, { error: error })}
+          disabled={disabled}
+          variant={variant}
+        />
         <RadixSelect.Content
           variant="soft"
           position="popper"

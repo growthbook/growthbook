@@ -1,6 +1,5 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
-import { PiCalendarBlank } from "react-icons/pi";
 import {
   canAutoRefreshDashboard,
   DashboardBlockInterface,
@@ -10,7 +9,7 @@ import {
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
-import { ControlledDateRangePicker } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
+import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
 
 type DashboardDateRange = NonNullable<
   NonNullable<DashboardInterface["globalControls"]>["dateRange"]
@@ -96,19 +95,27 @@ export default function DashboardGlobalControlsBar({
   return (
     <Flex direction="column" gap="3" mt="2">
       <Flex align="center" gap="3" wrap="wrap" justify="end">
-        <ControlledDateRangePicker
+        <DashboardDateControlsDropdown
           value={globalControls?.dateRange ?? null}
-          includeChartDefault
-          presetIcon={<PiCalendarBlank aria-hidden />}
+          granularity={globalControls?.dateGranularity ?? "auto"}
           disabled={!canModifyControls || saving}
           onChange={(dateRange) => {
             const nextGlobalControls = { ...(globalControls ?? {}) };
             if (dateRange) {
               nextGlobalControls.dateRange = dateRange;
+              nextGlobalControls.dateGranularity ??= "auto";
             } else {
               delete nextGlobalControls.dateRange;
+              delete nextGlobalControls.dateGranularity;
             }
             persistGlobalControls(nextGlobalControls);
+          }}
+          onGranularityChange={(granularity) => {
+            if (!globalControls?.dateRange) return;
+            persistGlobalControls({
+              ...(globalControls ?? {}),
+              dateGranularity: granularity,
+            });
           }}
         />
       </Flex>
