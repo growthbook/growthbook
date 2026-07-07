@@ -87,7 +87,12 @@ export const aiInsightSuggestionValidator = z.object({
   text: z
     .string()
     .describe(
-      "A paragraph or two of markdown describing the insight, the evidence across experiments, and a recommendation if applicable",
+      "A paragraph or two of markdown describing the insight and the evidence across experiments, ending with a concrete, actionable recommendation for what to try or do next",
+    ),
+  confidence: z
+    .enum(["low", "medium", "high"])
+    .describe(
+      "How strongly the provided experiments support this insight. 'high' = multiple experiments with large, statistically significant effects; 'low' = suggestive but limited or mixed evidence",
     ),
   tags: z
     .array(z.string())

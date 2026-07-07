@@ -205,6 +205,9 @@ type FindInsightsResponse =
 // up unbounded token costs). When the experiment cap kicks in we analyze the
 // most recently-stopped experiments and tell the front-end via
 // numExperimentsRequested/numExperimentsAnalyzed.
+// Bump when the prompt, output schema, or experiment summarization changes,
+// so cached results from an older prompt aren't served.
+const FIND_INSIGHTS_PROMPT_VERSION = 2;
 const MAX_EXPERIMENTS_FOR_AI = 50;
 const MAX_SAVED_INSIGHTS_IN_PROMPT = 100;
 const MAX_ORG_TAGS_IN_PROMPT = 100;
@@ -241,6 +244,10 @@ function experimentRecency(exp: ExperimentInterface): number {
 type AIMetricResult = {
   variation: string;
   metric: string;
+  // Which direction of movement is good for this metric. "lower" for inverse
+  // metrics (bounce rate, unsubscribes, latency, …) where a positive lift is
+  // a regression, not a win.
+  betterDirection: "higher" | "lower";
   lift?: number;
   chanceToWin?: number;
   pValue?: number;
@@ -265,9 +272,11 @@ function summarizeSnapshotResultsForAI(
     goalMetricIds.forEach((metricId) => {
       const m = variation.metrics?.[metricId];
       if (!m) return;
+      const metric = metricMap.get(metricId);
       const row: AIMetricResult = {
         variation: variationName,
-        metric: metricMap.get(metricId)?.name || metricId,
+        metric: metric?.name || metricId,
+        betterDirection: metric?.inverse ? "lower" : "higher",
       };
       if (typeof m.expected === "number") {
         row.lift = roundForAI(m.expected);
@@ -444,6 +453,7 @@ export const postFindInsights = async (
   const cacheKey = createHash("sha256")
     .update(
       JSON.stringify({
+        promptVersion: FIND_INSIGHTS_PROMPT_VERSION,
         experimentIds: experiments.map((e) => e.id).sort(),
         insightsFingerprint,
         customContext,
@@ -521,9 +531,11 @@ export const postFindInsights = async (
     "Look for things like: shared psychological or design tactics that tend to work (or not work), audience preferences (e.g. color, copy tone, emotional appeals, urgency, social proof), recurring product behaviors, or patterns in what causes wins vs. losses. " +
     "Only surface insights that are supported by at least 2 of the experiments provided. " +
     "Some experiments include metricResults: per-variation outcomes for the experiment's goal metrics, with the relative lift, the Bayesian chance to win (0-1), and/or the frequentist p-value. Use these to weigh evidence — a large, statistically significant effect is much stronger support than a small or inconclusive one. " +
-    "For each insight, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the insight (contraryExperimentIds). " +
+    "Each metricResults row includes betterDirection ('higher' or 'lower'), indicating which way is good for that metric. A change is only an improvement when the lift moves the metric in its better direction: a positive lift on a 'lower' metric (e.g. bounce rate, unsubscribes) is a REGRESSION, not a win. Judge wins and losses by betterDirection, never by the sign of the lift alone. " +
+    "Be rigorous about evidence quality. Do NOT infer a pattern from inconclusive or underpowered experiments — an experiment with no statistically significant movement is 'no result', which is different from evidence of 'no effect'. Treat a result as supporting or contrary only when its metrics actually moved significantly. Prefer a few well-evidenced insights over many speculative ones. " +
+    "For each insight, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is (ending with a concrete, actionable recommendation for what the team should try or do next), a confidence level, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the insight (contraryExperimentIds). " +
     "Contrary evidence should include experiments in the input set whose results materially disagree with the insight — e.g. the pattern was tried and did NOT win, or produced the opposite effect. If no contrary evidence exists in the input set, return an empty list for contraryExperimentIds. Do not include the same experiment as both supporting and contrary. " +
-    "Use only experiment ids from the input set. Return at most 8 insights, ordered from most to least confident. " +
+    "Use only experiment ids from the input set. Return at most 8 insights, ordered from most to least confident, with the confidence field reflecting how strongly the provided evidence supports each one. " +
     "If no meaningful cross-experiment patterns exist, return an empty list. " +
     "IMPORTANT: A list of insights that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate insight overlaps meaningfully with a saved one, omit it.";
 

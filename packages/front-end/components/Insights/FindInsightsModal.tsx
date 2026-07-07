@@ -21,6 +21,15 @@ type SuggestionState = {
   error?: string;
 };
 
+const CONFIDENCE_COLORS: Record<
+  NonNullable<AiInsightSuggestion["confidence"]>,
+  "green" | "amber" | "gray"
+> = {
+  high: "green",
+  medium: "amber",
+  low: "gray",
+};
+
 const FindInsightsModal: FC<{
   experiments: ExperimentInterfaceStringDates[];
   /** Project ids to attach to any insights the user saves. */
@@ -231,9 +240,19 @@ const FindInsightsModal: FC<{
                   }}
                 >
                   <Flex justify="between" align="start" gap="3" mb="2">
-                    <Heading as="h4" size="medium">
-                      {s.suggestion.title}
-                    </Heading>
+                    <Flex gap="2" align="center" wrap="wrap">
+                      <Heading as="h4" size="medium">
+                        {s.suggestion.title}
+                      </Heading>
+                      {s.suggestion.confidence && (
+                        <Badge
+                          label={`${s.suggestion.confidence} confidence`}
+                          color={CONFIDENCE_COLORS[s.suggestion.confidence]}
+                          variant="soft"
+                          size="sm"
+                        />
+                      )}
+                    </Flex>
                     {s.saved ? (
                       <Text size="medium" color="text-mid">
                         Saved
