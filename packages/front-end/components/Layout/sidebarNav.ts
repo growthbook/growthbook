@@ -90,7 +90,9 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/session-replay",
         path: /^session-replay/,
         beta: true,
-        filter: ({ gb }) => !!gb?.isOn("session-replays"),
+        filter: ({ gb, permissionsUtils }) =>
+          !!gb?.isOn("session-replays") &&
+          permissionsUtils.canViewSessionReplay({}),
       },
     ],
   },

@@ -96,7 +96,12 @@ export class SessionReplayModel {
       ...options,
       clientKeys,
     });
-    return rows.map((row) => this.toInterface(row));
+    return rows
+      .map((row) => this.toInterface(row))
+      .filter((doc) => {
+        const projects = permittedKeys.get(doc.clientKey) ?? [];
+        return this.canRead(doc, projects);
+      });
   }
 
   public async getBySessionId(

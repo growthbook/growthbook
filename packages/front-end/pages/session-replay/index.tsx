@@ -26,6 +26,7 @@ import FilterQueryPopover, {
   FilterCondition,
 } from "@/components/SessionReplay/FilterQueryPopover";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Custom404 from "@/pages/404";
 
 // rrweb-player accesses `document` at the module level, so it must be
@@ -239,6 +240,7 @@ const FILTER_LABELS: Record<string, string> = {
 export default function SessionReplayPage() {
   const gb = useGrowthBook<AppFeatures>();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
+  const permissionsUtil = usePermissionsUtil();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -536,7 +538,12 @@ export default function SessionReplayPage() {
     if (sessionId) void navigator.clipboard.writeText(sessionId);
   };
 
-  if (!sessionReplayEnabled) {
+  if (
+    !sessionReplayEnabled ||
+    !permissionsUtil.canViewSessionReplay({
+      projects: project ? [project] : [],
+    })
+  ) {
     return <Custom404 />;
   }
 
