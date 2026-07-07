@@ -37,6 +37,12 @@ export function getIngestorHost(): string {
   return INGESTOR_HOST || "https://us1.gb-ingest.com";
 }
 
+// Self-hosted deployments never fetch app feature flags from GrowthBook Cloud,
+// so back-end flags evaluate to their fallback values (false / null / inline
+// default). Set this to a JSON object of feature keys to values (e.g.
+// '{"my-flag": true}') to override specific flags. Ignored when IS_CLOUD is set.
+export const APP_FEATURE_DEFAULTS = process.env.APP_FEATURE_DEFAULTS || "";
+
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,

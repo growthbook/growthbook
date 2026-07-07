@@ -323,77 +323,75 @@ export async function processJWT(
       });
     };
 
-    if (IS_CLOUD) {
+    // On Cloud this evaluates real feature flags; self-hosted deployments get
+    // an offline client that resolves to local defaults (see services/growthbook.ts)
+    try {
       const gbClient = getGrowthBookClient();
 
-      if (gbClient) {
-        const build = getBuild();
-        const org = req.organization;
-        const orgId = org?.id || "";
-        const hashedOrganizationId = orgId
-          ? createHash("sha256")
-              .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
-              .digest("hex")
-          : "";
+      const build = getBuild();
+      const org = req.organization;
+      const orgId = org?.id || "";
+      const hashedOrganizationId = orgId
+        ? createHash("sha256")
+            .update(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + orgId)
+            .digest("hex")
+        : "";
 
-        // Create sticky bucket service for Express
-        const stickyBucketService = new ExpressCookieStickyBucketService({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          req: req as any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          res: res as any,
-        });
+      // Create sticky bucket service for Express
+      const stickyBucketService = new ExpressCookieStickyBucketService({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        req: req as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        res: res as any,
+      });
 
-        const trackingAttributes = getGrowthBookTrackingAttributes(req);
+      const trackingAttributes = getGrowthBookTrackingAttributes(req);
 
-        // Define user attributes
-        // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
-        const attributes = {
-          id: user.id,
-          user_id: user.id,
-          request_path: req.path,
-          freeSeats: org?.freeSeats,
-          discountCode: org?.discountCode,
-          organizationId: hashedOrganizationId,
-          cloudOrgId: orgId,
-          accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
-          superAdmin: user.superAdmin,
-          orgDateCreated: org?.dateCreated
-            ? new Date(org.dateCreated).toISOString()
-            : "",
-          ...trackingAttributes,
-          role: org?.members.find((m) => m.id === user.id)?.role,
-          hasLicenseKey: org?.licenseKey ? true : false,
-          configFile: usingFileConfig(),
-          usingSSO: usingOpenId(),
-          buildSHA: build.sha,
-          buildDate: build.date,
-          buildVersion: build.lastVersion,
-          orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
-          orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
-        };
+      // Define user attributes
+      // Note: cloud and multiOrg are set as globalAttributes in growthbook.ts
+      const attributes = {
+        id: user.id,
+        user_id: user.id,
+        request_path: req.path,
+        freeSeats: org?.freeSeats,
+        discountCode: org?.discountCode,
+        organizationId: hashedOrganizationId,
+        cloudOrgId: orgId,
+        accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
+        superAdmin: user.superAdmin,
+        orgDateCreated: org?.dateCreated
+          ? new Date(org.dateCreated).toISOString()
+          : "",
+        ...trackingAttributes,
+        role: org?.members.find((m) => m.id === user.id)?.role,
+        hasLicenseKey: org?.licenseKey ? true : false,
+        configFile: usingFileConfig(),
+        usingSSO: usingOpenId(),
+        buildSHA: build.sha,
+        buildDate: build.date,
+        buildVersion: build.lastVersion,
+        orgOwnerJobTitle: org?.demographicData?.ownerJobTitle,
+        orgOwnerUsageIntents: org?.demographicData?.ownerUsageIntents,
+      };
 
-        try {
-          // Apply sticky bucketing and get user context
-          const userContext = await gbClient.applyStickyBuckets(
-            {
-              attributes,
-              url: getGrowthBookRequestUrl(req),
-              enableDevMode: true,
-            },
-            stickyBucketService,
-          );
+      // Apply sticky bucketing and get user context
+      const userContext = await gbClient.applyStickyBuckets(
+        {
+          attributes,
+          url: getGrowthBookRequestUrl(req),
+          enableDevMode: true,
+        },
+        stickyBucketService,
+      );
 
-          // Create scoped instance for this request (reuses singleton)
-          req.gb = gbClient.createScopedInstance(userContext);
-        } catch (error) {
-          logger.error("Failed to create GrowthBook scoped instance", {
-            error,
-            userId: user.id,
-          });
-          // Continue without feature flags rather than failing request
-        }
-      }
+      // Create scoped instance for this request (reuses singleton)
+      req.gb = gbClient.createScopedInstance(userContext);
+    } catch (error) {
+      logger.error("Failed to create GrowthBook scoped instance", {
+        error,
+        userId: user.id,
+      });
+      // Continue without feature flags rather than failing request
     }
   } else {
     req.audit = async () => {

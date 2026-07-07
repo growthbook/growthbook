@@ -1,4 +1,5 @@
 import {
+  FeatureDefinitions,
   GrowthBookClient,
   setPolyfills,
   EVENT_EXPERIMENT_VIEWED,
@@ -7,9 +8,11 @@ import {
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { Request } from "express";
+import { z } from "zod";
 import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
 import {
+  APP_FEATURE_DEFAULTS,
   GB_SDK_ID,
   IS_CLOUD,
   IS_MULTI_ORG,
@@ -34,7 +37,52 @@ function resetGrowthBookClientState(): void {
   gbInitSucceeded = false;
 }
 
+const appFeatureDefaultsSchema = z.record(z.string(), z.unknown());
+
+/**
+ * Parse the APP_FEATURE_DEFAULTS env JSON ('{"feature-key": value}') into SDK
+ * feature definitions. Invalid config is logged and treated as empty.
+ */
+export function parseAppFeatureDefaults(raw: string): FeatureDefinitions {
+  if (!raw) return {};
+
+  try {
+    const parsed = appFeatureDefaultsSchema.parse(JSON.parse(raw));
+    return Object.fromEntries(
+      Object.entries(parsed).map(([key, value]) => [
+        key,
+        { defaultValue: value },
+      ]),
+    );
+  } catch (error) {
+    logger.error(
+      { err: error },
+      "Invalid APP_FEATURE_DEFAULTS - expected a JSON object of feature keys to values; ignoring",
+    );
+    return {};
+  }
+}
+
+/**
+ * Self-hosted deployments never talk to GrowthBook Cloud. This client
+ * evaluates everything locally: features resolve to APP_FEATURE_DEFAULTS (or
+ * null/false/inline fallback when unset) and inline experiments return the
+ * control variation with inExperiment=false. No tracking, no network calls.
+ */
+function createSelfHostedGrowthBookClient(): GrowthBookClient<AppFeatures> {
+  return new GrowthBookClient<AppFeatures>({
+    globalAttributes: {
+      cloud: IS_CLOUD,
+      multiOrg: IS_MULTI_ORG,
+      requestSource: "backend",
+    },
+    enabled: false,
+  });
+}
+
 function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
+  if (!IS_CLOUD) return createSelfHostedGrowthBookClient();
+
   const client = new GrowthBookClient<AppFeatures>({
     apiHost: "https://cdn.growthbook.io",
     clientKey: GB_SDK_ID,
@@ -160,9 +208,7 @@ export function getGrowthBookTrackingAttributes(
   };
 }
 
-function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
-  if (!IS_CLOUD) return null;
-
+function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> {
   if (!gbClient) {
     gbClient = createGrowthBookClient();
   }
@@ -175,7 +221,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
  * This provides 3x performance improvement over creating new instances per request
  * by reusing the same core instance across all requests
  */
-export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
+export function getGrowthBookClient(): GrowthBookClient<AppFeatures> {
   const client = ensureGrowthBookClient();
 
   if (!gbInitSucceeded && !initPromise) {
@@ -187,7 +233,18 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
 
 async function runGrowthBookClientInit(): Promise<void> {
   const client = ensureGrowthBookClient();
-  if (!client) return;
+
+  if (!IS_CLOUD) {
+    // Self-hosted: no cloud fetch; evaluate against local defaults only
+    await client.setPayload({
+      features: parseAppFeatureDefaults(APP_FEATURE_DEFAULTS),
+    });
+    gbInitSucceeded = true;
+    logger.info(
+      "GrowthBook client initialized in self-hosted mode - using local app feature defaults",
+    );
+    return;
+  }
 
   const { success, source, error } = await client.init({
     timeout: 3000,
@@ -209,18 +266,12 @@ async function runGrowthBookClientInit(): Promise<void> {
 }
 
 /**
- * Initialize the GrowthBook client with streaming support
+ * Initialize the GrowthBook client
  * Should be called once during application startup
- * Enables real-time feature updates via Server-Sent Events
+ * On Cloud this fetches features and enables real-time updates via Server-Sent
+ * Events; self-hosted deployments evaluate locally against APP_FEATURE_DEFAULTS
  */
 export async function initializeGrowthBookClient(): Promise<void> {
-  if (!IS_CLOUD) {
-    logger.info(
-      "GrowthBook client not initialized - not running in cloud mode",
-    );
-    return;
-  }
-
   if (initPromise) return initPromise;
 
   initPromise = runGrowthBookClientInit().catch((error) => {
