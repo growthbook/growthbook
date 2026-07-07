@@ -4,6 +4,7 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
+import { configAdapter } from "back-end/src/revisions/adapters/config.adapter";
 
 const updatable = new Set([
   "groupName",
@@ -243,5 +244,47 @@ describe("isRevisionDiverged", () => {
     expect(isRevisionDiverged(savedGroupAdapter, snapshot, touched)).toBe(
       false,
     );
+  });
+
+  // buildSnapshot only strips top-level nullish keys, so a nested optional-null
+  // shape (configs' schema/renderProjections objects) would reopen the
+  // false-positive divergence loop without the recursive normalization.
+  describe("nested nullish (config)", () => {
+    const liveConfig = {
+      id: "cfg-1",
+      organization: "org-1",
+      key: "k",
+      name: "n",
+      owner: "o",
+      value: "{}",
+      renderProjections: { typescript: { rootName: "Foo" } },
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-02"),
+    };
+    const configSnapshotOf = (entity: Record<string, unknown>) =>
+      configAdapter.buildSnapshot(entity as never) as unknown as Record<
+        string,
+        unknown
+      >;
+
+    it("ignores a nested key that is null on one side and absent on the other", () => {
+      const snapshot = configSnapshotOf(liveConfig);
+      const rawWithNestedNull = {
+        ...liveConfig,
+        renderProjections: { typescript: { rootName: "Foo", rootPath: null } },
+      };
+      expect(
+        isRevisionDiverged(configAdapter, snapshot, rawWithNestedNull),
+      ).toBe(false);
+    });
+
+    it("still detects a genuine nested value change", () => {
+      const snapshot = configSnapshotOf(liveConfig);
+      const changed = {
+        ...liveConfig,
+        renderProjections: { typescript: { rootName: "Bar" } },
+      };
+      expect(isRevisionDiverged(configAdapter, snapshot, changed)).toBe(true);
+    });
   });
 });

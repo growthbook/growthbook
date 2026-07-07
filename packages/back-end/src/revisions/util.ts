@@ -293,6 +293,27 @@ export async function createOrUpdateRevision(
 }
 
 /**
+ * Recursively drop null/undefined-valued keys from objects (and recurse into
+ * arrays without dropping elements, so positions are preserved). This equates
+ * "key absent" with "key present but null/undefined" at every depth — the
+ * representation-only difference between a normalized snapshot and a live Mongo
+ * document. A real value → null change is still detected: the value side keeps
+ * the key, the null side drops it, so the two differ.
+ */
+function deepOmitNullish(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(deepOmitNullish);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v === null || v === undefined) continue;
+      out[k] = deepOmitNullish(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
  * True when the revision's base snapshot no longer matches the live entity on
  * any updatable field.
  *
@@ -304,6 +325,10 @@ export async function createOrUpdateRevision(
  * Comparing the raw document against the normalized snapshot makes every
  * draft of such an entity read as diverged forever: rebasing cannot clear it,
  * because the next snapshot is normalized again.
+ *
+ * `buildSnapshot` only strips top-level nullish keys, so nested optional-null
+ * shapes (e.g. a config's `schema`/`renderProjections` objects) would reopen
+ * the same false-positive; `deepOmitNullish` normalizes at every depth.
  */
 export function isRevisionDiverged(
   adapter: EntityRevisionAdapter,
@@ -313,6 +338,6 @@ export function isRevisionDiverged(
   const base = adapter.buildSnapshot(snapshot);
   const live = adapter.buildSnapshot(entity);
   return [...adapter.getUpdatableFields()].some(
-    (key) => !isEqual(base[key], live[key]),
+    (key) => !isEqual(deepOmitNullish(base[key]), deepOmitNullish(live[key])),
   );
 }
