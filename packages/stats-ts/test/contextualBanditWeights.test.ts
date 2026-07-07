@@ -145,6 +145,36 @@ describe("computeContextualBanditWeights", () => {
     expect(caW[0]).toBeGreaterThan(caW[1]);
   });
 
+  it("splits categories via k-means when splitStrategy is 'kmeans'", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+      countRow("CA", "v0", 200, 2),
+      countRow("CA", "v1", 200, 1),
+    ]);
+
+    // Two categories => a 2-cluster k-means split separates them deterministically.
+    const result = computeContextualBanditWeights({
+      ...input(data),
+      splitStrategy: "kmeans",
+    });
+
+    expect(result.responses).toHaveLength(2);
+    const leafIds = result.leaf_map!.map((e) => e.leafId);
+    expect(new Set(leafIds).size).toBe(2);
+
+    const us = result.responses.find(
+      (r) => (r.context as { country: string }).country === "US",
+    )!;
+    const ca = result.responses.find(
+      (r) => (r.context as { country: string }).country === "CA",
+    )!;
+    const usW = us.updatedWeights as number[];
+    const caW = ca.updatedWeights as number[];
+    expect(usW[1]).toBeGreaterThan(usW[0]);
+    expect(caW[0]).toBeGreaterThan(caW[1]);
+  });
+
   it("records the total-SSE trajectory across splits (root then after each split)", () => {
     const data = rows([
       countRow("US", "v0", 200, 1),
@@ -209,5 +239,57 @@ describe("computeContextualBanditWeights", () => {
     w1.forEach((w, i) => {
       expect(Math.abs(w - w2[i])).toBeLessThan(0.02);
     });
+  });
+
+  it("accepts binomial (proportion) decision metrics", () => {
+    const data = rows([
+      { [ATTR_COL]: "US", variation: "v0", count: 200, main_sum: 40 },
+      { [ATTR_COL]: "US", variation: "v1", count: 200, main_sum: 120 },
+    ]);
+    const settings = input(data);
+    settings.metricSettings = {
+      ...settings.metricSettings,
+      main_metric_type: "binomial",
+    };
+    const result = computeContextualBanditWeights(settings);
+    const r = result.responses[0];
+    // Higher-converting arm (v1) should be weighted more heavily.
+    const [w0, w1] = r.updatedWeights as number[];
+    expect(w1).toBeGreaterThan(w0);
+  });
+
+  it.each([
+    { statistic_type: "ratio" as const },
+    { statistic_type: "ratio_ra" as const },
+    { statistic_type: "mean_ra" as const },
+    { statistic_type: "quantile_event" as const },
+  ])(
+    "rejects unsupported statistic_type $statistic_type",
+    ({ statistic_type }) => {
+      const data = rows([
+        countRow("US", "v0", 200, 1),
+        countRow("US", "v1", 200, 2),
+      ]);
+      const settings = input(data);
+      settings.metricSettings = { ...settings.metricSettings, statistic_type };
+      expect(() => computeContextualBanditWeights(settings)).toThrow(
+        /only count \(sample mean\) and binomial \(proportion\) metrics/,
+      );
+    },
+  );
+
+  it("rejects unsupported main_metric_type (quantile)", () => {
+    const data = rows([
+      countRow("US", "v0", 200, 1),
+      countRow("US", "v1", 200, 2),
+    ]);
+    const settings = input(data);
+    settings.metricSettings = {
+      ...settings.metricSettings,
+      main_metric_type: "quantile",
+    };
+    expect(() => computeContextualBanditWeights(settings)).toThrow(
+      /only count \(sample mean\) and binomial \(proportion\) metrics/,
+    );
   });
 });

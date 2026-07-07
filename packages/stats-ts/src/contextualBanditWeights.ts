@@ -1,3 +1,4 @@
+/** TypeScript port of the gbstats contextual-bandit weight pipeline. */
 import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import type {
   ContextualBanditResponseSnapshot,
@@ -15,9 +16,24 @@ import {
   updateVariationWeights,
   type VariationWeightResult,
 } from "./banditWeights";
-import { varianceOfRatios } from "./utils";
+import {
+  MultivariateKMeans,
+  ExhaustiveBinaryKMeans,
+  MAX_EXHAUSTIVE_CATEGORIES,
+} from "./multivariateKMeans";
+import { SampleMeanStatistic, ProportionStatistic } from "./statistics";
 
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
+
+/**
+ * Tree-growth split strategy.
+ *  - `"kmeans"` (default): each split groups an attribute's categories into two
+ *    sets via weighted k-means (`country in (US, CA)` vs not), porting gbstats
+ *    `UpdateWeightsContextualTreeKMeans`.
+ *  - `"onehot"`: greedy one-hot splits (`country == US` vs not), porting gbstats
+ *    `UpdateWeightsContextualTree`.
+ */
+export type ContextualBanditSplitStrategy = "onehot" | "kmeans";
 
 /** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
 export type ContextualBanditWeightsInput = {
@@ -28,6 +44,8 @@ export type ContextualBanditWeightsInput = {
   metricSettings: MetricSettingsForStatsEngine;
   analysisWeights: number[];
   rows: ExperimentMetricQueryResponseRows;
+  /** Defaults to `"kmeans"`. */
+  splitStrategy?: ContextualBanditSplitStrategy;
 };
 
 type ArmColumns = {
@@ -107,123 +125,62 @@ function addArms(a: ArmColumns, b: ArmColumns): ArmColumns {
   };
 }
 
-type BaseStat = {
-  sum: number;
-  mean: number;
-  variance: number;
-  isProp: boolean;
-};
-
-function sampleMeanStat(sum: number, sumSquares: number, n: number): BaseStat {
-  const mean = n === 0 ? 0 : sum / n;
-  const variance = n <= 1 ? 0 : (sumSquares - (sum * sum) / n) / (n - 1);
-  return { sum, mean, variance, isProp: false };
-}
-
-function proportionStat(sum: number, n: number): BaseStat {
-  const mean = n === 0 ? 0 : sum / n;
-  return { sum, mean, variance: mean * (1 - mean), isProp: true };
-}
-
-function baseStatForMetricType(
-  metricType: "count" | "binomial" | "quantile" | undefined,
-  sum: number,
-  sumSquares: number,
-  n: number,
-): BaseStat {
-  if (metricType === "binomial") {
-    return proportionStat(sum, n);
+/**
+ * Contextual bandits operate only on sample-mean (count) and proportion
+ * (binomial) statistics. Ratio, regression-adjusted, and quantile statistics
+ * are rejected so the entire pipeline only ever handles those two moment types.
+ */
+function assertSupportedContextualBanditMetric(
+  metric: MetricSettingsForStatsEngine,
+): void {
+  const supportedMetricType =
+    metric.main_metric_type === "count" ||
+    metric.main_metric_type === "binomial";
+  if (metric.statistic_type !== "mean" || !supportedMetricType) {
+    throw new Error(
+      "Contextual bandits support only count (sample mean) and binomial " +
+        "(proportion) metrics; got " +
+        `statistic_type="${metric.statistic_type}", ` +
+        `main_metric_type="${String(metric.main_metric_type)}".`,
+    );
   }
-  if (metricType === "count") {
-    return sampleMeanStat(sum, sumSquares, n);
-  }
-  throw new Error(
-    `Unsupported metric_type for contextual bandit: ${String(metricType)}`,
-  );
 }
 
-function computeCovariance(
-  n: number,
-  aSum: number,
-  bSum: number,
-  sumOfProducts: number,
-  bothProportion: boolean,
-): number {
-  if (n <= 1) return 0;
-  if (bothProportion) {
-    return sumOfProducts / n - (aSum * bSum) / (n * n);
-  }
-  return (sumOfProducts - (aSum * bSum) / n) / (n - 1);
-}
-
+/**
+ * Mean/variance for a variation arm. Only sample-mean (count) and proportion
+ * (binomial) metrics are supported; `forBandit` recasts binomial -> SampleMean
+ * for Thompson sampling (matching gbstats `BanditsSimple`).
+ */
 function armMomentStat(
   arm: ArmColumns,
   metric: MetricSettingsForStatsEngine,
   forBandit: boolean,
 ): MomentStat {
+  assertSupportedContextualBanditMetric(metric);
   const n = arm.n;
-  switch (metric.statistic_type) {
-    case "mean":
-    case "mean_ra": {
-      if (metric.main_metric_type === "binomial") {
-        const stat = forBandit
-          ? sampleMeanStat(arm.main_sum, arm.main_sum, n)
-          : proportionStat(arm.main_sum, n);
-        return {
+  let stat: SampleMeanStatistic | ProportionStatistic;
+  if (metric.main_metric_type === "binomial") {
+    stat = forBandit
+      ? new SampleMeanStatistic({
           n,
-          mean: stat.mean,
-          variance: stat.variance,
-          unadjustedMean: stat.mean,
-          unadjustedVariance: stat.variance,
-        };
-      }
-      const stat = sampleMeanStat(arm.main_sum, arm.main_sum_squares, n);
-      return {
-        n,
-        mean: stat.mean,
-        variance: stat.variance,
-        unadjustedMean: stat.mean,
-        unadjustedVariance: stat.variance,
-      };
-    }
-    case "ratio": {
-      const m = baseStatForMetricType(
-        metric.main_metric_type,
-        arm.main_sum,
-        arm.main_sum_squares,
-        n,
-      );
-      const d = baseStatForMetricType(
-        metric.denominator_metric_type,
-        arm.denominator_sum,
-        arm.denominator_sum_squares,
-        n,
-      );
-      const mean = d.sum === 0 ? 0 : m.sum / d.sum;
-      const cov = computeCovariance(
-        n,
-        m.sum,
-        d.sum,
-        arm.main_denominator_sum_product,
-        m.isProp && d.isProp,
-      );
-      const variance =
-        d.mean === 0 || n <= 1
-          ? 0
-          : varianceOfRatios(m.mean, m.variance, d.mean, d.variance, cov);
-      return {
-        n,
-        mean,
-        variance,
-        unadjustedMean: mean,
-        unadjustedVariance: variance,
-      };
-    }
-    default:
-      throw new Error(
-        `Unsupported statistic_type for contextual bandit: ${metric.statistic_type}`,
-      );
+          sum: arm.main_sum,
+          sumSquares: arm.main_sum,
+        })
+      : new ProportionStatistic({ n, sum: arm.main_sum });
+  } else {
+    stat = new SampleMeanStatistic({
+      n,
+      sum: arm.main_sum,
+      sumSquares: arm.main_sum_squares,
+    });
   }
+  return {
+    n,
+    mean: stat.mean,
+    variance: stat.variance,
+    unadjustedMean: stat.unadjustedMean,
+    unadjustedVariance: stat.unadjustedVariance,
+  };
 }
 
 function computeLeafWeights(
@@ -319,29 +276,71 @@ function featureValue(ctx: ContextEntry, feature: Feature): number {
   return ctx.tuple[feature.attrIndex] === feature.category ? 1 : 0;
 }
 
-function leafSumOfSquaredErrors(
-  contexts: ContextEntry[],
+/**
+ * Within-group SSE from each member's per-variation arm statistics: pool the
+ * arms per variation, then sum `(n - 1) * variance` across variations.
+ */
+function sumOfSquaredErrorsFromArms(
+  armsPerMember: ArmColumns[][],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
 ): number {
   let sse = 0;
   for (let v = 0; v < numVariations; v++) {
     let summed = emptyArm();
-    for (const ctx of contexts) summed = addArms(summed, ctx.arms[v]);
+    for (const arms of armsPerMember) summed = addArms(summed, arms[v]);
     const stat = armMomentStat(summed, metric, false);
     sse += (stat.n - 1) * stat.variance;
   }
   return sse;
 }
 
+function sumOfSquaredErrors(
+  contexts: ContextEntry[],
+  metric: MetricSettingsForStatsEngine,
+  numVariations: number,
+): number {
+  return sumOfSquaredErrorsFromArms(
+    contexts.map((ctx) => ctx.arms),
+    metric,
+    numVariations,
+  );
+}
+
+/**
+ * Per-context leaf assignment enriched with each context's attribute values
+ * (parallel to `contexts`): `leafMap[c]` is the leaf and `{alias: value}` map
+ * for `contexts[c]`.
+ */
+function buildLeafMap(
+  contexts: ContextEntry[],
+  attributes: string[],
+  leafByContext: number[],
+): ContextualLeafMapEntry[] {
+  return contexts.map((ctx, c) => {
+    const context: Record<string, string> = {};
+    attributes.forEach((alias, i) => {
+      context[alias] = ctx.tuple[i];
+    });
+    return { context, leafId: leafByContext[c] };
+  });
+}
+
 type BuildTreeResult = {
-  leafByContext: number[];
+  /** Per-context leaf assignment with attribute values (parallel to `contexts`). */
+  leafMap: ContextualLeafMapEntry[];
+  /**
+   * Total within-tree SSE at each stage of greedy growth, in order:
+   * index 0 is the root (before the first split), index 1 is after the first
+   * split, index 2 after the second split, etc. Length = (splits applied) + 1.
+   */
   sseTrajectory: number[];
 };
 
 function buildTree(
   contexts: ContextEntry[],
   features: Feature[],
+  attributes: string[],
   metric: MetricSettingsForStatsEngine,
   numVariations: number,
   maxLeaves: number,
@@ -349,7 +348,7 @@ function buildTree(
 ): BuildTreeResult {
   const currentLeaf = new Array<number>(contexts.length).fill(0);
   if (contexts.length === 0) {
-    return { leafByContext: currentLeaf, sseTrajectory: [] };
+    return { leafMap: [], sseTrajectory: [] };
   }
 
   const sideMeetsMinPerVariation = (ctxIdxs: number[]): boolean => {
@@ -368,7 +367,7 @@ function buildTree(
       for (let c = 0; c < contexts.length; c++) {
         if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
       }
-      total += leafSumOfSquaredErrors(inLeaf, metric, numVariations);
+      total += sumOfSquaredErrors(inLeaf, metric, numVariations);
     }
     return total;
   };
@@ -389,7 +388,7 @@ function buildTree(
         if (currentLeaf[c] === leafIndex) inLeaf.push(c);
       }
       if (inLeaf.length === 0) continue;
-      const sseCurrent = leafSumOfSquaredErrors(
+      const sseCurrent = sumOfSquaredErrors(
         inLeaf.map((c) => contexts[c]),
         metric,
         numVariations,
@@ -409,12 +408,12 @@ function buildTree(
           continue;
         }
         const sseSplit =
-          leafSumOfSquaredErrors(
+          sumOfSquaredErrors(
             side0.map((c) => contexts[c]),
             metric,
             numVariations,
           ) +
-          leafSumOfSquaredErrors(
+          sumOfSquaredErrors(
             side1.map((c) => contexts[c]),
             metric,
             numVariations,
@@ -442,8 +441,177 @@ function buildTree(
 
     sseTrajectory.push(totalSse());
   }
+  return {
+    leafMap: buildLeafMap(contexts, attributes, currentLeaf),
+    sseTrajectory,
+  };
+}
 
-  return { leafByContext: currentLeaf, sseTrajectory };
+/** Summed arms per variation across a set of contexts. */
+function sumArmsByVariation(
+  contexts: ContextEntry[],
+  numVariations: number,
+): ArmColumns[] {
+  const arms = Array.from({ length: numVariations }, emptyArm);
+  for (const ctx of contexts) {
+    for (let v = 0; v < numVariations; v++) {
+      arms[v] = addArms(arms[v], ctx.arms[v]);
+    }
+  }
+  return arms;
+}
+
+/**
+ * Greedy SSE regression tree up to `maxLeaves` where each split groups one
+ * attribute's categories into two sets via weighted k-means (porting gbstats
+ * `UpdateWeightsContextualTreeKMeans`). This admits multi-category splits like
+ * `country in (US, CA)` vs not, rather than only `country == US` vs not.
+ *
+ * A split is taken only when the best available (non-degenerate) binary
+ * category partition strictly reduces total SSE; there is no minimum-users-
+ * per-leaf guard. For attributes with at most `MAX_EXHAUSTIVE_CATEGORIES`
+ * categories the optimal partition is found exactly; otherwise it falls back to
+ * `MultivariateKMeans`, whose Forgy initialization uses `Math.random`, so those
+ * partitions (and hence the tree) are not reproducible across runs.
+ */
+function buildTreeKMeans(
+  contexts: ContextEntry[],
+  attributes: string[],
+  metric: MetricSettingsForStatsEngine,
+  numVariations: number,
+  maxLeaves: number,
+): BuildTreeResult {
+  const currentLeaf = new Array<number>(contexts.length).fill(0);
+  if (contexts.length === 0) {
+    return { leafMap: [], sseTrajectory: [] };
+  }
+
+  // Objective used to grow the tree: every SSE used for split selection
+  // (current leaf, candidate split, trajectory) goes through this metric.
+  const clusterMetric = metric;
+
+  const totalSse = (): number => {
+    let total = 0;
+    for (const leafId of new Set(currentLeaf)) {
+      const inLeaf: ContextEntry[] = [];
+      for (let c = 0; c < contexts.length; c++) {
+        if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
+      }
+      total += sumOfSquaredErrors(inLeaf, clusterMetric, numVariations);
+    }
+    return total;
+  };
+
+  const sseTrajectory: number[] = [totalSse()];
+
+  for (let iteration = 0; iteration < maxLeaves - 1; iteration++) {
+    let bestGain = -Infinity;
+    let bestAttr = -1;
+    let bestLeaf = -1;
+    let bestGroup: Set<string> = new Set();
+
+    const leafIds = [...new Set(currentLeaf)].sort((a, b) => a - b);
+    // Parallel per-leaf arrays (indexed like `leafIds`), kept for transparency:
+    // each leaf's SSE before splitting, and the lowest SSE achievable by
+    // splitting it (stays Infinity when the leaf admits no valid split).
+    const sseCurrent = new Array<number>(leafIds.length).fill(0);
+    const sseSplit = new Array<number>(leafIds.length).fill(Infinity);
+
+    for (let leafIndex = 0; leafIndex < leafIds.length; leafIndex++) {
+      const leafId = leafIds[leafIndex];
+      const inLeaf: number[] = [];
+      for (let c = 0; c < contexts.length; c++) {
+        if (currentLeaf[c] === leafId) inLeaf.push(c);
+      }
+      sseCurrent[leafIndex] = sumOfSquaredErrors(
+        inLeaf.map((c) => contexts[c]),
+        clusterMetric,
+        numVariations,
+      );
+
+      for (let attrIndex = 0; attrIndex < attributes.length; attrIndex++) {
+        // Unique categories of this attribute within the leaf (sorted for
+        // stable point ordering).
+        const categories = [
+          ...new Set(inLeaf.map((c) => contexts[c].tuple[attrIndex])),
+        ].sort();
+        if (categories.length < 2) continue;
+
+        // Per-category statistics: the pooled per-variation arms for each
+        // distinct category of this attribute within the leaf. These are the
+        // additive sufficient stats SSE is computed from.
+        const categoryArms: ArmColumns[][] = categories.map((category) =>
+          sumArmsByVariation(
+            inLeaf
+              .filter((c) => contexts[c].tuple[attrIndex] === category)
+              .map((c) => contexts[c]),
+            numVariations,
+          ),
+        );
+
+        // Both clusterers minimize the same real pooled-SSE objective over the
+        // per-category statistics. With few enough categories, find the optimal
+        // binary split exactly by enumerating all subsets; otherwise approximate
+        // it with weighted k-means (Hartigan local search).
+        const groupSse = (group: ArmColumns[][]): number =>
+          sumOfSquaredErrorsFromArms(group, clusterMetric, numVariations);
+
+        const km =
+          categories.length <= MAX_EXHAUSTIVE_CATEGORIES
+            ? new ExhaustiveBinaryKMeans<ArmColumns[]>().fit(
+                categoryArms,
+                groupSse,
+              )
+            : new MultivariateKMeans<ArmColumns[]>(2, 100).fit(
+                categoryArms,
+                groupSse,
+              );
+        const labels = km.labels;
+
+        const group = new Set(categories.filter((_, i) => labels[i] === 1));
+        // Both sides must be non-empty for a real split.
+        if (group.size === 0 || group.size === categories.length) continue;
+
+        // The clusterer already minimized this same pooled-SSE objective over
+        // the category statistics, so its achieved SSE is the split SSE (pooling
+        // a group's category arms is identical to pooling that group's contexts).
+        const candidateSseSplit = km.sse;
+
+        // Record the best (lowest) split SSE found for this leaf.
+        if (candidateSseSplit < sseSplit[leafIndex]) {
+          sseSplit[leafIndex] = candidateSseSplit;
+        }
+
+        const gain = sseCurrent[leafIndex] - candidateSseSplit;
+        if (gain > bestGain) {
+          bestGain = gain;
+          bestAttr = attrIndex;
+          bestLeaf = leafId;
+          bestGroup = group;
+        }
+      }
+    }
+
+    // Stop when no leaf admits a further valid split, or the best available
+    // split does not strictly reduce total SSE (e.g. identical categories).
+    if (bestAttr < 0 || bestGain <= 0) break;
+
+    const newLeaf = iteration + 1;
+    for (let c = 0; c < contexts.length; c++) {
+      if (
+        currentLeaf[c] === bestLeaf &&
+        bestGroup.has(contexts[c].tuple[bestAttr])
+      ) {
+        currentLeaf[c] = newLeaf;
+      }
+    }
+    sseTrajectory.push(totalSse());
+  }
+
+  return {
+    leafMap: buildLeafMap(contexts, attributes, currentLeaf),
+    sseTrajectory,
+  };
 }
 
 /** Compute updated contextual-bandit weights, returning the Python-shape snapshot. */
@@ -465,6 +633,10 @@ export function computeContextualBanditWeights(
     keep_theta: false,
   };
 
+  // Fail fast on unsupported metrics so we never partially process a run that
+  // uses anything other than a sample-mean (count) or proportion (binomial).
+  assertSupportedContextualBanditMetric(metricSettings);
+
   const numVariations = varIds.length;
   const defaultWeights =
     analysisWeights.length === numVariations
@@ -479,19 +651,28 @@ export function computeContextualBanditWeights(
     return { attributes, responses: [], leaf_map: [] };
   }
 
-  const features = buildFeatures(contexts, attrColumns);
-  const { leafByContext, sseTrajectory } = buildTree(
-    contexts,
-    features,
-    metricSettings,
-    numVariations,
-    maxLeaves,
-    minUsersPerLeaf,
-  );
+  const { leafMap, sseTrajectory } =
+    input.splitStrategy === "onehot"
+      ? buildTree(
+          contexts,
+          buildFeatures(contexts, attrColumns),
+          attributes,
+          metricSettings,
+          numVariations,
+          maxLeaves,
+          minUsersPerLeaf,
+        )
+      : buildTreeKMeans(
+          contexts,
+          attributes,
+          metricSettings,
+          numVariations,
+          maxLeaves,
+        );
 
   const leafArms = new Map<number, ArmColumns[]>();
   for (let c = 0; c < contexts.length; c++) {
-    const leafId = leafByContext[c];
+    const leafId = leafMap[c].leafId;
     let arms = leafArms.get(leafId);
     if (!arms) {
       arms = Array.from({ length: numVariations }, emptyArm);
@@ -531,11 +712,10 @@ export function computeContextualBanditWeights(
   );
 
   const responses: ContextualBanditResponseSnapshot[] = [];
-  const leaf_map: ContextualLeafMapEntry[] = [];
 
   for (let c = 0; c < contexts.length; c++) {
     const ctx = contexts[c];
-    const leafId = leafByContext[c];
+    const leafId = leafMap[c].leafId;
     const leaf = leafWeights.get(leafId);
 
     const contextStats = ctx.arms.map((arm) =>
@@ -552,18 +732,12 @@ export function computeContextualBanditWeights(
       updateMessage: leaf ? leaf.updateMessage : "No update",
       error: leaf ? leaf.error : null,
     });
-
-    const leafContext: Record<string, string> = {};
-    attributes.forEach((alias, i) => {
-      leafContext[alias] = ctx.tuple[i];
-    });
-    leaf_map.push({ context: leafContext, leafId });
   }
 
   return {
     attributes,
     responses,
-    leaf_map,
+    leaf_map: leafMap,
     leaf_stats,
     sse_trajectory,
   };
