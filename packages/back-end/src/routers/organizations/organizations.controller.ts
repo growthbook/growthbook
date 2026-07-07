@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { z } from "zod";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
@@ -33,6 +34,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { putApiKeyValidator } from "back-end/src/routers/organizations/organizations.validators";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -1866,6 +1868,24 @@ export async function deleteApiKey(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function putApiKey(
+  req: AuthRequest<z.infer<typeof putApiKeyValidator>, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  // Spread so new updatable fields flow through without a hand-maintained
+  // list; only `role` is renamed to match the model's roleId param
+  const { role, ...updates } = req.body;
+
+  await context.models.apiKeys.updateOrganizationApiKey(id, {
+    ...updates,
+    roleId: role,
+  });
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function putApiKeyDisabled(

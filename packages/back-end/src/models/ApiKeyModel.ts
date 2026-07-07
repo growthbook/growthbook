@@ -1,5 +1,7 @@
+import { isEqual } from "lodash";
+import { z } from "zod";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
+import { apiKeySchema, secretApiKeyUpdatableFields } from "shared/validators";
 import { getRoleById } from "shared/permissions";
 import {
   generateEncryptionKey,
@@ -12,6 +14,27 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
 
+const UPDATABLE_KEY_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(secretApiKeyUpdatableFields.shape),
+);
+
+// Full-replacement semantics: every permission field is required so a caller
+// omitting one can't silently strip a key's restrictions. Only the
+// description merges (kept when omitted).
+type UpdateOrganizationApiKeyProps = Omit<
+  Required<z.infer<typeof secretApiKeyUpdatableFields>>,
+  "role" | "description"
+> & {
+  roleId: string;
+  description?: string;
+};
+
+// Org secret keys are the only kind with editable permissions: PATs inherit
+// their user's permissions and SDK endpoint keys have no role.
+function isOrgSecretKey(apiKey: ApiKeyInterface): boolean {
+  return !!apiKey.secret && !apiKey.userId;
+}
+
 const BaseClass = MakeModelClass({
   schema: apiKeySchema,
   collectionName: COLLECTION_NAME,
@@ -20,6 +43,16 @@ const BaseClass = MakeModelClass({
   idPrefix: "key_",
   additionalIndexes: [{ fields: { id: 1 } }],
   skipDateUpdatedFields: ["lastUsed"],
+  // canUpdate's field allowlist is the authz gate; this hard-fails identity
+  // and key-material writes on every update path regardless of authz
+  readonlyFields: [
+    "key",
+    "encryptionKey",
+    "secret",
+    "userId",
+    "environment",
+    "project",
+  ],
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
@@ -48,12 +81,18 @@ export class ApiKeyModel extends BaseClass {
     apiKey: ApiKeyInterface,
     updates: Partial<ApiKeyInterface>,
   ): boolean {
-    // API keys are immutable except for toggling `disabled`.
-    // Anything else (key value, role, etc.) must never be edited.
     // `lastUsed` is written by auth middleware via the dangerous bypass and never hits this path.
     const keys = Object.keys(updates);
-    if (keys.length !== 1 || keys[0] !== "disabled") return false;
-    return this.canDelete(apiKey);
+    if (keys.length === 1 && keys[0] === "disabled") {
+      return this.canDelete(apiKey);
+    }
+    // The key value itself and identity fields (secret, userId) must never
+    // be edited.
+    if (!isOrgSecretKey(apiKey)) return false;
+    if (!keys.length || !keys.every((k) => UPDATABLE_KEY_FIELDS.has(k))) {
+      return false;
+    }
+    return this.context.permissions.canUpdateApiKey();
   }
   protected canDelete(apiKey: ApiKeyInterface): boolean {
     if (apiKey.secret) {
@@ -81,7 +120,10 @@ export class ApiKeyModel extends BaseClass {
     return { ...doc, key: "", encryptionKey: undefined };
   }
 
-  protected async customValidation(doc: ApiKeyInterface) {
+  protected async customValidation(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
     if (doc.userId) {
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
@@ -95,18 +137,32 @@ export class ApiKeyModel extends BaseClass {
         );
       }
     } else {
-      // Org API keys — validate role, environments, project roles, and commercial features
-      this.validateRole(doc.role);
-      if (
-        doc.limitAccessByEnvironment &&
-        !this.context.hasPremiumFeature("advanced-permissions")
-      ) {
-        this.context.throwPlanDoesNotAllowError(
-          "Your plan does not support restricting API key permissions by environment.",
-        );
+      // Org API keys — validate role, environments, project roles, and
+      // commercial features. Only fields that actually changed are validated,
+      // so pre-existing state that has since become invalid (a deactivated
+      // role, a lapsed premium feature) doesn't block unrelated edits.
+      if (!previousDoc || doc.role !== previousDoc.role) {
+        this.validateRole(doc.role);
       }
-      this.validateEnvironments(doc.environments);
-      if (doc.projectRoles) {
+      const envRestrictionsChanged =
+        !previousDoc ||
+        doc.limitAccessByEnvironment !== previousDoc.limitAccessByEnvironment ||
+        !isEqual(doc.environments, previousDoc.environments);
+      // With the restriction off the env list is inert, and validating it
+      // would stop a key whose org since deleted an environment from ever
+      // turning the restriction off
+      if (envRestrictionsChanged && doc.limitAccessByEnvironment) {
+        if (!this.context.hasPremiumFeature("advanced-permissions")) {
+          this.context.throwPlanDoesNotAllowError(
+            "Your plan does not support restricting API key permissions by environment.",
+          );
+        }
+        this.validateEnvironments(doc.environments);
+      }
+      if (
+        doc.projectRoles?.length &&
+        (!previousDoc || !isEqual(doc.projectRoles, previousDoc.projectRoles))
+      ) {
         if (!this.context.hasPremiumFeature("advanced-permissions")) {
           this.context.throwPlanDoesNotAllowError(
             "Your plan does not support project-level permissions on API keys.",
@@ -176,6 +232,43 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
+  // Full-replacement update of an org secret key's permissions. The key value
+  // is untouched, so callers keep working — the new permissions apply on their
+  // next request (auth reads the key doc fresh every time). Note the role
+  // embedded in the key string's prefix is cosmetic and may go stale.
+  // Returns void like the other mutators — the unredacted doc must not leak.
+  public async updateOrganizationApiKey(
+    id: string,
+    {
+      description,
+      roleId,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    }: UpdateOrganizationApiKeyProps,
+  ): Promise<void> {
+    // canUpdate also gates this, but only for updates that change something —
+    // check up front so a value-matching no-op can't be used by unprivileged
+    // members to probe a key's current permissions.
+    if (!this.context.permissions.canUpdateApiKey()) {
+      this.context.permissions.throwPermissionError();
+    }
+    const doc = await this.getUnredactedByIdOrThrow(id);
+    if (!isOrgSecretKey(doc)) {
+      this.context.throwBadRequestError(
+        "Only organization secret API keys support permission updates",
+      );
+    }
+    await this.update(doc, {
+      ...(description !== undefined ? { description } : null),
+      role: roleId,
+      limitAccessByEnvironment,
+      environments,
+      // Explicit undefined clears any existing project-scoped roles
+      projectRoles: projectRoles.length ? projectRoles : undefined,
+    });
+  }
+
   public async createUserPersonalAccessApiKey({
     userId,
     description,
@@ -227,9 +320,14 @@ export class ApiKeyModel extends BaseClass {
   }
 
   public async setDisabled(id: string, disabled: boolean): Promise<void> {
+    const doc = await this.getUnredactedByIdOrThrow(id);
+    await this.update(doc, { disabled });
+  }
+
+  private async getUnredactedByIdOrThrow(id: string): Promise<ApiKeyInterface> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    await this.update(doc, { disabled });
+    return doc;
   }
 
   // Called from authentication middleware on every API request attempt.

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { secretApiKeyUpdatableFields } from "shared/validators";
 
 const memberRoleInfoValidator = z
   .object({
@@ -39,6 +40,18 @@ export const postApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
 });
+
+// Full-replacement update: every permission field is required so a partial
+// body can't silently strip a key's env/project restrictions. Only the
+// description is preserved when omitted.
+export const putApiKeyValidator = secretApiKeyUpdatableFields
+  .required({
+    role: true,
+    limitAccessByEnvironment: true,
+    environments: true,
+    projectRoles: true,
+  })
+  .strict();
 
 export const putApiKeyDisabledValidator = z.strictObject({
   disabled: z.boolean(),

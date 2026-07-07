@@ -5,6 +5,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   postApiKeyValidator,
   putApiKeyDisabledValidator,
+  putApiKeyValidator,
   putDefaultRoleValidator,
   putMemberProjectRoleValidator,
 } from "./organizations.validators";
@@ -95,6 +96,13 @@ router.post(
   organizationsController.postApiKey,
 );
 router.delete("/keys", organizationsController.deleteApiKey);
+router.put(
+  "/keys/:id",
+  validateRequestMiddleware({
+    body: putApiKeyValidator,
+  }),
+  organizationsController.putApiKey,
+);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 router.put(
   "/keys/:id/disabled",

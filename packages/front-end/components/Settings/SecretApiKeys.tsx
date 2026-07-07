@@ -12,9 +12,11 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
+  const [editKey, setEditKey] = useState<ApiKeyInterface | null>(null);
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
+  const canUpdateKeys = permissionsUtils.canUpdateApiKey();
   const canDeleteKeys = permissionsUtils.canDeleteApiKey();
 
   const organizationSecretKeys = useMemo(
@@ -69,11 +71,15 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   return (
     <div className="mb-4">
-      {open && canCreateKeys && (
+      {((open && canCreateKeys) || (editKey && canUpdateKeys)) && (
         <ApiKeysModal
-          close={() => setOpen(false)}
+          close={() => {
+            setOpen(false);
+            setEditKey(null);
+          }}
           onCreate={mutate}
           personalAccessToken={false}
+          existingKey={editKey ?? undefined}
         />
       )}
 
@@ -91,6 +97,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
             onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
+            onEdit={canUpdateKeys ? setEditKey : undefined}
           />
         )}
         {canCreateKeys && (

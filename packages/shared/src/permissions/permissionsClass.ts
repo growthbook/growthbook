@@ -113,6 +113,10 @@ export class Permissions {
     return this.checkGlobalPermission("manageApiKeys");
   };
 
+  public canUpdateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
   public canDeleteApiKey = (): boolean => {
     return this.checkGlobalPermission("manageApiKeys");
   };

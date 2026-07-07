@@ -25,6 +25,7 @@ type ApiKeysTableProps = {
     keyId: string | undefined,
     disabled: boolean,
   ) => () => Promise<void>;
+  onEdit?: (key: ApiKeyInterface) => void;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -34,6 +35,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   canDeleteKeys,
   onReveal,
   onToggleDisabled,
+  onEdit,
 }) => {
   const { organization } = useUser();
   const { projects } = useDefinitions();
@@ -41,6 +43,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
+  const showActionsCol = canDeleteKeys || !!onEdit;
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="table mb-3 appbox gbtable">
@@ -54,7 +57,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <th key={env.id}>{env.id}</th>
             ))}
             <th>Last Used</th>
-            {canDeleteKeys && <th style={{ width: 30 }}></th>}
+            {showActionsCol && <th style={{ width: 30 }}></th>}
           </tr>
         </thead>
         <tbody>
@@ -151,9 +154,21 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   </Tooltip>
                 )}
               </td>
-              {canDeleteKeys && (
+              {showActionsCol && (
                 <td>
                   <MoreMenu useRadix={false}>
+                    {/* Legacy keys created before ids existed can't be edited in place */}
+                    {onEdit && key.id && (
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onEdit(key);
+                        }}
+                      >
+                        Edit key
+                      </button>
+                    )}
                     {onToggleDisabled && (
                       <button
                         className="dropdown-item"
@@ -165,13 +180,15 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                         {key.disabled ? "Enable key" : "Disable key"}
                       </button>
                     )}
-                    <DeleteButton
-                      useRadix={false}
-                      onClick={onDelete(key.id)}
-                      className="dropdown-item"
-                      displayName="API Key"
-                      text="Delete key"
-                    />
+                    {canDeleteKeys && (
+                      <DeleteButton
+                        useRadix={false}
+                        onClick={onDelete(key.id)}
+                        className="dropdown-item"
+                        displayName="API Key"
+                        text="Delete key"
+                      />
+                    )}
                   </MoreMenu>
                 </td>
               )}

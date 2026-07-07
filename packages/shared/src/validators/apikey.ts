@@ -60,6 +60,16 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     ),
 });
 
+// The only fields editable on an org secret key after creation. Shared so the
+// route validator and the model's canUpdate gate can't drift apart.
+export const secretApiKeyUpdatableFields = apiKeySchema.pick({
+  description: true,
+  role: true,
+  limitAccessByEnvironment: true,
+  environments: true,
+  projectRoles: true,
+});
+
 export const secretApiKey = apiKeySchema
   .omit({ id: true, secret: true, environment: true, project: true })
   .safeExtend({ id: z.string(), secret: z.literal(true) });
