@@ -171,6 +171,7 @@ export default function EnvironmentModal({
       )}
       <Field
         label="Display Name"
+        maxLength={30}
         {...form.register("displayName")}
         placeholder={existing.id || "e.g. Production"}
         helpText="Optional. Shown throughout the UI instead of the id. Leave blank to just show the id."

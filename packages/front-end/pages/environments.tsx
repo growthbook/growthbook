@@ -162,7 +162,9 @@ const EnvironmentsPage: FC = () => {
               return (
                 <TableRow key={e.id}>
                   <TableCell>
-                    <div>{getEnvironmentDisplayName(e)}</div>
+                    <Text as="p" mb="0">
+                      {getEnvironmentDisplayName(e)}
+                    </Text>
                     {e.displayName && e.displayName !== e.id && (
                       <Text as="p" size="small" color="text-mid" mb="0">
                         {e.id}
