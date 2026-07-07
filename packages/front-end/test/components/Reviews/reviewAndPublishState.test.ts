@@ -291,3 +291,44 @@ describe("getReviewAndPublishState", () => {
     });
   });
 });
+
+describe("waitingForReview", () => {
+  it("is set for a pending review with no primary action", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "pending-review" }),
+    );
+    expect(s.submitAction).toBe("none");
+    expect(s.waitingForReview).toBe(true);
+  });
+
+  it("is not set once the draft is approved", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "approved" }),
+    );
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is not set for changes-requested (the author holds the ball)", () => {
+    const s = getReviewAndPublishState(
+      base({ requireReviews: true, status: "changes-requested" }),
+    );
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is not set when an admin bypass makes the draft publishable", () => {
+    const s = getReviewAndPublishState(
+      base({
+        requireReviews: true,
+        status: "pending-review",
+        adminPublish: true,
+      }),
+    );
+    expect(s.submitAction).toBe("publish");
+    expect(s.waitingForReview).toBe(false);
+  });
+
+  it("is never set on the direct-publish path", () => {
+    const s = getReviewAndPublishState(base({ status: "pending-review" }));
+    expect(s.waitingForReview).toBe(false);
+  });
+});

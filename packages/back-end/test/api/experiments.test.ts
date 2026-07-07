@@ -230,6 +230,39 @@ describe("experiments API", () => {
       });
     });
 
+    it("serializes an enabled namespace with enabled: true so it round-trips", async () => {
+      const experimentWithNamespace = {
+        ...experiment,
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: true, name: "ns_1", range: [0, 0.5] },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(
+        experimentWithNamespace,
+      );
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiment.phases[0].namespace).toMatchObject({
+        namespaceId: "ns_1",
+        enabled: true,
+      });
+    });
+
     it("returns experiment with draft status", async () => {
       const draftExperiment = { ...experiment, status: "draft" };
       (getExperimentById as jest.Mock).mockResolvedValue(draftExperiment);
@@ -1532,6 +1565,141 @@ describe("experiments API", () => {
         { id: "v1", status: "active" },
         { id: "v0", status: "active" },
       ]);
+    });
+
+    it("honors the GET-response phase field names on a round-trip update", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Simulate echoing a GET response back: targeting/splits arrive under the
+      // response field names (targetingCondition / trafficSplit /
+      // reasonForStopping), which the update must honor.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              targetingCondition: '{"path":{"$in":["/checkout"]}}',
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reasonForStopping: "ramp down",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const updateCall = (updateExperiment as jest.Mock).mock.calls[0][0];
+      const phase = updateCall.changes.phases[0];
+      expect(phase.condition).toBe('{"path":{"$in":["/checkout"]}}');
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+      expect(phase.reason).toBe("ramp down");
+    });
+
+    it("maps trafficSplit weights by variationId, not array position", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue({
+        ...experiment,
+        variations: [
+          { id: "0", key: "control", name: "Control", screenshots: [] },
+          { id: "1", key: "treatment", name: "Treatment", screenshots: [] },
+        ],
+      });
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // trafficSplit reordered relative to the variations: weights must still
+      // land on the right variation (0 -> 0.9, 1 -> 0.1), not by position.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              trafficSplit: [
+                { variationId: "1", weight: 0.1 },
+                { variationId: "0", weight: 0.9 },
+              ],
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.variationWeights).toEqual([0.9, 0.1]);
+    });
+
+    it("honors variationId as an alias for id so variations round-trip", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      // Echoing GET variations back: they arrive with variationId, not id.
+      // Without the alias, id would be regenerated and identity would churn.
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          variations: [
+            { variationId: "v0", key: "control", name: "Control" },
+            { variationId: "v1", key: "treatment", name: "Treatment" },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const changes = (updateExperiment as jest.Mock).mock.calls[0][0].changes;
+      expect(changes.variations.map((v) => v.id)).toEqual(["v0", "v1"]);
+    });
+
+    it("prefers the POST-only phase fields when both they and their aliases are set", async () => {
+      (getExperimentById as jest.Mock).mockResolvedValue(experiment);
+      (updateExperiment as jest.Mock).mockImplementation(
+        ({ experiment, changes }) => ({ ...experiment, ...changes }),
+      );
+
+      const res = await request(app)
+        .post("/api/v1/experiments/exp_123")
+        .send({
+          phases: [
+            {
+              name: "Main",
+              dateStarted: "2026-01-01T00:00:00.000Z",
+              condition: '{"id":"post"}',
+              targetingCondition: '{"id":"response"}',
+              variationWeights: [0.7, 0.3],
+              trafficSplit: [
+                { variationId: "0", weight: 0.9 },
+                { variationId: "1", weight: 0.1 },
+              ],
+              reason: "post reason",
+              reasonForStopping: "response reason",
+            },
+          ],
+        })
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const phase = (updateExperiment as jest.Mock).mock.calls[0][0].changes
+        .phases[0];
+      expect(phase.condition).toBe('{"id":"post"}');
+      expect(phase.variationWeights).toEqual([0.7, 0.3]);
+      expect(phase.reason).toBe("post reason");
     });
 
     it("force-syncs phase variations in mixed phases plus top-level variations updates", async () => {
