@@ -279,14 +279,11 @@ tags:
     description: >-
       Server metadata, including the running build's version and commit for
       version-skew checks.
-  - name: contextual-bandits
-    x-displayName: contextual-bandits
+  - name: ContextualBandits
+    x-displayName: Contextual Bandits
     description: ''
   - name: Dashboards
     x-displayName: Dashboards
-    description: ''
-  - name: ContextualBandits
-    x-displayName: Contextual Bandits
     description: ''
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
@@ -11561,6 +11558,11 @@ paths:
                     properties:
                       id:
                         type: string
+                      variationId:
+                        description: >-
+                          Alias for `id`. Mirrors the GET response. `id` takes
+                          precedence.
+                        type: string
                       key:
                         type: string
                       name:
@@ -11646,8 +11648,21 @@ paths:
                             - condition
                           additionalProperties: false
                       reason:
+                        description: >-
+                          Deprecated: use `reasonForStopping`. Takes precedence
+                          if set.
+                        deprecated: true
                         type: string
                       condition:
+                        description: >-
+                          Deprecated: use `targetingCondition`. Takes precedence
+                          if set.
+                        deprecated: true
+                        type: string
+                      targetingCondition:
+                        description: >-
+                          Targeting condition as a JSON string. Mirrors the GET
+                          response.
                         type: string
                       savedGroupTargeting:
                         type: array
@@ -11669,9 +11684,27 @@ paths:
                             - savedGroups
                           additionalProperties: false
                       variationWeights:
+                        description: >-
+                          Deprecated: use `trafficSplit`. Takes precedence if
+                          set.
+                        deprecated: true
                         type: array
                         items:
                           type: number
+                      trafficSplit:
+                        description: Per-variation weights. Mirrors the GET response.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                          required:
+                            - variationId
+                            - weight
+                          additionalProperties: false
                     required:
                       - name
                       - dateStarted
@@ -12173,6 +12206,11 @@ paths:
                     properties:
                       id:
                         type: string
+                      variationId:
+                        description: >-
+                          Alias for `id`. Mirrors the GET response. `id` takes
+                          precedence.
+                        type: string
                       key:
                         type: string
                       name:
@@ -12252,8 +12290,21 @@ paths:
                             - condition
                           additionalProperties: false
                       reason:
+                        description: >-
+                          Deprecated: use `reasonForStopping`. Takes precedence
+                          if set.
+                        deprecated: true
                         type: string
                       condition:
+                        description: >-
+                          Deprecated: use `targetingCondition`. Takes precedence
+                          if set.
+                        deprecated: true
+                        type: string
+                      targetingCondition:
+                        description: >-
+                          Targeting condition as a JSON string. Mirrors the GET
+                          response.
                         type: string
                       savedGroupTargeting:
                         type: array
@@ -12275,9 +12326,27 @@ paths:
                             - savedGroups
                           additionalProperties: false
                       variationWeights:
+                        description: >-
+                          Deprecated: use `trafficSplit`. Takes precedence if
+                          set.
+                        deprecated: true
                         type: array
                         items:
                           type: number
+                      trafficSplit:
+                        description: Per-variation weights. Mirrors the GET response.
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                          required:
+                            - variationId
+                            - weight
+                          additionalProperties: false
                     required:
                       - name
                       - dateStarted
@@ -13208,7 +13277,7 @@ paths:
       operationId: getContextualBanditCurrentWeights
       summary: Get current Contextual Bandit leaf weights and latest event
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13268,7 +13337,7 @@ paths:
       operationId: listContextualBanditSnapshots
       summary: List Contextual Bandit snapshots
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13311,7 +13380,7 @@ paths:
       operationId: getContextualBanditSnapshot
       summary: Get a single Contextual Bandit snapshot
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13346,7 +13415,7 @@ paths:
       operationId: listContextualBanditEvents
       summary: List Contextual Bandit weight-update events
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13388,7 +13457,7 @@ paths:
       operationId: getContextualBanditEvent
       summary: Get a single Contextual Bandit weight-update event
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13430,7 +13499,7 @@ paths:
         contextual bandit. Same payload the GrowthBook UI uses to render the
         contextual bandit results table.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13728,7 +13797,7 @@ paths:
         state, per-environment rule state, and variation values. Same payload
         the GrowthBook UI uses to render the Linked Features section.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13773,7 +13842,7 @@ paths:
         auto-publish. The feature's `contextual-bandit-ref` rule itself is left
         untouched.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -52551,9 +52620,8 @@ x-tagGroups:
       - attributes
       - usage
       - meta
-      - contextual-bandits
-      - Dashboards
       - ContextualBandits
+      - Dashboards
       - ContextualBanditQueries
       - CustomFields
       - MetricGroups

@@ -17,6 +17,7 @@ import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -65,7 +66,6 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
-import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
