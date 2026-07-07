@@ -7,6 +7,7 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { filterEnvironmentsByFeature } from "shared/util";
+import { hasTargetingConfigured } from "shared/experiments";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
@@ -88,11 +89,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       .filter(([, s]) => s?.enabled)
       .map(([id]) => id);
 
-    const hasCondition =
-      (holdoutExperiment.phases[0].condition &&
-        holdoutExperiment.phases[0].condition !== "{}") ||
-      !!holdoutExperiment.phases[0].savedGroups?.length ||
-      !!holdoutExperiment.phases[0].prerequisites?.length;
+    const hasCondition = hasTargetingConfigured(holdoutExperiment.phases[0]);
 
     const canEdit =
       permissionsUtil.canViewFeatureModal(feature.project) &&

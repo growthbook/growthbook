@@ -48,7 +48,12 @@ export function buildFilterUrl(
 
 // Props for <SortedTags> to link each tag to `/${entity}?q=tag:"..."`.
 export function tagLinkProps(
-  entity: "features" | "experiments" | "metrics" | "bandits",
+  entity:
+    | "features"
+    | "experiments"
+    | "metrics"
+    | "bandits"
+    | "contextual-bandits",
 ) {
   return {
     getTagHref: (tag: string) => buildFilterUrl(`/${entity}`, "tag", tag),
