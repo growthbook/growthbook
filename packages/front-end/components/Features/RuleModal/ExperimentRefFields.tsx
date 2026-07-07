@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -11,7 +11,11 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
+  getConfigBackingKey,
+  getConfigSubtree,
+  ensureConfigBacking,
 } from "shared/util";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -53,8 +57,41 @@ export default function ExperimentRefFields({
   const form = useFormContext();
 
   const { experiments, experimentsMap } = useExperiments();
+  const { configs } = useDefinitions();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
+
+  // Config-backed JSON flags: every arm value is a sparse patch that serves the
+  // default's config (the compiler flattens the config under an object arm), so
+  // the arms use the config-backing editor, the sparse toggle is dropped, and
+  // each arm is seeded with the config backing. Mirrors StandardRuleFields, and
+  // corrects rules created via the v2 REST API that carry no `sparse` flag.
+  const defaultConfigKey =
+    feature.valueType === "json"
+      ? getConfigBackingKey(feature.defaultValue)
+      : null;
+  const isConfigBacked = defaultConfigKey !== null;
+  const configBackingOptionKeys = useMemo(
+    () =>
+      defaultConfigKey
+        ? getConfigSubtree(defaultConfigKey, configs)
+        : undefined,
+    [defaultConfigKey, configs],
+  );
+
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    if (!form.watch("sparse")) form.setValue("sparse", true);
+    const vars = (form.getValues("variations") as { value: string }[]) || [];
+    vars.forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value, defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+    // Re-run if the default re-points to a different config; `form` is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigBacked, defaultConfigKey]);
 
   const experimentOptions = experiments
     .filter(
@@ -176,7 +213,8 @@ export default function ExperimentRefFields({
         <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
           <Flex align="center" gap="3" mb="3">
             <label className="mb-0">Variation Values</label>
-            {feature.valueType === "json" &&
+            {!isConfigBacked &&
+              feature.valueType === "json" &&
               parsePlainJSONObject(feature.defaultValue) !== null && (
                 <SparsePatchToggle
                   checked={!!form.watch("sparse")}
@@ -214,6 +252,10 @@ export default function ExperimentRefFields({
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
               sparse={!!form.watch("sparse")}
+              allowConfigBacking={isConfigBacked}
+              configBackingOptionKeys={configBackingOptionKeys}
+              configBackingShowPatch={isConfigBacked}
+              lockConfigBacking={isConfigBacked}
             />
           ))}
         </Box>
