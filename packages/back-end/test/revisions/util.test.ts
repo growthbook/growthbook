@@ -210,9 +210,10 @@ describe("isRevisionDiverged", () => {
   };
 
   const snapshotOf = (entity: Record<string, unknown>) =>
-    savedGroupAdapter.buildSnapshot(
-      entity as never,
-    ) as unknown as Record<string, unknown>;
+    savedGroupAdapter.buildSnapshot(entity as never) as unknown as Record<
+      string,
+      unknown
+    >;
 
   it("is not diverged when the live document only differs in representation", () => {
     // Regression for raw stored documents carrying representation-only
