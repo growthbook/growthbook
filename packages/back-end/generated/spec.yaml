@@ -279,14 +279,11 @@ tags:
     description: >-
       Server metadata, including the running build's version and commit for
       version-skew checks.
-  - name: contextual-bandits
-    x-displayName: contextual-bandits
+  - name: ContextualBandits
+    x-displayName: Contextual Bandits
     description: ''
   - name: Dashboards
     x-displayName: Dashboards
-    description: ''
-  - name: ContextualBandits
-    x-displayName: Contextual Bandits
     description: ''
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
@@ -13280,7 +13277,7 @@ paths:
       operationId: getContextualBanditCurrentWeights
       summary: Get current Contextual Bandit leaf weights and latest event
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13340,7 +13337,7 @@ paths:
       operationId: listContextualBanditSnapshots
       summary: List Contextual Bandit snapshots
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13383,7 +13380,7 @@ paths:
       operationId: getContextualBanditSnapshot
       summary: Get a single Contextual Bandit snapshot
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13418,7 +13415,7 @@ paths:
       operationId: listContextualBanditEvents
       summary: List Contextual Bandit weight-update events
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13460,7 +13457,7 @@ paths:
       operationId: getContextualBanditEvent
       summary: Get a single Contextual Bandit weight-update event
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13502,7 +13499,7 @@ paths:
         contextual bandit. Same payload the GrowthBook UI uses to render the
         contextual bandit results table.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13800,7 +13797,7 @@ paths:
         state, per-environment rule state, and variation values. Same payload
         the GrowthBook UI uses to render the Linked Features section.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -13845,7 +13842,7 @@ paths:
         auto-publish. The feature's `contextual-bandit-ref` rule itself is left
         untouched.
       tags:
-        - contextual-bandits
+        - ContextualBandits
       parameters:
         - name: id
           in: path
@@ -50487,9 +50484,8 @@ x-tagGroups:
       - attributes
       - usage
       - meta
-      - contextual-bandits
-      - Dashboards
       - ContextualBandits
+      - Dashboards
       - ContextualBanditQueries
       - CustomFields
       - MetricGroups
