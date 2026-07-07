@@ -229,6 +229,7 @@ By default the plugin generates a random UUID for the user and stores it in a co
 - `uuidKey` - The attribute key to use for the uuid (default is `id`)
 - `uuid` - Pass in your own user id instead of having the plugin generate a random one.
 - `uuidCookieName` - The name of the cookie to use for the generated uuid (default is `gb_uuid`)
+- `uuidCookieDomain` - Scope the uuid cookie to a parent domain (e.g. `".example.com"`) so the same anonymous id is shared across subdomains. Recommended if you run experiments that redirect users between subdomains, otherwise the visitor gets a new id (and can be re-bucketed) on the destination subdomain.
 - `uuidAutoPersist` - If `false`, the generated id will NOT be stored in a cookie automatically. Default depends on the `uuid` option. If `uuid` is set, the default is `false`. Otherwise, the default is `true`.
 
 If you have a cookie consent banner, you can set `uuidAutoPersist` to `false` and then later manually trigger the cookie to be saved by calling:
