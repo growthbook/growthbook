@@ -1,11 +1,16 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaFilter, FaTimes } from "react-icons/fa";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { IconButton } from "@radix-ui/themes";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { getRoleDisplayName } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -155,38 +160,47 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               </td>
               {canDeleteKeys && (
                 <td>
-                  <MoreMenu useRadix={false}>
-                    {/* Only org secret keys (not PATs) can be edited in place */}
-                    {onEdit && key.secret && !key.userId && (
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          onEdit(key);
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                    variant="soft"
+                  >
+                    <DropdownMenuGroup>
+                      {/* Only org secret keys (not PATs) can be edited in place */}
+                      {onEdit && key.secret && !key.userId && (
+                        <DropdownMenuItem onClick={() => onEdit(key)}>
+                          Edit permissions
+                        </DropdownMenuItem>
+                      )}
+                      {onToggleDisabled && (
+                        <DropdownMenuItem onClick={() => setPendingToggle(key)}>
+                          {key.disabled ? "Enable key" : "Disable key"}
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        color="red"
+                        confirmation={{
+                          submit: onDelete(key.id),
+                          confirmationTitle: "Delete API Key",
+                          cta: "Delete",
+                          getConfirmationContent: async () =>
+                            "Are you sure? This action cannot be undone.",
                         }}
                       >
-                        Edit permissions
-                      </button>
-                    )}
-                    {onToggleDisabled && (
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setPendingToggle(key);
-                        }}
-                      >
-                        {key.disabled ? "Enable key" : "Disable key"}
-                      </button>
-                    )}
-                    <DeleteButton
-                      useRadix={false}
-                      onClick={onDelete(key.id)}
-                      className="dropdown-item"
-                      displayName="API Key"
-                      text="Delete key"
-                    />
-                  </MoreMenu>
+                        Delete key
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenu>
                 </td>
               )}
             </tr>

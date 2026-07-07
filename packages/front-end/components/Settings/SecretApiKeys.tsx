@@ -1,9 +1,11 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import HistoryTable from "@/components/HistoryTable";
 import ApiKeysModal from "./ApiKeysModal";
 
@@ -120,13 +122,13 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       </div>
 
       {canCreateKeys && (
-        <div className="mt-4">
-          <p className="text-gray">
+        <Box mt="4">
+          <Text as="p" color="text-mid">
             History of secret API key changes, including creation, permission
             edits, enabling/disabling, and deletion.
-          </p>
+          </Text>
           <HistoryTable type="apiKey" showName showType />
-        </div>
+        </Box>
       )}
     </div>
   );
