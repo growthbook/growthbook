@@ -8,6 +8,7 @@ import { ApiReqContext, ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
   buildSnapshotSettingsForCb,
+  contextualBanditWeightsWereUpdated,
   getContextualBanditResultsForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
@@ -556,6 +557,101 @@ describe("persistContextualBanditEvent", () => {
 
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("contextualBanditWeightsWereUpdated", () => {
+  const variations = [{ id: "v0" }, { id: "v1" }];
+
+  /** Persisted leaf weights matching what makeResult() produces. */
+  function currentFromResult() {
+    return leafWeightsFromContextualBanditResult(makeResult(), variations);
+  }
+
+  it("returns false when leaves, ids, and weights are unchanged", () => {
+    expect(
+      contextualBanditWeightsWereUpdated(
+        makeResult(),
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(false);
+  });
+
+  it("returns true when a leaf's weights change", () => {
+    const result = makeResult();
+    result.responses[0].updatedWeights = [0.9, 0.1];
+    expect(
+      contextualBanditWeightsWereUpdated(
+        result,
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true when a leaf is added", () => {
+    const result = makeResult();
+    result.responses.push({
+      context: { country: "MX" },
+      sampleSizePerVariation: [10, 10],
+      sampleMeans: [0.1, 0.1],
+      updatedWeights: [0.5, 0.5],
+      bestArmProbabilities: [0.5, 0.5],
+      updateMessage: "ok",
+    });
+    result.leaf_map.push({
+      context: { country: "MX", device: "desktop" },
+      leafId: 2,
+    });
+    expect(
+      contextualBanditWeightsWereUpdated(
+        result,
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true when a leaf is removed (persisted set shrinks)", () => {
+    const result = makeResult();
+    // Drop the CA leaf; the US leaf's condition and weights are unchanged.
+    result.responses = [result.responses[0]];
+    result.leaf_map = [result.leaf_map[0]];
+    expect(
+      contextualBanditWeightsWereUpdated(
+        result,
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(true);
+  });
+
+  it("returns true when a leafId is renumbered for an unchanged condition", () => {
+    const result = makeResult();
+    // Same conditions and weights, but the tree relabeled the leaves.
+    result.leaf_map = [
+      { context: { country: "US", device: "mobile" }, leafId: 5 },
+      { context: { country: "CA", device: "desktop" }, leafId: 6 },
+    ];
+    expect(
+      contextualBanditWeightsWereUpdated(
+        result,
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false for a no-weight run (patchLeafWeights keeps the persisted set)", () => {
+    const result = makeResult({ responses: [], leaf_map: [] });
+    expect(
+      contextualBanditWeightsWereUpdated(
+        result,
+        currentFromResult(),
+        variations,
+      ),
+    ).toBe(false);
   });
 });
 

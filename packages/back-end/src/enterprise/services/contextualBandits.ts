@@ -275,31 +275,47 @@ export function leafWeightsFromContextualBanditResult(
   return leafWeights;
 }
 
-/** True when any leaf's updated weights differ from the current persisted leaf weights, keyed on the leaf's targeting condition. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   currentLeafWeights: LeafWeight[],
   variations: { id: string }[],
 ): boolean {
+  const newLeafWeights = leafWeightsFromContextualBanditResult(
+    result,
+    variations,
+  );
+
+  // A run with no updated weights leaves the persisted leaf weights untouched
+  // (`patchLeafWeights` skips empty arrays), so there is nothing to sync.
+  if (newLeafWeights.length === 0) {
+    return false;
+  }
+
+  // Conditions are unique per leaf (leaves partition the context space), so a
+  // length mismatch means at least one leaf was added or removed. Additions
+  // are also caught below; this check is what catches pure removals.
+  if (newLeafWeights.length !== currentLeafWeights.length) {
+    return true;
+  }
+
   const currentByCondition = new Map(
     currentLeafWeights.map((lw) => [
       JSON.stringify(lw.condition),
-      lw.weights.map((p) => p.weight),
+      { leafId: lw.leafId, weights: lw.weights.map((p) => p.weight) },
     ]),
   );
 
-  return leafWeightsFromContextualBanditResult(result, variations).some(
-    (lw) => {
-      const current = currentByCondition.get(JSON.stringify(lw.condition));
-      if (!current) {
-        return true;
-      }
-      return (
-        JSON.stringify(current) !==
+  return newLeafWeights.some((lw) => {
+    const current = currentByCondition.get(JSON.stringify(lw.condition));
+    if (!current) {
+      return true;
+    }
+    return (
+      current.leafId !== lw.leafId ||
+      JSON.stringify(current.weights) !==
         JSON.stringify(lw.weights.map((p) => p.weight))
-      );
-    },
-  );
+    );
+  });
 }
 
 /** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
