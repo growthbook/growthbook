@@ -280,22 +280,30 @@ export default function ExplorerSideBar({
             <GraphTypeSelector />
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-            <Text weight="medium">Date Range</Text>
-            {dashboardDateRange ? (
-              <Switch
-                size="1"
-                value={useDashboardDateControl}
-                onChange={(checked) =>
-                  onGlobalControlSettingsChange?.({ dateRange: checked })
-                }
-                label="Use dashboard date range"
-                description={
-                  useDashboardDateControl
-                    ? "This block uses the dashboard date range."
-                    : "This block uses its own date range."
-                }
-              />
-            ) : null}
+            <Flex justify="between" align="center" gap="2" width="100%">
+              <Text weight="medium">Date Range</Text>
+              {dashboardDateRange ? (
+                <Switch
+                  size="1"
+                  value={useDashboardDateControl}
+                  onChange={(checked) =>
+                    onGlobalControlSettingsChange?.({ dateRange: checked })
+                  }
+                  label={
+                    <Flex direction="row" align="center" gap="1">
+                      Use dashboard date range
+                      <Tooltip
+                        body={
+                          useDashboardDateControl
+                            ? "This block uses the dashboard date range."
+                            : "This block uses its own date range."
+                        }
+                      />
+                    </Flex>
+                  }
+                />
+              ) : null}
+            </Flex>
             {dashboardDateRange && useDashboardDateControl ? (
               <Flex
                 p="2"
