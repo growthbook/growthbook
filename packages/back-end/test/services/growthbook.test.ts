@@ -19,7 +19,7 @@ describe("parseAppFeatureDefaults", () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it("maps feature keys to defaultValue definitions", () => {
+  it("parses a JSON object of feature keys to values", () => {
     expect(
       parseAppFeatureDefaults(
         JSON.stringify({
@@ -31,11 +31,11 @@ describe("parseAppFeatureDefaults", () => {
         }),
       ),
     ).toEqual({
-      "boolean-flag": { defaultValue: true },
-      "string-flag": { defaultValue: "hello" },
-      "number-flag": { defaultValue: 42 },
-      "json-flag": { defaultValue: { nested: ["a", "b"] } },
-      "null-flag": { defaultValue: null },
+      "boolean-flag": true,
+      "string-flag": "hello",
+      "number-flag": 42,
+      "json-flag": { nested: ["a", "b"] },
+      "null-flag": null,
     });
     expect(logger.error).not.toHaveBeenCalled();
   });

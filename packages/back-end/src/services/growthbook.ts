@@ -1,5 +1,4 @@
 import {
-  FeatureDefinitions,
   GrowthBookClient,
   setPolyfills,
   EVENT_EXPERIMENT_VIEWED,
@@ -13,6 +12,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { logger } from "back-end/src/util/logger";
 import {
   APP_FEATURE_DEFAULTS,
+  DISABLE_APP_FEATURE_FETCH,
   GB_SDK_ID,
   IS_CLOUD,
   IS_MULTI_ORG,
@@ -27,6 +27,12 @@ setPolyfills({ EventSource });
 let gbClient: GrowthBookClient<AppFeatures> | null = null;
 let initPromise: Promise<void> | null = null;
 let gbInitSucceeded = false;
+let nextInitRetryAt = 0;
+
+// How long to wait after a failed init before retrying. Keeps air-gapped
+// self-hosted deployments (and cloud during a CDN outage) from attempting a
+// fetch on every request.
+const INIT_RETRY_BACKOFF_MS = 60_000;
 
 function resetGrowthBookClientState(): void {
   if (gbClient) {
@@ -40,20 +46,14 @@ function resetGrowthBookClientState(): void {
 const appFeatureDefaultsSchema = z.record(z.string(), z.unknown());
 
 /**
- * Parse the APP_FEATURE_DEFAULTS env JSON ('{"feature-key": value}') into SDK
- * feature definitions. Invalid config is logged and treated as empty.
+ * Parse the APP_FEATURE_DEFAULTS env JSON ('{"feature-key": value}') into a
+ * map of feature keys to values. Invalid config is logged and treated as empty.
  */
-export function parseAppFeatureDefaults(raw: string): FeatureDefinitions {
+export function parseAppFeatureDefaults(raw: string): Record<string, unknown> {
   if (!raw) return {};
 
   try {
-    const parsed = appFeatureDefaultsSchema.parse(JSON.parse(raw));
-    return Object.fromEntries(
-      Object.entries(parsed).map(([key, value]) => [
-        key,
-        { defaultValue: value },
-      ]),
-    );
+    return appFeatureDefaultsSchema.parse(JSON.parse(raw));
   } catch (error) {
     logger.error(
       { err: error },
@@ -64,18 +64,29 @@ export function parseAppFeatureDefaults(raw: string): FeatureDefinitions {
 }
 
 /**
- * Self-hosted deployments never talk to GrowthBook Cloud. This client
- * evaluates everything locally: features resolve to APP_FEATURE_DEFAULTS (or
- * null/false/inline fallback when unset) and inline experiments return the
- * control variation with inExperiment=false. No tracking, no network calls.
+ * Self-hosted deployments fetch the app's feature flags from the GrowthBook
+ * CDN when outbound network access is available, but never send telemetry
+ * (set DISABLE_APP_FEATURE_FETCH to suppress the fetch too). Flags pinned via
+ * APP_FEATURE_DEFAULTS always win over fetched values, and while the CDN is
+ * unreachable the remaining flags resolve to their fallback values
+ * (false/null/inline default). Inline experiments return the control
+ * variation with inExperiment=false.
  */
 function createSelfHostedGrowthBookClient(): GrowthBookClient<AppFeatures> {
+  const forcedFeatureValues = new Map(
+    Object.entries(parseAppFeatureDefaults(APP_FEATURE_DEFAULTS)),
+  );
+
   return new GrowthBookClient<AppFeatures>({
+    ...(DISABLE_APP_FEATURE_FETCH
+      ? {}
+      : { apiHost: "https://cdn.growthbook.io", clientKey: GB_SDK_ID }),
     globalAttributes: {
       cloud: IS_CLOUD,
       multiOrg: IS_MULTI_ORG,
       requestSource: "backend",
     },
+    forcedFeatureValues,
     enabled: false,
   });
 }
@@ -224,7 +235,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> {
 export function getGrowthBookClient(): GrowthBookClient<AppFeatures> {
   const client = ensureGrowthBookClient();
 
-  if (!gbInitSucceeded && !initPromise) {
+  if (!gbInitSucceeded && !initPromise && Date.now() >= nextInitRetryAt) {
     void initializeGrowthBookClient();
   }
 
@@ -234,14 +245,12 @@ export function getGrowthBookClient(): GrowthBookClient<AppFeatures> {
 async function runGrowthBookClientInit(): Promise<void> {
   const client = ensureGrowthBookClient();
 
-  if (!IS_CLOUD) {
-    // Self-hosted: no cloud fetch; evaluate against local defaults only
-    await client.setPayload({
-      features: parseAppFeatureDefaults(APP_FEATURE_DEFAULTS),
-    });
+  if (!IS_CLOUD && DISABLE_APP_FEATURE_FETCH) {
+    // Offline mode: no outbound requests; flags resolve to
+    // APP_FEATURE_DEFAULTS (applied as forced values) or their fallbacks
     gbInitSucceeded = true;
     logger.info(
-      "GrowthBook client initialized in self-hosted mode - using local app feature defaults",
+      "GrowthBook client initialized in offline mode - app feature flags resolve to APP_FEATURE_DEFAULTS or fallback values",
     );
     return;
   }
@@ -252,9 +261,15 @@ async function runGrowthBookClientInit(): Promise<void> {
   });
 
   if (!success) {
-    logger.warn({ source, err: error }, "GrowthBook features not loaded");
+    logger.warn(
+      { source, err: error },
+      IS_CLOUD
+        ? "GrowthBook features not loaded"
+        : "GrowthBook app features not loaded (no connection to cdn.growthbook.io?) - flags resolve to APP_FEATURE_DEFAULTS or fallback values until the next retry; set DISABLE_APP_FEATURE_FETCH=true to stop fetching entirely",
+    );
     // SDK sets ready=true even with an empty payload; discard and retry later.
     resetGrowthBookClientState();
+    nextInitRetryAt = Date.now() + INIT_RETRY_BACKOFF_MS;
     return;
   }
 
@@ -268,14 +283,17 @@ async function runGrowthBookClientInit(): Promise<void> {
 /**
  * Initialize the GrowthBook client
  * Should be called once during application startup
- * On Cloud this fetches features and enables real-time updates via Server-Sent
- * Events; self-hosted deployments evaluate locally against APP_FEATURE_DEFAULTS
+ * Fetches features and enables real-time updates via Server-Sent Events. A
+ * failed fetch (e.g. self-hosted without outbound network access) is retried
+ * with a backoff; in the meantime flags resolve to APP_FEATURE_DEFAULTS or
+ * their fallback values
  */
 export async function initializeGrowthBookClient(): Promise<void> {
   if (initPromise) return initPromise;
 
   initPromise = runGrowthBookClientInit().catch((error) => {
     resetGrowthBookClientState();
+    nextInitRetryAt = Date.now() + INIT_RETRY_BACKOFF_MS;
     logger.error({ err: error }, "Failed to initialize GrowthBook client");
     // Don't throw - allow app to continue without feature flags
   });

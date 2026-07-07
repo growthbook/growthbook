@@ -37,11 +37,20 @@ export function getIngestorHost(): string {
   return INGESTOR_HOST || "https://us1.gb-ingest.com";
 }
 
-// Self-hosted deployments never fetch app feature flags from GrowthBook Cloud,
-// so back-end flags evaluate to their fallback values (false / null / inline
-// default). Set this to a JSON object of feature keys to values (e.g.
-// '{"my-flag": true}') to override specific flags. Ignored when IS_CLOUD is set.
+// Pins app feature flags to fixed values on self-hosted deployments. Set to a
+// JSON object of feature keys to values (e.g. '{"my-flag": true}'). Pinned
+// flags win over flags fetched from the GrowthBook CDN, and when the CDN is
+// unreachable the remaining flags evaluate to their fallback values
+// (false / null / inline default). Ignored when IS_CLOUD is set.
 export const APP_FEATURE_DEFAULTS = process.env.APP_FEATURE_DEFAULTS || "";
+
+// Self-hosted deployments fetch GrowthBook's own app feature flags from
+// cdn.growthbook.io. Set to "true" to disable all outbound flag fetching
+// (e.g. air-gapped networks); flags then resolve to APP_FEATURE_DEFAULTS or
+// their fallback values. Has no effect when IS_CLOUD is set.
+export const DISABLE_APP_FEATURE_FETCH = stringToBoolean(
+  process.env.DISABLE_APP_FEATURE_FETCH,
+);
 
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
