@@ -459,6 +459,9 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
+  sessionReplay?: {
+    enabled: boolean;
+  };
 };
 
 // Alias

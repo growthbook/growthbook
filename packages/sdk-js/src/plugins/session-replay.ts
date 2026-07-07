@@ -247,10 +247,7 @@ export function sessionReplayPlugin({
    * Upload one already-serialized chunk. Resolves on a 2xx response; throws
    * on a network failure or a non-2xx status so the caller (flushBuffer) can
    * detect the failure and revert the chunk so it gets retried on the next
-   * flush. The previous fire-and-forget pattern silently lost chunks whenever
-   * the ingestor was momentarily unavailable (dev hot reload, deploy bounce,
-   * brief 5xx) — catastrophic for chunk 0 because losing the FullSnapshot
-   * leaves a session unplayable.
+   * flush.
    *
    * Uses `keepalive: true` so a pagehide-triggered flush is still delivered
    * after the page tears down. Falls back to a non-keepalive request when
@@ -402,9 +399,7 @@ export function sessionReplayPlugin({
       });
 
       // Clear the live buffer SYNCHRONOUSLY before awaiting so emits arriving
-      // mid-flight land in a fresh buffer instead of being lost to a
-      // "clear-after-await" race. chunkIndex is NOT advanced yet — we only
-      // commit the advance once the send is acknowledged below.
+      // mid-flight land in a fresh buffer
       replayEvents.length = 0;
       bufferedBytes = 0;
 
@@ -508,14 +503,19 @@ export function sessionReplayPlugin({
 
   // forceNew skips the persisted-state resume check. Used by checkAndRotate
   // so in-page session rotations (MAX_DURATION / idle) always start with a
-  // fresh sessionStartedAt — without this, canResume restores the old
-  // sessionStartedAt and tooLong stays true on the next interval, looping forever.
+  // fresh sessionStartedAt
+  // Server-controlled enable/disable (org toggle + super-admin switch),
+  // delivered in the SDK payload.
+  const sessionReplayEnabled = (): boolean => {
+    const serverEnabled = gbRef?.getDecryptedPayload()?.sessionReplay?.enabled;
+    return serverEnabled ?? enabled;
+  };
+
   const startRecording = (forceNew = false) => {
     if (isRecording) return;
 
-    // Customer-side kill switch — set enabled: false on the plugin to
-    // suppress capture for this user/app instance.
-    if (!enabled) return;
+    // Enable/disable: server payload (org/admin) overrides
+    if (!sessionReplayEnabled()) return;
 
     // Honor browser-level Do Not Track / Global Privacy Control signals.
     // GPC is binding under California's CCPA/CPRA; DNT is courtesy. We
@@ -576,22 +576,10 @@ export function sessionReplayPlugin({
         // events rrweb emits today; see scrubEventUrls for the contract.
         const scrubbedEvent = scrubEventUrls(event, privacy?.url);
 
-        // Only deliberate user actions count as interaction. Anything else
-        // — DOM mutations, mouse drift, scroll, viewport resize from Chrome
-        // collapsing its address bar — leaves us with sessions that look
-        // empty in the replay because nothing visible changed. We restrict
-        // to rrweb IncrementalSource values that represent real input:
-        //   2  = MouseInteraction (click, dblclick, contextmenu, focus, blur)
-        //   5  = Input (form input value changes)
-        //   6  = TouchMove (touch input)
-        //   12 = Drag
-        // See rrweb-snapshot's IncrementalSource enum for the full list.
-        //
+        // Only deliberate user actions count as interaction.
         // Check this BEFORE the cap-and-push step so an interaction that
         // arrives while we're at the hard buffer cap (e.g. all flushes are
-        // failing) still flips hasUserInteraction. Otherwise a dropped
-        // interaction event could leave the session stuck in pre-interaction
-        // limbo and never flush.
+        // failing) still flips hasUserInteraction.
         if (event.type === 3) {
           const source = (event.data as { source?: number })?.source;
           if (source === 2 || source === 5 || source === 6 || source === 12) {
@@ -668,6 +656,12 @@ export function sessionReplayPlugin({
   // out so both call sites share the same logic.
   const checkAndRotate = () => {
     if (!isRecording) return;
+
+    // startRecording won't restart while the server flag is false.
+    if (gbRef?.getDecryptedPayload()?.sessionReplay?.enabled === false) {
+      stopRecording();
+      return;
+    }
     const now = Date.now();
     const tooLong = now - sessionStartedAt > MAX_DURATION_MS;
     // Idle rotation only applies once we've seen interaction — otherwise we'd
@@ -775,6 +769,13 @@ export function sessionReplayPlugin({
       if (document.visibilityState === "hidden") void flushBuffer();
     };
 
+    const onGrowthBookData = () => {
+      if (gbRef?.getDecryptedPayload()?.sessionReplay?.enabled === false) {
+        stopRecording();
+      }
+    };
+    document.addEventListener("growthbookdata", onGrowthBookData);
+
     window.addEventListener("pagehide", onPageHide);
     document.addEventListener("visibilitychange", onVisibilityHide);
 
@@ -783,6 +784,7 @@ export function sessionReplayPlugin({
       offExperiment();
       offEvent();
       stopRecording();
+      document.removeEventListener("growthbookdata", onGrowthBookData);
       window.removeEventListener("pagehide", onPageHide);
       document.removeEventListener("visibilitychange", onVisibilityHide);
     });
