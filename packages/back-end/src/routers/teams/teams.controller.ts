@@ -7,6 +7,7 @@ import {
   getContextFromReq,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
+import { assertRoleAssignmentAllowed } from "back-end/src/services/plan-limits";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
 // region POST /teams
@@ -47,6 +48,13 @@ export const postTeam = async (
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
+
+  // Pricing Phase 1: soft limit — block a team default role (global or
+  // per-project) other than admin when the plan's policy is admin-only.
+  assertRoleAssignmentAllowed(org, permissions.role);
+  (permissions.projectRoles || []).forEach((pr) =>
+    assertRoleAssignmentAllowed(org, pr.role),
+  );
 
   const existingTeamWithName = await context.models.teams.findByName(name);
 
@@ -120,6 +128,13 @@ export const updateTeam = async (
   }
 
   const { permissions, ...updates } = req.body;
+
+  // Pricing Phase 1: soft limit — block a team default role (global or
+  // per-project) other than admin when the plan's policy is admin-only.
+  assertRoleAssignmentAllowed(context.org, permissions.role);
+  (permissions.projectRoles || []).forEach((pr) =>
+    assertRoleAssignmentAllowed(context.org, pr.role),
+  );
   await context.models.teams.update(team, {
     ...updates,
     projectRoles: [],

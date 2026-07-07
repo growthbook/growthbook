@@ -59,6 +59,12 @@ export interface AuthContextValue {
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
   // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
   confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
+  // Pricing Phase 1: set when an API call returns a 402 plan_limit_exceeded, so
+  // a global upgrade modal can be shown. Rendered by a consumer inside
+  // UserContextProvider (UpgradeModal needs org context, which lives below
+  // AuthProvider). null when no limit was hit.
+  planLimitUpgrade: { source: string } | null;
+  dismissPlanLimitUpgrade: () => void;
   ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -84,6 +90,10 @@ export const AuthContext = React.createContext<AuthContextValue>({
   },
   fetchRaw: async () => new Response(),
   confirmIgnoreWarnings: async () => false,
+  planLimitUpgrade: null,
+  dismissPlanLimitUpgrade: () => {
+    /* do nothing */
+  },
   ssoConnectionId: "",
   orgId: null,
 });
@@ -245,6 +255,9 @@ export const AuthProvider: React.FC<{
     { warnings: string[]; resolve: (proceed: boolean) => void }[]
   >([]);
   const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
+  const [planLimitUpgrade, setPlanLimitUpgrade] = useState<{
+    source: string;
+  } | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -562,6 +575,21 @@ export const AuthProvider: React.FC<{
           throw new Error(responseData.message || "Action cancelled");
         }
 
+        // Pricing Phase 1: a 402 plan_limit_exceeded means a soft usage limit
+        // was hit. Surface the global upgrade modal as a safety net (most
+        // surfaces preempt the limit with a disabled control, but scoped-
+        // permission users or REST-parity paths can still reach the 402). The
+        // action still fails below so callers don't treat it as success.
+        if (
+          responseData.status === 402 &&
+          responseData.code === "plan_limit_exceeded"
+        ) {
+          const limit = responseData.details?.limit;
+          setPlanLimitUpgrade({
+            source: typeof limit === "string" ? `${limit}-limit` : "plan-limit",
+          });
+        }
+
         if (errorHandler) {
           errorHandler(responseData);
         }
@@ -679,6 +707,8 @@ export const AuthProvider: React.FC<{
         apiCall,
         fetchRaw,
         confirmIgnoreWarnings,
+        planLimitUpgrade,
+        dismissPlanLimitUpgrade: () => setPlanLimitUpgrade(null),
         ssoConnectionId,
         orgId,
         setOrgId,

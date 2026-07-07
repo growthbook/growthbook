@@ -51,6 +51,17 @@ export const apiErrorRegistry = {
       expectedStatuses: z.array(z.string()),
     }),
   },
+  plan_limit_exceeded: {
+    status: 402,
+    description: "The organization's plan does not allow this",
+    detailsSchema: z.object({
+      // Which Phase 1 limit was hit. `current`/`max` only apply to countable
+      // limits (projects); policy limits (environments, roles) omit them.
+      limit: z.enum(["projects", "environments", "roles"]),
+      current: z.number().optional(),
+      max: z.number().optional(),
+    }),
+  },
 } satisfies Record<
   string,
   { status: number; description: string; detailsSchema: z.ZodTypeAny }

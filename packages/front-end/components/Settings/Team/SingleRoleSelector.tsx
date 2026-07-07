@@ -7,7 +7,9 @@ import {
   roleSupportsEnvLimit,
   getRoleDisplayName,
 } from "shared/permissions";
+import { isRoleAllowed } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
+import HelperText from "@/ui/HelperText";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Switch from "@/ui/Switch";
@@ -32,7 +34,7 @@ export default function SingleRoleSelector({
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
 }) {
-  const { roles, hasCommercialFeature, organization } = useUser();
+  const { roles, hasCommercialFeature, organization, planLimits } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
   const deactivatedRoles = organization.deactivatedRoles || [];
@@ -58,6 +60,17 @@ export default function SingleRoleSelector({
   // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
   if (hasCustomRolesFeature && deactivatedRoles.length) {
     roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  // Pricing Phase 1: soft limit — under the admin-only policy, only the admin
+  // role can be newly assigned. Members who already hold another role keep it.
+  const roleLimited = roleOptions.some(
+    (r) => !isRoleAllowed(r.id, planLimits.rolePolicy),
+  );
+  if (roleLimited) {
+    roleOptions = roleOptions.filter((r) =>
+      isRoleAllowed(r.id, planLimits.rolePolicy),
+    );
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -146,6 +159,12 @@ export default function SingleRoleSelector({
         }}
         disabled={disabled}
       />
+
+      {roleLimited && (
+        <HelperText status="info" size="sm" mb="2">
+          Your plan only allows the Admin role. Upgrade to assign other roles.
+        </HelperText>
+      )}
 
       {roleSupportsEnvLimit(value.role, organization) &&
         envOptions.length > 1 && (

@@ -13,6 +13,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useEnvironmentLimit } from "@/hooks/useEnvironmentLimit";
 import { DocLink } from "@/components/DocLink";
 
 export default function EnvironmentModal({
@@ -36,6 +38,7 @@ export default function EnvironmentModal({
   });
   const { apiCall } = useAuth();
   const environments = useEnvironments();
+  const { defaultOnly, missingDefaultIds, atLimit } = useEnvironmentLimit();
 
   const { data: sdkConnectionData } = useSDKConnections();
   const sdkConnections = useMemo(() => {
@@ -60,6 +63,18 @@ export default function EnvironmentModal({
   const { refreshOrganization } = useUser();
 
   const { projects } = useDefinitions();
+
+  // Creating while every id the plan allows already exists — the back-end
+  // would reject with a 402, so offer the upgrade path instead of the form.
+  if (!existing.id && atLimit) {
+    return (
+      <UpgradeModal
+        close={close}
+        source="environment limit"
+        commercialFeature={null}
+      />
+    );
+  }
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -128,12 +143,15 @@ export default function EnvironmentModal({
       {!existing.id && (
         <SelectField
           value={form.watch("id") || ""}
-          options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
+          options={(defaultOnly
+            ? missingDefaultIds
+            : DEFAULT_ENVIRONMENT_IDS
+          ).map((id) => ({
             label: id,
             value: id,
           }))}
           sort={false}
-          createable
+          createable={!defaultOnly}
           isClearable
           formatCreateLabel={(value) =>
             `Use custom environment name "${value}"`
@@ -150,16 +168,23 @@ export default function EnvironmentModal({
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
           label="Id"
           helpText={
-            <>
+            defaultOnly ? (
               <div>
-                Only letters, numbers, hyphens, and underscores allowed. No
-                spaces.
+                Your plan only allows the default environments. Upgrade to
+                create custom environments.
               </div>
-              <div>
-                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-                <code>john_dev</code>
-              </div>
-            </>
+            ) : (
+              <>
+                <div>
+                  Only letters, numbers, hyphens, and underscores allowed. No
+                  spaces.
+                </div>
+                <div>
+                  Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+                  <code>john_dev</code>
+                </div>
+              </>
+            )
           }
         />
       )}

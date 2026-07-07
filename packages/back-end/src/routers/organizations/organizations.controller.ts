@@ -151,6 +151,10 @@ import {
   orgHasPremiumFeature,
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
+import {
+  assertRoleAssignmentAllowed,
+  getPlanLimits,
+} from "back-end/src/services/plan-limits";
 import { logger } from "back-end/src/util/logger";
 import { validatePriorSettings } from "back-end/src/util/priors";
 import {
@@ -459,6 +463,24 @@ export async function putMemberRole(
     });
   }
 
+  // Pricing Phase 1: soft limit — only a role CHANGE is gated; resubmitting a
+  // member's existing role (e.g. while editing an unrelated field) must not
+  // 402 an already-compliant-or-grandfathered assignment.
+  const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
+    (m) => m.id === id,
+  );
+  if (!existingMember || existingMember.role !== role) {
+    assertRoleAssignmentAllowed(org, role);
+  }
+  (projectRoles || []).forEach((pr) => {
+    const existingProjectRole = existingMember?.projectRoles?.find(
+      (epr) => epr.project === pr.project,
+    );
+    if (!existingProjectRole || existingProjectRole.role !== pr.role) {
+      assertRoleAssignmentAllowed(org, pr.role);
+    }
+  });
+
   let found = false;
   org.members.forEach((m) => {
     if (m.id === id) {
@@ -531,6 +553,17 @@ export async function putMemberProjectRole(
       message:
         "Your plan does not support providing users with project-level permissions.",
     });
+  }
+
+  // Pricing Phase 1: soft limit — only a role CHANGE is gated; resubmitting a
+  // member's existing project role must not 402 an already-compliant-or-
+  // grandfathered assignment.
+  const existingMember = org.members.find((m) => m.id === id);
+  const existingProjectRole = existingMember?.projectRoles?.find(
+    (pr) => pr.project === projectRole.project,
+  );
+  if (!existingProjectRole || existingProjectRole.role !== projectRole.role) {
+    assertRoleAssignmentAllowed(org, projectRole.role);
   }
 
   // Validate the project role
@@ -805,6 +838,22 @@ export async function putInviteRole(
     });
   }
 
+  // Pricing Phase 1: soft limit — only a role CHANGE is gated; resubmitting
+  // an invite's existing role (e.g. while editing an unrelated field) must
+  // not 402 an already-compliant-or-grandfathered assignment.
+  const existingInvite = originalInvites.find((m) => m.key === key);
+  if (!existingInvite || existingInvite.role !== role) {
+    assertRoleAssignmentAllowed(org, role);
+  }
+  (projectRoles || []).forEach((pr) => {
+    const existingProjectRole = existingInvite?.projectRoles?.find(
+      (epr) => epr.project === pr.project,
+    );
+    if (!existingProjectRole || existingProjectRole.role !== pr.role) {
+      assertRoleAssignmentAllowed(org, pr.role);
+    }
+  });
+
   let found = false;
 
   org.invites.forEach((m) => {
@@ -950,6 +999,7 @@ export async function getOrganization(
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
+    planLimits: getPlanLimits(org),
     licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     commercialFeatureLowestPlan: commercialFeatureLowestPlan,
@@ -1374,6 +1424,13 @@ export async function postInvite(
       message: "Invalid role",
     });
   }
+
+  // Pricing Phase 1: soft limit — block *inviting* with a non-admin role
+  // (global or per-project) when the plan's policy is admin-only.
+  assertRoleAssignmentAllowed(org, role);
+  (projectRoles || []).forEach((pr) =>
+    assertRoleAssignmentAllowed(org, pr.role),
+  );
 
   const license = getLicense();
   if (
@@ -2272,6 +2329,13 @@ export async function addOrphanedUser(
     });
   }
 
+  // Pricing Phase 1: soft limit — block *assigning* a non-admin role (global
+  // or per-project) when the plan's policy is admin-only.
+  assertRoleAssignmentAllowed(org, role);
+  (projectRoles || []).forEach((pr) =>
+    assertRoleAssignmentAllowed(org, pr.role),
+  );
+
   const license = getLicense();
   if (
     license &&
@@ -2447,6 +2511,14 @@ export async function putDefaultRole(
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
   }
+
+  // Pricing Phase 1: soft limit — the default role applies to every future
+  // new member, so (unlike an existing member's own role) it's always
+  // forward-looking and gated unconditionally, even when resaving unchanged.
+  assertRoleAssignmentAllowed(org, defaultRole.role);
+  (defaultRole.projectRoles || []).forEach((p) =>
+    assertRoleAssignmentAllowed(org, p.role),
+  );
 
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,

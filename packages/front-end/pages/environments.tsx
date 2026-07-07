@@ -15,6 +15,9 @@ import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useEnvironmentLimit } from "@/hooks/useEnvironmentLimit";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import EnvironmentConnectionsList from "@/components/Settings/EnvironmentConnectionsList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -71,6 +74,8 @@ const EnvironmentsPage: FC = () => {
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
+  const { atLimit: atEnvironmentLimit } = useEnvironmentLimit();
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   return (
     <div className="container-fluid pagecontents">
@@ -111,13 +116,39 @@ const EnvironmentsPage: FC = () => {
           Environments
         </Heading>
         {canCreate && (
-          <Button onClick={() => setModalOpen({})}>Add Environment</Button>
+          <Tooltip
+            body="Your plan only allows the default environments. Upgrade to create custom environments."
+            shouldDisplay={atEnvironmentLimit}
+          >
+            <Button
+              disabled={atEnvironmentLimit}
+              onClick={() => setModalOpen({})}
+            >
+              Add Environment
+            </Button>
+          </Tooltip>
         )}
       </Flex>
 
       <Text as="p" color="text-mid" mb="3">
         Manage which environments are available for your feature flags.
       </Text>
+
+      {atEnvironmentLimit && canCreate ? (
+        <Callout status="info" mb="3">
+          Your plan only allows the default environments.{" "}
+          <Link onClick={() => setUpgradeModal(true)}>Upgrade</Link> to create
+          custom environments.
+        </Callout>
+      ) : null}
+
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          source="environment limit"
+          commercialFeature={null}
+        />
+      )}
 
       {filteredEnvironments.length > 0 ? (
         <Table variant="list">

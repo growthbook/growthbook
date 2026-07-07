@@ -27,6 +27,7 @@ import {
 import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { assertEnvironmentCreateAllowed } from "back-end/src/services/plan-limits";
 
 type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
 
@@ -121,6 +122,15 @@ export const putEnvironments = async (
   const { org } = context;
   const environments = req.body.environments;
   const existingEnvs = org.settings?.environments || [];
+
+  // Pricing Phase 1: soft limit — block *adding* environments beyond the
+  // plan's policy; editing existing ones (even custom) stays allowed.
+  const currentIds = new Set(getEnvironments(org).map((e) => e.id));
+  environments.forEach((environment) => {
+    if (!currentIds.has(environment.id)) {
+      assertEnvironmentCreateAllowed(org, environment.id);
+    }
+  });
 
   // Add each environment to the list if it doesn't exist yet
   const updatedEnvironments = environments.reduce((acc, environment) => {
@@ -266,6 +276,10 @@ export const postEnvironment = async (
       message: `Environment ${environment.id} already exists`,
     });
   }
+
+  // Pricing Phase 1: soft limit — block creating non-default environments
+  // when the plan's policy is default-only.
+  assertEnvironmentCreateAllowed(org, environment.id);
 
   if (environment.parent && !DEFAULT_ENVIRONMENT_IDS.includes(environment.id)) {
     context.throwBadRequestError(

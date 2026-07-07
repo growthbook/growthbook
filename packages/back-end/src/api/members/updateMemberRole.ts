@@ -11,6 +11,7 @@ import {
   orgHasPremiumFeature,
   getLowestPlanPerFeature,
 } from "back-end/src/enterprise";
+import { assertRoleAssignmentAllowed } from "back-end/src/services/plan-limits";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -114,6 +115,13 @@ export const updateMemberRole = createApiRequestHandler(
     limitAccessByEnvironment: !!member.environments?.length,
   };
 
+  // Pricing Phase 1: soft limit — only a role CHANGE is gated; resubmitting a
+  // member's existing role (e.g. while editing an unrelated field) must not
+  // 402 an already-compliant-or-grandfathered assignment.
+  if (updatedMember.role !== orgUser.role) {
+    assertRoleAssignmentAllowed(req.context.org, updatedMember.role);
+  }
+
   // First, check the global role data
   const { memberIsValid, reason } = validateRoleAndEnvs(
     req.context.org,
@@ -135,6 +143,16 @@ export const updateMemberRole = createApiRequestHandler(
     }
     const updatedProjectRoles: ProjectMemberRole[] = [];
     member.projectRoles.forEach((updatedProjectRole) => {
+      const existingProjectRole = orgUser.projectRoles?.find(
+        (pr) => pr.project === updatedProjectRole.project,
+      );
+      if (
+        !existingProjectRole ||
+        existingProjectRole.role !== updatedProjectRole.role
+      ) {
+        assertRoleAssignmentAllowed(req.context.org, updatedProjectRole.role);
+      }
+
       const { memberIsValid, reason } = validateRoleAndEnvs(
         req.context.org,
         updatedProjectRole.role,

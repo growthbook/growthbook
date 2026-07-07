@@ -15,6 +15,7 @@ import {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  PlanLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { AIModel, EmbeddingModel } from "shared/ai";
@@ -453,6 +454,8 @@ export type GetOrganizationResponse = {
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
+  // Pricing Phase 1: resolved usage limits for this org (soft enforcement).
+  planLimits: PlanLimits;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   licenseError: string;
   commercialFeatures: CommercialFeature[];
