@@ -420,6 +420,15 @@ export function useAuditComparison<T>(
   // Single-entry selection has no steps — always use merged diff view.
   const diffViewMode = isSingleEntry ? "single" : diffViewModeStored;
 
+  // "Next version" has no meaning on the newest entry; clear a stale selection
+  // so the base selector never shows a disabled option as the active value.
+  const noNewerEntry = !!singleEntryFirst && flatIds[0] === singleEntryFirst.id;
+  useEffect(() => {
+    if (comparisonBase === "next" && noNewerEntry) {
+      setComparisonBase("current");
+    }
+  }, [comparisonBase, noNewerEntry]);
+
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
   // For synthetic create steps currentStep[0] is null, so pre is null

@@ -159,10 +159,7 @@ export default function CustomHooksPage() {
                   {hooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        <Link
-                          role="button"
-                          onClick={() => setViewCodeHook(hook)}
-                        >
+                        <Link onClick={() => setViewCodeHook(hook)}>
                           {hook.name}
                         </Link>
                         {!hook.enabled ? (
@@ -260,10 +257,7 @@ export default function CustomHooksPage() {
                   {featureHooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        <Link
-                          role="button"
-                          onClick={() => setViewCodeHook(hook)}
-                        >
+                        <Link onClick={() => setViewCodeHook(hook)}>
                           {hook.name}
                         </Link>
                         {!hook.enabled ? (
@@ -326,10 +320,7 @@ export default function CustomHooksPage() {
                   {configHooks.map((hook) => (
                     <TableRow key={hook.id}>
                       <TableCell>
-                        <Link
-                          role="button"
-                          onClick={() => setViewCodeHook(hook)}
-                        >
+                        <Link onClick={() => setViewCodeHook(hook)}>
                           {hook.name}
                         </Link>
                         {!hook.enabled ? (

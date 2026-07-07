@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { Context } from "back-end/src/models/BaseModel";
+import { NotFoundError } from "back-end/src/util/errors";
 import {
   countAuditByEntity,
   findAuditByEntity,
@@ -73,9 +74,8 @@ function parseSnapshot(details?: string): Record<string, unknown> | null {
     : null;
 }
 
-// Reconstruct the hook's version history from its audit log. Each create/update
-// event is one version (the state it produced). Newest first. Paginated at the
-// DB level via the audit query (limit/skip) rather than fetching everything.
+// Each create/update audit event is one version (its resulting state). Newest
+// first; paginated at the DB level (limit/skip) rather than loaded in full.
 export async function getCustomHookVersions(
   context: Context,
   id: string,
@@ -85,7 +85,7 @@ export async function getCustomHookVersions(
   }: { limit?: number; offset?: number } = {},
 ): Promise<{ versions: CustomHookVersion[]; total: number }> {
   const hook = await context.models.customHooks.getById(id);
-  if (!hook) throw new Error("Custom hook not found");
+  if (!hook) throw new NotFoundError("Custom hook not found");
 
   const [audits, total] = await Promise.all([
     findAuditByEntity(context.org.id, "customHook", id, {
@@ -103,10 +103,7 @@ export async function getCustomHookVersions(
     versions.push({
       auditId: a.id,
       event: a.event,
-      dateCreated:
-        a.dateCreated instanceof Date
-          ? a.dateCreated.toISOString()
-          : String(a.dateCreated),
+      dateCreated: asDate(a.dateCreated) ?? "",
       userName: "name" in a.user ? a.user.name : undefined,
       userEmail: "email" in a.user ? a.user.email : undefined,
       customHook: snapshotToApi(snapshot),
@@ -124,7 +121,7 @@ export async function revertCustomHookToVersion(
   auditId: string,
 ): Promise<CustomHookInterface> {
   const hook = await context.models.customHooks.getById(id);
-  if (!hook) throw new Error("Custom hook not found");
+  if (!hook) throw new NotFoundError("Custom hook not found");
 
   // Fetch the exact target event by id (still org + entity scoped) so revert
   // works for any version, not just those within the recent history window.
@@ -137,7 +134,9 @@ export async function revertCustomHookToVersion(
   );
   const snapshot = target && parseSnapshot(target.details);
   if (!snapshot) {
-    throw new Error("Could not find a snapshot to restore for that version");
+    throw new NotFoundError(
+      "Could not find a snapshot to restore for that version",
+    );
   }
 
   const updates: UpdateProps<CustomHookInterface> = {

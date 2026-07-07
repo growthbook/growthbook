@@ -324,9 +324,7 @@ function HooksTable({
             return (
               <TableRow key={hook.id}>
                 <TableCell>
-                  <Link role="button" onClick={() => setViewCodeHook(hook)}>
-                    {hook.name}
-                  </Link>
+                  <Link onClick={() => setViewCodeHook(hook)}>{hook.name}</Link>
                   {!hook.enabled ? (
                     <Badge color="gray" label="Disabled" ml="2" />
                   ) : null}

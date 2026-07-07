@@ -293,6 +293,11 @@ export default function CompareAuditEvents<T>({
 
   // App-wide preference: human-readable renders vs raw JSON diffs.
   const [format, setFormat] = useDiffFormat();
+  // The contentView toggle only offers formatted/json, but `format` is a shared
+  // preference that can be "raw" from another surface — coerce so we never land
+  // on a view the toggle can't switch away from.
+  const effectiveFormat =
+    contentView && format === "raw" ? "formatted" : format;
 
   /**
    * Returns [newestId, oldestId] for the time window: all entries whose dateEnd
@@ -1084,7 +1089,7 @@ export default function CompareAuditEvents<T>({
                       <Button
                         size="sm"
                         variant={
-                          !showContent && format === "formatted"
+                          !showContent && effectiveFormat === "formatted"
                             ? "solid"
                             : "outline"
                         }
@@ -1098,7 +1103,7 @@ export default function CompareAuditEvents<T>({
                       <Button
                         size="sm"
                         variant={
-                          !showContent && format === "json"
+                          !showContent && effectiveFormat === "json"
                             ? "solid"
                             : "outline"
                         }
@@ -1133,7 +1138,8 @@ export default function CompareAuditEvents<T>({
                   ) : (
                     <Text color="text-low">No content for this version.</Text>
                   )
-                ) : format === "formatted" && customRenderGroups.length > 0 ? (
+                ) : effectiveFormat === "formatted" &&
+                  customRenderGroups.length > 0 ? (
                   <Flex direction="column" gap="0">
                     {customRenderGroups.map(
                       ({ label, renders, suppressCardLabel }) => (
@@ -1160,7 +1166,7 @@ export default function CompareAuditEvents<T>({
                       ),
                     )}
                   </Flex>
-                ) : format === "raw" ? (
+                ) : effectiveFormat === "raw" ? (
                   // Non-sectional: a single diff of the entire before/after shape.
                   <Box my="3">
                     <ExpandableDiff

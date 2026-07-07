@@ -15,8 +15,6 @@ export const customHooksRoutes: OpenApiRoute[] = [
   // "test" segment would be captured as an id.
   testCustomHook,
   getCustomHook,
-  // History/revert routes have a static suffix, so order relative to the bare
-  // `:id` routes doesn't matter, but keep them grouped with the id routes.
   listCustomHookHistory,
   revertCustomHook,
   updateCustomHook,
