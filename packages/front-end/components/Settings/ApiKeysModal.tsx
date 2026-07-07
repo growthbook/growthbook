@@ -60,7 +60,7 @@ const ApiKeysModal: FC<{
   const onSubmit = form.handleSubmit(async (value) => {
     const { role, ...roleStateData } = roleState;
 
-    if (editMode && existingKey) {
+    if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
         method: "PUT",
         body: JSON.stringify({
