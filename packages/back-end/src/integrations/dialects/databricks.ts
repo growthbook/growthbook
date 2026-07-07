@@ -40,6 +40,10 @@ export const databricksDialect: SqlDialect = {
     const predicate = preds.length ? preds.join(" AND ") : "true";
     return `array_min(filter(${col}, x -> ${predicate}))`;
   },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `timestampadd(SECOND, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `(unix_millis(${endCol}) - unix_millis(${startCol}))`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":

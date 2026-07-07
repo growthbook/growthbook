@@ -39,6 +39,10 @@ export const prestoDialect: SqlDialect = {
     const predicate = preds.length ? preds.join(" AND ") : "true";
     return `array_min(filter(${col}, x -> ${predicate}))`;
   },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `date_add('second', ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `date_diff('millisecond', ${startCol}, ${endCol})`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(prestoDialect, values, metricTable, where),
 };

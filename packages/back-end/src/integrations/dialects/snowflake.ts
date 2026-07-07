@@ -41,6 +41,10 @@ export const snowflakeDialect: SqlDialect = {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     return `(SELECT MIN(${tExpr}) FROM TABLE(FLATTEN(input => ${col})) f ${where})`;
   },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATEDIFF(millisecond, ${startCol}, ${endCol})`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":

@@ -73,6 +73,10 @@ export const bigQueryDialect: SqlDialect = {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     return `(SELECT MIN(t) FROM UNNEST(${col}) AS t ${where})`;
   },
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `DATETIME_${sign === "+" ? "ADD" : "SUB"}(${col}, INTERVAL ${amount} SECOND)`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `DATETIME_DIFF(${endCol}, ${startCol}, MILLISECOND)`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
