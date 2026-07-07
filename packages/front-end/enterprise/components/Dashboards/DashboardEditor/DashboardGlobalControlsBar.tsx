@@ -180,6 +180,7 @@ function DashboardDateRangePicker({
           <DatePicker
             containerClassName="mb-0"
             compact
+            disabled={disabled}
             date={
               value.startDate
                 ? getValidDateOffsetByUTC(value.startDate)

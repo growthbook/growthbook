@@ -125,6 +125,9 @@ export default function ExplorerSideBar({
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
   );
+  const usesInheritedDashboardDateRange = Boolean(
+    dashboardDateRange && useDashboardDateControl,
+  );
 
   return (
     <Flex
@@ -312,7 +315,7 @@ export default function ExplorerSideBar({
               <DateRangePicker fullWidth />
             )}
           </Flex>
-          {isTimeSeriesChart && (
+          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
             <Flex direction="column" gap="2" width="100%">
               <Text weight="medium">Date Granularity</Text>
               <GranularitySelector />
