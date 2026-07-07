@@ -73,7 +73,7 @@ export class ProjectModel extends BaseClass {
         projectId: data.id,
         organizationId: this.context.org.id,
       });
-    if (maxProjects !== null && !isDemo) {
+    if (maxProjects && maxProjects > 0 && !isDemo) {
       const existingProjects = await this.context.getProjects();
       const nonDemoProjectCount = existingProjects.filter(
         (p) =>

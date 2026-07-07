@@ -59,8 +59,6 @@ export const postProject = async (
   if (!context.permissions.canCreateProjects()) {
     context.permissions.throwPermissionError();
   }
-
-  // The plan's project limit is enforced in ProjectModel.beforeCreate.
   const { name, description, publicId } = req.body;
 
   const doc = await context.models.projects.create({
