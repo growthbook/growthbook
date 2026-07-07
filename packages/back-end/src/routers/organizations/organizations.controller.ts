@@ -19,7 +19,6 @@ import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
@@ -35,6 +34,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -1904,16 +1904,14 @@ export async function putApiKey(
   // The model returns both the pre- and post-update docs from a single read so
   // the audit log can diff the permission scope. If the key doesn't exist the
   // model throws, so there is always a before-state here.
-  const {
-    before,
-    after,
-  } = await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
-    role,
-    description,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  });
+  const { before, after } =
+    await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+      role,
+      description,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
 
   await req.audit({
     event: "apiKey.update",
