@@ -37,6 +37,7 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    "packages/shared/types/*.js",
   ]),
   nextRecommendedConfig,
   {
