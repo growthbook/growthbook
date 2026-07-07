@@ -156,9 +156,12 @@ export class SessionReplayModel {
         base.lastEventAt = lastEventAt;
         base.dateUpdated = lastEventAt;
       }
-      if (row.duration_ms > base.durationMs) base.durationMs = row.duration_ms;
-      base.eventCount += row.event_count;
-      base.errorCount += row.error_count;
+      const durationMs = Number(row.duration_ms);
+      const eventCount = Number(row.event_count);
+      const errorCount = Number(row.error_count);
+      if (durationMs > base.durationMs) base.durationMs = durationMs;
+      base.eventCount += eventCount;
+      base.errorCount += errorCount;
 
       for (const url of row.urls_visited ?? []) {
         if (!base.urlsVisited.includes(url)) base.urlsVisited.push(url);
@@ -202,14 +205,14 @@ export class SessionReplayModel {
       startedAt,
       endedAt,
       lastEventAt,
-      durationMs: row.duration_ms,
-      eventCount: row.event_count,
-      errorCount: row.error_count,
+      durationMs: Number(row.duration_ms),
+      eventCount: Number(row.event_count),
+      errorCount: Number(row.error_count),
       urlFirst: row.url_first,
       urlsVisited: row.urls_visited ?? [],
       pageTitle: row.page_title ?? "",
-      viewportWidth: row.viewport_width ?? 0,
-      viewportHeight: row.viewport_height ?? 0,
+      viewportWidth: Number(row.viewport_width) || 0,
+      viewportHeight: Number(row.viewport_height) || 0,
       attributes: row.attributes ?? {},
       featureKeys: row.feature_keys ?? [],
       experimentKeys: row.experiment_keys ?? [],
