@@ -96,14 +96,18 @@ export default function ConfigFeatureReferences({
         pl="1"
         pr="2"
         className={styles.row}
-        onClick={(e) => {
-          e.stopPropagation();
-          window.open(`/configs/${key}`, "_blank", "noopener,noreferrer");
-        }}
+        onClick={
+          isCurrent
+            ? undefined
+            : (e) => {
+                e.stopPropagation();
+                window.open(`/configs/${key}`, "_blank", "noopener,noreferrer");
+              }
+        }
         style={{
           height: ROW_HEIGHT,
           borderRadius: "var(--radius-2)",
-          cursor: "pointer",
+          cursor: isCurrent ? "default" : "pointer",
           background: isCurrent ? "var(--violet-a3)" : undefined,
         }}
       >

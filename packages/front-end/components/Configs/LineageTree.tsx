@@ -125,13 +125,16 @@ export default function LineageTree({
           pr="3"
           className={styles.row}
           title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
-          onClick={() =>
-            window.open(`/configs/${mk}`, "_blank", "noopener,noreferrer")
+          onClick={
+            isCurrent
+              ? undefined
+              : () =>
+                  window.open(`/configs/${mk}`, "_blank", "noopener,noreferrer")
           }
           style={{
             height: ROW_HEIGHT,
             borderRadius: "var(--radius-2)",
-            cursor: "pointer",
+            cursor: isCurrent ? "default" : "pointer",
             // Inline background only for the current node so the CSS :hover rule
             // (lower specificity) still applies to the other rows.
             background: isCurrent ? "var(--violet-a3)" : undefined,
@@ -240,13 +243,20 @@ export default function LineageTree({
             pl="1"
             pr="3"
             className={styles.row}
-            onClick={() =>
-              window.open(`/configs/${n.key}`, "_blank", "noopener,noreferrer")
+            onClick={
+              isCurrent
+                ? undefined
+                : () =>
+                    window.open(
+                      `/configs/${n.key}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    )
             }
             style={{
               height: ROW_HEIGHT,
               borderRadius: "var(--radius-2)",
-              cursor: "pointer",
+              cursor: isCurrent ? "default" : "pointer",
               // Inline background only for the current node so the CSS :hover
               // rule (lower specificity) applies to the other rows.
               background: isCurrent ? "var(--violet-a3)" : undefined,
