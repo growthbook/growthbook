@@ -1259,9 +1259,10 @@ export default function ConfigDetailPage(): React.ReactElement {
               width: 220,
               flexShrink: 0,
               position: "sticky",
-              top: "1rem",
+              // Pin below the fixed 56px top nav (+1rem gap); the document scrolls.
+              top: "calc(56px + 1rem)",
               alignSelf: "flex-start",
-              maxHeight: "calc(100vh - 2rem)",
+              maxHeight: "calc(100vh - 56px - 2rem)",
               overflowY: "auto",
             }}
           >
