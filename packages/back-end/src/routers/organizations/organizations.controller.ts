@@ -1847,6 +1847,47 @@ export async function postApiKey(
   }
 }
 
+export async function putApiKey(
+  req: AuthRequest<
+    {
+      role: string;
+      description?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      projectRoles?: ProjectMemberRole[];
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const {
+    role,
+    description,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
+
+  // Editing a key's authority is at least as sensitive as revealing it, so we
+  // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user
+  // keys (permissions.canCreateApiKey()).
+  if (!context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+    role,
+    description,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  });
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response,

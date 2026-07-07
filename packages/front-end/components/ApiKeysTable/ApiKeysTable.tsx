@@ -25,6 +25,7 @@ type ApiKeysTableProps = {
     keyId: string | undefined,
     disabled: boolean,
   ) => () => Promise<void>;
+  onEdit?: (key: ApiKeyInterface) => void;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -34,6 +35,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   canDeleteKeys,
   onReveal,
   onToggleDisabled,
+  onEdit,
 }) => {
   const { organization } = useUser();
   const { projects } = useDefinitions();
@@ -154,6 +156,18 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               {canDeleteKeys && (
                 <td>
                   <MoreMenu useRadix={false}>
+                    {/* Only org secret keys (not PATs) can be edited in place */}
+                    {onEdit && key.secret && !key.userId && (
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onEdit(key);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    )}
                     {onToggleDisabled && (
                       <button
                         className="dropdown-item"

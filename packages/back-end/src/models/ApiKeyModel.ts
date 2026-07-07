@@ -232,6 +232,68 @@ export class ApiKeyModel extends BaseClass {
     await this.update(doc, { disabled });
   }
 
+  // Admins can edit the permission scope of an existing org secret key in place
+  // (role + environment/project restrictions + description). This lets already
+  // issued tokens pick up new permissions immediately — auth reads the role from
+  // this DB record on every request.
+  public async updateSecretApiKeyPermissions(
+    id: string,
+    {
+      role,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+      description,
+    }: {
+      role?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      projectRoles?: ApiKeyInterface["projectRoles"];
+      description?: string;
+    },
+  ): Promise<ApiKeyInterface> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
+
+    // Only plain organization secret keys are editable here. SDK keys (non
+    // secret) have no role, and PATs (secret + userId) derive their permissions
+    // from the linked member, not the key doc — so both are rejected.
+    if (!doc.secret) {
+      this.context.throwBadRequestError(
+        "Only secret API keys can have their permissions edited.",
+      );
+    }
+    if (doc.userId) {
+      this.context.throwBadRequestError(
+        "Personal Access Tokens inherit permissions from their user and cannot be edited.",
+      );
+    }
+
+    // Permission fields (role/scope/description) are intentionally editable by
+    // admins, while the token's value and identity fields (key, secret, userId)
+    // stay immutable. `canUpdate` blocks every field except `disabled`, so we
+    // bypass it for this specific permission-only update via `forceCanUpdate`;
+    // the update object below is limited to permission fields, so identity
+    // fields can never be changed through this path. `customValidation` still
+    // runs, re-applying the same role/environment/project checks and the
+    // `advanced-permissions` premium gate used at creation time.
+    //
+    // The stored `key` string is left untouched so already-issued tokens keep
+    // working. Its `secret_<role>_` prefix is purely cosmetic and is
+    // intentionally left stale after a role change rather than reissuing.
+    return await this._updateOne(
+      doc,
+      {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        projectRoles,
+        description,
+      },
+      { forceCanUpdate: true },
+    );
+  }
+
   // Called from authentication middleware on every API request attempt.
   // Fires even for disabled keys so operators can see whether a key is still
   // being used before deleting it. Runs before the request context exists, so
