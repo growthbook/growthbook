@@ -18,5 +18,6 @@ export function isEnvironmentDevLike(envId: string): boolean {
 export function getEnvironmentDisplayName(
   env: Pick<Environment, "id" | "displayName">,
 ): string {
-  return env.displayName || env.id;
+  const displayName = env.displayName?.trim();
+  return displayName || env.id;
 }
