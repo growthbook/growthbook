@@ -23,13 +23,15 @@ import track, { TrackEventProps } from "@/services/track";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
+export type Size = "md" | "lg" | "xl";
 
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
     case "lg":
+      return "4";
+    case "xl":
       return "4";
   }
 }
@@ -40,6 +42,8 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "xl":
+      return "1200px";
   }
 }
 
