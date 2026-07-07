@@ -13,7 +13,10 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
@@ -109,10 +112,10 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
-      const snapshot = revision.target.snapshot as Record<string, unknown>;
-      const liveEntity = constant as unknown as Record<string, unknown>;
-      const diverged = [...updatableFields].some(
-        (key) => !isEqual(snapshot[key], liveEntity[key]),
+      const diverged = isRevisionDiverged(
+        adapter,
+        revision.target.snapshot as Record<string, unknown>,
+        constant as unknown as Record<string, unknown>,
       );
       if (diverged && !canBypass) {
         throw new ConflictError(

@@ -138,7 +138,7 @@ import {
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -2221,11 +2221,14 @@ export async function postExperimentUnarchive(
     if (linkedFeatureIds.length > 0) {
       Promise.all(
         linkedFeatureIds.map(async (featureId) => {
-          const revisions = await getNonDiscardedRevisionSummaries(
-            context.org.id,
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          return syncFeatureExperimentLinkages(
+            context,
             featureId,
+            openDrafts,
+            liveRevision,
           );
-          return syncFeatureExperimentLinkages(context, featureId, revisions);
         }),
       ).catch((e) => {
         logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");

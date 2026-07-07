@@ -3,13 +3,7 @@ import { ContextualBanditRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-
-const OPEN_DRAFT_STATUSES = new Set([
-  "draft",
-  "pending-review",
-  "approved",
-  "changes-requested",
-]);
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 function getContextualBanditIdsFromRules(
   rules: FeatureRevisionInterface["rules"] | unknown,
@@ -34,16 +28,10 @@ function getContextualBanditIdsFromRules(
 export async function syncFeatureContextualBanditLinkages(
   context: ReqContext | ApiReqContext,
   featureId: string,
-  revisions: Pick<FeatureRevisionInterface, "version" | "status" | "rules">[],
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[],
+  liveRevision: Pick<FeatureRevisionInterface, "rules"> | null,
 ): Promise<void> {
   try {
-    const openDrafts = revisions.filter((r) =>
-      OPEN_DRAFT_STATUSES.has(r.status),
-    );
-    const liveRevision = revisions
-      .filter((r) => r.status === "published")
-      .sort((a, b) => b.version - a.version)[0];
-
     const draftVersionsByCb = new Map<string, Set<number>>();
     for (const rev of openDrafts) {
       for (const cbId of getContextualBanditIdsFromRules(rev.rules)) {
@@ -61,32 +49,38 @@ export async function syncFeatureContextualBanditLinkages(
 
     const cbModel = context.models.contextualBandits;
 
-    for (const cbId of allCbIds) {
-      const cb = await cbModel.getById(cbId);
-      if (!cb) continue;
+    // Each cbId is independent (no shared mutable state across
+    // iterations), so bounded concurrency is safe — a feature can
+    // reference thousands of distinct contextual bandits.
+    await promiseAllChunks(
+      Array.from(allCbIds).map((cbId) => async () => {
+        const cb = await cbModel.getById(cbId);
+        if (!cb) return;
 
-      if (!cb.linkedFeatures?.includes(featureId)) {
-        await cbModel.addLinkedFeature(cbId, featureId);
-      }
-
-      const desired = draftVersionsByCb.get(cbId) ?? new Set<number>();
-      const current = new Set(
-        (cb.pendingFeatureDrafts ?? [])
-          .filter((d) => d.featureId === featureId)
-          .map((d) => d.revisionVersion),
-      );
-
-      for (const version of desired) {
-        if (!current.has(version)) {
-          await cbModel.addPendingFeatureDraft(cbId, featureId, version);
+        if (!cb.linkedFeatures?.includes(featureId)) {
+          await cbModel.addLinkedFeature(cbId, featureId);
         }
-      }
-      for (const version of current) {
-        if (!desired.has(version)) {
-          await cbModel.removePendingFeatureDraft(cbId, featureId, version);
+
+        const desired = draftVersionsByCb.get(cbId) ?? new Set<number>();
+        const current = new Set(
+          (cb.pendingFeatureDrafts ?? [])
+            .filter((d) => d.featureId === featureId)
+            .map((d) => d.revisionVersion),
+        );
+
+        for (const version of desired) {
+          if (!current.has(version)) {
+            await cbModel.addPendingFeatureDraft(cbId, featureId, version);
+          }
         }
-      }
-    }
+        for (const version of current) {
+          if (!desired.has(version)) {
+            await cbModel.removePendingFeatureDraft(cbId, featureId, version);
+          }
+        }
+      }),
+      10,
+    );
 
     await cbModel.clearStalePendingFeatureDrafts(
       featureId,

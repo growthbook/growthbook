@@ -14,7 +14,10 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
@@ -113,15 +116,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
-      // Normalize both sides via buildSnapshot — the stored snapshot has
-      // null/undefined fields stripped but the live doc doesn't, so a raw
-      // comparison false-positives forever on null-valued live fields.
-      const snapshot = adapter.buildSnapshot(
+      const diverged = isRevisionDiverged(
+        adapter,
         revision.target.snapshot as Record<string, unknown>,
-      );
-      const liveSnapshot = adapter.buildSnapshot(config);
-      const diverged = [...updatableFields].some(
-        (key) => !isEqual(snapshot[key], liveSnapshot[key]),
+        config as unknown as Record<string, unknown>,
       );
       if (diverged && !canBypass) {
         throw new ConflictError(

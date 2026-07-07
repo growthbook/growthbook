@@ -20,6 +20,7 @@ import {
   getApprovalEnabledEntityTypes,
   getEntityModel,
 } from "back-end/src/revisions";
+import { isRevisionDiverged } from "back-end/src/revisions/util";
 // Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
@@ -1139,17 +1140,10 @@ export const postApproveAndPublish = async (
       entity as Record<string, unknown>,
     );
     if (!canBypass) {
-      // Normalize both sides via buildSnapshot — the stored snapshot has
-      // null/undefined fields stripped but the live doc doesn't, so a raw
-      // comparison false-positives forever on null-valued live fields.
-      const snapshot = adapter.buildSnapshot(
+      const diverged = isRevisionDiverged(
+        adapter,
         revision.target.snapshot as Record<string, unknown>,
-      );
-      const liveSnapshot = adapter.buildSnapshot(
         entity as Record<string, unknown>,
-      );
-      const diverged = [...adapter.getUpdatableFields()].some(
-        (key) => !isEqual(snapshot[key], liveSnapshot[key]),
       );
       if (diverged) {
         throw new ConflictError(

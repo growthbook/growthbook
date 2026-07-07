@@ -11,7 +11,10 @@ import {
 } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import {
@@ -132,15 +135,10 @@ export async function publishRevision(
   // requireRebaseBeforePublish: a diverged revision must rebase first unless the
   // caller can bypass. Gating here covers every internal publish path.
   if (context.org.settings?.requireRebaseBeforePublish && !canBypass) {
-    // Normalize both sides via buildSnapshot — the stored snapshot has
-    // null/undefined fields stripped but the live doc doesn't, so a raw
-    // comparison false-positives forever on null-valued live fields.
-    const snapshot = adapter.buildSnapshot(
+    const diverged = isRevisionDiverged(
+      adapter,
       revision.target.snapshot as Record<string, unknown>,
-    );
-    const liveSnapshot = adapter.buildSnapshot(entity);
-    const diverged = [...adapter.getUpdatableFields()].some(
-      (key) => !isEqual(snapshot[key], liveSnapshot[key]),
+      entity,
     );
     if (diverged) {
       throw new ConflictError(
