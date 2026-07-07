@@ -289,6 +289,13 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
+// Slack inbound (events / slash commands / interactivity). Mounted BEFORE the
+// global JSON body parser below because Slack request signatures are verified
+// against the raw request body — this router captures the raw body in its own
+// body parsers, which only works if no earlier parser has already consumed the
+// stream. It's public (Slack authenticates via signature, not our JWT).
+app.use("/integrations/slack", slackActionsRouter);
+
 // 2mb default; 10mb for screenshot upload and visual-editor AI image
 // gen (the latter accepts a base64-encoded reference image).
 app.use((req, res, next) => {
@@ -479,7 +486,6 @@ else {
 app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
-app.use("/integrations/slack", slackActionsRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
