@@ -381,9 +381,11 @@ function MetricExperimentResultTab({
       <table className="table appbox">
         <thead className="bg-light">
           <tr>
-            <SortableTH field="name">Experiment</SortableTH>
+            <SortableTH field="name" className="nowrap">
+              Experiment
+            </SortableTH>
             {visibleColumns.map((c) => (
-              <SortableTH key={c.id} field={c.id}>
+              <SortableTH key={c.id} field={c.id} className="nowrap">
                 {c.label}
               </SortableTH>
             ))}

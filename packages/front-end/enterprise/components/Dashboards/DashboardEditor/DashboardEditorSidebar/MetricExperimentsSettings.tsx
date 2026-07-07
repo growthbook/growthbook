@@ -1,6 +1,7 @@
 import {
   DashboardBlockInterfaceOrData,
   MetricExperimentsBlockInterface,
+  isDifferenceType,
 } from "shared/enterprise";
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -11,6 +12,7 @@ import { Popover } from "@/ui/Popover";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import SelectField from "@/components/Forms/SelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 
@@ -49,11 +51,31 @@ export default function MetricExperimentsSettings({
       <MetricSelector
         label="Metric"
         labelClassName="font-weight-bold"
+        containerClassName="mb-0"
         value={block.metricId}
         onChange={(metricId) => setBlock({ ...block, metricId })}
         includeFacts={true}
         projects={projects}
         placeholder="Select a metric..."
+      />
+
+      <SelectField
+        label="Difference Type"
+        labelClassName="font-weight-bold"
+        containerClassName="mb-0"
+        value={block.differenceType}
+        onChange={(value) =>
+          setBlock({
+            ...block,
+            differenceType: isDifferenceType(value) ? value : "absolute",
+          })
+        }
+        options={[
+          { label: "Relative", value: "relative" },
+          { label: "Absolute", value: "absolute" },
+          { label: "Scaled", value: "scaled" },
+        ]}
+        sort={false}
       />
 
       <Box>
