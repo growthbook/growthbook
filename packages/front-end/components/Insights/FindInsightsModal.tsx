@@ -41,6 +41,7 @@ const FindInsightsModal: FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState[]>([]);
+  const [savingAll, setSavingAll] = useState(false);
   // When the back-end caps very large sets, it analyzes the most recent N
   // and reports both numbers so we can tell the user.
   const [analyzedCounts, setAnalyzedCounts] = useState<{
@@ -135,6 +136,21 @@ const FindInsightsModal: FC<{
     [experiments],
   );
 
+  async function persistSuggestion(item: SuggestionState) {
+    await apiCall("/insights", {
+      method: "POST",
+      body: JSON.stringify({
+        title: item.suggestion.title,
+        text: item.suggestion.text,
+        tags: item.suggestion.tags || [],
+        supportingExperimentIds: item.suggestion.supportingExperimentIds,
+        contraryEvidence: item.suggestion.contraryExperimentIds || [],
+        projects: saveProjects || [],
+        source: "ai",
+      }),
+    });
+  }
+
   async function saveSuggestion(index: number) {
     const item = suggestions[index];
     if (!item || item.saved || item.saving) return;
@@ -144,18 +160,7 @@ const FindInsightsModal: FC<{
       ),
     );
     try {
-      await apiCall("/insights", {
-        method: "POST",
-        body: JSON.stringify({
-          title: item.suggestion.title,
-          text: item.suggestion.text,
-          tags: item.suggestion.tags || [],
-          supportingExperimentIds: item.suggestion.supportingExperimentIds,
-          contraryEvidence: item.suggestion.contraryExperimentIds || [],
-          projects: saveProjects || [],
-          source: "ai",
-        }),
-      });
+      await persistSuggestion(item);
       setSuggestions((prev) =>
         prev.map((s, i) =>
           i === index ? { ...s, saved: true, saving: false } : s,
@@ -176,6 +181,49 @@ const FindInsightsModal: FC<{
       );
     }
   }
+
+  // Save every not-yet-saved suggestion. Runs sequentially so one failure
+  // doesn't abort the rest, and each card reflects its own saved/error state.
+  async function saveAll() {
+    const indexes = suggestions
+      .map((s, i) => i)
+      .filter((i) => !suggestions[i].saved && !suggestions[i].saving);
+    if (!indexes.length) return;
+
+    setSavingAll(true);
+    setSuggestions((prev) =>
+      prev.map((s) => (s.saved ? s : { ...s, saving: true, error: undefined })),
+    );
+
+    let anySaved = false;
+    for (const index of indexes) {
+      try {
+        await persistSuggestion(suggestions[index]);
+        anySaved = true;
+        setSuggestions((prev) =>
+          prev.map((s, i) =>
+            i === index ? { ...s, saved: true, saving: false } : s,
+          ),
+        );
+      } catch (e) {
+        setSuggestions((prev) =>
+          prev.map((s, i) =>
+            i === index
+              ? {
+                  ...s,
+                  saving: false,
+                  error: e instanceof Error ? e.message : "Could not save",
+                }
+              : s,
+          ),
+        );
+      }
+    }
+    if (anySaved && onSaved) onSaved();
+    setSavingAll(false);
+  }
+
+  const unsavedCount = suggestions.filter((s) => !s.saved).length;
 
   return (
     <Modal.Root
@@ -312,11 +360,18 @@ const FindInsightsModal: FC<{
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Modal.Close>
-          <Button variant="solid" onClick={close}>
-            Done
-          </Button>
-        </Modal.Close>
+        <Flex gap="3" align="center" justify="end">
+          {unsavedCount > 1 && (
+            <Button variant="outline" onClick={saveAll} disabled={savingAll}>
+              {savingAll ? "Saving..." : `Save all (${unsavedCount})`}
+            </Button>
+          )}
+          <Modal.Close>
+            <Button variant="solid" onClick={close}>
+              Done
+            </Button>
+          </Modal.Close>
+        </Flex>
       </Modal.Footer>
     </Modal.Root>
   );
