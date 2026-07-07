@@ -566,8 +566,9 @@ export default function SessionReplayPage() {
             width: 36,
             flexShrink: 0,
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "center",
+            paddingTop: 16,
           }}
         >
           <Button
