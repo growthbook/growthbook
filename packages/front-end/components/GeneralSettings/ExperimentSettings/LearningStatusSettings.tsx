@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
-import { FaPlusCircle } from "react-icons/fa";
-import { PiPencilSimple, PiTrash } from "react-icons/pi";
+import { PiPencilSimple, PiPlus, PiTrash } from "react-icons/pi";
 import uniqid from "uniqid";
 import { LearningStatus, LearningStatusColor } from "shared/types/organization";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
@@ -133,7 +132,7 @@ const LearningStatusSettings: React.FC = () => {
           )}
           <Button variant="ghost" size="sm" onClick={openCreate}>
             <Flex align="center" gap="1">
-              <FaPlusCircle size={12} />
+              <PiPlus size={12} />
               <span>Add status</span>
             </Flex>
           </Button>

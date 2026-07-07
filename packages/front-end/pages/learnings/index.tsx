@@ -187,12 +187,7 @@ const LearningsPage = (): React.ReactElement => {
                     </Callout>
                   </Box>
                   <Box mb="5">
-                    <Flex
-                      align="center"
-                      gap="2"
-                      className="mb-3"
-                      justify="between"
-                    >
+                    <Flex align="center" gap="2" mb="3" justify="between">
                       <Box flexBasis="60%" flexShrink="1" flexGrow="0">
                         <Field
                           placeholder="Search..."
@@ -209,7 +204,9 @@ const LearningsPage = (): React.ReactElement => {
                           style={{ fontSize: "0.8rem" }}
                         >
                           <Flex align="center">
-                            <label className="mb-0 mr-2">From</label>
+                            <Text as="label" mr="2">
+                              From
+                            </Text>
                             <DatePicker
                               date={startDate}
                               setDate={(sd) => {
@@ -224,7 +221,9 @@ const LearningsPage = (): React.ReactElement => {
                             />
                           </Flex>
                           <Flex align="center">
-                            <label className="mb-0 mr-2">To</label>
+                            <Text as="label" mr="2">
+                              To
+                            </Text>
                             <DatePicker
                               date={endDate}
                               setDate={(ed) => {
