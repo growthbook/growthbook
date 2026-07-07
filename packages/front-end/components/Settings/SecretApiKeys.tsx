@@ -121,7 +121,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
       {canCreateKeys && (
         <div className="mt-4">
-          <h3>Audit Log</h3>
+          <h1>Audit Log</h1>
           <p className="text-gray">
             History of secret API key changes, including creation, permission
             edits, enabling/disabling, and deletion.

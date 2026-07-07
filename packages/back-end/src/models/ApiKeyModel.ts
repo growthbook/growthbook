@@ -81,6 +81,22 @@ export class ApiKeyModel extends BaseClass {
     return { ...doc, key: "", encryptionKey: undefined };
   }
 
+  // Projects an API key doc down to a safe, non-sensitive subset for audit
+  // details. This lives next to `sanitize` so the redaction allow-list stays in
+  // one place. The raw `key` token and `encryptionKey` must NEVER be included so
+  // the secret value can never leak into the audit log.
+  public static toAuditDetails(doc: ApiKeyInterface) {
+    return {
+      id: doc.id,
+      description: doc.description,
+      role: doc.role,
+      limitAccessByEnvironment: doc.limitAccessByEnvironment,
+      environments: doc.environments,
+      projectRoles: doc.projectRoles,
+      disabled: doc.disabled,
+    };
+  }
+
   protected async customValidation(doc: ApiKeyInterface) {
     if (doc.userId) {
       // PATs inherit permissions from their user — scoping fields must not be set
@@ -228,15 +244,16 @@ export class ApiKeyModel extends BaseClass {
     return doc;
   }
 
-  // Returns the pre-update doc so callers can audit-log the before/after state.
+  // Returns both the pre- and post-update docs so callers can audit-log the
+  // before/after state from the real persisted doc.
   public async setDisabled(
     id: string,
     disabled: boolean,
-  ): Promise<ApiKeyInterface> {
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
-    await this.update(doc, { disabled });
-    return doc;
+    const after = await this.update(doc, { disabled });
+    return { before: doc, after };
   }
 
   // Admins can edit the permission scope of an existing org secret key in place
@@ -258,7 +275,7 @@ export class ApiKeyModel extends BaseClass {
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
     },
-  ): Promise<ApiKeyInterface> {
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
 
@@ -288,7 +305,7 @@ export class ApiKeyModel extends BaseClass {
     // The stored `key` string is left untouched so already-issued tokens keep
     // working. Its `secret_<role>_` prefix is purely cosmetic and is
     // intentionally left stale after a role change rather than reissuing.
-    return await this._updateOne(
+    const after = await this._updateOne(
       doc,
       {
         role,
@@ -299,6 +316,7 @@ export class ApiKeyModel extends BaseClass {
       },
       { forceCanUpdate: true },
     );
+    return { before: doc, after };
   }
 
   // Called from authentication middleware on every API request attempt.
