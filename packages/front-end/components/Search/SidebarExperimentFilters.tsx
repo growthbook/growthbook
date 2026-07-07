@@ -1,12 +1,6 @@
 import React, { ChangeEvent, FC, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCheck,
-  PiPlus,
-  PiX,
-} from "react-icons/pi";
+import { PiPlus, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -22,6 +16,7 @@ import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
 
 // Activate a role="button" element on Enter/Space, matching native button keys.
 function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
@@ -36,7 +31,6 @@ function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
 // tokens map back onto the same categories.
 const EXPERIMENT_FILTER_KEYS = [
   "project",
-  "metric",
   "owner",
   "is",
   "status",
@@ -90,21 +84,19 @@ const SidebarExperimentFilters: FC<Props> = ({
     setSearchValue,
   });
 
-  const [open, setOpen] = useState(false);
-  // Which category's panel is expanded inside the popover ("" = all collapsed).
-  // Only one is open at a time (single-open accordion).
-  const [expandedCategory, setExpandedCategory] = useState("");
+  // "Add filter" popover (category list) open state.
+  const [addOpen, setAddOpen] = useState(false);
+  // Field whose pill popover is currently open (its filter panel). "" = none.
+  const [activeField, setActiveField] = useState("");
+  // A pill created on category click that has no selected values yet. Kept
+  // separate from syntaxFilters (which only tracks fields with >=1 value) so the
+  // pill can exist — and anchor the popover — before the first selection.
+  const [draftField, setDraftField] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
 
   // Shared source of truth for the filter taxonomy (see ExperimentSearchFilters).
-  const {
-    availableTags,
-    metricItems,
-    owners,
-    resultItems,
-    statusItems,
-    typeItems,
-  } = useExperimentFilterCategories({ experiments, allowDrafts });
+  const { availableTags, owners, resultItems, statusItems, typeItems } =
+    useExperimentFilterCategories({ experiments, allowDrafts });
 
   const categories = useMemo<FilterCategory[]>(() => {
     const cats: FilterCategory[] = [];
@@ -121,7 +113,6 @@ const SidebarExperimentFilters: FC<Props> = ({
       });
     }
 
-    cats.push({ key: "metric", heading: "Metric", items: metricItems });
     cats.push({
       key: "owner",
       heading: "Owner",
@@ -148,7 +139,6 @@ const SidebarExperimentFilters: FC<Props> = ({
   }, [
     project,
     projects,
-    metricItems,
     owners,
     resultItems,
     statusItems,
@@ -173,8 +163,24 @@ const SidebarExperimentFilters: FC<Props> = ({
     return value;
   };
 
-  // One chip per category (field), even when multiple values are selected.
-  const chipFilters = syntaxFilters.filter((f) => categoryByKey.has(f.field));
+  // One chip per category (field): every field with selected values, plus a
+  // draft field created on category click that has no values selected yet.
+  const chipFields = useMemo(() => {
+    const fields: string[] = [];
+    syntaxFilters.forEach((f) => {
+      if (categoryByKey.has(f.field) && !fields.includes(f.field)) {
+        fields.push(f.field);
+      }
+    });
+    if (
+      draftField &&
+      categoryByKey.has(draftField) &&
+      !fields.includes(draftField)
+    ) {
+      fields.push(draftField);
+    }
+    return fields;
+  }, [syntaxFilters, categoryByKey, draftField]);
 
   const handleFreeTextChange = (e: ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
@@ -193,204 +199,175 @@ const SidebarExperimentFilters: FC<Props> = ({
     );
   };
 
-  const clearFilters = () => setSearchValue(searchTerm);
+  const clearFilters = () => {
+    setSearchValue(searchTerm);
+    setDraftField("");
+    setActiveField("");
+  };
 
-  const toggleCategory = (key: string) => {
-    setExpandedCategory((prev) => (prev === key ? "" : key));
+  // Drill into a category from the "Add filter" list: create its pill (as a
+  // draft when it has no values yet) and open that pill's popover, so the panel
+  // anchors to the pill instead of the "Add filter" button and won't move as
+  // more values are selected.
+  const openCategory = (key: string) => {
+    setAddOpen(false);
+    setFilterSearch("");
+    setActiveField(key);
+    setDraftField(syntaxFilters.some((f) => f.field === key) ? "" : key);
+  };
+
+  // Back arrow: leave the pill panel and reopen the category list. Discards the
+  // draft pill if the user never selected a value.
+  const backToCategories = () => {
+    setActiveField("");
+    setDraftField("");
+    setFilterSearch("");
+    setAddOpen(true);
+  };
+
+  // Pill popover dismissed by an outside click.
+  const closeActiveField = () => {
+    setActiveField("");
+    setDraftField("");
     setFilterSearch("");
   };
 
-  // Items shown under the currently-expanded category, filtered by its search.
-  const visibleItems = useMemo(() => {
-    const category = categoryByKey.get(expandedCategory);
-    if (!category) return [];
-    if (!filterSearch) return category.items;
-    const q = filterSearch.toLowerCase();
-    return category.items.filter((i) => {
-      const haystack = typeof i.name === "string" ? i.name : i.searchValue;
-      return haystack.toLowerCase().includes(q);
-    });
-  }, [categoryByKey, expandedCategory, filterSearch]);
-
-  const resetMenu = () => {
-    setExpandedCategory("");
-    setFilterSearch("");
+  // Remove a chip entirely: its filter values (if any) and its draft state.
+  const removeChip = (field: string) => {
+    const filter = syntaxFilters.find((f) => f.field === field);
+    if (filter) removeFilter(filter);
+    if (draftField === field) setDraftField("");
+    if (activeField === field) setActiveField("");
   };
 
-  const menuContent = (
+  // Category list ("Add filter" view): a flat list of categories that drills
+  // into the selected category's pill panel.
+  const categoryListView = (
     // Outer box owns the scroll (and thus the scrollbar), so it sits flush
     // against the popover edge. Inner box holds the padding, keeping the gap
     // between the scrollbar and the content instead.
     <Box style={{ width: 248, maxHeight: 360, overflowY: "auto" }}>
       <Box style={{ padding: "6px 8px" }}>
-        {categories.map((c) => {
-          const count =
-            syntaxFilters.find((f) => f.field === c.key)?.values.length ?? 0;
-          const isOpen = expandedCategory === c.key;
-          const showCategorySearch = isOpen && c.items.length > 10;
-          return (
-            <Box key={c.key}>
-              {/* Header (and per-category search) pin to the top while the
-                  open section's options scroll under them. */}
-              <Box
-                style={{
-                  position: isOpen ? "sticky" : undefined,
-                  top: 0,
-                  zIndex: isOpen ? 1 : undefined,
-                  // Solid (opaque) so scrolling options don't leak through the
-                  // pinned header + search box.
-                  backgroundColor: isOpen
-                    ? "var(--color-panel-solid)"
-                    : undefined,
-                }}
-              >
-                <Flex
-                  align="center"
-                  justify="between"
-                  px="2"
-                  py="1"
-                  className="cursor-pointer"
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isOpen}
-                  style={{
-                    borderRadius: 6,
-                    marginBottom: 2,
-                    backgroundColor: isOpen ? "var(--accent-3)" : undefined,
-                    color: isOpen ? "var(--accent-11)" : undefined,
-                  }}
-                  onClick={() => toggleCategory(c.key)}
-                  onKeyDown={(e) =>
-                    activateOnKey(e, () => toggleCategory(c.key))
-                  }
-                >
-                  <Flex align="center" gap="1">
-                    {isOpen ? (
-                      <PiCaretDown size={12} />
-                    ) : (
-                      <PiCaretRight size={12} className="text-muted" />
-                    )}
-                    <Text size="small" weight={isOpen ? "medium" : "regular"}>
-                      {c.heading}
-                    </Text>
-                  </Flex>
-                  {count > 0 && (
-                    <Text size="small" color={isOpen ? undefined : "text-low"}>
-                      {count}
-                    </Text>
-                  )}
-                </Flex>
-                {showCategorySearch && (
-                  <Box px="1" style={{ paddingBottom: 4 }}>
-                    <Field
-                      value={filterSearch}
-                      onChange={(e) => setFilterSearch(e.target.value)}
-                      type="search"
-                      placeholder={`Search ${c.heading}`}
-                      autoFocus
-                      style={{ height: 30, fontSize: 13, padding: "0 8px" }}
-                    />
-                  </Box>
-                )}
-              </Box>
-
-              {isOpen && (
-                <Box px="1" pb="1">
-                  {visibleItems.length === 0 && (
-                    <Box
-                      px="2"
-                      py="1"
-                      className="text-muted"
-                      style={{ fontSize: 13 }}
-                    >
-                      No options
-                    </Box>
-                  )}
-                  {visibleItems.map((item, idx) => {
-                    const exists = syntaxFilters.some(
-                      (f) =>
-                        f.field === c.key &&
-                        f.values.some(
-                          (v) =>
-                            v.toLowerCase() === item.searchValue.toLowerCase(),
-                        ),
-                    );
-                    const selectItem = () => {
-                      if (item.disabled) return;
-                      updateQuery({
-                        field: c.key,
-                        values: [item.searchValue],
-                        operator: "",
-                        negated: false,
-                      });
-                    };
-                    return (
-                      // Outer holds the zebra stripe; inner keeps the hover
-                      // highlight so both are visible together.
-                      <Box
-                        key={item.id}
-                        style={{
-                          borderRadius: 6,
-                          backgroundColor:
-                            idx % 2 === 1 ? "var(--gray-a2)" : undefined,
-                        }}
-                      >
-                        <Flex
-                          align="center"
-                          justify="between"
-                          gap="2"
-                          px="2"
-                          py="1"
-                          role="button"
-                          tabIndex={item.disabled ? -1 : 0}
-                          aria-disabled={item.disabled || undefined}
-                          aria-pressed={exists}
-                          className={
-                            item.disabled
-                              ? "text-muted"
-                              : "cursor-pointer hover-highlight"
-                          }
-                          style={{
-                            borderRadius: 6,
-                            fontSize: 13,
-                            opacity: item.disabled ? 0.5 : 1,
-                            pointerEvents: item.disabled ? "none" : undefined,
-                          }}
-                          onClick={selectItem}
-                          onKeyDown={(e) => activateOnKey(e, selectItem)}
-                        >
-                          <span
-                            style={{
-                              minWidth: 0,
-                              flex: 1,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {item.name}
-                          </span>
-                          {exists && (
-                            <PiCheck
-                              size={12}
-                              style={{
-                                flexShrink: 0,
-                                color: "var(--violet-11)",
-                              }}
-                            />
-                          )}
-                        </Flex>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              )}
-            </Box>
-          );
-        })}
+        {categories
+          // Hide categories that already have a pill; each field maps to a
+          // single chip, so it shouldn't be addable again.
+          .filter((c) => !syntaxFilters.some((f) => f.field === c.key))
+          .map((c) => (
+            <Flex
+              key={c.key}
+              align="center"
+              px="2"
+              py="2"
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer hover-highlight"
+              style={{ borderRadius: 6 }}
+              onClick={() => openCategory(c.key)}
+              onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
+            >
+              <Text size="small">{c.heading}</Text>
+            </Flex>
+          ))}
       </Box>
     </Box>
   );
+
+  // Filter panel ("Filter by X") rendered inside a pill's popover: back arrow,
+  // search box, and a checkbox list for the category.
+  const renderFilterPanel = (category: FilterCategory) => {
+    const q = filterSearch.toLowerCase();
+    const items = filterSearch
+      ? category.items.filter((i) => {
+          const haystack = typeof i.name === "string" ? i.name : i.searchValue;
+          return haystack.toLowerCase().includes(q);
+        })
+      : category.items;
+    return (
+      <Box style={{ width: 248, maxHeight: 360, overflowY: "auto" }}>
+        <Box style={{ padding: "6px 8px" }}>
+          <Flex
+            align="center"
+            gap="1"
+            px="2"
+            py="1"
+            mb="1"
+            role="button"
+            tabIndex={0}
+            aria-label="Back to filters"
+            className="cursor-pointer"
+            style={{ borderRadius: 6 }}
+            onClick={backToCategories}
+            onKeyDown={(e) => activateOnKey(e, backToCategories)}
+          >
+            <Text size="small" weight="medium">
+              Filter by {category.heading}
+            </Text>
+          </Flex>
+
+          <Box px="1" pb="1">
+            <Field
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              type="search"
+              placeholder="Search..."
+              autoFocus
+              style={{ height: 30, fontSize: 13, padding: "0 8px" }}
+            />
+          </Box>
+
+          <Box px="1" pb="1">
+            {items.length === 0 && (
+              <Box
+                px="2"
+                py="1"
+                className="text-muted"
+                style={{ fontSize: 13 }}
+              >
+                No options
+              </Box>
+            )}
+            {items.map((item) => {
+              const exists = syntaxFilters.some(
+                (f) =>
+                  f.field === category.key &&
+                  f.values.some(
+                    (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
+                  ),
+              );
+              const selectItem = () => {
+                if (item.disabled) return;
+                updateQuery({
+                  field: category.key,
+                  values: [item.searchValue],
+                  operator: "",
+                  negated: false,
+                });
+              };
+              return (
+                <Box
+                  key={item.id}
+                  px="2"
+                  py="1"
+                  className="hover-highlight"
+                  style={{ borderRadius: 6 }}
+                >
+                  <Checkbox
+                    size="sm"
+                    weight="regular"
+                    value={exists}
+                    setValue={selectItem}
+                    disabled={item.disabled}
+                    label={item.name}
+                    mb="0"
+                  />
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Box>
+    );
+  };
 
   return (
     <Flex direction="column" gap="2">
@@ -402,46 +379,84 @@ const SidebarExperimentFilters: FC<Props> = ({
       />
 
       <Flex align="center" gap="2" wrap="wrap">
-        {chipFilters.map((filter) => {
-          const heading = categoryByKey.get(filter.field)?.heading;
-          const valueText = filter.values
-            .map((value) => labelFor(filter.field, value))
+        {chipFields.map((field) => {
+          const category = categoryByKey.get(field);
+          if (!category) return null;
+          const filter = syntaxFilters.find((f) => f.field === field);
+          const valueText = (filter?.values ?? [])
+            .map((value) => labelFor(field, value))
             .join(", ");
           return (
-            <Badge
-              key={filter.field}
-              color="violet"
-              variant="soft"
-              radius="full"
-              label={
-                <Flex align="center" gap="1">
-                  <Text size="small">
-                    <Text as="span" color="text-low">
-                      {heading}:
-                    </Text>{" "}
-                    {valueText}
-                  </Text>
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="violet"
-                    radius="full"
-                    aria-label={`Remove ${heading} filter`}
-                    onClick={() => removeFilter(filter)}
-                  >
-                    <PiX size={12} />
-                  </IconButton>
-                </Flex>
+            <Popover
+              key={field}
+              // The popover anchors to this pill (not the "Add filter" button),
+              // so it stays put as more values grow the pill.
+              open={activeField === field}
+              onOpenChange={(o) => {
+                if (o) {
+                  setActiveField(field);
+                  setFilterSearch("");
+                } else {
+                  closeActiveField();
+                }
+              }}
+              showArrow={false}
+              align="start"
+              contentStyle={{ padding: 0 }}
+              // Toggling a checkbox blurs focus out of the popover, which Radix
+              // would otherwise treat as a dismiss. Keep the menu open on focus
+              // changes so users can select multiple items; a real outside
+              // pointer-down still closes it.
+              onFocusOutside={(e) => e.preventDefault()}
+              trigger={
+                <Badge
+                  color="violet"
+                  variant="soft"
+                  radius="full"
+                  className="cursor-pointer"
+                  // Let the pill grow up to the container width and wrap its
+                  // text instead of overflowing on long value lists.
+                  style={{ maxWidth: "100%", whiteSpace: "normal" }}
+                  label={
+                    <Flex align="center" gap="1">
+                      <Text
+                        size="small"
+                        whiteSpace="normal"
+                        overflowWrap="anywhere"
+                      >
+                        <Text as="span" size="small" color="text-low">
+                          {category.heading}
+                        </Text>
+                        {valueText ? `: ${valueText}` : ""}
+                      </Text>
+                      <IconButton
+                        size="1"
+                        variant="ghost"
+                        color="violet"
+                        radius="full"
+                        aria-label={`Remove ${category.heading} filter`}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeChip(field);
+                        }}
+                      >
+                        <PiX size={12} />
+                      </IconButton>
+                    </Flex>
+                  }
+                />
               }
+              content={renderFilterPanel(category)}
             />
           );
         })}
 
         <Popover
-          open={open}
+          open={addOpen}
           onOpenChange={(o) => {
-            setOpen(o);
-            if (!o) resetMenu();
+            setAddOpen(o);
+            if (!o) setFilterSearch("");
           }}
           showArrow={false}
           align="start"
@@ -454,10 +469,10 @@ const SidebarExperimentFilters: FC<Props> = ({
               </Flex>
             </Button>
           }
-          content={menuContent}
+          content={categoryListView}
         />
 
-        {chipFilters.length > 0 && (
+        {chipFields.length > 0 && (
           <Link
             size="1"
             onClick={clearFilters}

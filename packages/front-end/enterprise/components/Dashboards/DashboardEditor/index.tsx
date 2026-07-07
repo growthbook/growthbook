@@ -91,7 +91,7 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiTableDuotone />,
   },
   "metric-experiments": {
-    name: "Metric Lift by Experiment",
+    name: "Experiments with Lift",
     icon: <PiTableDuotone />,
   },
   "experiments-scaled-impact": {
@@ -151,10 +151,14 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     "Product Analytics",
     ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
   ],
-  ["Experimentation", ["metric-experiments"]],
   [
-    "Completed Experiments",
-    ["experiments-scaled-impact", "experiments-win-rate", "experiments-status"],
+    "Experimentation",
+    [
+      "experiments-status",
+      "experiments-win-rate",
+      "metric-experiments",
+      "experiments-scaled-impact",
+    ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];

@@ -43,16 +43,7 @@ export default function ExperimentsStatusSettings({
   const validGranularities = getValidDateGranularities(window);
 
   return (
-    <Flex
-      direction="column"
-      gap="4"
-      p="3"
-      style={{
-        border: "1px solid var(--gray-a3)",
-        borderRadius: "var(--radius-4)",
-        backgroundColor: "var(--color-panel-translucent)",
-      }}
-    >
+    <Flex direction="column" gap="4">
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
