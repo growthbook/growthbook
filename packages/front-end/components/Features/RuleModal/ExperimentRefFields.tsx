@@ -210,7 +210,7 @@ export default function ExperimentRefFields({
       )}
 
       {selectedExperiment && (
-        <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
+        <Box pb="1" mb="4">
           <Flex align="center" gap="3" mb="3">
             <label className="mb-0">Variation Values</label>
             {!isConfigBacked &&

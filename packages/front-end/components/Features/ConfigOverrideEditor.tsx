@@ -41,7 +41,10 @@ type ResolvedResponse = {
 // Key / Value / Type / action. Key, Type, and action are fixed so the Value
 // column (1fr) absorbs the remaining width; its min is generous so JSON editing
 // stays usable in narrower layouts.
-const GRID_TEMPLATE = "150px minmax(280px, 1fr) 110px 64px";
+// Action column is `auto` so it fits the "+ Override" CTA (a fixed 64px clipped
+// it); value min is modest so the grid fits narrower containers (e.g. an
+// experiment variation arm) without overflowing.
+const GRID_TEMPLATE = "150px minmax(180px, 1fr) 110px auto";
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -335,7 +338,11 @@ function OverrideRow({
         </code>
       </Flex>
 
-      <Flex align="center" justify="end" style={{ minHeight: 32 }}>
+      <Flex
+        align="center"
+        justify="end"
+        style={{ minHeight: 32, whiteSpace: "nowrap" }}
+      >
         {overridden ? (
           <Link
             size="1"
