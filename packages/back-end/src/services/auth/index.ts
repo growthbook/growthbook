@@ -354,7 +354,7 @@ export async function processJWT(
         freeSeats: org?.freeSeats,
         discountCode: org?.discountCode,
         organizationId: hashedOrganizationId,
-        cloudOrgId: orgId,
+        cloudOrgId: IS_CLOUD ? orgId : "",
         accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
         superAdmin: user.superAdmin,
         orgDateCreated: org?.dateCreated
