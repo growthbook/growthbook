@@ -161,8 +161,6 @@ export function getGrowthBookTrackingAttributes(
 }
 
 function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
-  if (!IS_CLOUD) return null;
-
   if (!gbClient) {
     gbClient = createGrowthBookClient();
   }
@@ -214,13 +212,6 @@ async function runGrowthBookClientInit(): Promise<void> {
  * Enables real-time feature updates via Server-Sent Events
  */
 export async function initializeGrowthBookClient(): Promise<void> {
-  if (!IS_CLOUD) {
-    logger.info(
-      "GrowthBook client not initialized - not running in cloud mode",
-    );
-    return;
-  }
-
   if (initPromise) return initPromise;
 
   initPromise = runGrowthBookClientInit().catch((error) => {
