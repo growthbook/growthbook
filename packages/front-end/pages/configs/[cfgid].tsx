@@ -1259,10 +1259,11 @@ export default function ConfigDetailPage(): React.ReactElement {
               width: 220,
               flexShrink: 0,
               position: "sticky",
-              // Pin below the fixed 56px top nav (+1rem gap); the document scrolls.
-              top: "calc(56px + 1rem)",
+              // Stick at the column's natural top (below the 56px nav + page
+              // inset) so it doesn't jump a few px on scroll before sticking.
+              top: 80,
               alignSelf: "flex-start",
-              maxHeight: "calc(100vh - 56px - 2rem)",
+              maxHeight: "calc(100vh - 80px - 1rem)",
               overflowY: "auto",
             }}
           >
