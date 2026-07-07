@@ -16,10 +16,12 @@ function DashboardStatusSummary({
   enableAutoUpdates,
   nextUpdate,
   dashboardLastUpdated,
+  needsUpdate,
 }: {
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date; // Optional rather than Date | undefined as this doesn't apply to experiment dashboards
+  needsUpdate: boolean;
 }) {
   const {
     settings: { updateSchedule },
@@ -47,7 +49,11 @@ function DashboardStatusSummary({
   const metricAnalysis = metricAnalysisEntry?.[1];
 
   const textColor =
-    refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
+    refreshError || numFailed > 0 || snapshotError
+      ? "red"
+      : needsUpdate
+        ? "amber"
+        : undefined;
   const lastUpdateTime =
     metricAnalysis?.runStarted ??
     dashboardLastUpdated ??
@@ -59,9 +65,11 @@ function DashboardStatusSummary({
       ? "One or more queries failed"
       : snapshotError
         ? "Error running analysis"
-        : lastUpdateTime
-          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
-          : "Not started yet";
+        : needsUpdate
+          ? "Needs update"
+          : lastUpdateTime
+            ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
+            : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
@@ -108,6 +116,8 @@ interface Props {
   dashboardLastUpdated?: Date;
   disabled: boolean;
   isEditing: boolean;
+  needsUpdate?: boolean;
+  onUpdated?: () => void;
 }
 
 export default function DashboardUpdateDisplay({
@@ -117,6 +127,8 @@ export default function DashboardUpdateDisplay({
   dashboardLastUpdated,
   disabled,
   isEditing,
+  needsUpdate = false,
+  onUpdated,
 }: Props) {
   const { datasources } = useDefinitions();
   const {
@@ -167,6 +179,7 @@ export default function DashboardUpdateDisplay({
         enableAutoUpdates={enableAutoUpdates}
         nextUpdate={nextUpdate}
         dashboardLastUpdated={dashboardLastUpdated}
+        needsUpdate={needsUpdate}
       />
       {isEditing && (
         <DashboardViewQueriesButton
@@ -184,12 +197,15 @@ export default function DashboardUpdateDisplay({
               refreshing ||
               !dashboardId ||
               dashboardId === "new" ||
-              (!allQueries.length && savedQueriesMap.size === 0)
+              (!needsUpdate && !allQueries.length && savedQueriesMap.size === 0)
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
             variant="ghost"
-            onClick={updateAllSnapshots}
+            onClick={async () => {
+              await updateAllSnapshots();
+              onUpdated?.();
+            }}
           >
             {refreshing ? "Refreshing" : "Update"}
           </Button>

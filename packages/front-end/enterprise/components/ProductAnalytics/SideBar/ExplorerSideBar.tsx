@@ -40,10 +40,35 @@ import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
+  dashboardDateRange?: ExplorationConfig["dateRange"];
+  useDashboardDateControl?: boolean;
+  onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  onSubmit?: () => void;
+}
+
+function formatDateRange(dateRange: ExplorationConfig["dateRange"]): string {
+  switch (dateRange.predefined) {
+    case "today":
+      return "Today";
+    case "last7Days":
+      return "Past 7 Days";
+    case "last30Days":
+      return "Past 30 Days";
+    case "last90Days":
+      return "Past 90 Days";
+    case "customLookback":
+      return `Past ${dateRange.lookbackValue ?? 30} ${dateRange.lookbackUnit ?? "day"}${(dateRange.lookbackValue ?? 30) === 1 ? "" : "s"}`;
+    case "customDateRange":
+      return `${dateRange.startDate ?? "Start"} to ${dateRange.endDate ?? "End"}`;
+  }
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
+  dashboardDateRange,
+  useDashboardDateControl = false,
+  onGlobalControlSettingsChange,
+  onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -200,7 +225,9 @@ export default function ExplorerSideBar({
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={() => handleSubmit({ force: isStale })}
+                onClick={() =>
+                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
+                }
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -251,7 +278,35 @@ export default function ExplorerSideBar({
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
             <Text weight="medium">Date Range</Text>
-            {showComparisonDateControls ? (
+            {dashboardDateRange ? (
+              <Switch
+                size="1"
+                value={useDashboardDateControl}
+                onChange={(checked) =>
+                  onGlobalControlSettingsChange?.({ dateRange: checked })
+                }
+                label="Use dashboard date range"
+                description={
+                  useDashboardDateControl
+                    ? "This block uses the dashboard date range."
+                    : "This block uses its own date range."
+                }
+              />
+            ) : null}
+            {dashboardDateRange && useDashboardDateControl ? (
+              <Flex
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  backgroundColor: "var(--gray-a2)",
+                }}
+              >
+                <Text size="small" color="text-low">
+                  {formatDateRange(dashboardDateRange)}
+                </Text>
+              </Flex>
+            ) : showComparisonDateControls ? (
               <ComparisonDateControls fullWidth />
             ) : (
               <DateRangePicker fullWidth />

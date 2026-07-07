@@ -74,6 +74,8 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
+        globalControls?: DashboardInterface["globalControls"];
+        comparison?: DashboardInterface["comparison"];
       };
     }) => {
       const res = (await apiCall(
@@ -88,6 +90,8 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
+                  globalControls: data.globalControls,
+                  comparison: data.comparison ?? undefined,
                 }
               : data,
           ),
@@ -200,6 +204,7 @@ function SingleDashboardPage() {
             isEditing={false}
             title={dashboard.title}
             blocks={dashboard.blocks}
+            globalControls={dashboard.globalControls}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
@@ -209,6 +214,16 @@ function SingleDashboardPage() {
             dashboardLastUpdated={dashboard.lastUpdated}
             setIsEditing={setIsEditing}
             enterEditModeForBlock={enterEditModeForBlock}
+            onGlobalControlsChange={async (globalControls, controlBlocks) => {
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  globalControls,
+                  ...(controlBlocks ? { blocks: controlBlocks } : {}),
+                },
+              });
+            }}
           />
         )}
       </DashboardSnapshotProvider>

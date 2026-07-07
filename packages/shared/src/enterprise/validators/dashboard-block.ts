@@ -345,6 +345,12 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
+const globalControlSettingsValidator = z
+  .object({
+    dateRange: z.boolean().optional(),
+  })
+  .strict();
+
 // Fields shared by every product-analytics exploration block. `comparison` and
 // `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as
 // "no comparison".
@@ -355,6 +361,7 @@ const explorationBlockCommon = {
     (value) => (value === null ? undefined : value),
     z.string().optional(),
   ),
+  globalControlSettings: globalControlSettingsValidator.optional(),
 };
 
 const metricExplorationBlockInterface = baseBlockInterface.extend({

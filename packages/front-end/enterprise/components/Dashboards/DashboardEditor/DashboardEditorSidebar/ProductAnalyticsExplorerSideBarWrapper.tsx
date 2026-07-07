@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  getEffectiveExplorationConfig,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -14,6 +16,7 @@ import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalyti
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
+  dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: {
@@ -29,11 +32,18 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       | DataSourceExplorationBlockInterface
     >
   >;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }) {
-  const { needsFetch, needsUpdate, draftExploreState, handleSubmit, loading } =
-    useExplorerContext();
+  const {
+    needsFetch,
+    needsUpdate,
+    draftExploreState,
+    setDraftExploreState,
+    handleSubmit,
+    loading,
+  } = useExplorerContext();
   const pendingCloseRef = useRef(false);
   const onSaveAndCloseRef = useRef(onSaveAndClose);
   onSaveAndCloseRef.current = onSaveAndClose;
@@ -45,6 +55,22 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       ? block.comparisonExplorerAnalysisId
       : undefined;
   const compareEnabled = draftExploreState.previousTimeFrame != null;
+  const getEffectiveDraftConfig = useCallback(
+    () =>
+      dashboardGlobalControls
+        ? ({
+            ...getEffectiveExplorationConfig(
+              {
+                ...block,
+                config: stripExplorerDraftFields(draftExploreState),
+              } as typeof block,
+              { globalControls: dashboardGlobalControls },
+            ),
+            previousTimeFrame: draftExploreState.previousTimeFrame,
+          } as typeof draftExploreState)
+        : draftExploreState,
+    [block, dashboardGlobalControls, draftExploreState],
+  );
 
   const nextComparison = useMemo<BlockComparison | undefined>(() => {
     const previousTimeFrame = draftExploreState.previousTimeFrame;
@@ -62,7 +88,17 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   ]);
 
   useEffect(() => {
-    const nextConfig = stripExplorerDraftFields(draftExploreState);
+    const nextDraftConfig = stripExplorerDraftFields(draftExploreState);
+    const nextConfig =
+      block.globalControlSettings?.dateRange === true
+        ? {
+            ...nextDraftConfig,
+            ...(block.globalControlSettings?.dateRange === true &&
+            dashboardGlobalControls?.dateRange
+              ? { dateRange: block.config.dateRange }
+              : {}),
+          }
+        : nextDraftConfig;
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
       !isEqual(block.comparison, nextComparison)
@@ -88,6 +124,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     setBlock,
     block,
     draftExploreState,
+    dashboardGlobalControls,
     nextComparison,
   ]);
 
@@ -95,8 +132,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   useEffect(() => {
     if (!saveAndCloseTrigger) return;
     pendingCloseRef.current = true;
-    handleSubmit({ force: true });
-  }, [saveAndCloseTrigger, handleSubmit]);
+    handleSubmit({ force: true, config: getEffectiveDraftConfig() });
+  }, [saveAndCloseTrigger, handleSubmit, getEffectiveDraftConfig]);
 
   // Once onRunComplete writes the required analysis ids, complete the save.
   useEffect(() => {
@@ -118,5 +155,36 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     needsFetch,
   ]);
 
-  return <ExplorerSideBar renderingInDashboardSidebar />;
+  return (
+    <ExplorerSideBar
+      renderingInDashboardSidebar
+      dashboardDateRange={dashboardGlobalControls?.dateRange}
+      useDashboardDateControl={block.globalControlSettings?.dateRange === true}
+      onSubmit={() =>
+        handleSubmit({ force: true, config: getEffectiveDraftConfig() })
+      }
+      onGlobalControlSettingsChange={(settings) => {
+        const nextSettings = {
+          ...block.globalControlSettings,
+          ...settings,
+        };
+        if (settings.dateRange !== undefined) {
+          setDraftExploreState((prev) => ({
+            ...prev,
+            dateRange:
+              settings.dateRange && dashboardGlobalControls?.dateRange
+                ? dashboardGlobalControls.dateRange
+                : block.config.dateRange,
+          }));
+        }
+        setBlock({
+          ...block,
+          globalControlSettings: nextSettings,
+        } as
+          | MetricExplorationBlockInterface
+          | FactTableExplorationBlockInterface
+          | DataSourceExplorationBlockInterface);
+      }}
+    />
+  );
 }

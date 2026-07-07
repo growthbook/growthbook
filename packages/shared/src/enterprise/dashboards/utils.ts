@@ -5,6 +5,10 @@ import {
   DashboardBlockInterfaceOrData,
   CreateDashboardBlockInterface,
   DashboardTemplateInterface,
+  DashboardInterface,
+  MetricExplorationBlockInterface,
+  FactTableExplorationBlockInterface,
+  DataSourceExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
@@ -20,8 +24,9 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { MetricGroupInterface } from "shared/types/metric-groups";
+import { DataSourceInterface } from "shared/types/datasource";
 import { isNumber, isString } from "../../util/types";
-import { getSnapshotAnalysis } from "../../util";
+import { getSnapshotAnalysis, isManagedWarehouse } from "../../util";
 import {
   parseSliceQueryString,
   generateSliceString,
@@ -58,6 +63,164 @@ export function dashboardBlockHasIds<T extends DashboardBlockInterface>(
 ): data is T {
   const block = data as T;
   return !!(block.id && block.uid && block.organization);
+}
+
+type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+>;
+
+const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
+  "metric-exploration",
+  "fact-table-exploration",
+  "data-source-exploration",
+]);
+
+export function getTemporaryDashboardBlockId(index: number): string {
+  return `tmp:${index}`;
+}
+
+export function isDashboardGlobalControlSupportedBlock(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock {
+  return dashboardGlobalControlSupportedBlockTypes.has(block.type);
+}
+
+export function blockUsesDashboardDateControl(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): block is DashboardGlobalControlSupportedBlock & {
+  globalControlSettings: { dateRange: true };
+} {
+  return (
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === true
+  );
+}
+
+export type DashboardGlobalControlsEvaluation<
+  T extends DashboardGlobalControlSupportedBlock,
+> = {
+  effectiveConfig: T["config"];
+  dateRange: {
+    enabled: boolean;
+    applied: boolean;
+  };
+};
+
+export function evaluateDashboardGlobalControlsForBlock<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+  blockIndex?: number,
+): DashboardGlobalControlsEvaluation<T> {
+  void blockIndex;
+  const dateRangeEnabled = blockUsesDashboardDateControl(block);
+  const dateRangeApplied = Boolean(
+    dateRangeEnabled && dashboard.globalControls?.dateRange,
+  );
+  const config = dateRangeApplied
+    ? {
+        ...block.config,
+        dateRange: dashboard.globalControls!.dateRange!,
+      }
+    : block.config;
+
+  return {
+    effectiveConfig: config,
+    dateRange: {
+      enabled: dateRangeEnabled,
+      applied: dateRangeApplied,
+    },
+  };
+}
+
+export function getEffectiveExplorationConfig<
+  T extends DashboardGlobalControlSupportedBlock,
+>(
+  block: T,
+  dashboard: Pick<DashboardInterface, "globalControls">,
+  blockIndex?: number,
+): T["config"] {
+  return evaluateDashboardGlobalControlsForBlock(block, dashboard, blockIndex)
+    .effectiveConfig;
+}
+
+export function getDashboardGlobalControlApplicability(dashboard: {
+  globalControls?: DashboardInterface["globalControls"];
+  blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+}): {
+  supportedBlocks: DashboardGlobalControlSupportedBlock[];
+  unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  dateControlledBlocks: DashboardGlobalControlSupportedBlock[];
+} {
+  const supportedBlocks: DashboardGlobalControlSupportedBlock[] = [];
+  const unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] =
+    [];
+
+  dashboard.blocks.forEach((block) => {
+    if (isDashboardGlobalControlSupportedBlock(block)) {
+      supportedBlocks.push(block);
+    } else {
+      unsupportedBlocks.push(block);
+    }
+  });
+
+  const dateControlledBlocks = supportedBlocks.filter(
+    blockUsesDashboardDateControl,
+  );
+
+  return {
+    supportedBlocks,
+    unsupportedBlocks,
+    dateControlledBlocks,
+  };
+}
+
+type DatasourceMap = ReadonlyMap<
+  string,
+  Pick<DataSourceInterface, "type"> | undefined
+>;
+type DatasourceRecord = Readonly<
+  Record<string, Pick<DataSourceInterface, "type"> | undefined>
+>;
+type DatasourceLookup = DatasourceMap | DatasourceRecord;
+
+function isDatasourceMap(
+  datasourcesById: DatasourceLookup,
+): datasourcesById is DatasourceMap {
+  return datasourcesById instanceof Map;
+}
+
+function getDatasourceFromLookup(
+  datasourcesById: DatasourceLookup,
+  datasourceId: string,
+): Pick<DataSourceInterface, "type"> | undefined {
+  if (isDatasourceMap(datasourcesById)) {
+    return datasourcesById.get(datasourceId);
+  }
+
+  return datasourcesById[datasourceId];
+}
+
+export function canAutoRefreshDashboard(
+  dashboard: {
+    globalControls?: DashboardInterface["globalControls"];
+    blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  },
+  datasourcesById: DatasourceLookup,
+): boolean {
+  const applicability = getDashboardGlobalControlApplicability(dashboard);
+  const affectedBlocks = new Set(applicability.dateControlledBlocks);
+
+  return [...affectedBlocks].every((block) => {
+    const datasource = getDatasourceFromLookup(
+      datasourcesById,
+      block.config.datasource,
+    );
+    return datasource ? isManagedWarehouse(datasource) : false;
+  });
 }
 
 export function isDifferenceType(

@@ -1,9 +1,12 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
   buildComparisonDateRange,
+  dashboardBlockHasIds,
+  getEffectiveExplorationConfig,
 } from "shared/enterprise";
 import type {
   ExplorationDateRange,
@@ -29,6 +32,7 @@ interface Props {
       | DataSourceExplorationBlockInterface
     >
   >;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }
@@ -36,6 +40,7 @@ interface Props {
 export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
+  dashboardGlobalControls,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: Props) {
@@ -62,17 +67,33 @@ export default function ProductAnalyticsExplorerSettings({
     data?.exploration?.config && block.config
       ? { ...data.exploration.config, ...block.config }
       : data?.exploration?.config || block.config;
+  const blockForInitialConfig = {
+    ...block,
+    config: baseInitialConfig,
+  } as typeof block;
+  const effectiveInitialConfig = dashboardGlobalControls
+    ? getEffectiveExplorationConfig(blockForInitialConfig, {
+        globalControls: dashboardGlobalControls,
+      })
+    : baseInitialConfig;
   const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
     ? {
-        ...baseInitialConfig,
+        ...effectiveInitialConfig,
         previousTimeFrame:
           block.comparison.previousTimeFrame ??
-          buildComparisonDateRange(baseInitialConfig.dateRange),
+          buildComparisonDateRange(effectiveInitialConfig.dateRange),
       }
-    : baseInitialConfig;
+    : effectiveInitialConfig;
+  const explorerProviderKey = [
+    dashboardBlockHasIds(block) ? block.id : "",
+    block.explorerAnalysisId,
+    block.globalControlSettings?.dateRange === true,
+    JSON.stringify(dashboardGlobalControls ?? null),
+  ].join(":");
 
   return (
     <ExplorerProvider
+      key={explorerProviderKey}
       initialConfig={initialConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       trackingSource="dashboard-editor"
@@ -89,6 +110,15 @@ export default function ProductAnalyticsExplorerSettings({
                   "customDateRange" && { previousTimeFrame }),
               }
             : undefined;
+        const nextConfig =
+          block.globalControlSettings?.dateRange === true
+            ? {
+                ...exploration.config,
+                ...(block.globalControlSettings?.dateRange === true
+                  ? { dateRange: block.config.dateRange }
+                  : {}),
+              }
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
@@ -102,7 +132,7 @@ export default function ProductAnalyticsExplorerSettings({
                 comparisonExplorerAnalysisId: undefined,
               }),
           config: {
-            ...exploration.config,
+            ...nextConfig,
             chartType: block.config?.chartType || exploration.config?.chartType,
           },
         } as
@@ -114,6 +144,7 @@ export default function ProductAnalyticsExplorerSettings({
       <ProductAnalyticsExplorerSideBarWrapper
         block={block}
         setBlock={setBlock}
+        dashboardGlobalControls={dashboardGlobalControls}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
       />

@@ -4,6 +4,9 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
+  blockUsesDashboardDateControl,
+  DashboardInterface,
+  isDashboardGlobalControlSupportedBlock,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -37,6 +40,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MarkdownBlock from "./MarkdownBlock";
@@ -79,6 +83,8 @@ type ObjectProps<Block> = {
 export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
+  blockIndex?: number;
   setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
@@ -90,6 +96,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   blockIndex?: number;
   isFocused: boolean;
   isEditing: boolean;
@@ -127,6 +134,7 @@ const BLOCK_COMPONENTS: {
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
+  dashboardGlobalControls,
   blockIndex,
   isEditing,
   isFocused,
@@ -167,6 +175,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
+  const hasGlobalControls = Boolean(dashboardGlobalControls?.dateRange);
+  const shouldShowUnsupportedGlobalControlBadge =
+    hasGlobalControls &&
+    !isDashboardGlobalControlSupportedBlock(block) &&
+    block.type !== "markdown";
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -498,6 +511,35 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 <PiPencilSimpleFill />
               </a>
             )}
+            {dashboardGlobalControls?.dateRange &&
+            isDashboardGlobalControlSupportedBlock(block) ? (
+              blockUsesDashboardDateControl(block) ? (
+                <Badge
+                  label="Dashboard date"
+                  color="violet"
+                  variant="soft"
+                  size="xs"
+                  ml="2"
+                />
+              ) : (
+                <Badge
+                  label="Uses block date"
+                  color="gray"
+                  variant="soft"
+                  size="xs"
+                  ml="2"
+                />
+              )
+            ) : null}
+            {shouldShowUnsupportedGlobalControlBadge ? (
+              <Badge
+                label="Not affected by global controls"
+                color="gray"
+                variant="outline"
+                size="xs"
+                ml="2"
+              />
+            ) : null}
 
             <div style={{ flexGrow: 1, marginRight: 30 }} />
           </>
@@ -618,6 +660,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           <BlockComponent
             isTabActive={isTabActive}
             block={block}
+            dashboardGlobalControls={dashboardGlobalControls}
+            blockIndex={blockIndex}
             setBlock={setBlock}
             isEditing={isEditing}
             snapshot={
