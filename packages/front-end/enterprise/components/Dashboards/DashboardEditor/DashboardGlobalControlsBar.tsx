@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { getValidDateOffsetByUTC } from "shared/dates";
@@ -50,6 +50,38 @@ function DashboardDateRangePicker({
   onChange: (dateRange: DashboardDateRange) => void;
   disabled?: boolean;
 }) {
+  const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
+    null,
+  );
+  const latestLookbackRef = useRef<string>("");
+  const skipBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (value.predefined !== "customLookback") {
+      setLocalLookbackValue(null);
+      latestLookbackRef.current = "";
+    }
+  }, [value.predefined]);
+
+  const commitLookbackValue = (lookbackValue: string) => {
+    const parsed = lookbackValue ? parseInt(lookbackValue, 10) : null;
+    const isValid = parsed !== null && parsed >= 1 && !Number.isNaN(parsed);
+
+    if (!isValid) {
+      setLocalLookbackValue(null);
+      latestLookbackRef.current = "";
+      return;
+    }
+
+    onChange({
+      ...value,
+      lookbackValue: parsed,
+      lookbackUnit: value.lookbackUnit || "day",
+    });
+    setLocalLookbackValue(null);
+    latestLookbackRef.current = "";
+  };
+
   return (
     <Flex align="center" gap="2" wrap="wrap">
       <Select
@@ -92,16 +124,38 @@ function DashboardDateRangePicker({
             min="1"
             disabled={disabled}
             style={{ width: 70 }}
-            value={value.lookbackValue?.toString() ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                lookbackValue: e.target.value
-                  ? parseInt(e.target.value, 10)
-                  : null,
-                lookbackUnit: value.lookbackUnit || "day",
-              })
+            value={
+              localLookbackValue !== null
+                ? localLookbackValue
+                : value.lookbackValue?.toString() || ""
             }
+            onFocus={() => {
+              latestLookbackRef.current = value.lookbackValue?.toString() || "";
+            }}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              latestLookbackRef.current = nextValue;
+              setLocalLookbackValue(nextValue);
+            }}
+            onBlur={() => {
+              if (skipBlurCommitRef.current) {
+                skipBlurCommitRef.current = false;
+                return;
+              }
+              commitLookbackValue(latestLookbackRef.current);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const nextValue =
+                  latestLookbackRef.current ||
+                  value.lookbackValue?.toString() ||
+                  "";
+                commitLookbackValue(nextValue);
+                skipBlurCommitRef.current = true;
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
           />
           <Select
             size="2"
