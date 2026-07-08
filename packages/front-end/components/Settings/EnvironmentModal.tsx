@@ -70,6 +70,13 @@ export default function EnvironmentModal({
     value: p.id,
   }));
 
+  const newEnvironmentOptions = DEFAULT_ENVIRONMENT_IDS.filter(
+    (id) => !environments.some((e) => e.id === id),
+  ).map((id) => ({
+    label: id,
+    value: id,
+  }));
+
   return (
     <Modal
       useRadixButton={false}
@@ -137,10 +144,7 @@ export default function EnvironmentModal({
       {!existing.id && (
         <SelectField
           value={form.watch("id") || ""}
-          options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
-            label: id,
-            value: id,
-          }))}
+          options={newEnvironmentOptions}
           sort={false}
           createable={customEnvironmentsAllowed}
           isClearable
@@ -171,10 +175,7 @@ export default function EnvironmentModal({
                 </div>
               </>
             ) : (
-              <div>
-                Your plan only supports the default environments listed above.
-                Upgrade your plan to create custom environments.
-              </div>
+              <div>Upgrade your plan to create custom environments.</div>
             )
           }
         />
