@@ -180,13 +180,15 @@ export const notifyScheduledStatusUpdateApplied = ({
   shipped,
   shippedVariationId,
   forced,
+  recommendedVariationId,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  action: "started" | "stopped";
+  action: "started" | "stopped" | "kept-running";
   shipped?: boolean;
   shippedVariationId?: string;
   forced?: boolean;
+  recommendedVariationId?: string;
 }) =>
   dispatchEvent({
     context,
@@ -200,6 +202,7 @@ export const notifyScheduledStatusUpdateApplied = ({
         ...(shipped !== undefined ? { shipped } : {}),
         ...(shippedVariationId ? { shippedVariationId } : {}),
         ...(forced !== undefined ? { forced } : {}),
+        ...(recommendedVariationId ? { recommendedVariationId } : {}),
       },
     },
   });

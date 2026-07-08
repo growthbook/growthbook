@@ -13092,12 +13092,16 @@ paths:
           application/json:
             schema:
               description: >-
-                End-of-experiment automation. `auto-ship` requires the Decision
-                Framework; multi-winner ties break on `tiebreakerMetricId`
-                (higher lift), and `fallback` decides between notifying and
-                force-shipping `fallbackVariationId` when there's no clear
-                winner. `force-ship` unconditionally ships `fallbackVariationId`
-                (also requires the Decision Framework).
+                What happens at the scheduled end date. `notify` keeps the
+                experiment running and just notifies (soft). `auto-ship`
+                (requires the Decision Framework) ships the winning variation
+                and stops; multi-winner ties break on `tiebreakerMetricId`
+                (higher lift); with no clear winner, `fallback` either keeps
+                running (`notify`) or ships `fallbackVariationId`. `force-ship`
+                stops and rolls out `fallbackVariationId`. `stop` is a hard
+                deadline that stops with no rollout. For `force-ship` and
+                `stop`, the Decision Framework verdict (won/lost/inconclusive)
+                is recorded as metadata when available.
               id: ExperimentShippingCriteria
               type: object
               properties:
@@ -13107,6 +13111,7 @@ paths:
                     - notify
                     - auto-ship
                     - force-ship
+                    - stop
                 tiebreakerMetricId:
                   type: string
                 fallback:
@@ -40236,12 +40241,15 @@ components:
       additionalProperties: false
     ExperimentShippingCriteria:
       description: >-
-        End-of-experiment automation. `auto-ship` requires the Decision
-        Framework; multi-winner ties break on `tiebreakerMetricId` (higher
-        lift), and `fallback` decides between notifying and force-shipping
-        `fallbackVariationId` when there's no clear winner. `force-ship`
-        unconditionally ships `fallbackVariationId` (also requires the Decision
-        Framework).
+        What happens at the scheduled end date. `notify` keeps the experiment
+        running and just notifies (soft). `auto-ship` (requires the Decision
+        Framework) ships the winning variation and stops; multi-winner ties
+        break on `tiebreakerMetricId` (higher lift); with no clear winner,
+        `fallback` either keeps running (`notify`) or ships
+        `fallbackVariationId`. `force-ship` stops and rolls out
+        `fallbackVariationId`. `stop` is a hard deadline that stops with no
+        rollout. For `force-ship` and `stop`, the Decision Framework verdict
+        (won/lost/inconclusive) is recorded as metadata when available.
       type: object
       properties:
         mode:
@@ -40250,6 +40258,7 @@ components:
             - notify
             - auto-ship
             - force-ship
+            - stop
         tiebreakerMetricId:
           type: string
         fallback:

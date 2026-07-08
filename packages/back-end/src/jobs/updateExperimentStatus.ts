@@ -163,34 +163,45 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
-        // Applies shippingCriteria: auto-ship the winner, force-ship the
-        // fallback, or just stop for manual review. This stops the experiment
-        // (and refreshes the SDK payload) as a side effect.
+        // Applies shippingCriteria: ship a winner (auto/forced) and stop, do a
+        // hard stop with no rollout, or — for a soft "notify" end — leave the
+        // experiment running. A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
           context,
           experiment,
         });
-        // Re-load the now-stopped doc so clearing the staged update and
-        // emitting the event run against fresh state — not the stale
-        // pre-stop (running) snapshot.
-        const stopped =
+
+        // Consume the staged update either way (one-shot). Re-load first so we
+        // act on fresh state — the experiment is stopped for shipped/stopped
+        // outcomes, still running for kept-running.
+        const latest =
           (await getExperimentById(context, experiment.id)) ?? experiment;
-        if (stopped.nextScheduledStatusUpdate) {
+        if (latest.nextScheduledStatusUpdate) {
           await updateExperiment({
             context,
-            experiment: stopped,
+            experiment: latest,
             changes: { nextScheduledStatusUpdate: null },
           });
         }
-        await notifyScheduledStatusUpdateApplied({
-          context,
-          experiment: stopped,
-          action: "stopped",
-          shipped: outcome.kind === "shipped",
-          shippedVariationId:
-            outcome.kind === "shipped" ? outcome.variationId : undefined,
-          forced: outcome.kind === "shipped" ? outcome.forced : undefined,
-        });
+
+        if (outcome.kind === "kept-running") {
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "kept-running",
+            recommendedVariationId: outcome.recommendedVariationId ?? undefined,
+          });
+        } else {
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "stopped",
+            shipped: outcome.kind === "shipped",
+            shippedVariationId:
+              outcome.kind === "shipped" ? outcome.variationId : undefined,
+            forced: outcome.kind === "shipped" ? outcome.forced : undefined,
+          });
+        }
         break;
       }
       default:

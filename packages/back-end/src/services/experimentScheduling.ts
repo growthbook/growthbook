@@ -6,10 +6,8 @@ import {
 } from "shared/validators";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import {
-  PRESET_DECISION_CRITERIA,
   getExperimentResultStatus,
   getHealthSettings,
-  getPresetDecisionCriteriaForOrg,
   resolveScheduledShipDecision,
 } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
@@ -17,6 +15,10 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentMetricById,
+  getExperimentDecisionCriteria,
+} from "back-end/src/services/experiments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { stopExperiment } from "./experimentChanges/changeExperimentStatus";
@@ -30,23 +32,6 @@ function canAutoShip(context: Context): boolean {
     orgHasPremiumFeature(context.org, "decision-framework") &&
     (context.org.settings?.decisionFrameworkEnabled ??
       DEFAULT_DECISION_FRAMEWORK_ENABLED)
-  );
-}
-
-async function resolveDecisionCriteria(
-  context: Context,
-  experiment: ExperimentInterface,
-) {
-  const id =
-    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
-    context.org.settings?.defaultDecisionCriteriaId;
-  if (id) {
-    const dc = await context.models.decisionCriteria.getById(id);
-    if (dc) return dc;
-  }
-  return (
-    getPresetDecisionCriteriaForOrg(context.org.settings) ??
-    PRESET_DECISION_CRITERIA
   );
 }
 
@@ -72,22 +57,126 @@ async function getTiebreakerLiftMap(
   const dimension = analysis?.results?.[0];
   if (!dimension) return null;
 
+  // For a lower-is-better (inverse) metric, flip the sign so that "highest
+  // lift" in resolveScheduledShipDecision selects the best variation, not the
+  // worst. `expected` is the raw relative lift and is not direction-adjusted.
+  const metric = await getExperimentMetricById(context, metricId);
+  const sign = metric?.inverse ? -1 : 1;
+
   const map: Record<string, number> = {};
   experiment.variations.forEach((variation, i) => {
     const expected = dimension.variations[i]?.metrics?.[metricId]?.expected;
-    if (typeof expected === "number") map[variation.id] = expected;
+    if (typeof expected === "number") map[variation.id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
 }
 
 export type ScheduledStopOutcome =
+  // Stopped and rolled out a variation (auto-ship winner, or a forced variation).
   | { kind: "shipped"; variationId: string; forced: boolean }
-  | { kind: "stopped-no-ship" };
+  // Stopped with no rollout (mode "stop" / hard deadline).
+  | { kind: "stopped" }
+  // Soft end: the experiment was left running and only notified.
+  | { kind: "kept-running"; recommendedVariationId: string | null };
 
-// Apply an experiment's scheduled end: stop it, and — per its shippingCriteria —
-// either roll out a winning variation (auto-ship / force-ship) or just stop and
-// leave the decision to a human ("notify"). Returns what happened so the caller
-// can emit the appropriate lifecycle event.
+// The EDF + tiebreaker verdict, recorded as analytical metadata independent of
+// what actually rolls out. Null when the decision framework isn't available.
+type ScheduledVerdict = {
+  results: "won" | "lost" | "inconclusive";
+  winnerIndex: number; // -1 when there's no winner
+  winnerVariationId: string | null;
+};
+
+// Run the decision framework (+ tiebreaker) and translate it into a
+// won/lost/inconclusive verdict. Gated on the decision framework (Pro); returns
+// null when unavailable so callers can skip metadata tagging.
+async function computeScheduledVerdict(
+  context: Context,
+  experiment: ExperimentInterface,
+  tiebreakerMetricId: string | undefined,
+): Promise<ScheduledVerdict | null> {
+  if (!canAutoShip(context)) return null;
+
+  const healthSettings = getHealthSettings(context.org.settings, true);
+  const decisionCriteria = await getExperimentDecisionCriteria(
+    context,
+    experiment,
+  );
+  const resultStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings,
+    decisionCriteria,
+  });
+
+  const inconclusive: ScheduledVerdict = {
+    results: "inconclusive",
+    winnerIndex: -1,
+    winnerVariationId: null,
+  };
+  if (!resultStatus) return inconclusive;
+
+  if (resultStatus.status === "ship-now") {
+    const isTie = resultStatus.variations.length > 1;
+    const tiebreakerLiftByVariationId =
+      isTie && tiebreakerMetricId
+        ? await getTiebreakerLiftMap(context, experiment, tiebreakerMetricId)
+        : null;
+    const decision = resolveScheduledShipDecision({
+      resultStatus,
+      tiebreakerLiftByVariationId,
+    });
+    if (decision.action === "ship") {
+      const winnerIndex = experiment.variations.findIndex(
+        (v) => v.id === decision.variationId,
+      );
+      // A stale snapshot can reference a variation id that no longer exists on
+      // the experiment (findIndex → -1). Never report "won" without a valid
+      // index — that would make stopExperiment throw. Degrade to inconclusive.
+      if (winnerIndex >= 0) {
+        return {
+          results: "won",
+          winnerIndex,
+          winnerVariationId: decision.variationId,
+        };
+      }
+    }
+    return inconclusive;
+  }
+
+  // A clear rollback means the control "won" — tag it as a loss.
+  if (resultStatus.status === "rollback-now") {
+    const control = experiment.variations[0];
+    return {
+      results: "lost",
+      winnerIndex: control ? 0 : -1,
+      winnerVariationId: control?.id ?? null,
+    };
+  }
+
+  return inconclusive;
+}
+
+const variationExists = (experiment: ExperimentInterface, id?: string) =>
+  !!id && experiment.variations.some((v) => v.id === id);
+
+// The variation to force-ship: the configured one, or control (the first
+// variation) if it no longer exists, so a "hard cutoff" still ships something
+// rather than silently degrading to keep-running. Null only if the experiment
+// has no variations at all (shouldn't happen).
+const resolveForceShipTarget = (
+  experiment: ExperimentInterface,
+  id?: string,
+): string | null =>
+  variationExists(experiment, id)
+    ? (id as string)
+    : (experiment.variations[0]?.id ?? null);
+
+// Apply an experiment's scheduled end per its shippingCriteria. Rollout and the
+// analytical verdict are decoupled: "auto-ship" ships the EDF winner; "force-
+// ship" rolls out a chosen variation; "stop" is a hard stop with no rollout;
+// "notify" is soft — the experiment keeps running and is only flagged. For
+// force-ship/stop the EDF verdict (when available) is recorded as metadata but
+// never changes what's shipped.
 export async function applyScheduledExperimentStop({
   context,
   experiment,
@@ -96,93 +185,129 @@ export async function applyScheduledExperimentStop({
   experiment: ExperimentInterface;
 }): Promise<ScheduledStopOutcome> {
   const shipping = experiment.shippingCriteria;
-  const canShip = canAutoShip(context);
-  const autoShipEnabled = shipping?.mode === "auto-ship" && canShip;
-  const forceShipEnabled = shipping?.mode === "force-ship" && canShip;
+  const mode = shipping?.mode ?? "notify";
+  const tiebreakerMetricId = shipping?.tiebreakerMetricId;
 
-  let winnerVariationId: string | null = null;
-  let forced = false;
+  // ── Auto-ship: ship the EDF winner; otherwise fall back. ──
+  if (mode === "auto-ship" && canAutoShip(context)) {
+    const verdict = await computeScheduledVerdict(
+      context,
+      experiment,
+      tiebreakerMetricId,
+    );
+    if (verdict?.results === "won" && verdict.winnerVariationId) {
+      await stopExperiment({
+        context,
+        input: {
+          experimentId: experiment.id,
+          results: "won",
+          winnerVariationId: verdict.winnerVariationId,
+          releasedVariationId: verdict.winnerVariationId,
+          enableTemporaryRollout: true,
+          reason: "Scheduled end: auto-shipped the winning variation.",
+        },
+      });
+      return {
+        kind: "shipped",
+        variationId: verdict.winnerVariationId,
+        forced: false,
+      };
+    }
 
-  if (autoShipEnabled) {
-    const healthSettings = getHealthSettings(context.org.settings, true);
-    const decisionCriteria = await resolveDecisionCriteria(context, experiment);
-    const resultStatus = getExperimentResultStatus({
-      experimentData: experiment,
-      healthSettings,
-      decisionCriteria,
-    });
-
-    // Only load snapshot lift when there's actually an ambiguous tie to break.
-    const isTie =
-      resultStatus?.status === "ship-now" && resultStatus.variations.length > 1;
-    const tiebreakerLiftByVariationId =
-      isTie && shipping.tiebreakerMetricId
-        ? await getTiebreakerLiftMap(
-            context,
-            experiment,
-            shipping.tiebreakerMetricId,
-          )
+    // No clear winner → force-ship fallback (stop + rollout) or notify (soft).
+    const fallbackTarget =
+      shipping?.fallback === "force-ship"
+        ? resolveForceShipTarget(experiment, shipping.fallbackVariationId)
         : null;
+    if (fallbackTarget) {
+      await stopExperiment({
+        context,
+        input: {
+          experimentId: experiment.id,
+          results: verdict?.results ?? "inconclusive",
+          winner: verdict?.winnerIndex,
+          releasedVariationId: fallbackTarget,
+          enableTemporaryRollout: true,
+          reason:
+            "Scheduled end: no clear winner — force-shipped the configured variation.",
+        },
+      });
+      return {
+        kind: "shipped",
+        variationId: fallbackTarget,
+        forced: true,
+      };
+    }
 
-    const decision = resolveScheduledShipDecision({
-      resultStatus,
-      tiebreakerLiftByVariationId,
-    });
-    if (decision.action === "ship") winnerVariationId = decision.variationId;
+    logger.info(
+      `Scheduled end reached with no clear winner; keeping experiment ${experiment.id} running (notify).`,
+    );
+    return {
+      kind: "kept-running",
+      recommendedVariationId: verdict?.winnerVariationId ?? null,
+    };
   }
 
-  // Force-ship a pre-selected variation — either the top-level "force-ship"
-  // mode, or auto-ship that found no clear winner and has a force-ship
-  // fallback. Both read `fallbackVariationId`. Skip if the configured
-  // variation no longer exists so we stop cleanly (notify) rather than
-  // throwing and leaving the experiment running.
-  const forceVariationId = forceShipEnabled
-    ? shipping?.fallbackVariationId
-    : autoShipEnabled && shipping?.fallback === "force-ship"
-      ? shipping?.fallbackVariationId
-      : undefined;
-  if (
-    !winnerVariationId &&
-    forceVariationId &&
-    experiment.variations.some((v) => v.id === forceVariationId)
-  ) {
-    winnerVariationId = forceVariationId;
-    forced = true;
-  }
-
-  if (winnerVariationId) {
+  // ── Force-ship a specific variation (basic; EDF verdict is bonus metadata). ──
+  const forceShipTarget =
+    mode === "force-ship"
+      ? resolveForceShipTarget(experiment, shipping?.fallbackVariationId)
+      : null;
+  if (forceShipTarget) {
+    const verdict = await computeScheduledVerdict(
+      context,
+      experiment,
+      tiebreakerMetricId,
+    );
     await stopExperiment({
       context,
       input: {
         experimentId: experiment.id,
-        results: "won",
-        winnerVariationId,
-        releasedVariationId: winnerVariationId,
+        // With a verdict, record it as metadata; without EDF, treat the forced
+        // variation as the declared winner.
+        results: verdict?.results ?? "won",
+        winner: verdict?.winnerIndex,
+        releasedVariationId: forceShipTarget,
         enableTemporaryRollout: true,
-        reason: !forced
-          ? "Scheduled end: auto-shipped the winning variation."
-          : forceShipEnabled
-            ? "Scheduled end: shipped the pre-selected variation."
-            : "Scheduled end: no clear winner — force-shipped the configured variation.",
+        reason: "Scheduled end: shipped the pre-selected variation.",
       },
     });
-    return { kind: "shipped", variationId: winnerVariationId, forced };
+    return { kind: "shipped", variationId: forceShipTarget, forced: true };
   }
 
-  // "notify" mode, or auto-ship with no winner and a notify fallback: stop the
-  // experiment and leave the ship decision to a human.
-  await stopExperiment({
+  // ── Stop: hard deadline, no rollout (EDF verdict is bonus metadata). ──
+  if (mode === "stop") {
+    const verdict = await computeScheduledVerdict(
+      context,
+      experiment,
+      tiebreakerMetricId,
+    );
+    await stopExperiment({
+      context,
+      input: {
+        experimentId: experiment.id,
+        results: verdict?.results ?? "inconclusive",
+        winner: verdict?.winnerIndex ?? -1,
+        enableTemporaryRollout: false,
+        reason: "Scheduled end reached.",
+      },
+    });
+    return { kind: "stopped" };
+  }
+
+  // ── Notify (default): soft — keep the experiment running. ──
+  const verdict = await computeScheduledVerdict(
     context,
-    input: {
-      experimentId: experiment.id,
-      results: "inconclusive",
-      reason: "Scheduled end reached.",
-    },
-  });
-  logger.info(
-    `Scheduled stop applied without auto-ship for experiment ${experiment.id}`,
+    experiment,
+    tiebreakerMetricId,
   );
-  return { kind: "stopped-no-ship" };
+  logger.info(
+    `Scheduled end reached; keeping experiment ${experiment.id} running (notify).`,
+  );
+  return {
+    kind: "kept-running",
+    recommendedVariationId: verdict?.winnerVariationId ?? null,
+  };
 }
 
 // ─── Scheduled-stop config (REST + generic update service layer) ─────────────
@@ -297,30 +422,43 @@ export async function setExperimentShippingCriteria({
     );
   }
   const warnings: string[] = [];
+  const mode = criteria.mode;
+  const hasEDF = canAutoShip(context);
 
-  const automated =
-    criteria.mode === "auto-ship" || criteria.mode === "force-ship";
-  if (automated && !canAutoShip(context)) {
+  // Auto-ship needs the decision framework to pick a winner; without it, the
+  // end date degrades to the soft "keep running + notify" behavior.
+  if (mode === "auto-ship" && !hasEDF) {
     warnings.push(
-      "Shipping automation requires the Decision Framework (Pro+ and enabled in org settings); the experiment will notify only until it's enabled.",
+      "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings); until it's enabled, the experiment will keep running and just notify at the end date.",
     );
   }
-  // Automation only ever fires at a scheduled end — never on a manual stop —
-  // so warn if there's no scheduled end for it to attach to.
+  // force-ship/stop work without the decision framework, but the analytical
+  // verdict (won/lost/inconclusive) is only recorded when it's available.
+  if ((mode === "force-ship" || mode === "stop") && !hasEDF) {
+    warnings.push(
+      `The Decision Framework isn't available, so no win/loss verdict will be recorded; the experiment will still ${
+        mode === "force-ship"
+          ? "roll out the selected variation"
+          : "stop with no rollout"
+      } at the end date.`,
+    );
+  }
+  // Every mode except the soft default only acts at a scheduled end — never on
+  // a manual stop — so warn if there's no scheduled end for it to attach to.
   const hasScheduledEnd = !!(
     experiment.statusUpdateSchedule?.stopAt ||
     experiment.statusUpdateSchedule?.stopAfter
   );
-  if (automated && !hasScheduledEnd) {
+  if (mode !== "notify" && !hasScheduledEnd) {
     warnings.push(
-      "Shipping automation only runs at a scheduled end; set a stopAt or stopAfter (a manual stop won't ship automatically).",
+      "This only runs at a scheduled end; set a stopAt or stopAfter (a manual stop won't trigger it).",
     );
   }
   // A specific variation must be set + valid when force-shipping — either as
   // the top-level "force-ship" mode or as an auto-ship fallback.
   const requiresVariation =
-    criteria.mode === "force-ship" ||
-    (criteria.mode === "auto-ship" && criteria.fallback === "force-ship");
+    mode === "force-ship" ||
+    (mode === "auto-ship" && criteria.fallback === "force-ship");
   if (requiresVariation) {
     if (!criteria.fallbackVariationId) {
       throw new BadRequestError(
@@ -335,7 +473,9 @@ export async function setExperimentShippingCriteria({
       );
     }
   }
+  // The tiebreaker feeds the EDF verdict for auto-ship, force-ship, and stop.
   if (
+    mode !== "notify" &&
     criteria.tiebreakerMetricId &&
     !(experiment.goalMetrics ?? []).includes(criteria.tiebreakerMetricId)
   ) {

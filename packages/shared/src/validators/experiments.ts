@@ -367,17 +367,23 @@ export const statusUpdateScheduleValidator = z.object({
   stopAfter: scheduleStopAfterValidator.optional().nullable(),
 });
 
-// End-of-experiment shipping automation. Absent = "notify" (status quo).
-//  - "notify": stop and leave the decision to a human.
-//  - "auto-ship": requires the decision framework (single clear winner); ties
-//    break by higher lift on `tiebreakerMetricId` when set, and if there's
-//    still no clear winner the `fallback` decides between notifying or
-//    force-shipping `fallbackVariationId`.
-//  - "force-ship": unconditionally ship `fallbackVariationId` (the same field
-//    the auto-ship fallback uses). Still gated on the decision framework.
-// No auto-rollback in this MVP.
+// What happens at the scheduled end date. Absent = "notify".
+//  - "notify" (soft): the experiment KEEPS RUNNING; you're just notified the
+//    target end date was reached. No stop, no rollout.
+//  - "auto-ship" (Pro, decision framework): ship the winning variation and
+//    stop. Multi-winner ties break by higher lift on `tiebreakerMetricId`.
+//    With no clear winner, `fallback` decides: "notify" keeps the experiment
+//    running; "force-ship" ships `fallbackVariationId` and stops.
+//  - "force-ship" (basic): stop and roll out `fallbackVariationId`. If the
+//    decision framework is available, the EDF + tiebreaker verdict is recorded
+//    as metadata (results/winner) but does not change what's shipped.
+//  - "stop" (basic): a hard deadline — stop the experiment with no rollout. If
+//    the decision framework is available, the EDF + tiebreaker verdict is
+//    recorded as metadata.
+// `tiebreakerMetricId` applies to auto-ship, force-ship, and stop (for the EDF
+// verdict). No auto-rollback.
 export const experimentShippingCriteriaValidator = z.object({
-  mode: z.enum(["notify", "auto-ship", "force-ship"]),
+  mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
   tiebreakerMetricId: z.string().optional(),
   fallback: z.enum(["notify", "force-ship"]),
   fallbackVariationId: z.string().optional(),
@@ -815,18 +821,21 @@ export const apiExperimentShippingCriteriaValidator = namedSchema(
   "ExperimentShippingCriteria",
   z
     .object({
-      mode: z.enum(["notify", "auto-ship", "force-ship"]),
+      mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
       tiebreakerMetricId: z.string().optional(),
       fallback: z.enum(["notify", "force-ship"]),
       fallbackVariationId: z.string().optional(),
     })
     .describe(
-      "End-of-experiment automation. `auto-ship` requires the Decision " +
-        "Framework; multi-winner ties break on `tiebreakerMetricId` (higher " +
-        "lift), and `fallback` decides between notifying and force-shipping " +
-        "`fallbackVariationId` when there's no clear winner. `force-ship` " +
-        "unconditionally ships `fallbackVariationId` (also requires the " +
-        "Decision Framework).",
+      "What happens at the scheduled end date. `notify` keeps the experiment " +
+        "running and just notifies (soft). `auto-ship` (requires the Decision " +
+        "Framework) ships the winning variation and stops; multi-winner ties " +
+        "break on `tiebreakerMetricId` (higher lift); with no clear winner, " +
+        "`fallback` either keeps running (`notify`) or ships " +
+        "`fallbackVariationId`. `force-ship` stops and rolls out " +
+        "`fallbackVariationId`. `stop` is a hard deadline that stops with no " +
+        "rollout. For `force-ship` and `stop`, the Decision Framework verdict " +
+        "(won/lost/inconclusive) is recorded as metadata when available.",
     ),
 );
 

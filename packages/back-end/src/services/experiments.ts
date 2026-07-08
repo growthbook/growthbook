@@ -141,6 +141,8 @@ import { ExperimentQueryMetadata } from "shared/types/query";
 import {
   isExperimentCoveredByIncrementalPipeline,
   getUnsupportedIncrementalExperimentTypeReason,
+  PRESET_DECISION_CRITERIA,
+  getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -266,6 +268,26 @@ export async function getExperimentMetricById(
     return context.models.factMetrics.getById(actualMetricId);
   }
   return getMetricById(context, actualMetricId);
+}
+
+// Resolve the decision criteria that governs an experiment: its own configured
+// criteria, else the org default, else the org/global preset. Shared so the
+// scheduling verdict and the API's enhanced status resolve it identically.
+export async function getExperimentDecisionCriteria(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "decisionFrameworkSettings">,
+) {
+  const id =
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+    context.org.settings?.defaultDecisionCriteriaId;
+  if (id) {
+    const dc = await context.models.decisionCriteria.getById(id);
+    if (dc) return dc;
+  }
+  return (
+    getPresetDecisionCriteriaForOrg(context.org.settings) ??
+    PRESET_DECISION_CRITERIA
+  );
 }
 
 export async function getExperimentMetricsByIds(
@@ -4403,13 +4425,16 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      const effectiveStatus = changes.status ?? experiment.status;
-      const running = effectiveStatus === "running";
+      // Key off the ACTUAL current status, not `changes.status`: a draft→running
+      // transition must NOT resolve/stage here — executeExperimentStart resolves
+      // a relative stopAfter off the real start time. Resolving off the pre-start
+      // draft (stale/absent dateStarted) would produce a wrong stopAt.
+      const running = experiment.status === "running";
 
       let stopAt = incoming?.stopAt ? getValidDate(incoming.stopAt) : undefined;
       let stopAfter = incoming?.stopAfter ?? undefined;
-      // A relative end resolves now for a running experiment (off its actual
-      // start) and defers for a draft (resolved at start by executeExperimentStart).
+      // A relative end resolves now for an already-running experiment (off its
+      // actual start) and defers for a draft (resolved at start).
       if (stopAfter && !stopAt && running) {
         const dateStarted =
           experiment.phases[experiment.phases.length - 1]?.dateStarted;

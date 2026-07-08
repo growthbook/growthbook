@@ -335,6 +335,19 @@ export const updateExperiment = createApiRequestHandler(
   let changesForUpdate = changes;
 
   if (isStartingFromDraft) {
+    // Persist the non-status changes (including any new statusUpdateSchedule)
+    // BEFORE starting, so startExperiment -> executeExperimentStart resolves a
+    // relative stopAfter off the real start time using the freshly-saved
+    // schedule (rather than the stale pre-start draft).
+    const remainingChanges = { ...changes };
+    delete remainingChanges.status;
+    if (Object.keys(remainingChanges).length > 0) {
+      await updateExperimentToDb({
+        context: req.context,
+        experiment,
+        changes: remainingChanges,
+      });
+    }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
@@ -345,8 +358,9 @@ export const updateExperiment = createApiRequestHandler(
       skipChecklist: true,
     });
     experimentForUpdate = updated;
-    const { status: _ignoredStatus, ...remainingChanges } = changes;
-    changesForUpdate = remainingChanges;
+    // All non-status changes were already persisted above; startExperiment
+    // handled the transition (and resolved the schedule), so nothing remains.
+    changesForUpdate = {};
   }
 
   const updatedExperiment =

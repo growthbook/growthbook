@@ -1,12 +1,10 @@
-import {
-  PRESET_DECISION_CRITERIA,
-  getPresetDecisionCriteriaForOrg,
-  getHealthSettings,
-  getStatusIndicatorData,
-} from "shared/enterprise";
+import { getHealthSettings, getStatusIndicatorData } from "shared/enterprise";
 import { ExperimentInterfaceExcludingHoldouts } from "shared/validators";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import {
+  getExperimentDecisionCriteria,
+  toExperimentApiInterface,
+} from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { ReqContext } from "back-end/types/request";
 
@@ -19,18 +17,13 @@ export async function toEnhancedExperimentApiResponse(
     settings,
     orgHasPremiumFeature(context.org, "decision-framework"),
   );
-  let decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
-  if (settings?.defaultDecisionCriteriaId) {
-    try {
-      decisionCriteria ||=
-        (await context.models.decisionCriteria.getById(
-          settings.defaultDecisionCriteriaId,
-        )) ?? PRESET_DECISION_CRITERIA;
-    } catch {
-      // Empty catch - we fall back to the default below if the query failed.
-    }
-  }
-  decisionCriteria ||= PRESET_DECISION_CRITERIA;
+  // Honor the experiment's own decision criteria (falling back to the org
+  // default, then the preset) so the enhanced status matches how the scheduler
+  // evaluates it.
+  const decisionCriteria = await getExperimentDecisionCriteria(
+    context,
+    experiment,
+  );
 
   const { status, detailedStatus } = getStatusIndicatorData(
     experiment,

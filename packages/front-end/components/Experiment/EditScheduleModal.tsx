@@ -11,7 +11,6 @@ import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
 import Helpertext from "@/ui/HelperText";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
@@ -19,7 +18,7 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
-type ShippingMode = "notify" | "auto-ship" | "force-ship";
+type ShippingMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ShippingFallback = "notify" | "force-ship";
 type EndMode = "manual" | "on-date" | "after";
 
@@ -29,6 +28,12 @@ const LABEL_COL_WIDTH = 60;
 // Default end offset, shared by the "After N days" relative preset and the
 // "On date" picker (which prepopulates now + this many days) so they match.
 const DEFAULT_END_AFTER_DAYS = 30;
+
+// Auto-ship's no-clear-winner fallback defaults to shipping a variation so it's
+// a hard cutoff by default. Used for both the form default and the save default
+// (irrelevant fields are normalized to this on save), so switching into
+// auto-ship later starts from the intended default rather than a stale value.
+const DEFAULT_SHIPPING_FALLBACK: ShippingFallback = "force-ship";
 
 export default function EditScheduleModal({
   experiment,
@@ -50,8 +55,8 @@ export default function EditScheduleModal({
     hasDecisionFrameworkFeature &&
     (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
   const autoShipDisabledReason = !hasDecisionFrameworkFeature
-    ? "Auto-ship requires the Decision Framework (available on Pro and Enterprise plans)."
-    : "Enable the Decision Framework in your organization settings to use auto-ship.";
+    ? "Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)."
+    : "Enable the Decision Framework in your organization settings to ship the winning variation.";
 
   const form = useForm({
     defaultValues: {
@@ -59,10 +64,16 @@ export default function EditScheduleModal({
       stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
       mode: (experiment.shippingCriteria?.mode ?? "notify") as ShippingMode,
       tiebreakerMetricId: experiment.shippingCriteria?.tiebreakerMetricId ?? "",
+      // Default the no-clear-winner fallback to shipping a variation (control)
+      // so auto-ship is a hard cutoff by default — it always ends at the date.
       fallback: (experiment.shippingCriteria?.fallback ??
-        "notify") as ShippingFallback,
+        DEFAULT_SHIPPING_FALLBACK) as ShippingFallback,
+      // Default the fallback target to control (the first variation) so the
+      // picker is never blank.
       fallbackVariationId:
-        experiment.shippingCriteria?.fallbackVariationId ?? "",
+        experiment.shippingCriteria?.fallbackVariationId ??
+        experiment.variations[0]?.id ??
+        "",
     },
   });
 
@@ -106,6 +117,73 @@ export default function EditScheduleModal({
       />
     );
   };
+  const renderTiebreakerField = (helper: string) => (
+    <Box>
+      <Text as="label" color="text-high" mb="1">
+        Tiebreaker metric
+      </Text>
+      <Text as="div" color="text-mid" mb="1" size="small">
+        {helper}
+      </Text>
+      <SelectField
+        label=""
+        value={form.watch("tiebreakerMetricId")}
+        options={metricOptions}
+        initialOption="None"
+        onChange={(v) => form.setValue("tiebreakerMetricId", v)}
+      />
+    </Box>
+  );
+  const renderVariationPicker = (label: string) => (
+    <Box>
+      <Text as="label" color="text-high" mb="1">
+        {label}
+      </Text>
+      <SelectField
+        label=""
+        value={form.watch("fallbackVariationId")}
+        options={variationOptions}
+        formatOptionLabel={(o) => renderVariationOption(o.value)}
+        onChange={(v) => form.setValue("fallbackVariationId", v)}
+      />
+    </Box>
+  );
+  // Verdict section for force-ship / stop: the EDF + tiebreaker only tag an
+  // analytical result — they don't change what the mode actually does. Set off
+  // in its own box so that distinction is clear.
+  const renderVerdictSection = () => (
+    <Box
+      mt="4"
+      px="3"
+      py="3"
+      style={{ backgroundColor: "var(--violet-a3)", borderRadius: "8px" }}
+    >
+      <Text as="div" size="medium" weight="semibold" color="text-high" mb="1">
+        Record a result
+      </Text>
+      <Text as="div" color="text-mid" size="medium" mb="3">
+        The Decision Framework tags a won/lost/inconclusive result; the
+        tiebreaker breaks ties when multiple variations qualify.
+      </Text>
+      <Text as="label" color="text-high" mb="1">
+        Tiebreaker metric
+      </Text>
+      <SelectField
+        label=""
+        value={autoShipAvailable ? form.watch("tiebreakerMetricId") : ""}
+        options={metricOptions}
+        initialOption="None"
+        disabled={!autoShipAvailable}
+        onChange={(v) => form.setValue("tiebreakerMetricId", v)}
+      />
+      {!autoShipAvailable && (
+        <Text as="div" color="text-mid" size="small" mt="1">
+          Enable the Decision Framework in your organization settings to record
+          a verdict.
+        </Text>
+      )}
+    </Box>
+  );
 
   // "after" stores a relative offset (stopAfter) that the back-end resolves to a
   // concrete stopAt when the experiment actually starts.
@@ -121,6 +199,9 @@ export default function EditScheduleModal({
   // Shipping automation is tied to a scheduled end — it never runs on a manual
   // stop — so the "when the experiment ends" controls only apply with an end date.
   const hasEndDate = endMode !== "manual";
+  // "On date" requires an actual date. Block save (rather than silently
+  // discarding the shipping config on submit) if the picker was left empty.
+  const endDateMissing = endMode === "on-date" && !stopAt;
 
   return (
     <ModalStandard
@@ -132,7 +213,7 @@ export default function EditScheduleModal({
       subheader="Schedule when this experiment starts and ends, and choose what happens automatically at the end date."
       cta={hasSchedule ? "Update" : "Done"}
       ctaColor="violet"
-      ctaEnabled={!stopBeforeStart}
+      ctaEnabled={!stopBeforeStart && !endDateMissing}
       size="md-lg"
       secondaryAction={
         isApproved ? (
@@ -169,22 +250,35 @@ export default function EditScheduleModal({
         // Shipping automation only ever fires at a scheduled end. Without an
         // end date, force "notify" so we never persist automation that a
         // manual stop wouldn't honor.
+        // Normalize on save: only persist fields relevant to the chosen mode;
+        // reset the rest to defaults so a stale value can't resurface when the
+        // user later switches modes.
         const hasEndDate = !!(stopAt || stopAfter);
         const shippingCriteria = hasEndDate
           ? {
               mode: data.mode,
+              // Tiebreaker feeds the EDF verdict for every non-notify mode, but
+              // only when the framework is available (the field is disabled and
+              // shows "None" otherwise — don't silently re-persist a stale id).
               tiebreakerMetricId:
-                data.mode === "auto-ship" && data.tiebreakerMetricId
+                autoShipAvailable &&
+                data.mode !== "notify" &&
+                data.tiebreakerMetricId
                   ? data.tiebreakerMetricId
                   : undefined,
-              fallback: data.mode === "auto-ship" ? data.fallback : "notify",
+              // Fallback only applies to auto-ship; otherwise reset to default.
+              fallback:
+                data.mode === "auto-ship"
+                  ? data.fallback
+                  : DEFAULT_SHIPPING_FALLBACK,
+              // A fallback variation is only needed when force-shipping.
               fallbackVariationId:
                 data.mode === "force-ship" ||
                 (data.mode === "auto-ship" && data.fallback === "force-ship")
                   ? data.fallbackVariationId
                   : undefined,
             }
-          : { mode: "notify" as const, fallback: "notify" as const };
+          : { mode: "notify" as const, fallback: DEFAULT_SHIPPING_FALLBACK };
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
@@ -325,6 +419,9 @@ export default function EditScheduleModal({
             End date must be after the start date
           </Helpertext>
         )}
+        {endDateMissing && (
+          <Helpertext status="warning">Select an end date</Helpertext>
+        )}
 
         {hasEndDate && (
           <>
@@ -337,29 +434,28 @@ export default function EditScheduleModal({
                 value={mode}
                 sort={false}
                 options={[
-                  {
-                    value: "notify",
-                    label: "Notify only (no automatic change)",
-                  },
+                  { value: "notify", label: "Notify only — keep running" },
                   {
                     value: "auto-ship",
-                    label: "Auto-ship the winning variation",
+                    label: "Ship the winning variation",
                   },
                   {
                     value: "force-ship",
-                    label: "Auto-ship a specific variation",
+                    label: "Ship a specific variation",
                   },
+                  { value: "stop", label: "Stop the experiment (no rollout)" },
                 ]}
+                // Only auto-ship needs the decision framework to function; the
+                // others are basic. Disabled options use solid muted color
+                // instead of the default 0.5 opacity that bleeds through.
                 isOptionDisabled={(o) =>
-                  "value" in o && o.value !== "notify" && !autoShipAvailable
+                  "value" in o && o.value === "auto-ship" && !autoShipAvailable
                 }
-                // Disabled options: solid muted color instead of the default 0.5
-                // opacity, which lets the content behind the menu bleed through.
                 containerStyles={{
                   option: (base) => ({ ...base, opacity: 1 }),
                 }}
                 formatOptionLabel={(o) => {
-                  if (o.value === "notify" || autoShipAvailable) {
+                  if (o.value !== "auto-ship" || autoShipAvailable) {
                     return <>{o.label}</>;
                   }
                   return (
@@ -375,29 +471,27 @@ export default function EditScheduleModal({
               />
             </Box>
 
+            {mode === "notify" && (
+              <Helpertext status="info" mb="3">
+                The experiment keeps running past the end date — you&apos;ll be
+                notified
+                {autoShipAvailable
+                  ? ", with a recommended winner to review"
+                  : ""}
+                .
+              </Helpertext>
+            )}
+
             {mode === "auto-ship" && (
               <Flex direction="column" gap="3">
-                <Callout status="info">
-                  Auto-ship rolls out the winning variation to its linked
-                  features at the end date
-                </Callout>
+                <Helpertext status="info" mb="3">
+                  Stops the experiment and rolls out the winning variation to
+                  linked features
+                </Helpertext>
 
-                <Box>
-                  <Text as="label" color="text-high" mb="1">
-                    Tiebreaker metric
-                  </Text>
-                  <Text as="div" color="text-mid" mb="1" size="small">
-                    If two variations both qualify, ship the one with the higher
-                    lift on this goal metric.
-                  </Text>
-                  <SelectField
-                    label=""
-                    value={form.watch("tiebreakerMetricId")}
-                    options={metricOptions}
-                    initialOption="None"
-                    onChange={(v) => form.setValue("tiebreakerMetricId", v)}
-                  />
-                </Box>
+                {renderTiebreakerField(
+                  "If two variations both qualify, ship the one with the higher lift on this goal metric.",
+                )}
 
                 <Box>
                   <Text as="label" color="text-high" mb="1">
@@ -407,13 +501,10 @@ export default function EditScheduleModal({
                     label=""
                     value={fallback}
                     options={[
-                      {
-                        value: "notify",
-                        label: "Notify only — leave for review",
-                      },
+                      { value: "notify", label: "Keep running — notify me" },
                       {
                         value: "force-ship",
-                        label: "Force-ship a specific variation",
+                        label: "Ship a specific variation",
                       },
                     ]}
                     onChange={(v) =>
@@ -422,43 +513,25 @@ export default function EditScheduleModal({
                   />
                 </Box>
 
-                {fallback === "force-ship" && (
-                  <Box>
-                    <Text as="label" color="text-high" mb="1">
-                      Variation to force-ship
-                    </Text>
-                    <SelectField
-                      label=""
-                      value={form.watch("fallbackVariationId")}
-                      options={variationOptions}
-                      formatOptionLabel={(o) => renderVariationOption(o.value)}
-                      onChange={(v) => form.setValue("fallbackVariationId", v)}
-                    />
-                  </Box>
-                )}
+                {fallback === "force-ship" &&
+                  renderVariationPicker("Variation to ship")}
               </Flex>
             )}
 
             {mode === "force-ship" && (
               <Flex direction="column" gap="3">
-                <Callout status="info">
-                  At the end date, this variation is rolled out to its linked
-                  features regardless of results
-                </Callout>
-                <Box>
-                  <Text as="label" color="text-high" mb="1">
-                    Variation to ship
-                  </Text>
-                  <SelectField
-                    label=""
-                    value={form.watch("fallbackVariationId")}
-                    options={variationOptions}
-                    formatOptionLabel={(o) => renderVariationOption(o.value)}
-                    onChange={(v) => form.setValue("fallbackVariationId", v)}
-                  />
-                </Box>
+                <Helpertext status="info" mb="3">
+                  Stops the experiment and rolls out this variation to linked
+                  features, regardless of results
+                </Helpertext>
+                {renderVariationPicker("Variation to ship")}
+                {hasDecisionFrameworkFeature && renderVerdictSection()}
               </Flex>
             )}
+
+            {mode === "stop" &&
+              hasDecisionFrameworkFeature &&
+              renderVerdictSection()}
           </>
         )}
       </Flex>
