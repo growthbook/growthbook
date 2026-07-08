@@ -18,16 +18,9 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
-import BlockDateRangePicker from "./BlockDateRangePicker";
-
-const DATE_RANGE_LABELS: Record<ExplorationDateRange["predefined"], string> = {
-  today: "Today",
-  last7Days: "Past 7 Days",
-  last30Days: "Past 30 Days",
-  last90Days: "Past 90 Days",
-  customLookback: "Custom Lookback",
-  customDateRange: "Custom Date Range",
-};
+import BlockDateRangePicker, {
+  PREDEFINED_LABELS,
+} from "./BlockDateRangePicker";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -42,7 +35,7 @@ function formatDateRange(dr: ExplorationDateRange): string {
   if (dr.predefined === "customDateRange") {
     return `${dr.startDate ?? "…"} – ${dr.endDate ?? "…"}`;
   }
-  return DATE_RANGE_LABELS[dr.predefined];
+  return PREDEFINED_LABELS[dr.predefined];
 }
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = { predefined: "last30Days" };

@@ -1,6 +1,6 @@
 import React, { ChangeEvent, FC, useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPlus, PiX } from "react-icons/pi";
+import { PiCaretRight, PiPlus, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Tag from "@/components/Tags/Tag";
 import {
@@ -323,6 +323,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             <Flex
               key={c.key}
               align="center"
+              justify="between"
               px="2"
               py="2"
               role="button"
@@ -333,6 +334,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
             >
               <Text size="small">{c.heading}</Text>
+              <PiCaretRight size={12} color="var(--slate-9)" />
             </Flex>
           ))}
         {/* Extra (non-search-string) filters that aren't already active. */}
@@ -342,6 +344,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             <Flex
               key={f.key}
               align="center"
+              justify="between"
               px="2"
               py="2"
               role="button"
@@ -352,6 +355,7 @@ const SidebarExperimentFilters: FC<Props> = ({
               onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
             >
               <Text size="small">{f.heading}</Text>
+              <PiCaretRight size={12} color="var(--slate-9)" />
             </Flex>
           ))}
       </Box>

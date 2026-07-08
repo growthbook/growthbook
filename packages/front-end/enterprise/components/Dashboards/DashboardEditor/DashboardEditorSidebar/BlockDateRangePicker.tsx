@@ -14,15 +14,17 @@ import Text from "@/ui/Text";
 import DatePicker from "@/components/DatePicker";
 import { getPreviousWindow } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
 
-const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
-  {
-    today: "Today",
-    last7Days: "Past 7 Days",
-    last30Days: "Past 30 Days",
-    last90Days: "Past 90 Days",
-    customLookback: "Custom Lookback",
-    customDateRange: "Custom Date Range",
-  };
+export const PREDEFINED_LABELS: Record<
+  (typeof dateRangePredefined)[number],
+  string
+> = {
+  today: "Today",
+  last7Days: "Past 7 Days",
+  last30Days: "Past 30 Days",
+  last90Days: "Past 90 Days",
+  customLookback: "Custom Lookback",
+  customDateRange: "Custom Date Range",
+};
 
 // The equal-length window immediately before the current custom range, used as
 // the default "Prior" value until the user overrides it. Mirrors the span-shift
