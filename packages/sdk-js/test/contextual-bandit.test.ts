@@ -1,4 +1,5 @@
 import { GrowthBook } from "../src";
+import { GrowthBookClient } from "../src/GrowthBookClient";
 import { ContextualBanditsMap } from "../src/types/growthbook";
 
 function cbRule(overrides: Record<string, unknown> = {}) {
@@ -256,6 +257,48 @@ describe("contextual bandit feature rules", () => {
 
     const res = gb.evalFeature("promo");
     expect(res.experimentResult?.leafId).toEqual(1);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
+
+    gb.destroy();
+  });
+
+  it("ingests contextualBandits from a payload via initSync (routes to the matched leaf)", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+    });
+    gb.initSync({
+      payload: {
+        features: cbFeatures(),
+        contextualBandits: cbMap(),
+      },
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.leafId).toEqual(1);
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
+
+    gb.destroy();
+  });
+
+  it("ingests contextualBandits from a payload via GrowthBookClient.initSync", () => {
+    const gb = new GrowthBookClient();
+    gb.initSync({
+      payload: {
+        features: cbFeatures(),
+        contextualBandits: cbMap(),
+      },
+    });
+
+    const res = gb.evalFeature("promo", {
+      attributes: { id: "u1", plan: "enterprise" },
+    });
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.leafId).toEqual(1);
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
     expect(res.experimentResult?.banditVersion).toEqual(7);
 
     gb.destroy();

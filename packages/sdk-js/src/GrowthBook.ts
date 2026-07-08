@@ -257,6 +257,12 @@ export class GrowthBook<
     if (payload.features) {
       this._options.features = payload.features;
     }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
+    }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
       this._updateAllAutoExperiments();

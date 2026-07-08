@@ -113,6 +113,12 @@ export class GrowthBookClient<
     if (payload.features) {
       this._features = payload.features;
     }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
+    }
     if (payload.experiments) {
       this._experiments = payload.experiments;
     }
