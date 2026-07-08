@@ -7,7 +7,6 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
@@ -135,7 +134,7 @@ export async function loadConstantReferences(
     ...constantsReferencingTarget.map((c) => c.key),
   ]);
 
-  const allFeatures = await getAllFeatures(context, {});
+  const allFeatures = await context.models.features.getAll({});
   const features = allFeatures
     .filter((f) => {
       const keys = featureConstantKeys(f);

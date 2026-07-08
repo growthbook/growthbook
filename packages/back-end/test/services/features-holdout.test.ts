@@ -1,14 +1,10 @@
 import { ReqContext } from "shared/types/organization";
 import { getFeatureDefinitionsWithCache } from "back-end/src/controllers/features";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
   getAllURLRedirectExperiments,
 } from "back-end/src/models/ExperimentModel";
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeatures: jest.fn(),
-}));
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllPayloadExperiments: jest.fn(),
@@ -53,6 +49,11 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       },
     },
     models: {
+      // Feature reads go through the context-registered model now
+      // (ctx.models.features.getAll), not a module-level helper.
+      features: {
+        getAll: jest.fn() as jest.Mock,
+      },
       safeRollout: {
         getAllPayloadSafeRollouts: jest
           .fn()
@@ -92,7 +93,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should include holdout and holdout rule when holdout has the requested project", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -206,7 +207,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout and holdout rule when holdout doesn't have the requested project", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -293,7 +294,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should include holdout and holdout rule when requested project is in holdout projects array", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -405,7 +406,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout rule when holdout feature definition is missing", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -456,7 +457,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should NOT include holdout feature definition when no feature has a holdout", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
         valueType: "string",
@@ -537,7 +538,7 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
 
   it("should include feature definitions normally when no holdouts are present", async () => {
     // Mock features
-    (getAllFeatures as jest.Mock).mockResolvedValue([
+    (mockContext.models.features.getAll as jest.Mock).mockResolvedValue([
       {
         id: "feature-1",
         valueType: "string",

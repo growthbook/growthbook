@@ -1,12 +1,12 @@
 import { validateFeatureValue } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import omit from "lodash/omit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
-import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
@@ -31,7 +31,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const existing = await getFeature(req.context, req.body.id);
+    const existing = await req.context.models.features.getById(req.body.id);
     if (existing) {
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
@@ -137,7 +137,9 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     addIdsToFlatRules(feature.rules, feature.id);
 
-    await createFeature(req.context, feature);
+    await req.context.models.features.create(
+      omit(feature, ["organization", "dateCreated", "dateUpdated"]),
+    );
 
     await req.audit({
       event: "feature.create",

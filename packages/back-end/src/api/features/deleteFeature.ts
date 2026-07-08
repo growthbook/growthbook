@@ -2,7 +2,6 @@ import { filterEnvironmentsByFeature, PermissionError } from "shared/util";
 import { deleteFeatureValidator } from "shared/validators";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { deleteFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getEnabledEnvironments } from "back-end/src/util/features";
@@ -13,7 +12,7 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export async function deleteFeatureHandler(
   req: ApiRequestLocals & { params: { id: string } },
 ) {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
 
   if (!feature) {
     throw new Error(
@@ -50,7 +49,7 @@ export async function deleteFeatureHandler(
     }
   }
 
-  await deleteFeature(req.context, feature);
+  await req.context.models.features.delete(feature);
 
   await req.audit({
     event: "feature.delete",

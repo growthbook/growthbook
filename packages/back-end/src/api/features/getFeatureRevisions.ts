@@ -9,7 +9,6 @@ import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { toApiRevision } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
@@ -32,7 +31,7 @@ export async function loadFeatureRevisionsPage(
 ) {
   // getFeature enforces canReadSingleProjectResource and returns null for
   // unreadable projects.
-  const feature = await getFeature(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const { author } = query;

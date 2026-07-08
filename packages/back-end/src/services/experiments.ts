@@ -183,7 +183,6 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
@@ -4661,7 +4660,7 @@ export async function getRefLinkedFeatureInfo({
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
 
-  const features = await getFeaturesByIds(context, linkedFeatureIds);
+  const features = await context.models.features.getByIds(linkedFeatureIds);
 
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),

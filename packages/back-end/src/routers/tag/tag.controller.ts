@@ -6,7 +6,6 @@ import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { addTag, removeTag } from "back-end/src/models/TagModel";
 import { removeTagInMetrics } from "back-end/src/models/MetricModel";
-import { removeTagInFeature } from "back-end/src/models/FeatureModel";
 import { removeTagFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
 import { removeTagInAttribute } from "back-end/src/services/attributes";
 import { removeTagFromExperiments } from "back-end/src/models/ExperimentModel";
@@ -82,7 +81,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(context, id);
+  await context.models.features.removeTagFromAllFeatures(id);
 
   // attributes
   await removeTagInAttribute(context, id);

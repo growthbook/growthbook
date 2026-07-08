@@ -2,7 +2,6 @@ import uniqid from "uniqid";
 import { Comment, DiscussionParentType } from "shared/types/discussion";
 import { DiscussionModel } from "back-end/src/models/DiscussionModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
 import { getIdeaById } from "./ideas";
@@ -42,7 +41,7 @@ export async function getProjectsByParentId(
     }
 
     case "feature": {
-      const feature = await getFeature(context, parentId);
+      const feature = await context.models.features.getById(parentId);
 
       if (!feature) {
         throw Error("Feature not found");

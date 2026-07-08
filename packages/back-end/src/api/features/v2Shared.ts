@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { UpdateProps } from "shared/types/base-model";
 import type { postFeatureRuleV2 } from "shared/validators";
 import { validateScheduleRules } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
@@ -129,12 +130,14 @@ const METADATA_FIELDS = [
 
 // Pure split of metadata-like fields from feature updates. Returns the
 // metadata subset and a copy of `updates` with those keys removed.
-export function extractRevisionMetadata(updates: Partial<FeatureInterface>): {
+export function extractRevisionMetadata(
+  updates: UpdateProps<FeatureInterface>,
+): {
   metadata: Record<string, unknown>;
-  remaining: Partial<FeatureInterface>;
+  remaining: UpdateProps<FeatureInterface>;
 } {
   const metadata: Record<string, unknown> = {};
-  const remaining: Partial<FeatureInterface> = { ...updates };
+  const remaining: UpdateProps<FeatureInterface> = { ...updates };
   for (const key of METADATA_FIELDS) {
     if (key in remaining && remaining[key] !== undefined) {
       metadata[key] = remaining[key];

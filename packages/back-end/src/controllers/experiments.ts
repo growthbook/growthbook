@@ -133,11 +133,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
-import {
-  getFeature,
-  getFeaturesByIds,
-  publishRevision,
-} from "back-end/src/models/FeatureModel";
+import { publishRevision } from "back-end/src/services/featureRevisions";
 import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
@@ -775,7 +771,8 @@ export async function getExperiment(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1651,8 +1648,7 @@ export async function postExperiment(
     experiment.status === "running" &&
     (variationsChanged || coverageChanged || variationWeightsChanged)
   ) {
-    const linkedFeaturesForPayload = await getFeaturesByIds(
-      context,
+    const linkedFeaturesForPayload = await context.models.features.getByIds(
       experiment.linkedFeatures || [],
     );
     const inPayload = includeExperimentInPayload(
@@ -2029,7 +2025,8 @@ export async function postExperiment(
   if (needsRunExperimentsPermission) {
     const linkedFeatureIds = experiment.linkedFeatures || [];
 
-    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const linkedFeatures =
+      await context.models.features.getByIds(linkedFeatureIds);
 
     const envs = getAffectedEnvsForExperiment({
       experiment,
@@ -2121,7 +2118,8 @@ export async function postExperimentArchive(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -2283,7 +2281,8 @@ export async function postExperimentStatus(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const { settings } = getScopedSettings({
     organization: org,
@@ -2600,7 +2599,8 @@ export async function deleteExperimentPhase(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -2688,7 +2688,8 @@ export async function putExperimentPhase(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -2808,7 +2809,8 @@ export async function postExperimentTargeting(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -2980,7 +2982,8 @@ export async function postExperimentPhase(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -3116,7 +3119,8 @@ export async function deleteExperiment(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -3874,7 +3878,8 @@ export async function postVisualChangeset(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -3930,7 +3935,8 @@ export async function putVisualChangeset(
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = experiment
     ? getAffectedEnvsForExperiment({
@@ -3979,7 +3985,8 @@ export async function deleteVisualChangeset(
 
   const linkedFeatureIds = experiment?.linkedFeatures || [];
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
 
   const envs = experiment
     ? getAffectedEnvsForExperiment({
@@ -4158,7 +4165,9 @@ export async function postExperimentFeatureValues(
     }
   });
 
-  const featureObjects = await getFeaturesByIds(context, Object.keys(features));
+  const featureObjects = await context.models.features.getByIds(
+    Object.keys(features),
+  );
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -4319,7 +4328,7 @@ export async function deleteExperimentLinkedFeature(
 
   // Also require feature-side edit rights — unlinking cancels a queued
   // autopublish that the feature team may be managing.
-  const feature = await getFeature(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (feature && !context.permissions.canUpdateFeature(feature, {})) {
     context.permissions.throwPermissionError();
   }

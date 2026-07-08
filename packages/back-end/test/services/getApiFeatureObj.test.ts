@@ -302,11 +302,9 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
   });
 
   // Project-scoped feature, identical experiment rule in dev + production.
-  // Exercises raw mongo doc → `new FeatureModel(raw)` → `toInterface(doc, ctx)`.
-  it("preserves [] fields for project-scoped experiment rule via Mongoose", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  // Exercises raw mongo doc → `migrateRawFeatureToV2(raw, ctx)` (the runtime
+  // read path).
+  it("preserves [] fields for project-scoped experiment rule via the raw-doc read path", () => {
     const organization = {
       id: "org_test",
       settings: {
@@ -363,9 +361,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     const api = getApiFeatureObj({
       feature,
@@ -387,12 +386,9 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
   });
 
   // Origin/main's typed Mongoose `rules: [...]` schema seeded `[]` defaults
-  // for `savedGroups`/`scheduleRules`/`variations`; our Mixed schema does
-  // not, and we intentionally do NOT backfill those either.
-  it("does NOT backfill [] defaults on v0 rules missing savedGroups/scheduleRules/variations", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  // for `savedGroups`/`scheduleRules`/`variations`; the raw-driver read path
+  // does not, and we intentionally do NOT backfill those either.
+  it("does NOT backfill [] defaults on v0 rules missing savedGroups/scheduleRules/variations", () => {
     const organization = {
       id: "org_v0",
       settings: { environments: [{ id: "dev" }, { id: "production" }] },
@@ -432,9 +428,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     const api = getApiFeatureObj({
       feature,
@@ -463,10 +460,7 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
   // whose envs have `rules: []` (key present, empty). Must NOT leak the
   // legacy top-level rule through the v2 path — origin/main's
   // `updateEnvironmentSettings` skips re-copying when the key is present.
-  it("ignores legacy top-level rules when env settings have empty rules: [] (hybrid v0/v1)", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  it("ignores legacy top-level rules when env settings have empty rules: [] (hybrid v0/v1)", () => {
     const organization = {
       id: "org_test",
       settings: { environments: [{ id: "dev" }, { id: "production" }] },
@@ -506,9 +500,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     // Top-level v2 rules array must NOT carry the legacy stale rule.
     expect(feature.rules).toEqual([]);
@@ -530,10 +525,7 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
   // `upgradeFeatureInterface` hard-codes `dev`+`production` env entries and
   // backfills missing ones from the top-level rules — we mirror that so a
   // production-only legacy rule isn't silently dropped on first read.
-  it("backfills production from legacy top-level rules when environmentSettings only has dev (sparse v0/v1 hybrid)", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  it("backfills production from legacy top-level rules when environmentSettings only has dev (sparse v0/v1 hybrid)", () => {
     const organization = {
       id: "org_test",
       settings: { environments: [{ id: "dev" }, { id: "production" }] },
@@ -588,9 +580,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     // Both legacy-flavored rules survive: dev's own rule + production's
     // backfilled-from-top-level rule.
@@ -613,10 +606,7 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     ]);
   });
 
-  it("does not enroll non-(dev|production) envs lacking a rules key into top-level rule backfill", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  it("does not enroll non-(dev|production) envs lacking a rules key into top-level rule backfill", () => {
     // Custom envs lack a `rules` key; `dev` is stale (in envSettings, not in
     // the org list).
     const organization = {
@@ -662,9 +652,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     const api = getApiFeatureObj({
       feature,
@@ -681,12 +672,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
     expect(api.environments.custom_b.rules).toEqual([]);
   });
 
-  // Catches anything Mongoose's schema/toJSON pass strips that the bare
-  // `migrateRawFeatureToV2` test does not.
-  it("preserves [] fields end-to-end through Mongoose toInterface (v1 on-disk)", async () => {
-    const { FeatureModel, toInterface } = await import(
-      "back-end/src/models/FeatureModel"
-    );
+  // End-to-end read-path pass over a v1 on-disk doc: raw fixture →
+  // migrateRawFeatureToV2 → getApiFeatureObj. Locks down that no layer of
+  // the pipeline drops legacy `[]` fields.
+  it("preserves [] fields end-to-end through the raw-doc read path (v1 on-disk)", () => {
     const organization = {
       id: "org_test",
       settings: {
@@ -731,9 +720,10 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = new FeatureModel(raw as any);
-    const feature = toInterface(doc, ctx);
+    const feature = migrateRawFeatureToV2(
+      raw as unknown as LegacyFeatureInterface,
+      ctx,
+    );
 
     const v2Rule = feature.rules[0] as unknown as Record<string, unknown>;
     expect(v2Rule.savedGroups).toEqual([]);

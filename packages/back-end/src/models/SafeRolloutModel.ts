@@ -3,7 +3,6 @@ import { SafeRolloutInterface, safeRolloutValidator } from "shared/validators";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
@@ -83,7 +82,9 @@ export class SafeRolloutModel extends BaseClass {
       updates.rampUpSchedule &&
       existing.rampUpSchedule.step !== updates.rampUpSchedule.step
     ) {
-      const feature = await getFeature(this.context, existing.featureId);
+      const feature = await this.context.models.features.getById(
+        existing.featureId,
+      );
       if (!feature) return;
 
       queueSDKPayloadRefresh({

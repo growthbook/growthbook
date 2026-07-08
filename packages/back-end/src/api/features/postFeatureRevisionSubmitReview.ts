@@ -5,7 +5,6 @@ import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   ReviewSubmittedType,
@@ -29,7 +28,7 @@ export async function submitRevisionReview(
     };
   },
 ) {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canReviewFeatureDrafts(feature)) {

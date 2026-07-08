@@ -3,7 +3,6 @@ import { EventUser } from "shared/types/events/event-types";
 import { getValidDate } from "shared/dates";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
 // Strip secrets (API key strings) from the log actor before returning it.
@@ -40,7 +39,7 @@ function sanitizeLogUser(user: EventUser): {
 export const getFeatureRevisionLogV2 = createApiRequestHandler(
   getFeatureRevisionLogV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   // Legacy log entries were stored inline on the revision document

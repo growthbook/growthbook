@@ -11,7 +11,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   runLockedRampScheduleAction,
@@ -84,7 +83,7 @@ export const postSafeRolloutSnapshot = async (
     });
   }
 
-  const feature = await getFeature(context, safeRollout.featureId);
+  const feature = await context.models.features.getById(safeRollout.featureId);
   if (!feature) {
     return res.status(404).json({
       status: 404,
@@ -142,7 +141,7 @@ export const cancelSafeRolloutSnapshot = async (
     });
   }
 
-  const feature = await getFeature(context, safeRollout.featureId);
+  const feature = await context.models.features.getById(safeRollout.featureId);
   if (!feature) {
     throw new Error("Could not find feature");
   }

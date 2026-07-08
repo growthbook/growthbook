@@ -50,6 +50,7 @@ import {
   RampStepAction,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
+import { UpdateProps } from "shared/types/base-model";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -85,24 +86,11 @@ import {
   getEnvironments,
 } from "back-end/src/services/organizations";
 import {
-  addLinkedExperiment,
-  createFeature,
-  deleteFeature,
   editFeatureRule,
-  getAllFeatures,
-  getAllFeaturesForStaleGraph,
-  getFeature,
-  getFeaturesByIds,
-  getFeatureMetaInfoById,
-  getFeatureMetaInfoByIds,
-  getFeatureEnvStatus,
-  hasArchivedFeatures,
-  migrateDraft,
   prevalidatePublishRevision,
   publishRevision,
   setDefaultValue,
-  updateFeature,
-} from "back-end/src/models/FeatureModel";
+} from "back-end/src/services/featureRevisions";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { generateId } from "back-end/src/util/uuid";
@@ -746,7 +734,7 @@ export async function postFeatures(
     project: otherProps.project || undefined,
   });
 
-  const existing = await getFeature(context, id);
+  const existing = await context.models.features.getById(id);
   if (existing) {
     throw new Error(
       "This feature key already exists. Feature keys must be unique.",
@@ -838,7 +826,9 @@ export async function postFeatures(
   // `id: ""`; stamp ids so they're addressable by later update/delete ops.
   addIdsToFlatRules(feature.rules, feature.id);
 
-  await createFeature(context, feature);
+  await context.models.features.create(
+    omit(feature, ["organization", "dateCreated", "dateUpdated"]),
+  );
   await context.models.watch.upsertWatch({
     userId,
     item: feature.id,
@@ -887,7 +877,7 @@ export async function postFeatureRebase(
   const { org } = context;
   const { strategies, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1088,7 +1078,7 @@ export async function postFeatureScheduledPublish(
   const { id, version } = req.params;
   const { scheduledPublishAt, lockEdits, lockOthers } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
 
   const revision = await getRevision({
@@ -1181,7 +1171,7 @@ export async function postFeatureRequestReview(
     scheduledPublishLockEdits,
     scheduledPublishLockOthers,
   } = req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1273,7 +1263,7 @@ export async function postFeatureReviewOrComment(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const { comment, review = "Comment" } = req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1392,7 +1382,7 @@ export async function postFeatureApproveAndPublish(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
   const { comment } = req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
 
   if (!context.permissions.canReviewFeatureDrafts(feature)) {
@@ -1560,7 +1550,7 @@ export async function postFeatureToggleAutoPublish(
   const { id, version } = req.params;
   const { enabled } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
 
   const revision = await getRevision({
@@ -1620,7 +1610,7 @@ export async function postFeatureRecallReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
   if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
@@ -1645,7 +1635,7 @@ export async function postFeatureUndoReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
   if (!context.permissions.canReviewFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
@@ -1694,7 +1684,7 @@ export async function putFeatureRevisionLogComment(
   if (!comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
   await context.models.featureRevisionLogs.updateCommentText(logId, comment, {
     featureId: feature.id,
@@ -1715,7 +1705,7 @@ export async function deleteFeatureRevisionLogEntry(
 ) {
   const context = getContextFromReq(req);
   const { id, version, logId } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) throw new Error("Could not find feature");
   await context.models.featureRevisionLogs.deleteOwnedEntry(logId, {
     featureId: feature.id,
@@ -1766,7 +1756,7 @@ async function repairFeatureDriftIfNeeded(
 
   try {
     const original = { ...feature };
-    const repaired = await updateFeature(context, feature, {
+    const repaired = await context.models.features.update(feature, {
       ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
       rules: liveRulesFlat,
     });
@@ -1836,7 +1826,7 @@ export async function postFeaturePublish(
     publishExperimentIds,
   } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -2057,8 +2047,7 @@ export async function postFeaturePublish(
       if (!context.permissions.canUpdateExperiment(experiment, {})) {
         context.permissions.throwPermissionError();
       }
-      const linkedFeatures = await getFeaturesByIds(
-        context,
+      const linkedFeatures = await context.models.features.getByIds(
         experiment.linkedFeatures || [],
       );
       const schedEnvs = getAffectedEnvsForExperiment({
@@ -2083,7 +2072,7 @@ export async function postFeaturePublish(
         (d) => d.featureId !== feature.id,
       );
       for (const { featureId, revisionVersion } of otherDrafts) {
-        const otherFeature = await getFeature(context, featureId);
+        const otherFeature = await context.models.features.getById(featureId);
         if (!otherFeature) continue;
         const otherRevision = await getRevision({
           context,
@@ -2245,7 +2234,7 @@ export async function postFeatureRevert(
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -2520,7 +2509,7 @@ export async function postFeatureRevertDraft(
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -2605,7 +2594,7 @@ export async function postFeatureFork(
   const { org, environments } = context;
   const { id, version } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -2653,7 +2642,7 @@ export async function postFeatureDiscard(
   const { org } = context;
   const { id, version } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -2733,7 +2722,7 @@ export async function postFeatureReopen(
   const { org } = context;
   const { id, version } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -2813,7 +2802,7 @@ export async function postFeatureRule(
     rampSchedule: rampSchedulePayload,
   } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3107,7 +3096,10 @@ export async function postFeatureRule(
         rule.experimentId,
         feature.id,
       );
-      await addLinkedExperiment(feature, rule.experimentId);
+      await context.models.features.addLinkedExperiment(
+        feature,
+        rule.experimentId,
+      );
     }
     // Queue the draft for auto-publish when the experiment goes running.
     const draftVersion =
@@ -3143,7 +3135,7 @@ export async function postFeatureSync(
   const { environments, org } = context;
   const { id } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   // If this is a new feature, create it
   if (!feature) {
     await postFeatures(req, res);
@@ -3177,12 +3169,12 @@ export async function postFeatureSync(
     );
   }
 
-  const updates: Partial<FeatureInterface> = {
+  const updates: UpdateProps<FeatureInterface> = {
     description: data.description ?? feature.description,
     owner: data.owner ?? feature.owner,
     tags: data.tags ?? feature.tags,
   };
-  const updatesInRevision: Partial<FeatureInterface> = {};
+  const updatesInRevision: UpdateProps<FeatureInterface> = {};
 
   // The Sync endpoint accepts per-env rule arrays under
   // `environmentSettings[env].rules`. Produce a flat array with unique ids by
@@ -3295,7 +3287,7 @@ export async function postFeatureSync(
     }
   }
 
-  const updatedFeature = await updateFeature(context, feature, updates);
+  const updatedFeature = await context.models.features.update(feature, updates);
 
   await req.audit({
     event: "feature.update",
@@ -3353,7 +3345,7 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3517,7 +3509,7 @@ export async function postFeatureExperimentRefRule(
   }
 
   if (!feature.linkedExperiments?.includes(experiment.id)) {
-    await addLinkedExperiment(feature, experiment.id);
+    await context.models.features.addLinkedExperiment(feature, experiment.id);
   }
   await addLinkedFeatureToExperiment(
     context,
@@ -3568,7 +3560,7 @@ export async function postFeatureContextualBanditRefRule(
     );
   }
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3744,7 +3736,7 @@ export async function putRevisionComment(
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3801,7 +3793,7 @@ export async function putRevisionTitle(
   const { id, version } = req.params;
   const { title } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3858,7 +3850,7 @@ export async function postFeatureDefaultValue(
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -3916,7 +3908,7 @@ export async function postFeatureSchema(
   const { id } = req.params;
   const { targetDraftVersion, autoPublish, forceNewDraft, ...schemaDef } =
     req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -3978,7 +3970,7 @@ export async function putSafeRolloutStatus(
   // `environment` is retained for audit context and reset-review scoping.
   const { status, environment, ruleId } = req.body;
   const { org } = context;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -4125,7 +4117,7 @@ export async function putFeatureRule(
     throw new Error("Must provide ruleId to identify the rule");
   }
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -4442,7 +4434,7 @@ export async function postFeatureCreateDraft(
   const { id } = req.params;
   const { title, comment } = req.body ?? {};
   const context = getContextFromReq(req);
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -4528,7 +4520,7 @@ export async function postFeatureToggle(
   const { environments: orgEnvIds } = context;
   const { id } = req.params;
   const { environments, autoPublish, draftVersion, forceNewDraft } = req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -4689,7 +4681,7 @@ export async function postFeatureMoveRule(
   const { environments, org } = context;
   const { id, version } = req.params;
   const { from, to } = req.body;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -4763,7 +4755,8 @@ export async function getDraftandReviewRevisions(
   );
 
   const featureIds = Array.from(new Set(revisions.map((r) => r.featureId)));
-  const featureMeta = await getFeatureMetaInfoByIds(context, featureIds);
+  const featureMeta =
+    await context.models.features.getMetaInfoByIds(featureIds);
   const featureMetaMap = new Map(featureMeta.map((f) => [f.id, f]));
   const revisionsWithMeta = revisions.map((r) => ({
     ...r,
@@ -4789,7 +4782,7 @@ export async function deleteFeatureRule(
     throw new Error("Must provide ruleId to identify the rule");
   }
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -4901,7 +4894,7 @@ export async function putFeature(
   const context = getContextFromReq(req);
   const { org, environments } = context;
   const { id } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -5103,7 +5096,7 @@ export async function deleteFeatureById(
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (feature) {
     if (!feature.archived) {
@@ -5124,7 +5117,7 @@ export async function deleteFeatureById(
         logger.warn(e, "Error removing feature from holdout");
       }
     }
-    await deleteFeature(context, feature);
+    await context.models.features.delete(feature);
     await unlinkFeatureFromAllExperiments(context, feature.id);
     await req.audit({
       event: "feature.delete",
@@ -5166,7 +5159,7 @@ export async function postFeatureEvaluate(
     evalDate,
   } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -5236,7 +5229,7 @@ export async function postFeaturesEvaluate(
   const features: FeatureInterface[] = [];
   await Promise.all(
     featureIds.map(async (featureId) => {
-      const feature = await getFeature(context, featureId);
+      const feature = await context.models.features.getById(featureId);
       if (feature) {
         features.push(feature);
       }
@@ -5283,7 +5276,7 @@ export async function postFeatureArchive(
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -5390,14 +5383,14 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
-  const features = await getAllFeatures(context, {
+  const features = await context.models.features.getAll({
     projects: project ? [project] : undefined,
     includeArchived,
   });
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
-    : await hasArchivedFeatures(context, project);
+    : await context.models.features.hasArchivedFeatures(project);
 
   res.status(200).json({
     status: 200,
@@ -5414,7 +5407,7 @@ export async function getFeatureRevisions(
   const { org } = context;
   const { id } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -5455,7 +5448,7 @@ export async function getRevisionLog(
   const context = getContextFromReq(req);
   const { id, version } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -5507,7 +5500,7 @@ export async function getFeatureById(
   const { org, environments } = context;
   const { id } = req.params;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -5584,7 +5577,7 @@ export async function getFeatureById(
 
   // Migrate old drafts to revisions
   if (feature.legacyDraft) {
-    const draft = await migrateDraft(context, feature);
+    const draft = await context.models.features.migrateDraft(feature);
     if (draft) {
       fullRevisions.push(draft);
     }
@@ -5689,7 +5682,7 @@ export async function getFeatureUsage(
   const { org } = context;
 
   const { id } = req.params;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -5898,7 +5891,7 @@ export async function toggleStaleFFDetectionForFeature(
     throw new Error("Missing required field: neverStale (boolean)");
   }
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -5995,7 +5988,7 @@ export async function postPrerequisite(
   const { id } = req.params;
   const { prerequisite, targetDraftVersion, forceNewDraft } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -6049,7 +6042,7 @@ export async function putPrerequisite(
   const { id } = req.params;
   const { prerequisite, i, targetDraftVersion, forceNewDraft } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -6102,7 +6095,7 @@ export async function deletePrerequisite(
   const { id } = req.params;
   const { i, targetDraftVersion, forceNewDraft } = req.body;
 
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -6162,7 +6155,7 @@ export async function getPrerequisiteStates(
   const { org } = context;
   const { id } = req.params;
 
-  const baseFeature = await getFeature(context, id);
+  const baseFeature = await context.models.features.getById(id);
   if (!baseFeature) {
     throw new Error("Could not find feature");
   }
@@ -6253,7 +6246,7 @@ export async function postBatchPrerequisiteStates(
 
   let baseFeature: FeatureInterface | null = null;
   if (baseFeatureId) {
-    baseFeature = await getFeature(context, baseFeatureId);
+    baseFeature = await context.models.features.getById(baseFeatureId);
     if (!baseFeature) {
       throw new Error("Could not find base feature");
     }
@@ -6343,7 +6336,7 @@ async function evaluateBatchPrerequisiteStates({
   // Load all org features so the adjacency graph is complete for cycle
   // detection (cross-project intermediaries, etc.). State evaluation is
   // still bounded to the requested featureIds.
-  const allFeatures = await getAllFeatures(context, {});
+  const allFeatures = await context.models.features.getAll({});
   const featuresMap = new Map<string, FeatureInterface>(
     allFeatures.map((f) => [f.id, f]),
   );
@@ -6451,7 +6444,7 @@ async function evaluatePrerequisiteStateAsync(
     for (const prereq of prerequisites) {
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
-        const features = await getFeaturesByIds(context, [prereq.id]);
+        const features = await context.models.features.getByIds([prereq.id]);
         prereqFeature = features[0];
         if (prereqFeature) {
           featuresMap.set(prereq.id, prereqFeature);
@@ -6524,7 +6517,7 @@ async function evaluatePrerequisiteStateAsync(
     for (const prereq of prerequisites) {
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
-        const features = await getFeaturesByIds(context, [prereq.id]);
+        const features = await context.models.features.getByIds([prereq.id]);
         prereqFeature = features[0];
         if (prereqFeature) {
           featuresMap.set(prereq.id, prereqFeature);
@@ -6630,7 +6623,7 @@ export async function getFeatureMetaInfo(
   const context = getContextFromReq(req);
   const { defaultValue, project, ids } = req.query;
 
-  const features = await getFeatureMetaInfoById(context, {
+  const features = await context.models.features.getMetaInfo({
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
     ids: ids ? ids.split(",").filter(Boolean) : undefined,
@@ -6677,7 +6670,7 @@ export async function getFeaturesStaleStates(
     : undefined;
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesForStaleGraph(context),
+    context.models.features.getAllForStaleGraph(),
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
@@ -6752,7 +6745,7 @@ export async function getFeaturesStatus(
     ? req.query.ids.split(",").filter(Boolean)
     : undefined;
 
-  const raw = await getFeatureEnvStatus(context, featureIds);
+  const raw = await context.models.features.getEnvStatus(featureIds);
 
   const features: Record<string, Record<string, boolean>> = {};
   for (const f of raw) {
@@ -6793,7 +6786,7 @@ export async function getFeaturesDependents(
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesForStaleGraph(context, { includeArchived: true }),
+    context.models.features.getAllForStaleGraph({ includeArchived: true }),
     getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 
@@ -6964,7 +6957,7 @@ export async function getFeatureContentSearch(
   }
 
   const [allFeatures, draftRevisions] = await Promise.all([
-    getAllFeatures(context, {}),
+    context.models.features.getAll({}),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES]),
   ]);
 
@@ -7046,7 +7039,9 @@ export async function getFeatureDependencyIndex(
   >,
 ) {
   const context = getContextFromReq(req);
-  const allFeatures = await getAllFeatures(context, { includeArchived: true });
+  const allFeatures = await context.models.features.getAll({
+    includeArchived: true,
+  });
 
   const prereqIds = new Set<string>();
   for (let i = 0; i < allFeatures.length; i++) {
@@ -7147,7 +7142,7 @@ export async function getFeatureExperimentStates(
     }
   }
 
-  const allFeatures = await getAllFeatures(context, {});
+  const allFeatures = await context.models.features.getAll({});
   const targetFeatures = featureIds
     ? allFeatures.filter((f) => featureIds.includes(f.id))
     : allFeatures;

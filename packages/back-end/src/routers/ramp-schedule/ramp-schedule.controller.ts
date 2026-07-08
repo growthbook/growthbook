@@ -24,7 +24,6 @@ import {
 } from "back-end/src/services/rampSchedule";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { ConflictError } from "back-end/src/util/errors";
 
 type CreateBody = Pick<
@@ -397,7 +396,9 @@ export const postRampScheduleAction = async (
         });
       }
       if (approvalPending && forceAdvance) {
-        const linkedFeature = await getFeature(context, schedule.entityId);
+        const linkedFeature = await context.models.features.getById(
+          schedule.entityId,
+        );
         if (
           !linkedFeature ||
           !context.permissions.canBypassApprovalChecks(linkedFeature)
@@ -437,7 +438,9 @@ export const postRampScheduleAction = async (
             );
           }
           if (freshApprovalPending && forceAdvance) {
-            const linkedFeature = await getFeature(context, fresh.entityId);
+            const linkedFeature = await context.models.features.getById(
+              fresh.entityId,
+            );
             if (
               !linkedFeature ||
               !context.permissions.canBypassApprovalChecks(linkedFeature)
@@ -738,7 +741,7 @@ export const postRampScheduleAction = async (
       }
 
       const feature = safeRollout.featureId
-        ? await getFeature(context, safeRollout.featureId)
+        ? await context.models.features.getById(safeRollout.featureId)
         : null;
 
       await createSafeRolloutSnapshot({

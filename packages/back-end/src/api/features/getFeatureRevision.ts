@@ -3,7 +3,6 @@ import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
 export async function loadRevision(
@@ -12,7 +11,7 @@ export async function loadRevision(
   featureId: string,
   version: number,
 ) {
-  const feature = await getFeature(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({

@@ -13,10 +13,6 @@ import {
   deleteAllMetricsForAProject,
   removeProjectFromMetrics,
 } from "back-end/src/models/MetricModel";
-import {
-  deleteAllFeaturesForAProject,
-  removeProjectFromFeatures,
-} from "back-end/src/models/FeatureModel";
 import { removeProjectFromProjectRoles } from "back-end/src/models/OrganizationModel";
 import {
   deleteAllExperimentsForAProject,
@@ -229,12 +225,9 @@ export const deleteProject = async (
         context.permissions.throwPermissionError();
       }
 
-      await deleteAllFeaturesForAProject({
-        projectId: id,
-        context,
-      });
+      await context.models.features.deleteAllForProject(id);
     } else {
-      await removeProjectFromFeatures(context, id);
+      await context.models.features.removeProjectFromAllFeatures(id);
     }
   } catch (e) {
     failedToDeleteResources.push("features");

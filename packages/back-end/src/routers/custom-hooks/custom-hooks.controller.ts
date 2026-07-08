@@ -5,7 +5,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
-import { getFeature } from "back-end/src/models/FeatureModel";
 
 export const getCustomHooks = async (
   req: AuthRequest,
@@ -136,7 +135,7 @@ export const testCustomHook = async (
   const { entityType, entityId } = req.body;
   if (entityType === "feature" && entityId) {
     // Feature-scoped test: authorize against the target feature
-    const feature = await getFeature(context, entityId);
+    const feature = await context.models.features.getById(entityId);
     if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
       context.permissions.throwPermissionError();
     }

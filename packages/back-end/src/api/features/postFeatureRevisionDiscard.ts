@@ -5,7 +5,6 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { clearPendingFeatureDraftsForRevision } from "back-end/src/models/ExperimentModel";
 import {
   discardRevision,
@@ -17,7 +16,7 @@ export async function discardFeatureRevision(
     params: { id: string; version: number };
   },
 ) {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (

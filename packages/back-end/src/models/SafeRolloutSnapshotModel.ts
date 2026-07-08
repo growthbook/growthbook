@@ -8,7 +8,6 @@ import {
   getSafeRolloutAnalysisSummary,
   notifySafeRolloutChange,
 } from "back-end/src/services/safeRolloutSnapshots";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
@@ -161,7 +160,9 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       // rule on the feature, so feature/rule lookup and checkAndRollbackSafeRollout
       // only apply to standalone (non-ramp) SRs.
       if (!safeRollout.rampScheduleId) {
-        const feature = await getFeature(this.context, safeRollout.featureId);
+        const feature = await this.context.models.features.getById(
+          safeRollout.featureId,
+        );
         if (!feature) {
           throw new Error("Feature not found");
         }

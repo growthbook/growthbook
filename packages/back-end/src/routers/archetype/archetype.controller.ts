@@ -28,7 +28,6 @@ import {
   evaluateFeature,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 
@@ -79,7 +78,7 @@ export const getArchetypeAndEval = async (
     skipRulesWithPrerequisites: skipRulesWithPrerequisitesStr,
     project,
   } = req.query;
-  const feature = await getFeature(context, id);
+  const feature = await context.models.features.getById(id);
 
   const scrubPrerequisites =
     scrubPrerequisitesStr === undefined

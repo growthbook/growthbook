@@ -6,7 +6,6 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getFeature as getFeatureDB } from "back-end/src/models/FeatureModel";
 import {
   getApiFeatureObjV2,
   getSavedGroupMap,
@@ -23,7 +22,7 @@ async function loadFeatureForApiV2(
   const fetchRevisions = ["all", "drafts", "published"].includes(
     revisionFilter,
   );
-  const feature = await getFeatureDB(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (!feature) {
     throw new Error("Could not find a feature with that key");
   }

@@ -1,18 +1,23 @@
+import omit from "lodash/omit";
 import { FeatureRule } from "shared/validators";
 import { FeatureInterface, LegacyFeatureInterface } from "shared/types/feature";
 import { Environment } from "shared/types/organization";
 import { suffixRuleId } from "shared/util";
+// context.ts and FeatureModel.ts form an import cycle (the request context
+// registers the FeatureModel class). Runtime entrypoints always evaluate
+// context.ts before FeatureModel.ts; requiring FeatureModel.ts first would
+// hit the class binding's TDZ, so load the context module graph first.
+import "back-end/src/services/context";
 import {
-  FeatureModel,
   migrateRawFeatureToV2,
   buildFeatureUpdate,
-  toInterface,
 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
-// migrateRawFeatureToV2 is the pure-function core of FeatureModel.toInterface.
-// It accepts a raw document (already stripped of Mongoose metadata) and a
+// migrateRawFeatureToV2 is the pure-function JIT-migration chokepoint behind
+// FeatureModel's `migrate()` (every BaseModel read routes through it).
+// It accepts a raw document (already stripped of driver metadata) and a
 // minimal ReqContext, and emits a v2 FeatureInterface via JIT migration.
 //
 // Integration test matrix:
@@ -1527,25 +1532,22 @@ describe("buildFeatureUpdate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// toInterface round-trip integration tests. Verify that a document
-// constructed via `new FeatureModel({...})` (as Mongoose hydrates on read)
-// round-trips to the same v2 `FeatureInterface` as calling
-// `migrateRawFeatureToV2` directly on the raw payload.
+// Raw-doc read-path round-trip tests. The runtime read path is
+// raw driver doc → omit(__v, _id) → migrateRawFeatureToV2 (via
+// FeatureModel.migrate). Verify that raw on-disk shapes — including driver
+// metadata crust — land on the same canonical v2 `FeatureInterface`.
 // ---------------------------------------------------------------------------
 
-describe("toInterface round-trip", () => {
-  const runRoundTrip = (raw: Record<string, unknown>) => {
-    const direct = migrateRawFeatureToV2(
-      raw as unknown as LegacyFeatureInterface,
+describe("raw-doc read path (omit driver metadata + migrateRawFeatureToV2)", () => {
+  // Mirrors the runtime read chokepoint: strip `__v`/`_id` and JIT-migrate.
+  const readPath = (raw: Record<string, unknown>) =>
+    migrateRawFeatureToV2(
+      omit(raw, ["__v", "_id"]) as unknown as LegacyFeatureInterface,
       mockContext(),
     );
-    const doc = new FeatureModel(raw);
-    const viaDoc = toInterface(doc, mockContext());
-    return { direct, viaDoc };
-  };
 
-  it("v1 hydrated via Mongoose flattens to the same v2 shape as migrateRawFeatureToV2", () => {
-    const raw = {
+  it("v1 raw doc with driver metadata flattens to the same v2 shape as a clean doc", () => {
+    const clean = {
       ...BASE_META,
       environmentSettings: {
         dev: { enabled: true, rules: [v1Rule("r1") as FeatureRule] },
@@ -1555,7 +1557,11 @@ describe("toInterface round-trip", () => {
         },
       },
     };
-    const { direct, viaDoc } = runRoundTrip(raw);
+    const direct = migrateRawFeatureToV2(
+      clean as unknown as LegacyFeatureInterface,
+      mockContext(),
+    );
+    const viaDoc = readPath({ ...clean, _id: "mongo-object-id", __v: 0 });
 
     expect(viaDoc.rules).toHaveLength(direct.rules.length);
     expect(viaDoc.rules.map((r) => r.id)).toEqual(
@@ -1571,7 +1577,7 @@ describe("toInterface round-trip", () => {
     expect((viaDoc as unknown as { __v?: unknown }).__v).toBeUndefined();
   });
 
-  it("v2 hydrated via Mongoose passes through without rewriting ids", () => {
+  it("v2 raw doc passes through the read path without rewriting ids", () => {
     const raw = {
       ...BASE_META,
       environmentSettings: {
@@ -1579,33 +1585,35 @@ describe("toInterface round-trip", () => {
         production: { enabled: true, prerequisites: [] },
       },
       rules: [v2Rule("r1")],
+      _id: "mongo-object-id",
+      __v: 0,
     };
-    const { direct, viaDoc } = runRoundTrip(raw);
+    const viaDoc = readPath(raw);
 
     expect(viaDoc.rules).toHaveLength(1);
     expect(viaDoc.rules[0].id).toBe("r1");
-    expect(viaDoc.rules[0].id).toBe(direct.rules[0].id);
     expect(viaDoc.rules[0].allEnvironments).toBe(true);
   });
 
-  it("v0 hydrated via Mongoose flattens through the full pipeline to v2", () => {
+  it("v0 raw doc flattens through the full pipeline to v2", () => {
     const raw = {
       ...BASE_META,
       environments: ["dev", "production"],
       rules: [v1Rule("r1") as FeatureRule],
+      _id: "mongo-object-id",
+      __v: 0,
     };
     delete (raw as Record<string, unknown>).environmentSettings;
 
-    const { direct, viaDoc } = runRoundTrip(raw);
+    const viaDoc = readPath(raw);
 
     expect(viaDoc.rules).toHaveLength(1);
     expect(viaDoc.rules[0].id).toBe("r1");
     expect(viaDoc.rules[0].allEnvironments).toBe(true);
-    expect(viaDoc.rules[0].id).toBe(direct.rules[0].id);
   });
 
-  it("idempotent: writing a v2 doc's toInterface result back in yields the same output", () => {
-    // Simulates a read -> (no-op transform) -> hydrate-as-v2 -> read loop.
+  it("idempotent: feeding a v2 doc's read-path result back in yields the same output", () => {
+    // Simulates a read -> (no-op transform) -> write-as-v2 -> read loop.
     // Ids and ordering must be stable across the round-trip.
     const raw = {
       ...BASE_META,
@@ -1622,11 +1630,8 @@ describe("toInterface round-trip", () => {
       ],
     };
 
-    const first = toInterface(new FeatureModel(raw), mockContext());
-    const second = toInterface(
-      new FeatureModel(first as unknown as Record<string, unknown>),
-      mockContext(),
-    );
+    const first = readPath(raw);
+    const second = readPath(first as unknown as Record<string, unknown>);
 
     expect(second.rules.map((r) => r.id)).toEqual(first.rules.map((r) => r.id));
     expect(second.rules.map((r) => r.allEnvironments)).toEqual(
@@ -1634,19 +1639,18 @@ describe("toInterface round-trip", () => {
     );
   });
 
-  it("strips Mongoose-injected _id and __v from the application-visible result", () => {
+  it("strips driver-injected _id and __v from the application-visible result", () => {
     const raw = {
       ...BASE_META,
       environmentSettings: {
         dev: { enabled: true, rules: [] },
         production: { enabled: true, rules: [] },
       },
+      _id: "mongo-object-id",
+      __v: 3,
     };
-    const doc = new FeatureModel(raw);
-    const rawJson = doc.toJSON<Record<string, unknown>>();
-    expect(rawJson._id).toBeDefined();
 
-    const result = toInterface(doc, mockContext());
+    const result = readPath(raw);
     expect((result as unknown as { _id?: unknown })._id).toBeUndefined();
     expect((result as unknown as { __v?: unknown }).__v).toBeUndefined();
   });

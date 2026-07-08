@@ -1,9 +1,5 @@
 import Agenda, { Job } from "agenda";
-import {
-  getFeature,
-  getScheduledFeaturesToUpdate,
-  updateNextScheduledDate,
-} from "back-end/src/models/FeatureModel";
+import { FeatureModel } from "back-end/src/models/FeatureModel";
 import {
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
@@ -44,7 +40,9 @@ async function queueFeatureUpdate(
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_FEATURE_UPDATES, async () => {
-    const featureIds = (await getScheduledFeaturesToUpdate()).map((f) => {
+    const featureIds = (
+      await FeatureModel.dangerousGetScheduledFeaturesToUpdate()
+    ).map((f) => {
       return { id: f.id, organization: f.organization };
     });
 
@@ -64,7 +62,7 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
   if (!featureId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
-  const feature = await getFeature(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (!feature) return;
 
   const nextScheduledUpdate = getNextScheduledUpdate(feature.rules);
@@ -84,7 +82,12 @@ export const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
     payloadKeys,
     auditContext: { event: "updated", model: "feature", id: feature.id },
   })
-    .then(() => updateNextScheduledDate(feature, nextScheduledUpdate))
+    .then(() =>
+      context.models.features.updateNextScheduledDate(
+        feature,
+        nextScheduledUpdate,
+      ),
+    )
     .catch((e) =>
       logger.error(e, "Failed updating scheduled feature " + featureId),
     );

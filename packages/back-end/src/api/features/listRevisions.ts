@@ -8,7 +8,6 @@ import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getAllFeatures, getFeature } from "back-end/src/models/FeatureModel";
 import {
   createApiRequestHandler,
   validatePagination,
@@ -79,9 +78,11 @@ export async function loadRevisionsPage(
   }
 
   let featureIds: string[] | undefined;
-  let singleFeature: Awaited<ReturnType<typeof getFeature>> | undefined;
+  let singleFeature:
+    | Awaited<ReturnType<ApiReqContext["models"]["features"]["getById"]>>
+    | undefined;
   if (featureId) {
-    singleFeature = await getFeature(context, featureId);
+    singleFeature = await context.models.features.getById(featureId);
     if (!singleFeature) return emptyListResponse(limit, offset);
     // Apply the archived filter consistently with the no-featureId path.
     // When archived=false (default), exclude revisions for archived features
@@ -95,7 +96,7 @@ export async function loadRevisionsPage(
       if (readableProjects.length === 0) {
         return emptyListResponse(limit, offset);
       }
-      const scopedFeatures = await getAllFeatures(context, {
+      const scopedFeatures = await context.models.features.getAll({
         projects: readableProjects,
         includeArchived,
       });

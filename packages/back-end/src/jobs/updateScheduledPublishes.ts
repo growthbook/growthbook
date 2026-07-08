@@ -1,7 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   cancelScheduledPublishesForFeature,
   dangerouslyFindRevisionsDueToPublish,
@@ -59,11 +58,10 @@ const publishScheduledRevision = async (job: ScheduledPublishJob) => {
     const { organization, featureId, version } = data;
     if (!featureId || version === undefined || version === null) return;
 
-    const feature = await getFeature(context, featureId);
+    const feature = await context.models.features.getById(featureId);
     if (!feature) return;
 
-    // archiveFeature already cancels schedules; this guards against a race so we
-    // don't resurrect an archived feature's draft.
+    // Guard so we don't resurrect an archived feature's draft.
     if (feature.archived) {
       await cancelScheduledPublishesForFeature(
         context,

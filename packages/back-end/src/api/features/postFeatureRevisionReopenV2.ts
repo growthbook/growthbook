@@ -4,7 +4,6 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   reopenRevision,
@@ -13,7 +12,7 @@ import {
 export const postFeatureRevisionReopenV2 = createApiRequestHandler(
   postFeatureRevisionReopenV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (

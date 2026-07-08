@@ -11,7 +11,6 @@ import {
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
   dispatchRampEvent,
@@ -170,7 +169,7 @@ export const postRampSchedule = createApiRequestHandler(
   let feature: FeatureInterface | null = null;
 
   if (body.featureId) {
-    feature = await getFeature(req.context, body.featureId);
+    feature = await req.context.models.features.getById(body.featureId);
     if (!feature) {
       throw new NotFoundError(`Feature '${body.featureId}' not found`);
     }

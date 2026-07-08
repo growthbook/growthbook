@@ -13,7 +13,7 @@ import {
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { publishRevision } from "back-end/src/services/featureRevisions";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
@@ -38,7 +38,7 @@ export async function publishFeatureRevision(
   },
   canUseRestApiBypass: boolean,
 ) {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canUpdateFeature(feature, {})) {

@@ -2,7 +2,6 @@ import { postFeatureRevisionRecallReviewV2Validator } from "shared/validators";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   recallReview,
@@ -11,7 +10,7 @@ import {
 export const postFeatureRevisionRecallReviewV2 = createApiRequestHandler(
   postFeatureRevisionRecallReviewV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!req.context.permissions.canManageFeatureDrafts(feature)) {

@@ -5,7 +5,6 @@ import {
   ContextualBanditUpdate,
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -37,8 +36,7 @@ async function refreshLinkedFeaturePayloads(
   cb: ContextualBanditInterface,
   auditEvent: "contextualBandit.start" | "contextualBandit.stop",
 ): Promise<void> {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
+  const linkedFeatures = await context.models.features.getByIds(
     cb.linkedFeatures ?? [],
   );
   if (!linkedFeatures.length) return;

@@ -66,7 +66,6 @@ import {
   findVisualChangesets,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
-import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
 
@@ -2132,7 +2131,7 @@ const onExperimentUpdate = async ({
     ]);
     let linkedFeatures: FeatureInterface[] = [];
     if (featureIds.size > 0) {
-      linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
+      linkedFeatures = await context.models.features.getByIds([...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment
@@ -2190,7 +2189,7 @@ const onExperimentDelete = async (
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
   if (featureIds.length > 0) {
-    linkedFeatures = await getFeaturesByIds(context, featureIds);
+    linkedFeatures = await context.models.features.getByIds(featureIds);
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);

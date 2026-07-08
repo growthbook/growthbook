@@ -20,7 +20,6 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -311,8 +310,7 @@ async function loadAndValidateExperimentForStatusChange(
     context.permissions.throwPermissionError();
   }
 
-  const linkedFeatures = await getFeaturesByIds(
-    context,
+  const linkedFeatures = await context.models.features.getByIds(
     experiment.linkedFeatures || [],
   );
   const envs = getAffectedEnvsForExperiment({

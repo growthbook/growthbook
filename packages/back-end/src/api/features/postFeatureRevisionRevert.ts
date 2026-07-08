@@ -24,10 +24,7 @@ import {
   createRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import {
-  createAndPublishRevision,
-  getFeature,
-} from "back-end/src/models/FeatureModel";
+import { createAndPublishRevision } from "back-end/src/services/featureRevisions";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -46,7 +43,7 @@ export async function revertFeatureRevision(
   audit: (input: AuditInterfaceInput) => Promise<void>,
   canUseRestApiBypass: boolean,
 ) {
-  const feature = await getFeature(context, params.id);
+  const feature = await context.models.features.getById(params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (!context.permissions.canUpdateFeature(feature, {})) {

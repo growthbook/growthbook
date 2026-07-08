@@ -7,7 +7,6 @@ import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getLatestActiveDraftForFeature } from "back-end/src/models/FeatureRevisionModel";
 
 export async function loadLatestDraft(
@@ -24,7 +23,7 @@ export async function loadLatestDraft(
     author?: string;
   } = {},
 ) {
-  const feature = await getFeature(context, featureId);
+  const feature = await context.models.features.getById(featureId);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const mine = stringToBoolean(mineParam?.toString());

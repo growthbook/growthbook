@@ -7,7 +7,6 @@ import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvent
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
@@ -27,7 +26,7 @@ import {
 export const deleteFeatureRevisionRule = createApiRequestHandler(
   deleteFeatureRevisionRuleValidator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
