@@ -8,6 +8,7 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
+import { getDevCardImage } from "back-end/src/services/slack/cardDelivery";
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -251,5 +252,21 @@ router.post(
     }
   },
 );
+
+// Dev-only public image host for experiment cards (see cardDelivery.ts). Only
+// returns anything when SLACK_CARD_PUBLIC_BASE_URL is set and populated the
+// cache; unguessable id + short TTL. In production the cache is always empty
+// (cards go to object storage), so this 404s.
+router.get("/card-image/:id", (req: Request, res: Response) => {
+  const id = (req.params.id || "").replace(/\.png$/, "");
+  const png = getDevCardImage(id);
+  if (!png) {
+    res.status(404).send("Not found");
+    return;
+  }
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(png);
+});
 
 export { router as slackActionsRouter };

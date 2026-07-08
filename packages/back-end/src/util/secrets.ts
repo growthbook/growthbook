@@ -140,6 +140,11 @@ export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 export const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
 export const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
+// Dev-only: when set (e.g. to your ngrok back-end URL), Slack experiment-card
+// PNGs are served from an in-memory public route at this base instead of
+// object storage — lets card images render in Slack locally without S3/GCS.
+export const SLACK_CARD_PUBLIC_BASE_URL =
+  process.env.SLACK_CARD_PUBLIC_BASE_URL || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};

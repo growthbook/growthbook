@@ -1,7 +1,40 @@
 import { randomUUID } from "crypto";
 import { uploadFile } from "back-end/src/services/files";
+import { SLACK_CARD_PUBLIC_BASE_URL } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { postSlackMessage } from "back-end/src/services/slack/slackWebApi";
+
+// ---------------------------------------------------------------------------
+// Dev-only in-memory card cache. When SLACK_CARD_PUBLIC_BASE_URL is set (e.g. an
+// ngrok tunnel to the back-end), we serve card PNGs from a public route instead
+// of object storage — so images render in Slack locally without S3/GCS. Bounded
+// with a short TTL; prod never populates it (it uses the storage path below).
+// ---------------------------------------------------------------------------
+const DEV_CARD_TTL_MS = 15 * 60 * 1000;
+const DEV_CARD_MAX = 100;
+const devCardCache = new Map<string, { buf: Buffer; expires: number }>();
+
+export function getDevCardImage(id: string): Buffer | null {
+  const entry = devCardCache.get(id);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    devCardCache.delete(id);
+    return null;
+  }
+  return entry.buf;
+}
+
+function stashDevCard(png: Buffer): string {
+  const id = randomUUID();
+  devCardCache.set(id, { buf: png, expires: Date.now() + DEV_CARD_TTL_MS });
+  if (devCardCache.size > DEV_CARD_MAX) {
+    for (const [k, v] of devCardCache) {
+      if (Date.now() > v.expires) devCardCache.delete(k);
+    }
+    if (devCardCache.size > DEV_CARD_MAX) devCardCache.clear();
+  }
+  return id;
+}
 
 // Delivers a rendered experiment-card PNG to Slack. We host the PNG ourselves
 // and reference it from an image block (matching the AI-image-gen precedent),
@@ -20,6 +53,13 @@ export async function uploadCardPng(
   organizationId: string,
   png: Buffer,
 ): Promise<string | null> {
+  // Dev fallback: serve the PNG from the public in-memory route at the
+  // configured base (e.g. an ngrok tunnel), bypassing object storage.
+  if (SLACK_CARD_PUBLIC_BASE_URL) {
+    const id = stashDevCard(png);
+    return `${SLACK_CARD_PUBLIC_BASE_URL.replace(/\/$/, "")}/integrations/slack/card-image/${id}.png`;
+  }
+
   const filePath = `slack-cards/${organizationId}/${randomUUID()}.png`;
   let url: string;
   try {
