@@ -49,7 +49,15 @@ const ApiKeysModal: FC<{
   });
 
   const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
-    role: existingKey?.role ?? defaultRole,
+    // In edit mode, seed the role from the existing key rather than the generic
+    // defaultRole. Legacy secret keys created before per-key roles have no
+    // stored role and resolve to "admin" at auth time (see roleForApiKey); the
+    // API already serializes that effective role onto the key, so existingKey.role
+    // is normally populated. We still fall back to "admin" (the same effective
+    // role) — never defaultRole — if it's ever empty, so a description/scope-only
+    // edit of a legacy key can't silently downgrade its permissions. defaultRole
+    // is only used when creating a brand-new key.
+    role: existingKey ? existingKey.role || "admin" : defaultRole,
     limitAccessByEnvironment: existingKey?.limitAccessByEnvironment ?? false,
     environments: existingKey?.environments ?? [],
     // Leave undefined when absent (matches create): sending an empty array
