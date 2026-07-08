@@ -6,6 +6,7 @@ import {
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
+  DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -1336,11 +1337,7 @@ export default function EditSingleBlock({
                         : "absolute",
                     })
                   }
-                  options={[
-                    { label: "Relative", value: "relative" },
-                    { label: "Absolute", value: "absolute" },
-                    { label: "Scaled", value: "scaled" },
-                  ]}
+                  options={DIFFERENCE_TYPE_OPTIONS}
                   sort={false}
                 />
               )}

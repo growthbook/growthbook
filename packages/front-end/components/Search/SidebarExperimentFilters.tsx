@@ -437,13 +437,10 @@ const SidebarExperimentFilters: FC<Props> = ({
 
           <Box px="1" pb="1">
             {items.length === 0 && (
-              <Box
-                px="2"
-                py="1"
-                className="text-muted"
-                style={{ fontSize: 13 }}
-              >
-                No options
+              <Box px="2" py="1">
+                <Text size="small" color="text-low">
+                  No options
+                </Text>
               </Box>
             )}
             {items.map((item) => {

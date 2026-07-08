@@ -32,6 +32,18 @@ import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
+// Single source of truth for the Difference Type selector's options (label +
+// value), shared by every block editor that renders the control so the option
+// set can't drift between copies. Ordered as shown in the UI.
+export const DIFFERENCE_TYPE_OPTIONS: {
+  label: string;
+  value: (typeof differenceTypes)[number];
+}[] = [
+  { label: "Relative", value: "relative" },
+  { label: "Absolute", value: "absolute" },
+  { label: "Scaled", value: "scaled" },
+];
+
 // BlockConfig item types for sql-explorer blocks
 export const BLOCK_CONFIG_ITEM_TYPES = {
   RESULTS_TABLE: "results_table",

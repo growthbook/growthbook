@@ -2,6 +2,7 @@ import {
   DashboardBlockInterfaceOrData,
   MetricExperimentsBlockInterface,
   isDifferenceType,
+  DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
@@ -135,11 +136,7 @@ export default function MetricExperimentsSettings({
             differenceType: isDifferenceType(value) ? value : "absolute",
           })
         }
-        options={[
-          { label: "Relative", value: "relative" },
-          { label: "Absolute", value: "absolute" },
-          { label: "Scaled", value: "scaled" },
-        ]}
+        options={DIFFERENCE_TYPE_OPTIONS}
         sort={false}
       />
 
