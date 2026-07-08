@@ -17,6 +17,31 @@ type SlackApiResponse = { ok: boolean; error?: string } & Record<
 
 type SlackBlock = Record<string, unknown>;
 
+// Slack responses are small, but users.info / chat.postMessage echoes can be a
+// few KB — keep a comfortable ceiling.
+const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
+
+function parseSlackResponse<T extends SlackApiResponse>(
+  method: string,
+  stringBody: string,
+  httpOk: boolean,
+  httpStatus: number,
+): T | null {
+  if (!httpOk) {
+    logger.warn(`Slack API ${method} returned HTTP ${httpStatus}`);
+    return null;
+  }
+  const parsed = JSON.parse(stringBody) as T;
+  if (!parsed.ok) {
+    logger.warn(
+      `Slack API ${method} failed: ${parsed.error || "unknown error"}`,
+    );
+  }
+  return parsed;
+}
+
+// POST with a JSON body — for "write" methods like chat.postMessage /
+// chat.update that accept JSON.
 async function slackApiCall<T extends SlackApiResponse>(
   token: string,
   method: string,
@@ -33,25 +58,40 @@ async function slackApiCall<T extends SlackApiResponse>(
         },
         body: JSON.stringify(body),
       },
-      // Slack responses are small, but users.info / chat.postMessage echoes can
-      // be a few KB — keep a comfortable ceiling.
-      { maxTimeMs: 15000, maxContentSize: 1024 * 256 },
+      SLACK_FETCH_OPTS,
     );
+    return parseSlackResponse<T>(
+      method,
+      stringBody,
+      responseWithoutBody.ok,
+      responseWithoutBody.status,
+    );
+  } catch (e) {
+    logger.error(e, `Slack API ${method} request threw`);
+    return null;
+  }
+}
 
-    if (!responseWithoutBody.ok) {
-      logger.warn(
-        `Slack API ${method} returned HTTP ${responseWithoutBody.status}`,
-      );
-      return null;
-    }
-
-    const parsed = JSON.parse(stringBody) as T;
-    if (!parsed.ok) {
-      logger.warn(
-        `Slack API ${method} failed: ${parsed.error || "unknown error"}`,
-      );
-    }
-    return parsed;
+// GET with query-string args — for "read" methods like users.info, which read
+// their arguments from the query string and IGNORE a JSON body.
+async function slackApiGet<T extends SlackApiResponse>(
+  token: string,
+  method: string,
+  params: Record<string, string>,
+): Promise<T | null> {
+  try {
+    const qs = new URLSearchParams(params).toString();
+    const { stringBody, responseWithoutBody } = await cancellableFetch(
+      `${SLACK_API_URL}/${method}?${qs}`,
+      { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+      SLACK_FETCH_OPTS,
+    );
+    return parseSlackResponse<T>(
+      method,
+      stringBody,
+      responseWithoutBody.ok,
+      responseWithoutBody.status,
+    );
   } catch (e) {
     logger.error(e, `Slack API ${method} request threw`);
     return null;
@@ -125,7 +165,9 @@ export async function getSlackUserEmail({
   token: string;
   slackUserId: string;
 }): Promise<string | null> {
-  const res = await slackApiCall<
+  // users.info is a read method — it reads its args from the query string, NOT
+  // a JSON body (unlike chat.postMessage), so pass `user` as a query param.
+  const res = await slackApiGet<
     SlackApiResponse & { user?: { profile?: { email?: string } } }
   >(token, "users.info", { user: slackUserId });
   const email = res?.ok ? res.user?.profile?.email : undefined;
