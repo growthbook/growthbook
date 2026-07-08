@@ -1,6 +1,7 @@
 import { record } from "rrweb";
 import type { eventWithTime } from "@rrweb/types";
 import { GrowthBook } from "../GrowthBook";
+import { hash } from "../util";
 import {
   SessionReplayPrivacyConfig,
   buildRrwebPrivacyOptions,
@@ -28,6 +29,13 @@ type PluginOptions = {
    * Default: true.
    */
   enabled?: boolean;
+  /**
+   * Fraction of sessions to record, 0–1 (1 = all, 0.1 = 10%, 0 = none).
+   * The decision is deterministic per session (hashed on the session-replay id),
+   * so it's stable across reloads within a session — not a per-page coin flip.
+   * Default: 1 (record every session).
+   */
+  sampleRate?: number;
   /**
    * Privacy controls for what rrweb captures.
    * This option only covers input masking strategy and custom
@@ -170,11 +178,24 @@ export function sessionReplayPlugin({
   trackingHost = "",
   autoRecord = true,
   enabled = true,
+  sampleRate = 1,
   privacy,
 }: PluginOptions = {}) {
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("sessionReplayPlugin only works in the browser");
   }
+
+  // Deterministic, sticky per-session sampling decision. Hashing on the
+  // (persisted) session-replay id means the same session always resolves the
+  // same way across reloads — unlike Math.random — and re-rolls only when the
+  // session rotates to a new id. `key` is a parameter so future conditional
+  // rules can hash on a different attribute (e.g. user_id) — see §6.1 / §14.
+  const shouldSampleSession = (key: string): boolean => {
+    if (sampleRate >= 1) return true;
+    if (sampleRate <= 0) return false;
+    const n = hash("session-replay", key, 2);
+    return n !== null && n < sampleRate;
+  };
 
   let gbRef: GrowthBook | null = null;
   let host = "";
@@ -526,6 +547,12 @@ export function sessionReplayPlugin({
     const now = Date.now();
     const nextSessionReplayId = getOrCreateSessionReplayId(forceNew);
     if (!nextSessionReplayId) return;
+
+    // Sampling: deterministic per-session decision keyed on the stable session
+    // id, so it's consistent across reloads. Bail before recording (and before
+    // setting the session_replay_id attribute) when this session isn't sampled.
+    if (!shouldSampleSession(nextSessionReplayId)) return;
+
     void gbRef?.updateAttributes({ session_replay_id: nextSessionReplayId });
 
     // Resume when the persisted session_replay_id matches the internal current
