@@ -44,15 +44,27 @@ export function makeScopeToken(): string {
 // already present (the model is asked to include it, but wrap defensively).
 export function wrapWithScope(rawHtml: string, scopeToken: string): string {
   const html = rawHtml.trim();
-  return html.includes(scopeToken)
-    ? html
-    : `<div class="${scopeToken}">${html}</div>`;
+  // Only skip the wrapper when the token is a class on the ROOT element — not
+  // just present somewhere in the markup. If the model put the class on a
+  // child (or in text / an inline style) but not the root, we must still wrap,
+  // otherwise the root lacks the class the insert script's idempotency guard
+  // and the scoped CSS rely on. The token is a controlled `gbf-…` slug (see
+  // makeScopeToken), so it's safe to embed in the RegExp.
+  const rootTag = html.match(/^<[^>]+>/)?.[0] ?? "";
+  const rootHasScope = new RegExp(
+    `\\bclass=["'][^"']*\\b${scopeToken}\\b`,
+  ).test(rootTag);
+  return rootHasScope ? html : `<div class="${scopeToken}">${html}</div>`;
 }
 
 // Build a self-contained, idempotent insertion script for the variation's
 // `js` field. It runs once in the SDK (and our editor preview), guards on the
 // unique scope class so it never double-inserts, and waits (bounded to 10s)
-// for late/SPA-rendered targets before giving up — so it never loops.
+// for late/SPA-rendered targets before giving up — so it never loops. The
+// insertAdjacentHTML call is wrapped in try/catch: some position + target
+// combinations throw (e.g. "beforebegin"/"afterend" on the <html> root), and
+// an uncaught throw here would abort the rest of the variation's JS. We treat
+// a throw as a clean give-up (return true) rather than letting it propagate.
 export function buildInsertJs({
   scopeToken,
   targetSelector,
@@ -68,5 +80,5 @@ export function buildInsertJs({
   const T = JSON.stringify(targetSelector);
   const P = JSON.stringify(position);
   const H = JSON.stringify(html);
-  return `(function(){var S=${S};function ins(){if(document.querySelector("."+S))return true;var t=document.querySelector(${T});if(!t)return false;t.insertAdjacentHTML(${P},${H});return true;}if(ins())return;var mo=new MutationObserver(function(){if(ins())mo.disconnect();});mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);})();`;
+  return `(function(){var S=${S};function ins(){if(document.querySelector("."+S))return true;var t=document.querySelector(${T});if(!t)return false;try{t.insertAdjacentHTML(${P},${H});}catch(e){}return true;}if(ins())return;var mo=new MutationObserver(function(){if(ins())mo.disconnect();});mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);})();`;
 }

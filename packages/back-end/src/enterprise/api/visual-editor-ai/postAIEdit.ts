@@ -814,7 +814,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     // existing JS when it left js null, then append our snippets.
     let finalJs: string | undefined;
     if (insertJsSnippets.length > 0) {
-      const baseJs = (result.js ?? currentChange?.js ?? "").trim();
+      // Only treat the model's `js` as the new base when it actually has
+      // content. A schema-valid empty string must NOT drop the variation's
+      // existing JS — a plain "add a banner" edit leaves js empty, and `??`
+      // wouldn't catch "" (only null/undefined), so fall back explicitly.
+      const baseJs =
+        result.js && result.js.trim().length > 0
+          ? result.js.trim()
+          : (currentChange?.js ?? "").trim();
       finalJs = [baseJs, ...insertJsSnippets]
         .filter((s) => s.length > 0)
         .join("\n\n");
