@@ -1,6 +1,7 @@
 import { postFeatureRevisionSubmitReviewValidator } from "shared/validators";
 import { getReviewSetting } from "shared/util";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiRequestLocals } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchRevisionReviewEvent } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -10,16 +11,24 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 
-const actionToReviewType: Record<string, ReviewSubmittedType> = {
+export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   approve: "Approved",
   "request-changes": "Requested Changes",
   comment: "Comment",
 };
 
-export const postFeatureRevisionSubmitReview = createApiRequestHandler(
-  postFeatureRevisionSubmitReviewValidator,
-)(async (req) => {
+export async function submitRevisionReview(
+  req: Pick<ApiRequestLocals, "context" | "organization"> & {
+    params: { id: string; version: number };
+    body: {
+      action?: "approve" | "request-changes" | "comment";
+      comment?: string;
+      skipAutoPublish?: boolean;
+    };
+  },
+) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
@@ -31,6 +40,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   if (!revision) throw new NotFoundError("Could not find feature revision");
@@ -57,7 +67,7 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) => c != null && "id" in c && c.id === req.context.userId,
+        (id) => id === req.context.userId,
       );
       if (isSelfApproval) {
         throw new BadRequestError(
@@ -84,12 +94,17 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     req.context.auditUser,
     review,
     comment,
+    // Capture the live version the approval is made against so a later publish
+    // can detect when the approval has gone stale (parity with the internal
+    // app's review flow).
+    feature.version,
   );
 
   const updated = await getRevision({
     context: req.context,
     organization: req.organization.id,
     featureId: feature.id,
+    feature,
     version: req.params.version,
   });
   const finalRevision = updated ?? revision;
@@ -110,5 +125,29 @@ export const postFeatureRevisionSubmitReview = createApiRequestHandler(
     reviewer,
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  if (action === "approve" && !req.body.skipAutoPublish) {
+    const afterAutoPublish = await maybeAutoPublishFeatureRevision(
+      req.context,
+      feature,
+      finalRevision,
+    );
+    const didAutoPublish = afterAutoPublish.status === "published";
+    return {
+      feature,
+      revision: afterAutoPublish,
+      autoPublished: didAutoPublish,
+    };
+  }
+
+  return { feature, revision: finalRevision, autoPublished: false };
+}
+
+export const postFeatureRevisionSubmitReview = createApiRequestHandler(
+  postFeatureRevisionSubmitReviewValidator,
+)(async (req) => {
+  const { feature, revision, autoPublished } = await submitRevisionReview(req);
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    autoPublished,
+  };
 });

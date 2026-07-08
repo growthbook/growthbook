@@ -24,7 +24,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -159,6 +159,7 @@ const EditMetricsForm: FC<{
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const form = useForm<EditMetricsFormInterface>({
@@ -186,7 +187,7 @@ const EditMetricsForm: FC<{
   }
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="edit-metrics-form"
       trackingEventModalSource={source}
       header="Edit Metrics"
@@ -227,6 +228,7 @@ const EditMetricsForm: FC<{
         }
         filterConversionWindowMetrics={isHoldout}
         experimentId={experiment.id}
+        experimentType={experiment.type}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
@@ -325,7 +327,7 @@ const EditMetricsForm: FC<{
           </Collapsible>
         </>
       ) : null}
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

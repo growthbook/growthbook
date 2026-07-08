@@ -4,14 +4,22 @@ import {
   ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
+  getRulesForEnvironment,
   includeExperimentInPayload,
   isDefined,
   isMultiRangeNamespaceFormat,
   namespacesToMap,
   recursiveWalk,
+  ruleFootprint,
+  stemRuleId,
   getNamespaceRanges,
   getNamespaceHashAttribute,
   NamespaceValue,
+  buildReverseDependencyIndex,
+  ReverseDependencyIndex,
+  buildExperimentDependencyIndex,
+  ExperimentDependencyIndex,
+  parsePlainJSONObject,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -24,12 +32,18 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  ContextualBanditInterface,
+  VariationWeightPair,
+} from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
   getPayloadAllowedKeys,
   replaceSavedGroups,
+  resolveConstantRefs,
+  ConstantValueMap,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -38,11 +52,54 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
+import { logger } from "back-end/src/util/logger";
+import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+function pairedWeightsToPositional(
+  paired: VariationWeightPair[],
+  variations: { id: string }[],
+): number[] {
+  return variations.map(
+    (v) => paired.find((w) => w.variationId === v.id)?.weight ?? 0,
+  );
+}
+
+export interface FeatureLookups {
+  featuresMap: Map<string, FeatureInterface>;
+  reverseDependencyIndex: ReverseDependencyIndex;
+  experiments: ExperimentInterfaceStringDates[];
+  experimentMap: Map<string, ExperimentInterfaceStringDates>;
+  experimentDependencyIndex: ExperimentDependencyIndex;
+}
+
+/** Builds the shared lookup structures used by stale detection and dependents. */
+export function buildFeatureLookups(
+  allFeatures: FeatureInterface[],
+  allExperiments?: ExperimentInterface[],
+): FeatureLookups {
+  const featuresMap = new Map(allFeatures.map((f) => [f.id, f]));
+  const reverseDependencyIndex = buildReverseDependencyIndex(allFeatures);
+  const experiments =
+    (allExperiments as unknown as ExperimentInterfaceStringDates[]) ?? [];
+  const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+  const experimentDependencyIndex = buildExperimentDependencyIndex(experiments);
+  return {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentMap,
+    experimentDependencyIndex,
+  };
+}
 
 export type MetadataOptions = {
   includeProjectIdInMetadata?: boolean;
@@ -242,9 +299,14 @@ export function getEnabledEnvironments(
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
-        const env = settings[e];
-        if (!env?.rules) return false;
-        return env.rules.filter(ruleFilter).some((r) => isRuleEnabled(r));
+        // Fallback to v1 `settings[e].rules` for test fixtures that skip the
+        // JIT upgrade in `migrateRawFeatureToV2`.
+        let envRules: FeatureRule[] = getRulesForEnvironment(feature.rules, e);
+        if (envRules.length === 0 && !Array.isArray(feature.rules)) {
+          envRules =
+            (settings[e] as unknown as { rules?: FeatureRule[] }).rules ?? [];
+        }
+        return envRules.filter(ruleFilter).some((r) => isRuleEnabled(r));
       })
       .forEach((e) => environments.add(e));
   });
@@ -290,6 +352,8 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
     "holdout",
+    // Top-level prerequisites apply to every enabled env's payload.
+    "prerequisites",
   ];
 
   if (
@@ -301,6 +365,44 @@ export function getSDKPayloadKeysByDiff(
       [originalFeature, updatedFeature],
       allowedEnvs,
     ).forEach((e) => environments.add(e));
+  }
+
+  // Diff rules by id; each changed rule invalidates only the envs in its
+  // footprint (union of old and new). Skip envs disabled both before and
+  // after — no payload exists to refresh.
+  const envIsRelevant = (e: string): boolean => {
+    const oldEnabled = !!originalFeature.environmentSettings?.[e]?.enabled;
+    const newEnabled = !!updatedFeature.environmentSettings?.[e]?.enabled;
+    return oldEnabled || newEnabled;
+  };
+  const addRuleEnvs = (rule: FeatureRule | undefined) => {
+    if (!rule) return;
+    ruleFootprint(rule, allowedEnvs).forEach((e) => {
+      if (envIsRelevant(e)) environments.add(e);
+    });
+  };
+  const oldRulesById = new Map(
+    (originalFeature.rules ?? []).map((r) => [r.id, r] as const),
+  );
+  const newRulesById = new Map(
+    (updatedFeature.rules ?? []).map((r) => [r.id, r] as const),
+  );
+  oldRulesById.forEach((oldRule, id) => {
+    const newRule = newRulesById.get(id);
+    if (!newRule || !isEqual(oldRule, newRule)) {
+      addRuleEnvs(oldRule);
+      addRuleEnvs(newRule);
+    }
+  });
+  newRulesById.forEach((newRule, id) => {
+    if (!oldRulesById.has(id)) addRuleEnvs(newRule);
+  });
+  // Reordered rules (same ids) still affect evaluation.
+  const oldIdOrder = (originalFeature.rules ?? []).map((r) => r.id).join("\0");
+  const newIdOrder = (updatedFeature.rules ?? []).map((r) => r.id).join("\0");
+  if (oldIdOrder !== newIdOrder) {
+    (originalFeature.rules ?? []).forEach(addRuleEnvs);
+    (updatedFeature.rules ?? []).forEach(addRuleEnvs);
   }
 
   const allEnvs = new Set(allowedEnvs);
@@ -440,9 +542,13 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
   projectsMap,
+  cbMap,
+  rampMonitoredRuleMap,
+  constantMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -455,19 +561,26 @@ export function getFeatureDefinition({
     string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
-  capabilities?: SDKCapability[]; // undefined = all capabilities
+  capabilities?: SDKCapability[];
   savedGroupReferencesEnabled?: boolean;
   organization?: OrganizationInterface;
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  /** Optional override: if provided, skips derivation from organization.settings.namespaces */
+  includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  cbMap?: Map<string, ContextualBanditInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Per-environment constant values. When provided, `@const:` references in
+  // sparse rule values (and the default they merge onto) are resolved BEFORE the
+  // sparse merge, so the rule's own fields are applied last and win over the
+  // resolved constant. Non-sparse values are resolved by the caller afterward.
+  constantMap?: ConstantValueMap;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -480,9 +593,89 @@ export function getFeatureDefinition({
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
 
-  const rules = revision
-    ? (revision.rules?.[environment] ?? settings.rules)
-    : settings.rules;
+  // For `json` features, parse the default value once so rules flagged `sparse`
+  // can merge their partial object onto it. Null when the default isn't a plain
+  // key/val object (array, null, primitive) — sparse is then a no-op and rules
+  // emit their value as-is. When a constant map is supplied, resolve the
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
+  const jsonDefaultObj = (() => {
+    if (feature.valueType !== "json") return null;
+    const base = parsePlainJSONObject(defaultValue);
+    if (!base || !constantMap) return base;
+    const resolved = resolveConstantRefs(
+      base,
+      constantMap,
+      undefined,
+      undefined,
+      feature.project || "",
+    );
+    return resolved !== null &&
+      typeof resolved === "object" &&
+      !Array.isArray(resolved)
+      ? (resolved as Record<string, unknown>)
+      : base;
+  })();
+
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    if (sparse && jsonDefaultObj) {
+      const patch = parsePlainJSONObject(valueStr);
+      if (patch !== null) {
+        // Resolve the patch's constants BEFORE merging so the rule's fields are
+        // spread last and win over the (already-resolved) default — i.e. sparse
+        // fields are "further down". Non-object resolutions (e.g. a whole-value
+        // JSON constant that resolves to an array) replace the value outright.
+        const resolvedPatch = constantMap
+          ? resolveConstantRefs(
+              patch,
+              constantMap,
+              undefined,
+              undefined,
+              feature.project || "",
+            )
+          : patch;
+        if (
+          resolvedPatch !== null &&
+          typeof resolvedPatch === "object" &&
+          !Array.isArray(resolvedPatch)
+        ) {
+          return {
+            ...jsonDefaultObj,
+            ...(resolvedPatch as Record<string, unknown>),
+          };
+        }
+        return resolvedPatch;
+      }
+    }
+    // Non-sparse values are resolved by the caller's post-build pass.
+    return getJSONValue(feature.valueType, valueStr);
+  };
+
+  // Rule source: revision's unified array (draft/published) > feature's (live).
+  // Legacy `settings.rules` is test-only — production reads flow through
+  // `migrateRawFeatureToV2`.
+  //
+  // Project-scoping intersect: `allEnvironments: true` means "all APPLICABLE
+  // envs" (per `flattenV1ToV2Rules`). Use `ruleFootprint` to honor that —
+  // matching `bucketRulesByEnv` so the SDK definition and the per-env API
+  // bucket agree. Without `organization` we can't resolve applicability and
+  // fall back to the literal env-list filter.
+  const v2Rules = revision?.rules ?? feature.rules;
+  const applicableEnvs = organization?.settings?.environments
+    ? getApplicableEnvIds(organization.settings.environments, feature.project)
+    : null;
+  let rules: FeatureRule[];
+  if (!Array.isArray(v2Rules)) {
+    rules = (settings as unknown as { rules?: FeatureRule[] }).rules ?? [];
+  } else if (!applicableEnvs) {
+    rules = getRulesForEnvironment(v2Rules, environment);
+  } else if (!applicableEnvs.includes(environment)) {
+    rules = [];
+  } else {
+    rules = v2Rules.filter((r) =>
+      ruleFootprint(r, applicableEnvs).includes(environment),
+    );
+  }
 
   const namespacesMap =
     namespaces ?? namespacesToMap(organization?.settings?.namespaces);
@@ -575,7 +768,10 @@ export function getFeatureDefinition({
       })
       ?.map((r) => {
         const rule: FeatureDefinitionRule = {
-          ...(includeRuleIds && r.id != null ? { id: r.id } : {}),
+          // SDK payload emits the STEM id so split rules
+          // (`fr_abc__production` + `fr_abc__staging`) report as `fr_abc`
+          // in telemetry. REST emits the qualified id; see `normalizeRuleForApi`.
+          ...(includeRuleIds && r.id != null ? { id: stemRuleId(r.id) } : {}),
         } as FeatureDefinitionRule;
 
         // Experiment reference rules inherit everything from the experiment
@@ -585,8 +781,8 @@ export function getFeatureDefinition({
 
           if (!includeExperimentInPayload(exp)) return null;
 
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
@@ -648,27 +844,28 @@ export function getFeatureDefinition({
           }
           rule.hashVersion = exp.hashVersion;
 
-          // Stopped experiment
+          // Stopped experiment. Origin/main's Mongoose `[]` seed silently
+          // dropped malformed legacy rules lacking `variations`; we no longer
+          // seed defaults, so guard against missing arrays here and below.
           if (exp.status === "stopped") {
-            const variation = r.variations.find(
+            const variation = r.variations?.find(
               (v) => v.variationId === exp.releasedVariationId,
             );
             if (!variation) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value, r.sparse);
           }
           // Running experiment
           else {
             rule.variations = getLatestPhaseVariations(exp).map((v) => {
-              const variation = r.variations.find(
+              const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value, r.sparse) : null;
             });
             rule.weights = phase.variationWeights;
+
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -708,7 +905,96 @@ export function getFeatureDefinition({
               allowedKeys.featureRuleKeys,
             ) as FeatureDefinitionRule;
             if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = r.id;
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            return picked;
+          }
+          return rule;
+        }
+
+        if (r.type === "contextual-bandit-ref") {
+          const cb = cbMap?.get(r.contextualBanditId);
+          if (!cb) return null;
+
+          if (cb.status === "draft") return null;
+
+          const phaseCondition = getParsedCondition(groupMap, cb.condition);
+          if (phaseCondition) {
+            rule.condition = phaseCondition;
+          }
+
+          rule.coverage = cb.coverage;
+
+          if (cb.hashAttribute) {
+            rule.hashAttribute = cb.hashAttribute;
+          }
+          if (cb.seed) {
+            rule.seed = cb.seed;
+          }
+          rule.hashVersion = 2;
+
+          if (cb.status === "stopped") {
+            return null;
+          }
+
+          rule.variations = cb.variations.map((v) => {
+            const variation = r.variations?.find(
+              (rv) => rv.variationId === v.id,
+            );
+            return variation
+              ? getJSONValue(feature.valueType, variation.value)
+              : null;
+          });
+          rule.weights = cb.variationWeights
+            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            : undefined;
+
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          if (cbCapable) {
+            rule.isContextualBandit = true;
+            rule.attributesRequired = cb.contextualAttributes;
+            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
+              leafId: lw.leafId,
+              condition: lw.condition,
+              weights: pairedWeightsToPositional(lw.weights, cb.variations),
+            }));
+          }
+
+          rule.key = cb.trackingKey;
+          rule.meta = includeExperimentNames
+            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
+            : cb.variations.map((v) => ({ key: v.key }));
+          rule.phase = "0";
+          if (includeExperimentNames) rule.name = cb.name;
+
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          if (metadataOptions) {
+            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              {
+                project: cb.project,
+                tags: cb.tags,
+              },
+              metadataOptions,
+              projectsMap,
+            );
+            if (cbMetadata) rule.metadata = cbMetadata;
+          }
+
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
             }
             return picked;
           }
@@ -740,7 +1026,7 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
             getJSONValue(feature.valueType, v.value),
@@ -780,17 +1066,89 @@ export function getFeatureDefinition({
             applyNamespaceToPayload(rule, r.namespace, namespacesMap);
           }
         } else if (r.type === "rollout") {
-          rule.force = getJSONValue(feature.valueType, r.value);
-          const clampedCoverage =
-            r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
-          // At 100% coverage, treat as a force rule so users without hashAttribute aren't excluded
-          if (clampedCoverage < 1) {
-            rule.coverage = clampedCoverage;
-            if (r.hashAttribute) {
-              rule.hashAttribute = r.hashAttribute;
+          const monitorInfo = rampMonitoredRuleMap?.get(r.id);
+
+          // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
+          // payload (tracking key, stable bucketing). Fall back to feature.id (matches
+          // the SDK's own `rule.seed || featureId` fallback for force-coverage rules)
+          // for older rules that predate the seed-at-write-time backfill.
+          // New rules always have seed persisted as rule.id via addIdsToFlatRules.
+          if (monitorInfo && r.hashAttribute) {
+            const monitoredSeed = r.seed || feature.id;
+            // Reuse rollout bucketing so monitored steps do not cause variation hopping.
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+
+            const defaultValue = revision
+              ? (revision.defaultValue ?? feature.defaultValue)
+              : feature.defaultValue;
+
+            rule.variations = [
+              valueForSDK(r.value, r.sparse),
+              getJSONValue(feature.valueType, defaultValue),
+            ];
+            rule.weights = [0.5, 0.5];
+            // Set coverage = 2 * step.coverage so getBucketRanges naturally
+            // produces the non-adjacent layout:
+            //   treatment (var 0) = [0, step.coverage)
+            //   control   (var 1) = [0.5, 0.5 + step.coverage)
+            //
+            // getBucketRanges accumulates start by raw weight (0.5), not by
+            // coverage*weight, so the control arm always starts at 0.5 regardless
+            // of coverage. This keeps arms disjoint and monotonically enrolled:
+            // on a step-up from C₁ → C₂ only users in [C₁,C₂) and [0.5+C₁,0.5+C₂)
+            // are newly enrolled — no existing user changes arm.
+            //
+            // Works identically for old SDKs (no bucketingV2) since they call the
+            // same getBucketRanges fallback with this coverage value.
+            rule.coverage = Math.min(clampedCoverage * 2, 1);
+
+            rule.hashAttribute = r.hashAttribute;
+            rule.seed = monitoredSeed;
+            // Match the rollout rule's hash version exactly to prevent variation
+            // hopping between monitored/unmonitored steps. New rules store hashVersion
+            // explicitly (defaulting to 2); old rules without the field stay on 1.
+            rule.hashVersion = r.hashVersion ?? 1;
+            rule.key = `ramp_${monitorInfo.rampScheduleId}`;
+            rule.meta = includeExperimentNames
+              ? [
+                  { key: "0", name: "Variation" },
+                  { key: "1", name: "Control", passthrough: true },
+                ]
+              : [{ key: "0" }, { key: "1", passthrough: true }];
+            rule.phase = "0";
+            // Sticky bucketing must be disabled for monitored steps: the ranges
+            // shift as coverage increases, and a stale sticky-bucket assignment
+            // would lock a user to the wrong arm or prevent new enrollment.
+            rule.disableStickyBucketing = true;
+            if (includeExperimentNames) {
+              rule.name = `${feature.id} - Monitored Ramp`;
             }
-            if (r.seed) {
-              rule.seed = r.seed;
+          } else {
+            if (monitorInfo && !r.hashAttribute) {
+              logger.warn(
+                {
+                  featureId: feature.id,
+                  ruleId: r.id,
+                  rampScheduleId: monitorInfo.rampScheduleId,
+                },
+                "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
+              );
+            }
+            rule.force = valueForSDK(r.value, r.sparse);
+            const clampedCoverage =
+              r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
+            if (clampedCoverage < 1) {
+              rule.coverage = clampedCoverage;
+              if (r.hashAttribute) {
+                rule.hashAttribute = r.hashAttribute;
+              }
+              if (r.seed) {
+                rule.seed = r.seed;
+              }
+              if (r.hashVersion) {
+                rule.hashVersion = r.hashVersion;
+              }
             }
           }
         } else if (r.type === "safe-rollout") {
@@ -841,8 +1199,9 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            if (includeExperimentNames)
+            if (includeExperimentNames) {
               rule.name = `${feature.id} - Safe Rollout`;
+            }
           }
         }
         if (shouldExpandSavedGroups && savedGroupsMap && organization) {
@@ -863,7 +1222,7 @@ export function getFeatureDefinition({
             allowedKeys.featureRuleKeys,
           ) as FeatureDefinitionRule;
           if (includeRuleIds && r.id != null) {
-            picked.id = r.id;
+            picked.id = stemRuleId(r.id);
           }
           return picked;
         }
@@ -900,8 +1259,12 @@ export function getFeatureDefinition({
   return def;
 }
 
-// Populates the values of `environmentRecord` for environment keys which are undefined in the record
-// and have a parent (base) environment to inherit from which is defined.
+/**
+ * Populate `environmentRecord` values for env keys whose `Environment.parent`
+ * chain has a defined ancestor. Only used for non-rule env fields (`enabled`,
+ * `prerequisites`); rules declare their own scope on the unified array.
+ * Pure.
+ */
 export function applyEnvironmentInheritance<T>(
   environments: Environment[],
   environmentRecord: Record<string, T>,
@@ -912,9 +1275,20 @@ export function applyEnvironmentInheritance<T>(
   const mutableClone = cloneDeep(environmentRecord || {});
   Object.keys(environmentParents).forEach((env) => {
     if (mutableClone[env]) return;
-    // If no definition for the environment exists, recursively inherit from the parent environments
+    // If no definition for the environment exists, recursively inherit from the parent environments.
+    // A `visited` set bails out on cyclic parent chains as if no parent was set.
     let baseEnv = environmentParents[env];
+    const visited = new Set<string>([env]);
     while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      if (visited.has(baseEnv)) {
+        logger.warn(
+          { env, cycle: [...visited, baseEnv] },
+          "Cycle detected in environment parent chain; skipping inheritance",
+        );
+        baseEnv = undefined;
+        break;
+      }
+      visited.add(baseEnv);
       baseEnv = environmentParents[baseEnv];
     }
     // If a valid parent was found, copy its value in the record
@@ -923,4 +1297,72 @@ export function applyEnvironmentInheritance<T>(
     }
   });
   return mutableClone;
+}
+
+// Map ancestor envId -> ordered list of inheriting child envIds whose own
+// entry is missing from `originalEnvSettings`. A child with explicit env
+// settings has been customized for the feature and should NOT inherit rules
+// from its ancestor (matches `applyEnvironmentInheritance`'s gating).
+// Children are returned in `orgEnvs` order so expansions are deterministic.
+export function buildInheritedChildrenByAncestor(
+  orgEnvs: Pick<Environment, "id" | "parent">[],
+  originalEnvSettings: Record<string, unknown>,
+): Map<string, string[]> {
+  const parentOf = new Map<string, string>();
+  for (const env of orgEnvs) {
+    if (env.parent) parentOf.set(env.id, env.parent);
+  }
+  const childrenByAncestor = new Map<string, string[]>();
+  for (const env of orgEnvs) {
+    if (originalEnvSettings[env.id]) continue;
+    let ancestor = parentOf.get(env.id);
+    // Bail out on cyclic parent chains as if no parent was set.
+    const visited = new Set<string>([env.id]);
+    while (ancestor && !originalEnvSettings[ancestor]) {
+      if (visited.has(ancestor)) {
+        logger.warn(
+          { env: env.id, cycle: [...visited, ancestor] },
+          "Cycle detected in environment parent chain; skipping inheritance",
+        );
+        ancestor = undefined;
+        break;
+      }
+      visited.add(ancestor);
+      ancestor = parentOf.get(ancestor);
+    }
+    if (!ancestor) continue;
+    const list = childrenByAncestor.get(ancestor);
+    if (list) list.push(env.id);
+    else childrenByAncestor.set(ancestor, [env.id]);
+  }
+  return childrenByAncestor;
+}
+
+// Append each ancestor's inheriting children to a rule's `environments`
+// (preserves original order; children are inserted right after their
+// ancestor). No-op for `allEnvironments: true` or empty-scope rules.
+export function expandRuleEnvsForInheritance(
+  rule: FeatureRule,
+  childrenByAncestor: Map<string, string[]>,
+): FeatureRule {
+  if (rule.allEnvironments) return rule;
+  if (childrenByAncestor.size === 0) return rule;
+  const envs = rule.environments || [];
+  if (envs.length === 0) return rule;
+  const seen = new Set<string>();
+  const expanded: string[] = [];
+  for (const e of envs) {
+    if (!seen.has(e)) {
+      seen.add(e);
+      expanded.push(e);
+    }
+    for (const child of childrenByAncestor.get(e) || []) {
+      if (!seen.has(child)) {
+        seen.add(child);
+        expanded.push(child);
+      }
+    }
+  }
+  if (expanded.length === envs.length) return rule;
+  return { ...rule, environments: expanded } as FeatureRule;
 }

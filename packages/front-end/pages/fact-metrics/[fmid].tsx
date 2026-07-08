@@ -13,6 +13,7 @@ import {
   quantileMetricType,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { getCappingTailState } from "shared/validators";
 
@@ -20,7 +21,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { AppFeatures } from "shared/types/app-features";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -45,7 +46,7 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRightRailSectionGroup";
@@ -55,7 +56,6 @@ import MetricExperiments from "@/components/MetricExperiments/MetricExperiments"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
@@ -69,9 +69,11 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/ui/Callout";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -160,6 +162,10 @@ function RowFilterCodeDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
@@ -198,7 +204,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -242,6 +248,7 @@ export default function FactMetricPage() {
 
   let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+  const editViaApiOnly = isMergeAggregationMetric(factMetric);
 
   if (
     factMetric.managedBy &&
@@ -270,12 +277,13 @@ export default function FactMetricPage() {
   });
 
   const cap = factMetric.cappingSettings;
-  const capTails = getCappingTailState(cap);
+  const lowerCap = factMetric.lowerCappingSettings;
+  const capTails = getCappingTailState(cap, lowerCap);
   const hasUpperPercentileCap = capTails.upperPercentileCapped;
   const hasLowerPercentileCap = capTails.lowerPercentileCapped;
   const hasUpperAbsoluteCap = capTails.upperAbsoluteCapped;
   const hasLowerAbsoluteCap = capTails.lowerAbsoluteCapped;
-  const lowerPercentileIgnoresZeros = cap.ignoreZeros ?? false;
+  const lowerPercentileIgnoresZeros = lowerCap?.ignoreZeros ?? false;
 
   const numeratorData: DataListItem[] = [
     {
@@ -397,6 +405,7 @@ export default function FactMetricPage() {
     <div className="pagecontents container-fluid">
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"
@@ -425,6 +434,7 @@ export default function FactMetricPage() {
       )}
       {showDeleteModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header={`Delete Metric`}
           close={() => setShowDeleteModal(false)}
@@ -462,7 +472,7 @@ export default function FactMetricPage() {
             <>
               Projects{" "}
               <Tooltip
-                body={
+                content={
                   "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
                 }
               />
@@ -519,25 +529,6 @@ export default function FactMetricPage() {
         ]}
       />
 
-      {factMetric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
-            <Text>
-              This Fact Metric is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/metrics")}
-                source="fact-metric"
-              />
-            </Box>
-          </Flex>
-        </Callout>
-      )}
-
       {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
@@ -568,16 +559,20 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setEditOpen("open");
-                }}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setEditOpen("open");
+              }}
+              disabled={!canEdit || editViaApiOnly}
+            >
+              <Tooltip
+                content={REST_API_ONLY_EDIT_MESSAGE}
+                enabled={editViaApiOnly}
               >
-                Edit Metric
-              </DropdownMenuItem>
-            )}
+                <span>Edit Metric</span>
+              </Tooltip>
+            </DropdownMenuItem>
             {canEdit &&
             !factMetric.managedBy &&
             permissionsUtil.canCreateOfficialResources(factMetric) &&
@@ -647,7 +642,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit && (
+                {canEdit ? (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -656,6 +651,10 @@ export default function FactMetricPage() {
                   >
                     <GBEdit />
                   </Link>
+                ) : (
+                  <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                    <GBEdit />
+                  </span>
                 )}
               </Flex>
             }
@@ -668,10 +667,14 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit && (
+              {canEdit ? (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
+              ) : (
+                <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                  <GBEdit />
+                </span>
               )}
             </Flex>
           }
@@ -689,24 +692,26 @@ export default function FactMetricPage() {
         />
       </Flex>
       <Box mt="3" mb="3">
-        {factMetric.tags?.length || canEdit ? (
-          <Flex align="center" gap="1">
-            <Text weight="medium">Tags:</Text>
-            {factMetric.tags?.length ? (
-              <SortedTags
-                tags={factMetric.tags}
-                useFlex
-                shouldShowEllipsis={false}
-                {...tagLinkProps("metrics")}
-              />
-            ) : null}
-            {canEdit && (
-              <Link onClick={() => setEditTagsModal(true)}>
-                <GBEdit />
-              </Link>
-            )}
-          </Flex>
-        ) : null}
+        <Flex align="center" gap="1">
+          <Text weight="medium">Tags:</Text>
+          {factMetric.tags?.length ? (
+            <SortedTags
+              tags={factMetric.tags}
+              useFlex
+              shouldShowEllipsis={false}
+              {...tagLinkProps("metrics")}
+            />
+          ) : null}
+          {canEdit ? (
+            <Link onClick={() => setEditTagsModal(true)}>
+              <GBEdit />
+            </Link>
+          ) : (
+            <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+              <GBEdit />
+            </span>
+          )}
+        </Flex>
       </Box>
 
       <div className="row">
@@ -809,7 +814,7 @@ export default function FactMetricPage() {
               <Text as="p" mb="2" color="text-mid">
                 Choose metric breakdowns to automatically analyze in your
                 experiments.{" "}
-                <DocLink docSection="autoSlices">
+                <DocLink useRadix={false} docSection="autoSlices">
                   Learn More <PiArrowSquareOut />
                 </DocLink>
               </Text>
@@ -887,7 +892,7 @@ export default function FactMetricPage() {
             <RightRailSection
               title="Advanced Settings"
               open={() => setEditOpen("openWithAdvanced")}
-              canOpen={canEdit}
+              canOpen={canEdit && !editViaApiOnly}
             >
               {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
@@ -940,9 +945,9 @@ export default function FactMetricPage() {
                             <span className="text-gray">Lower: </span>
                           ) : null}
                           <span className="font-weight-bold">
-                            {cap.lowerValue}
+                            {lowerCap?.value}
                           </span>{" "}
-                          {`(${100 * (cap.lowerValue ?? 0)} pctile${
+                          {`(${100 * (lowerCap?.value ?? 0)} pctile${
                             lowerPercentileIgnoresZeros
                               ? ", ignoring zeros"
                               : ""
@@ -967,7 +972,7 @@ export default function FactMetricPage() {
                       <li className="mb-2">
                         <span className="text-gray">Lower: </span>
                         <span className="font-weight-bold">
-                          {hasLowerAbsoluteCap ? cap.lowerValue : ""}
+                          {hasLowerAbsoluteCap ? lowerCap?.value : ""}
                         </span>
                       </li>
                     </>

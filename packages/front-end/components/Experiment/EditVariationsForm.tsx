@@ -4,12 +4,12 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
-import { getEqualWeights } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
 import track from "@/services/track";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditVariationsForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -45,10 +45,10 @@ const EditVariationsForm: FC<{
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="edit-variations-form"
       trackingEventModalSource={source}
-      header={"Edit Variations"}
+      header="Edit Variations"
       open={true}
       close={cancel}
       size="lg"
@@ -95,6 +95,16 @@ const EditVariationsForm: FC<{
         });
         mutate();
         track("edited-variations");
+
+        const numVariationsAdded =
+          data.variations.length - getLatestPhaseVariations(experiment).length;
+        if (numVariationsAdded > 0) {
+          track("Added Variations", {
+            source: "edit-variations-form",
+            numVariationsAdded,
+            totalVariations: data.variations.length,
+          });
+        }
       })}
       cta="Save"
     >
@@ -142,7 +152,7 @@ const EditVariationsForm: FC<{
         hideCoverage
         onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

@@ -32,6 +32,7 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -71,6 +72,7 @@ import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -252,10 +254,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
+    // When an attribute is surfaced as a top-level column — legacy materialized
+    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
+    // point people at that column, not the JSON field.
+    const excludedAttributeFields =
+      getAttributeFieldsExposedAsColumns(factTable);
     if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
       datasource.settings.materializedColumns?.forEach((col) => {
         excludedAttributeFields.add(col.sourceField);
       });
@@ -267,7 +271,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
@@ -692,6 +699,10 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          stringMatch: createLikeStringMatchFn({
+            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+            emitEscapeClause: false,
+          }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -1063,6 +1074,7 @@ function FieldMappingModal({
 
   return (
     <Modal
+      useRadixButton={false}
       close={close}
       header="Create Fact Metric From Template"
       trackingEventModalType=""
@@ -1443,6 +1455,7 @@ export default function FactMetricModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
@@ -1523,16 +1536,30 @@ export default function FactMetricModal({
         }
 
         {
-          const cs = values.cappingSettings;
-          const tails = getCappingTailState(cs);
+          const tails = getCappingTailState(
+            values.cappingSettings,
+            values.lowerCappingSettings,
+          );
 
-          if (!tails.anyCap) {
+          // Clean the upper tail when it is not actually enabled.
+          if (!tails.upperAbsoluteCapped && !tails.upperPercentileCapped) {
             values.cappingSettings = {
               type: "",
+              value: 0,
               ignoreZeros: false,
             };
-          } else {
-            validateCappingSettingsOrdering(values.cappingSettings);
+          }
+
+          // Clean the independent lower tail when it is not actually enabled.
+          if (!tails.lowerAbsoluteCapped && !tails.lowerPercentileCapped) {
+            values.lowerCappingSettings = null;
+          }
+
+          if (tails.anyCap) {
+            validateCappingSettingsOrdering(
+              values.cappingSettings,
+              values.lowerCappingSettings,
+            );
           }
         }
 
@@ -1545,7 +1572,9 @@ export default function FactMetricModal({
         ) {
           values.cappingSettings = {
             type: "",
+            value: 0,
           };
+          values.lowerCappingSettings = null;
         }
 
         if (
@@ -1803,8 +1832,8 @@ export default function FactMetricModal({
                     form.setValue("quantileSettings", quantileSettings);
                     // capping off for quantile metrics
                     form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.lowerValue", undefined);
-                    form.setValue("cappingSettings.value", undefined);
+                    form.setValue("cappingSettings.value", 0);
+                    form.setValue("lowerCappingSettings", null);
 
                     if (
                       quantileSettings.type === "event" &&
@@ -1833,7 +1862,15 @@ export default function FactMetricModal({
                     form.watch("cappingSettings.type") === "absolute"
                   ) {
                     form.setValue("cappingSettings.type", "");
-                    form.setValue("cappingSettings.lowerValue", undefined);
+                    form.setValue("cappingSettings.value", 0);
+                  }
+                  // Ratio metrics only support percentile capping; drop an
+                  // absolute lower tail when switching to ratio.
+                  if (
+                    type === "ratio" &&
+                    form.watch("lowerCappingSettings")?.type === "absolute"
+                  ) {
+                    form.setValue("lowerCappingSettings", null);
                   }
                 }}
                 options={[
@@ -2179,7 +2216,7 @@ export default function FactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
-                        <DocLink docSection="autoSlices">
+                        <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>

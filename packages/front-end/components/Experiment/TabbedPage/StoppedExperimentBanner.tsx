@@ -117,10 +117,13 @@ export default function StoppedExperimentBanner({
               </div>
               When you no longer need this rollout, stop it to improve your site
               performance.{" "}
-              <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              <DocLink useRadix={false} docSection="temporaryRollout">
+                Learn more
+              </DocLink>
             </div>
             <div className="ml-auto pl-2">
               <ConfirmButton
+                isDestructive
                 onClick={async () => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",

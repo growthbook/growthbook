@@ -1,12 +1,17 @@
+import type { AuditInterfaceInput } from "shared/types/audit";
+import type { EventUser } from "shared/types/events/event-types";
+import type { OrganizationInterface } from "shared/types/organization";
 import {
   filterEnvironmentsByFeature,
   MergeResultChanges,
   checkIfRevisionNeedsReview,
+  getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { postFeatureRevisionRevertValidator } from "shared/validators";
-import { revisionToApiInterface } from "back-end/src/services/features";
+import type { ApiReqContext } from "back-end/types/api";
+import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -26,27 +31,39 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
-export const postFeatureRevisionRevert = createApiRequestHandler(
-  postFeatureRevisionRevertValidator,
-)(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+export async function revertFeatureRevision(
+  context: ApiReqContext,
+  organization: OrganizationInterface,
+  eventAudit: EventUser,
+  params: { id: string; version: number },
+  body: {
+    strategy?: "draft" | "publish";
+    comment?: string;
+    title?: string;
+  },
+  audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
+) {
+  const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (!req.context.permissions.canUpdateFeature(feature, {})) {
-    req.context.permissions.throwPermissionError();
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
   }
 
-  const { strategy = "draft", comment, title } = req.body;
+  const { strategy = "draft", comment, title } = body;
   // Publish perms only apply to strategy: "publish"; the draft branch is
   // gated by canManageFeatureDrafts below.
   const isPublish = strategy === "publish";
 
   const targetRevision = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
-    version: req.params.version,
+    feature,
+    version: params.version,
   });
   if (!targetRevision)
     throw new NotFoundError("Could not find feature revision");
@@ -54,17 +71,17 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   if (targetRevision.status !== "published") {
     throw new BadRequestError(
       "Can only revert to a published revision. " +
-        `Revision #${req.params.version} has status "${targetRevision.status}".`,
+        `Revision #${params.version} has status "${targetRevision.status}".`,
     );
   }
   if (targetRevision.version === feature.version) {
     throw new BadRequestError(
-      `Revision #${req.params.version} is already the live version — nothing to revert.`,
+      `Revision #${params.version} is already the live version — nothing to revert.`,
     );
   }
 
   // Build the delta between the target revision and current live state.
-  const allEnvironments = getEnvironments(req.context.org);
+  const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
@@ -73,28 +90,32 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   if (targetRevision.defaultValue !== feature.defaultValue) {
     if (
       isPublish &&
-      !req.context.permissions.canPublishFeature(
+      !context.permissions.canPublishFeature(
         feature,
         environmentIds.filter(
           (env) => feature.environmentSettings?.[env]?.enabled,
         ),
       )
     ) {
-      req.context.permissions.throwPermissionError();
+      context.permissions.throwPermissionError();
     }
     changes.defaultValue = targetRevision.defaultValue;
   }
 
-  changes.rules = {};
   const changedEnvs: string[] = [];
+  // v2: rules live on a single flat array. Diff per-env via projection to
+  // preserve the UX of "which envs' rule lists would change" for permission
+  // checks, but persist the change at the whole-array level below.
+  const targetRulesFlat = targetRevision.rules ?? feature.rules ?? [];
+  const currentRulesFlat = feature.rules ?? [];
+  let anyRulesChanged = false;
   environmentIds.forEach((env) => {
-    const currentRules = feature.environmentSettings?.[env]?.rules || [];
-    const targetRules =
-      targetRevision.rules && env in targetRevision.rules
-        ? targetRevision.rules[env]
-        : currentRules;
-    changes.rules![env] = targetRules;
-    if (!isEqual(targetRules, currentRules)) changedEnvs.push(env);
+    const currentRules = getRulesForEnvironment(currentRulesFlat, env);
+    const targetRules = getRulesForEnvironment(targetRulesFlat, env);
+    if (!isEqual(targetRules, currentRules)) {
+      changedEnvs.push(env);
+      anyRulesChanged = true;
+    }
 
     if (
       targetRevision.environmentsEnabled &&
@@ -108,10 +129,13 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
   });
+  if (anyRulesChanged) {
+    changes.rules = targetRulesFlat;
+  }
 
   if (isPublish && changedEnvs.length > 0) {
-    if (!req.context.permissions.canPublishFeature(feature, changedEnvs)) {
-      req.context.permissions.throwPermissionError();
+    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+      context.permissions.throwPermissionError();
     }
   }
 
@@ -125,9 +149,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   ) {
     if (
       isPublish &&
-      !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
     ) {
-      req.context.permissions.throwPermissionError();
+      context.permissions.throwPermissionError();
     }
     changes.prerequisites = targetRevision.prerequisites;
   }
@@ -139,9 +163,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   ) {
     if (
       isPublish &&
-      !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+      !context.permissions.canPublishFeature(feature, allEnabledEnvs)
     ) {
-      req.context.permissions.throwPermissionError();
+      context.permissions.throwPermissionError();
     }
     changes.archived = targetRevision.archived;
   }
@@ -194,9 +218,9 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     if (hasMetaChange) {
       if (
         isPublish &&
-        !req.context.permissions.canPublishFeature(feature, allEnabledEnvs)
+        !context.permissions.canPublishFeature(feature, allEnabledEnvs)
       ) {
-        req.context.permissions.throwPermissionError();
+        context.permissions.throwPermissionError();
       }
       changes.metadata = metadataChanges;
     }
@@ -206,14 +230,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   // used for per-field permission checks.
   const revisionChanges: Partial<FeatureRevisionInterface> = {
     defaultValue: targetRevision.defaultValue,
-    rules: Object.fromEntries(
-      environmentIds.map((env) => [
-        env,
-        targetRevision.rules?.[env] ??
-          feature.environmentSettings?.[env]?.rules ??
-          [],
-      ]),
-    ),
+    rules: targetRevision.rules ?? feature.rules ?? [],
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
@@ -231,51 +248,51 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   const defaultComment = `Revert to revision #${targetRevision.version}`;
 
   if (!isPublish) {
-    if (!req.context.permissions.canManageFeatureDrafts(feature)) {
-      req.context.permissions.throwPermissionError();
+    if (!context.permissions.canManageFeatureDrafts(feature)) {
+      context.permissions.throwPermissionError();
     }
 
     const newDraft = await createRevision({
-      context: req.context,
+      context,
       feature,
-      user: req.context.auditUser,
+      user: context.auditUser,
       baseVersion: feature.version,
       comment: comment ?? defaultComment,
       title: title ?? `Revert to v${targetRevision.version}`,
-      environments: getEnvironmentIdsFromOrg(req.context.org),
+      environments: getEnvironmentIdsFromOrg(context.org),
       publish: false,
       changes: revisionChanges,
-      org: req.context.org,
+      org: context.org,
       canBypassApprovalChecks: false,
     });
 
-    return { revision: revisionToApiInterface(newDraft) };
+    return { feature, revision: newDraft };
   }
 
-  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!req.context.org.settings?.restApiBypassesReviews ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
 
   if (!canBypass) {
     const liveRevision = await getRevision({
-      context: req.context,
+      context,
       organization: feature.organization,
       featureId: feature.id,
+      feature,
       version: feature.version,
     });
     if (!liveRevision)
       throw new InternalServerError("Could not load live revision");
 
-    const allEnvironmentIds = getEnvironmentIdsFromOrg(req.context.org);
+    const allEnvironmentIds = getEnvironmentIdsFromOrg(context.org);
     const requiresReview = checkIfRevisionNeedsReview({
       feature,
       baseRevision: liveRevision,
       revision: { ...liveRevision, ...revisionChanges } as typeof liveRevision,
       allEnvironments: allEnvironmentIds,
-      settings: req.organization.settings,
-      requireApprovalsLicensed:
-        req.context.hasPremiumFeature("require-approvals"),
+      settings: organization.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
     });
 
     if (requiresReview) {
@@ -289,10 +306,10 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
 
   const { revision: publishedRevision, updatedFeature } =
     await createAndPublishRevision({
-      context: req.context,
+      context,
       feature,
-      user: req.eventAudit,
-      org: req.organization,
+      user: eventAudit,
+      org: organization,
       changes: revisionChanges,
       comment: comment ?? defaultComment,
       canBypassApprovalChecks: canBypass,
@@ -303,13 +320,13 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     Array.isArray(revisionChanges.metadata.tags)
   ) {
     await addTagsDiff(
-      req.organization.id,
+      organization.id,
       feature.tags || [],
       revisionChanges.metadata.tags,
     );
   }
 
-  await req.audit({
+  await audit({
     event: "feature.revert",
     entity: {
       object: "feature",
@@ -322,20 +339,36 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
   });
 
   const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
+    context,
+    organization: organization.id,
     featureId: feature.id,
+    feature,
     version: publishedRevision.version,
   });
   const finalRevision = updated ?? publishedRevision;
 
   await dispatchFeatureRevisionEvent(
-    req.context,
+    context,
     updatedFeature,
     finalRevision,
     "revision.reverted",
     { revertedToVersion: targetRevision.version },
   );
 
-  return { revision: revisionToApiInterface(finalRevision) };
+  return { feature, revision: finalRevision };
+}
+
+export const postFeatureRevisionRevert = createApiRequestHandler(
+  postFeatureRevisionRevertValidator,
+)(async (req) => {
+  const { feature, revision } = await revertFeatureRevision(
+    req.context,
+    req.organization,
+    req.eventAudit,
+    req.params,
+    req.body,
+    req.audit,
+    canUseRestApiBypassSetting(req),
+  );
+  return { revision: toApiRevision(revision, req.context, feature) };
 });

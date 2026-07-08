@@ -14,7 +14,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import { AUTO_SLICE_UPDATE_FREQUENCY_HOURS } from "back-end/src/util/secrets";
-import { runColumnsTopValuesQuery } from "./refreshFactTableColumns";
+import {
+  runColumnsTopValuesQuery,
+  TOP_VALUES_CHUNK_SIZE,
+} from "./refreshFactTableColumns";
 
 const QUEUE_AUTO_SLICE_UPDATES = "queueAutoSliceUpdates";
 const UPDATE_SINGLE_FACT_TABLE_AUTO_SLICES = "updateSingleFactTableAutoSlices";
@@ -133,10 +136,9 @@ async function updateAutoSlicesForColumns(
     }
   }
 
-  // Batch query for all columns that need updates, chunked into groups of 10
-  // to prevent returning more than 1k rows per update (10 columns * 100 values = 1000 rows max per chunk)
+  // Batch query for all columns that need updates.
   if (columnsNeedingUpdates.length > 0) {
-    const columnChunks = chunk(columnsNeedingUpdates, 10);
+    const columnChunks = chunk(columnsNeedingUpdates, TOP_VALUES_CHUNK_SIZE);
 
     for (const columnChunk of columnChunks) {
       try {
@@ -173,10 +175,14 @@ async function updateAutoSlicesForColumns(
           col.dateUpdated = new Date();
         }
       } catch (e) {
-        logger.error(e, "Error updating auto-slices for columns", {
-          factTableId: factTable.id,
-          columns: columnChunk.map((c) => c.column),
-        });
+        logger.error(
+          e,
+          `Error updating auto-slices for columns on ${datasource.type}`,
+          {
+            factTableId: factTable.id,
+            columns: columnChunk.map((c) => c.column),
+          },
+        );
       }
     }
   }

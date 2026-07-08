@@ -6,10 +6,38 @@ import Checkbox from "@/ui/Checkbox";
 
 type CappingMode = "" | "absolute" | "percentile";
 
+type TailSettings = {
+  type?: CappingType;
+  value?: number;
+  ignoreZeros?: boolean;
+} | null;
+
 function isUpperCapped(mode: CappingMode, value: number | undefined): boolean {
   if (mode === "absolute") return (value ?? 0) > 0;
   if (mode === "percentile") return (value ?? 0) > 0 && (value ?? 0) < 1;
   return false;
+}
+
+function isLowerCapped(
+  mode: CappingMode,
+  lowerValue: number | undefined,
+): boolean {
+  if (mode === "absolute") {
+    return lowerValue !== undefined && Number.isFinite(lowerValue);
+  }
+  if (mode === "percentile")
+    return (lowerValue ?? 0) > 0 && (lowerValue ?? 0) < 1;
+  return false;
+}
+
+function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
+  if (cappingSettings?.type === "percentile") {
+    return "percentile";
+  }
+  if (cappingSettings?.type === "absolute") {
+    return "absolute";
+  }
+  return "";
 }
 
 /** Legacy metrics: upper-tail capping only (SQL / Mixpanel upper bound). */
@@ -25,10 +53,6 @@ function LegacyMetricCappingSettingsFormContent({
   datasourceType?: string;
   metricType: string;
 }) {
-  useEffect(() => {
-    form.setValue("cappingSettings.lowerValue", 0);
-  }, [form]);
-
   const cappingSettings = form.watch("cappingSettings") as
     | { type?: CappingType; value?: number; ignoreZeros?: boolean }
     | undefined;
@@ -183,91 +207,190 @@ function LegacyMetricCappingSettingsFormContent({
   );
 }
 
-function getCappingMode(cappingSettings: { type?: CappingType }): CappingMode {
-  if (cappingSettings?.type === "percentile") {
-    return "percentile";
-  }
-  if (cappingSettings?.type === "absolute") {
-    return "absolute";
-  }
-  return "";
-}
-
-function isLowerCapped(
-  mode: CappingMode,
-  lowerValue: number | undefined,
-): boolean {
-  if (mode === "absolute") {
-    return lowerValue !== undefined && Number.isFinite(lowerValue);
-  }
-  if (mode === "percentile")
-    return (lowerValue ?? 0) > 0 && (lowerValue ?? 0) < 1;
-  return false;
-}
-
-function applyUpperValue(
+/**
+ * A single independent capping tail (upper or lower) for Fact Metrics. Each
+ * tail has its own type selector and value, writing to its own settings object
+ * so the two tails can use different types (e.g. absolute-0 floor + percentile
+ * ceiling).
+ */
+function FactCappingTailEditor({
+  form,
+  path,
+  isLower,
+  metricType,
+  datasourceType,
+  idSuffix,
+}: {
   form: {
-    getValues: (path: string) => unknown;
+    watch: (path: string) => unknown;
     setValue: (path: string, value: unknown) => void;
-  },
-  mode: CappingMode,
-  n: number,
-) {
-  const capped = isUpperCapped(mode, n);
-  if (!capped) {
-    form.setValue("cappingSettings.value", undefined);
-    const lv = form.getValues("cappingSettings.lowerValue") as
-      | number
-      | undefined;
-    if (mode === "absolute" || mode === "percentile") {
-      if (!isLowerCapped(mode, lv)) {
-        form.setValue("cappingSettings.type", "");
-        form.setValue("cappingSettings.ignoreZeros", false);
-      }
-    }
-  } else {
-    form.setValue("cappingSettings.value", n);
-    if (mode === "absolute") {
-      form.setValue("cappingSettings.type", "absolute");
-    } else if (mode === "percentile") {
-      form.setValue("cappingSettings.type", "percentile");
-    }
-  }
-}
+  };
+  /** Form path of this tail's settings object. */
+  path: "cappingSettings" | "lowerCappingSettings";
+  isLower: boolean;
+  metricType: string;
+  datasourceType?: string;
+  idSuffix: string;
+}) {
+  const settings = form.watch(path) as TailSettings;
+  const mode = getCappingMode(settings ?? {});
 
-function applyLowerValue(
-  form: {
-    getValues: (path: string) => unknown;
-    setValue: (path: string, value: unknown) => void;
-  },
-  mode: CappingMode,
-  n: number | undefined,
-) {
-  const capped = isLowerCapped(mode, n);
-  if (!capped) {
-    if (mode === "absolute") {
-      form.setValue("cappingSettings.lowerValue", undefined);
+  const cappingOptions = [
+    { value: "", label: "No" },
+    ...(metricType !== "ratio"
+      ? [{ value: "absolute", label: "Absolute Capping" }]
+      : []),
+    ...(datasourceType !== "mixpanel"
+      ? [{ value: "percentile", label: "Percentile Capping" }]
+      : []),
+  ];
+
+  const value = settings?.value ?? 0;
+  const capped = isLower
+    ? isLowerCapped(mode, settings?.value)
+    : isUpperCapped(mode, value);
+
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    setFocused(false);
+    setDraft("");
+  }, [mode]);
+
+  // Disabling a tail: the lower tail is an optional object (null = no cap); the
+  // upper tail is always present, so reset it to an empty/no-cap object.
+  const clearTail = () => {
+    if (isLower) {
+      form.setValue(path, null);
     } else {
-      form.setValue("cappingSettings.lowerValue", 0);
+      form.setValue(path, { type: "", value: 0, ignoreZeros: false });
     }
-    const uv = form.getValues("cappingSettings.value") as number | undefined;
-    if (mode === "percentile" && !isUpperCapped("percentile", uv)) {
-      form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.ignoreZeros", false);
-    } else if (mode === "absolute" && !isUpperCapped("absolute", uv)) {
-      form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.ignoreZeros", false);
+  };
+
+  const writeTail = (m: CappingMode, n: number) => {
+    form.setValue(path, {
+      type: m,
+      value: n,
+      ignoreZeros: settings?.ignoreZeros ?? false,
+    });
+  };
+
+  const setCappingMode = (m: CappingMode) => {
+    if (!m) {
+      clearTail();
+      return;
     }
-  } else {
-    form.setValue("cappingSettings.lowerValue", n as number);
-    form.setValue(
-      "cappingSettings.type",
-      mode === "absolute" ? "absolute" : "percentile",
-    );
-  }
+    // Start a newly-enabled tail with a 0 value; the user then enters a value.
+    form.setValue(path, {
+      type: m,
+      value: 0,
+      ignoreZeros: settings?.ignoreZeros ?? false,
+    });
+  };
+
+  const flushInput = (raw: string) => {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      clearTail();
+      return;
+    }
+    const n = parseFloat(trimmed);
+    if (Number.isNaN(n)) {
+      clearTail();
+      return;
+    }
+    const nowCapped = isLower ? isLowerCapped(mode, n) : isUpperCapped(mode, n);
+    if (!nowCapped) {
+      clearTail();
+      return;
+    }
+    writeTail(mode, n);
+  };
+
+  const displayValue = focused ? draft : capped ? String(value) : "";
+
+  const label = isLower
+    ? mode === "absolute"
+      ? "Lower tail (floor)"
+      : "Lower tail (floor percentile)"
+    : mode === "absolute"
+      ? "Upper tail (ceiling)"
+      : "Upper tail (ceiling percentile)";
+
+  const valueHelpText = isLower
+    ? mode === "absolute"
+      ? "Values below this are raised to this floor. Leave empty for no lower cap. Must be less than the ceiling when both use absolute capping."
+      : "Quantile for the floor (e.g. 0.05). Leave empty for no lower cap. Must be less than the upper percentile when both use percentile capping."
+    : mode === "absolute"
+      ? "Maximum aggregated value per user. Leave empty for no upper cap."
+      : "Quantile for the ceiling (e.g. 0.99). Leave empty for no upper cap.";
+
+  const selectHelpText = isLower
+    ? "Lower-tail winsorization: raise extreme low aggregated user values. Independent of the upper tail."
+    : "Upper-tail winsorization: limit extreme high aggregated user values. Independent of the lower tail.";
+
+  return (
+    <div className="mb-3">
+      <SelectField
+        label={isLower ? "Cap Lower Tail" : "Cap Upper Tail"}
+        value={mode}
+        onChange={(v: CappingMode) => {
+          setCappingMode(v);
+        }}
+        sort={false}
+        options={cappingOptions}
+        helpText={selectHelpText}
+      />
+      <div
+        style={{
+          display: mode ? "block" : "none",
+        }}
+        className="appbox p-3 bg-light"
+      >
+        {mode ? (
+          <>
+            <Field
+              label={label}
+              type="number"
+              step="any"
+              // Lower absolute floors may be zero or negative, so no min there.
+              min={mode === "percentile" ? "0" : isLower ? undefined : "0"}
+              max={mode === "percentile" ? "1" : undefined}
+              placeholder="None"
+              value={displayValue}
+              onFocus={() => {
+                setFocused(true);
+                setDraft(capped ? String(value) : "");
+              }}
+              onBlur={(e) => {
+                flushInput(e.target.value);
+                setFocused(false);
+              }}
+              onChange={(e) => setDraft(e.target.value)}
+              helpText={valueHelpText}
+            />
+            {mode === "percentile" && capped ? (
+              <Checkbox
+                label="Ignore zeros"
+                value={settings?.ignoreZeros ?? false}
+                setValue={(v) => {
+                  form.setValue(path, {
+                    type: settings?.type ?? mode,
+                    value: settings?.value ?? 0,
+                    ignoreZeros: v,
+                  });
+                }}
+                id={`cappingIgnoreZeros${idSuffix}`}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
-/** Fact metrics: upper- and optional lower-tail capping (SQL warehouses only). */
+/** Fact metrics: independent upper- and lower-tail capping (SQL warehouses only). */
 function FactMetricCappingSettingsFormContent({
   form,
   datasourceType,
@@ -281,216 +404,24 @@ function FactMetricCappingSettingsFormContent({
   datasourceType?: string;
   metricType: string;
 }) {
-  const cappingSettings = form.watch("cappingSettings") as
-    | {
-        type?: CappingType;
-        value?: number;
-        lowerValue?: number;
-        ignoreZeros?: boolean;
-      }
-    | undefined;
-  const mode = getCappingMode(cappingSettings ?? {});
-
-  const cappingOptions = [
-    {
-      value: "",
-      label: "No",
-    },
-    ...(metricType !== "ratio"
-      ? [
-          {
-            value: "absolute",
-            label: "Absolute Capping",
-          },
-        ]
-      : []),
-    ...(datasourceType !== "mixpanel"
-      ? [
-          {
-            value: "percentile",
-            label: "Percentile Capping",
-          },
-        ]
-      : []),
-  ];
-
-  const capType = cappingSettings?.type;
-  const lowerRaw = cappingSettings?.lowerValue;
-  const upperValue = cappingSettings?.value ?? 0;
-
-  const upperCapped = isUpperCapped(mode, upperValue);
-  const lowerCapped = isLowerCapped(mode, lowerRaw);
-
-  useEffect(() => {
-    if (mode !== "absolute" && mode !== "percentile") return;
-    if (capType) return;
-    if (mode === "absolute" && isUpperCapped("absolute", upperValue)) {
-      form.setValue("cappingSettings.type", "absolute");
-    }
-    if (mode === "percentile" && isUpperCapped("percentile", upperValue)) {
-      form.setValue("cappingSettings.type", "percentile");
-    }
-  }, [mode, capType, upperValue, form]);
-
-  const setCappingMode = (m: CappingMode) => {
-    if (!m) {
-      form.setValue("cappingSettings.type", "");
-      form.setValue("cappingSettings.value", undefined);
-      form.setValue("cappingSettings.lowerValue", undefined);
-      form.setValue("cappingSettings.ignoreZeros", false);
-      return;
-    }
-    if (m === "absolute") {
-      form.setValue("cappingSettings.type", "absolute");
-      form.setValue("cappingSettings.value", undefined);
-      form.setValue("cappingSettings.lowerValue", undefined);
-      form.setValue("cappingSettings.ignoreZeros", false);
-      return;
-    }
-    form.setValue("cappingSettings.type", "percentile");
-    form.setValue("cappingSettings.value", undefined);
-    form.setValue("cappingSettings.lowerValue", 0);
-    form.setValue("cappingSettings.ignoreZeros", false);
-  };
-
-  const [upperFocused, setUpperFocused] = useState(false);
-  const [upperDraft, setUpperDraft] = useState("");
-  const [lowerFocused, setLowerFocused] = useState(false);
-  const [lowerDraft, setLowerDraft] = useState("");
-
-  useEffect(() => {
-    setUpperFocused(false);
-    setLowerFocused(false);
-    setUpperDraft("");
-    setLowerDraft("");
-  }, [mode]);
-
-  const flushUpperInput = (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed === "") {
-      applyUpperValue(form, mode, 0);
-      return;
-    }
-    const n = parseFloat(trimmed);
-    if (Number.isNaN(n)) {
-      applyUpperValue(form, mode, 0);
-      return;
-    }
-    applyUpperValue(form, mode, n);
-  };
-
-  const flushLowerInput = (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed === "") {
-      applyLowerValue(form, mode, mode === "absolute" ? undefined : 0);
-      return;
-    }
-    const n = parseFloat(trimmed);
-    if (Number.isNaN(n)) {
-      applyLowerValue(form, mode, mode === "absolute" ? undefined : 0);
-      return;
-    }
-    applyLowerValue(form, mode, n);
-  };
-
-  const upperDisplayValue = upperFocused
-    ? upperDraft
-    : upperCapped
-      ? String(upperValue)
-      : "";
-  const lowerDisplayValue = lowerFocused
-    ? lowerDraft
-    : lowerCapped
-      ? String(lowerRaw)
-      : "";
-
   return (
     <div className="form-group">
-      <SelectField
-        label="Cap User Values"
-        value={mode}
-        onChange={(v: CappingMode) => {
-          setCappingMode(v);
-        }}
-        sort={false}
-        options={cappingOptions}
-        helpText="Winsorization: limit extreme aggregated user values on the upper tail, lower tail, or both (SQL-based Fact Metrics). Choose a cap type, then enter values or leave each field empty (None) for an uncapped tail."
+      <FactCappingTailEditor
+        form={form}
+        path="cappingSettings"
+        isLower={false}
+        metricType={metricType}
+        datasourceType={datasourceType}
+        idSuffix="Upper"
       />
-      <div
-        style={{
-          display: mode ? "block" : "none",
-        }}
-        className="appbox p-3 bg-light"
-      >
-        {mode ? (
-          <>
-            <Field
-              label={
-                mode === "absolute"
-                  ? "Upper tail (ceiling)"
-                  : "Upper tail (ceiling percentile)"
-              }
-              type="number"
-              step="any"
-              min="0"
-              max={mode === "percentile" ? "1" : undefined}
-              placeholder="None"
-              value={upperDisplayValue}
-              onFocus={() => {
-                setUpperFocused(true);
-                setUpperDraft(upperCapped ? String(upperValue) : "");
-              }}
-              onBlur={(e) => {
-                flushUpperInput(e.target.value);
-                setUpperFocused(false);
-              }}
-              onChange={(e) => setUpperDraft(e.target.value)}
-              helpText={
-                mode === "absolute"
-                  ? "Maximum aggregated value per user. Leave empty for no upper cap. When a floor is set, the floor must be less than this ceiling."
-                  : "Quantile for the ceiling (e.g. 0.99). Leave empty for no upper cap."
-              }
-            />
-            <Field
-              label={
-                mode === "absolute"
-                  ? "Lower tail (floor)"
-                  : "Lower tail (floor percentile)"
-              }
-              type="number"
-              step="any"
-              min={mode === "percentile" ? "0" : undefined}
-              max={mode === "percentile" ? "1" : undefined}
-              placeholder="None"
-              value={lowerDisplayValue}
-              onFocus={() => {
-                setLowerFocused(true);
-                setLowerDraft(lowerCapped ? String(lowerRaw) : "");
-              }}
-              onBlur={(e) => {
-                flushLowerInput(e.target.value);
-                setLowerFocused(false);
-              }}
-              onChange={(e) => setLowerDraft(e.target.value)}
-              helpText={
-                mode === "absolute"
-                  ? "Values below this are raised to this floor. Leave empty for no lower cap. Must be less than the ceiling when both are set."
-                  : "Quantile for the floor (e.g. 0.05). Leave empty for no lower cap. Must be less than the upper percentile when both are set."
-              }
-            />
-            {mode === "percentile" && (upperCapped || lowerCapped) ? (
-              <Checkbox
-                label="Ignore zeros"
-                value={cappingSettings?.ignoreZeros ?? false}
-                setValue={(v) => {
-                  form.setValue("cappingSettings.ignoreZeros", v);
-                }}
-                id="cappingIgnoreZeros"
-              />
-            ) : null}
-          </>
-        ) : null}
-      </div>
+      <FactCappingTailEditor
+        form={form}
+        path="lowerCappingSettings"
+        isLower={true}
+        metricType={metricType}
+        datasourceType={datasourceType}
+        idSuffix="Lower"
+      />
     </div>
   );
 }

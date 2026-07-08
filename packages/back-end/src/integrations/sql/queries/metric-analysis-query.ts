@@ -113,7 +113,7 @@ export function getMetricAnalysisQuery(
     .join("\n          ");
 
   const populationSQL = getMetricAnalysisPopulationCTEs(dialect, {
-    datasource,
+    populationExposureQuery: params.populationExposureQuery,
     settings,
     idJoinMap,
     factTableMap: params.factTableMap,
@@ -232,9 +232,11 @@ export function getMetricAnalysisQuery(
                 {
                   valueCol: "value",
                   outputCol: "value_capped_lower",
-                  percentile: metricData.metric.cappingSettings.lowerValue ?? 0,
+                  percentile:
+                    metricData.metric.lowerCappingSettings?.value ?? 0,
                   ignoreZeros:
-                    metricData.metric.cappingSettings.ignoreZeros ?? false,
+                    metricData.metric.lowerCappingSettings?.ignoreZeros ??
+                    false,
                   sourceIndex: metricData.numeratorSourceIndex,
                 },
                 ...(metricData.ratioMetric
@@ -243,9 +245,9 @@ export function getMetricAnalysisQuery(
                         valueCol: "denominator",
                         outputCol: "denominator_capped_lower",
                         percentile:
-                          metricData.metric.cappingSettings.lowerValue ?? 0,
+                          metricData.metric.lowerCappingSettings?.value ?? 0,
                         ignoreZeros:
-                          metricData.metric.cappingSettings.ignoreZeros ??
+                          metricData.metric.lowerCappingSettings?.ignoreZeros ??
                           false,
                         sourceIndex: metricData.denominatorSourceIndex,
                       },

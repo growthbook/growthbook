@@ -44,11 +44,12 @@ import {
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
-  upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
   upgradeOrganizationDoc,
+  upgradeV0Feature,
 } from "back-end/src/util/migrations";
+import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -550,6 +551,53 @@ describe("Metric Migration", () => {
         delayValue: 3,
       },
     });
+  });
+
+  it("casts string runStarted values to Dates", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        runStarted: "2026-05-20T01:23:45.678Z" as unknown as Date,
+      }).runStarted,
+    ).toEqual(new Date("2026-05-20T01:23:45.678Z"));
+
+    // Dates and nulls pass through unchanged
+    const date = new Date();
+    expect(
+      upgradeMetricDoc({ ...baseMetric, runStarted: date }).runStarted,
+    ).toBe(date);
+    expect(upgradeMetricDoc(baseMetric).runStarted).toBe(null);
   });
 
   it("updates old metric objects - cap and capping", () => {
@@ -1169,7 +1217,15 @@ describe("Datasource Migration", () => {
   });
 });
 
-describe("Feature Migration", () => {
+// v0 -> v1 feature document upgrade. These tests exercise the pipeline
+// `upgradeV0Feature` runs: redistributing legacy top-level `rules` +
+// `environments` arrays into `environmentSettings[env].rules`, moving the
+// old `draft` field into `legacyDraft`, and backfilling version/jsonSchema.
+// Note: the "doesn't overwrite new feature objects" test below demonstrates
+// that the upgrader is a no-op on v1 inputs. In production the 3-way branch
+// in FeatureModel.migrateRawFeatureToV2 never invokes this function on v1 or
+// v2 documents — v0 is identified by the absence of `environmentSettings`.
+describe("v0 Feature Migration", () => {
   it("updates old feature objects", () => {
     const rule: FeatureRule = {
       id: "fr_123",
@@ -1232,7 +1288,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
@@ -1270,7 +1326,7 @@ describe("Feature Migration", () => {
     };
 
     expect(
-      upgradeFeatureInterface({
+      upgradeV0Feature({
         ...origFeature,
         environments: ["dev"],
         rules: [
@@ -1330,7 +1386,7 @@ describe("Feature Migration", () => {
       },
     };
 
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
+    expect(upgradeV0Feature(cloneDeep(origFeature))).toEqual({
       ...origFeature,
       draft: undefined,
     });
@@ -1483,12 +1539,159 @@ describe("Feature Migration", () => {
       },
     };
 
-    const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
+    const newFeature = upgradeV0Feature(cloneDeep(origFeature));
 
     if (!newFeature.environmentSettings)
       throw new Error("newFeature.environmentSettings is undefined");
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
+  });
+});
+
+// v0 -> v2 full migration pipeline. The tests above exercise `upgradeV0Feature`
+// in isolation and assert its v1 intermediate contract (legacy top-level
+// `rules` redistributed into `environmentSettings[env].rules`). In production,
+// that v1 intermediate is immediately flattened to the v2 unified top-level
+// `rules` array by `flattenV1ToV2Rules` inside `migrateRawFeatureToV2`.
+// This block composes those two steps and asserts the end-to-end "new shape"
+// that callers actually see, documenting the composition the production code
+// relies on. Fine-grained v1 -> v2 flattening semantics are covered in
+// `test/util/flattenRules.test.ts`; see `test/models/FeatureModel.test.ts`
+// for the full pipeline via `migrateRawFeatureToV2`.
+describe("v0 -> v2 Feature Migration Pipeline", () => {
+  // Helper: run the two stateless halves of the migration pipeline the same
+  // way `migrateRawFeatureToV2` does on the v0 branch.
+  const runV0ToV2 = (
+    raw: LegacyFeatureInterface,
+    envOrder: string[],
+  ): FeatureRule[] => {
+    const v1 = upgradeV0Feature(cloneDeep(raw));
+    const rulesByEnv: Record<string, FeatureRule[]> = {};
+    for (const [envId, envObj] of Object.entries(
+      v1.environmentSettings || {},
+    )) {
+      rulesByEnv[envId] = (envObj?.rules || []) as FeatureRule[];
+    }
+    return flattenV1ToV2Rules(rulesByEnv, {
+      envOrder,
+      applicableEnvs: envOrder,
+    });
+  };
+
+  it("collapses a v0 rule shared across all org envs to a single allEnvironments=true v2 rule", () => {
+    const origRule: FeatureRule = {
+      id: "fr_shared",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_shared",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_shared");
+    expect(v2Rules[0].allEnvironments).toBe(true);
+    // Per-env scoping must be absent when allEnvironments is true.
+    expect(v2Rules[0].environments).toBeUndefined();
+  });
+
+  it("scopes v0 rules to dev+production when the org has additional envs the v0 doc can't reach", () => {
+    // v0 has no way to represent rules for envs other than dev/production:
+    // `upgradeV0Feature` always redistributes top-level `rules` into both dev
+    // and production envSettings, and `environments: []` only controls the
+    // `enabled` flag. If the org has a third env (e.g. staging), the
+    // flattener will correctly see the rule as scoped to {dev, production}
+    // and emit it as a per-env v2 rule instead of collapsing to
+    // allEnvironments=true.
+    const origRule: FeatureRule = {
+      id: "fr_legacy",
+      type: "force",
+      value: "true",
+      description: "",
+    };
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_legacy",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production", "staging"]);
+
+    expect(v2Rules).toHaveLength(1);
+    expect(v2Rules[0].id).toBe("fr_legacy");
+    // Rule reaches 2 of 3 applicable envs → must NOT collapse to allEnvironments.
+    expect(v2Rules[0].allEnvironments).toBe(false);
+    expect(v2Rules[0].environments?.sort()).toEqual(["dev", "production"]);
+  });
+
+  it("emits an empty v2 rules array for a v0 doc with no rules", () => {
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "boolean",
+      id: "feat_pipeline_empty",
+      environments: ["dev", "production"],
+      rules: [],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toEqual([]);
+  });
+
+  it("preserves experiment-rule upgrades (coverage backfill) through the v0 -> v2 chain", () => {
+    // An old v0 experiment rule with un-normalized weights and no coverage.
+    // upgradeV0Feature -> upgradeFeatureRule backfills coverage during the v1
+    // step; flattenV1ToV2Rules then carries those normalized values forward.
+    const origRule = {
+      type: "experiment",
+      description: "",
+      hashAttribute: "id",
+      id: "exp_rule",
+      trackingKey: "",
+      values: [
+        { value: "a", weight: 0.1 },
+        { value: "b", weight: 0.4 },
+      ],
+    } as unknown as FeatureRule;
+    const origFeature: LegacyFeatureInterface = {
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      organization: "org_123",
+      owner: "",
+      defaultValue: "false",
+      valueType: "string",
+      id: "feat_pipeline_exp",
+      environments: ["dev", "production"],
+      rules: [origRule],
+    } as unknown as LegacyFeatureInterface;
+
+    const v2Rules = runV0ToV2(origFeature, ["dev", "production"]);
+    expect(v2Rules).toHaveLength(1);
+    const rule = v2Rules[0] as ExperimentRule;
+    // upgradeFeatureRule normalizes weights to sum to 1 and sets coverage to
+    // the original sum (0.5 here).
+    expect(rule.coverage).toBeCloseTo(0.5);
+    expect(rule.values.map((v) => v.weight)).toEqual([0.2, 0.8]);
   });
 });
 

@@ -84,3 +84,38 @@ $sidebarwidth: 240px;
     color: var(--text-color-muted);
   }
 }
+
+.agentTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-color-main);
+  padding: 6px 8px;
+  margin-right: 4px;
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+
+  &:hover {
+    background-color: var(--gray-a3);
+    color: var(--violet-11);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+}
+
+.agentTriggerActive {
+  background-color: var(--violet-a3);
+  color: var(--violet-11);
+
+  &:hover {
+    background-color: var(--violet-a4);
+  }
+}

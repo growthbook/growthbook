@@ -12,7 +12,6 @@ import {
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 
 function expectsDenominator(metricType: FactMetricType) {
@@ -23,6 +22,7 @@ function expectsDenominator(metricType: FactMetricType) {
     case "proportion":
     case "quantile":
     case "retention":
+    case "dailyParticipation":
       return false;
   }
 }
@@ -49,24 +49,33 @@ export async function getUpdateFactMetricPropsFromBody(
     loseRisk: riskThresholdDanger,
   };
 
-  const metricType = updates.metricType;
+  const metricType = updates.metricType ?? factMetric.metricType;
   if (numerator) {
+    // Set the correct column based on metric type
+    let column: string;
+    if (metricType === "proportion" || metricType === "retention") {
+      column = "$$distinctUsers";
+    } else if (metricType === "dailyParticipation") {
+      column = "$$distinctDates";
+    } else {
+      column = numerator.column || "$$distinctUsers";
+    }
+
     updates.numerator = FactMetricModel.migrateColumnRef({
       ...numerator,
-      column:
-        metricType === "proportion" || metricType === "retention"
-          ? "$$distinctUsers"
-          : numerator.column || "$$distinctUsers",
+      column,
+      // Clear aggregation for metric types that use special columns
+      aggregation:
+        metricType === "proportion" ||
+        metricType === "retention" ||
+        metricType === "dailyParticipation"
+          ? undefined
+          : numerator.aggregation,
     });
     const factTable = await getFactTable(updates.numerator.factTableId);
     if (!factTable) {
       throw new Error("Could not find numerator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Numerator misspecified. ",
-      column: updates.numerator,
-      factTable: factTable,
-    });
   }
   // remove denominator for non-ratio metrics where existing
   // metric is a ratio metric
@@ -75,7 +84,7 @@ export async function getUpdateFactMetricPropsFromBody(
     metricType &&
     !expectsDenominator(metricType)
   ) {
-    updates.denominator = undefined;
+    updates.denominator = null;
   }
   if (denominator) {
     updates.denominator = FactMetricModel.migrateColumnRef({
@@ -86,48 +95,41 @@ export async function getUpdateFactMetricPropsFromBody(
     if (!factTable) {
       throw new Error("Could not find denominator fact table");
     }
-    validateAggregationSpecification({
-      errorPrefix: "Denominator misspecified. ",
-      column: updates.denominator,
-      factTable: factTable,
-    });
   }
   if (cappingSettings) {
-    const cs = cappingSettings;
-    const prev = factMetric.cappingSettings;
-    const nextType =
-      cs.type !== undefined
-        ? cs.type === "none"
-          ? ""
-          : cs.type
-        : (prev.type ?? "");
-
-    const mergedValue = cs.value ?? prev.value;
-    const lowerVal =
-      cs.lowerValue !== undefined ? cs.lowerValue : prev.lowerValue;
-
-    const tails = getCappingTailState({
-      type: nextType,
-      value: mergedValue,
-      lowerValue: lowerVal,
-    });
-    const nextIgnoreZeros =
-      cs.ignoreZeros !== undefined
-        ? cs.ignoreZeros
-        : (prev.ignoreZeros ?? false);
-
-    const lowerStored =
-      tails.lowerPercentileCapped || tails.lowerAbsoluteCapped
-        ? (lowerVal ?? 0)
-        : undefined;
     updates.cappingSettings = {
-      type: tails.anyCap ? nextType : "",
-      ...(tails.upperPercentileCapped || tails.upperAbsoluteCapped
-        ? { value: mergedValue as number }
-        : {}),
-      ignoreZeros: tails.usesPercentile ? nextIgnoreZeros : false,
-      ...(lowerStored !== undefined ? { lowerValue: lowerStored } : {}),
+      type: cappingSettings.type === "none" ? "" : cappingSettings.type,
+      value: cappingSettings.value ?? factMetric.cappingSettings.value,
+      ignoreZeros:
+        cappingSettings.ignoreZeros ?? factMetric.cappingSettings.ignoreZeros,
     };
+
+    // Independent lower-tail capping (own type/value/ignoreZeros).
+    const lowerCappingSettings = cappingSettings.lowerCappingSettings;
+    if (lowerCappingSettings !== undefined) {
+      const prevLower = factMetric.lowerCappingSettings;
+      const lowerType =
+        lowerCappingSettings.type === "none" ? "" : lowerCappingSettings.type;
+      const lowerValue = lowerCappingSettings.value ?? prevLower?.value ?? 0;
+      const lowerTails = getCappingTailState(undefined, {
+        type: lowerType,
+        value: lowerValue,
+      });
+      if (lowerTails.lowerPercentileCapped || lowerTails.lowerAbsoluteCapped) {
+        updates.lowerCappingSettings = {
+          type: lowerType,
+          value: lowerValue,
+          ignoreZeros: lowerTails.lowerPercentileCapped
+            ? (lowerCappingSettings.ignoreZeros ??
+              prevLower?.ignoreZeros ??
+              false)
+            : false,
+        };
+      } else {
+        // Explicitly clear the lower tail when disabled.
+        updates.lowerCappingSettings = null;
+      }
+    }
   }
   if (windowSettings) {
     updates.windowSettings = {
@@ -153,7 +155,7 @@ export async function getUpdateFactMetricPropsFromBody(
     if (regressionAdjustmentSettings.override) {
       updates.regressionAdjustmentEnabled =
         !!regressionAdjustmentSettings.enabled;
-      if (regressionAdjustmentSettings.days) {
+      if (regressionAdjustmentSettings.days != null) {
         updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
       }
     }

@@ -36,6 +36,7 @@ export interface TextProps {
   size?: TextSizes;
   weight?: TextWeights;
   as?: "span" | "div" | "label" | "p";
+  htmlFor?: string;
 
   color?: TextColors;
   align?: TextAlign;
@@ -66,6 +67,7 @@ export default forwardRef<
     size = "medium",
     weight = "regular",
     as,
+    htmlFor,
     color,
     align = "left",
     title,
@@ -85,9 +87,11 @@ export default forwardRef<
   ref,
 ) {
   const style: React.CSSProperties = {
-    overflowWrap: overflowWrap,
-    whiteSpace: whiteSpace,
-    fontStyle: fontStyle,
+    overflowWrap,
+    fontStyle,
+    // Only set whiteSpace inline when truncate is off; otherwise let
+    // Radix's .rt-truncate class apply `white-space: nowrap`.
+    ...(truncate ? {} : { whiteSpace }),
   };
   if (textTransform) style.textTransform = textTransform;
 
@@ -111,6 +115,7 @@ export default forwardRef<
       title={title}
       style={style}
       truncate={truncate}
+      htmlFor={htmlFor}
       m={m}
       mx={mx}
       my={my}

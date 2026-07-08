@@ -17,6 +17,7 @@ export function getFactMetricQuantileData(
         valueCol: `${m.alias}_value`,
         outputCol: `${m.alias}_value_quantile`,
         metricQuantileSettings: m.metricQuantileSettings,
+        isKllMerge: m.metric.numerator.aggregation === "kll merge",
       });
     });
   return quantileData;

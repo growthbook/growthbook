@@ -84,6 +84,10 @@ interface DateRange {
   endDate: Date;
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unexpected value: ${value}`);
+}
+
 function getMetricAliases(index: number) {
   return {
     base: `m${index}`,
@@ -298,11 +302,17 @@ export function calculateProductAnalyticsDateRange(
         startDate.setUTCDate(startDate.getUTCDate() - 30);
       }
       return { startDate, endDate };
-    case "customDateRange":
-      return {
-        startDate: getValidDate(dateRange.startDate),
-        endDate: getValidDate(dateRange.endDate),
-      };
+    case "customDateRange": {
+      // The user picked calendar days, not instants, so expand the start to
+      // `00:00:00.000` UTC and the end to `23:59:59.999` UTC. Without the
+      // end-of-day expansion, picking "Apr 1 → May 1" would silently drop
+      // everything that happened on May 1.
+      const startDate = getValidDate(dateRange.startDate);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const endDate = getValidDate(dateRange.endDate);
+      endDate.setUTCHours(23, 59, 59, 999);
+      return { startDate, endDate };
+    }
   }
 }
 
@@ -345,6 +355,7 @@ function generateRowFilterSQL(
         rowFilter: filter,
         factTable,
         escapeStringLiteral: helpers.escapeStringLiteral,
+        stringMatch: helpers.stringMatch,
         jsonExtract: helpers.jsonExtract,
         evalBoolean: helpers.evalBoolean,
       });
@@ -508,11 +519,6 @@ function getEventValueExpr(
     } else if (cap.type === "absolute") {
       rawValue = `LEAST(${rawValue}, ${cap.value})`;
     }
-    if (cap.type === "percentile" && cap.lowerValue != null) {
-      rawValue = `GREATEST(${rawValue}, COALESCE(${alias}_cap_lower, ${rawValue}))`;
-    } else if (cap.type === "absolute" && cap.lowerValue != null) {
-      rawValue = `GREATEST(${rawValue}, ${cap.lowerValue})`;
-    }
   }
 
   const filters = generateRowFilterSQL(
@@ -527,10 +533,15 @@ function getEventValueExpr(
   return `CASE WHEN (${filters.join(" AND ")}) THEN ${rawValue} ELSE NULL END`;
 }
 
-function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
-  if (columnRef.column === "$$distintDates") {
+function getUnitAggregationExpr(
+  columnRef: ColumnRef,
+  alias: string,
+  helpers: SqlDialect,
+): string {
+  if (columnRef.column === "$$distinctDates") {
     return `COUNT(DISTINCT ${alias})`;
-  } else if (columnRef.column === "$$distinctUsers") {
+  }
+  if (columnRef.column === "$$distinctUsers") {
     if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
       const filters = getAggregateFilters({
         columnRef: columnRef,
@@ -542,24 +553,51 @@ function getUnitAggregationExpr(columnRef: ColumnRef, alias: string): string {
       }
     }
     return `MAX(${alias})`;
-  } else if (columnRef.column === "$$count") {
-    return `SUM(${alias})`;
-  } else if (columnRef.aggregation === "count distinct") {
-    return `COUNT(DISTINCT ${alias})`;
-  } else if (columnRef.aggregation === "max") {
-    return `MAX(${alias})`;
-  } else {
+  }
+  if (columnRef.column === "$$count") {
     return `SUM(${alias})`;
   }
+
+  const aggregation = columnRef.aggregation;
+  switch (aggregation) {
+    case "sum":
+      return `SUM(${alias})`;
+    case "max":
+      return `MAX(${alias})`;
+    case "count distinct":
+      return `COUNT(DISTINCT ${alias})`;
+    case "hll merge":
+      return helpers.hllCardinality(helpers.hllReaggregate(alias));
+    case "kll merge":
+      return helpers.quantileSketchMergePartial(alias);
+    case undefined:
+      return `SUM(${alias})`;
+  }
+
+  return assertNever(aggregation);
 }
 
 function getRollupAggregationExpr(
   metric: MinimalMetric,
+  columnRef: ColumnRef,
   alias: string,
   helpers: SqlDialect,
+  fromUnitAggregation: boolean,
 ): string {
+  if (columnRef.aggregation === "hll merge") {
+    return fromUnitAggregation
+      ? `SUM(${alias})`
+      : helpers.hllCardinality(helpers.hllReaggregate(alias));
+  }
+
   // Quantiles
   if (metric.metricType === "quantile" && metric.quantileSettings) {
+    if (columnRef.aggregation === "kll merge") {
+      return helpers.quantileSketchExtractPoint(
+        helpers.quantileSketchMergePartial(alias),
+        metric.quantileSettings.quantile,
+      );
+    }
     return helpers.percentileApprox(alias, metric.quantileSettings.quantile);
   } else {
     return `SUM(${alias})`;
@@ -656,12 +694,7 @@ function getMetricData(
       cappingSettings && cappingSettings.type === "percentile"
         ? rawPercentileValueExpr
         : null,
-    percentileLowerCapValueExpr:
-      cappingSettings &&
-      cappingSettings.type === "percentile" &&
-      cappingSettings.lowerValue != null
-        ? rawPercentileValueExpr
-        : null,
+    percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
       columnRef,
       factTable,
@@ -670,9 +703,15 @@ function getMetricData(
       cappingSettings,
     ),
     unitAggregationExpr: selectedUnit
-      ? getUnitAggregationExpr(columnRef, alias)
+      ? getUnitAggregationExpr(columnRef, alias, helpers)
       : null,
-    rollupAggregationExpr: getRollupAggregationExpr(metric, alias, helpers),
+    rollupAggregationExpr: getRollupAggregationExpr(
+      metric,
+      columnRef,
+      alias,
+      helpers,
+      !!selectedUnit,
+    ),
     rollupCountExpr,
   };
 }
@@ -773,14 +812,6 @@ function generatePercentileCapsCTE(
           metricData.percentileCapValueExpr || "NULL",
           cappingSettings.value!,
         )} AS ${metricData.alias}_cap`,
-      );
-    }
-    if (tails.lowerPercentileCapped) {
-      selects.push(
-        `${helpers.percentileApprox(
-          metricData.percentileLowerCapValueExpr || "NULL",
-          cappingSettings.lowerValue!,
-        )} AS ${metricData.alias}_cap_lower`,
       );
     }
   });

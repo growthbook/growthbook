@@ -13,15 +13,15 @@ import {
 } from "shared/enterprise";
 import {
   ExplorationConfig,
+  ExplorationDateRange,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
-import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDashboards } from "@/hooks/useDashboards";
@@ -53,6 +53,12 @@ interface Props {
   close: () => void;
   config: ExplorationConfig;
   exploration: ProductAnalyticsExploration | null;
+  /** Whether the explorer is currently comparing periods. */
+  compareEnabled?: boolean;
+  /** The comparison (previous) window the explorer submitted, if any. */
+  previousTimeFrame?: ExplorationDateRange | null;
+  /** Current comparison exploration id, to seed the block before first refresh. */
+  comparisonExplorationId?: string | null;
   trackingSource?: string;
 }
 
@@ -60,6 +66,9 @@ export default function SaveToDashboardModal({
   close,
   config,
   exploration,
+  compareEnabled = false,
+  previousTimeFrame = null,
+  comparisonExplorationId = null,
   trackingSource,
 }: Props) {
   const router = useRouter();
@@ -105,12 +114,28 @@ export default function SaveToDashboardModal({
 
   const handleSubmit = async () => {
     const blockType = datasetTypeToBlockType(config.dataset.type);
+    // Persist the comparison so dashboards can show it and roll it on refresh.
+    // Only store `previousTimeFrame` for a fixed (custom date range) primary;
+    // relative primaries re-derive the previous window each refresh so it rolls.
+    const comparison = compareEnabled
+      ? {
+          enabled: true,
+          previousTimeFrame:
+            config.dateRange.predefined === "customDateRange"
+              ? (previousTimeFrame ?? undefined)
+              : undefined,
+        }
+      : undefined;
     const newBlock = {
       type: blockType,
       title: form.watch("chartTitle"),
       description: "",
       explorerAnalysisId: exploration?.id ?? "",
       config,
+      ...(comparison ? { comparison } : {}),
+      ...(comparison && comparisonExplorationId
+        ? { comparisonExplorerAnalysisId: comparisonExplorationId }
+        : {}),
     };
 
     let dashboardId: string;
@@ -177,28 +202,24 @@ export default function SaveToDashboardModal({
       : !!form.watch("title").trim() && !cronError);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="save-to-dashboard"
       submit={handleSubmit}
       open={true}
-      header={null}
+      header="Save to Dashboard"
       cta={createOrAdd === "existing" ? "Add to Dashboard" : "Create Dashboard"}
       ctaEnabled={ctaEnabled}
-      showHeaderCloseButton={false}
       close={close}
     >
-      <Heading as="h2" mb="5">
-        Save to Dashboard
-      </Heading>
       <Flex direction="column" gap="3">
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Chart Title
           </Text>
           <Field placeholder="Chart title" {...form.register("chartTitle")} />
         </Flex>
         <Flex direction="column" gap="2">
-          <Text as="label" weight="medium">
+          <Text as="label" weight="semibold">
             Save to...
           </Text>
           <RadioGroup
@@ -355,6 +376,6 @@ export default function SaveToDashboardModal({
           </Flex>
         )}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 }

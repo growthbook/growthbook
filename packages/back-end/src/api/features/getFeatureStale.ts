@@ -4,17 +4,21 @@ import {
   FeatureStaleEntry,
 } from "shared/validators";
 import { isFeatureStale } from "shared/util";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import type { ApiReqContext } from "back-end/types/api";
+import { getAllFeaturesForStaleGraph } from "back-end/src/models/FeatureModel";
+import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { buildFeatureLookups } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { ReqContext } from "back-end/types/request";
 
-export const getFeatureStale = createApiRequestHandler(
-  getFeatureStaleValidator,
-)(async (req) => {
-  const ids = req.query.ids
+export async function computeFeatureStale(
+  context: ApiReqContext,
+  query: { ids: string },
+) {
+  const ids = query.ids
     .split(",")
     .map((id) => decodeURIComponent(id.trim()))
     .filter(Boolean);
@@ -25,21 +29,24 @@ export const getFeatureStale = createApiRequestHandler(
 
   const idSet = new Set(ids);
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeatures(req.context, {}),
-    getAllExperiments(req.context, { includeArchived: false }),
-    getRevisionsByStatus(
-      req.context as ReqContext,
-      [...ACTIVE_DRAFT_STATUSES],
-      { sparse: true },
-    ),
+    getAllFeaturesForStaleGraph(context),
+    getAllExperimentsForStaleGraph(context),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
+      sparse: true,
+    }),
   ]);
 
   const features = allFeatures.filter((f) => idSet.has(f.id));
 
-  const result: Record<string, FeatureStaleEntry> = {};
-  const orgEnvs = getEnvironments(req.context.org);
+  const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
-  for (const feature of features) {
+  const result: Record<string, FeatureStaleEntry> = {};
+  const orgEnvs = getEnvironments(context.org);
+
+  for (let i = 0; i < features.length; i++) {
+    await yieldEventLoop(i);
+    const feature = features[i];
+
     if (feature.neverStale) {
       result[feature.id] = {
         featureId: feature.id,
@@ -69,10 +76,8 @@ export const getFeatureStale = createApiRequestHandler(
     const { stale, reason, envResults } = isFeatureStale({
       feature,
       features: allFeatures,
-      experiments: allExperiments as unknown as Parameters<
-        typeof isFeatureStale
-      >[0]["experiments"],
       environments: applicableEnvIds,
+      ...lookups,
       mostRecentDraftDate,
     });
 
@@ -104,4 +109,8 @@ export const getFeatureStale = createApiRequestHandler(
   }
 
   return { features: result };
-});
+}
+
+export const getFeatureStale = createApiRequestHandler(
+  getFeatureStaleValidator,
+)(async (req) => computeFeatureStale(req.context, req.query));

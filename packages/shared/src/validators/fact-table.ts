@@ -1,8 +1,14 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  apiAggregatedTableRefreshTriggerValidator,
+  apiAggregatedTableRunSummaryValidator,
+  apiAggregatedTableRunValidator,
+} from "./aggregated-fact-table-run";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -11,6 +17,7 @@ export const factTableColumnTypes = [
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ];
@@ -21,6 +28,7 @@ export const factTableColumnTypeValidator = z.enum([
   "date",
   "boolean",
   "json",
+  "binary",
   "other",
   "",
 ]);
@@ -44,7 +52,7 @@ export const createColumnPropsValidator = z
   .object({
     column: z.string(),
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
     jsonFields: jsonColumnFieldsValidator.optional(),
@@ -60,7 +68,7 @@ export const createColumnPropsValidator = z
 export const updateColumnPropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsValidator.optional(),
@@ -73,10 +81,28 @@ export const updateColumnPropsValidator = z
   })
   .strict();
 
+export const aggregatedFactTableSettingsValidator = z
+  .object({
+    idTypes: z.array(z.string()),
+    updateTime: z
+      .object({
+        time: z.string(),
+        timezone: z.string(),
+      })
+      .strict(),
+    lookbackWindow: z.number().int().positive(),
+    // How many days each sequential INSERT covers when fullRestate rebuilds
+    // the table. Smaller chunks keep each query's output inside the engine's
+    // per-stage write budget on wide fact tables. Unset = no chunking (a single
+    // full-window INSERT).
+    restateChunkDays: z.number().int().min(1).max(7).optional(),
+  })
+  .strict();
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     id: z.string().optional(),
     // Only being used in middleware for fact-table POST request so this is safe
     // Remove when we migrate FactTableModel to use the BaseModel and use defaultValues instead
@@ -91,6 +117,8 @@ export const createFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableSettings:
+      aggregatedFactTableSettingsValidator.optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -98,7 +126,7 @@ export const createFactTablePropsValidator = z
 export const updateFactTablePropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
@@ -110,6 +138,9 @@ export const updateFactTablePropsValidator = z
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .nullable()
+      .optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -118,6 +149,14 @@ export const columnAggregationValidator = z.enum([
   "sum",
   "max",
   "count distinct",
+  // The column is a pre-built HLL sketch (e.g. BigQuery BYTES from
+  // HLL_COUNT.INIT). Per-user aggregation merges sketches and extracts the
+  // cardinality; downstream stats treat it as a numeric value per user.
+  "hll merge",
+  // The column is a pre-built KLL sketch (e.g. BigQuery BYTES from
+  // KLL_QUANTILES.INIT_*). Only valid for event-quantile metrics. Per-user
+  // aggregation merges sketches; variation stats reuse the two-pass KLL path.
+  "kll merge",
 ]);
 
 export const rowFilterOperators = [
@@ -169,29 +208,21 @@ export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z
   .object({
-    /**
-     * Cap mode for both upper tail (`value`) and optional lower tail (`lowerValue`).
-     * `""` means no capping.
-     */
     type: cappingTypeValidator,
-    value: z.number().optional(),
-    ignoreZeros: z.boolean().optional(),
-    /**
-     * Lower tail uses the same `type` as upper.
-     * Absolute: optional floor (omit when unused); 0 is a valid floor at zero; may be negative.
-     * Percentile: must be strictly between 0 and 1 when set; 0 means no lower percentile cap.
-     */
-    lowerValue: z.number().optional(),
+    value: z.number(),
+    ignoreZeros: z.boolean().nullable().optional(),
   })
-  // Strip unknown keys (e.g. legacy or client-only fields) so Mongo updates do not
-  // fail strict validation when saving fact metrics from the app.
-  .strip();
+  .strict();
 
-/** Minimal shape for evaluating which capping tails are active (API, DB, forms). */
+/**
+ * Minimal shape for evaluating whether a single capping tail is active
+ * (API, DB, forms). Upper and lower tails are configured independently, each
+ * with its own settings object of this shape.
+ */
 export type CappingSettingsTailInput = {
   type?: "" | "none" | "absolute" | "percentile" | null;
   value?: number | null;
-  lowerValue?: number | null;
+  ignoreZeros?: boolean | null;
 };
 
 export type CappingTailState = {
@@ -211,44 +242,59 @@ function normalizeCappingTypeForTails(
 }
 
 /**
- * Per-tail activation for fact-metric style capping (same rules as post/update fact metric API).
- * Upper percentile: `value` ∈ (0,1). Upper absolute: `value` > 0.
- * Lower percentile: `lowerValue` ∈ (0,1). Lower absolute: finite `lowerValue` (incl. 0).
+ * Upper tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: `value` > 0.
+ */
+function getUpperTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  upperPercentileCapped: boolean;
+  upperAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    upperPercentileCapped:
+      type === "percentile" && value != null && value > 0 && value < 1,
+    upperAbsoluteCapped: type === "absolute" && value != null && value > 0,
+  };
+}
+
+/**
+ * Lower tail activation for a capping settings object.
+ * Percentile: `value` ∈ (0,1). Absolute: finite `value` (incl. 0, may be negative).
+ */
+function getLowerTailFlags(cs: CappingSettingsTailInput | null | undefined): {
+  lowerPercentileCapped: boolean;
+  lowerAbsoluteCapped: boolean;
+} {
+  const type = normalizeCappingTypeForTails(cs?.type);
+  const value = cs?.value;
+  return {
+    lowerPercentileCapped:
+      type === "percentile" && value != null && value > 0 && value < 1,
+    lowerAbsoluteCapped:
+      type === "absolute" && value != null && Number.isFinite(value),
+  };
+}
+
+/**
+ * Per-tail activation for fact-metric style capping. Upper and lower tails are
+ * independent settings objects, each with its own `type`/`value`/`ignoreZeros`,
+ * so mixed configurations (e.g. absolute lower + percentile upper) are allowed.
  */
 export function getCappingTailState(
-  cs: CappingSettingsTailInput | null | undefined,
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
 ): CappingTailState {
-  if (!cs) {
-    return {
-      upperPercentileCapped: false,
-      upperAbsoluteCapped: false,
-      lowerPercentileCapped: false,
-      lowerAbsoluteCapped: false,
-      anyCap: false,
-      usesPercentile: false,
-    };
-  }
-  const type = normalizeCappingTypeForTails(cs.type);
-  const value = cs.value;
-  const lowerValue = cs.lowerValue;
-
-  const upperPercentileCapped =
-    type === "percentile" && value != null && value > 0 && value < 1;
-  const upperAbsoluteCapped = type === "absolute" && value != null && value > 0;
-  const lowerPercentileCapped =
-    type === "percentile" &&
-    lowerValue != null &&
-    lowerValue > 0 &&
-    lowerValue < 1;
-  const lowerAbsoluteCapped =
-    type === "absolute" && lowerValue != null && Number.isFinite(lowerValue);
+  const { upperPercentileCapped, upperAbsoluteCapped } =
+    getUpperTailFlags(upper);
+  const { lowerPercentileCapped, lowerAbsoluteCapped } =
+    getLowerTailFlags(lower);
   const anyCap =
     upperPercentileCapped ||
     upperAbsoluteCapped ||
     lowerPercentileCapped ||
     lowerAbsoluteCapped;
-  const usesPercentile =
-    type === "percentile" && (upperPercentileCapped || lowerPercentileCapped);
+  const usesPercentile = upperPercentileCapped || lowerPercentileCapped;
 
   return {
     upperPercentileCapped,
@@ -260,45 +306,60 @@ export function getCappingTailState(
   };
 }
 
-/** Upper/lower capping ordering (shared by API model and fact metric UI). */
+/**
+ * Cross-object ordering validation for the upper and lower capping tails.
+ * When both tails share a type, require lower value < upper value (and, for
+ * percentiles, both strictly within (0,1)). Mixed types have no ordering
+ * constraint (e.g. absolute-0 lower + percentile upper is valid).
+ */
 export function validateCappingSettingsOrdering(
-  cs: z.infer<typeof cappingSettingsValidator>,
+  upper: CappingSettingsTailInput | null | undefined,
+  lower?: CappingSettingsTailInput | null | undefined,
 ): void {
-  const tails = getCappingTailState(cs);
-  const lowerValue = cs.lowerValue;
+  const upperType = normalizeCappingTypeForTails(upper?.type);
+  const lowerType = normalizeCappingTypeForTails(lower?.type);
+  const upperValue = upper?.value;
+  const lowerValue = lower?.value;
 
+  // Percentile lower cap must be strictly within (0, 1) when set.
   if (
-    tails.upperAbsoluteCapped &&
-    tails.lowerAbsoluteCapped &&
-    cs.value != null &&
-    lowerValue != null &&
-    cs.value < lowerValue
-  ) {
-    throw new Error(
-      "Lower tail value must be less than upper tail value when both are set.",
-    );
-  }
-
-  if (
-    cs.type === "percentile" &&
+    lowerType === "percentile" &&
     lowerValue != null &&
     lowerValue !== 0 &&
     (lowerValue <= 0 || lowerValue >= 1 || !Number.isFinite(lowerValue))
   ) {
     throw new Error(
-      "Percentile lower cap requires lowerValue greater than 0 and less than 1. Use 0 or omit for no lower cap.",
+      "Percentile lower cap must be greater than 0 and less than 1. Use 0 or omit for no lower cap.",
     );
   }
+
+  // When both tails are absolute, the lower floor must be below the upper cap.
   if (
-    tails.upperPercentileCapped &&
-    tails.lowerPercentileCapped &&
+    upperType === "absolute" &&
+    lowerType === "absolute" &&
+    upperValue != null &&
     lowerValue != null &&
-    cs.value != null &&
-    lowerValue >= cs.value
+    upperValue > 0 &&
+    lowerValue >= upperValue
   ) {
     throw new Error(
-      "Lower percentile (lowerValue) must be less than upper percentile (value).",
+      "Lower tail value must be less than upper tail value when both are absolute.",
     );
+  }
+
+  // When both tails are percentiles, the lower percentile must be below the upper.
+  if (
+    upperType === "percentile" &&
+    lowerType === "percentile" &&
+    upperValue != null &&
+    lowerValue != null &&
+    upperValue > 0 &&
+    upperValue < 1 &&
+    lowerValue > 0 &&
+    lowerValue < 1 &&
+    lowerValue >= upperValue
+  ) {
+    throw new Error("Lower percentile must be less than upper percentile.");
   }
 }
 
@@ -323,13 +384,19 @@ export const quantileSettingsValidator = z.object({
   quantile: z.number(),
   type: z.enum(["unit", "event"]),
   ignoreZeros: z.boolean(),
+  // Override the source-column name used to recover per-row event counts for
+  // 'kll merge' event-quantile metrics. When unset, the SQL pipeline falls
+  // back to the convention `<sketch>_n_events` on the same fact table. Only
+  // valid when numerator.aggregation === "kll merge"; the validator rejects
+  // any other usage.
+  quantileEventCountColumn: z.string().optional(),
 });
 
 export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
   mean: z.number(),
-  stddev: z.number(),
+  stddev: z.number().gt(0),
 });
 
 export const metricTypeValidator = z.enum([
@@ -351,7 +418,7 @@ export const factMetricValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     tags: z.array(z.string()),
     projects: z.array(z.string()),
     inverse: z.boolean(),
@@ -362,6 +429,10 @@ export const factMetricValidator = z
     denominator: columnRefValidator.nullable(),
 
     cappingSettings: cappingSettingsValidator,
+    // Optional independent lower-tail (negative-value winsorization) capping.
+    // Has its own type/value/ignoreZeros so it can differ from the upper tail
+    // (e.g. absolute-0 floor + percentile upper cap).
+    lowerCappingSettings: cappingSettingsValidator.optional().nullable(),
     windowSettings: windowSettingsValidator,
     priorSettings: priorSettingsValidator,
 
@@ -388,7 +459,7 @@ export const createFactFilterPropsValidator = z
   .object({
     id: z.string().optional(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     value: z.string(),
     managedBy: z.enum(["", "api"]).optional(),
   })
@@ -397,7 +468,7 @@ export const createFactFilterPropsValidator = z
 export const updateFactFilterPropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     value: z.string().optional(),
     managedBy: z.enum(["", "api"]).optional(),
   })
@@ -425,6 +496,7 @@ export const apiFactTableColumnValidator = namedSchema(
         "date",
         "boolean",
         "json",
+        "binary",
         "other",
         "",
       ]),
@@ -448,6 +520,7 @@ export const apiFactTableColumnValidator = namedSchema(
                 "date",
                 "boolean",
                 "json",
+                "binary",
                 "other",
                 "",
               ])
@@ -462,7 +535,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "Display name for the column (can be different from the actual column name)",
         )
         .optional(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       alwaysInlineFilter: z
         .boolean()
         .describe(
@@ -509,13 +582,18 @@ export const apiFactTableValidator = namedSchema(
     .object({
       id: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       projects: z.array(z.string()),
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
+      aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+        .describe(
+          "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
+        )
+        .optional(),
       sql: z.string(),
       eventName: z
         .string()
@@ -551,7 +629,7 @@ export const apiFactTableFilterValidator = namedSchema(
     .object({
       id: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       value: z.string(),
       managedBy: z
         .enum(["", "api"])
@@ -566,12 +644,75 @@ export const apiFactTableFilterValidator = namedSchema(
 
 export type ApiFactTableFilter = z.infer<typeof apiFactTableFilterValidator>;
 
+// Materialization status of one shared daily aggregated table (one per id type).
+export const apiAggregatedFactTableValidator = namedSchema(
+  "AggregatedFactTable",
+  z
+    .object({
+      idType: z
+        .string()
+        .describe("The id type this aggregated table is keyed by"),
+      status: z
+        .enum(["running", "error", "pending", "active"])
+        .describe(
+          "Materialization status: `pending` (not yet built), `running` (a refresh is in progress), `active` (materialized and queryable), or `error` (the last run failed).",
+        ),
+      tableFullName: z
+        .string()
+        .nullable()
+        .describe(
+          "Fully-qualified warehouse table name, or null if it has not been created yet",
+        ),
+      firstEventDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("Earliest event date covered by the materialized data"),
+      lastEventDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("Latest event date covered by the materialized data"),
+      lastMaxTimestamp: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe(
+          "Event-time high-water mark; the next incremental refresh appends events after this timestamp",
+        ),
+      lastError: z
+        .string()
+        .nullable()
+        .describe("Error message from the last failed run, if any"),
+      dateUpdated: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("When the aggregation metadata was last updated"),
+      pendingRestate: z
+        .boolean()
+        .describe(
+          "Whether the next run will be forced to drop and rebuild the table instead of appending incrementally",
+        ),
+      pendingRestateReason: z
+        .enum(["incomplete-write", "schema-drift"])
+        .nullable()
+        .describe("Why a restate is pending, if `pendingRestate` is true"),
+    })
+    .strict(),
+);
+
+export type ApiAggregatedFactTable = z.infer<
+  typeof apiAggregatedFactTableValidator
+>;
+
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 const postFactTableBody = z
   .object({
     name: z.string(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table")
       .optional(),
     owner: ownerInputField.optional(),
@@ -586,6 +727,11 @@ const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .describe(
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
+      )
+      .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
     eventName: z
       .string()
@@ -604,6 +750,7 @@ const updateFactTableBody = z
     name: z.string().optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table")
       .optional(),
     owner: ownerInputField.optional(),
@@ -616,6 +763,11 @@ const updateFactTableBody = z
       .array(z.string())
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
+      )
+      .optional(),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .describe(
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
@@ -648,6 +800,7 @@ const postFactTableFilterBody = z
     name: z.string(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table filter")
       .optional(),
     value: z
@@ -669,6 +822,7 @@ const updateFactTableFilterBody = z
     name: z.string().optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table filter")
       .optional(),
     value: z
@@ -905,4 +1059,128 @@ export const deleteFactTableFilterValidator = {
   method: "delete" as const,
   path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
+};
+
+export const getAggregatedFactTablesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      aggregatedFactTables: z.array(apiAggregatedFactTableValidator),
+      nextScheduledUpdate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe(
+          "When the next scheduled nightly refresh will run, or null if no schedule is configured",
+        ),
+    })
+    .strict(),
+  summary:
+    "Get the materialization status of a fact table's shared daily aggregated tables",
+  operationId: "getAggregatedFactTables",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
+export const refreshAggregatedFactTableBody = z
+  .object({
+    idType: z
+      .string()
+      .optional()
+      .describe(
+        "Limit the refresh to a single id type. If omitted, all of the fact table's aggregatedFactTableSettings.idTypes are refreshed.",
+      ),
+    fullRestate: z
+      .boolean()
+      .optional()
+      .describe(
+        "Drop and recreate the table, re-scanning the retained window. This is significantly more expensive than the default incremental append (it scans ~2-3 months of history).",
+      ),
+  })
+  .strict();
+
+export const refreshAggregatedFactTableValidator = {
+  bodySchema: refreshAggregatedFactTableBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      runs: z
+        .array(apiAggregatedTableRefreshTriggerValidator)
+        .describe("One entry per id type refreshed"),
+    })
+    .strict(),
+  summary:
+    "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  operationId: "refreshAggregatedFactTable",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:id/aggregated-tables/refresh",
+  exampleRequest: {
+    params: { id: "abc123" },
+    body: { fullRestate: false },
+  },
+};
+
+const aggregatedTableRunParams = z
+  .object({
+    id: z.string().describe("The id of the fact table"),
+    runId: z
+      .string()
+      .describe("The id of the aggregated table run (e.g. aftr_...)"),
+  })
+  .strict();
+
+export const getAggregatedTableRunValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: aggregatedTableRunParams,
+  responseSchema: z
+    .object({
+      run: apiAggregatedTableRunValidator,
+    })
+    .strict(),
+  summary: "Get a single aggregated table run",
+  operationId: "getAggregatedTableRun",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables/runs/:runId",
+  exampleRequest: { params: { id: "abc123", runId: "aftr_abc123" } },
+};
+
+export const listAggregatedTableRunsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      idType: z
+        .string()
+        .describe(
+          "Only return runs for this id type. When omitted, runs for all id types are returned.",
+        )
+        .optional(),
+      ...paginationQueryFields,
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z.intersection(
+    z.object({
+      runs: z
+        .array(apiAggregatedTableRunSummaryValidator)
+        .describe("A list of the aggregated table runs for the fact table"),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "List aggregated table runs",
+  operationId: "listAggregatedTableRuns",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables/runs",
+  exampleRequest: {
+    params: { id: "ftb_123" },
+    query: { idType: "user_id" },
+  },
 };

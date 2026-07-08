@@ -12,6 +12,7 @@ import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
 import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -22,8 +23,7 @@ import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import { AppFeatures } from "@/types/app-features";
-import DialogLayout from "@/ui/Dialog/Patterns/DialogLayout";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -206,7 +206,7 @@ const StopExperimentForm: FC<{
   });
 
   return (
-    <DialogLayout
+    <ModalStandard
       trackingEventModalType="stop-experiment-form"
       trackingEventModalSource={source}
       header={
@@ -237,7 +237,6 @@ const StopExperimentForm: FC<{
           <div className="row">
             <SelectField
               label="Conclusion"
-              labelClassName="font-weight-bold"
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -277,7 +276,6 @@ const StopExperimentForm: FC<{
             {form.watch("results") === "won" && variations.length > 2 && (
               <SelectField
                 label="Winner"
-                labelClassName="font-weight-bold"
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -330,7 +328,9 @@ const StopExperimentForm: FC<{
                 <small className="form-text text-muted">
                   Keep the {isBandit ? "Bandit" : "Experiment"} running until
                   you can implement the changes in code.{" "}
-                  <DocLink docSection="temporaryRollout">Learn more</DocLink>
+                  <DocLink useRadix={false} docSection="temporaryRollout">
+                    Learn more
+                  </DocLink>
                 </small>
               </div>
             </div>
@@ -352,7 +352,6 @@ const StopExperimentForm: FC<{
                 <div className="row">
                   <SelectField
                     label="Variation to Release"
-                    labelClassName="font-weight-bold"
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
@@ -407,7 +406,7 @@ const StopExperimentForm: FC<{
           </div>
         </div>
       </Flex>
-    </DialogLayout>
+    </ModalStandard>
   );
 };
 

@@ -1,6 +1,7 @@
 import {
   getAggregateFilters,
   isCappableMetricType,
+  getLowerCappingSettings,
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ColumnRef } from "shared/types/fact-table";
@@ -29,10 +30,13 @@ export function capCoalesceValue(
   },
 ): string {
   const cs = metric?.cappingSettings;
-  const tails = getCappingTailState(cs);
+  // Lower tail is an independent settings object (own type + value), enabling
+  // mixed configurations (e.g. percentile upper + absolute lower).
+  const lowerCs = getLowerCappingSettings(metric);
+  const tails = getCappingTailState(cs, lowerCs);
   const cappable = isCappableMetricType(metric);
   const upperThreshold = cs?.value;
-  const lowerThreshold = cs?.lowerValue;
+  const lowerThreshold = lowerCs?.value;
   const hasUpperAbs = tails.upperAbsoluteCapped && cappable;
   const hasUpperPct = tails.upperPercentileCapped && cappable;
   const hasLowerAbs = tails.lowerAbsoluteCapped && cappable;

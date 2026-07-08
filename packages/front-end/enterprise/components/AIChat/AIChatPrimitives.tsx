@@ -85,9 +85,15 @@ export function ThinkingBubble({ label }: { label: string }) {
   );
 }
 
-export function AIAnalystLabel() {
+export function AIAnalystLabel({
+  label = "AI Analyst",
+  mb = "1",
+}: {
+  label?: string;
+  mb?: React.ComponentProps<typeof Flex>["mb"];
+} = {}) {
   return (
-    <Flex align="center" gap="2" mb="1">
+    <Flex align="center" gap="2" mb={mb}>
       <Flex
         align="center"
         justify="center"
@@ -101,7 +107,7 @@ export function AIAnalystLabel() {
         <PiSparkle size={12} color="var(--violet-11)" />
       </Flex>
       <Text size="small" weight="medium" color="text-low">
-        AI Analyst
+        {label}
       </Text>
     </Flex>
   );

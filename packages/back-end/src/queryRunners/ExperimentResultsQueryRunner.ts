@@ -8,6 +8,7 @@ import {
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -36,6 +37,7 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -43,6 +45,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricGroups } from "back-end/src/services/experimentQueries/experimentQueries";
 import { parseDimension } from "back-end/src/services/experiments";
 import {
@@ -62,6 +65,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
@@ -109,7 +113,9 @@ export const startExperimentResultQueries = async (
     .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
+    throw new UnrecoverableSnapshotError(
+      "Experiment must have at least 1 metric selected.",
+    );
   }
 
   let segmentObj: SegmentInterface | null = null;
@@ -123,6 +129,15 @@ export const startExperimentResultQueries = async (
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+
+  // Resolve the exposure query the same way the SQL builders used to internally:
+  // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
+  // exposure query, and an unknown id throws a clear error rather than generating
+  // an invalid query with an empty user id type.
+  const resolvedExposureQuery = getExposureQuery(
+    integration.datasource,
+    snapshotSettings.exposureQueryId || "",
   );
 
   const snapshotDimensions: Dimension[] = (
@@ -143,6 +158,21 @@ export const startExperimentResultQueries = async (
       !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
+
+  // Configured "always-computed" unit dimensions. These are materialized as
+  // extra dim_unit_<id> columns on the shared units table and get isolated
+  // per-dimension metric queries; they are NOT added to the parent metric
+  // queries' GROUP BY (which stays experiment-dims-only).
+  const precomputedUnitDimensionIds = useUnitsTable
+    ? (snapshotSettings.precomputedUnitDimensionIds ?? [])
+    : [];
+  const unitDimensionsToPrecompute: Dimension[] = (
+    await Promise.all(
+      precomputedUnitDimensionIds.map((id) =>
+        parseDimension(id, undefined, org.id),
+      ),
+    )
+  ).filter((d): d is Dimension => d !== null);
   let unitQuery: QueryPointer | null = null;
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
@@ -171,13 +201,18 @@ export const startExperimentResultQueries = async (
         eligibleDimensionsWithSlices: [],
       };
 
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
+    snapshotSettings,
+    resolvedExposureQuery,
+  );
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
     dimensions: snapshotDimensions.length
       ? snapshotDimensions
       : dimensionsForTraffic,
     segment: segmentObj,
-    settings: snapshotSettings,
+    unitsSettings,
     unitsTableFullName: unitsTableFullName,
     includeIdJoins: true,
     factTableMap: params.factTableMap,
@@ -192,7 +227,16 @@ export const startExperimentResultQueries = async (
     }
     unitQuery = await startQuery({
       name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      // The shared units table carries both the parent's experiment-dim
+      // columns and one dim_unit_<id> column per configured unit dimension so
+      // the isolated per-dim metric queries can read it.
+      query: integration.getExperimentUnitsTableQuery({
+        ...unitQueryParams,
+        dimensions: [
+          ...unitQueryParams.dimensions,
+          ...unitDimensionsToPrecompute,
+        ],
+      }),
       dependencies: [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runExperimentUnitsQuery(
@@ -237,16 +281,17 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
+      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(queryParams),
+        query: integration.getSnapshotMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
-          integration.runExperimentMetricQuery(
+          integration.runSnapshotMetricQuery(
             query,
             setExternalId,
             queryMetadata,
@@ -269,6 +314,7 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
+      unitsSettings,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -296,7 +342,95 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  // test if precomputed dimensions fails
+  // Per-unit-dimension metric queries (unitdim:<id>:…). Parent gbstats skips
+  // them; a post-success hook runs per-dimension analyses from these results.
+  if (unitQuery && unitDimensionsToPrecompute.length > 0) {
+    for (const unitDim of unitDimensionsToPrecompute) {
+      if (unitDim.type !== "user") continue;
+      const dimensionId = unitDim.dimension.id;
+
+      for (const [i, m] of factMetricGroups.entries()) {
+        if (
+          !integration.getExperimentFactMetricsQuery ||
+          !integration.runExperimentFactMetricsQuery
+        ) {
+          throw new Error("Integration does not support multi-metric queries");
+        }
+        const queryParams: ExperimentFactMetricsQueryParams = {
+          activationMetric,
+          dimensions: [unitDim],
+          metrics: m,
+          segment: segmentObj,
+          settings: snapshotSettings,
+          unitsSource: "exposureTable",
+          unitsSettings,
+          unitsTableFullName: unitsTableFullName,
+          factTableMap: params.factTableMap,
+        };
+        queries.push(
+          await startQuery({
+            name: getUnitDimQueryName(dimensionId, `group_${i}`),
+            query: integration.getExperimentFactMetricsQuery(queryParams),
+            dependencies: [unitQuery.query],
+            run: (query, setExternalId, queryMetadata) =>
+              (integration as SqlIntegration).runExperimentFactMetricsQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            queryType: "experimentMultiMetric",
+          }),
+        );
+      }
+
+      for (const m of legacyMetricSingles) {
+        // Only run overall quantile analysis for standard snapshots
+        // regardless of how many dimensions are requested
+        const runOverallQuantileAnalysis =
+          snapshotType === "standard" && quantileMetricType(m);
+
+        const denominatorMetrics: MetricInterface[] = [];
+        if (m.denominator) {
+          denominatorMetrics.push(
+            ...expandDenominatorMetrics(
+              m.denominator,
+              metricMap as Map<string, MetricInterface>,
+            )
+              .map((dm) => metricMap.get(dm) as MetricInterface)
+              .filter(Boolean),
+          );
+        }
+
+        const queryParams: ExperimentMetricQueryParams = {
+          activationMetric,
+          denominatorMetrics,
+          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
+          metric: m,
+          segment: segmentObj,
+          settings: snapshotSettings,
+          unitsSource: "exposureTable",
+          unitsSettings,
+          unitsTableFullName: unitsTableFullName,
+          factTableMap: params.factTableMap,
+        };
+        queries.push(
+          await startQuery({
+            name: getUnitDimQueryName(dimensionId, m.id),
+            query: integration.getSnapshotMetricQuery(queryParams),
+            dependencies: [unitQuery.query],
+            run: (query, setExternalId, queryMetadata) =>
+              integration.runSnapshotMetricQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            queryType: "experimentMetric",
+          }),
+        );
+      }
+    }
+  }
+
   let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
     // the basic traffic query should only use experiment dimensions with specified slices
@@ -317,6 +451,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
+        settings: snapshotSettings,
         dimensions: snapshotDimensionsForTraffic.length
           ? snapshotDimensionsForTraffic
           : dimensionsForTraffic,
@@ -523,6 +658,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
       this.model.report &&
@@ -558,7 +694,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
-      throw new Error("Experiment must have at least 1 metric selected.");
+      throw new UnrecoverableSnapshotError(
+        "Experiment must have at least 1 metric selected.",
+      );
     }
 
     const dimensionObj = await parseDimension(
