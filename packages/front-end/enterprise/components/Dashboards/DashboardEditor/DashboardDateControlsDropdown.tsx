@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
-import { PiCalendarBlank, PiCaretDown, PiCheck } from "react-icons/pi";
+import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { dateGranularity, lookbackUnit } from "shared/validators";
 import type { ExplorationDateRange } from "shared/validators";
@@ -10,8 +10,14 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
+import RadioGroup from "@/ui/RadioGroup";
 import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import { useMergedDateRangeUpdates } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/useMergedDateRangeUpdates";
+import {
+  DATE_RANGE_PREDEFINED_LABELS,
+  LOOKBACK_UNIT_LABELS,
+  formatExplorationDateRange,
+} from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 
 const DEFAULT_DATE_RANGE: ExplorationDateRange = {
   predefined: "last30Days",
@@ -30,53 +36,43 @@ type DateRangeOption =
   | "customLookback"
   | "customDateRange";
 
-const PRESET_OPTIONS: {
-  value: DateRangeOption;
-  label: string;
-}[] = [
-  { value: "chartDefault", label: "Chart Default" },
-  { value: "today", label: "Today" },
-  { value: "last7Days", label: "Past 7 Days" },
-  { value: "last30Days", label: "Past 30 Days" },
-  { value: "last90Days", label: "Past 90 Days" },
-];
+type PresetDateRangeOption = Exclude<
+  DateRangeOption,
+  "customLookback" | "customDateRange"
+>;
 
-const LOOKBACK_UNIT_LABELS: Record<(typeof lookbackUnit)[number], string> = {
-  hour: "hour(s)",
-  day: "day(s)",
-  week: "week(s)",
-  month: "month(s)",
-};
+const PRESET_OPTIONS: {
+  value: PresetDateRangeOption;
+}[] = [
+  { value: "chartDefault" },
+  { value: "today" },
+  { value: "last7Days" },
+  { value: "last30Days" },
+  { value: "last90Days" },
+];
 
 function getDisplayLabel(value: ExplorationDateRange | null): string {
   if (!value) return "Chart Default";
-
-  switch (value.predefined) {
-    case "today":
-      return "Today";
-    case "last7Days":
-      return "Past 7 Days";
-    case "last30Days":
-      return "Past 30 Days";
-    case "last90Days":
-      return "Past 90 Days";
-    case "customLookback":
-      return `Past ${value.lookbackValue ?? 30} ${value.lookbackUnit ?? "day"}${
-        (value.lookbackValue ?? 30) === 1 ? "" : "s"
-      }`;
-    case "customDateRange":
-      return value.startDate && value.endDate
-        ? `${value.startDate} to ${value.endDate}`
-        : "Date Range";
-  }
+  return formatExplorationDateRange(value, {
+    customDateRangeFallback: "Date Range",
+  });
 }
 
-function isOptionSelected(
-  value: ExplorationDateRange | null,
-  option: DateRangeOption,
-): boolean {
-  if (option === "chartDefault") return value === null;
-  return value?.predefined === option;
+function getPresetOptionLabel(option: PresetDateRangeOption) {
+  if (option === "chartDefault") {
+    return (
+      <span style={{ whiteSpace: "nowrap" }}>
+        Chart Default
+        <Tooltip
+          body="Use each chart's own configured date range instead of applying a dashboard-wide date range."
+          tipPosition="right"
+          className="ml-1"
+        />
+      </span>
+    );
+  }
+
+  return DATE_RANGE_PREDEFINED_LABELS[option];
 }
 
 function buildDateRange(
@@ -103,49 +99,6 @@ function buildDateRange(
   };
 }
 
-function OptionRow({
-  label,
-  tooltip,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  tooltip?: string;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      style={{
-        alignItems: "center",
-        background: "transparent",
-        border: 0,
-        color: disabled ? "var(--gray-9)" : "var(--indigo-12)",
-        cursor: disabled ? "not-allowed" : "pointer",
-        display: "grid",
-        fontSize: 14,
-        gridTemplateColumns: "16px 1fr",
-        columnGap: "8px",
-        padding: "6px 0",
-        textAlign: "left",
-      }}
-    >
-      <span>{selected ? <PiCheck size={16} /> : null}</span>
-      <span style={{ whiteSpace: "nowrap" }}>
-        {label}
-        {tooltip ? (
-          <Tooltip body={tooltip} tipPosition="right" className="ml-1" />
-        ) : null}
-      </span>
-    </button>
-  );
-}
-
 export default function DashboardDateControlsDropdown({
   value,
   granularity = "auto",
@@ -170,21 +123,22 @@ export default function DashboardDateControlsDropdown({
     setLocalLookbackValue(value?.lookbackValue?.toString() ?? "");
   }, [value?.lookbackValue]);
 
-  const selectPreset = (option: DateRangeOption) => {
+  const selectDateRangeOption = (option: DateRangeOption) => {
     if (option === "chartDefault") {
       onChange(null);
       setOpen(false);
       return;
     }
 
-    onChange(buildDateRange(value, option));
-    setOpen(false);
-  };
+    const nextValue = buildDateRange(value, option);
+    if (option === "customLookback") {
+      setLocalLookbackValue(nextValue.lookbackValue?.toString() ?? "");
+    }
 
-  const selectCustomLookback = () => {
-    const nextValue = buildDateRange(value, "customLookback");
-    setLocalLookbackValue(nextValue.lookbackValue?.toString() ?? "");
     onChange(nextValue);
+    if (option !== "customLookback" && option !== "customDateRange") {
+      setOpen(false);
+    }
   };
 
   const commitLookbackValue = () => {
@@ -202,36 +156,17 @@ export default function DashboardDateControlsDropdown({
     });
   };
 
-  const content = (
-    <Flex direction="column" gap="1" width="100%">
-      {PRESET_OPTIONS.map((option) => (
-        <OptionRow
-          key={option.value}
-          label={option.label}
-          tooltip={
-            option.value === "chartDefault"
-              ? "Use each chart's own configured date range instead of applying a dashboard-wide date range."
-              : undefined
-          }
-          selected={isOptionSelected(value, option.value)}
-          disabled={disabled}
-          onClick={() => selectPreset(option.value)}
-        />
-      ))}
-
-      <Flex direction="row" align="center" gap="3">
-        <OptionRow
-          label="Last"
-          selected={value?.predefined === "customLookback"}
-          disabled={disabled}
-          onClick={selectCustomLookback}
-        />
+  const selectedDateRangeOption: DateRangeOption =
+    value?.predefined ?? "chartDefault";
+  const customLookbackControls = (
+    <Box pl="5" mt="-3">
+      <Flex direction="row" align="center" gap="2">
         <Field
           type="number"
           min="1"
-          disabled={disabled || value?.predefined !== "customLookback"}
+          disabled={disabled}
           containerClassName="mb-0"
-          style={{ height: 32, width: 80, padding: "0 8px" }}
+          style={{ height: 32, width: 80 }}
           value={localLookbackValue}
           onChange={(e) => setLocalLookbackValue(e.target.value)}
           onBlur={commitLookbackValue}
@@ -245,7 +180,7 @@ export default function DashboardDateControlsDropdown({
         />
         <Select
           size="2"
-          disabled={disabled || value?.predefined !== "customLookback"}
+          disabled={disabled}
           style={{ width: 112 }}
           value={activeDateRange.lookbackUnit || "day"}
           setValue={(unit) =>
@@ -262,42 +197,66 @@ export default function DashboardDateControlsDropdown({
           ))}
         </Select>
       </Flex>
-
-      <OptionRow
-        label="Date Range"
-        selected={value?.predefined === "customDateRange"}
+    </Box>
+  );
+  const customDateRangeControls =
+    value?.predefined === "customDateRange" ? (
+      <Box pl="5" mt="-3" style={{ width: "100%", minWidth: 0 }}>
+        <DatePicker
+          containerClassName="mb-0"
+          compact
+          disabled={disabled}
+          inputWidth={260}
+          date={
+            value.startDate
+              ? getValidDateOffsetByUTC(value.startDate)
+              : undefined
+          }
+          date2={
+            value.endDate ? getValidDateOffsetByUTC(value.endDate) : undefined
+          }
+          setDate={(date) =>
+            updateCustomDateRange({
+              startDate: date ? format(date, "yyyy-MM-dd") : null,
+            })
+          }
+          setDate2={(date) =>
+            updateCustomDateRange({
+              endDate: date ? format(date, "yyyy-MM-dd") : null,
+            })
+          }
+          precision="date"
+        />
+      </Box>
+    ) : null;
+  const content = (
+    <Flex direction="column" gap="1" width="100%">
+      <RadioGroup
         disabled={disabled}
-        onClick={() => onChange(buildDateRange(value, "customDateRange"))}
+        value={selectedDateRangeOption}
+        setValue={(option) => selectDateRangeOption(option as DateRangeOption)}
+        gap="2"
+        labelSize="2"
+        width="100%"
+        options={[
+          ...PRESET_OPTIONS.map((option) => ({
+            value: option.value,
+            label: getPresetOptionLabel(option.value),
+          })),
+          {
+            value: "customLookback",
+            label: "Custom Lookback",
+            renderOnSelect: customLookbackControls,
+            renderOutsideItem: true,
+          },
+          {
+            value: "customDateRange",
+            label: "Date Range",
+            renderOnSelect: customDateRangeControls ?? undefined,
+            renderOutsideItem: true,
+          },
+        ]}
       />
-      {value?.predefined === "customDateRange" ? (
-        <Box pl="5" style={{ width: "100%", minWidth: 0 }}>
-          <DatePicker
-            containerClassName="mb-0"
-            compact
-            disabled={disabled}
-            inputWidth={260}
-            date={
-              value.startDate
-                ? getValidDateOffsetByUTC(value.startDate)
-                : undefined
-            }
-            date2={
-              value.endDate ? getValidDateOffsetByUTC(value.endDate) : undefined
-            }
-            setDate={(date) =>
-              updateCustomDateRange({
-                startDate: date ? format(date, "yyyy-MM-dd") : null,
-              })
-            }
-            setDate2={(date) =>
-              updateCustomDateRange({
-                endDate: date ? format(date, "yyyy-MM-dd") : null,
-              })
-            }
-            precision="date"
-          />
-        </Box>
-      ) : null}
 
       <Box
         my="2"

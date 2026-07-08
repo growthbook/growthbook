@@ -9,17 +9,11 @@ import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import {
+  DATE_RANGE_PREDEFINED_LABELS,
+  LOOKBACK_UNIT_LABELS,
+} from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import { useMergedDateRangeUpdates } from "./useMergedDateRangeUpdates";
-
-const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
-  {
-    today: "Today",
-    last7Days: "Past 7 Days",
-    last30Days: "Past 30 Days",
-    last90Days: "Past 90 Days",
-    customLookback: "Custom Lookback",
-    customDateRange: "Custom Date Range",
-  };
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
@@ -139,7 +133,7 @@ function DateRangePresetSelect({
     >
       {lookbackUnit.map((u) => (
         <SelectItem key={u} value={u}>
-          {u}(s)
+          {LOOKBACK_UNIT_LABELS[u]}
         </SelectItem>
       ))}
     </Select>
@@ -176,7 +170,7 @@ function DateRangePresetSelect({
     >
       {dateRangePredefined.map((option) => (
         <SelectItem key={option} value={option}>
-          {PREDEFINED_LABELS[option] || option}
+          {DATE_RANGE_PREDEFINED_LABELS[option]}
         </SelectItem>
       ))}
     </Select>

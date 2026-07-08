@@ -65,9 +65,11 @@ function DashboardStatusSummary({
       ? "One or more queries failed"
       : snapshotError
         ? "Error running analysis"
-        : lastUpdateTime
-          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
-          : "Not started yet";
+        : needsUpdate
+          ? "Filters changed"
+          : lastUpdateTime
+            ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
+            : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
@@ -190,7 +192,7 @@ export default function DashboardUpdateDisplay({
       <div className="position-relative">
         {canRefresh && (
           <Button
-            size="xs"
+            size={isEditing ? "xs" : "sm"}
             disabled={
               refreshing ||
               !dashboardId ||
@@ -199,7 +201,7 @@ export default function DashboardUpdateDisplay({
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
-            variant={needsUpdate ? "solid" : "ghost"}
+            variant={needsUpdate ? "solid" : "outline"}
             onClick={async () => {
               await updateAllSnapshots();
               onUpdated?.();

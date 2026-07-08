@@ -22,6 +22,7 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
@@ -44,23 +45,6 @@ interface Props {
   useDashboardDateControl?: boolean;
   onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
   onSubmit?: () => void;
-}
-
-function formatDateRange(dateRange: ExplorationConfig["dateRange"]): string {
-  switch (dateRange.predefined) {
-    case "today":
-      return "Today";
-    case "last7Days":
-      return "Past 7 Days";
-    case "last30Days":
-      return "Past 30 Days";
-    case "last90Days":
-      return "Past 90 Days";
-    case "customLookback":
-      return `Past ${dateRange.lookbackValue ?? 30} ${dateRange.lookbackUnit ?? "day"}${(dateRange.lookbackValue ?? 30) === 1 ? "" : "s"}`;
-    case "customDateRange":
-      return `${dateRange.startDate ?? "Start"} to ${dateRange.endDate ?? "End"}`;
-  }
 }
 
 export default function ExplorerSideBar({
@@ -291,7 +275,9 @@ export default function ExplorerSideBar({
                   }
                   label={
                     <Flex direction="row" align="center" gap="1">
-                      Use dashboard date filter
+                      <Text size="small" weight="medium">
+                        Use dashboard date filter
+                      </Text>
                       <Tooltip
                         body={
                           useDashboardDateControl
@@ -313,8 +299,8 @@ export default function ExplorerSideBar({
                   backgroundColor: "var(--gray-a2)",
                 }}
               >
-                <Text size="small" color="text-low">
-                  {formatDateRange(dashboardDateRange)}
+                <Text size="medium" color="text-low">
+                  {formatExplorationDateRange(dashboardDateRange)}
                 </Text>
               </Flex>
             ) : showComparisonDateControls ? (
