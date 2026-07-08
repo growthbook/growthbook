@@ -59,5 +59,8 @@ export const contextualBanditApiSpec = {
     refreshContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",
+  navDisplayName: "Contextual Bandits (Beta)",
+  navDescription:
+    "**Beta** — Contextual Bandits are in beta and not yet officially released. These endpoints may change in backwards-incompatible ways. Contextual Bandits automatically allocate traffic toward the best-performing variation based on user context.",
 } satisfies OpenApiModelSpec;
 export default contextualBanditApiSpec;
