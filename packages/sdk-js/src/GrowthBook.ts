@@ -674,8 +674,6 @@ export class GrowthBook<
       recordChangeId: this._recordChangedId,
       saveDeferredTrack: this._saveDeferredTrack,
       eventLogger: this._options.eventLogger,
-      trackingCallbackWithAttribute:
-        this._options.trackingCallbackWithAttribute,
     };
   }
 
@@ -946,6 +944,7 @@ export class GrowthBook<
           (this._options.trackingCallback as TrackingCallback)(
             call.experiment,
             call.result,
+            call.attributes,
           ),
         );
       }

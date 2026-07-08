@@ -294,8 +294,6 @@ export class GrowthBookClient<
       forcedFeatureValues: this._options.forcedFeatureValues,
       forcedVariations: this._options.forcedVariations,
       trackingCallback: this._options.trackingCallback,
-      trackingCallbackWithAttribute:
-        this._options.trackingCallbackWithAttribute,
       onFeatureUsage: this._options.onFeatureUsage,
     };
   }

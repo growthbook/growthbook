@@ -122,13 +122,11 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
-  it("fires trackingCallbackWithAttribute (and the standard callback) for CB exposures", () => {
+  it("passes resolved attributes to the standard trackingCallback for CB exposures", () => {
     const trackingCallback = jest.fn();
-    const trackingCallbackWithAttribute = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       trackingCallback,
-      trackingCallbackWithAttribute,
       features: cbFeatures(),
       contextualBandits: cbMap(),
     });
@@ -136,10 +134,7 @@ describe("contextual bandit feature rules", () => {
     gb.evalFeature("promo");
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
-
-    expect(trackingCallbackWithAttribute.mock.calls.length).toEqual(1);
-    const [experiment, result, attributes] =
-      trackingCallbackWithAttribute.mock.calls[0];
+    const [experiment, result, attributes] = trackingCallback.mock.calls[0];
     expect(experiment.key).toEqual("promo_bandit");
     expect(result.leafId).toEqual(1);
     expect(result.variationId).toEqual(0);
@@ -150,11 +145,11 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
-  it("does not fire trackingCallbackWithAttribute for non-CB experiments", () => {
-    const trackingCallbackWithAttribute = jest.fn();
+  it("passes attributes to the trackingCallback for non-CB experiments too (no leaf data on result)", () => {
+    const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
-      trackingCallbackWithAttribute,
+      trackingCallback,
       features: {
         plain: {
           defaultValue: "default",
@@ -177,7 +172,12 @@ describe("contextual bandit feature rules", () => {
     const res = gb.evalFeature("plain");
     expect(res.source).toEqual("experiment");
     expect(res.experimentResult?.leafId).toBeUndefined();
-    expect(trackingCallbackWithAttribute.mock.calls.length).toEqual(0);
+
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [, result, attributes] = trackingCallback.mock.calls[0];
+    expect(result.leafId).toBeUndefined();
+    expect(result.banditVersion).toBeUndefined();
+    expect(attributes).toEqual({ id: "u1" });
 
     gb.destroy();
   });
@@ -213,6 +213,34 @@ describe("contextual bandit feature rules", () => {
     expect(res.experimentResult?.variationId).toEqual(0);
     expect(res.experimentResult?.leafId).toBeUndefined();
     expect(res.experimentResult?.banditVersion).toBeUndefined();
+
+    gb.destroy();
+  });
+
+  it("preserves attributes through deferred tracking calls", async () => {
+    // No trackingCallback at eval time => the exposure is deferred.
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      features: cbFeatures(),
+      contextualBandits: cbMap(),
+    });
+
+    gb.evalFeature("promo");
+
+    const deferred = gb.getDeferredTrackingCalls();
+    expect(deferred.length).toEqual(1);
+    expect(deferred[0].attributes).toEqual({ id: "u1", plan: "enterprise" });
+    expect(deferred[0].result.leafId).toEqual(1);
+    expect(deferred[0].result.banditVersion).toEqual(7);
+
+    const trackingCallback = jest.fn();
+    gb.setTrackingCallback(trackingCallback);
+    await gb.fireDeferredTrackingCalls();
+
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+    const [, result, attributes] = trackingCallback.mock.calls[0];
+    expect(result.variationWeights).toEqual([1, 0]);
+    expect(attributes).toEqual({ id: "u1", plan: "enterprise" });
 
     gb.destroy();
   });

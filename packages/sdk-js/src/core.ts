@@ -102,15 +102,7 @@ function onExperimentViewed(
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result)));
-  }
-  if (result.leafId !== undefined && ctx.global.trackingCallbackWithAttribute) {
-    const cb = ctx.global.trackingCallbackWithAttribute;
-    const attributes = {
-      ...ctx.user.attributes,
-      ...ctx.user.attributeOverrides,
-    };
-    calls.push(safeCall(() => cb(experiment, result, attributes)));
+    calls.push(safeCall(() => cb(experiment, result, getAttributes(ctx))));
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -317,6 +309,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
+                attributes: getAttributes(ctx),
               });
             }
           });
@@ -805,6 +798,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
+      attributes: getAttributes(ctx),
     });
   }
   const trackingCall = !trackingCalls.length
