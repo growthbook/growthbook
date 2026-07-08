@@ -57,6 +57,27 @@ export function wrapWithScope(rawHtml: string, scopeToken: string): string {
   return rootHasScope ? html : `<div class="${scopeToken}">${html}</div>`;
 }
 
+// insertAdjacentHTML throws for "beforebegin"/"afterend" on the <html> root —
+// you can't add a sibling to the document's root element. The AI-edit schema
+// lets the model target "html"/":root", so remap those two impossible cases to
+// the equivalent spot inside <body> (top/bottom of the page) instead of letting
+// the insert throw (and silently no-op behind buildInsertJs's try/catch).
+// Everything else passes through unchanged. Apply this BEFORE building the
+// script AND the preview descriptor so both agree on where the node lands.
+export function normalizeInsertPlacement(
+  targetSelector: string,
+  position: InsertPosition,
+): { targetSelector: string; position: InsertPosition } {
+  const isRoot = /^\s*(?:html|:root)\s*$/i.test(targetSelector);
+  if (isRoot && position === "beforebegin") {
+    return { targetSelector: "body", position: "afterbegin" };
+  }
+  if (isRoot && position === "afterend") {
+    return { targetSelector: "body", position: "beforeend" };
+  }
+  return { targetSelector, position };
+}
+
 // Build a self-contained, idempotent insertion script for the variation's
 // `js` field. It runs once in the SDK (and our editor preview), guards on the
 // unique scope class so it never double-inserts, and waits (bounded to 10s)

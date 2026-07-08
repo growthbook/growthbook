@@ -18,6 +18,7 @@ import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/client
 import {
   buildInsertJs,
   makeScopeToken,
+  normalizeInsertPlacement,
   wrapWithScope,
 } from "back-end/src/api/visual-editor-ai/insertPrimitive";
 
@@ -788,25 +789,23 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     }> = [];
     const insertJsSnippets: string[] = [];
     for (const ins of result.insert) {
-      const targetSelector = ins.targetSelector.trim();
+      const rawTarget = ins.targetSelector.trim();
       const rawHtml = ins.html.trim();
-      if (!targetSelector || !rawHtml) continue;
+      if (!rawTarget || !rawHtml) continue;
+      // Remap root-relative positions insertAdjacentHTML can't do on <html>
+      // (e.g. "beforebegin" on the root) to a valid spot inside <body>, so a
+      // top/bottom-of-page insert actually lands instead of silently failing.
+      // Normalize once, then use for both the script and the preview descriptor.
+      const { targetSelector, position } = normalizeInsertPlacement(
+        rawTarget,
+        ins.position,
+      );
       const scopeToken = makeScopeToken();
       const html = wrapWithScope(rawHtml, scopeToken);
       insertJsSnippets.push(
-        buildInsertJs({
-          scopeToken,
-          targetSelector,
-          position: ins.position,
-          html,
-        }),
+        buildInsertJs({ scopeToken, targetSelector, position, html }),
       );
-      insertDescriptors.push({
-        targetSelector,
-        position: ins.position,
-        html,
-        scopeToken,
-      });
+      insertDescriptors.push({ targetSelector, position, html, scopeToken });
     }
 
     // Merge the insert snippets into the variation's JS. The model's `js`
