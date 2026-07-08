@@ -362,34 +362,7 @@ export function sessionReplayPlugin({
         ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
       };
 
-      // Synthesize rrweb custom events (type 5) from the typed eval buffers
-      // so the replay player can show feature/experiment panels at the exact
-      // timestamp they occurred.
-      const customEvents: eventWithTime[] = [];
-      featureEvalsBeingSent.forEach((fe) => {
-        customEvents.push({
-          type: 5,
-          timestamp: fe.timestamp,
-          data: {
-            tag: "feature-flag",
-            payload: { id: fe.featureKey, value: fe.result.value },
-          },
-        });
-      });
-      experimentEvalsBeingSent.forEach((ee) => {
-        customEvents.push({
-          type: 5,
-          timestamp: ee.timestamp,
-          data: {
-            tag: "experiment",
-            payload: { id: ee.key, variation: ee.result.variationId },
-          },
-        });
-      });
-
-      const events = [...eventsBeingSent, ...customEvents].sort(
-        (a, b) => a.timestamp - b.timestamp,
-      );
+      const events = eventsBeingSent;
 
       // PII protection comes entirely from rrweb-native privacy controls
       // exposed via SessionReplayPrivacyConfig / buildRrwebPrivacyOptions:
