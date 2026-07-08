@@ -430,8 +430,6 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
-  const hasGlobalControls = Boolean(globalControls?.dateRange);
-
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
     setDropdownOpen(false);
@@ -745,9 +743,7 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
-        {isGeneralDashboard &&
-        onGlobalControlsChange &&
-        (isEditing || hasGlobalControls) ? (
+        {isGeneralDashboard && onGlobalControlsChange ? (
           <DashboardGlobalControlsBar
             blocks={blocks}
             globalControls={globalControls}
