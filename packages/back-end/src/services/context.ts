@@ -145,7 +145,11 @@ export type ModelName =
   | "sessionReplays"
   | "eventForwarderConfigs";
 
-export const modelClasses = {
+// Registry of model constructors, used ONLY to derive the ModelName/ModelClass/
+// ModelInstances types below (via ReturnType). Written as a never-called function
+// so the class bindings are not read at module-eval time — otherwise the
+// context <-> FeatureModel import cycle would TDZ on load (see PR #6306).
+export const modelClasses = () => ({
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
   customFields: CustomFieldModel,
@@ -194,18 +198,18 @@ export const modelClasses = {
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
-};
+});
 // ModelClass narrows to only BaseModel-derived model constructors (those
 // expose a static `getModelConfig`). Non-BaseModel context models — e.g.
 // SessionReplayModel, which is backed by ClickHouse + S3 rather than
 // Mongo — are still registered on the request context but excluded from
 // API_MODELS iteration in api.router.ts.
 export type ModelClass = Extract<
-  (typeof modelClasses)[ModelName],
+  ReturnType<typeof modelClasses>[ModelName],
   { getModelConfig: () => unknown }
 >;
 type ModelInstances = {
-  [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
+  [K in ModelName]: InstanceType<ReturnType<typeof modelClasses>[K]>;
 };
 
 export class ReqContextClass {
