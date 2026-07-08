@@ -64,11 +64,15 @@ export default function IdLists({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const filteredIdLists = project
-    ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project),
-      )
-    : idLists;
+  const filteredIdLists = useMemo(
+    () =>
+      project
+        ? idLists.filter((list) =>
+            isProjectListValidForProject(list.projects, project),
+          )
+        : idLists,
+    [idLists, project],
+  );
 
   const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
