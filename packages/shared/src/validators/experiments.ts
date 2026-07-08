@@ -368,12 +368,16 @@ export const statusUpdateScheduleValidator = z.object({
 });
 
 // End-of-experiment shipping automation. Absent = "notify" (status quo).
-// Auto-ship requires the decision framework (single clear winner); ties are
-// broken by higher lift on `tiebreakerMetricId` when set, and if there's still
-// no clear winner the `fallback` decides between notifying or force-shipping
-// `fallbackVariationId`. No auto-rollback in this MVP.
+//  - "notify": stop and leave the decision to a human.
+//  - "auto-ship": requires the decision framework (single clear winner); ties
+//    break by higher lift on `tiebreakerMetricId` when set, and if there's
+//    still no clear winner the `fallback` decides between notifying or
+//    force-shipping `fallbackVariationId`.
+//  - "force-ship": unconditionally ship `fallbackVariationId` (the same field
+//    the auto-ship fallback uses). Still gated on the decision framework.
+// No auto-rollback in this MVP.
 export const experimentShippingCriteriaValidator = z.object({
-  mode: z.enum(["notify", "auto-ship"]),
+  mode: z.enum(["notify", "auto-ship", "force-ship"]),
   tiebreakerMetricId: z.string().optional(),
   fallback: z.enum(["notify", "force-ship"]),
   fallbackVariationId: z.string().optional(),
@@ -811,7 +815,7 @@ export const apiExperimentShippingCriteriaValidator = namedSchema(
   "ExperimentShippingCriteria",
   z
     .object({
-      mode: z.enum(["notify", "auto-ship"]),
+      mode: z.enum(["notify", "auto-ship", "force-ship"]),
       tiebreakerMetricId: z.string().optional(),
       fallback: z.enum(["notify", "force-ship"]),
       fallbackVariationId: z.string().optional(),
@@ -820,7 +824,9 @@ export const apiExperimentShippingCriteriaValidator = namedSchema(
       "End-of-experiment automation. `auto-ship` requires the Decision " +
         "Framework; multi-winner ties break on `tiebreakerMetricId` (higher " +
         "lift), and `fallback` decides between notifying and force-shipping " +
-        "`fallbackVariationId` when there's no clear winner.",
+        "`fallbackVariationId` when there's no clear winner. `force-ship` " +
+        "unconditionally ships `fallbackVariationId` (also requires the " +
+        "Decision Framework).",
     ),
 );
 

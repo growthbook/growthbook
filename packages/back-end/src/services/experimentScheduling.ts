@@ -96,8 +96,9 @@ export async function applyScheduledExperimentStop({
   experiment: ExperimentInterface;
 }): Promise<ScheduledStopOutcome> {
   const shipping = experiment.shippingCriteria;
-  const autoShipEnabled =
-    shipping?.mode === "auto-ship" && canAutoShip(context);
+  const canShip = canAutoShip(context);
+  const autoShipEnabled = shipping?.mode === "auto-ship" && canShip;
+  const forceShipEnabled = shipping?.mode === "force-ship" && canShip;
 
   let winnerVariationId: string | null = null;
   let forced = false;
@@ -130,17 +131,22 @@ export async function applyScheduledExperimentStop({
     if (decision.action === "ship") winnerVariationId = decision.variationId;
   }
 
-  // No clear winner but the user opted to force-ship a specific variation.
-  // Skip if the configured variation no longer exists so we stop cleanly
-  // (notify) rather than throwing and leaving the experiment running.
+  // Force-ship a pre-selected variation — either the top-level "force-ship"
+  // mode, or auto-ship that found no clear winner and has a force-ship
+  // fallback. Both read `fallbackVariationId`. Skip if the configured
+  // variation no longer exists so we stop cleanly (notify) rather than
+  // throwing and leaving the experiment running.
+  const forceVariationId = forceShipEnabled
+    ? shipping?.fallbackVariationId
+    : autoShipEnabled && shipping?.fallback === "force-ship"
+      ? shipping?.fallbackVariationId
+      : undefined;
   if (
     !winnerVariationId &&
-    autoShipEnabled &&
-    shipping?.fallback === "force-ship" &&
-    shipping.fallbackVariationId &&
-    experiment.variations.some((v) => v.id === shipping.fallbackVariationId)
+    forceVariationId &&
+    experiment.variations.some((v) => v.id === forceVariationId)
   ) {
-    winnerVariationId = shipping.fallbackVariationId;
+    winnerVariationId = forceVariationId;
     forced = true;
   }
 
@@ -153,9 +159,11 @@ export async function applyScheduledExperimentStop({
         winnerVariationId,
         releasedVariationId: winnerVariationId,
         enableTemporaryRollout: true,
-        reason: forced
-          ? "Scheduled end: no clear winner — force-shipped the configured variation."
-          : "Scheduled end: auto-shipped the winning variation.",
+        reason: !forced
+          ? "Scheduled end: auto-shipped the winning variation."
+          : forceShipEnabled
+            ? "Scheduled end: shipped the pre-selected variation."
+            : "Scheduled end: no clear winner — force-shipped the configured variation.",
       },
     });
     return { kind: "shipped", variationId: winnerVariationId, forced };
@@ -290,15 +298,33 @@ export async function setExperimentShippingCriteria({
   }
   const warnings: string[] = [];
 
-  if (criteria.mode === "auto-ship" && !canAutoShip(context)) {
+  const automated =
+    criteria.mode === "auto-ship" || criteria.mode === "force-ship";
+  if (automated && !canAutoShip(context)) {
     warnings.push(
-      "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings); the experiment will notify only until it's enabled.",
+      "Shipping automation requires the Decision Framework (Pro+ and enabled in org settings); the experiment will notify only until it's enabled.",
     );
   }
-  if (criteria.mode === "auto-ship" && criteria.fallback === "force-ship") {
+  // Automation only ever fires at a scheduled end — never on a manual stop —
+  // so warn if there's no scheduled end for it to attach to.
+  const hasScheduledEnd = !!(
+    experiment.statusUpdateSchedule?.stopAt ||
+    experiment.statusUpdateSchedule?.stopAfter
+  );
+  if (automated && !hasScheduledEnd) {
+    warnings.push(
+      "Shipping automation only runs at a scheduled end; set a stopAt or stopAfter (a manual stop won't ship automatically).",
+    );
+  }
+  // A specific variation must be set + valid when force-shipping — either as
+  // the top-level "force-ship" mode or as an auto-ship fallback.
+  const requiresVariation =
+    criteria.mode === "force-ship" ||
+    (criteria.mode === "auto-ship" && criteria.fallback === "force-ship");
+  if (requiresVariation) {
     if (!criteria.fallbackVariationId) {
       throw new BadRequestError(
-        "fallbackVariationId is required when fallback is force-ship.",
+        "fallbackVariationId is required when force-shipping a variation.",
       );
     }
     if (

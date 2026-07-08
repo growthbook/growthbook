@@ -23,11 +23,13 @@ import track, { TrackEventProps } from "@/services/track";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
+export type Size = "md" | "md-lg" | "lg";
 
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
+      return "3";
+    case "md-lg":
       return "3";
     case "lg":
       return "4";
@@ -38,6 +40,8 @@ function getMaxWidth(size: Size) {
   switch (size) {
     case "md":
       return "500px";
+    case "md-lg":
+      return "650px";
     case "lg":
       return "800px";
   }
@@ -91,9 +95,6 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
-  // Overrides the width preset from `size` when the standard md/lg widths
-  // don't fit the content (e.g. "650px").
-  maxWidth?: string;
   dismissible?: boolean;
   hasDescription?: boolean;
   children: ReactNode;
@@ -103,7 +104,6 @@ function Root({
   open,
   onOpenChange,
   size = "md",
-  maxWidth,
   dismissible = false,
   hasDescription = true,
   trackingEventModalType,
@@ -177,7 +177,7 @@ function Root({
       <Dialog.Content
         ref={contentRef}
         size={getRadixSize(size)}
-        maxWidth={maxWidth ?? getMaxWidth(size)}
+        maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {

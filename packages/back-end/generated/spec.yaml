@@ -13096,7 +13096,8 @@ paths:
                 Framework; multi-winner ties break on `tiebreakerMetricId`
                 (higher lift), and `fallback` decides between notifying and
                 force-shipping `fallbackVariationId` when there's no clear
-                winner.
+                winner. `force-ship` unconditionally ships `fallbackVariationId`
+                (also requires the Decision Framework).
               id: ExperimentShippingCriteria
               type: object
               properties:
@@ -13105,6 +13106,7 @@ paths:
                   enum:
                     - notify
                     - auto-ship
+                    - force-ship
                 tiebreakerMetricId:
                   type: string
                 fallback:
@@ -40237,7 +40239,9 @@ components:
         End-of-experiment automation. `auto-ship` requires the Decision
         Framework; multi-winner ties break on `tiebreakerMetricId` (higher
         lift), and `fallback` decides between notifying and force-shipping
-        `fallbackVariationId` when there's no clear winner.
+        `fallbackVariationId` when there's no clear winner. `force-ship`
+        unconditionally ships `fallbackVariationId` (also requires the Decision
+        Framework).
       type: object
       properties:
         mode:
@@ -40245,6 +40249,7 @@ components:
           enum:
             - notify
             - auto-ship
+            - force-ship
         tiebreakerMetricId:
           type: string
         fallback:
