@@ -79,6 +79,8 @@ export class SessionReplayModel {
     maxEventCount?: number;
     featureKey?: string;
     experimentKey?: string;
+    dateAfter?: string;
+    dateBefore?: string;
     project?: string;
     limit?: number;
     offset?: number;

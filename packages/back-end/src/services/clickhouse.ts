@@ -232,6 +232,10 @@ export async function listSessionReplays(
     featureKey?: string;
     /** Filter to sessions where this experiment was exposed */
     experimentKey?: string;
+    /** Inclusive lower bound date (YYYY-MM-DD) on started_at */
+    dateAfter?: string;
+    /** Inclusive upper bound date (YYYY-MM-DD) on started_at */
+    dateBefore?: string;
     limit?: number;
     offset?: number;
   },
@@ -293,6 +297,16 @@ export async function listSessionReplays(
   if (options?.experimentKey) {
     const escaped = escapeClickhouseString(options.experimentKey);
     conditions.push(`has(experiment_keys, '${escaped}')`);
+  }
+  if (options?.dateAfter) {
+    conditions.push(
+      `started_at >= '${escapeClickhouseString(options.dateAfter)}'`,
+    );
+  }
+  if (options?.dateBefore) {
+    conditions.push(
+      `started_at <= '${escapeClickhouseString(options.dateBefore)} 23:59:59'`,
+    );
   }
 
   const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));

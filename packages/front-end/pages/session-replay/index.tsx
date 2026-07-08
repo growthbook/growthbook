@@ -9,7 +9,6 @@ import {
   PiCaretDoubleRight,
   PiCopy,
   PiListBullets,
-  PiPlus,
   PiX,
 } from "react-icons/pi";
 import { AppFeatures } from "shared/types/app-features";
@@ -18,13 +17,13 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Field from "@/components/Forms/Field";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FilterQueryPopover, {
-  FilterCondition,
-} from "@/components/SessionReplay/FilterQueryPopover";
+import SessionReplaySearchFilters from "@/components/Search/SessionReplaySearchFilters";
+import { useSessionReplayFilters } from "@/hooks/useSessionReplayFilters";
 import type { RrwebPlayerHandle } from "@/components/SessionReplay/player";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Custom404 from "@/pages/404";
@@ -223,20 +222,6 @@ function buildEvaluationsFromMetadata(
   return entries;
 }
 
-const FILTER_LABELS: Record<string, string> = {
-  userId: "user",
-  clientKey: "client",
-  url: "url",
-  country: "country",
-  device: "device",
-  durationMinSecs: "duration ≥",
-  durationMaxSecs: "duration ≤",
-  eventCountMin: "events ≥",
-  eventCountMax: "events ≤",
-  featureKey: "flag",
-  experimentKey: "experiment",
-};
-
 export default function SessionReplayPage() {
   const gb = useGrowthBook<AppFeatures>();
   const sessionReplayEnabled = !!gb?.isOn("session-replays");
@@ -249,7 +234,6 @@ export default function SessionReplayPage() {
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
-  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const page = useMemo(() => {
     const raw = router.query.page;
@@ -267,33 +251,19 @@ export default function SessionReplayPage() {
     }
   }, [selectedSessionId]);
 
-  const FILTER_KEYS = [
-    "userId",
-    "clientKey",
-    "url",
-    "country",
-    "device",
-    "durationMinSecs",
-    "durationMaxSecs",
-    "eventCountMin",
-    "eventCountMax",
-    "featureKey",
-    "experimentKey",
-  ] as const;
+  // ---- search / filters ----------------------------------------------------
+  const { searchInputProps, syntaxFilters, setSearchValue, queryParams } =
+    useSessionReplayFilters(router, project);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
     if (project) params.set("project", project);
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) {
-        params.set(key, val);
-      }
+    for (const [k, v] of Object.entries(queryParams)) {
+      if (v) params.set(k, v);
     }
     return params.toString();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, project, ...FILTER_KEYS.map((k) => router.query[k])]);
+  }, [page, project, queryParams]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
@@ -301,31 +271,6 @@ export default function SessionReplayPage() {
 
   const sessions = useMemo(() => sessionsData?.sessions ?? [], [sessionsData]);
   const hasNextPage = sessions.length === 100;
-
-  /** Read all current filter values from the URL. */
-  const currentFilters = useMemo(() => {
-    const result: Record<string, string> = {};
-    for (const key of FILTER_KEYS) {
-      const val = router.query[key];
-      if (typeof val === "string" && val) result[key] = val;
-    }
-    return result;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...FILTER_KEYS.map((k) => router.query[k])]);
-
-  const updateRouteQuery = (
-    filters: Record<string, string>,
-    opts: { page: number; sessionId?: string },
-  ) => {
-    const query: Record<string, string> = { page: String(opts.page) };
-    for (const [k, v] of Object.entries(filters)) {
-      if (v) query[k] = v;
-    }
-    if (opts.sessionId) query.sessionId = opts.sessionId;
-    void router.push({ pathname: "/session-replay", query }, undefined, {
-      shallow: true,
-    });
-  };
 
   // Clear selected session when project changes so a session from another
   // project doesn't stay visible after switching.
@@ -344,64 +289,26 @@ export default function SessionReplayPage() {
     }
   }, [project, selectedSessionId, router]);
 
-  /** Map a FilterCondition from the popover to route query params. */
-  const conditionToParams = (c: FilterCondition): Record<string, string> => {
-    if (c.property === "durationMs") {
-      if (c.operator === "gte") return { durationMinSecs: c.value };
-      if (c.operator === "lte") return { durationMaxSecs: c.value };
-      return { durationMinSecs: c.value, durationMaxSecs: c.value };
-    }
-    if (c.property === "eventCount") {
-      if (c.operator === "gte") return { eventCountMin: c.value };
-      if (c.operator === "lte") return { eventCountMax: c.value };
-      return { eventCountMin: c.value, eventCountMax: c.value };
-    }
-    if (c.property.startsWith("featureKey:")) {
-      return { featureKey: c.property.split(":")[1] };
-    }
-    if (c.property.startsWith("experimentKey:")) {
-      return { experimentKey: c.property.split(":")[1] };
-    }
-    return { [c.property]: c.value };
-  };
-
-  const onAddFilter = (condition: FilterCondition) => {
-    const newParams = conditionToParams(condition);
-    updateRouteQuery(
-      { ...currentFilters, ...newParams },
-      { page: 1, sessionId: selectedSessionId },
-    );
-  };
-
-  const clearFilters = () => {
-    updateRouteQuery({}, { page: 1, sessionId: selectedSessionId });
-  };
-
   const goToPage = (nextPage: number) => {
-    updateRouteQuery(currentFilters, {
-      page: nextPage,
-      sessionId: selectedSessionId,
+    const query: Record<string, string> = {
+      page: String(nextPage),
+      ...queryParams,
+    };
+    if (selectedSessionId) query.sessionId = selectedSessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
     });
   };
 
   const selectSession = (sessionId: string) => {
-    updateRouteQuery(currentFilters, { page, sessionId });
-  };
-
-  // ---- active filter chips -------------------------------------------------
-  const activeFilters = useMemo(() => {
-    const chips: { key: string; label: string }[] = [];
-    for (const [key, val] of Object.entries(currentFilters)) {
-      const prefix = FILTER_LABELS[key] ?? key;
-      chips.push({ key, label: `${prefix}: ${val}` });
-    }
-    return chips;
-  }, [currentFilters]);
-
-  const removeFilter = (key: string) => {
-    const next = { ...currentFilters };
-    delete next[key];
-    updateRouteQuery(next, { page: 1, sessionId: selectedSessionId });
+    const query: Record<string, string> = {
+      page: String(page),
+      ...queryParams,
+    };
+    query.sessionId = sessionId;
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
+    });
   };
 
   // ---- player / chunk loading ----------------------------------------------
@@ -620,54 +527,21 @@ export default function SessionReplayPage() {
             </Button>
           </Flex>
 
-          {/* Filter popover + chips */}
+          {/* Search bar + filter dropdowns */}
           <Box mt="2">
-            <Flex align="center" gap="2" wrap="wrap">
-              <FilterQueryPopover
-                open={filterPopoverOpen}
-                onOpenChange={setFilterPopoverOpen}
-                onAdd={onAddFilter}
+            <Field
+              placeholder="Search filters (e.g. user:alice duration:>30)"
+              type="search"
+              {...searchInputProps}
+            />
+            <Flex mt="2" wrap="wrap">
+              <SessionReplaySearchFilters
+                searchInputProps={searchInputProps}
+                syntaxFilters={syntaxFilters}
+                setSearchValue={setSearchValue}
                 sessions={sessions}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    icon={<PiPlus />}
-                    onClick={() => setFilterPopoverOpen(true)}
-                  >
-                    Add filter
-                  </Button>
-                }
               />
-              {activeFilters.length > 0 && (
-                <Button size="xs" variant="ghost" onClick={clearFilters}>
-                  Clear
-                </Button>
-              )}
             </Flex>
-            {activeFilters.length > 0 && (
-              <Flex gap="1" wrap="wrap" mt="2">
-                {activeFilters.map((chip) => (
-                  <Badge
-                    key={chip.key}
-                    label={
-                      <Flex
-                        align="center"
-                        gap="1"
-                        style={{ cursor: "pointer" }}
-                        onClick={() => removeFilter(chip.key)}
-                      >
-                        {chip.label}
-                        <PiX style={{ fontSize: 10, opacity: 0.7 }} />
-                      </Flex>
-                    }
-                    size="xs"
-                    variant="soft"
-                    radius="full"
-                  />
-                ))}
-              </Flex>
-            )}
           </Box>
 
           {/* Session list */}
