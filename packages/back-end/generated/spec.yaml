@@ -43020,6 +43020,9 @@ components:
               required:
                 - type
               additionalProperties: false
+          required:
+            - type
+          additionalProperties: false
         windowSettings:
           description: Controls the conversion window for the metric
           type: object
