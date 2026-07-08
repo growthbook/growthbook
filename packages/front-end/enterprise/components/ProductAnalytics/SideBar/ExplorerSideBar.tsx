@@ -291,12 +291,12 @@ export default function ExplorerSideBar({
                   }
                   label={
                     <Flex direction="row" align="center" gap="1">
-                      Use dashboard date range
+                      Use dashboard date filter
                       <Tooltip
                         body={
                           useDashboardDateControl
                             ? "This block uses the dashboard date range."
-                            : "This block uses its own date range."
+                            : "This block overrides the dashboard date filter."
                         }
                       />
                     </Flex>

@@ -175,11 +175,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   );
 
   const [editTitle, setEditTitle] = useState(false);
-  const hasGlobalControls = Boolean(dashboardGlobalControls?.dateRange);
-  const shouldShowUnsupportedGlobalControlBadge =
-    hasGlobalControls &&
-    !isDashboardGlobalControlSupportedBlock(block) &&
-    block.type !== "markdown";
+  const shouldShowGlobalControlOptOutBadge =
+    Boolean(dashboardGlobalControls?.dateRange) &&
+    isDashboardGlobalControlSupportedBlock(block) &&
+    !blockUsesDashboardDateControl(block);
 
   // Type guards for sql-explorer blocks
   const isSqlExplorerWithDataVizIndex = (
@@ -511,31 +510,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 <PiPencilSimpleFill />
               </a>
             )}
-            {dashboardGlobalControls?.dateRange &&
-            isDashboardGlobalControlSupportedBlock(block) ? (
-              blockUsesDashboardDateControl(block) ? (
-                <Badge
-                  label="Dashboard date"
-                  color="violet"
-                  variant="soft"
-                  size="xs"
-                  ml="2"
-                />
-              ) : (
-                <Badge
-                  label="Uses block date"
-                  color="gray"
-                  variant="soft"
-                  size="xs"
-                  ml="2"
-                />
-              )
-            ) : null}
-            {shouldShowUnsupportedGlobalControlBadge ? (
+            {shouldShowGlobalControlOptOutBadge ? (
               <Badge
-                label="Not affected by global controls"
+                label="Uses block date filter"
                 color="gray"
-                variant="outline"
+                variant="soft"
                 size="xs"
                 ml="2"
               />

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
@@ -65,11 +65,9 @@ function DashboardStatusSummary({
       ? "One or more queries failed"
       : snapshotError
         ? "Error running analysis"
-        : needsUpdate
-          ? "Needs update"
-          : lastUpdateTime
-            ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
-            : "Not started yet";
+        : lastUpdateTime
+          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
+          : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
@@ -201,7 +199,7 @@ export default function DashboardUpdateDisplay({
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
-            variant="ghost"
+            variant={needsUpdate ? "solid" : "ghost"}
             onClick={async () => {
               await updateAllSnapshots();
               onUpdated?.();
