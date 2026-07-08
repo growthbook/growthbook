@@ -183,6 +183,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   mutate={mutate}
@@ -212,6 +213,7 @@ const NorthStarMetricDisplay = ({
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
                   model={

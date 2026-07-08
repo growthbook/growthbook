@@ -400,6 +400,24 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+const GROWTHBOOK_TRACKING_HEADERS = [
+  "X-GB-Session-Id",
+  "X-GB-Device-Id",
+  "X-GB-Page-Id",
+  "X-GB-Page-Url",
+  "X-GB-Page-Path",
+  "X-GB-Anonymous-Id",
+] as const;
+
+const INTERNAL_API_ALLOWED_HEADERS = [
+  "Content-Type",
+  "Authorization",
+  "X-Organization",
+  "X-SSO-Connection-ID",
+  "x-no-compression",
+  ...GROWTHBOOK_TRACKING_HEADERS,
+];
+
 // Routes register themselves with version prefixes (/v1/..., /v2/...) so we
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
@@ -409,12 +427,7 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Organization",
-      "X-SSO-Connection-ID",
-    ],
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
     credentials: false,
     maxAge: 86400,
   }),
@@ -463,6 +476,7 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
+    allowedHeaders: [...INTERNAL_API_ALLOWED_HEADERS],
   }),
 );
 
@@ -961,6 +975,10 @@ app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
+);
+app.post(
+  "/feature/:id/:version/contextual-bandit",
+  featuresController.postFeatureContextualBanditRefRule,
 );
 app.delete(
   "/experiment/:id/linked-feature/:featureId",

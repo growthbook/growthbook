@@ -397,6 +397,7 @@ export default function SDKConnectionForm({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
@@ -1081,7 +1082,10 @@ export default function SDKConnectionForm({
                 label={
                   <>
                     Enable <strong>Visual Editor</strong> experiments (
-                    <DocLink docSection="visual_editor">docs</DocLink>)
+                    <DocLink useRadix={false} docSection="visual_editor">
+                      docs
+                    </DocLink>
+                    )
                   </>
                 }
               />
@@ -1099,7 +1103,10 @@ export default function SDKConnectionForm({
                 label={
                   <>
                     Enable <strong>URL Redirect</strong> experiments (
-                    <DocLink docSection="url_redirects">docs</DocLink>)
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      docs
+                    </DocLink>
+                    )
                   </>
                 }
               />

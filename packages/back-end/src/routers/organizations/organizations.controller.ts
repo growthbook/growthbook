@@ -18,6 +18,7 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
@@ -33,6 +34,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -59,6 +61,8 @@ import { getDataSourcesWithParams } from "back-end/src/services/datasourceRespon
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  auditDetailsCreate,
+  auditDetailsDelete,
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
@@ -263,6 +267,13 @@ export async function getAllHistory(
     });
   }
 
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
   // Get total count for display
   const [entityCount, parentCount] = await Promise.all([
     countAllAuditsByEntityType(org.id, type),
@@ -345,6 +356,13 @@ export async function getHistory(
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
+  }
+
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
   }
 
   // Get total count for display
@@ -1816,6 +1834,7 @@ export async function postApiKey(
     projectRoles,
   } = req.body;
 
+  let key: ApiKeyInterface;
   // Handle user personal access tokens
   if (type === "user") {
     if (!userId) {
@@ -1823,31 +1842,94 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    const key = await context.models.apiKeys.createUserPersonalAccessApiKey({
+    key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
-    });
-
-    return res.status(200).json({
-      status: 200,
-      key,
     });
   }
   // Handle organization secret tokens
   else {
-    const key = await context.models.apiKeys.createOrganizationApiKey({
+    key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
       limitAccessByEnvironment,
       environments,
       projectRoles,
     });
-
-    return res.status(200).json({
-      status: 200,
-      key,
-    });
   }
+
+  await req.audit({
+    event: "apiKey.create",
+    entity: {
+      object: "apiKey",
+      id: key.id || "",
+      name: key.description,
+    },
+    details: auditDetailsCreate(ApiKeyModel.toAuditDetails(key)),
+  });
+
+  return res.status(200).json({
+    status: 200,
+    key,
+  });
+}
+
+export async function putApiKey(
+  req: AuthRequest<
+    {
+      role: string;
+      description?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      projectRoles?: ProjectMemberRole[];
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const {
+    role,
+    description,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
+
+  // Editing a key's authority is at least as sensitive as revealing it, so we
+  // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user
+  // keys (permissions.canCreateApiKey()).
+  if (!context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  // The model returns both the pre- and post-update docs from a single read so
+  // the audit log can diff the permission scope. If the key doesn't exist the
+  // model throws, so there is always a before-state here.
+  const { before, after } =
+    await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+      role,
+      description,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
+
+  await req.audit({
+    event: "apiKey.update",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function deleteApiKey(
@@ -1861,10 +1943,20 @@ export async function deleteApiKey(
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  await context.models.apiKeys.deleteByIdOrKey(
+  const deleted = await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
+
+  await req.audit({
+    event: "apiKey.delete",
+    entity: {
+      object: "apiKey",
+      id: deleted.id || "",
+      name: deleted.description,
+    },
+    details: auditDetailsDelete(ApiKeyModel.toAuditDetails(deleted)),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1879,7 +1971,25 @@ export async function putApiKeyDisabled(
   const { id } = req.params;
   const { disabled } = req.body;
 
-  await context.models.apiKeys.setDisabled(id, disabled);
+  // `setDisabled` returns both the pre- and post-update docs so we can log the
+  // before/after state from the real persisted doc.
+  const { before, after } = await context.models.apiKeys.setDisabled(
+    id,
+    disabled,
+  );
+
+  await req.audit({
+    event: disabled ? "apiKey.disable" : "apiKey.enable",
+    entity: {
+      object: "apiKey",
+      id: after.id || "",
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
 
   res.status(200).json({ status: 200 });
 }

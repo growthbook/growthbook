@@ -23,6 +23,7 @@ import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,7 +41,6 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
@@ -796,7 +796,6 @@ export default function SqlExplorerModal({
         submit={async () => await handleSubmit()}
         trackingEventModalType="sql-explorer"
         trackingEventModalSource={trackingEventModalSource}
-        useRadixButton={true}
       >
         {managedWarehousePendingEvents ? (
           <Box px="4" py="4">

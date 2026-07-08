@@ -38,6 +38,9 @@ export function getBanditVariationPeriodWeights(
 export function getBanditDates(
   banditSettings: SnapshotBanditSettings | undefined,
 ): Date[] | undefined {
+  if (banditSettings?.contextualBandit) {
+    return undefined;
+  }
   const historicalWeights = banditSettings?.historicalWeights;
   if (!Array.isArray(historicalWeights) || historicalWeights.length === 0) {
     return undefined;

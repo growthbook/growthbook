@@ -556,7 +556,6 @@ export default function MigrateResultsToDashboardModal({
           autoCloseOnSubmit={false}
           trackingEventModalType="migrate-results-to-dashboard"
           trackingEventModalSource="experiment-results"
-          useRadixButton={true}
         >
           <Page display="Select Dashboard & Block">
             <SelectDashboardAndBlockPage
