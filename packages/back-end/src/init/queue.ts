@@ -1,4 +1,5 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
+import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
@@ -25,12 +26,14 @@ import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStat
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
@@ -51,6 +54,7 @@ export async function queueInit() {
   updateAutoSlicesJob(agenda);
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
+  addScheduledPublishJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

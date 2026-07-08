@@ -49,6 +49,20 @@
 | **[savedGroup.revision.published](#savedGrouprevisionpublished)** | Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context. |
 | **[savedGroup.revision.reverted](#savedGrouprevisionreverted)** | Triggered when a saved group is reverted to a previous published revision |
 | **[savedGroup.revision.reopened](#savedGrouprevisionreopened)** | Triggered when a discarded revision is reopened |
+| **[constant.created](#constantcreated)** | Triggered when a constant is created |
+| **[constant.updated](#constantupdated)** | Triggered when a constant is updated |
+| **[constant.deleted](#constantdeleted)** | Triggered when a constant is deleted |
+| **[constant.revision.created](#constantrevisioncreated)** | Triggered when a new draft revision is created for a constant |
+| **[constant.revision.updated](#constantrevisionupdated)** | Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation. |
+| **[constant.revision.reviewRequested](#constantrevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[constant.revision.approved](#constantrevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[constant.revision.changesRequested](#constantrevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[constant.revision.commented](#constantrevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[constant.revision.discarded](#constantrevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[constant.revision.rebased](#constantrevisionrebased)** | Triggered when a draft revision is rebased onto the latest live state |
+| **[constant.revision.published](#constantrevisionpublished)** | Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context. |
+| **[constant.revision.reverted](#constantrevisionreverted)** | Triggered when a constant is reverted to a previous published revision |
+| **[constant.revision.reopened](#constantrevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
   
 ### feature.created
@@ -3054,6 +3068,7 @@ Triggered when a new draft revision is created for a saved group
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3168,6 +3183,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3283,6 +3299,7 @@ Triggered when a draft revision is submitted for review
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3397,6 +3414,7 @@ Triggered when a draft revision is approved by a reviewer
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3517,6 +3535,7 @@ Triggered when a reviewer requests changes on a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3637,6 +3656,7 @@ Triggered when a comment is added to a draft revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3757,6 +3777,7 @@ Triggered when a draft revision is discarded
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3871,6 +3892,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -3985,6 +4007,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4099,6 +4122,7 @@ Triggered when a saved group is reverted to a previous published revision
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4214,6 +4238,7 @@ Triggered when a discarded revision is reopened
                 userId: string;
                 decision: "approve" | "request-changes" | "comment";
                 comment?: string | undefined;
+                stale?: boolean | undefined;
                 dateCreated: string;
             }[];
             activityLog: {
@@ -4268,6 +4293,1496 @@ Triggered when a discarded revision is reopened
                 projects?: string[] | undefined;
                 archived?: boolean | undefined;
                 useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.created
+
+Triggered when a constant is created
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.created";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.updated
+
+Triggered when a constant is updated
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.updated";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+        previous_attributes: {
+            id?: string | undefined;
+            /** Stable reference handle; used as `@const:key` in values */
+            key?: string | undefined;
+            name?: string | undefined;
+            type?: ("string" | "json") | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated?: string | undefined;
+            dateUpdated?: string | undefined;
+        };
+        changes?: {
+            added: Record<string, unknown>;
+            removed: Record<string, unknown>;
+            modified: Record<string, unknown>;
+        } | undefined;
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.deleted
+
+Triggered when a constant is deleted
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.deleted";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            /** Stable reference handle; used as `@const:key` in values */
+            key: string;
+            name: string;
+            type: "string" | "json";
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+            value?: string | undefined;
+            /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+            environmentValues?: Record<string, string> | undefined;
+            description?: string | undefined;
+            /** The project this constant belongs to (empty = all projects) */
+            project?: string | undefined;
+            archived?: boolean | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.created
+
+Triggered when a new draft revision is created for a constant
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.created";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.updated
+
+Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.updated";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            change: "metadata" | "value" | "archive";
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reviewRequested";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.approved";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.changesRequested";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.commented";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.discarded";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest live state
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.rebased";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.published
+
+Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.published";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reverted
+
+Triggered when a constant is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reverted";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            revertedToVersion?: number | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### constant.revision.reopened
+
+Triggered when a discarded revision is reopened
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "constant.revision.reopened";
+    object: "constant";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                stale?: boolean | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
+            };
+            proposedConstant: {
+                id: string;
+                /** Stable reference handle; used as `@const:key` in values */
+                key: string;
+                name: string;
+                type: "string" | "json";
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** The default value (raw string for `string` constants, JSON-encoded for `json` constants) */
+                value?: string | undefined;
+                /** Per-environment value overrides (environment id → value). Falls back to `value` when an environment is absent. */
+                environmentValues?: Record<string, string> | undefined;
+                description?: string | undefined;
+                /** The project this constant belongs to (empty = all projects) */
+                project?: string | undefined;
+                archived?: boolean | undefined;
+                dateCreated: string;
+                dateUpdated: string;
             };
             proposedChanges: {
                 op: string;

@@ -112,7 +112,7 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Text as="label" htmlFor="featureKeyExample" mb="2">
               <Text size="3" className="font-weight-semibold">
-                Feature Key Example (Optional)
+                Feature Key Example
               </Text>
             </Text>
             <Text as="p" mb="2" size="2">
@@ -133,7 +133,7 @@ export default function FeatureSettings() {
               size="3"
               className="font-weight-semibold"
             >
-              Feature Key Regex Validator (Optional)
+              Feature Key Regex Validator
             </Text>
             <Text as="p" mb="2" size="2">
               When using the create feature modal, this will validate the
@@ -173,6 +173,20 @@ export default function FeatureSettings() {
               value={!!form.watch("defaultFeatureRulesInAllEnvs")}
               setValue={(value) =>
                 form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-sparseJSONRulesByDefault"
+              label="Default JSON rules to sparse patch mode"
+              description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
+              value={!!form.watch("sparseJSONRulesByDefault")}
+              setValue={(value) =>
+                form.setValue("sparseJSONRulesByDefault", value, {
                   shouldDirty: true,
                 })
               }
@@ -341,7 +355,7 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
-                      label="Only show code refs from the following branches (comma-separated, optional):"
+                      label="Only show code refs from the following branches (comma-separated):"
                       type="text"
                       placeholder="main, qa, dev"
                       value={codeRefsBranchesToFilterStr}
@@ -353,7 +367,7 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
-                      label="Platform (to allow direct linking, optional):"
+                      label="Platform (to allow direct linking):"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"
                       value={form.watch("codeRefsPlatformUrl") || ""}

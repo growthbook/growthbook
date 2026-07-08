@@ -829,6 +829,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -862,7 +863,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource project is deleted.
               </div>
             )}
-            {availableTemplates.length >= 1 &&
+            {hasCommercialFeature("templates") &&
+              availableTemplates.length >= 1 &&
               !isBandit &&
               !isImport &&
               !duplicate && (
@@ -1569,6 +1571,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
                 experimentId={initialValue?.id}
+                experimentType={type}
               />
             </div>
 

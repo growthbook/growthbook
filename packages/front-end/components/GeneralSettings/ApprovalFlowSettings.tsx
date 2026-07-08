@@ -291,20 +291,6 @@ export default function ApprovalFlowSettings() {
                                 form.setValue("restApiBypassesReviews", v)
                               }
                             />
-                            <Box mt="2">
-                              <Checkbox
-                                id="toggle-requireRebaseBeforePublish"
-                                label="Require drafts to be rebased with live before publishing"
-                                description="When enabled, a draft based on an older version (or whose approval is stale because changes were published since) must be rebased with the live version before it can be published."
-                                value={
-                                  form.watch("requireRebaseBeforePublish") ===
-                                  true
-                                }
-                                setValue={(v) =>
-                                  form.setValue("requireRebaseBeforePublish", v)
-                                }
-                              />
-                            </Box>
                           </Box>
                         )}
                       </Flex>
@@ -428,15 +414,32 @@ export default function ApprovalFlowSettings() {
           <Box width="100%">
             <Frame p="3" mb="0">
               <Heading as="h4" size="small" weight="semibold" mb="4">
-                Reverts
+                Global
               </Heading>
-              <Checkbox
-                id="toggle-reverts-bypass-approval"
-                label="Allow reverts without approval"
-                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and saved groups."
-                value={!!form.watch("revertsBypassApproval")}
-                setValue={(v) => form.setValue("revertsBypassApproval", v)}
-              />
+
+              <Text as="p" size="medium" mb="4" color="text-low">
+                These settings apply to every approval flow (features and saved
+                groups).
+              </Text>
+
+              <Flex direction="column" gap="3" align="start">
+                <Checkbox
+                  id="toggle-requireRebaseBeforePublish"
+                  label="Require drafts to be rebased with live before publishing"
+                  description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+                  value={form.watch("requireRebaseBeforePublish") === true}
+                  setValue={(v) =>
+                    form.setValue("requireRebaseBeforePublish", v)
+                  }
+                />
+                <Checkbox
+                  id="toggle-reverts-bypass-approval"
+                  label="Allow reverts without approval"
+                  description="Anyone with publish permission can revert to a past revision and publish it immediately, even when approvals are required."
+                  value={!!form.watch("revertsBypassApproval")}
+                  setValue={(v) => form.setValue("revertsBypassApproval", v)}
+                />
+              </Flex>
             </Frame>
           </Box>
         )}

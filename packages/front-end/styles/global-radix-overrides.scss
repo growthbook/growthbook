@@ -191,7 +191,10 @@
   .originalDate2,
   .activeDate,
   .scheduleStartDate,
-  .scheduleEndDate {
+  .scheduleEndDate,
+  .candidateBefore,
+  .candidateAfter,
+  .comparisonAnchor {
     &::before {
       content: "";
       position: absolute;
@@ -219,6 +222,21 @@
     &.scheduleEndDate {
       &::before {
         background-color: var(--tomato-a3) !important;
+      }
+    }
+    &.candidateBefore {
+      &::before {
+        background-color: var(--amber-a3) !important;
+      }
+    }
+    &.candidateAfter {
+      &::before {
+        background-color: var(--blue-a3) !important;
+      }
+    }
+    &.comparisonAnchor {
+      &::before {
+        border: 2px solid var(--violet-9) !important;
       }
     }
   }

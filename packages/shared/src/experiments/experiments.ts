@@ -937,7 +937,6 @@ export function getAllMetricSettingsForSnapshot({
     datasourceType === "google_analytics" ||
     datasourceType === "mixpanel"
   ) {
-    // these do not implement getExperimentMetricQuery
     regressionAdjustmentAvailable = false;
     regressionAdjustmentEnabled = false;
   }

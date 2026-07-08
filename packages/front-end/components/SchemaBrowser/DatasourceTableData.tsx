@@ -1,11 +1,18 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+} from "shared/util";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import { InformationSchemaTablesInterface } from "shared/types/integrations";
+import { JSONColumnFields } from "shared/types/fact-table";
 import { useEffect, useMemo, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { Box } from "@radix-ui/themes";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -42,17 +49,60 @@ export default function DatasourceSchema({
   const [dateLastUpdated, setDateLastUpdated] = useState<Date | null>(null);
   const [columnFilter, setColumnFilter] = useState("");
   const { apiCall } = useAuth();
+  const { getFactTableById } = useDefinitions();
+
+  // For a managed warehouse, the raw information schema reports `attributes` /
+  // `properties` as single JSON columns. Pull the detected sub-fields from the
+  // built-in `ch_events` fact table so they show as `attributes.<field>` rows,
+  // matching the fact-table column list.
+  const jsonFieldsByColumn = useMemo<Record<string, JSONColumnFields>>(() => {
+    if (
+      datasource.type !== "growthbook_clickhouse" ||
+      table?.tableName !== MANAGED_WAREHOUSE_EVENTS_TABLE
+    ) {
+      return {};
+    }
+    const factTable = getFactTableById(MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID);
+    if (!factTable || factTable.datasource !== datasourceId) return {};
+    const map: Record<string, JSONColumnFields> = {};
+    for (const col of factTable.columns) {
+      if (col.datatype === "json" && !col.deleted && col.jsonFields) {
+        map[col.column] = col.jsonFields;
+      }
+    }
+    return map;
+  }, [datasource.type, table?.tableName, getFactTableById, datasourceId]);
+
+  // Information-schema columns with JSON sub-fields expanded into their own
+  // pseudo-column rows (`attributes.<field>`).
+  const expandedColumns = useMemo(() => {
+    const out: { columnName: string; dataType: string; jsonField?: boolean }[] =
+      [];
+    for (const column of table?.columns || []) {
+      out.push({ columnName: column.columnName, dataType: column.dataType });
+      const jsonFields = jsonFieldsByColumn[column.columnName];
+      if (jsonFields) {
+        for (const [field, data] of Object.entries(jsonFields)) {
+          out.push({
+            columnName: `${column.columnName}.${field}`,
+            dataType: data.datatype,
+            jsonField: true,
+          });
+        }
+      }
+    }
+    return out;
+  }, [table?.columns, jsonFieldsByColumn]);
 
   const filteredColumns = useMemo(() => {
-    if (!table?.columns) return [];
-    if (!columnFilter) return table.columns;
+    if (!columnFilter) return expandedColumns;
 
-    return table.columns.filter((column) => {
+    return expandedColumns.filter((column) => {
       return column.columnName
         .toLowerCase()
         .includes(columnFilter.trim().toLowerCase());
     });
-  }, [columnFilter, table?.columns]);
+  }, [columnFilter, expandedColumns]);
 
   useEffect(() => {
     if (fetching) {
@@ -152,10 +202,10 @@ export default function DatasourceSchema({
                           ).toLocaleString()}`}
                         </div>
                         {!canRunQueries ? (
-                          <div className="alert alert-warning mt-2">
+                          <Callout status="warning" mt="2">
                             You do not have permission to refresh this
                             information schema.
-                          </div>
+                          </Callout>
                         ) : null}
                       </div>
                     }
@@ -211,7 +261,18 @@ export default function DatasourceSchema({
                 {filteredColumns?.map((column) => {
                   return (
                     <tr key={`${table.tableName}:${column.columnName}`}>
-                      <td className="pl-3">{column.columnName}</td>
+                      <td className="pl-3">
+                        {column.jsonField ? (
+                          <span
+                            className="text-muted"
+                            style={{ paddingLeft: 16 }}
+                          >
+                            {column.columnName}
+                          </span>
+                        ) : (
+                          column.columnName
+                        )}
+                      </td>
                       <td className="pr-3 text-right text-muted">
                         {column.dataType}
                       </td>

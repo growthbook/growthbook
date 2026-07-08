@@ -19,6 +19,7 @@ import {
   ReverseDependencyIndex,
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
+  parsePlainJSONObject,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -31,12 +32,18 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  ContextualBanditInterface,
+  VariationWeightPair,
+} from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
   getPayloadAllowedKeys,
   replaceSavedGroups,
+  resolveConstantRefs,
+  ConstantValueMap,
   SDKCapability,
 } from "shared/sdk-versioning";
 import { OrganizationInterface, Environment } from "shared/types/organization";
@@ -56,6 +63,15 @@ import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+function pairedWeightsToPositional(
+  paired: VariationWeightPair[],
+  variations: { id: string }[],
+): number[] {
+  return variations.map(
+    (v) => paired.find((w) => w.variationId === v.id)?.weight ?? 0,
+  );
+}
 
 export interface FeatureLookups {
   featuresMap: Map<string, FeatureInterface>;
@@ -530,7 +546,9 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  cbMap,
   rampMonitoredRuleMap,
+  constantMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -556,7 +574,13 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
+  // Per-environment constant values. When provided, `@const:` references in
+  // sparse rule values (and the default they merge onto) are resolved BEFORE the
+  // sparse merge, so the rule's own fields are applied last and win over the
+  // resolved constant. Non-sparse values are resolved by the caller afterward.
+  constantMap?: ConstantValueMap;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -568,6 +592,64 @@ export function getFeatureDefinition({
   const defaultValue = revision
     ? (revision.defaultValue ?? feature.defaultValue)
     : feature.defaultValue;
+
+  // For `json` features, parse the default value once so rules flagged `sparse`
+  // can merge their partial object onto it. Null when the default isn't a plain
+  // key/val object (array, null, primitive) — sparse is then a no-op and rules
+  // emit their value as-is. When a constant map is supplied, resolve the
+  // default's `$extends` references first so they form the sparse merge base
+  // (the resolved default + its keys), which the patch then overrides.
+  const jsonDefaultObj = (() => {
+    if (feature.valueType !== "json") return null;
+    const base = parsePlainJSONObject(defaultValue);
+    if (!base || !constantMap) return base;
+    const resolved = resolveConstantRefs(
+      base,
+      constantMap,
+      undefined,
+      undefined,
+      feature.project || "",
+    );
+    return resolved !== null &&
+      typeof resolved === "object" &&
+      !Array.isArray(resolved)
+      ? (resolved as Record<string, unknown>)
+      : base;
+  })();
+
+  const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
+    if (sparse && jsonDefaultObj) {
+      const patch = parsePlainJSONObject(valueStr);
+      if (patch !== null) {
+        // Resolve the patch's constants BEFORE merging so the rule's fields are
+        // spread last and win over the (already-resolved) default — i.e. sparse
+        // fields are "further down". Non-object resolutions (e.g. a whole-value
+        // JSON constant that resolves to an array) replace the value outright.
+        const resolvedPatch = constantMap
+          ? resolveConstantRefs(
+              patch,
+              constantMap,
+              undefined,
+              undefined,
+              feature.project || "",
+            )
+          : patch;
+        if (
+          resolvedPatch !== null &&
+          typeof resolvedPatch === "object" &&
+          !Array.isArray(resolvedPatch)
+        ) {
+          return {
+            ...jsonDefaultObj,
+            ...(resolvedPatch as Record<string, unknown>),
+          };
+        }
+        return resolvedPatch;
+      }
+    }
+    // Non-sparse values are resolved by the caller's post-build pass.
+    return getJSONValue(feature.valueType, valueStr);
+  };
 
   // Rule source: revision's unified array (draft/published) > feature's (live).
   // Legacy `settings.rules` is test-only — production reads flow through
@@ -772,7 +854,7 @@ export function getFeatureDefinition({
             if (!variation) return null;
 
             // If a variation has been rolled out to 100%
-            rule.force = getJSONValue(feature.valueType, variation.value);
+            rule.force = valueForSDK(variation.value, r.sparse);
           }
           // Running experiment
           else {
@@ -780,11 +862,10 @@ export function getFeatureDefinition({
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
+              return variation ? valueForSDK(variation.value, r.sparse) : null;
             });
             rule.weights = phase.variationWeights;
+
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -831,6 +912,95 @@ export function getFeatureDefinition({
           return rule;
         }
 
+        if (r.type === "contextual-bandit-ref") {
+          const cb = cbMap?.get(r.contextualBanditId);
+          if (!cb) return null;
+
+          if (cb.status === "draft") return null;
+
+          const phaseCondition = getParsedCondition(groupMap, cb.condition);
+          if (phaseCondition) {
+            rule.condition = phaseCondition;
+          }
+
+          rule.coverage = cb.coverage;
+
+          if (cb.hashAttribute) {
+            rule.hashAttribute = cb.hashAttribute;
+          }
+          if (cb.seed) {
+            rule.seed = cb.seed;
+          }
+          rule.hashVersion = 2;
+
+          if (cb.status === "stopped") {
+            return null;
+          }
+
+          rule.variations = cb.variations.map((v) => {
+            const variation = r.variations?.find(
+              (rv) => rv.variationId === v.id,
+            );
+            return variation
+              ? getJSONValue(feature.valueType, variation.value)
+              : null;
+          });
+          rule.weights = cb.variationWeights
+            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            : undefined;
+
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          if (cbCapable) {
+            rule.isContextualBandit = true;
+            rule.attributesRequired = cb.contextualAttributes;
+            rule.contexts = (cb.currentLeafWeights ?? []).map((lw) => ({
+              leafId: lw.leafId,
+              condition: lw.condition,
+              weights: pairedWeightsToPositional(lw.weights, cb.variations),
+            }));
+          }
+
+          rule.key = cb.trackingKey;
+          rule.meta = includeExperimentNames
+            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
+            : cb.variations.map((v) => ({ key: v.key }));
+          rule.phase = "0";
+          if (includeExperimentNames) rule.name = cb.name;
+
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          if (metadataOptions) {
+            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              {
+                project: cb.project,
+                tags: cb.tags,
+              },
+              metadataOptions,
+              projectsMap,
+            );
+            if (cbMetadata) rule.metadata = cbMetadata;
+          }
+
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            return picked;
+          }
+          return rule;
+        }
+
         const condition = getParsedCondition(
           groupMap,
           r.condition,
@@ -856,7 +1026,7 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = getJSONValue(feature.valueType, r.value);
+          rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
             getJSONValue(feature.valueType, v.value),
@@ -914,7 +1084,7 @@ export function getFeatureDefinition({
               : feature.defaultValue;
 
             rule.variations = [
-              getJSONValue(feature.valueType, r.value),
+              valueForSDK(r.value, r.sparse),
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
@@ -965,7 +1135,7 @@ export function getFeatureDefinition({
                 "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
               );
             }
-            rule.force = getJSONValue(feature.valueType, r.value);
+            rule.force = valueForSDK(r.value, r.sparse);
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
             if (clampedCoverage < 1) {

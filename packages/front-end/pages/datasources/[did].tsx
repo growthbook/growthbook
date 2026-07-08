@@ -9,7 +9,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -19,6 +19,7 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
@@ -38,6 +39,7 @@ import {
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
+import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
@@ -55,6 +57,7 @@ function quotePropertyName(name: string) {
 }
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -95,6 +98,7 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
+  const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const managedWarehouseAwaitingProvisioning = d
@@ -182,7 +186,11 @@ const DataSourcePage: FC = () => {
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
+          <DocLink
+            useRadix={false}
+            docSection="env_prod"
+            className="btn btn-primary"
+          >
             View instructions for fixing
           </DocLink>
         </div>
@@ -250,6 +258,7 @@ const DataSourcePage: FC = () => {
                 }}
               >
                 <DocLink
+                  useRadix={false}
                   docSection={d.type as DocSection}
                   fallBackSection="datasources"
                 >
@@ -436,7 +445,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       Sending Events
                     </Heading>
                     <Text>
-                      <DocLink docSection="managedWarehouseTracking">
+                      <DocLink
+                        useRadix={false}
+                        docSection="managedWarehouseTracking"
+                      >
                         Read our full docs
                       </DocLink>{" "}
                       with instructions on how to send events from your app to
@@ -444,12 +456,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    <ClickhouseMaterializedColumns
-                      dataSource={d}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                      mutate={mutateDefinitions}
-                    />
+                    {d.settings.useJsonColumns ? (
+                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                    ) : (
+                      <ClickhouseMaterializedColumns
+                        dataSource={d}
+                        onCancel={() => undefined}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={mutateDefinitions}
+                      />
+                    )}
                   </Frame>
                 </>
               )
@@ -497,6 +513,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
+
+                {contextualBanditsEnabled &&
+                  hasCommercialFeature("contextual-bandits") && (
+                    <Frame id={CBAQ_ANCHOR_ID}>
+                      <ContextualBanditAssignmentQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
 
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (

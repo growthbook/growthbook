@@ -1,4 +1,5 @@
 import React from "react";
+import PylonChatVisibility from "@/components/Auth/PylonChatVisibility";
 import AgentPanel from "./AgentPanel";
 import { useAgentPanel } from "./AgentPanelContext";
 
@@ -15,11 +16,15 @@ export default function AgentLauncher() {
   if (!available) return null;
 
   return (
-    <AgentPanel
-      open={open}
-      expanded={expanded}
-      onClose={closePanel}
-      onToggleExpanded={toggleExpanded}
-    />
+    <>
+      <AgentPanel
+        open={open}
+        expanded={expanded}
+        onClose={closePanel}
+        onToggleExpanded={toggleExpanded}
+      />
+      {/* Keep the live chat widget from overlapping the panel while it's open. */}
+      <PylonChatVisibility />
+    </>
   );
 }

@@ -33,6 +33,7 @@ import {
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  formatJsonMultilineObjects,
   type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -263,6 +264,16 @@ export function useFeatureSearch({
     syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
+    // These back the `has`/`is`/`on`/`off` filters below and load asynchronously;
+    // listing them keeps results from going stale when the data arrives.
+    searchTermFilterDeps: [
+      environmentStatus,
+      draftStates,
+      staleStates,
+      rampStates,
+      dependencyIndex,
+      experimentStates,
+    ],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.valueType];
@@ -388,12 +399,12 @@ export function formatJSON(value: string): string | undefined {
     // Use dirty-json for small files to handle malformed JSON
     try {
       const parsed = dJSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Fallback to native JSON.parse if dirty-json fails
       try {
         const parsed = JSON.parse(value);
-        formatted = stringify(parsed);
+        formatted = formatJsonMultilineObjects(parsed);
       } catch (e2) {
         // Ignore
       }
@@ -402,7 +413,7 @@ export function formatJSON(value: string): string | undefined {
     // For medium+ files, only use native JSON.parse (much faster)
     try {
       const parsed = JSON.parse(value);
-      formatted = stringify(parsed);
+      formatted = formatJsonMultilineObjects(parsed);
     } catch (e) {
       // Invalid JSON - skip formatting to avoid blocking UI
     }
@@ -775,6 +786,20 @@ export function validateFeatureRule(
       if (newValue !== v.value) {
         hasChanges = true;
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
+  } else if (rule.type === "contextual-bandit-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i,
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as unknown as { variations: { value: string }[] }).variations[
+          i
+        ].value = newValue;
       }
     });
   } else if (rule.type === "safe-rollout") {
@@ -1497,7 +1522,8 @@ export function useAttributeMap(
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
+          (schema.datatype === "enum" || schema.datatype.endsWith("[]")) &&
+          schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
               ? ALL_COUNTRY_CODES
@@ -1627,7 +1653,8 @@ export function getDefaultOperator(attribute: AttributeData) {
   if (attribute.datatype === "boolean") {
     return "$true";
   } else if (attribute.array) {
-    return "$includes";
+    // Enum-constrained lists use set operators so the restricted MultiSelect shows.
+    return attribute.enum.length ? "$in" : "$includes";
   } else if (attribute.format === "version") {
     return "$veq";
   } else if (attribute.disableEqualityConditions) {

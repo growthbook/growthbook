@@ -186,6 +186,7 @@ export default function MetricsSettings() {
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
               required
+              markRequired
               placeholder="Select currency..."
               helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
             />

@@ -15,7 +15,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
     useCache: false,
     fullRefresh: true,
     fullRefreshReason:
-      "No prior incremental refresh state for this experiment.",
+      "No prior Incremental Pipeline state for this experiment.",
     incrementalFallbackReason: null,
   };
 

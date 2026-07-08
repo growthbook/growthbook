@@ -206,6 +206,12 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   if (req.body.variations) {
+    // Resolve the `variationId` response-field alias to `id` before validating,
+    // so echoing GET variations back doesn't regenerate ids (validateVariationIds
+    // assigns a fresh id to any variation missing one).
+    req.body.variations.forEach((v) => {
+      if (!v.id && v.variationId) v.id = v.variationId;
+    });
     validateVariationIds(req.body.variations as Variation[]);
   }
 

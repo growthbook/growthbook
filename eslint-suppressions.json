@@ -109,11 +109,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Dimensions/DimensionChooser.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Dimensions/DimensionForm.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -167,11 +162,6 @@
   "packages/front-end/components/ExecReports/ExperimentWinRate.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/BaselineChooserColumnLabel.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/BreakDownResults.tsx": {
@@ -318,11 +308,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/AnalysisSettingsSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/BanditUpdateStatus.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -407,11 +392,6 @@
   "packages/front-end/components/Experiment/VariationIdWarning.tsx": {
     "local/no-alert-classname": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Experiment/VariationsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
@@ -548,18 +528,8 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RevisionDropdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -780,7 +750,7 @@
   },
   "packages/front-end/components/HealthTab/SRMCard.tsx": {
     "local/no-alert-classname": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/HistoryTable.tsx": {
@@ -1044,16 +1014,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Revision/RevisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Revision/RevisionDetail.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SafeRollout/AnalysisSettingsSummary.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -1064,22 +1024,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/SavedGroups/CompareSavedGroupRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/SavedGroups/IdLists.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/SavedGroupArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1107,11 +1057,6 @@
   "packages/front-end/components/SchemaBrowser/BuildInformationSchemaCard.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/SchemaBrowser/DatasourceTableData.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/SchemaBrowser/EditSqlModal.tsx": {
@@ -1158,11 +1103,6 @@
     },
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/ApiKeys.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
     }
   },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
@@ -1768,7 +1708,7 @@
   },
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/pages/sdks/index.tsx": {
@@ -1817,6 +1757,11 @@
   "packages/sdk-react/rollup.config.mjs": {
     "prettier/prettier": {
       "count": 2
+    }
+  },
+  "packages/stats-ts/test/statistics.test.ts": {
+    "no-loss-of-precision": {
+      "count": 1
     }
   }
 }
