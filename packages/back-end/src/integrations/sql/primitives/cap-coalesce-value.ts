@@ -45,31 +45,23 @@ export function capCoalesceValue(
   // which is true for now
   if (hasUpperAbs || hasUpperPct || hasLowerAbs || hasLowerPct) {
     let expression = dialect.castToFloat(`COALESCE(${valueCol}, 0)`);
-    // Bound expressions (absolute threshold or percentile cap column).
-    const upperBoundExpr = hasUpperAbs
-      ? `${upperThreshold}`
-      : hasUpperPct
-        ? `${capTablePrefix}.${capValueCol}`
-        : null;
-    if (upperBoundExpr !== null) {
-      expression = `LEAST(${expression}, ${upperBoundExpr})`;
-    }
     const lowerPrefix = lowerCapTablePrefix ?? capTablePrefix;
-    const lowerBoundExpr = hasLowerAbs
-      ? `${lowerThreshold}`
-      : hasLowerPct
-        ? `${lowerPrefix}.${lowerCapValueCol}`
-        : null;
-    if (lowerBoundExpr !== null) {
-      // With mixed types the lower bound can land above the upper bound (same-
-      // type crossing is validated at save time). Clamp the lower bound to at
-      // most the upper bound so GREATEST(...) can't collapse every row to the
-      // floor; degrade to "capped at the upper bound" instead.
-      const clampedLowerBound =
-        upperBoundExpr !== null
-          ? `LEAST(${lowerBoundExpr}, ${upperBoundExpr})`
-          : lowerBoundExpr;
-      expression = `GREATEST(${expression}, ${clampedLowerBound})`;
+    // Absolute caps are applied OUTERMOST (percentile inner, absolute outer).
+    // When one tail is absolute and the other percentile and their thresholds
+    // cross (only possible for mixed types; same-type pairs are validated at
+    // save time), this ordering collapses every value to the absolute bound —
+    // the user's explicit number wins over the data-dependent percentile.
+    if (hasUpperPct) {
+      expression = `LEAST(${expression}, ${capTablePrefix}.${capValueCol})`;
+    }
+    if (hasLowerPct) {
+      expression = `GREATEST(${expression}, ${lowerPrefix}.${lowerCapValueCol})`;
+    }
+    if (hasUpperAbs) {
+      expression = `LEAST(${expression}, ${upperThreshold})`;
+    }
+    if (hasLowerAbs) {
+      expression = `GREATEST(${expression}, ${lowerThreshold})`;
     }
     return expression;
   }

@@ -18,18 +18,35 @@ describe("capCoalesceValue", () => {
     expect(sql).toBe("LEAST(CAST(COALESCE(m.value, 0) AS FLOAT), c.value_cap)");
   });
 
-  it("clamps the lower bound to the upper bound for mixed-type tails (absolute lower + percentile upper)", () => {
+  it("applies the absolute cap OUTERMOST for mixed-type tails (absolute lower + percentile upper)", () => {
     const metric = factMetricFactory.build({
       metricType: "mean",
       cappingSettings: { type: "percentile", value: 0.99, ignoreZeros: false },
       lowerCappingSettings: { type: "absolute", value: 5, ignoreZeros: false },
     });
     const sql = capCoalesceValue(dialect, { valueCol: "m.value", metric });
-    // The lower absolute bound (5) is clamped to at most the upper percentile
-    // cap column so a crossed threshold degrades to "capped at the upper bound"
-    // instead of collapsing every row to the floor.
+    // Percentile upper cap is applied inner, absolute lower cap outer, so a
+    // crossed threshold collapses every value to the absolute bound (5).
     expect(sql).toBe(
-      "GREATEST(LEAST(CAST(COALESCE(m.value, 0) AS FLOAT), c.value_cap), LEAST(5, c.value_cap))",
+      "GREATEST(LEAST(CAST(COALESCE(m.value, 0) AS FLOAT), c.value_cap), 5)",
+    );
+  });
+
+  it("applies the absolute cap OUTERMOST for mixed-type tails (absolute upper + percentile lower)", () => {
+    const metric = factMetricFactory.build({
+      metricType: "mean",
+      cappingSettings: { type: "absolute", value: 100, ignoreZeros: false },
+      lowerCappingSettings: {
+        type: "percentile",
+        value: 0.05,
+        ignoreZeros: false,
+      },
+    });
+    const sql = capCoalesceValue(dialect, { valueCol: "m.value", metric });
+    // Percentile lower cap is applied inner, absolute upper cap outer, so a
+    // crossed threshold collapses every value to the absolute bound (100).
+    expect(sql).toBe(
+      "LEAST(GREATEST(CAST(COALESCE(m.value, 0) AS FLOAT), c.value_cap_lower), 100)",
     );
   });
 
