@@ -218,7 +218,7 @@ const VerifyConnectionPage = ({
                 sort={false}
               />
             </Box>
-            <DocLink docSection={docs}>
+            <DocLink useRadix={false} docSection={docs}>
               View documentation <PiArrowRight />
             </DocLink>
           </Flex>

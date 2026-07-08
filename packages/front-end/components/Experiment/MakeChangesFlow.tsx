@@ -131,6 +131,7 @@ export default function MakeChangesFlow({
 
   return (
     <PagedModal
+      useRadixButton={false}
       trackingEventModalType="make-changes"
       close={close}
       header={`Make ${isBandit ? "Bandit" : "Experiment"} Changes`}

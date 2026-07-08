@@ -1,10 +1,12 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import React from "react";
+import { Box } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import { IncompatibleSDKsPopover } from "@/components/Features/SDKCapabilityWarning";
+import Text from "@/ui/Text";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
@@ -76,15 +78,17 @@ export default function LargeSavedGroupPerformanceWarning({
       dismissible={true}
       id="large-saved-group-support-warning"
     >
-      <span>
-        Enable &quot;Pass Saved Groups by reference&quot; on your SDK
-        Connections to improve performance.
+      <Box as="span">
+        <Text mr="2">
+          Enable &quot;Pass Saved Groups by reference&quot; on your SDK
+          Connections to improve performance.
+        </Text>
         <IncompatibleSDKsPopover
           connections={connections}
           incompatibleConnections={unsupportedConnections}
           capability="savedGroupReferences"
         />
-      </span>
+      </Box>
     </Callout>
   );
 }

@@ -584,7 +584,9 @@ export default function EventForwarder({
         directly into this data source so you can query and analyze it alongside
         the rest of your warehouse data. More information available on our
         docs.&nbsp;
-        <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
+        <DocLink useRadix={false} docSection="eventForwarder">
+          Event Forwarder Docs
+        </DocLink>
       </p>
 
       {!eventForwarderConfig ? (

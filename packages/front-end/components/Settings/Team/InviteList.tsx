@@ -213,7 +213,7 @@ const InviteList: FC<{
                     );
                   })}
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <button
                         className="dropdown-item"
                         onClick={(e) => {

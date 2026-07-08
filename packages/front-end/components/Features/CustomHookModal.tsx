@@ -213,6 +213,7 @@ export default function CustomHookModal({
 
   return (
     <Modal
+      useRadixButton={false}
       header={current?.id ? "Edit Custom Hook" : "Add Custom Hook"}
       close={close}
       open={true}

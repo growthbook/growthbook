@@ -67,6 +67,7 @@ export default function SaveQueryModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="save-query"
       open
       header="Save Query"

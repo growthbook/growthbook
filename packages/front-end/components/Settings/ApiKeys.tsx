@@ -1,9 +1,9 @@
 import React, { FC } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Callout from "@/ui/Callout";
 import SecretApiKeys from "./SecretApiKeys";
 
 const ApiKeys: FC = () => {

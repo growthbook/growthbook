@@ -232,6 +232,7 @@ export default function LegacyReportPage({
           {canDeleteReport &&
             (userId === report?.userId || !report?.userId) && (
               <DeleteButton
+                useRadix={false}
                 displayName="Custom Report"
                 link={false}
                 className="float-right btn-sm"
@@ -388,6 +389,7 @@ export default function LegacyReportPage({
                         }}
                       >
                         <RunQueriesButton
+                          useRadixButton={false}
                           icon="refresh"
                           cta="Refresh Data"
                           mutate={mutate}

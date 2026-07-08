@@ -250,6 +250,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -593,7 +594,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   <>
                     Column may be used to automatically slice metrics during
                     experiment analysis.{" "}
-                    <DocLink docSection="autoSlices">
+                    <DocLink useRadix={false} docSection="autoSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
                   </>

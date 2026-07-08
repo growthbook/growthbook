@@ -221,6 +221,7 @@ export default function FactTablePage() {
       )}
       {auditModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Audit Log"

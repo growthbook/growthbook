@@ -69,6 +69,7 @@ export default function EnvironmentModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -188,7 +189,7 @@ export default function EnvironmentModal({
                 </div>
                 <div>
                   For programmatic control of environment inheritance, use the{" "}
-                  <DocLink docSection="apiPostEnvironment">
+                  <DocLink useRadix={false} docSection="apiPostEnvironment">
                     API endpoint instead
                   </DocLink>
                 </div>

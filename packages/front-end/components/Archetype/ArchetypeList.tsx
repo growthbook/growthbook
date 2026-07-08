@@ -189,7 +189,7 @@ export const ArchetypeList: FC<{
                       )}
                     </td>
                     <td className={styles.showOnHover}>
-                      <MoreMenu>
+                      <MoreMenu useRadix={false}>
                         {canEdit ? (
                           <button
                             className="dropdown-item"
@@ -202,6 +202,7 @@ export const ArchetypeList: FC<{
                         ) : null}
                         {canDelete ? (
                           <DeleteButton
+                            useRadix={false}
                             className="dropdown-item"
                             displayName="Archetype"
                             text="Delete"

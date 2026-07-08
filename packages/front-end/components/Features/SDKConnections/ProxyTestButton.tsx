@@ -31,6 +31,7 @@ export default function ProxyTestButton({
     <>
       {proxyTestResult && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           header="Proxy Status"
           open={true}

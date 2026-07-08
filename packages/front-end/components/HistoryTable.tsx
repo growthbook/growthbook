@@ -163,7 +163,8 @@ const HistoryTable: FC<{
     | "feature"
     | "savedGroup"
     | "factTable"
-    | "datasource";
+    | "datasource"
+    | "apiKey";
   showName?: boolean;
   showType?: boolean;
   id?: string;

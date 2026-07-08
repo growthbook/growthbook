@@ -467,7 +467,7 @@ function ImpactTooltips({
         ((variationHopping && releasePlan !== "same-phase-sticky") ||
           recommendStickyBucketing) && (
           <div className="text-right mb-2 small">
-            <DocLink docSection="stickyBucketing">
+            <DocLink useRadix={false} docSection="stickyBucketing">
               Learn about Sticky Bucketing <FaExternalLinkAlt />
             </DocLink>
           </div>

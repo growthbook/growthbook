@@ -79,11 +79,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Dimensions/DimensionChooser.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Dimensions/DimensionForm.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -117,11 +112,6 @@
   "packages/front-end/components/ExecReports/ExperimentWinRate.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/BaselineChooserColumnLabel.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/CompactResults.tsx": {
@@ -274,11 +264,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/VariationsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/holdout/HoldoutTimeline.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -400,11 +385,6 @@
     }
   },
   "packages/front-end/components/Features/PrerequisiteStatusRow.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -754,27 +734,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Revision/RevisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Revision/RevisionDetail.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/SavedGroups/IdListItemInput.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "packages/front-end/components/SavedGroups/IdLists.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/SavedGroups/SavedGroupArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1252,6 +1217,11 @@
   "packages/sdk-react/rollup.config.mjs": {
     "prettier/prettier": {
       "count": 2
+    }
+  },
+  "packages/stats-ts/test/statistics.test.ts": {
+    "no-loss-of-precision": {
+      "count": 1
     }
   }
 }

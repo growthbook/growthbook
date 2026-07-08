@@ -126,7 +126,9 @@ export default function DataSourceMetrics({
         <p className="m-0">
           Metrics are what your experiments are trying to improve (or at least
           not hurt). Below are the metrics defined from this data source.{" "}
-          <DocLink docSection="metrics">Learn more.</DocLink>
+          <DocLink useRadix={false} docSection="metrics">
+            Learn more.
+          </DocLink>
         </p>
         <Button
           variant="ghost"
@@ -231,7 +233,7 @@ export default function DataSourceMetrics({
                             </Tooltip>
                           ) : null}
                         </div>
-                        <MoreMenu className="px-2">
+                        <MoreMenu useRadix={false} className="px-2">
                           {metric.onDuplicate ? (
                             <button
                               className="btn dropdown-item py-2"

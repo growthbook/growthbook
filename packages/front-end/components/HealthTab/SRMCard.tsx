@@ -151,10 +151,8 @@ export default function SRMCard({
                   />
                 ) : (
                   <Callout status="info">
-                    <b>
-                      More traffic is required to detect a Sample Ratio Mismatch
-                      (SRM).
-                    </b>
+                    More traffic is required to detect a Sample Ratio Mismatch
+                    (SRM).
                   </Callout>
                 )}
               </div>

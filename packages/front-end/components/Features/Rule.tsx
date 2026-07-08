@@ -45,6 +45,7 @@ import RampTimeline, {
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
+import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
 import {
   isRuleInactive,
@@ -1505,6 +1506,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 rule={rule}
                 isDraft={isDraft}
               />
+            )}
+            {rule.type === "contextual-bandit-ref" && (
+              <ContextualBanditRefSummary rule={rule} feature={feature} />
             )}
             {rampSchedule && (
               <Box mt="4">

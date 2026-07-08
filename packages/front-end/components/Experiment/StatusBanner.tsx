@@ -2,6 +2,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
+import track from "@/services/track";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -141,6 +142,11 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                   body: JSON.stringify({
                     status: "running",
                   }),
+                });
+                track("Start experiment", {
+                  source: "experiment-start-banner-on-results",
+                  hasDatasource: !!experiment.datasource,
+                  hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
                 });
                 mutateExperiment();
               }}
