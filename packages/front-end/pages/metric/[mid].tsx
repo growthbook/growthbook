@@ -16,6 +16,7 @@ import { date } from "shared/dates";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
+import { canCreateLegacyMetric } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
@@ -138,7 +139,7 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+  const canDuplicateMetric = canCreateLegacyMetric(settings, permissionsUtil, {
     // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
     projects: metric.projects,
   });
