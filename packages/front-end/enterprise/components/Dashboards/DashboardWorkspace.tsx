@@ -10,6 +10,7 @@ import {
   getBlockData,
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
+  isDashboardGlobalControlSupportedBlock,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -285,7 +286,17 @@ export default function DashboardWorkspace({
         : undefined,
     });
 
-    setStagedAddBlock(blockData);
+    setStagedAddBlock(
+      isDashboardGlobalControlSupportedBlock(blockData)
+        ? {
+            ...blockData,
+            globalControlSettings: {
+              ...blockData.globalControlSettings,
+              dateRange: true,
+            },
+          }
+        : blockData,
+    );
     setAddBlockIndex(index);
     setEditSidebarDirty(true);
   };
