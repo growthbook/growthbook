@@ -31,6 +31,7 @@ type ApiKeysTableProps = {
     disabled: boolean,
   ) => () => Promise<void>;
   onEdit?: (key: ApiKeyInterface) => void;
+  onShowAuditLog?: (key: ApiKeyInterface) => void;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
@@ -41,6 +42,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onReveal,
   onToggleDisabled,
   onEdit,
+  onShowAuditLog,
 }) => {
   const { organization } = useUser();
   const { projects } = useDefinitions();
@@ -185,6 +187,11 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       {onToggleDisabled && (
                         <DropdownMenuItem onClick={() => setPendingToggle(key)}>
                           {key.disabled ? "Enable key" : "Disable key"}
+                        </DropdownMenuItem>
+                      )}
+                      {onShowAuditLog && (
+                        <DropdownMenuItem onClick={() => onShowAuditLog(key)}>
+                          Audit log
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem

@@ -1,12 +1,13 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { Box } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
-import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import HistoryTable from "@/components/HistoryTable";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import ApiKeysModal from "./ApiKeysModal";
 
 const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
@@ -16,6 +17,10 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
+  const [auditLog, setAuditLog] = useState<{
+    keyId?: string;
+    keyName?: string;
+  } | null>(null);
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
@@ -94,7 +99,12 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       )}
 
       <div>
-        <h1>Secret API Keys</h1>
+        <Flex align="center" justify="between">
+          <h1>Secret API Keys</h1>
+          {canCreateKeys && (
+            <Link onClick={() => setAuditLog({})}>Audit logs</Link>
+          )}
+        </Flex>
         <p className="text-gray">
           Secret keys have access to your organization. They{" "}
           <strong>must not be exposed to users</strong>.
@@ -108,6 +118,12 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             onReveal={onReveal}
             onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
             onEdit={canCreateKeys ? (key) => setEditingKey(key) : undefined}
+            onShowAuditLog={
+              canCreateKeys
+                ? (key) =>
+                    setAuditLog({ keyId: key.id, keyName: key.description })
+                : undefined
+            }
           />
         )}
         {canCreateKeys && (
@@ -121,14 +137,25 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         )}
       </div>
 
-      {canCreateKeys && (
-        <Box mt="4">
-          <Text as="p" color="text-mid">
-            History of secret API key changes, including creation, permission
-            edits, enabling/disabling, and deletion.
-          </Text>
-          <HistoryTable type="apiKey" showName showType />
-        </Box>
+      {auditLog && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={
+            auditLog.keyId
+              ? `Audit Log: ${auditLog.keyName || auditLog.keyId}`
+              : "Secret API Key Audit Log"
+          }
+          close={() => setAuditLog(null)}
+          size="lg"
+        >
+          <HistoryTable
+            type="apiKey"
+            id={auditLog.keyId}
+            showName={!auditLog.keyId}
+            showType={!auditLog.keyId}
+          />
+        </ModalStandard>
       )}
     </div>
   );
