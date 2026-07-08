@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { PiFileSql, PiWarningFill } from "react-icons/pi";
+import { PiFileSqlLight, PiWarningFill } from "react-icons/pi";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
@@ -50,7 +50,11 @@ export default function DashboardViewQueriesButton({
                 {refreshStatus === "failed" ? (
                   <PiWarningFill aria-hidden />
                 ) : (
-                  <PiFileSql aria-hidden size={18} />
+                  <PiFileSqlLight
+                    aria-hidden
+                    size={18}
+                    color="var(--color-text-mid)"
+                  />
                 )}
               </IconButton>
             </span>
