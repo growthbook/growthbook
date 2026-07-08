@@ -107,6 +107,10 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object,
       );
 
+    // No dedicated Slack message yet; the event still reaches web hooks.
+    case "experiment.info.scheduled-status-update":
+      return null;
+
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
         event.data.object.name,

@@ -164,19 +164,27 @@ const updateSingleExperimentStatus = async (
         }
 
         // Applies shippingCriteria: auto-ship the winner, force-ship the
-        // fallback, or just stop for manual review.
+        // fallback, or just stop for manual review. This stops the experiment
+        // (and refreshes the SDK payload) as a side effect.
         const outcome = await applyScheduledExperimentStop({
           context,
           experiment,
         });
-        await updateExperiment({
-          context,
-          experiment,
-          changes: { nextScheduledStatusUpdate: null },
-        });
+        // Re-load the now-stopped doc so clearing the staged update and
+        // emitting the event run against fresh state — not the stale
+        // pre-stop (running) snapshot.
+        const stopped =
+          (await getExperimentById(context, experiment.id)) ?? experiment;
+        if (stopped.nextScheduledStatusUpdate) {
+          await updateExperiment({
+            context,
+            experiment: stopped,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+        }
         await notifyScheduledStatusUpdateApplied({
           context,
-          experiment,
+          experiment: stopped,
           action: "stopped",
           shipped: outcome.kind === "shipped",
           shippedVariationId:

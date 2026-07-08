@@ -1,4 +1,5 @@
 import { ExperimentInterface } from "shared/types/experiment";
+import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   PRESET_DECISION_CRITERIA,
   getExperimentResultStatus,
@@ -14,9 +15,15 @@ import { logger } from "back-end/src/util/logger";
 import { stopExperiment } from "./experimentChanges/changeExperimentStatus";
 
 // Auto-ship is a Pro+ feature and rides on the decision framework — the winner
-// is whatever the org's decision criteria consider a clear ship.
+// is whatever the org's decision criteria consider a clear ship. Requires both
+// the commercial feature and the org's decision-framework toggle (mirrors the
+// UI gate and getExperimentResultStatus's internal check).
 function canAutoShip(context: Context): boolean {
-  return orgHasPremiumFeature(context.org, "decision-framework");
+  return (
+    orgHasPremiumFeature(context.org, "decision-framework") &&
+    (context.org.settings?.decisionFrameworkEnabled ??
+      DEFAULT_DECISION_FRAMEWORK_ENABLED)
+  );
 }
 
 async function resolveDecisionCriteria(
@@ -82,11 +89,13 @@ export async function applyScheduledExperimentStop({
   experiment: ExperimentInterface;
 }): Promise<ScheduledStopOutcome> {
   const shipping = experiment.shippingCriteria;
+  const autoShipEnabled =
+    shipping?.mode === "auto-ship" && canAutoShip(context);
 
   let winnerVariationId: string | null = null;
   let forced = false;
 
-  if (shipping?.mode === "auto-ship" && canAutoShip(context)) {
+  if (autoShipEnabled) {
     const healthSettings = getHealthSettings(context.org.settings, true);
     const decisionCriteria = await resolveDecisionCriteria(context, experiment);
     const resultStatus = getExperimentResultStatus({
@@ -115,11 +124,14 @@ export async function applyScheduledExperimentStop({
   }
 
   // No clear winner but the user opted to force-ship a specific variation.
+  // Skip if the configured variation no longer exists so we stop cleanly
+  // (notify) rather than throwing and leaving the experiment running.
   if (
     !winnerVariationId &&
-    shipping?.mode === "auto-ship" &&
-    shipping.fallback === "force-ship" &&
-    shipping.fallbackVariationId
+    autoShipEnabled &&
+    shipping?.fallback === "force-ship" &&
+    shipping.fallbackVariationId &&
+    experiment.variations.some((v) => v.id === shipping.fallbackVariationId)
   ) {
     winnerVariationId = shipping.fallbackVariationId;
     forced = true;

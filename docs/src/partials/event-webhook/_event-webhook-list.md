@@ -32,6 +32,7 @@
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
 | **[experiment.info.significance](#experimentinfosignificance)** | Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems. |
+| **[experiment.info.scheduled-status-update](#experimentinfoscheduled-status-update)** | Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end. |
 | **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
@@ -2673,6 +2674,54 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
             statsEngine: string;
             criticalValue: number;
             winning: boolean;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.info.scheduled-status-update
+
+Triggered when a scheduled start or stop is automatically applied to an experiment, including the auto-ship outcome for a scheduled end.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.info.scheduled-status-update";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentId: string;
+            experimentName: string;
+            action: "started" | "stopped";
+            shipped?: boolean | undefined;
+            shippedVariationId?: string | undefined;
+            forced?: boolean | undefined;
         };
     };
     user: {

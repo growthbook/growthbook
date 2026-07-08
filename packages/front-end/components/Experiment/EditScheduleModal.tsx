@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
+import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DatePicker from "@/components/DatePicker";
@@ -11,9 +13,10 @@ import Helpertext from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
-import { GBPremiumBadge } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 type ShippingMode = "notify" | "auto-ship";
 type ShippingFallback = "notify" | "force-ship";
@@ -33,7 +36,17 @@ export default function EditScheduleModal({
 }) {
   const { hasCommercialFeature } = useUser();
   const { getExperimentMetricById } = useDefinitions();
-  const hasDecisionFramework = hasCommercialFeature("decision-framework");
+  const { decisionFrameworkEnabled } = useOrgSettings();
+  // Auto-ship needs both the paid feature AND the org's decision-framework
+  // toggle enabled — matches the back-end apply-time gate.
+  const hasDecisionFrameworkFeature =
+    hasCommercialFeature("decision-framework");
+  const autoShipAvailable =
+    hasDecisionFrameworkFeature &&
+    (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED);
+  const autoShipDisabledReason = !hasDecisionFrameworkFeature
+    ? "Auto-ship requires the Decision Framework (available on Pro and Enterprise plans)."
+    : "Enable the Decision Framework in your organization settings to use auto-ship.";
 
   const form = useForm({
     defaultValues: {
@@ -304,16 +317,26 @@ export default function EditScheduleModal({
               { value: "auto-ship", label: "Auto-ship the winning variation" },
             ]}
             isOptionDisabled={(o) =>
-              o.value === "auto-ship" && !hasDecisionFramework
+              "value" in o && o.value === "auto-ship" && !autoShipAvailable
             }
-            formatOptionLabel={(o) => (
-              <Flex align="center" justify="between" gap="2">
-                <span>{o.label}</span>
-                {o.value === "auto-ship" && !hasDecisionFramework && (
-                  <GBPremiumBadge size="small" />
-                )}
-              </Flex>
-            )}
+            // Disabled options: solid muted color instead of the default 0.5
+            // opacity, which lets the content behind the menu bleed through.
+            containerStyles={{
+              option: (base) => ({ ...base, opacity: 1 }),
+            }}
+            formatOptionLabel={(o) => {
+              if (o.value !== "auto-ship" || autoShipAvailable) {
+                return <>{o.label}</>;
+              }
+              return (
+                <Flex align="center" justify="between" gap="2">
+                  <Text color="text-low">{o.label}</Text>
+                  <Tooltip body={autoShipDisabledReason} tipPosition="top">
+                    <PiInfo style={{ verticalAlign: "middle" }} />
+                  </Tooltip>
+                </Flex>
+              );
+            }}
             onChange={(v) => form.setValue("mode", v as ShippingMode)}
           />
         </Box>

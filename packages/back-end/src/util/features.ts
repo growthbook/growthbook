@@ -995,7 +995,6 @@ export function getFeatureDefinition({
               {
                 project: cb.project,
                 tags: cb.tags,
-                statusUpdateSchedule: cb.statusUpdateSchedule,
               },
               metadataOptions,
               projectsMap,

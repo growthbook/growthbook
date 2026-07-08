@@ -58,7 +58,7 @@ export type CreateSDKConnectionParams = {
   includeCustomFieldsInMetadata: boolean;
   allowedCustomFieldsInMetadata: string[];
   includeTagsInMetadata: boolean;
-  includeExperimentScheduleInMetadata: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
 };
