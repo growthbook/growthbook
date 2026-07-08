@@ -60,22 +60,22 @@ export function getExperimentFactMetricStatisticsCTE(
             const numeratorPercentileCapCols = [
               numeratorUpperPct
                 ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) AS ${data.alias}_main_cap_value`
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
                 : "",
               numeratorLowerPct
                 ? `
-                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) AS ${data.alias}_main_cap_value_lower`
+                    , MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap_lower, 0)) as ${data.alias}_main_cap_value_lower`
                 : "",
             ].join("");
             const ratioDenominatorPercentileCapCols = data.ratioMetric
               ? [
                   numeratorUpperPct
                     ? `
-                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap, 0)) AS ${data.alias}_denominator_cap_value`
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
                     : "",
                   numeratorLowerPct
                     ? `
-                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap_lower, 0)) AS ${data.alias}_denominator_cap_value_lower`
+                    , MAX(COALESCE(cap${denominatorCapSuffix}.${data.alias}_denominator_cap_lower, 0)) as ${data.alias}_denominator_cap_value_lower`
                     : "",
                 ].join("")
               : "";
