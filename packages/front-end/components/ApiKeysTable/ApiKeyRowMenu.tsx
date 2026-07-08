@@ -65,8 +65,6 @@ export default function ApiKeyRowMenu({
               submit: onDelete(apiKey.id),
               confirmationTitle: "Delete API Key",
               cta: "Delete",
-              getConfirmationContent: async () =>
-                "Are you sure? This action cannot be undone.",
             }}
           >
             Delete key

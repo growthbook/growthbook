@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -119,17 +120,17 @@ const ApiKeysModal: FC<{
       {!personalAccessToken && (
         <>
           {editMode && (
-            <Callout status="info" mb="3">
-              <p style={{ marginBottom: "var(--space-2)" }}>
+            <Callout status="info" mb="3" contentsAs="div">
+              <Box mb="2">
                 Editing permissions keeps the same key value, so existing
                 integrations keep working.
-              </p>
-              <p style={{ marginBottom: 0 }}>
+              </Box>
+              <Box>
                 We recommend rotating instead (delete and recreate) when
                 it&apos;s not too disruptive &mdash; the key&apos;s scope is
                 baked into its name, so the name may be misleading after an
                 edit.
-              </p>
+              </Box>
             </Callout>
           )}
           <RoleSelector value={roleState} setValue={setRoleState} />
