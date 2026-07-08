@@ -10,6 +10,7 @@ import {
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
 
@@ -31,7 +32,6 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   globalControls: DashboardInterface["globalControls"];
   canEdit: boolean;
-  isEditing: boolean;
   onGlobalControlsChange: (
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -43,18 +43,30 @@ export default function DashboardGlobalControlsBar({
   blocks,
   globalControls,
   canEdit,
-  isEditing,
   onGlobalControlsChange,
   setNeedsUpdate,
 }: Props) {
   const [saving, setSaving] = useState(false);
   const { datasources } = useDefinitions();
-  const { updateAllSnapshots } = useContext(DashboardSnapshotContext);
-  const canModifyControls = canEdit && isEditing;
+  const { projects, savedQueriesMap, updateAllSnapshots } = useContext(
+    DashboardSnapshotContext,
+  );
+  const { canCreateAnalyses, canRunSqlExplorerQueries } = usePermissionsUtil();
   const datasourceMap = useMemo(
     () => new Map(datasources.map((datasource) => [datasource.id, datasource])),
     [datasources],
   );
+  const datasourceIds = useMemo(
+    () => [...(savedQueriesMap?.values().map((sq) => sq.datasourceId) ?? [])],
+    [savedQueriesMap],
+  );
+  const datasourcesInUse = datasourceIds.map((id) => datasourceMap.get(id));
+  const canRunDashboardQueries =
+    canCreateAnalyses(projects) &&
+    !datasourcesInUse.some(
+      (datasource) => datasource && !canRunSqlExplorerQueries(datasource),
+    );
+  const canModifyControls = canEdit && canRunDashboardQueries;
 
   const persistGlobalControls = async (
     nextGlobalControls: DashboardInterface["globalControls"],

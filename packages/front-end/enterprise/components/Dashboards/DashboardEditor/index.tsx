@@ -748,7 +748,6 @@ function DashboardEditor({
             blocks={blocks}
             globalControls={globalControls}
             canEdit={canEdit}
-            isEditing={isEditing}
             onGlobalControlsChange={onGlobalControlsChange}
             setNeedsUpdate={setNeedsUpdate}
           />
