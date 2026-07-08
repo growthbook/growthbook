@@ -10,7 +10,6 @@ import {
   liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
-  getConfigBackingKey,
 } from "shared/util";
 import {
   SafeRolloutInterface,
@@ -140,6 +139,7 @@ const featureSchema = new mongoose.Schema({
   version: Number,
   valueType: String,
   defaultValue: String,
+  baseConfig: String,
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —
@@ -2658,9 +2658,10 @@ export async function getFeatureMetaInfoById(
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
     environmentSettings: 1,
-    // Read server-side to derive `configBackingKey` (a small slug); the full
-    // value is only returned to the client when explicitly requested.
+    // `baseConfig` drives the list's "Config · <name>" type display. The full
+    // default value is only returned to the client when explicitly requested.
     defaultValue: 1,
+    baseConfig: 1,
   };
 
   const features = await FeatureModel.find(query, projection);
@@ -2688,10 +2689,9 @@ export async function getFeatureMetaInfoById(
         (r) => (r.savedGroups?.length ?? 0) > 0,
       );
 
-      // Only JSON flags can be config-backed; derive the (small) backing key so
-      // the client doesn't need every feature's full default value.
-      const configBackingKey =
-        f.valueType === "json" ? getConfigBackingKey(f.defaultValue) : null;
+      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
+      // (authoritative), not by parsing the default value.
+      const configBackingKey = f.baseConfig ?? null;
 
       return {
         id: f.id,

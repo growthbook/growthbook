@@ -7,6 +7,7 @@ import {
   getConfigBackingPatch,
   setConfigBacking,
   getConfigSubtree,
+  orderConfigsByLineage,
   getConfigSpineSubtree,
   ensureConfigBacking,
   getAncestorSchemaKeys,
@@ -140,6 +141,68 @@ describe("getConfigSubtree", () => {
       { key: "b", parent: "a" },
     ];
     expect(getConfigSubtree("a", cyclic)).toEqual(["a", "b"]);
+  });
+});
+
+describe("orderConfigsByLineage", () => {
+  const flat = (configs: { key: string; name?: string; parent?: string }[]) =>
+    orderConfigsByLineage(configs).map(({ config, depth }) => [
+      config.key,
+      depth,
+    ]);
+
+  it("orders roots alphabetically by name, children nested under parents", () => {
+    expect(
+      flat([
+        { key: "b-child", name: "B child", parent: "b-root" },
+        { key: "b-root", name: "B root" },
+        { key: "a-root", name: "A root" },
+        { key: "a-child", name: "A child", parent: "a-root" },
+      ]),
+    ).toEqual([
+      ["a-root", 0],
+      ["a-child", 1],
+      ["b-root", 0],
+      ["b-child", 1],
+    ]);
+  });
+
+  it("sorts siblings alphabetically and increments depth per level", () => {
+    expect(
+      flat([
+        { key: "root", name: "Root" },
+        { key: "z", name: "Z", parent: "root" },
+        { key: "a", name: "A", parent: "root" },
+        { key: "a-kid", name: "A kid", parent: "a" },
+      ]),
+    ).toEqual([
+      ["root", 0],
+      ["a", 1],
+      ["a-kid", 2],
+      ["z", 1],
+    ]);
+  });
+
+  it("treats a config whose parent is outside the set as a root", () => {
+    expect(
+      flat([{ key: "child", name: "Child", parent: "absent-parent" }]),
+    ).toEqual([["child", 0]]);
+  });
+
+  it("falls back to the key when a name is missing", () => {
+    expect(flat([{ key: "b" }, { key: "a" }])).toEqual([
+      ["a", 0],
+      ["b", 0],
+    ]);
+  });
+
+  it("tolerates parent cycles without infinite recursion", () => {
+    const result = flat([
+      { key: "a", name: "A", parent: "b" },
+      { key: "b", name: "B", parent: "a" },
+    ]);
+    expect(result.map(([key]) => key).sort()).toEqual(["a", "b"]);
+    expect(result).toHaveLength(2);
   });
 });
 

@@ -1,4 +1,4 @@
-import { validateFeatureValue } from "shared/util";
+import { validateFeatureValue, setConfigBacking } from "shared/util";
 import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -28,6 +28,9 @@ import {
   assertConfigSchemaCompat,
   assertValidProjectId,
   assertValidRuleConfigKeys,
+  assertValidBaseConfig,
+  assertValidDefaultValueConfig,
+  assertNoRawConfigExtends,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
 
@@ -78,6 +81,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
+      baseConfig: req.body.baseConfig ?? undefined,
       owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
@@ -119,8 +123,30 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
 
+    // Config backing comes through dedicated fields — reject a raw `@config:`
+    // in the default value, validate the fields, then compose the stored value
+    // (a `defaultValueConfig` descendant becomes the value's own `$extends`; a
+    // bare `baseConfig` leaves the default a pure patch the compiler resolves).
+    assertNoRawConfigExtends(feature.defaultValue, "defaultValue");
+    await assertValidBaseConfig(
+      req.context,
+      feature.baseConfig,
+      feature.valueType,
+    );
+    await assertValidDefaultValueConfig(
+      req.context,
+      feature.baseConfig,
+      req.body.defaultValueConfig,
+    );
+    if ((req.body.defaultValueConfig ?? null) !== null) {
+      feature.defaultValue = setConfigBacking(
+        req.body.defaultValueConfig as string,
+        feature.defaultValue,
+      );
+    }
+
     // Request-supplied config keys must exist, be live, and belong to the
-    // default config's family — same gate as the revision rule endpoints.
+    // feature's config family — same gate as the revision rule endpoints.
     await assertValidRuleConfigKeys(
       req.context,
       (req.body.rules ?? []).flatMap((rule) => [
@@ -130,6 +156,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
           : []),
       ]),
       feature.defaultValue,
+      feature.baseConfig,
     );
 
     const jsonSchema = parseApiJsonSchema(
@@ -152,6 +179,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     assertConfigSchemaCompat({
       jsonSchemaEnabled: feature.jsonSchema?.enabled,
       defaultValue: feature.defaultValue,
+      baseConfig: feature.baseConfig,
     });
 
     if (

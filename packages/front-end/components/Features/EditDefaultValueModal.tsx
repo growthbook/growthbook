@@ -2,9 +2,17 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { validateFeatureValue, getReviewSetting } from "shared/util";
+import {
+  validateFeatureValue,
+  getReviewSetting,
+  getFeatureBaseConfigKey,
+  getConfigSubtree,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
@@ -33,7 +41,20 @@ export default function EditDefaultValueModal({
     },
   });
   const { apiCall } = useAuth();
+  const { configs } = useDefinitions();
   const settings = useOrgSettings();
+
+  // A config-backed default is a pure patch on `feature.baseConfig`; lock the
+  // picker to that config's family (default = the base) and show the patch editor.
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const isConfigBacked = defaultConfigKey !== null;
+  const configBackingOptionKeys = useMemo(
+    () =>
+      defaultConfigKey
+        ? getConfigSubtree(defaultConfigKey, configs)
+        : undefined,
+    [defaultConfigKey, configs],
+  );
   // Rules/values gating: env filtering without kill-switch-specific checks.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -78,11 +99,19 @@ export default function EditDefaultValueModal({
           );
         }
 
+        // Keep the stored default a pure patch when it targets the base config
+        // (`feature.baseConfig` supplies it); a descendant config stays as a layer.
+        const ownConfig = getConfigBackingKey(newDefaultValue);
+        const storedDefault =
+          isConfigBacked && ownConfig !== null && ownConfig === defaultConfigKey
+            ? getConfigBackingPatch(newDefaultValue)
+            : newDefaultValue;
+
         const res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${targetVersion}/defaultvalue`,
           {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({ defaultValue: storedDefault }),
           },
         );
         await mutate();
@@ -114,6 +143,9 @@ export default function EditDefaultValueModal({
         useCodeInput={true}
         showFullscreenButton={true}
         allowConfigBacking={feature.valueType === "json"}
+        configBackingOptionKeys={configBackingOptionKeys}
+        configBackingShowPatch={isConfigBacked}
+        lockConfigBacking={isConfigBacked}
       />
     </ModalStandard>
   );

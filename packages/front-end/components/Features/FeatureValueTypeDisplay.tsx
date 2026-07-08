@@ -1,6 +1,5 @@
 import React from "react";
 import { FeatureValueType } from "shared/types/feature";
-import { getConfigBackingKey } from "shared/util";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -13,42 +12,39 @@ const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
   json: "JSON",
 };
 
-// Renders a feature's value type, augmented with its backing config (when the
-// default value is config-backed) so JSON flags show "JSON · <Config>".
+// Renders a feature's value type. A config-backed flag (one with a `baseConfig`)
+// shows "Config · <Config>" instead of its underlying "JSON" type.
 //
-// Pass `configBackingKey` when it's already known (e.g. the feature list, where
-// it's derived server-side) to avoid shipping/parsing every default value;
-// otherwise it's derived from `defaultValue`.
+// The backing config comes from the flag's first-class `baseConfig` — either
+// passed directly, or via `configBackingKey` when already derived server-side
+// (e.g. the feature list). Never inferred from the default value.
 export default function FeatureValueTypeDisplay({
   valueType,
-  defaultValue,
   configBackingKey,
+  baseConfig,
   link = true,
   maxWidth = 300,
 }: {
   valueType: FeatureValueType;
-  defaultValue?: string;
   configBackingKey?: string | null;
+  baseConfig?: string | null;
   link?: boolean;
   // Max width (px) of the backing-config name before it truncates. Lenient by
   // default (feature overview); tighten on dense surfaces like the list.
   maxWidth?: number;
 }): React.ReactElement {
   const { getConfigByKey } = useDefinitions();
-  const label = VALUE_TYPE_LABELS[valueType] ?? valueType;
 
-  const backingKey =
-    configBackingKey ??
-    (valueType === "json" ? getConfigBackingKey(defaultValue ?? "") : null);
+  const backingKey = configBackingKey ?? baseConfig ?? null;
   const config = backingKey ? getConfigByKey(backingKey) : null;
 
-  if (!backingKey) return <>{label}</>;
+  if (!backingKey) return <>{VALUE_TYPE_LABELS[valueType] ?? valueType}</>;
 
   const name = config?.name ?? backingKey;
 
   return (
     <Flex as="span" align="center" gap="1" display="inline-flex">
-      <span>{label}</span>
+      <span>Config</span>
       <span style={{ color: "var(--slate-9)" }}>·</span>
       {link && config ? (
         <Link

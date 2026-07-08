@@ -1321,6 +1321,51 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
   });
 
+  it("injects baseConfig under a pure-patch default and rules (no $extends stored)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // First-class config-backing: `baseConfig` is authoritative and the stored
+    // default/rule values are pure override patches with no `@config:` directive.
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ extra: { x: 1 } });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ extra: { y: 2 } }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default gets the base config flattened beneath its patch...
+    expect(def?.defaultValue).toEqual({ cfg: 1, extra: { x: 1 } });
+    // ...and the sparse rule deep-merges onto that same resolved base.
+    expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
+  });
+
   it("ships non-object rule values on a config-backed feature as-is", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";

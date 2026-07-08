@@ -709,6 +709,13 @@ export const featureInterface = z
     dateUpdated: z.date(),
     valueType: z.enum(featureValueType),
     defaultValue: z.string(),
+    // The config a JSON flag is backed by (a "config" authoring type). First-class
+    // and authoritative: its presence is what makes the flag config-backed. The
+    // payload compiler injects this config as the base layer under the default and
+    // every rule/variation value, so those values are stored as pure override
+    // patches (they may still carry their own optional `$extends` for layering,
+    // like rules). Stopgap ahead of a first-class `gb.config()` SDK primitive.
+    baseConfig: z.string().nullable().optional(),
     version: z.number(),
     tags: z.array(z.string()).optional(),
     environmentSettings: z.record(z.string(), featureEnvironment),
@@ -1239,6 +1246,13 @@ export const apiFeatureValidator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      baseConfig: z
+        .string()
+        .nullable()
+        .describe(
+          'Key of the config backing this flag ("Config mode"), or null. The config supplies the base JSON and schema; `defaultValue` and rule values are override patches on top. (v2 exposes this and per-value config fields more richly.)',
+        )
+        .optional(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
       prerequisites: z
@@ -1465,8 +1479,15 @@ const postFeatureBody = z
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) this is the JSON override patch merged on top of the config.",
       ),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1500,6 +1521,13 @@ const updateFeatureBody = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    baseConfig: z
+      .string()
+      .nullable()
+      .describe(
+        'Key of the config backing this flag ("Config mode"), or null to detach. Requires `valueType: "json"` and a live config. Omit to leave unchanged.',
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(

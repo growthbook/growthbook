@@ -6,6 +6,7 @@ import {
   setConfigBacking,
   getConfigBackingKey,
   getConfigSubtree,
+  valueHasConfigExtends,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -19,15 +20,16 @@ import type { ApiFeatureEnvSettings } from "./postFeature";
 export function assertConfigSchemaCompat({
   jsonSchemaEnabled,
   defaultValue,
+  baseConfig,
 }: {
   jsonSchemaEnabled: boolean | undefined;
   defaultValue: string | undefined;
+  baseConfig?: string | null;
 }): void {
-  if (
-    jsonSchemaEnabled &&
-    defaultValue !== undefined &&
-    getConfigBackingKey(defaultValue) !== null
-  ) {
+  const configBacked =
+    (baseConfig ?? null) !== null ||
+    (defaultValue !== undefined && getConfigBackingKey(defaultValue) !== null);
+  if (jsonSchemaEnabled && configBacked) {
     throw new BadRequestError(
       "A flag cannot define its own JSON schema while its default value is backed by a config. " +
         "The config's schema is authoritative — detach the config from the default value or remove the flag's jsonSchema.",
@@ -67,6 +69,56 @@ export async function assertValidDefaultValueConfigKey(
   await requireLiveConfig(context, key);
 }
 
+// Config backing is set only through dedicated fields (`baseConfig`,
+// `defaultValueConfig`, rule/variation `config`) — never a raw `@config:`
+// `$extends` inside a value string. `@const:` refs are untouched.
+export function assertNoRawConfigExtends(
+  value: string | undefined,
+  label: string,
+): void {
+  if (valueHasConfigExtends(value)) {
+    throw new BadRequestError(
+      `${label} must not embed a config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
+    );
+  }
+}
+
+// `baseConfig` puts a flag in Config mode: JSON-typed and backed by a live config.
+export async function assertValidBaseConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  valueType: string | undefined,
+): Promise<void> {
+  if ((baseConfig ?? null) === null) return;
+  if (valueType !== "json") {
+    throw new BadRequestError('`baseConfig` requires `valueType: "json"`.');
+  }
+  await requireLiveConfig(context, baseConfig as string);
+}
+
+// The default's optional extension must be a live config within `baseConfig`'s
+// family (the base itself or a descendant).
+export async function assertValidDefaultValueConfig(
+  context: ApiReqContext,
+  baseConfig: string | null | undefined,
+  defaultValueConfig: string | null | undefined,
+): Promise<void> {
+  if ((defaultValueConfig ?? null) === null) return;
+  if ((baseConfig ?? null) === null) {
+    throw new BadRequestError(
+      "`defaultValueConfig` requires `baseConfig` to be set.",
+    );
+  }
+  await requireLiveConfig(context, defaultValueConfig as string);
+  const allConfigs = await context.models.configs.getAll();
+  const family = new Set(getConfigSubtree(baseConfig as string, allConfigs));
+  if (!family.has(defaultValueConfig as string)) {
+    throw new BadRequestError(
+      `Config "${defaultValueConfig}" is not the feature's baseConfig "${baseConfig}" or one of its descendants.`,
+    );
+  }
+}
+
 // Request-supplied config keys on rules/variations must resolve to a live
 // config within the feature's family: the default value's backing config or a
 // descendant of it (mirrors the UI's getConfigSubtree constraint). `null`
@@ -75,6 +127,7 @@ export async function assertValidRuleConfigKeys(
   context: ApiReqContext,
   configKeys: (string | null | undefined)[],
   effectiveDefaultValue: string | undefined,
+  baseConfig?: string | null,
 ): Promise<void> {
   const keys = [
     ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
@@ -85,7 +138,10 @@ export async function assertValidRuleConfigKeys(
     await requireLiveConfig(context, key);
   }
 
-  const defaultConfigKey = getConfigBackingKey(effectiveDefaultValue);
+  const defaultConfigKey =
+    (baseConfig ?? null) !== null
+      ? (baseConfig ?? null)
+      : getConfigBackingKey(effectiveDefaultValue);
   if (defaultConfigKey === null) {
     throw new BadRequestError(
       "Rule values can only reference a config when the feature's default value is config-backed.",
@@ -161,19 +217,23 @@ export function mapV2ApiRuleToFeatureRule(
       ...baseRule,
       type: "experiment-ref" as const,
       experimentId: ruleInput.experimentId,
-      variations: ruleInput.variations.map((v) => ({
-        variationId: v.variationId,
+      variations: ruleInput.variations.map((v) => {
+        assertNoRawConfigExtends(v.value, "Variation value");
         // When `config` is supplied, `value` is an override patch; recompose it
         // into the internal `$extends`-first value. null detaches any config.
-        value:
-          v.config !== undefined
-            ? setConfigBacking(v.config, v.value)
-            : v.value,
-      })),
+        return {
+          variationId: v.variationId,
+          value:
+            v.config !== undefined
+              ? setConfigBacking(v.config, v.value)
+              : v.value,
+        };
+      }),
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
   if (ruleInput.type === "rollout") {
+    assertNoRawConfigExtends(ruleInput.value, "Rule value");
     return {
       ...baseRule,
       type: "rollout" as const,
@@ -213,6 +273,7 @@ export function mapV2ApiRuleToFeatureRule(
       status: ruleInput.status ?? existingSafeRollout.status,
     };
   }
+  assertNoRawConfigExtends(ruleInput.value, "Rule value");
   return {
     ...baseRule,
     type: "force" as const,

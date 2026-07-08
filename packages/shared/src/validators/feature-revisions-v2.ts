@@ -896,11 +896,11 @@ export const putFeatureRevisionDefaultValueV2Validator = {
   bodySchema: z
     .object({
       defaultValue: z.string(),
-      config: z
+      defaultValueConfig: z
         .string()
         .nullable()
         .describe(
-          "Key of a config to back the default value with. When set, `defaultValue` is treated as a JSON override patch merged on top of that config (its own keys win), and the flag must not also define its own `jsonSchema` (the config's schema is authoritative). Pass `null` to detach a config.",
+          "Key of a config within the feature's `baseConfig` family that the default value patches (the base itself or a descendant). When set, `defaultValue` is a JSON override patch merged on top; pass `null` to patch `baseConfig` directly. Do not embed `@config:` in `defaultValue` — use this field.",
         )
         .optional(),
       ...newDraftMetadataFields,

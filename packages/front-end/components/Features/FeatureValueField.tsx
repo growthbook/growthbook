@@ -22,6 +22,8 @@ import {
   getConfigBackingPatch,
   setConfigBacking,
   getConfigParentKey,
+  getFeatureBaseConfigKey,
+  orderConfigsByLineage,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -363,11 +365,16 @@ export default function FeatureValueField({
     // No live configs in scope (and not already backed) → skip the picker
     // entirely and fall through to the plain JSON editor below.
     if (eligibleConfigs.length > 0 || backedKey !== null) {
-      // When locked (rules), always resolve to a config: fall back to the first
-      // eligible (the feature default's config, which getConfigSubtree lists first).
-      const configKey =
-        backedKey ??
-        (lockConfigBacking ? (eligibleConfigs[0]?.key ?? null) : null);
+      // When locked (config-backed default/rules) and the value doesn't name its
+      // own config, resolve to the base — the first `configBackingOptionKeys`
+      // entry (getConfigSubtree lists the root first), which `eligibleConfigs`
+      // (in definitions order) does NOT preserve. Fall back to any eligible.
+      const eligibleKeys = new Set(eligibleConfigs.map((c) => c.key));
+      const baseOptionKey =
+        configBackingOptionKeys?.find((k) => eligibleKeys.has(k)) ??
+        eligibleConfigs[0]?.key ??
+        null;
+      const configKey = backedKey ?? (lockConfigBacking ? baseOptionKey : null);
       const isBacked = configKey !== null;
       // When backed, the value's own keys are an override patch on the config;
       // otherwise the whole value is authored directly (and becomes the patch if a
@@ -427,9 +434,9 @@ export default function FeatureValueField({
         }
         return cur;
       };
-      const originalConfigKey = getConfigBackingKey(
-        feature?.defaultValue ?? "",
-      );
+      const originalConfigKey = feature
+        ? getFeatureBaseConfigKey(feature)
+        : null;
       const originalName =
         (originalConfigKey && configByKey.get(originalConfigKey)?.name) ||
         originalConfigKey;
@@ -503,25 +510,35 @@ export default function FeatureValueField({
                         None
                       </DropdownMenuItem>
                     )}
-                    {eligibleConfigs.map((c) => (
-                      <DropdownMenuItem
-                        key={c.key}
-                        onClick={() => selectConfig(c.key)}
-                      >
-                        <Flex as="span" align="center" gap="2" width="100%">
-                          <span>{c.name}</span>
-                          <code
-                            style={{
-                              marginLeft: "auto",
-                              paddingLeft: "var(--space-5)",
-                              color: "var(--slate-12)",
-                            }}
+                    {orderConfigsByLineage(eligibleConfigs).map(
+                      ({ config: c, depth }) => (
+                        <DropdownMenuItem
+                          key={c.key}
+                          onClick={() => selectConfig(c.key)}
+                        >
+                          <Flex
+                            as="span"
+                            align="center"
+                            gap="2"
+                            width="100%"
+                            style={
+                              depth ? { paddingLeft: depth * 16 } : undefined
+                            }
                           >
-                            {c.key}
-                          </code>
-                        </Flex>
-                      </DropdownMenuItem>
-                    ))}
+                            <span>{c.name}</span>
+                            <code
+                              style={{
+                                marginLeft: "auto",
+                                paddingLeft: "var(--space-5)",
+                                color: "var(--slate-12)",
+                              }}
+                            >
+                              {c.key}
+                            </code>
+                          </Flex>
+                        </DropdownMenuItem>
+                      ),
+                    )}
                   </DropdownMenuGroup>
                 </DropdownMenu>
               )}

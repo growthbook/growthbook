@@ -103,6 +103,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
+    baseConfig: req.body.baseConfig ?? undefined,
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",

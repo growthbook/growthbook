@@ -133,6 +133,33 @@ export function getConfigBackingPatch(value: string | undefined): string {
   return stripConfigExtends(value) ?? "{}";
 }
 
+// Whether a value string carries ANY `@config:` `$extends` ref (not just the
+// first). The REST layer uses this to reject raw config directives — config
+// backing must come through dedicated fields, never inline `$extends`.
+export function valueHasConfigExtends(value: string | undefined): boolean {
+  const list = parsePlainJSONObject(value ?? "")?.[CONSTANT_EXTENDS_KEY];
+  return (
+    Array.isArray(list) &&
+    list.some((r) => typeof r === "string" && r.startsWith("@config:"))
+  );
+}
+
+// The config backing a feature, if any. `baseConfig` is the first-class,
+// authoritative source; when absent we fall back to sniffing the default value's
+// `@config:` `$extends` (legacy features and the "optional config on the default
+// value" case). This — not `getConfigBackingKey(defaultValue)` — is the canonical
+// "is this feature config-backed?" check across the front-end, API, and compiler.
+export function getFeatureBaseConfigKey(feature: {
+  valueType: string;
+  defaultValue?: string;
+  baseConfig?: string | null;
+}): string | null {
+  if ((feature.baseConfig ?? null) !== null) return feature.baseConfig ?? null;
+  return feature.valueType === "json"
+    ? getConfigBackingKey(feature.defaultValue)
+    : null;
+}
+
 // Compose a config key + an override patch into the stored value string. The
 // config ref is the first `$extends` entry (the base layer); any `@const:` refs
 // in the patch are preserved after it. With no config key, returns the patch
@@ -223,6 +250,56 @@ export function getConfigSpineSubtree(
     for (const child of childrenOf.get(key) ?? []) queue.push(child);
   }
   return ordered;
+}
+
+// Order configs for display in a picker: `parent`-spine roots alphabetically by
+// name, each followed (depth-first) by its children alphabetically, so lineage
+// reads top-down. `depth` is the spine depth WITHIN the supplied set — a config
+// whose parent isn't in the set is a root (depth 0). Cycle-safe; any config not
+// reached is appended alphabetically. Mixins (`extends`) don't affect ordering.
+const configNameCollator = new Intl.Collator();
+
+export function orderConfigsByLineage<
+  T extends { key: string; name?: string; parent?: string },
+>(configs: T[]): { config: T; depth: number }[] {
+  const byKey = new Map(configs.map((c) => [c.key, c]));
+  const childrenOf = new Map<string, T[]>();
+  const roots: T[] = [];
+  for (const c of configs) {
+    const parent = getConfigParentKey(c);
+    if (parent && byKey.has(parent)) {
+      const list = childrenOf.get(parent);
+      if (list) list.push(c);
+      else childrenOf.set(parent, [c]);
+    } else {
+      roots.push(c);
+    }
+  }
+  const byName = (a: T, b: T) =>
+    configNameCollator.compare(a.name ?? a.key, b.name ?? b.key);
+  const out: { config: T; depth: number }[] = [];
+  const seen = new Set<string>();
+  const visit = (c: T, depth: number) => {
+    if (seen.has(c.key)) return;
+    seen.add(c.key);
+    out.push({ config: c, depth });
+    for (const kid of (childrenOf.get(c.key) ?? []).slice().sort(byName)) {
+      visit(kid, depth + 1);
+    }
+  };
+  for (const root of roots.slice().sort(byName)) visit(root, 0);
+  // Recover any configs left unreached by a parent cycle (never happens in a
+  // valid DAG — cycles are rejected at write time). Guarded so the common case
+  // doesn't pay for a second full sort.
+  if (seen.size < configs.length) {
+    for (const c of configs.slice().sort(byName)) {
+      if (!seen.has(c.key)) {
+        seen.add(c.key);
+        out.push({ config: c, depth: 0 });
+      }
+    }
+  }
+  return out;
 }
 
 // Spine descendants of `configKey` that currently declare a field key this

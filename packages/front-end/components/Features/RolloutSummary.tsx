@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getConfigBackingKey } from "shared/util";
+import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
@@ -31,7 +31,7 @@ export default function RolloutSummary({
   // A config-backed feature's rule values always serve a config: an explicit ref
   // on this value, else the feature default's config (the base it overrides).
   const configKey =
-    getConfigBackingKey(value) ?? getConfigBackingKey(feature.defaultValue);
+    getConfigBackingKey(value) ?? getFeatureBaseConfigKey(feature);
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">

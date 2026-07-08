@@ -20,7 +20,7 @@ import {
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
   parsePlainJSONObject,
-  getConfigBackingKey,
+  getFeatureBaseConfigKey,
   ensureConfigBacking,
   deepMergePatch,
 } from "shared/util";
@@ -616,9 +616,26 @@ export function getFeatureDefinition({
         )
       : val;
 
+  // For a config-backed feature, every rule/variation value implicitly serves
+  // the base config: if a value doesn't reference its own config, we prepend the
+  // feature's so resolution flattens the base config underneath it. `baseConfig`
+  // is authoritative; the default value itself is stored as a pure patch, so it
+  // too gets the base injected (here and at emission below).
+  const defaultConfigKey = getFeatureBaseConfigKey({
+    valueType: feature.valueType,
+    defaultValue,
+    baseConfig: feature.baseConfig,
+  });
+
   const jsonDefaultObj = (() => {
     if (feature.valueType !== "json") return null;
-    const base = parsePlainJSONObject(defaultValue);
+    // Inject the base config so the resolved default — the sparse merge base for
+    // rules — includes the config layer even when the stored default is a pure
+    // patch (no-op when the default already references its own config).
+    const backed = defaultConfigKey
+      ? ensureConfigBacking(defaultValue, defaultConfigKey)
+      : defaultValue;
+    const base = parsePlainJSONObject(backed);
     if (!base || !constantMap) return base;
     const resolved = resolveRefs(base);
     return resolved !== null &&
@@ -627,12 +644,6 @@ export function getFeatureDefinition({
       ? (resolved as Record<string, unknown>)
       : base;
   })();
-
-  // For a config-backed feature, every rule/variation value implicitly serves
-  // the base/default config: if a value doesn't reference its own config, we
-  // prepend the default's so resolution flattens the base config underneath it.
-  const defaultConfigKey =
-    feature.valueType === "json" ? getConfigBackingKey(defaultValue) : null;
 
   const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
     // Non-object values (array/scalar/string) have replace semantics — ship
@@ -751,9 +762,7 @@ export function getFeatureDefinition({
                 condition: { value: "holdoutcontrol" },
               },
             ],
-            force: resolveRefs(
-              getJSONValue(feature.valueType, feature.holdout.value),
-            ),
+            force: valueForSDK(feature.holdout.value),
           },
         ]
       : [];
@@ -1254,7 +1263,9 @@ export function getFeatureDefinition({
   ];
 
   let def: FeatureDefinition = {
-    defaultValue: resolveRefs(getJSONValue(feature.valueType, defaultValue)),
+    // Route through valueForSDK (not a bare resolve) so a config-backed feature's
+    // default gets its base config injected when stored as a pure patch.
+    defaultValue: valueForSDK(defaultValue),
     rules: defRules,
   };
   if (def.rules && !def.rules.length) {

@@ -164,6 +164,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(project != null ? { project } : {}),
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
+      ...(req.body.baseConfig !== undefined
+        ? { baseConfig: req.body.baseConfig ?? null }
+        : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),

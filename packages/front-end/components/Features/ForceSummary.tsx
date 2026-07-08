@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getConfigBackingKey } from "shared/util";
+import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
@@ -20,7 +20,7 @@ export default function ForceSummary({
   // A config-backed feature's values always serve a config: an explicit ref on
   // this value, else the feature default's config (the base it overrides).
   const configKey =
-    getConfigBackingKey(value) ?? getConfigBackingKey(feature.defaultValue);
+    getConfigBackingKey(value) ?? getFeatureBaseConfigKey(feature);
   if (configKey !== null) {
     return (
       <ConfigBackedSummary

@@ -8,6 +8,7 @@ import {
   getConfigParentKey,
   getConfigSubtree,
   getConfigBackingKey,
+  getFeatureBaseConfigKey,
 } from "shared/util";
 import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
@@ -396,10 +397,7 @@ export async function loadConfigFamilyFeatureReferences(
   const allFeatures = await getAllFeatures(context, {});
   const features: ConfigFamilyFeatureRef[] = [];
   for (const f of allFeatures) {
-    const rawDefaultKey =
-      typeof f.defaultValue === "string"
-        ? getConfigBackingKey(f.defaultValue)
-        : null;
+    const rawDefaultKey = getFeatureBaseConfigKey(f);
     const defaultConfigKey =
       rawDefaultKey && familySet.has(rawDefaultKey) ? rawDefaultKey : null;
 

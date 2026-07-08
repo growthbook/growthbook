@@ -4,8 +4,15 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement, useState } from "react";
-import { validateFeatureValue, getConfigBackingKey } from "shared/util";
+import React, { ReactElement, useMemo, useState } from "react";
+import {
+  validateFeatureValue,
+  getConfigBackingKey,
+  getConfigBackingPatch,
+  getConfigSubtree,
+  setConfigBacking,
+  orderConfigsByLineage,
+} from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
@@ -158,7 +165,7 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
+  const { project, refreshTags, configs } = useDefinitions();
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -186,6 +193,9 @@ export default function FeatureModal({
     !!defaultValues.description?.length,
   );
   const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
+  // The default value is rarely changed at creation time (it falls back to the
+  // type default / bare config), so it's progressively disclosed behind a link.
+  const [showDefaultValue, setShowDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
 
@@ -216,6 +226,29 @@ export default function FeatureModal({
   // "config" is a UI authoring type: stored as valueType "json" but the default
   // value must be backed by a config. Tracked separately from the stored type.
   const [configType, setConfigType] = useState(false);
+  // The chosen base config (the feature's authoritative `baseConfig`). The
+  // default-value editor's own picker is constrained to this config's family and
+  // seeds from it; picking a descendant there layers an extra config on top.
+  const [baseConfigKey, setBaseConfigKey] = useState<string | null>(null);
+
+  const eligibleBaseConfigs = useMemo(
+    () =>
+      configs.filter(
+        (c) =>
+          !c.archived &&
+          (!c.project || !selectedProject || c.project === selectedProject),
+      ),
+    [configs, selectedProject],
+  );
+  const baseConfigOptions = useMemo(
+    () =>
+      orderConfigsByLineage(eligibleBaseConfigs).map(({ config, depth }) => ({
+        label: config.name,
+        value: config.key,
+        depth,
+      })),
+    [eligibleBaseConfigs],
+  );
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -261,8 +294,8 @@ export default function FeatureModal({
           throw new Error("Please select a value type");
         }
 
-        // A "config" flag must actually be backed by a config.
-        if (configType && getConfigBackingKey(defaultValue) === null) {
+        // A "config" flag must actually pick a base config.
+        if (configType && !baseConfigKey) {
           throw new Error("Select a base config for this config flag");
         }
 
@@ -288,12 +321,27 @@ export default function FeatureModal({
           );
         }
 
+        // "config" flags are stored first-class: the mainline picker's choice is
+        // the authoritative `baseConfig`. The default value is the override patch;
+        // the compiler injects the base underneath. When the default's own picker
+        // matches the base (the common case) we dedupe to a pure patch, otherwise
+        // it kept a descendant config as an extra layer, which we preserve.
+        const configKey = configType ? baseConfigKey : null;
+        const defaultOwnConfig = getConfigBackingKey(defaultValue);
+        const storedDefault =
+          configKey !== null
+            ? defaultOwnConfig === null || defaultOwnConfig === configKey
+              ? getConfigBackingPatch(defaultValue)
+              : defaultValue
+            : parseDefaultValue(defaultValue, valueType);
+
         const body = {
           ...feature,
-          defaultValue: parseDefaultValue(defaultValue, valueType),
+          baseConfig: configKey,
+          defaultValue: storedDefault,
           holdout: {
             id: holdout?.id ?? "",
-            value: parseDefaultValue(defaultValue, valueType),
+            value: storedDefault,
           },
         };
 
@@ -365,14 +413,74 @@ export default function FeatureModal({
               if (val === "config") {
                 setConfigType(true);
                 form.setValue("valueType", "json");
-                // Empty patch; the config picker (required) supplies the base.
-                form.setValue("defaultValue", "{}");
+                // Seed the base config with the first eligible; the mainline
+                // picker below drives it. The default value starts as a bare
+                // patch on that base.
+                const seed = eligibleBaseConfigs[0]?.key ?? null;
+                setBaseConfigKey(seed);
+                form.setValue(
+                  "defaultValue",
+                  seed ? setConfigBacking(seed, "{}") : "{}",
+                );
               } else {
                 setConfigType(false);
+                setBaseConfigKey(null);
                 form.setValue("valueType", val);
                 form.setValue("defaultValue", getDefaultValue(val));
               }
             }}
+          />
+        )}
+
+        {!featureToDuplicate && configType && (
+          <SelectField
+            label="Config"
+            value={baseConfigKey ?? ""}
+            placeholder={
+              eligibleBaseConfigs.length
+                ? "Choose a config..."
+                : "No configs available in this project"
+            }
+            options={baseConfigOptions}
+            formatOptionLabel={(option, meta) => {
+              const depth = (option as { depth?: number }).depth ?? 0;
+              return (
+                <Flex
+                  as="span"
+                  align="center"
+                  gap="2"
+                  width="100%"
+                  style={
+                    meta.context === "menu" && depth
+                      ? { paddingLeft: depth * 16 }
+                      : undefined
+                  }
+                >
+                  <span>{option.label}</span>
+                  <code
+                    style={{
+                      marginLeft: "auto",
+                      paddingLeft: "var(--space-5)",
+                      color: "var(--slate-12)",
+                    }}
+                  >
+                    {option.value}
+                  </code>
+                </Flex>
+              );
+            }}
+            onChange={(key) => {
+              setBaseConfigKey(key || null);
+              // Re-point the default value onto the new base, keeping its patch.
+              const patch = getConfigBackingPatch(form.watch("defaultValue"));
+              form.setValue(
+                "defaultValue",
+                key ? setConfigBacking(key, patch) : patch,
+              );
+            }}
+            sort={false}
+            required
+            helpText="The config that backs this flag. The default value and any rules override it with a patch."
           />
         )}
 
@@ -381,7 +489,15 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
         */}
-        {!featureToDuplicate && valueType && (
+        {!featureToDuplicate && valueType && !showDefaultValue && (
+          <Box mb="5">
+            <Link onClick={() => setShowDefaultValue(true)}>
+              {configType ? "+ Override default value" : "+ Set default value"}
+            </Link>
+          </Box>
+        )}
+
+        {!featureToDuplicate && valueType && showDefaultValue && (
           <FeatureValueField
             label={
               <>
@@ -411,7 +527,15 @@ export default function FeatureModal({
             useCodeInput={true}
             showFullscreenButton={true}
             allowConfigBacking={valueType === "json"}
-            // "config" type: require a base config and edit the override patch.
+            // "config" type: the mainline picker chose the base; here the value
+            // is locked to that config's family (default = the base itself) and
+            // edited as an override patch. Picking a descendant layers an extra
+            // config on top.
+            configBackingOptionKeys={
+              configType && baseConfigKey
+                ? getConfigSubtree(baseConfigKey, configs)
+                : undefined
+            }
             configBackingShowPatch={configType}
             lockConfigBacking={configType}
           />

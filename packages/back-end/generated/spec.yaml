@@ -758,8 +758,18 @@ paths:
                 defaultValue:
                   description: >-
                     Default value when feature is enabled. Type must match
-                    `valueType`.
+                    `valueType`. In Config mode (`baseConfig` set) this is the
+                    JSON override patch merged on top of the config.
                   type: string
+                baseConfig:
+                  description: >-
+                    Key of the config backing this flag ("Config mode").
+                    Requires `valueType: "json"` and a live config;
+                    `defaultValue` and rule values become override patches on
+                    top. null or omitted for a plain flag.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 tags:
                   description: List of associated tags
                   type: array
@@ -1602,6 +1612,14 @@ paths:
                   type: string
                 defaultValue:
                   type: string
+                baseConfig:
+                  description: >-
+                    Key of the config backing this flag ("Config mode"), or null
+                    to detach. Requires `valueType: "json"` and a live config.
+                    Omit to leave unchanged.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 tags:
                   description: >-
                     List of associated tags. Will override tags completely with
@@ -6014,6 +6032,49 @@ paths:
       description: >-
         Creates a new feature. Rules are supplied as a top-level `rules` array;
         each rule includes `allEnvironments` / `environments` scope fields.
+
+
+        ### Config-backed features (Config mode)
+
+
+        A JSON feature can be backed by a shared **config** — the config
+        supplies the base JSON value and schema, and the feature's values become
+        override *patches* merged on top (nested objects deep-merge; arrays and
+        scalars replace). Config backing is set exclusively through dedicated
+        fields — never a raw `$extends: ["@config:…"]` inside a value string
+        (that is rejected). `@const:` references inside values still work.
+
+
+        - **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig:
+        "<configKey>"` to put the flag in Config mode. The config must be live.
+        This is the family root and the base the default value patches.
+
+        - **Default value:** `defaultValue` is the override patch on
+        `baseConfig`. To make the default patch a *descendant* of `baseConfig`
+        instead, set `defaultValueConfig` to that descendant's key (it must be
+        within `baseConfig`'s family); omit/null to patch `baseConfig` directly.
+
+        - **Rules & experiment variations:** each carries its own `config` field
+        naming the family config that value patches (omit/null to patch the
+        base). `value` is the override patch.
+
+
+        Example:
+
+
+        ```json
+
+        {
+          "id": "checkout-config",
+          "valueType": "json",
+          "baseConfig": "purchase-flow",
+          "defaultValue": "{\"maxItems\": 5}",
+          "rules": [
+            { "type": "force", "config": "purchase-flow-vip", "value": "{\"maxItems\": 20}", "allEnvironments": true }
+          ]
+        }
+
+        ```
       tags:
         - features-v2
       parameters:
@@ -6064,8 +6125,27 @@ paths:
                 defaultValue:
                   description: >-
                     Default value when feature is enabled. Type must match
-                    `valueType`.
+                    `valueType`. In Config mode (`baseConfig` set) this is the
+                    JSON override patch merged on top of the config.
                   type: string
+                baseConfig:
+                  description: >-
+                    Key of the config backing this flag ("Config mode").
+                    Requires `valueType: "json"` and a live config. The config
+                    supplies the base JSON and schema; `defaultValue` and rule
+                    values are override patches on top. null or omitted for a
+                    plain flag.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                defaultValueConfig:
+                  description: >-
+                    Optional. A config within `baseConfig`'s family that the
+                    default value patches instead of `baseConfig` itself. null
+                    or omitted means the default patches `baseConfig` directly.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 tags:
                   description: List of associated tags
                   type: array
@@ -6633,6 +6713,24 @@ paths:
                   type: string
                 defaultValue:
                   type: string
+                baseConfig:
+                  description: >-
+                    Key of the config backing this flag ("Config mode").
+                    Requires `valueType: "json"` and a live config. The config
+                    supplies the base JSON and schema; `defaultValue` and rule
+                    values are override patches on top. null or omitted for a
+                    plain flag.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
+                defaultValueConfig:
+                  description: >-
+                    Optional. A config within `baseConfig`'s family that the
+                    default value patches instead of `baseConfig` itself. null
+                    or omitted means the default patches `baseConfig` directly.
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 tags:
                   description: >-
                     List of associated tags. Will override tags completely with
@@ -8098,13 +8196,14 @@ paths:
               properties:
                 defaultValue:
                   type: string
-                config:
+                defaultValueConfig:
                   description: >-
-                    Key of a config to back the default value with. When set,
-                    `defaultValue` is treated as a JSON override patch merged on
-                    top of that config (its own keys win), and the flag must not
-                    also define its own `jsonSchema` (the config's schema is
-                    authoritative). Pass `null` to detach a config.
+                    Key of a config within the feature's `baseConfig` family
+                    that the default value patches (the base itself or a
+                    descendant). When set, `defaultValue` is a JSON override
+                    patch merged on top; pass `null` to patch `baseConfig`
+                    directly. Do not embed `@config:` in `defaultValue` — use
+                    this field.
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -38708,6 +38807,15 @@ components:
             - json
         defaultValue:
           type: string
+        baseConfig:
+          description: >-
+            Key of the config backing this flag ("Config mode"), or null. The
+            config supplies the base JSON and schema; `defaultValue` and rule
+            values are override patches on top. (v2 exposes this and per-value
+            config fields more richly.)
+          anyOf:
+            - type: string
+            - type: 'null'
         tags:
           type: array
           items:
@@ -40618,11 +40726,20 @@ components:
             - json
         defaultValue:
           type: string
-        config:
+        baseConfig:
           description: >-
-            Key of the config backing the default value, or null when the value
-            is not config-backed. The config supplies the base JSON (and its
-            schema); `defaultValue` is an override patch on top.
+            Key of the config backing this flag ("Config mode"). Requires
+            `valueType: "json"` and a live config. The config supplies the base
+            JSON and schema; `defaultValue` and rule values are override patches
+            on top. null or omitted for a plain flag.
+          anyOf:
+            - type: string
+            - type: 'null'
+        defaultValueConfig:
+          description: >-
+            Optional. A config within `baseConfig`'s family that the default
+            value patches instead of `baseConfig` itself. null or omitted means
+            the default patches `baseConfig` directly.
           anyOf:
             - type: string
             - type: 'null'
@@ -40988,15 +41105,16 @@ components:
           $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: >-
-            The default value at the time this revision was created. When
-            `config` is set, this is the JSON override patch merged on top of
-            that config (its own keys win); otherwise it is the full value.
+            The default value at the time this revision was created. When the
+            feature is in Config mode, this is the JSON override patch merged on
+            top of the config (its own keys win); otherwise it is the full
+            value.
           type: string
-        config:
+        defaultValueConfig:
           description: >-
-            Key of the config backing the default value, or null when the value
-            is not config-backed. The config supplies the base JSON (and its
-            schema); `defaultValue` is an override patch on top.
+            Optional. A config within `baseConfig`'s family that the default
+            value patches instead of `baseConfig` itself. null or omitted means
+            the default patches `baseConfig` directly.
           anyOf:
             - type: string
             - type: 'null'

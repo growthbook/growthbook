@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { getValidation, getConfigBackingKey } from "shared/util";
+import { getValidation, getFeatureBaseConfigKey } from "shared/util";
 import { useState } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { Box, Flex } from "@radix-ui/themes";
@@ -53,7 +53,7 @@ export default function JSONValidation({
 
   // When the default value is config-backed, the config's schema is
   // authoritative — the flag's own schema is disabled (see backend validation).
-  const configBackedKey = getConfigBackingKey(feature.defaultValue);
+  const configBackedKey = getFeatureBaseConfigKey(feature);
   if (configBackedKey !== null) {
     return (
       <Box>

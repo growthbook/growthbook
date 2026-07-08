@@ -2067,6 +2067,10 @@ export function revisionToApiInterface(
 // v2 read transform: split a stored (possibly config-backed) value into the
 // API's `{ value, config }` pair. `@config:` is an internal detail — the API
 // exposes the config key + override patch, never the raw `$extends` directive.
+// The config a value directly extends is the value's own `@config:` ref (a
+// pure-patch value that relies on the feature's `baseConfig` reports null here —
+// `baseConfig` is a separate field). A descendant layered on the value reports
+// that descendant.
 function decomposeConfigValue(stored: string | undefined): {
   value: string | undefined;
   config: string | null;
@@ -2148,7 +2152,9 @@ export function revisionToApiInterfaceV2(
     createdBy: eventUserToApiEventUser(rev.createdBy),
     publishedBy: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: revDefault.value,
-    ...(revDefault.config !== null && { config: revDefault.config }),
+    ...(revDefault.config !== null && {
+      defaultValueConfig: revDefault.config,
+    }),
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
@@ -2276,6 +2282,9 @@ export function getApiFeatureObjV2({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   rampScheduleMap?: Map<string, string>;
 }): ApiFeatureWithRevisionsV2 {
+  // `baseConfig` (Config mode) is a discrete field; `defaultValueConfig` is the
+  // default's own extension (a descendant it patches, else null) — the exposed
+  // `defaultValue` is the override patch, never the raw `@config:` directive.
   const { value: decomposedDefault, config: defaultValueConfig } =
     decomposeConfigValue(feature.defaultValue);
   const defaultValue = decomposedDefault ?? feature.defaultValue;
@@ -2307,6 +2316,7 @@ export function getApiFeatureObjV2({
   });
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
+  const baseConfig = feature.baseConfig ?? null;
 
   return {
     id: feature.id,
@@ -2315,7 +2325,8 @@ export function getApiFeatureObjV2({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue,
-    ...(defaultValueConfig !== null && { config: defaultValueConfig }),
+    ...(baseConfig !== null && { baseConfig }),
+    ...(defaultValueConfig !== null && { defaultValueConfig }),
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
@@ -2518,6 +2529,7 @@ export function getApiFeatureObj({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
+    ...(feature.baseConfig != null && { baseConfig: feature.baseConfig }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",

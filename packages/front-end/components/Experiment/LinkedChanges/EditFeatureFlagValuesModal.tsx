@@ -23,7 +23,7 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
-  getConfigBackingKey,
+  getFeatureBaseConfigKey,
   getConfigSubtree,
   ensureConfigBacking,
 } from "shared/util";
@@ -289,10 +289,7 @@ export default function EditFeatureFlagValuesModal({
   // that carry no `sparse` flag), drop the toggle, and render the arms with the
   // config-backing editor. Mirrors StandardRuleFields / ExperimentRefFields.
   const { configs } = useDefinitions();
-  const defaultConfigKey =
-    feature.valueType === "json"
-      ? getConfigBackingKey(feature.defaultValue ?? "")
-      : null;
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
   const isConfigBacked = defaultConfigKey !== null;
   const configBackingOptionKeys = useMemo(
     () =>

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
 import {
-  getConfigBackingKey,
+  getFeatureBaseConfigKey,
   getConfigSubtree,
   ensureConfigBacking,
 } from "shared/util";
@@ -107,10 +107,7 @@ export default function StandardRuleFields({
   // A config-backed feature default makes every rule an implicit sparse patch on
   // that config. The rule may override with the default's config or a descendant,
   // and the sparse toggle is dropped (rules are always sparse here).
-  const defaultConfigKey =
-    feature.valueType === "json"
-      ? getConfigBackingKey(feature.defaultValue)
-      : null;
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
   const isConfigBacked = defaultConfigKey !== null;
   const configBackingOptionKeys = useMemo(
     () =>

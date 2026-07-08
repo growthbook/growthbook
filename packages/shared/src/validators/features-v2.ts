@@ -67,6 +67,31 @@ const apiRuleConfigField = z
   )
   .optional();
 
+// Feature-level "Config mode": the config a JSON flag is backed by. The config
+// supplies the base JSON + schema; `defaultValue` and rule values are override
+// patches on top. null/omitted for a plain flag. `@config:` never appears raw in
+// any value string — this field is the only way to set it (`@const:` refs still
+// pass through inside values).
+const apiBaseConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config. The config supplies the base JSON and schema; `defaultValue` and rule values are override patches on top. null or omitted for a plain flag.',
+  )
+  .optional();
+
+// Optional per-default extension: a config within `baseConfig`'s family that the
+// DEFAULT value patches instead of `baseConfig` directly. Omit/null = the default
+// patches `baseConfig`. Rules/variations carry their own `config` for the same
+// purpose.
+const apiDefaultValueConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    "Optional. A config within `baseConfig`'s family that the default value patches instead of `baseConfig` itself. null or omitted means the default patches `baseConfig` directly.",
+  )
+  .optional();
+
 const apiFeatureForceRuleV2 = z.intersection(
   apiFeatureForceRuleValidator,
   z.object({ config: apiRuleConfigField }),
@@ -177,16 +202,10 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       defaultValue: z
         .string()
         .describe(
-          "The default value at the time this revision was created. When `config` is set, this is the JSON override patch merged on top of that config (its own keys win); otherwise it is the full value.",
+          "The default value at the time this revision was created. When the feature is in Config mode, this is the JSON override patch merged on top of the config (its own keys win); otherwise it is the full value.",
         )
         .optional(),
-      config: z
-        .string()
-        .nullable()
-        .describe(
-          "Key of the config backing the default value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); `defaultValue` is an override patch on top.",
-        )
-        .optional(),
+      defaultValueConfig: apiDefaultValueConfigField,
       rules: z
         .array(apiFeatureRuleV2Validator)
         .describe(
@@ -327,13 +346,8 @@ export const apiFeatureV2Validator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
-      config: z
-        .string()
-        .nullable()
-        .describe(
-          "Key of the config backing the default value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); `defaultValue` is an override patch on top.",
-        )
-        .optional(),
+      baseConfig: apiBaseConfigField,
+      defaultValueConfig: apiDefaultValueConfigField,
       tags: z.array(z.string()),
       rules: z
         .array(apiFeatureRuleV2Validator)
@@ -564,8 +578,10 @@ export const postFeatureBodyV2 = z
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        "Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) this is the JSON override patch merged on top of the config.",
       ),
+    baseConfig: apiBaseConfigField,
+    defaultValueConfig: apiDefaultValueConfigField,
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     rules: z
       .array(postFeatureRuleV2)
@@ -605,6 +621,8 @@ export const updateFeatureBodyV2 = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    baseConfig: apiBaseConfigField,
+    defaultValueConfig: apiDefaultValueConfigField,
     tags: z
       .array(z.string())
       .describe(
@@ -693,7 +711,24 @@ export const postFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
   description:
-    "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.",
+    "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "### Config-backed features (Config mode)\n\n" +
+    'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
+    '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
+    "- **Default value:** `defaultValue` is the override patch on `baseConfig`. To make the default patch a *descendant* of `baseConfig` instead, set `defaultValueConfig` to that descendant's key (it must be within `baseConfig`'s family); omit/null to patch `baseConfig` directly.\n" +
+    "- **Rules & experiment variations:** each carries its own `config` field naming the family config that value patches (omit/null to patch the base). `value` is the override patch.\n\n" +
+    "Example:\n\n" +
+    "```json\n" +
+    "{\n" +
+    '  "id": "checkout-config",\n' +
+    '  "valueType": "json",\n' +
+    '  "baseConfig": "purchase-flow",\n' +
+    '  "defaultValue": "{\\"maxItems\\": 5}",\n' +
+    '  "rules": [\n' +
+    '    { "type": "force", "config": "purchase-flow-vip", "value": "{\\"maxItems\\": 20}", "allEnvironments": true }\n' +
+    "  ]\n" +
+    "}\n" +
+    "```",
   operationId: "postFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

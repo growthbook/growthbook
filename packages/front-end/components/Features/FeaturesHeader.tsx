@@ -497,7 +497,7 @@ export default function FeaturesHeader({
               {feature.valueType ? (
                 <FeatureValueTypeDisplay
                   valueType={feature.valueType}
-                  defaultValue={feature.defaultValue}
+                  baseConfig={feature.baseConfig}
                 />
               ) : (
                 "unknown"

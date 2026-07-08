@@ -1,4 +1,9 @@
-import { validateFeatureValue } from "shared/util";
+import {
+  validateFeatureValue,
+  setConfigBacking,
+  getConfigBackingPatch,
+  getConfigBackingKey,
+} from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
@@ -39,6 +44,9 @@ import {
   assertValidHoldout,
   assertValidProjectId,
   assertValidRuleConfigKeys,
+  assertValidBaseConfig,
+  assertValidDefaultValueConfig,
+  assertNoRawConfigExtends,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
@@ -142,6 +150,42 @@ export const updateFeatureV2 = createApiRequestHandler(
     );
   }
 
+  // Config backing via dedicated fields. `baseConfig` (Config mode) and
+  // `defaultValueConfig` (the default's optional descendant extension) are set
+  // through fields, never a raw `@config:` in the value.
+  const effectiveBaseConfig =
+    req.body.baseConfig !== undefined
+      ? (req.body.baseConfig ?? null)
+      : (feature.baseConfig ?? null);
+  if (req.body.defaultValue != null) {
+    assertNoRawConfigExtends(req.body.defaultValue, "defaultValue");
+  }
+  await assertValidBaseConfig(
+    req.context,
+    effectiveBaseConfig,
+    feature.valueType,
+  );
+  await assertValidDefaultValueConfig(
+    req.context,
+    effectiveBaseConfig,
+    req.body.defaultValueConfig,
+  );
+
+  // Recompose the stored default when its value or its extension changes: a
+  // `defaultValueConfig` descendant becomes the value's own `$extends`; a bare
+  // `baseConfig` leaves it a pure patch the compiler resolves. Editing only the
+  // value keeps the existing extension; editing only the extension re-points the
+  // existing patch.
+  const dvcProvided = req.body.defaultValueConfig !== undefined;
+  let storedDefault: string | undefined;
+  if (defaultValue != null || dvcProvided) {
+    const patch = getConfigBackingPatch(defaultValue ?? feature.defaultValue);
+    const dvc = dvcProvided
+      ? (req.body.defaultValueConfig ?? null)
+      : getConfigBackingKey(feature.defaultValue);
+    storedDefault = dvc !== null ? setConfigBacking(dvc, patch) : patch;
+  }
+
   const prerequisites =
     req.body.prerequisites != null
       ? req.body.prerequisites?.map((p) => ({
@@ -158,6 +202,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   assertConfigSchemaCompat({
     jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
     defaultValue: defaultValue ?? feature.defaultValue,
+    baseConfig: effectiveBaseConfig,
   });
 
   let inboundFlatRules: FeatureRule[] | null = null;
@@ -186,6 +231,7 @@ export const updateFeatureV2 = createApiRequestHandler(
           : []),
       ]),
       defaultValue ?? feature.defaultValue,
+      effectiveBaseConfig,
     );
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
@@ -213,7 +259,10 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
     ...(tags != null ? { tags } : {}),
-    ...(defaultValue != null ? { defaultValue } : {}),
+    ...(storedDefault !== undefined ? { defaultValue: storedDefault } : {}),
+    ...(req.body.baseConfig !== undefined
+      ? { baseConfig: req.body.baseConfig ?? null }
+      : {}),
     ...(prerequisites != null ? { prerequisites } : {}),
     ...(jsonSchema != null ? { jsonSchema } : {}),
     ...(customFields != null ? { customFields } : {}),

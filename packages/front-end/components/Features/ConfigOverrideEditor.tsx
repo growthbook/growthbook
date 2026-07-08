@@ -512,26 +512,40 @@ export default function ConfigOverrideEditor({
                   ))}
                   <Box />
                 </Grid>
-                {visibleRows.map(({ key, field }) => {
-                  const overridden = overrides ? key in overrides : false;
-                  const base = baseByKey.get(key);
-                  return (
-                    <OverrideRow
-                      key={`${configKey}:${key}`}
-                      field={field}
-                      fieldKey={key}
-                      base={base}
-                      overridden={overridden}
-                      value={overridden ? overrides?.[key] : undefined}
-                      onStart={() => setOverride(key, seedValue(key, field))}
-                      onSet={(v) => setOverride(key, v)}
-                      onRemove={() => removeOverride(key)}
-                      sparse={sparse}
-                      constantContext={constantContext}
-                      disabled={disabled}
-                    />
-                  );
-                })}
+                {visibleRows.length === 0 ? (
+                  <Flex
+                    align="center"
+                    justify="center"
+                    py="3"
+                    style={{ borderTop: "1px solid var(--slate-a4)" }}
+                  >
+                    <Text size="small" color="text-low" fontStyle="italic">
+                      No overrides — the config&apos;s values apply as-is. Add a
+                      field below to override one.
+                    </Text>
+                  </Flex>
+                ) : (
+                  visibleRows.map(({ key, field }) => {
+                    const overridden = overrides ? key in overrides : false;
+                    const base = baseByKey.get(key);
+                    return (
+                      <OverrideRow
+                        key={`${configKey}:${key}`}
+                        field={field}
+                        fieldKey={key}
+                        base={base}
+                        overridden={overridden}
+                        value={overridden ? overrides?.[key] : undefined}
+                        onStart={() => setOverride(key, seedValue(key, field))}
+                        onSet={(v) => setOverride(key, v)}
+                        onRemove={() => removeOverride(key)}
+                        sparse={sparse}
+                        constantContext={constantContext}
+                        disabled={disabled}
+                      />
+                    );
+                  })
+                )}
               </Box>
               {sparse && (addableFields.length > 0 || extensible) && (
                 <Box mt="2" style={{ maxWidth: 260 }}>
