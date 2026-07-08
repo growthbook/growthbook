@@ -35,7 +35,7 @@ import {
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import {
@@ -567,7 +567,7 @@ function DashboardEditor({
         isGeneralDashboard={isGeneralDashboard}
         dashboardId={id}
       />
-      <div className="mb-3">
+      <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
           {switchToExperimentView ? (
             <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
@@ -753,7 +753,7 @@ function DashboardEditor({
             setNeedsUpdate={setNeedsUpdate}
           />
         ) : null}
-      </div>
+      </Box>
       <div>
         {blocks.length === 0 ? (
           <Flex
