@@ -280,21 +280,14 @@ tags:
       Server metadata, including the running build's version and commit for
       version-skew checks.
   - name: ContextualBandits
-    x-displayName: Contextual Bandits (Beta)
-    description: >-
-      **Beta** — Contextual Bandits are in beta and not yet officially released.
-      These endpoints may change in backwards-incompatible ways. Contextual
-      Bandits automatically allocate traffic toward the best-performing
-      variation based on user context.
+    x-displayName: Contextual Bandits
+    description: ''
   - name: Dashboards
     x-displayName: Dashboards
     description: ''
   - name: ContextualBanditQueries
-    x-displayName: Contextual Bandit Queries (Beta)
-    description: >-
-      **Beta** — Part of the Contextual Bandits beta and not yet officially
-      released. These endpoints may change in backwards-incompatible ways.
-      Queries used to power Contextual Bandit analysis.
+    x-displayName: Contextual Bandit Queries
+    description: ''
   - name: CustomFields
     x-displayName: Custom Fields
     description: ''
