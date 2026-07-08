@@ -112,9 +112,16 @@ const ApiKeysModal: FC<{
         <>
           {editMode && (
             <Callout status="info" mb="3">
-              Changing permissions here keeps the same key value, so existing
-              integrations keep working. If you&apos;d rather invalidate the old
-              credential, delete this key and create a new one instead.
+              <p style={{ marginBottom: "var(--space-2)" }}>
+                Editing permissions keeps the same key value, so existing
+                integrations keep working.
+              </p>
+              <p style={{ marginBottom: 0 }}>
+                We recommend rotating instead (delete and recreate) when
+                it&apos;s not too disruptive &mdash; the key&apos;s scope is
+                baked into its name, so the name may be misleading after an
+                edit.
+              </p>
             </Callout>
           )}
           <RoleSelector value={roleState} setValue={setRoleState} />

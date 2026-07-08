@@ -179,7 +179,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       {/* Only org secret keys (not PATs) can be edited in place */}
                       {onEdit && key.secret && !key.userId && (
                         <DropdownMenuItem onClick={() => onEdit(key)}>
-                          Edit permissions
+                          Edit permissions & description
                         </DropdownMenuItem>
                       )}
                       {onToggleDisabled && (
