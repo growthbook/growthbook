@@ -54,7 +54,7 @@ function DashboardStatusSummary({
       ? "var(--red-11)"
       : needsUpdate
         ? "var(--amber-11)"
-        : undefined;
+        : "var(--color-text-mid)";
   const lastUpdateTime =
     metricAnalysis?.runStarted ??
     dashboardLastUpdated ??
@@ -174,15 +174,6 @@ export default function DashboardUpdateDisplay({
       align="center"
       className={clsx({ "dashboard-disabled": disabled })}
       justify={"end"}
-      style={{
-        ...(isEditing
-          ? {
-              border: "1px solid var(--gray-a3)",
-              borderRadius: "var(--radius-3)",
-              padding: "var(--space-2)",
-            }
-          : {}),
-      }}
     >
       <DashboardStatusSummary
         enableAutoUpdates={enableAutoUpdates}
