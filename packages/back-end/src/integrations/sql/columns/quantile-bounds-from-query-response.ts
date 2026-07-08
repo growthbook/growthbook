@@ -93,6 +93,9 @@ export function getQuantileBoundsFromQueryResponse(
           quantileData[`${prefix}quantile_lower`] = lower;
           quantileData[`${prefix}quantile_upper`] = upper;
           quantileData[`${prefix}quantile_nstar`] = N_STAR_VALUES[k];
+          // Keep selectedK pointing at the pair actually in use so it stays
+          // consistent with the bounds if referenced later.
+          selectedK = k;
           break;
         }
       }
