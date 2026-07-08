@@ -1,5 +1,6 @@
 import { useContext, useMemo, useState } from "react";
 import { Flex } from "@radix-ui/themes";
+import { PiSlidersHorizontal } from "react-icons/pi";
 import {
   canAutoRefreshDashboard,
   DashboardBlockInterface,
@@ -9,6 +10,7 @@ import {
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import Heading from "@/ui/Heading";
 import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
 
 type DashboardDateRange = NonNullable<
@@ -94,7 +96,18 @@ export default function DashboardGlobalControlsBar({
 
   return (
     <Flex direction="column" gap="3" mt="2">
-      <Flex align="center" gap="3" wrap="wrap" justify="end">
+      <Flex align="center" gap="3" justify="between">
+        <Flex direction="row" align="center" gap="1">
+          <PiSlidersHorizontal
+            size={16}
+            style={{
+              color: "var(--violet-11)",
+            }}
+          />
+          <Heading as="h3" size="small" weight="medium">
+            Dashboard Filters
+          </Heading>
+        </Flex>
         <DashboardDateControlsDropdown
           value={globalControls?.dateRange ?? null}
           granularity={globalControls?.dateGranularity ?? "auto"}

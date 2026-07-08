@@ -717,18 +717,6 @@ function DashboardEditor({
             </Flex>
           ) : null}
         </Flex>
-        {isGeneralDashboard &&
-        onGlobalControlsChange &&
-        (isEditing || hasGlobalControls) ? (
-          <DashboardGlobalControlsBar
-            blocks={blocks}
-            globalControls={globalControls}
-            canEdit={canEdit}
-            isEditing={isEditing}
-            onGlobalControlsChange={onGlobalControlsChange}
-            setNeedsUpdate={setNeedsUpdate}
-          />
-        ) : null}
         {!isEditing && (
           <Flex align="center" gap="3">
             <Flex align="center" gap="1">
@@ -757,6 +745,18 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
+        {isGeneralDashboard &&
+        onGlobalControlsChange &&
+        (isEditing || hasGlobalControls) ? (
+          <DashboardGlobalControlsBar
+            blocks={blocks}
+            globalControls={globalControls}
+            canEdit={canEdit}
+            isEditing={isEditing}
+            onGlobalControlsChange={onGlobalControlsChange}
+            setNeedsUpdate={setNeedsUpdate}
+          />
+        ) : null}
       </div>
       <div>
         {blocks.length === 0 ? (
