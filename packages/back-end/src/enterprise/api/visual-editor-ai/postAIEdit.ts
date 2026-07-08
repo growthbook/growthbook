@@ -252,9 +252,8 @@ const outputSchema = z.object({
           ),
       }),
     )
-    .nullable()
     .describe(
-      "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Null when the request doesn't add any new elements.",
+      "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Return an empty array when the request doesn't add any new elements.",
     ),
   explanation: z
     .string()
@@ -296,7 +295,7 @@ Inserting new elements (banners, notices, sections, new blocks) — use the \`in
 - Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
 - "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
 - Style the inserted markup with inline styles, or add rules to the global \`css\` field. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
-- You may return \`insert\` alongside \`mutations\` and \`css\` in one response. Inserts are applied idempotently and are safe on "body". Leave \`insert\` null when the request doesn't add any new elements.
+- You may return \`insert\` alongside \`mutations\` and \`css\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
 
 Position-move rules (critical):
 - A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
@@ -788,7 +787,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       scopeToken: string;
     }> = [];
     const insertJsSnippets: string[] = [];
-    for (const ins of result.insert ?? []) {
+    for (const ins of result.insert) {
       const targetSelector = ins.targetSelector.trim();
       const rawHtml = ins.html.trim();
       if (!targetSelector || !rawHtml) continue;
