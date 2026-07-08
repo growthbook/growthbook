@@ -164,6 +164,22 @@ export type ExplorationDateRange = z.infer<
   typeof explorationDateRangeValidator
 >;
 
+const chartAxisSettingsValidator = z
+  .object({
+    categoryAxisLabel: z.string().nullable().optional(),
+    valueAxisLabel: z.string().nullable().optional(),
+  })
+  .strict();
+
+const chartSettingsValidator = z
+  .object({
+    axes: chartAxisSettingsValidator.optional(),
+  })
+  .strict();
+export type ProductAnalyticsChartSettings = z.infer<
+  typeof chartSettingsValidator
+>;
+
 export const baseExplorationConfigValidator = z.object({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
@@ -176,6 +192,9 @@ export const baseExplorationConfigValidator = z.object({
   // regardless of this setting.
   // Optional for backward compatibility; read sites default to "total".
   showAs: showAsValidator.optional(),
+  // Render-only chart display options. Optional so existing saved explorations,
+  // dashboard blocks, URLs, and API clients continue to parse unchanged.
+  chartSettings: chartSettingsValidator.optional(),
 });
 
 export const metricExplorationConfigValidator =

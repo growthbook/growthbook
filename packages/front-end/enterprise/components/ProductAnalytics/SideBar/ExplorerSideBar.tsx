@@ -37,6 +37,7 @@ import DatasourceTabContent from "./DatasourceTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import ChartSettingsSection from "./ChartSettingsSection";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
@@ -340,6 +341,7 @@ export default function ExplorerSideBar({
         <ShowAsSection />
       )}
       {dataset?.values?.length > 0 && <GroupBySection />}
+      <ChartSettingsSection />
     </Flex>
   );
 }

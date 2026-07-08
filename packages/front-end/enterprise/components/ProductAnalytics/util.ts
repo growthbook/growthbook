@@ -13,6 +13,12 @@ import type {
   ExplorationDataset,
   ExplorationConfig,
   ExplorationDateRange,
+  ProductAnalyticsChartSettings,
+} from "shared/validators";
+import {
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -48,14 +54,20 @@ export type ExplorerDraftConfig = ExplorationConfig & {
 export function stripExplorerDraftFields(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, ...rest } = config;
-  return rest;
+  const rest = { ...config };
+  delete rest.previousTimeFrame;
+
+  const cleanedChartSettings = cleanChartSettings(rest.chartSettings);
+  if (cleanedChartSettings) {
+    return {
+      ...rest,
+      chartSettings: cleanedChartSettings,
+    } as ExplorationConfig;
+  }
+
+  delete rest.chartSettings;
+  return rest as ExplorationConfig;
 }
-import {
-  dateGranularity,
-  explorationConfigValidator,
-  explorationDateRangeValidator,
-} from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
 
@@ -410,18 +422,52 @@ function removeIncompleteInputs(
   return dataset;
 }
 
+function cleanChartSettings(
+  chartSettings: ProductAnalyticsChartSettings | undefined,
+): ProductAnalyticsChartSettings | undefined {
+  const categoryAxisLabel =
+    chartSettings?.axes?.categoryAxisLabel?.trim() ?? "";
+  const valueAxisLabel = chartSettings?.axes?.valueAxisLabel?.trim() ?? "";
+
+  if (!categoryAxisLabel && !valueAxisLabel) return undefined;
+
+  return {
+    axes: {
+      ...(categoryAxisLabel ? { categoryAxisLabel } : {}),
+      ...(valueAxisLabel ? { valueAxisLabel } : {}),
+    },
+  };
+}
+
+function getValueFetchKey(
+  value: ProductAnalyticsValue,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "name"),
+  );
+}
+
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
   config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const { previousTimeFrame: _, ...configWithoutPrevious } = config;
-  const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
-  const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
-    if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
-    return "column" in d && d.column !== null;
-  });
+  const configWithoutDraftFields = stripExplorerDraftFields(config);
+  const { chartSettings, ...configWithoutChartSettings } =
+    configWithoutDraftFields;
+  const cleanedDataset = removeIncompleteInputs(
+    configWithoutChartSettings.dataset,
+  );
+  const cleanedDimensions = configWithoutChartSettings.dimensions.filter(
+    (d) => {
+      if (d.dimensionType === "date" || d.dimensionType === "slice")
+        return true;
+      return "column" in d && d.column !== null;
+    },
+  );
+  const cleanedChartSettings = cleanChartSettings(chartSettings);
   return {
-    ...configWithoutPrevious,
+    ...configWithoutChartSettings,
+    ...(cleanedChartSettings ? { chartSettings: cleanedChartSettings } : {}),
     dataset: cleanedDataset,
     dimensions: cleanedDimensions,
   } as ExplorationConfig;
@@ -453,15 +499,15 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 function toFetchKey(config: ExplorationConfig | ExplorerDraftConfig): unknown {
   const base =
     "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = base;
+  const rest = { ...base };
+  delete rest.showAs;
+  delete rest.chartSettings;
   return {
     ...rest,
     chartType: getChartCategory(config.chartType),
     dataset: {
       ...config.dataset,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      values: config.dataset.values.map(({ name, ...rest }) => rest),
+      values: config.dataset.values.map(getValueFetchKey),
     },
   };
 }

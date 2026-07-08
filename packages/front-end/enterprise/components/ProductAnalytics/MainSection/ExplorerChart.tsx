@@ -111,6 +111,10 @@ function sortSeriesConfigsForCompareLegendOrder(
   ).map((row) => row.cfg);
 }
 
+function getNonEmptyAxisLabel(label: string | null | undefined): string {
+  return label?.trim() ?? "";
+}
+
 export default function ExplorerChart({
   exploration,
   comparisonExploration = null,
@@ -195,12 +199,20 @@ export default function ExplorerChart({
   // Y-axis label: reflects whether we're rendering raw totals or per-unit
   // averages. Only populated when showAs applies (otherwise the toggle is
   // hidden and the number's meaning is carried by the metric/series name).
-  const valueAxisName = useMemo(() => {
+  const defaultValueAxisName = useMemo(() => {
     if (!showAsAppliesTo(submittedExploreState, getFactMetricById)) return "";
     if (renderOpts.showAs === "total") return "Total";
     const sharedUnit = getSharedUnit(submittedExploreState);
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
+
+  const customCategoryAxisName = getNonEmptyAxisLabel(
+    submittedExploreState.chartSettings?.axes?.categoryAxisLabel,
+  );
+  const customValueAxisName = getNonEmptyAxisLabel(
+    submittedExploreState.chartSettings?.axes?.valueAxisLabel,
+  );
+  const valueAxisName = customValueAxisName || defaultValueAxisName;
 
   const bigNumberComparisonTrends = useMemo(() => {
     if (!compareEnabled) return null;
@@ -540,6 +552,12 @@ export default function ExplorerChart({
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
       data: categoryAxisValues,
+      ...(customCategoryAxisName
+        ? {
+            name: customCategoryAxisName,
+            nameGap: isHorizontalBar ? 70 : 55,
+          }
+        : {}),
       nameLocation: "middle" as const,
       nameTextStyle: {
         fontSize: 14,
@@ -704,6 +722,7 @@ export default function ExplorerChart({
     gridLineColor,
     tooltipBackgroundColor,
     animate,
+    customCategoryAxisName,
     valueAxisName,
     chartBoxSize,
   ]);
