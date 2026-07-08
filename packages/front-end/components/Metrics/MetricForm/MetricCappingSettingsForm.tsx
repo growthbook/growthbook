@@ -67,10 +67,10 @@ function LegacyMetricCappingSettingsFormContent({
   const cappingOptions = [
     { value: "", label: "No" },
     ...(metricType !== "ratio"
-      ? [{ value: "absolute", label: "Absolute Capping" }]
+      ? [{ value: "absolute", label: "Absolute capping" }]
       : []),
     ...(datasourceType !== "mixpanel"
-      ? [{ value: "percentile", label: "Percentile Capping" }]
+      ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
   ];
 
@@ -148,7 +148,7 @@ function LegacyMetricCappingSettingsFormContent({
   return (
     <div className="form-group">
       <SelectField
-        label="Cap User Values"
+        label="Cap user values"
         value={mode}
         onChange={(v: CappingMode) => {
           setCappingMode(v);
@@ -167,7 +167,7 @@ function LegacyMetricCappingSettingsFormContent({
           <>
             <Field
               label={
-                mode === "absolute" ? "Max Value per User" : "Percentile Value"
+                mode === "absolute" ? "Max value per user" : "Percentile value"
               }
               type="number"
               step="any"
@@ -238,10 +238,10 @@ function FactCappingTailEditor({
   const cappingOptions = [
     { value: "", label: "No" },
     ...(metricType !== "ratio"
-      ? [{ value: "absolute", label: "Absolute Capping" }]
+      ? [{ value: "absolute", label: "Absolute capping" }]
       : []),
     ...(datasourceType !== "mixpanel"
-      ? [{ value: "percentile", label: "Percentile Capping" }]
+      ? [{ value: "percentile", label: "Percentile capping" }]
       : []),
   ];
 
@@ -332,7 +332,7 @@ function FactCappingTailEditor({
   return (
     <div className="mb-3">
       <SelectField
-        label={isLower ? "Cap Lower Tail" : "Cap Upper Tail"}
+        label={isLower ? "Cap lower tail" : "Cap upper tail"}
         value={mode}
         onChange={(v: CappingMode) => {
           setCappingMode(v);
@@ -341,51 +341,44 @@ function FactCappingTailEditor({
         options={cappingOptions}
         helpText={selectHelpText}
       />
-      <div
-        style={{
-          display: mode ? "block" : "none",
-        }}
-        className="appbox p-3 bg-light"
-      >
-        {mode ? (
-          <>
-            <Field
-              label={label}
-              type="number"
-              step="any"
-              // Lower absolute floors may be zero or negative, so no min there.
-              min={mode === "percentile" ? "0" : isLower ? undefined : "0"}
-              max={mode === "percentile" ? "1" : undefined}
-              placeholder="None"
-              value={displayValue}
-              onFocus={() => {
-                setFocused(true);
-                setDraft(capped ? String(value) : "");
+      {mode ? (
+        <div className="appbox p-3 bg-light">
+          <Field
+            label={label}
+            type="number"
+            step="any"
+            // Lower absolute floors may be zero or negative, so no min there.
+            min={mode === "percentile" ? "0" : isLower ? undefined : "0"}
+            max={mode === "percentile" ? "1" : undefined}
+            placeholder="None"
+            value={displayValue}
+            onFocus={() => {
+              setFocused(true);
+              setDraft(capped ? String(value) : "");
+            }}
+            onBlur={(e) => {
+              flushInput(e.target.value);
+              setFocused(false);
+            }}
+            onChange={(e) => setDraft(e.target.value)}
+            helpText={valueHelpText}
+          />
+          {mode === "percentile" && capped ? (
+            <Checkbox
+              label="Ignore zeros"
+              value={settings?.ignoreZeros ?? false}
+              setValue={(v) => {
+                form.setValue(path, {
+                  type: settings?.type ?? mode,
+                  value: settings?.value ?? 0,
+                  ignoreZeros: v,
+                });
               }}
-              onBlur={(e) => {
-                flushInput(e.target.value);
-                setFocused(false);
-              }}
-              onChange={(e) => setDraft(e.target.value)}
-              helpText={valueHelpText}
+              id={`cappingIgnoreZeros${idSuffix}`}
             />
-            {mode === "percentile" && capped ? (
-              <Checkbox
-                label="Ignore zeros"
-                value={settings?.ignoreZeros ?? false}
-                setValue={(v) => {
-                  form.setValue(path, {
-                    type: settings?.type ?? mode,
-                    value: settings?.value ?? 0,
-                    ignoreZeros: v,
-                  });
-                }}
-                id={`cappingIgnoreZeros${idSuffix}`}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

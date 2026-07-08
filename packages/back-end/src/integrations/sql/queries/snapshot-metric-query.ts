@@ -507,7 +507,6 @@ WITH
           hasRegressionAdjustment: regressionAdjusted,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsUpperPercentileCapped: denominatorIsPercentileCapped,
-          denominatorIsLowerPercentileCapped: false,
         })
       : `
   -- One row per variation/dimension with aggregations

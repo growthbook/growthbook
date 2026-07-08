@@ -2,13 +2,14 @@ import { Flex, Tooltip } from "@radix-ui/themes";
 import { MdSwapCalls } from "react-icons/md";
 import {
   formatMetricCappingSummary,
+  getLowerCappingSettings,
   hasActiveCappingTails,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { getCappingTailState, LookbackOverride } from "shared/validators";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "shared/types/stats";
-import { LookbackOverride } from "shared/validators";
 import { date } from "shared/dates";
 import Metadata from "@/ui/Metadata";
 import FactMetricTypeDisplayName from "@/components/Metrics/FactMetricTypeDisplayName";
@@ -29,6 +30,31 @@ export function MetricDrilldownMetadata({
   row: ExperimentTableRow;
 }) {
   const { metric, metricOverrideFields, metricSnapshotSettings } = row;
+
+  // Derive the capping label from the active tail(s) so a lower-only metric
+  // doesn't render an empty "Capping ()". cappingSettings.type only reflects
+  // the upper tail, which may be unset.
+  const cappingTailState = getCappingTailState(
+    metric.cappingSettings,
+    getLowerCappingSettings(metric),
+  );
+  const cappingTypes = Array.from(
+    new Set(
+      [
+        cappingTailState.upperPercentileCapped ||
+        cappingTailState.lowerPercentileCapped
+          ? "percentile"
+          : null,
+        cappingTailState.upperAbsoluteCapped ||
+        cappingTailState.lowerAbsoluteCapped
+          ? "absolute"
+          : null,
+      ].filter((t): t is string => t !== null),
+    ),
+  );
+  const cappingLabel = cappingTypes.length
+    ? `Capping (${cappingTypes.join(" / ")})`
+    : "Capping";
 
   return (
     <Flex gap="4">
@@ -83,7 +109,7 @@ export function MetricDrilldownMetadata({
 
       {hasActiveCappingTails(metric) ? (
         <Metadata
-          label={`Capping (${metric.cappingSettings.type})`}
+          label={cappingLabel}
           value={formatMetricCappingSummary(metric)}
         />
       ) : (

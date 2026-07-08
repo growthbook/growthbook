@@ -963,18 +963,24 @@ export default function FactMetricPage() {
                           Absolute capping
                         </span>
                       </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Upper: </span>
-                        <span className="font-weight-bold">
-                          {hasUpperAbsoluteCap ? cap.value : ""}
-                        </span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Lower: </span>
-                        <span className="font-weight-bold">
-                          {hasLowerAbsoluteCap ? lowerCap?.value : ""}
-                        </span>
-                      </li>
+                      {hasUpperAbsoluteCap ? (
+                        <li className="mb-2">
+                          {hasLowerAbsoluteCap ? (
+                            <span className="text-gray">Upper: </span>
+                          ) : null}
+                          <span className="font-weight-bold">{cap.value}</span>
+                        </li>
+                      ) : null}
+                      {hasLowerAbsoluteCap ? (
+                        <li className="mb-2">
+                          {hasUpperAbsoluteCap ? (
+                            <span className="text-gray">Lower: </span>
+                          ) : null}
+                          <span className="font-weight-bold">
+                            {lowerCap?.value}
+                          </span>
+                        </li>
+                      ) : null}
                     </>
                   )}
                 </ul>

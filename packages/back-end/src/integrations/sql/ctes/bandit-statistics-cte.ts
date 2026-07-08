@@ -26,7 +26,6 @@ export function getBanditStatisticsCTE(
     hasRegressionAdjustment,
     ignoreNulls,
     denominatorIsUpperPercentileCapped,
-    denominatorIsLowerPercentileCapped,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
@@ -34,19 +33,13 @@ export function getBanditStatisticsCTE(
     hasRegressionAdjustment: boolean;
     ignoreNulls?: boolean;
     denominatorIsUpperPercentileCapped?: boolean;
-    denominatorIsLowerPercentileCapped?: boolean;
   },
 ): string {
-  const denominatorCapJoinsSql = [
-    denominatorIsUpperPercentileCapped
-      ? "CROSS JOIN __capValueDenominator capd"
-      : "",
-    denominatorIsLowerPercentileCapped
-      ? "CROSS JOIN __capValueDenominatorLower capd_lower"
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n          ");
+  // Legacy (non-fact) bandit path is upper-tail capping only; lower-tail
+  // capping is a fact-metric-only feature.
+  const denominatorCapJoinsSql = denominatorIsUpperPercentileCapped
+    ? "CROSS JOIN __capValueDenominator capd"
+    : "";
 
   return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
@@ -62,11 +55,6 @@ export function getBanditStatisticsCTE(
         ${
           data.isUpperPercentileCapped
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
-            : ""
-        }
-        ${
-          data.isLowerPercentileCapped
-            ? `, MAX(COALESCE(cap.${alias}value_cap_lower, 0)) AS ${alias}main_cap_value_lower`
             : ""
         }
         , ${dialect.castToFloat(
@@ -131,7 +119,6 @@ export function getBanditStatisticsCTE(
         : ""
     }
     ${metricData.some((d) => d.isUpperPercentileCapped) ? `CROSS JOIN __capValue cap` : ""}
-    ${metricData.some((d) => d.isLowerPercentileCapped) ? `CROSS JOIN __capValueLower cap_lower` : ""}
     ${ignoreNulls ? `WHERE m.value != 0` : ""}
     GROUP BY
       m.variation
