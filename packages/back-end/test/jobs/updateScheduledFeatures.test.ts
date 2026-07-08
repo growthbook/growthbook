@@ -1,20 +1,18 @@
 import { FeatureInterface } from "shared/types/feature";
 import { updateSingleFeature } from "back-end/src/jobs/updateScheduledFeatures";
 import {
-  getFeature,
-  updateNextScheduledDate,
-} from "back-end/src/models/FeatureModel";
-import {
   getNextScheduledUpdate,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  updateNextScheduledDate: jest.fn(),
-  getScheduledFeaturesToUpdate: jest.fn(),
+  FeatureModel: { dangerousGetScheduledFeaturesToUpdate: jest.fn() },
 }));
+
+// Feature lookups/updates now go through ctx.models.features.
+const mockGetById = jest.fn();
+const mockUpdateNextScheduledDate = jest.fn();
 
 jest.mock("back-end/src/services/features", () => ({
   getNextScheduledUpdate: jest.fn(),
@@ -48,6 +46,12 @@ const makeContext = () => ({
     settings: { environments: [{ id: "production" }] },
   },
   environments: ["production"],
+  models: {
+    features: {
+      getById: mockGetById,
+      updateNextScheduledDate: mockUpdateNextScheduledDate,
+    },
+  },
 });
 
 describe("updateSingleFeature", () => {
@@ -55,10 +59,10 @@ describe("updateSingleFeature", () => {
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(
       makeContext(),
     );
-    (getFeature as jest.Mock).mockResolvedValue(makeFeature());
+    mockGetById.mockResolvedValue(makeFeature());
     (getNextScheduledUpdate as jest.Mock).mockReturnValue(null);
     (refreshSDKPayloadCache as jest.Mock).mockResolvedValue(undefined);
-    (updateNextScheduledDate as jest.Mock).mockResolvedValue(undefined);
+    mockUpdateNextScheduledDate.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -70,7 +74,7 @@ describe("updateSingleFeature", () => {
     (refreshSDKPayloadCache as jest.Mock).mockImplementation(async () => {
       order.push("refresh");
     });
-    (updateNextScheduledDate as jest.Mock).mockImplementation(async () => {
+    mockUpdateNextScheduledDate.mockImplementation(async () => {
       order.push("ack");
     });
 
@@ -90,15 +94,15 @@ describe("updateSingleFeature", () => {
     await updateSingleFeature(makeJob());
     await new Promise(process.nextTick);
 
-    expect(updateNextScheduledDate).not.toHaveBeenCalled();
+    expect(mockUpdateNextScheduledDate).not.toHaveBeenCalled();
   });
 
   it("does nothing when the feature does not exist", async () => {
-    (getFeature as jest.Mock).mockResolvedValue(null);
+    mockGetById.mockResolvedValue(null);
 
     await updateSingleFeature(makeJob());
 
     expect(refreshSDKPayloadCache).not.toHaveBeenCalled();
-    expect(updateNextScheduledDate).not.toHaveBeenCalled();
+    expect(mockUpdateNextScheduledDate).not.toHaveBeenCalled();
   });
 });

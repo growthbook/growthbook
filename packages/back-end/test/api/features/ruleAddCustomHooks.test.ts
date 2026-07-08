@@ -8,7 +8,6 @@ import {
   createInitialRevision,
   createRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { setupApp } from "../api.setup";
 
 // Regression tests: a custom-hook rejection on the rule-add endpoint must not orphan a SafeRollout doc
@@ -82,7 +81,7 @@ async function seedFeature() {
 }
 
 async function seedDraftRevision(context: ReqContextClass) {
-  const feature = await getFeature(context, FEATURE_ID);
+  const feature = await context.models.features.getById(FEATURE_ID);
   if (!feature) throw new Error("seed feature missing");
   // createRevision requires a published base revision for feature.version.
   await createInitialRevision(context, feature, context.auditUser, [

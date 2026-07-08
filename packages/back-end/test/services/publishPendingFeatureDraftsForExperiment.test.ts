@@ -2,8 +2,7 @@ import type { ExperimentInterface } from "shared/validators";
 import { autoMerge, checkIfRevisionNeedsReview } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+jest.mock("back-end/src/services/featureRevisions", () => ({
   publishRevision: jest.fn(),
   prevalidatePublishRevision: jest.fn(),
   editFeatureRules: jest.fn(),
@@ -40,10 +39,9 @@ import {
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
-  getFeature,
   prevalidatePublishRevision,
   publishRevision,
-} from "back-end/src/models/FeatureModel";
+} from "back-end/src/services/featureRevisions";
 import {
   getRevision,
   discardRevision,
@@ -51,7 +49,7 @@ import {
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetFeature = jest.fn();
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 const mockDiscardRevision = discardRevision as jest.MockedFunction<
   typeof discardRevision
@@ -81,6 +79,7 @@ const ctx = {
   org: { id: "org_1", settings: {} },
   environments: ["production"],
   hasPremiumFeature: () => true,
+  models: { features: { getById: mockGetFeature } },
 } as unknown as ReqContext;
 
 function makeExperiment(

@@ -1,8 +1,7 @@
 import type { OrganizationInterface } from "shared/types/organization";
 import type { EventUser } from "shared/types/events/event-types";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+jest.mock("back-end/src/services/featureRevisions", () => ({
   createAndPublishRevision: jest.fn(),
 }));
 
@@ -39,14 +38,11 @@ jest.mock("back-end/src/util/organization.util", () => ({
 }));
 
 import { revertFeatureCore } from "back-end/src/api/features/revertFeature";
-import {
-  createAndPublishRevision,
-  getFeature,
-} from "back-end/src/models/FeatureModel";
+import { createAndPublishRevision } from "back-end/src/services/featureRevisions";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetFeature = jest.fn();
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 const mockCreateAndPublish = createAndPublishRevision as jest.MockedFunction<
   typeof createAndPublishRevision
@@ -70,6 +66,7 @@ const ctx = {
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
     },
+    features: { getById: mockGetFeature },
   },
 } as never;
 
