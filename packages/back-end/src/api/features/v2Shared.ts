@@ -293,6 +293,7 @@ const METADATA_FIELDS = [
   "tags",
   "customFields",
   "jsonSchema",
+  "baseConfig",
 ] as const;
 
 // Pure split of metadata-like fields from feature updates. Returns the

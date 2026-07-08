@@ -457,6 +457,9 @@ const revisionMetadataSchema = z.object({
   customFields: z.record(z.string(), z.any()).optional(),
   jsonSchema: JSONSchemaDef.optional(),
   valueType: z.enum(featureValueType).optional(),
+  // Config mode. Tracked alongside jsonSchema/valueType so a change is
+  // snapshotted, diffed, gated, and applied on publish like any schema change.
+  baseConfig: z.string().nullable().optional(),
 });
 
 export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
@@ -1151,6 +1154,7 @@ export const apiRevisionMetadata = z
       })
       .optional(),
     customFields: z.record(z.string(), z.any()).optional(),
+    baseConfig: z.string().nullable().optional(),
   })
   .describe(
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",

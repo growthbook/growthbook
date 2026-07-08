@@ -39826,6 +39826,10 @@ components:
               propertyNames:
                 type: string
               additionalProperties: {}
+            baseConfig:
+              anyOf:
+                - type: string
+                - type: 'null'
           additionalProperties: false
         rampActions:
           description: >-
@@ -41226,6 +41230,10 @@ components:
               propertyNames:
                 type: string
               additionalProperties: {}
+            baseConfig:
+              anyOf:
+                - type: string
+                - type: 'null'
           additionalProperties: false
         rampActions:
           description: >-

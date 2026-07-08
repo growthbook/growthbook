@@ -199,6 +199,7 @@ export function mergeRevision(
     if (m.customFields !== undefined)
       newFeature.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) newFeature.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) newFeature.baseConfig = m.baseConfig;
     // Use draft valueType for preview so rule/defaultValue validation is accurate
     if (m.valueType !== undefined) newFeature.valueType = m.valueType;
   }
@@ -1089,11 +1090,16 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
-  // Backfill valueType for old revisions that predate this field.
-  metadata: (feature, current) =>
-    current?.valueType != null
-      ? current
-      : { ...current, valueType: feature.valueType },
+  // Backfill valueType + baseConfig for old revisions that predate these fields,
+  // so a legacy draft doesn't false-diff against the live baseline.
+  metadata: (feature, current) => {
+    let next = current;
+    if (next?.valueType == null)
+      next = { ...next, valueType: feature.valueType };
+    if (next?.baseConfig === undefined)
+      next = { ...next, baseConfig: feature.baseConfig ?? null };
+    return next;
+  },
   // Backfill envelope fields for legacy revisions that predate them. Without
   // this, revisionHasGlobalChange compares e.g. "false" !== undefined for
   // defaultValue and returns "all", bypassing env-scoped review checks even
@@ -1155,6 +1161,7 @@ export function liveRevisionFromFeature(
       tags: feature.tags ?? [],
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
       ...(liveRevision.metadata ?? {}),
     },
   };
@@ -1482,6 +1489,9 @@ export function normalizeMetadataValue(
   if (k === "tags") return (v as string[] | null | undefined) ?? [];
   if (k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
+  // Normalize unset/undefined to null so a non-config snapshot doesn't diff
+  // against an explicit null.
+  if (k === "baseConfig") return (v as string | null | undefined) ?? null;
   return v;
 }
 

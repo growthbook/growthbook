@@ -1610,6 +1610,7 @@ export function computeRevisionMergeChanges(
     if (m.customFields !== undefined)
       changes.customFields = m.customFields as Record<string, unknown>;
     if (m.jsonSchema !== undefined) changes.jsonSchema = m.jsonSchema;
+    if (m.baseConfig !== undefined) changes.baseConfig = m.baseConfig;
     hasChanges = true;
   }
 

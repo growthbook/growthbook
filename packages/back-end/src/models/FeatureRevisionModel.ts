@@ -793,6 +793,7 @@ export async function createInitialRevision(
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
     },
   });
 
@@ -894,6 +895,7 @@ export async function createRevision({
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
