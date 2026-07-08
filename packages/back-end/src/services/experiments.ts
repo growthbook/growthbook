@@ -2875,11 +2875,13 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    statusUpdateSchedule: experiment.statusUpdateSchedule
+    // External API exposes startAt only (stopAt is not yet part of the v1
+    // schema); omit the schedule entirely when there's no scheduled start.
+    statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
       ? {
           startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
-      : experiment.statusUpdateSchedule,
+      : null,
     // Only "start" is produced for experiments; updateExperimentStatus.ts
     // clears any other type before it can be observed. Filter defensively
     // so the API response always matches the documented schema.
@@ -4321,16 +4323,34 @@ function resolveExperimentUpdateVariationsAndPhases(
 export function validateStatusUpdateSchedule(
   experimentType: ExperimentType,
   statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+  existingStartAt?: Date | string | null,
 ): void {
   if (experimentType === "multi-armed-bandit" && statusUpdateSchedule) {
     throw new Error("Bandit experiments do not support scheduled starts.");
   }
+  if (!statusUpdateSchedule) return;
+
+  // Only require a future start when the start is actually being (re)scheduled,
+  // so end date / shipping edits on an already-started experiment don't trip on
+  // a start that's now in the past.
+  const startAtChanged =
+    !existingStartAt ||
+    getValidDate(statusUpdateSchedule.startAt ?? 0).getTime() !==
+      getValidDate(existingStartAt).getTime();
   if (
-    statusUpdateSchedule &&
     statusUpdateSchedule.startAt &&
+    startAtChanged &&
     getValidDate(statusUpdateSchedule.startAt) <= new Date()
   ) {
     throw new Error("statusUpdateSchedule.startAt must be in the future");
+  }
+  if (
+    statusUpdateSchedule.stopAt &&
+    statusUpdateSchedule.startAt &&
+    getValidDate(statusUpdateSchedule.stopAt) <=
+      getValidDate(statusUpdateSchedule.startAt)
+  ) {
+    throw new Error("statusUpdateSchedule.stopAt must be after startAt");
   }
 }
 
@@ -4357,8 +4377,25 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      changes.nextScheduledStatusUpdate = null;
+      const stopAt = incoming?.stopAt
+        ? getValidDate(incoming.stopAt)
+        : undefined;
+      changes.statusUpdateSchedule =
+        startAt || stopAt
+          ? {
+              ...(startAt ? { startAt } : {}),
+              ...(stopAt ? { stopAt } : {}),
+            }
+          : null;
+
+      // Re-stage the single pending action from the new schedule:
+      //  - running experiment: (re)stage the stop from stopAt (no approval)
+      //  - otherwise (draft): clear any staged start; it must be re-approved
+      const effectiveStatus = changes.status ?? experiment.status;
+      changes.nextScheduledStatusUpdate =
+        effectiveStatus === "running" && stopAt && stopAt > new Date()
+          ? { type: "stop", date: stopAt }
+          : null;
     }
   } else if (
     changes.status &&

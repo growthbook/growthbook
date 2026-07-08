@@ -725,3 +725,49 @@ export function getPresetDecisionCriteriaForOrg(
         (dc) => dc.id === settings.defaultDecisionCriteriaId,
       );
 }
+
+export type ScheduledShipDecision =
+  | { action: "ship"; variationId: string }
+  | { action: "no-winner" };
+
+/**
+ * Resolve the auto-ship decision at an experiment's scheduled end, given the
+ * decision-framework result status.
+ *  - A single ship-now winner ships directly.
+ *  - Multiple ship-now winners are an ambiguous tie: if a tiebreaker metric's
+ *    relative lift is provided per variation, ship the one with the highest
+ *    lift; otherwise there's no clear winner.
+ *  - Anything else (rollback / review / inconclusive) has no clear winner.
+ * The caller owns the fallback (notify vs force-ship a chosen variation).
+ */
+export function resolveScheduledShipDecision({
+  resultStatus,
+  tiebreakerLiftByVariationId,
+}: {
+  resultStatus: ExperimentResultStatusData | undefined;
+  tiebreakerLiftByVariationId?: Record<string, number> | null;
+}): ScheduledShipDecision {
+  if (resultStatus?.status !== "ship-now") return { action: "no-winner" };
+
+  const variations = resultStatus.variations;
+  if (variations.length === 1) {
+    return { action: "ship", variationId: variations[0].variationId };
+  }
+  if (variations.length === 0) return { action: "no-winner" };
+
+  // Ambiguous multi-winner tie — break by highest lift on the tiebreaker metric.
+  if (!tiebreakerLiftByVariationId) return { action: "no-winner" };
+  let winner: string | null = null;
+  let bestLift = -Infinity;
+  for (const v of variations) {
+    const lift = tiebreakerLiftByVariationId[v.variationId];
+    if ((lift ?? null) === null) continue;
+    if (lift > bestLift) {
+      bestLift = lift;
+      winner = v.variationId;
+    }
+  }
+  return winner !== null
+    ? { action: "ship", variationId: winner }
+    : { action: "no-winner" };
+}

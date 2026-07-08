@@ -91,6 +91,9 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
+  // Overrides the width preset from `size` when the standard md/lg widths
+  // don't fit the content (e.g. "650px").
+  maxWidth?: string;
   dismissible?: boolean;
   hasDescription?: boolean;
   children: ReactNode;
@@ -100,6 +103,7 @@ function Root({
   open,
   onOpenChange,
   size = "md",
+  maxWidth,
   dismissible = false,
   hasDescription = true,
   trackingEventModalType,
@@ -173,7 +177,7 @@ function Root({
       <Dialog.Content
         ref={contentRef}
         size={getRadixSize(size)}
-        maxWidth={getMaxWidth(size)}
+        maxWidth={maxWidth ?? getMaxWidth(size)}
         maxHeight="85vh"
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {

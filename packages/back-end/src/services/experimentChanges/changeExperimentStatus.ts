@@ -395,10 +395,21 @@ export async function executeExperimentStart(
     changes.phases = startExperimentTarget.phases;
   }
 
+  // Starting consumes any staged start. If the experiment has a future
+  // scheduled stop (statusUpdateSchedule.stopAt), stage it now so the 1-minute
+  // job stops (and applies shipping) at the cutoff; otherwise clear the field.
+  const stopAt = experiment.statusUpdateSchedule?.stopAt
+    ? getValidDate(experiment.statusUpdateSchedule.stopAt)
+    : null;
+  const nextScheduledStatusUpdate =
+    stopAt && stopAt > new Date()
+      ? { type: "stop" as const, date: stopAt }
+      : null;
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: { nextScheduledStatusUpdate: null, ...changes },
+    changes: { ...changes, nextScheduledStatusUpdate },
   });
   return { updated, publishResult };
 }

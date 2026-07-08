@@ -114,6 +114,15 @@ export default function SetupTabOverview({
     !!experiment.statusUpdateSchedule?.startAt &&
     new Date(experiment.statusUpdateSchedule.startAt) < new Date();
 
+  // Running experiments can add/edit an end date + end-of-experiment shipping
+  // automation mid-flight (start is already past).
+  const showEditRunningSchedule =
+    canEditSchedule &&
+    !isHoldout &&
+    !isBandit &&
+    experiment.status === "running" &&
+    !experiment.archived;
+
   const { hasCommercialFeature, organization } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   const isDemoExperiment =
@@ -201,6 +210,20 @@ export default function SetupTabOverview({
                   </Flex>
                 </Link>
               </Tooltip>
+            ) : null}
+            {showEditRunningSchedule ? (
+              <Link onClick={() => editSchedule()}>
+                <Flex align="center" gap="1">
+                  {experimentHasSchedule ? (
+                    <PiPencilSimpleFill />
+                  ) : (
+                    <PiPlus size="15" />
+                  )}
+                  <Text weight="semibold">
+                    {experimentHasSchedule ? "Edit Schedule" : "Schedule End"}
+                  </Text>
+                </Flex>
+              </Link>
             ) : null}
           </Flex>
         </Flex>

@@ -1764,7 +1764,11 @@ export async function postExperiment(
 
   if (data.statusUpdateSchedule) {
     const effectiveType = data.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
+    validateStatusUpdateSchedule(
+      effectiveType,
+      data.statusUpdateSchedule,
+      experiment.statusUpdateSchedule?.startAt ?? null,
+    );
   }
 
   const keys: (keyof ExperimentInterface)[] = [
@@ -1795,6 +1799,7 @@ export async function postExperiment(
     "variations",
     "status",
     "statusUpdateSchedule",
+    "shippingCriteria",
     "results",
     "analysis",
     "winner",
@@ -1849,6 +1854,7 @@ export async function postExperiment(
       key === "lookbackOverride" ||
       key === "variations" ||
       key === "statusUpdateSchedule" ||
+      key === "shippingCriteria" ||
       key === "customFields" ||
       key === "customMetricSlices" ||
       key === "precomputedUnitDimensionIds"

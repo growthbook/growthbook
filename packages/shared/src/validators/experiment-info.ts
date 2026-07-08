@@ -17,3 +17,24 @@ export const experimentInfoSignificance = z
 export type ExperimentInfoSignificancePayload = z.infer<
   typeof experimentInfoSignificance
 >;
+
+// Emitted when a scheduled start/stop is applied by the status-update job.
+// For a scheduled stop this also reports the shipping outcome so downstream
+// channels (webhooks/Slack) can announce the auto-ship.
+export const experimentInfoScheduledStatusUpdate = z
+  .object({
+    experimentId: z.string(),
+    experimentName: z.string(),
+    action: z.enum(["started", "stopped"]),
+    // Stop-only: whether a variation was auto-shipped/force-shipped and which.
+    shipped: z.boolean().optional(),
+    shippedVariationId: z.string().optional(),
+    // True when no clear winner was found and the configured fallback
+    // variation was force-shipped.
+    forced: z.boolean().optional(),
+  })
+  .strict();
+
+export type ExperimentInfoScheduledStatusUpdatePayload = z.infer<
+  typeof experimentInfoScheduledStatusUpdate
+>;

@@ -348,10 +348,27 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
-// TODO(schedule-status-updates): add stopAt
+// Both bounds are optional: a schedule can set just a start (scheduled start),
+// just a stop (hard cutoff for an already-running experiment), or both.
 export const statusUpdateScheduleValidator = z.object({
-  startAt: z.date(),
+  startAt: z.date().optional(),
+  stopAt: z.date().optional(),
 });
+
+// End-of-experiment shipping automation. Absent = "notify" (status quo).
+// Auto-ship requires the decision framework (single clear winner); ties are
+// broken by higher lift on `tiebreakerMetricId` when set, and if there's still
+// no clear winner the `fallback` decides between notifying or force-shipping
+// `fallbackVariationId`. No auto-rollback in this MVP.
+export const experimentShippingCriteriaValidator = z.object({
+  mode: z.enum(["notify", "auto-ship"]),
+  tiebreakerMetricId: z.string().optional(),
+  fallback: z.enum(["notify", "force-ship"]),
+  fallbackVariationId: z.string().optional(),
+});
+export type ExperimentShippingCriteria = z.infer<
+  typeof experimentShippingCriteriaValidator
+>;
 
 export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(["start", "stop"]),
@@ -442,6 +459,7 @@ export const experimentInterface = z
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
+    shippingCriteria: experimentShippingCriteriaValidator.optional().nullable(),
     precomputedUnitDimensionIds: z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)

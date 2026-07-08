@@ -10,6 +10,10 @@ export type ExperimentMetadata = {
   projects?: string[];
   customFields?: Record<string, unknown>;
   tags?: string[];
+  // ISO datetimes of the experiment's scheduled start/end, when the SDK
+  // Connection opts into emitting them.
+  startDate?: string;
+  endDate?: string;
 };
 
 // FeatureRule extended with optional metadata for experiment-ref rules

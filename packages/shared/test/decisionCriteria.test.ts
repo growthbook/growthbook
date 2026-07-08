@@ -2,14 +2,28 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  ExperimentResultStatusData,
 } from "shared/types/experiment";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
+  resolveScheduledShipDecision,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+
+function shipNow(variationIds: string[]): ExperimentResultStatusData {
+  return {
+    status: "ship-now",
+    variations: variationIds.map((variationId) => ({
+      variationId,
+      decidingRule: null,
+    })),
+    powerReached: true,
+    sequentialUsed: false,
+  };
+}
 
 function setMetricsOnResultsStatus({
   resultsStatus,
@@ -1186,5 +1200,48 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     });
 
     expect(decision).toEqual(undefined);
+  });
+});
+
+describe("resolveScheduledShipDecision", () => {
+  it("ships a single clear winner", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1"]) }),
+    ).toEqual({ action: "ship", variationId: "1" });
+  });
+
+  it("has no winner when status is not ship-now", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: { status: "rollback-now" } as ExperimentResultStatusData,
+      }),
+    ).toEqual({ action: "no-winner" });
+    expect(resolveScheduledShipDecision({ resultStatus: undefined })).toEqual({
+      action: "no-winner",
+    });
+  });
+
+  it("has no winner on a multi-winner tie without a tiebreaker", () => {
+    expect(
+      resolveScheduledShipDecision({ resultStatus: shipNow(["1", "2"]) }),
+    ).toEqual({ action: "no-winner" });
+  });
+
+  it("breaks a tie by highest lift on the tiebreaker metric", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2", "3"]),
+        tiebreakerLiftByVariationId: { "1": 0.02, "2": 0.05, "3": 0.01 },
+      }),
+    ).toEqual({ action: "ship", variationId: "2" });
+  });
+
+  it("ignores winners missing a tiebreaker lift, no winner if none have it", () => {
+    expect(
+      resolveScheduledShipDecision({
+        resultStatus: shipNow(["1", "2"]),
+        tiebreakerLiftByVariationId: { "3": 0.9 },
+      }),
+    ).toEqual({ action: "no-winner" });
   });
 });

@@ -150,8 +150,12 @@ type NextScheduledStatusUpdateStringDates = Omit<
   date: string;
 };
 
-type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+type StatusUpdateScheduleStringDates = Omit<
+  StatusUpdateSchedule,
+  "startAt" | "stopAt"
+> & {
   startAt?: string;
+  stopAt?: string;
 };
 
 export type LegacyMetricOverride = MetricOverride & {

@@ -7,8 +7,12 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
+import {
+  notifyScheduledStatusUpdateApplied,
+  notifyScheduledStatusUpdateFailed,
+} from "back-end/src/services/experimentNotifications";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -78,11 +82,10 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  if (
-    experiment.archived ||
-    experiment.status === "stopped" ||
-    experiment.status === "running"
-  ) {
+  // A stopped/archived experiment can't be started or stopped; per-type
+  // preconditions (draft for start, running for stop) are enforced in the
+  // switch below.
+  if (experiment.archived || experiment.status === "stopped") {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
@@ -140,9 +143,48 @@ const updateSingleExperimentStatus = async (
           },
           details: auditDetailsUpdate(experimentBefore, updated),
         });
+        await notifyScheduledStatusUpdateApplied({
+          context,
+          experiment,
+          action: "started",
+        });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once stopAt is supported
+      case "stop": {
+        if (experiment.status !== "running") {
+          logger.info(
+            `Skipping stop: Experiment ${experiment.id} is not running (status=${experiment.status}).`,
+          );
+          await updateExperiment({
+            context,
+            experiment,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+          return;
+        }
+
+        // Applies shippingCriteria: auto-ship the winner, force-ship the
+        // fallback, or just stop for manual review.
+        const outcome = await applyScheduledExperimentStop({
+          context,
+          experiment,
+        });
+        await updateExperiment({
+          context,
+          experiment,
+          changes: { nextScheduledStatusUpdate: null },
+        });
+        await notifyScheduledStatusUpdateApplied({
+          context,
+          experiment,
+          action: "stopped",
+          shipped: outcome.kind === "shipped",
+          shippedVariationId:
+            outcome.kind === "shipped" ? outcome.variationId : undefined,
+          forced: outcome.kind === "shipped" ? outcome.forced : undefined,
+        });
+        break;
+      }
       default:
         logger.info(
           `Skipping status update: Experiment ${experiment.id} has unsupported scheduled type ${scheduled.type}`,

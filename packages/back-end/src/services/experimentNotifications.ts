@@ -170,6 +170,40 @@ export const notifyScheduledStatusUpdateFailed = ({
     },
   });
 
+// Emitted when the scheduled-status-update job applies a start/stop. Not
+// memoized — each scheduled transition fires once. Flows to org webhooks/Slack
+// like other experiment events.
+export const notifyScheduledStatusUpdateApplied = ({
+  context,
+  experiment,
+  action,
+  shipped,
+  shippedVariationId,
+  forced,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  action: "started" | "stopped";
+  shipped?: boolean;
+  shippedVariationId?: string;
+  forced?: boolean;
+}) =>
+  dispatchEvent({
+    context,
+    experiment,
+    event: "info.scheduled-status-update",
+    data: {
+      object: {
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        action,
+        ...(shipped !== undefined ? { shipped } : {}),
+        ...(shippedVariationId ? { shippedVariationId } : {}),
+        ...(forced !== undefined ? { forced } : {}),
+      },
+    },
+  });
+
 export const notifyMultipleExposures = async ({
   context,
   experiment,
