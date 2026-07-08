@@ -39,6 +39,7 @@ export interface CustomMetricSlicesSelectorProps {
   guardrailMetrics: string[];
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
+  className?: string;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -47,6 +48,7 @@ export default function CustomMetricSlicesSelector({
   guardrailMetrics,
   customMetricSlices,
   setCustomMetricSlices,
+  className = "my-4",
 }: CustomMetricSlicesSelectorProps) {
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -238,7 +240,7 @@ export default function CustomMetricSlicesSelector({
   return (
     <>
       {metricsWithStringColumns.length > 0 ? (
-        <div className="my-4">
+        <div className={className}>
           <label className="font-weight-bold mb-1">Custom Metric Slices</label>
 
           <Text
@@ -247,7 +249,7 @@ export default function CustomMetricSlicesSelector({
             style={{ color: "var(--color-text-mid)" }}
           >
             Define custom slices to analyze across all experiment metrics.{" "}
-            <DocLink docSection="customSlices">
+            <DocLink useRadix={false} docSection="customSlices">
               Learn More <PiArrowSquareOut />
             </DocLink>
           </Text>

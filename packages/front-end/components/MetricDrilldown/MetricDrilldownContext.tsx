@@ -8,7 +8,10 @@ import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { ExperimentSnapshotAnalysis } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,
@@ -76,6 +79,11 @@ export interface MetricDrilldownProviderProps {
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created in the modal so it can
+  // refresh when baseline/difference settings change.
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 interface OpenModalInfo {
@@ -115,6 +123,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
   sortDirection,
   ssrPolyfills,
   isReportContext,
+  snapshot,
 }) => {
   const [openModalInfo, setOpenModalInfo] = useState<OpenModalInfo | null>(
     null,
@@ -218,6 +227,7 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
           lookbackOverride={lookbackOverride}
           ssrPolyfills={ssrPolyfills}
           isReportContext={isReportContext}
+          snapshot={snapshot}
         />
       )}
     </MetricDrilldownContext.Provider>

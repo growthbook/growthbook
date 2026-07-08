@@ -5,21 +5,19 @@ import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 import {
   normalizeRangeAfterLowerChange,
@@ -44,6 +42,7 @@ export interface Props {
   formPrefix?: string;
   experimentHashAttribute?: string;
   fallbackAttribute?: string;
+  hideEnableToggle?: boolean;
 }
 
 type NamespaceFormState = {
@@ -91,17 +90,10 @@ export default function NamespaceSelector({
   trackingKey = "",
   experimentHashAttribute,
   fallbackAttribute,
+  hideEnableToggle = false,
 }: Props) {
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
-  );
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasIncompatibleConnections = useMemo(
-    () =>
-      (sdkConnectionsData?.connections ?? []).some(
-        (c) => !getConnectionSDKCapabilities(c).includes("namespacesV2"),
-      ),
-    [sdkConnectionsData],
   );
   const { namespaces } = useOrgSettings();
   const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
@@ -170,19 +162,23 @@ export default function NamespaceSelector({
       ? activeNamespaces.filter((n) => isLegacyNamespace(n))
       : activeNamespaces;
 
+    const options = filtered.map((n) => {
+      const isHashMismatch =
+        !isFallbackMode &&
+        !isLegacyNamespace(n) &&
+        n.hashAttribute !== effectiveHashAttribute;
+      return {
+        value: n.name,
+        label: n.label,
+        isDisabled: isHashMismatch,
+      };
+    }) as SingleValue[];
+
     return {
       filteredNamespaces: filtered,
-      namespaceOptions: filtered.map((n) => {
-        const isHashMismatch =
-          !isFallbackMode &&
-          !isLegacyNamespace(n) &&
-          n.hashAttribute !== effectiveHashAttribute;
-        return {
-          value: n.name,
-          label: n.label,
-          isDisabled: isHashMismatch,
-        };
-      }) as SingleValue[],
+      namespaceOptions: hideEnableToggle
+        ? [{ value: "", label: "Global (all users)" }, ...options]
+        : options,
       selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
       selectedIsDifferentHash:
         !isFallbackMode &&
@@ -193,7 +189,13 @@ export default function NamespaceSelector({
             n.hashAttribute !== effectiveHashAttribute,
         ),
     };
-  }, [allNamespaces, effectiveHashAttribute, isFallbackMode, namespace]);
+  }, [
+    allNamespaces,
+    effectiveHashAttribute,
+    isFallbackMode,
+    namespace,
+    hideEnableToggle,
+  ]);
 
   const persistedGaps = useMemo(
     () => findGaps(namespaceUsage, namespace, featureId, trackingKey),
@@ -366,40 +368,53 @@ export default function NamespaceSelector({
 
   return (
     <div className="my-3">
-      <Checkbox
-        size="lg"
-        label="Namespace"
-        description="Run mutually exclusive experiments"
-        value={enabled}
-        mb="2"
-        setValue={(v) => {
-          if (v) {
-            form.setValue(
-              namespacePath,
-              {
-                enabled: true,
-                name: namespace || "",
-                format: "legacy",
-                ranges: [],
-              } satisfies NamespaceFormState,
-              { shouldDirty: true, shouldTouch: true },
-            );
-          } else {
-            form.setValue(namespacePath, DISABLED_NAMESPACE, {
-              shouldDirty: true,
-              shouldTouch: true,
-            });
-            setRangeDrafts({});
-          }
-        }}
-      />
-      {enabled && (
+      {!hideEnableToggle && (
+        <Checkbox
+          size="lg"
+          label="Namespace"
+          description="Run mutually exclusive experiments"
+          value={enabled}
+          mb="2"
+          setValue={(v) => {
+            if (v) {
+              form.setValue(
+                namespacePath,
+                {
+                  enabled: true,
+                  name: namespace || "",
+                  format: "legacy",
+                  ranges: [],
+                } satisfies NamespaceFormState,
+                { shouldDirty: true, shouldTouch: true },
+              );
+            } else {
+              form.setValue(namespacePath, DISABLED_NAMESPACE, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              setRangeDrafts({});
+            }
+          }}
+        />
+      )}
+      {(hideEnableToggle || enabled) && (
         <div className="box p-3 mb-2">
           <label>Use namespace</label>
           <SelectField
             value={namespace}
             onChange={(v) => {
               if (v === namespace) return;
+
+              // Empty value ("Global (all users)") clears namespace targeting.
+              if (hideEnableToggle && !v) {
+                form.setValue(namespacePath, DISABLED_NAMESPACE, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                });
+                setRangeDrafts({});
+                return;
+              }
+
               const selected = filteredNamespaces.find((n) => n.name === v);
               setRangeDrafts({});
 
@@ -463,6 +478,10 @@ export default function NamespaceSelector({
                         )}
                         hash attribute: <strong>{hashAttr}</strong>
                       </>
+                    ) : option.value === "" ? (
+                      <Text size="small" color="text-low" weight="medium">
+                        DEFAULT
+                      </Text>
                     ) : (
                       <span style={{ opacity: 0.45 }}>legacy</span>
                     )}
@@ -485,13 +504,14 @@ export default function NamespaceSelector({
                   attribute.
                 </HelperText>
               )}
-              {hasIncompatibleConnections &&
-                selectedNamespace?.format === "multiRange" && (
-                  <Callout status="warning" mb="3" size="sm">
-                    Some of your SDK Connections may not support multi-range
-                    namespaces.
-                  </Callout>
-                )}
+              {selectedNamespace?.format === "multiRange" && (
+                <SDKCapabilityWarning
+                  capability="namespacesV2"
+                  someMessage="Some of your SDK Connections may not support multi-range namespaces."
+                  noneMessage="None of your SDK Connections support multi-range namespaces."
+                  mb="3"
+                />
+              )}
 
               <NamespaceUsageGraph
                 namespace={namespace}

@@ -1106,6 +1106,8 @@ export function FeatureUsageSparkline({
     managedWarehouseAwaitingProvisioning,
   } = useFeatureUsage();
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
+  const useDummyData = router.query["dummy"] === "true";
 
   if (!showFeatureUsage || managedWarehouseAwaitingProvisioning) return null;
 
@@ -1303,10 +1305,25 @@ export function FeatureUsageSparkline({
       </Tooltip>
       {modalOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="feature-usage-sparkline"
           open={true}
           close={() => setModalOpen(false)}
-          header="Usage Analytics"
+          header={
+            useDummyData ? (
+              <Flex align="center" gap="2">
+                Usage Analytics
+                <Badge
+                  label="Using dummy data"
+                  color="cyan"
+                  variant="soft"
+                  size="sm"
+                />
+              </Flex>
+            ) : (
+              "Usage Analytics"
+            )
+          }
           submit={undefined}
           closeCta="Close"
           size="lg"

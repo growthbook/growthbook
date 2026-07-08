@@ -10,7 +10,17 @@ import { validatePayload } from "./validations";
 
 export const postArchetype = createApiRequestHandler(postArchetypeValidator)(
   async (req) => {
+    if (!req.context.hasPremiumFeature("archetypes")) {
+      req.context.throwPlanDoesNotAllowError(
+        "Archetypes require a premium plan.",
+      );
+    }
+
     const payload = await validatePayload(req.context, req.body);
+
+    if (!req.context.permissions.canCreateArchetype(payload))
+      req.context.permissions.throwPermissionError();
+
     const archetype = await createArchetype(payload);
 
     await req.audit({

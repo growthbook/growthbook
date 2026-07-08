@@ -120,6 +120,7 @@ const TeamsList: FC = () => {
                       {(canManageTeam && !teamIsExternallyManaged && (
                         <>
                           <DeleteButton
+                            useRadix={false}
                             link={true}
                             useIcon={true}
                             displayName={t.name}

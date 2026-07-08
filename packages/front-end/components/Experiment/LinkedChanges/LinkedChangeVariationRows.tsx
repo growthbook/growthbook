@@ -2,9 +2,10 @@ import React, { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import SkippedVariationBadge from "@/components/Experiment/SkippedVariationBadge";
 import { decimalToPercent } from "@/services/utils";
+import Metadata from "@/ui/Metadata";
 
 type VariationRowsProps = {
   experiment: ExperimentInterfaceStringDates;
@@ -32,33 +33,33 @@ export default function LinkedChangeVariationRows({
               align={alignContent}
               justify="between"
               width="100%"
-              gap="9"
+              gap="8"
               minHeight="24px"
             >
               <Flex
-                gap="1"
-                flexBasis="15%"
+                flexBasis="25%"
                 flexShrink="0"
+                minWidth="0"
                 align="center"
-                className={`variation with-variation-label variation${j}`}
+                gap="1"
               >
-                <Box as="span" className="label">
-                  {j}
-                </Box>
-                <Box as="span" className="text-ellipsis" title={v.name}>
-                  <Text weight="semibold">{v.name}</Text>
+                <Box minWidth="0" flexShrink="1">
+                  <VariationLabel number={j} name={v.name} size="medium" />
                 </Box>
                 {isSkipped && (
-                  <Box ml="1">
+                  <Box flexShrink="0">
                     <SkippedVariationBadge />
                   </Box>
                 )}
               </Flex>
-              <Flex flexBasis="90px" flexShrink="0" justify="end">
-                <Text>
-                  {decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0)}%
-                  Split
-                </Text>
+              <Flex flexBasis="90px" flexShrink="0" justify="start">
+                <Metadata
+                  label="Split"
+                  value={
+                    decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0) +
+                    "%"
+                  }
+                />
               </Flex>
               <Box flexGrow="1">{renderContent(j)}</Box>
               {renderActions && renderActions(j)}

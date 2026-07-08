@@ -1,3 +1,4 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
@@ -6,6 +7,10 @@ import { baseDialect } from "./base";
 export const verticaDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    emitEscapeClause: false,
+  }),
   dateDiff: (startCol: string, endCol: string) =>
     `${endCol}::DATE - ${startCol}::DATE`,
   castToFloat: (col: string) => `${col}::float`,
@@ -29,4 +34,6 @@ export const verticaDialect: SqlDialect = {
   // Vertica's FROM clause rejects bare VALUES, and LATERAL derived tables are
   // restricted to a single SELECT (no UNION).
   unpivotLabeledPairs: indicesTableUnpivot,
+
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
 };

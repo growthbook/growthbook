@@ -1,5 +1,17 @@
 import type { SqlLanguage } from "sql-formatter";
-import { DataType } from "./integrations";
+import type { DataType } from "./integrations";
+
+export type StringMatchOperator =
+  | "starts_with"
+  | "ends_with"
+  | "contains"
+  | "not_contains";
+
+export type StringMatchFn = (
+  columnExpr: string,
+  operator: StringMatchOperator,
+  value: string,
+) => string;
 
 /** One labeled column expanded per base row by {@link SqlDialect.unpivotLabeledPairs}. */
 export type UnpivotLabeledPair = {
@@ -15,6 +27,19 @@ export type UnpivotLabeledPairsResult = {
   fromContinuation: string;
   keyExpr: string;
   valueExpr: string;
+};
+
+export type ApproxTopValuesParams = {
+  /** One entry per string column: logical name + the value SQL expression (cast to string). */
+  pairs: UnpivotLabeledPair[];
+  /** CTE/table the aggregate scans (e.g. `__factTable`). */
+  fromTable: string;
+  /** Boolean predicate for the WHERE clause, without the `WHERE` keyword (e.g. `timestamp >= '...'`). */
+  whereClause: string;
+  /** Number of top values to return per column (k). */
+  limit: number;
+  /** Drop values longer than this many characters before counting. */
+  maxValueLength?: number;
 };
 
 export type TemplateVariables = {
@@ -42,6 +67,7 @@ export type DateTruncGranularity = "hour" | "day" | "week" | "month" | "year";
 
 export interface SqlDialect {
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   dateTrunc: (
@@ -88,18 +114,30 @@ export interface SqlDialect {
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;
   hllCardinality: (column: string) => string;
-  kllInit: (column: string) => string;
-  kllMergePartial: (column: string) => string;
-  kllExtractPoint: (column: string, quantile: number) => string;
-  kllExtractQuantiles: (column: string, numQuantiles: number) => string;
-  kllRankApprox: (
+  quantileSketchInit: (column: string) => string;
+  quantileSketchMergePartial: (column: string) => string;
+  quantileSketchExtractPoint: (column: string, quantile: number) => string;
+  quantileSketchExtractQuantiles: (
+    column: string,
+    numQuantiles: number,
+  ) => string;
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  hasArrayQuantileGrid: () => boolean;
+  quantileGridArrayLiteral: (elements: string[]) => string;
   unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
+  /**
+   * Positional access into an array column, returning a numeric expression.
+   * `index` is 0-based logical; each dialect translates to its own array
+   * semantics (1-based vs 0-based, native array vs JSON).
+   */
+  arrayElement: (arrayCol: string, index: number) => string;
+  approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
 }

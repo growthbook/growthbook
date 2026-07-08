@@ -1,4 +1,7 @@
-import type { ApprovalFlowConfigurations } from "../../../types/organization";
+import type {
+  ApprovalFlowConfigurations,
+  OrganizationSettings,
+} from "../../../types/organization";
 import type { TeamInterface } from "../../../types/team";
 import {
   getRevisionKey,
@@ -9,7 +12,9 @@ import {
   patchOpsToPartial,
   getApprovalFlowSettings,
   isUserBlockedFromApproving,
+  isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
+  isConstantRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -590,6 +595,15 @@ describe("revisions helpers", () => {
   });
 
   describe("isUserBlockedFromApproving", () => {
+    const sgSettings = (blockSelfApproval: boolean) =>
+      ({
+        approvalFlows: {
+          savedGroups: [
+            { required: true, requireMetadataReview: false, blockSelfApproval },
+          ],
+        },
+      }) as OrganizationSettings;
+
     const baseRevision = createRevision({
       authorId: "author-1",
       contributors: ["author-1", "user-2"],
@@ -598,9 +612,7 @@ describe("revisions helpers", () => {
     it("returns false when blockSelfApproval is not enabled", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [{ required: true, requireMetadataReview: false }],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(false),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-2",
@@ -611,15 +623,7 @@ describe("revisions helpers", () => {
     it("returns true when user is in contributors and blockSelfApproval is on", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-2",
@@ -630,15 +634,7 @@ describe("revisions helpers", () => {
     it("returns true for the author when blockSelfApproval is on", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "author-1",
@@ -649,15 +645,7 @@ describe("revisions helpers", () => {
     it("returns false for a non-contributor reviewer", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-3",
@@ -670,35 +658,17 @@ describe("revisions helpers", () => {
         authorId: "author-1",
         contributors: undefined,
       });
-      // Author falls back as contributor → blocked
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: legacy,
           userId: "author-1",
         }),
       ).toBe(true);
-      // Other users are not blocked, since legacy revisions only know about the author
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: legacy,
           userId: "user-2",
@@ -706,15 +676,119 @@ describe("revisions helpers", () => {
       ).toBe(false);
     });
 
-    it("returns false when approvalFlows is undefined", () => {
+    it("returns false when settings is undefined", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: undefined,
+          settings: undefined,
           entityType: "saved-group",
           revision: baseRevision,
           userId: "author-1",
         }),
       ).toBe(false);
+    });
+
+    it("reads blockSelfApproval from requireReviews for constants", () => {
+      const constantRevision = createRevision({
+        authorId: "author-1",
+        contributors: ["author-1", "user-2"],
+        target: {
+          type: "constant",
+          id: "const-1",
+          snapshot: { project: "prj_a" } as Record<string, unknown>,
+          proposedChanges: [],
+        },
+      });
+      const settings = (blockSelfApproval: boolean) =>
+        ({
+          requireReviews: [
+            {
+              requireReviewOn: true,
+              blockSelfApproval,
+              projects: [],
+              environments: [],
+            },
+          ],
+        }) as unknown as OrganizationSettings;
+      expect(
+        isUserBlockedFromApproving({
+          settings: settings(true),
+          entityType: "constant",
+          revision: constantRevision,
+          userId: "user-2",
+        }),
+      ).toBe(true);
+      expect(
+        isUserBlockedFromApproving({
+          settings: settings(false),
+          entityType: "constant",
+          revision: constantRevision,
+          userId: "user-2",
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe("isAutopublishOnApprovalEnabled", () => {
+    const sgSettings = (autopublishOnApproval?: boolean) =>
+      ({
+        approvalFlows: {
+          savedGroups: [
+            {
+              required: true,
+              requireMetadataReview: false,
+              autopublishOnApproval,
+            },
+          ],
+        },
+      }) as OrganizationSettings;
+
+    it("returns false when settings is undefined", () => {
+      expect(isAutopublishOnApprovalEnabled(undefined, "saved-group")).toBe(
+        false,
+      );
+    });
+
+    it("returns true when autopublishOnApproval is enabled for the entity type", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(sgSettings(true), "saved-group"),
+      ).toBe(true);
+    });
+
+    it("returns false when autopublishOnApproval is disabled", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(sgSettings(false), "saved-group"),
+      ).toBe(false);
+    });
+
+    it("returns false when the flag is absent from the config", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(sgSettings(undefined), "saved-group"),
+      ).toBe(false);
+    });
+
+    it("returns false for an entity type with no approval-flow config", () => {
+      expect(
+        isAutopublishOnApprovalEnabled(
+          sgSettings(true),
+          "unknown" as RevisionTargetType,
+        ),
+      ).toBe(false);
+    });
+
+    it("reads autopublishOnApproval from requireReviews for constants", () => {
+      const settings = {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            autopublishOnApproval: true,
+            projects: [],
+            environments: [],
+          },
+        ],
+      } as unknown as OrganizationSettings;
+      expect(
+        isAutopublishOnApprovalEnabled(settings, "constant", "prj_a"),
+      ).toBe(true);
     });
   });
 
@@ -807,6 +881,51 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/projects/0", value: "p1" },
         ]),
       ).toBe(true);
+    });
+  });
+
+  describe("isConstantRevisionMetadataOnly", () => {
+    it("returns false for an empty proposed-changes list", () => {
+      expect(isConstantRevisionMetadataOnly([])).toBe(false);
+    });
+
+    it("returns false when proposedChanges is not an array (legacy format)", () => {
+      expect(isConstantRevisionMetadataOnly({ name: "v2" } as unknown)).toBe(
+        false,
+      );
+    });
+
+    it.each([
+      [{ op: "replace", path: "/name", value: "v2" }],
+      [{ op: "replace", path: "/owner", value: "user-2" }],
+      [{ op: "replace", path: "/description", value: "new desc" }],
+      [{ op: "replace", path: "/project", value: "p1" }],
+      [{ op: "replace", path: "/archived", value: true }],
+    ] as const)("returns true for a single metadata-field op (%j)", (op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(true);
+    });
+
+    it.each([
+      ["value", { op: "replace", path: "/value", value: "https://x" }],
+      [
+        "environmentValues",
+        {
+          op: "replace",
+          path: "/environmentValues",
+          value: { staging: "https://staging" },
+        },
+      ],
+    ] as const)("returns false for a content-field op (%s)", (_label, op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(false);
+    });
+
+    it("returns false when ops mix metadata and content fields", () => {
+      expect(
+        isConstantRevisionMetadataOnly([
+          { op: "replace", path: "/name", value: "v2" },
+          { op: "replace", path: "/value", value: "v" },
+        ]),
+      ).toBe(false);
     });
   });
 });
