@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
 import { getValidDateOffsetByUTC } from "shared/dates";
@@ -11,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
+import Button from "@/ui/Button";
 import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import { useMergedDateRangeUpdates } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/useMergedDateRangeUpdates";
 import {
@@ -258,13 +259,7 @@ export default function DashboardDateControlsDropdown({
         ]}
       />
 
-      <Box
-        my="2"
-        style={{
-          borderTop: "1px solid var(--gray-a5)",
-          width: "100%",
-        }}
-      />
+      <Separator size="4" my="2" />
 
       <Flex align="center" gap="3" justify="between" pl="5">
         <Box style={{ fontSize: 14, color: "var(--indigo-12)" }}>
@@ -286,33 +281,21 @@ export default function DashboardDateControlsDropdown({
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           disabled={disabled}
+          icon={<PiCalendarBlank aria-hidden />}
+          iconPosition="left"
           style={{
-            alignItems: "center",
-            background: "var(--color-panel)",
-            border: "1px solid var(--gray-a7)",
-            borderRadius: "var(--radius-2)",
-            color: disabled ? "var(--gray-9)" : "var(--gray-12)",
-            cursor: disabled ? "not-allowed" : "pointer",
-            display: "flex",
-            fontSize: 14,
-            fontWeight: 500,
-            height: 32,
             justifyContent: "space-between",
-            minWidth: 180,
-            padding: "0 10px",
           }}
         >
-          <Flex align="center" gap="2" width="100%" justify="between">
-            <Flex align="center" gap="2">
-              <PiCalendarBlank aria-hidden />
-              <span>{getDisplayLabel(value)}</span>
-            </Flex>
+          <Flex align="center" gap="2" justify="between" width="100%">
+            <span>{getDisplayLabel(value)}</span>
             <PiCaretDown aria-hidden />
           </Flex>
-        </button>
+        </Button>
       }
       align="end"
       showArrow={false}

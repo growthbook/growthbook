@@ -1,7 +1,6 @@
 import { useContext } from "react";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { PiFileSql } from "react-icons/pi";
+import { PiFileSql, PiWarningFill } from "react-icons/pi";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
@@ -49,7 +48,7 @@ export default function DashboardViewQueriesButton({
                 aria-label={buttonProps["aria-label"] ?? buttonLabel}
               >
                 {refreshStatus === "failed" ? (
-                  <FaExclamationTriangle aria-hidden />
+                  <PiWarningFill aria-hidden />
                 ) : (
                   <PiFileSql aria-hidden size={18} />
                 )}
@@ -74,7 +73,7 @@ export default function DashboardViewQueriesButton({
                 {buttonLabel}
               </Text>
               {refreshStatus === "failed" ? (
-                <FaExclamationTriangle />
+                <PiWarningFill />
               ) : !hideQueryCount ? (
                 <Badge
                   ml="1"
