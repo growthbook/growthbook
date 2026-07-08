@@ -2,6 +2,11 @@ import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
 
+const enumFieldDescription =
+  "Comma-separated list of allowed values. Required for the 'enum' datatype. " +
+  "For array datatypes (string[], number[], secureString[]) it optionally " +
+  "restricts the list to these values. Ignored for all other datatypes.";
+
 // Corresponds to schemas/Attribute.yaml
 export const apiAttributeValidator = namedSchema(
   "Attribute",
@@ -21,7 +26,7 @@ export const apiAttributeValidator = namedSchema(
       description: z.string().optional(),
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
-      enum: z.string().optional(),
+      enum: z.string().describe(enumFieldDescription).optional(),
       format: z.enum(["", "version", "date", "isoCountryCode"]).optional(),
       projects: z.array(z.string()).optional(),
       tags: z.array(z.string()).optional(),
@@ -54,7 +59,7 @@ const postAttributeBody = z
       .boolean()
       .describe("Shall the attribute be hashed")
       .optional(),
-    enum: z.string().optional(),
+    enum: z.string().describe(enumFieldDescription).optional(),
     format: z
       .enum(["", "version", "date", "isoCountryCode"])
       .describe("The attribute's format")
@@ -89,7 +94,7 @@ const putAttributeBody = z
       .boolean()
       .describe("Shall the attribute be hashed")
       .optional(),
-    enum: z.string().optional(),
+    enum: z.string().describe(enumFieldDescription).optional(),
     format: z
       .enum(["", "version", "date", "isoCountryCode"])
       .describe("The attribute's format")
