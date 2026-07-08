@@ -26576,6 +26576,15 @@ paths:
                       required:
                         - predefined
                       additionalProperties: false
+                    dateGranularity:
+                      type: string
+                      enum:
+                        - auto
+                        - hour
+                        - day
+                        - week
+                        - month
+                        - year
                   additionalProperties: false
                 blocks:
                   type: array
@@ -29220,6 +29229,15 @@ paths:
                       required:
                         - predefined
                       additionalProperties: false
+                    dateGranularity:
+                      type: string
+                      enum:
+                        - auto
+                        - hour
+                        - day
+                        - week
+                        - month
+                        - year
                   additionalProperties: false
                 blocks:
                   type: array
@@ -44759,6 +44777,15 @@ components:
               required:
                 - predefined
               additionalProperties: false
+            dateGranularity:
+              type: string
+              enum:
+                - auto
+                - hour
+                - day
+                - week
+                - month
+                - year
           additionalProperties: false
         comparison:
           type: object
