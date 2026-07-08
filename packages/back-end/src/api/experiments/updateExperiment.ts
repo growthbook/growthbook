@@ -308,7 +308,11 @@ export const updateExperiment = createApiRequestHandler(
 
   if (req.body.statusUpdateSchedule) {
     const effectiveType = req.body.type ?? experiment.type ?? "standard";
-    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
+    validateStatusUpdateSchedule(
+      effectiveType,
+      req.body.statusUpdateSchedule,
+      experiment.statusUpdateSchedule?.startAt ?? null,
+    );
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);

@@ -59,7 +59,11 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
 } from "shared/experiments";
-import { getValidDate, hoursBetween } from "shared/dates";
+import {
+  getValidDate,
+  hoursBetween,
+  resolveScheduleStopAfter,
+} from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -2875,25 +2879,25 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    // External API exposes startAt only (stopAt is not yet part of the v1
-    // schema); omit the schedule entirely when there's no scheduled start.
-    statusUpdateSchedule: experiment.statusUpdateSchedule?.startAt
+    statusUpdateSchedule: (() => {
+      const s = experiment.statusUpdateSchedule;
+      if (!s) return s === undefined ? undefined : null;
+      const out = {
+        ...(s.startAt ? { startAt: s.startAt.toISOString() } : {}),
+        ...(s.stopAt ? { stopAt: s.stopAt.toISOString() } : {}),
+        ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+      };
+      return Object.keys(out).length > 0 ? out : null;
+    })(),
+    shippingCriteria: experiment.shippingCriteria ?? null,
+    nextScheduledStatusUpdate: experiment.nextScheduledStatusUpdate
       ? {
-          startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
+          type: experiment.nextScheduledStatusUpdate.type,
+          date: experiment.nextScheduledStatusUpdate.date.toISOString(),
         }
-      : null,
-    // Only "start" is produced for experiments; updateExperimentStatus.ts
-    // clears any other type before it can be observed. Filter defensively
-    // so the API response always matches the documented schema.
-    nextScheduledStatusUpdate:
-      experiment.nextScheduledStatusUpdate?.type === "start"
-        ? {
-            type: "start" as const,
-            date: experiment.nextScheduledStatusUpdate.date.toISOString(),
-          }
-        : experiment.nextScheduledStatusUpdate === undefined
-          ? undefined
-          : null,
+      : experiment.nextScheduledStatusUpdate === undefined
+        ? undefined
+        : null,
   };
   return apiExperiment;
 }
@@ -3983,6 +3987,28 @@ function toLookbackOverrideForSave(lookbackOverride: {
  * @param datasource
  * @param userId
  */
+// Map an API statusUpdateSchedule payload to the internal (Date-based) shape.
+// Returns null for an empty/removed schedule, undefined when the key is absent.
+function apiScheduleToInterface(
+  s:
+    | {
+        startAt?: string;
+        stopAt?: string;
+        stopAfter?: { value: number; unit: "hours" | "days" };
+      }
+    | null
+    | undefined,
+): ExperimentInterface["statusUpdateSchedule"] {
+  if (s === undefined) return undefined;
+  if (s === null) return null;
+  const out = {
+    ...(s.startAt ? { startAt: getValidDate(s.startAt) } : {}),
+    ...(s.stopAt ? { stopAt: getValidDate(s.stopAt) } : {}),
+    ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+  };
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
@@ -4139,10 +4165,10 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
-    statusUpdateSchedule:
-      payload.statusUpdateSchedule && payload.statusUpdateSchedule.startAt
-        ? { startAt: getValidDate(payload.statusUpdateSchedule.startAt) }
-        : undefined,
+    statusUpdateSchedule: apiScheduleToInterface(payload.statusUpdateSchedule),
+    ...(payload.shippingCriteria
+      ? { shippingCriteria: payload.shippingCriteria }
+      : {}),
   };
 
   const { settings } = getScopedSettings({
@@ -4377,23 +4403,37 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      const stopAt = incoming?.stopAt
-        ? getValidDate(incoming.stopAt)
-        : undefined;
+      const effectiveStatus = changes.status ?? experiment.status;
+      const running = effectiveStatus === "running";
+
+      let stopAt = incoming?.stopAt ? getValidDate(incoming.stopAt) : undefined;
+      let stopAfter = incoming?.stopAfter ?? undefined;
+      // A relative end resolves now for a running experiment (off its actual
+      // start) and defers for a draft (resolved at start by executeExperimentStart).
+      if (stopAfter && !stopAt && running) {
+        const dateStarted =
+          experiment.phases[experiment.phases.length - 1]?.dateStarted;
+        stopAt = resolveScheduleStopAfter(
+          dateStarted ? getValidDate(dateStarted) : new Date(),
+          stopAfter,
+        );
+        stopAfter = undefined;
+      }
+
       changes.statusUpdateSchedule =
-        startAt || stopAt
+        startAt || stopAt || stopAfter
           ? {
               ...(startAt ? { startAt } : {}),
               ...(stopAt ? { stopAt } : {}),
+              ...(stopAfter ? { stopAfter } : {}),
             }
           : null;
 
       // Re-stage the single pending action from the new schedule:
-      //  - running experiment: (re)stage the stop from stopAt (no approval)
+      //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      const effectiveStatus = changes.status ?? experiment.status;
       changes.nextScheduledStatusUpdate =
-        effectiveStatus === "running" && stopAt && stopAt > new Date()
+        running && stopAt && stopAt > new Date()
           ? { type: "stop", date: stopAt }
           : null;
     }
@@ -4471,6 +4511,7 @@ export function updateExperimentApiPayloadToInterface(
     postStratificationEnabled,
     defaultDashboardId,
     statusUpdateSchedule,
+    shippingCriteria,
   } = payload;
 
   let changes: ExperimentInterface = {
@@ -4559,6 +4600,7 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(defaultDashboardId !== undefined ? { defaultDashboardId } : {}),
     ...(statusUpdateSchedule !== undefined ? { statusUpdateSchedule } : {}),
+    ...(shippingCriteria !== undefined ? { shippingCriteria } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

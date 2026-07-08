@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -20,7 +20,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 
 type ShippingMode = "notify" | "auto-ship";
 type ShippingFallback = "notify" | "force-ship";
-type EndMode = "manual" | "on-date" | "after-days";
+type EndMode = "manual" | "on-date" | "after";
 
 // Shared width for the "Start"/"End" label column.
 const LABEL_COL_WIDTH = 60;
@@ -64,9 +64,11 @@ export default function EditScheduleModal({
   const { apiCall } = useAuth();
 
   const now = new Date();
+  const initialStopAfter = experiment.statusUpdateSchedule?.stopAfter ?? null;
   const hasSchedule = !!(
     experiment.statusUpdateSchedule?.startAt ||
-    experiment.statusUpdateSchedule?.stopAt
+    experiment.statusUpdateSchedule?.stopAt ||
+    initialStopAfter
   );
   const isApproved = !!experiment.nextScheduledStatusUpdate;
   const startAt = form.watch("startAt");
@@ -89,23 +91,16 @@ export default function EditScheduleModal({
     label: v.name || `Variation ${i}`,
   }));
 
-  // End-date UI mode. "after-days" is a UI affordance that still writes a
-  // concrete ISO `stopAt` (start + N), so the back-end stays date-based.
+  // "after" stores a relative offset (stopAfter) that the back-end resolves to a
+  // concrete stopAt when the experiment actually starts.
   const [endMode, setEndMode] = useState<EndMode>(
-    stopAt ? "on-date" : "manual",
+    stopAt ? "on-date" : initialStopAfter ? "after" : "manual",
   );
-  const [endAfterValue, setEndAfterValue] = useState<number>(30);
-  const [endAfterUnit, setEndAfterUnit] = useState<"days" | "hours">("days");
-
-  const computeEndAfter = useCallback(
-    (value: number, unit: "days" | "hours"): string => {
-      const base = startAt ? new Date(startAt) : new Date();
-      const ms = value * (unit === "days" ? 86400 : 3600) * 1000;
-      const d = new Date(base.getTime() + ms);
-      d.setSeconds(0, 0);
-      return d.toISOString();
-    },
-    [startAt],
+  const [endAfterValue, setEndAfterValue] = useState<number>(
+    initialStopAfter?.value ?? 30,
+  );
+  const [endAfterUnit, setEndAfterUnit] = useState<"days" | "hours">(
+    initialStopAfter?.unit ?? "days",
   );
 
   return (
@@ -139,11 +134,18 @@ export default function EditScheduleModal({
         ) : undefined
       }
       submit={form.handleSubmit(async (data) => {
+        const stopAt =
+          endMode === "on-date" ? data.stopAt || undefined : undefined;
+        const stopAfter =
+          endMode === "after"
+            ? { value: endAfterValue, unit: endAfterUnit }
+            : undefined;
         const schedule =
-          data.startAt || data.stopAt
+          data.startAt || stopAt || stopAfter
             ? {
                 startAt: data.startAt || undefined,
-                stopAt: data.stopAt || undefined,
+                stopAt,
+                stopAfter,
               }
             : null;
         const shippingCriteria = {
@@ -223,24 +225,21 @@ export default function EditScheduleModal({
               sort={false}
               options={[
                 { value: "manual", label: "When stopped" },
-                { value: "after-days", label: "After" },
+                { value: "after", label: "After" },
                 { value: "on-date", label: "On date" },
               ]}
               onChange={(v) => {
                 const next = v as EndMode;
                 setEndMode(next);
-                if (next === "manual") {
-                  form.setValue("stopAt", "");
-                } else if (next === "on-date") {
+                // "after" carries its offset in local state; only "on-date"
+                // uses a concrete stopAt.
+                if (next === "on-date") {
                   const d = new Date();
                   d.setDate(d.getDate() + 30);
                   d.setSeconds(0, 0);
                   form.setValue("stopAt", d.toISOString());
                 } else {
-                  form.setValue(
-                    "stopAt",
-                    computeEndAfter(endAfterValue, endAfterUnit),
-                  );
+                  form.setValue("stopAt", "");
                 }
               }}
               containerStyle={{ minHeight: 38, width: 150 }}
@@ -257,7 +256,7 @@ export default function EditScheduleModal({
                 disableBefore={startAt ? new Date(startAt) : now}
               />
             )}
-            {endMode === "after-days" && (
+            {endMode === "after" && (
               <Flex align="center" gap="3">
                 <Field
                   type="number"
@@ -271,7 +270,6 @@ export default function EditScheduleModal({
                       parseFloat(e.target.value) || 0.01,
                     );
                     setEndAfterValue(n);
-                    form.setValue("stopAt", computeEndAfter(n, endAfterUnit));
                   }}
                   style={{ width: 78, minHeight: 38 }}
                 />
@@ -283,13 +281,12 @@ export default function EditScheduleModal({
                     { value: "hours", label: "hours" },
                     { value: "days", label: "days" },
                   ]}
-                  onChange={(v) => {
-                    const u = v as "days" | "hours";
-                    setEndAfterUnit(u);
-                    form.setValue("stopAt", computeEndAfter(endAfterValue, u));
-                  }}
+                  onChange={(v) => setEndAfterUnit(v as "days" | "hours")}
                   containerStyle={{ width: 110 }}
                 />
+                <Text color="text-mid" size="small">
+                  from start
+                </Text>
               </Flex>
             )}
           </Flex>

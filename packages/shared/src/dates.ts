@@ -3,6 +3,8 @@ import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
 import differenceInHours from "date-fns/differenceInHours";
 import addMonths from "date-fns/addMonths";
+import addDays from "date-fns/addDays";
+import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
 import previousMonday from "date-fns/previousMonday";
 import { formatInTimeZone } from "date-fns-tz";
@@ -164,4 +166,19 @@ export function snapToUtcDayStart(date: Date): Date {
 export function precedingUtcDayStart(date: Date): Date {
   const dayStart = snapToUtcDayStart(date);
   return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
+}
+
+// Resolve a relative end offset ("N days/hours after") to a concrete date.
+// Calendar-aware (DST-safe) for days via date-fns.
+export function resolveScheduleStopAfter(
+  base: Date,
+  offset: { value: number; unit: "hours" | "days" },
+): Date {
+  const d =
+    offset.unit === "days"
+      ? addDays(base, offset.value)
+      : addHours(base, offset.value);
+  d.setSeconds(0, 0);
+  d.setMilliseconds(0);
+  return d;
 }

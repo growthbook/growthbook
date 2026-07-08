@@ -1,6 +1,11 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
+  ExperimentShippingCriteria,
+  ScheduleStopAfter,
+} from "shared/validators";
+import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import {
   PRESET_DECISION_CRITERIA,
   getExperimentResultStatus,
   getHealthSettings,
@@ -11,6 +16,8 @@ import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { stopExperiment } from "./experimentChanges/changeExperimentStatus";
 
@@ -168,4 +175,168 @@ export async function applyScheduledExperimentStop({
     `Scheduled stop applied without auto-ship for experiment ${experiment.id}`,
   );
   return { kind: "stopped-no-ship" };
+}
+
+// ─── Scheduled-stop config (REST + generic update service layer) ─────────────
+
+function assertSchedulable(experiment: ExperimentInterface) {
+  if (experiment.type === "multi-armed-bandit") {
+    throw new BadRequestError(
+      "Scheduling is not supported for Bandit experiments.",
+    );
+  }
+  if (experiment.archived || experiment.status === "stopped") {
+    throw new BadRequestError(
+      "Cannot change the schedule of a stopped or archived experiment.",
+    );
+  }
+}
+
+// Set the experiment's scheduled end. Absolute `stopAt` is stored directly; a
+// relative `stopAfter` is resolved now for a running experiment (off its actual
+// start) or deferred for a draft (resolved at start by executeExperimentStart).
+export async function setExperimentScheduledStop({
+  context,
+  experiment,
+  stopAt,
+  stopAfter,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  stopAt?: string | Date | null;
+  stopAfter?: ScheduleStopAfter | null;
+}): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
+  assertSchedulable(experiment);
+  const warnings: string[] = [];
+  const running = experiment.status === "running";
+
+  let resolvedStopAt: Date | null = null;
+  let deferredStopAfter: ScheduleStopAfter | null = null;
+
+  if (stopAt) {
+    resolvedStopAt = getValidDate(stopAt);
+  } else if (stopAfter) {
+    if (running) {
+      const dateStarted =
+        experiment.phases[experiment.phases.length - 1]?.dateStarted;
+      resolvedStopAt = resolveScheduleStopAfter(
+        dateStarted ? getValidDate(dateStarted) : new Date(),
+        stopAfter,
+      );
+    } else {
+      deferredStopAfter = stopAfter;
+    }
+  }
+
+  if (resolvedStopAt && resolvedStopAt <= new Date()) {
+    warnings.push(
+      "The resolved stop time is in the past; the experiment will stop on the next scheduler run.",
+    );
+  }
+
+  const startAt = experiment.statusUpdateSchedule?.startAt;
+  const changes: Partial<ExperimentInterface> = {
+    statusUpdateSchedule: {
+      ...(startAt ? { startAt } : {}),
+      ...(resolvedStopAt ? { stopAt: resolvedStopAt } : {}),
+      ...(deferredStopAfter ? { stopAfter: deferredStopAfter } : {}),
+    },
+  };
+  // Only a running experiment stages the stop now; a draft stages it at start.
+  if (running) {
+    changes.nextScheduledStatusUpdate = resolvedStopAt
+      ? { type: "stop", date: resolvedStopAt }
+      : null;
+  }
+
+  const updated = await updateExperiment({ context, experiment, changes });
+  return { experiment: updated, warnings };
+}
+
+// Clear the scheduled end, preserving any scheduled start.
+export async function clearExperimentScheduledStop({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}): Promise<{ experiment: ExperimentInterface }> {
+  const startAt = experiment.statusUpdateSchedule?.startAt;
+  const changes: Partial<ExperimentInterface> = {
+    statusUpdateSchedule: startAt ? { startAt } : null,
+    ...(experiment.nextScheduledStatusUpdate?.type === "stop"
+      ? { nextScheduledStatusUpdate: null }
+      : {}),
+  };
+  const updated = await updateExperiment({ context, experiment, changes });
+  return { experiment: updated };
+}
+
+// Validate + persist the shipping automation. Surfaces soft issues (feature not
+// enabled, tiebreaker not a goal metric) as warnings; hard config errors throw.
+export async function setExperimentShippingCriteria({
+  context,
+  experiment,
+  criteria,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  criteria: ExperimentShippingCriteria;
+}): Promise<{ experiment: ExperimentInterface; warnings: string[] }> {
+  if (experiment.type === "multi-armed-bandit") {
+    throw new BadRequestError(
+      "Shipping automation is not supported for Bandit experiments.",
+    );
+  }
+  const warnings: string[] = [];
+
+  if (criteria.mode === "auto-ship" && !canAutoShip(context)) {
+    warnings.push(
+      "Auto-ship requires the Decision Framework (Pro+ and enabled in org settings); the experiment will notify only until it's enabled.",
+    );
+  }
+  if (criteria.mode === "auto-ship" && criteria.fallback === "force-ship") {
+    if (!criteria.fallbackVariationId) {
+      throw new BadRequestError(
+        "fallbackVariationId is required when fallback is force-ship.",
+      );
+    }
+    if (
+      !experiment.variations.some((v) => v.id === criteria.fallbackVariationId)
+    ) {
+      throw new BadRequestError(
+        "fallbackVariationId must match an experiment variation.",
+      );
+    }
+  }
+  if (
+    criteria.tiebreakerMetricId &&
+    !(experiment.goalMetrics ?? []).includes(criteria.tiebreakerMetricId)
+  ) {
+    warnings.push(
+      "tiebreakerMetricId is not one of the experiment's goal metrics; it will be ignored.",
+    );
+  }
+
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: { shippingCriteria: criteria },
+  });
+  return { experiment: updated, warnings };
+}
+
+export async function clearExperimentShippingCriteria({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}): Promise<{ experiment: ExperimentInterface }> {
+  const updated = await updateExperiment({
+    context,
+    experiment,
+    changes: { shippingCriteria: null },
+  });
+  return { experiment: updated };
 }

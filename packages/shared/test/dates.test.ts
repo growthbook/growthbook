@@ -1,4 +1,8 @@
-import { dateStringArrayBetweenDates, getValidDate } from "../src/dates";
+import {
+  dateStringArrayBetweenDates,
+  getValidDate,
+  resolveScheduleStopAfter,
+} from "../src/dates";
 
 describe("getValidDate", () => {
   it("Uses the fallback", () => {
@@ -57,5 +61,28 @@ describe("dateStringArrayBetweenDates", () => {
       "'2020-01-05'",
       "'2020-01-07'",
     ]);
+  });
+});
+
+describe("resolveScheduleStopAfter", () => {
+  it("adds days", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 14, unit: "days" })).toEqual(
+      new Date(Date.UTC(2020, 0, 19, 10, 0, 0)),
+    );
+  });
+
+  it("adds hours", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 6, unit: "hours" })).toEqual(
+      new Date(Date.UTC(2020, 0, 5, 16, 0, 0)),
+    );
+  });
+
+  it("truncates seconds and milliseconds", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 30, 45, 123));
+    const result = resolveScheduleStopAfter(base, { value: 1, unit: "days" });
+    expect(result.getSeconds()).toBe(0);
+    expect(result.getMilliseconds()).toBe(0);
   });
 });
