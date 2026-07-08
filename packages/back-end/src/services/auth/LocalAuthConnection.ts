@@ -18,13 +18,21 @@ import { getUserById } from "back-end/src/models/UserModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
-const jwtCheck = expressjwt({
-  secret: JWT_SECRET,
-  audience: "https://api.growthbook.io",
-  issuer: "https://api.growthbook.io",
-  algorithms: ["HS256"],
-  requestProperty: "user",
-});
+// Built lazily rather than at module load so a circular-import load order can't
+// evaluate this before JWT_SECRET is initialized (see PR #6306).
+let jwtCheck: ReturnType<typeof expressjwt> | undefined;
+function getJwtCheck() {
+  if (!jwtCheck) {
+    jwtCheck = expressjwt({
+      secret: JWT_SECRET,
+      audience: "https://api.growthbook.io",
+      issuer: "https://api.growthbook.io",
+      algorithms: ["HS256"],
+      requestProperty: "user",
+    });
+  }
+  return jwtCheck;
+}
 
 export class LocalAuthConnection implements AuthConnection {
   async refresh(
@@ -87,7 +95,7 @@ export class LocalAuthConnection implements AuthConnection {
     if (!JWT_SECRET) {
       throw new Error("Must specify JWT_SECRET environment variable");
     }
-    jwtCheck(req, res, next);
+    getJwtCheck()(req, res, next);
   }
   private generateJWT(user: UserInterface) {
     return jwt.sign(
