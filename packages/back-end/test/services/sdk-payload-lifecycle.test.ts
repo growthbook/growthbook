@@ -219,8 +219,14 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -283,8 +289,14 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -394,8 +406,14 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (
@@ -448,8 +466,14 @@ describe("SDK payload lifecycle (comprehensive)", () => {
           getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
         },
         savedGroups: { getAll: jest.fn().mockResolvedValue([]) },
+        constants: { getAll: jest.fn().mockResolvedValue([]) },
         holdout: {
           getAllPayloadHoldouts: jest.fn().mockResolvedValue(new Map()),
+        },
+        rampSchedules: {
+          getPayloadRampMonitoredRuleMap: jest
+            .fn()
+            .mockResolvedValue(new Map()),
         },
       };
       (

@@ -1,17 +1,31 @@
 import { Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import Switch from "@/ui/Switch";
 import GraphTypeSelector from "./GraphTypeSelector";
 import FunnelGraphTypeSelector from "./FunnelGraphTypeSelector";
 import FunnelYAxisSelector from "./FunnelYAxisSelector";
-import DateRangePicker from "./DateRangePicker";
+import DateRangePicker, { ComparisonDateControls } from "./DateRangePicker";
 import GranularitySelector from "./GranularitySelector";
 import LastRefreshedIndicator from "./LastRefreshedIndicator";
 import DataSourceDropdown from "./DataSourceDropdown";
 
 export default function Toolbar() {
-  const { exploration, draftExploreState } = useExplorerContext();
+  const {
+    exploration,
+    draftExploreState,
+    submittedExploreState,
+    compareEnabled,
+    setCompareEnabled,
+    managedWarehouseAwaitingProvisioning,
+  } = useExplorerContext();
   const isFunnel = draftExploreState.dataset?.type === "funnel";
+
+  const showComparisonDateControls =
+    compareEnabled &&
+    draftExploreState.dateRange.predefined === "customDateRange" &&
+    Boolean(draftExploreState.dateRange.startDate) &&
+    Boolean(draftExploreState.dateRange.endDate);
 
   return (
     <Flex direction="column" gap="3">
@@ -35,24 +49,52 @@ export default function Toolbar() {
       </Flex>
 
       {/* Bottom Toolbar */}
-      <Flex justify="between" align="center" height="32px">
+      <Flex align="start" gap="3" style={{ minHeight: "32px" }}>
         {/* Left Side */}
-        <Flex align="center" gap="3">
+        <Flex align="center" gap="3" style={{ flexShrink: 0, height: "32px" }}>
           {isFunnel ? <FunnelGraphTypeSelector /> : <GraphTypeSelector />}
-          {/* Y-axis scale only applies to the bar chart view — the funnel
-              table renders raw counts and percentages in their own columns. */}
           {isFunnel && draftExploreState.chartType !== "table" && (
             <FunnelYAxisSelector />
           )}
         </Flex>
 
-        {/* Right Side */}
-        <Flex align="center" gap="3">
-          <DateRangePicker />
-          {!isFunnel &&
-            ["line", "area", "timeseries-table"].includes(
-              draftExploreState.chartType,
-            ) && <GranularitySelector />}
+        {/* Right Side — everything wraps and stays right-aligned as one row. */}
+        <Flex
+          align="center"
+          justify="end"
+          wrap="wrap"
+          gap="3"
+          style={{ flexGrow: 1, minWidth: 0 }}
+        >
+          {!isFunnel && (
+            <Switch
+              label="Compare"
+              value={compareEnabled}
+              onChange={setCompareEnabled}
+              disabled={
+                !submittedExploreState || managedWarehouseAwaitingProvisioning
+              }
+            />
+          )}
+          {!isFunnel && showComparisonDateControls ? (
+            <ComparisonDateControls
+              groupBySlot={
+                ["line", "area", "timeseries-table"].includes(
+                  draftExploreState.chartType,
+                ) ? (
+                  <GranularitySelector />
+                ) : null
+              }
+            />
+          ) : (
+            <>
+              <DateRangePicker />
+              {!isFunnel &&
+                ["line", "area", "timeseries-table"].includes(
+                  draftExploreState.chartType,
+                ) && <GranularitySelector />}
+            </>
+          )}
         </Flex>
       </Flex>
     </Flex>

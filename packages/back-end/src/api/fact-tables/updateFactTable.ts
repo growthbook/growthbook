@@ -1,6 +1,9 @@
 import { omit } from "lodash";
 import { updateFactTableValidator } from "shared/validators";
-import { UpdateFactTableProps } from "shared/types/fact-table";
+import {
+  FactTableInterface,
+  UpdateFactTableProps,
+} from "shared/types/fact-table";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -15,6 +18,7 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
+import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
@@ -40,12 +44,11 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
+  let datasource: Awaited<ReturnType<typeof getDataSourceById>> | undefined;
+
   // Validate userIdTypes
   if (req.body.userIdTypes) {
-    const datasource = await getDataSourceById(
-      req.context,
-      factTable.datasource,
-    );
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource for this fact table");
     }
@@ -58,6 +61,25 @@ export const updateFactTable = createApiRequestHandler(
         throw new Error(`Invalid userIdType: ${userIdType}`);
       }
     }
+  }
+
+  if (req.body.aggregatedFactTableSettings) {
+    if (!req.context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+      req.context.permissions.throwPermissionError();
+    }
+    validateAggregatedFactTableSettings(
+      req.body.aggregatedFactTableSettings,
+      req.body.userIdTypes ?? factTable.userIdTypes,
+    );
   }
 
   const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
@@ -102,7 +124,7 @@ export const updateFactTable = createApiRequestHandler(
   }
 
   await updateFactTableInDb(req.context, factTable, data);
-  if (needsColumnRefresh(data)) {
+  if (needsColumnRefresh(factTable, data)) {
     await queueFactTableColumnsRefresh(factTable);
   }
 
@@ -137,6 +159,12 @@ export const updateFactTable = createApiRequestHandler(
   };
 });
 
-export function needsColumnRefresh(changes: UpdateFactTableProps): boolean {
-  return !!(changes.sql || changes.eventName);
+export function needsColumnRefresh(
+  existing: Pick<FactTableInterface, "sql" | "eventName">,
+  changes: UpdateFactTableProps,
+): boolean {
+  const sqlChanged = changes.sql !== undefined && changes.sql !== existing.sql;
+  const eventNameChanged =
+    changes.eventName !== undefined && changes.eventName !== existing.eventName;
+  return sqlChanged || eventNameChanged;
 }

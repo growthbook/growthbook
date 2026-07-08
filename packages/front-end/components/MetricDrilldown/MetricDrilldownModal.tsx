@@ -5,7 +5,7 @@ import {
   getMetricLink,
   ExperimentMetricInterface,
   ExperimentSortBy,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -18,13 +18,17 @@ import {
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getHonoredPrecomputedUnitDimensionIds,
+} from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
@@ -32,6 +36,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -104,6 +109,11 @@ interface MetricDrilldownModalProps {
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created so the modal can refresh
+  // when baseline/difference settings change.
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 /**
@@ -192,7 +202,9 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { analysis } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
+  const { getDatasourceById } = useDefinitions();
+  const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
     if (!dimensionInfo) {
@@ -244,9 +256,19 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries =
-    isReportContext ||
-    (!!dimensionInfo && !isPrecomputedDimension(dimensionInfo.id));
+  const hasDimensionTimeSeries =
+    !dimensionInfo ||
+    isDimensionPrecomputed(
+      dimensionInfo.id,
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment?.precomputedUnitDimensionIds,
+        experiment?.datasource
+          ? getDatasourceById(experiment.datasource)
+          : undefined,
+        hasCommercialFeature("pipeline-mode"),
+      ),
+    );
+  const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -335,8 +357,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo && !isPrecomputedDimension(dimensionInfo.id)
-                ? "Time series is not available for unit dimension breakdowns."
+              : !hasDimensionTimeSeries
+                ? "Configure 'Always computed unit-dimensions' in Analysis Settings to generate time series for this dimension."
                 : undefined
           }
           dimensionInfo={dimensionInfo}
@@ -445,6 +467,8 @@ const MetricDrilldownModal = ({
   dimensionInfo,
   // Report context
   isReportContext: isReportContextProp,
+  // Snapshot for report context (no parent SnapshotProvider)
+  snapshot: snapshotProp,
 }: MetricDrilldownModalProps) => {
   useBodyScrollLock(true);
   const { metric } = row;
@@ -460,9 +484,17 @@ const MetricDrilldownModal = ({
     snapshot: parentSnapshot,
     experiment,
     phase: contextPhase,
-    dimension,
+    dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
   } = useSnapshot();
+
+  // Use prop values when parent context is empty (report context)
+  const effectiveSnapshot = parentSnapshot ?? snapshotProp;
+  // Prefer the context dimension, then fall back to the snapshot's own dimension
+  const effectiveDimension =
+    contextDimension || effectiveSnapshot?.dimension || "";
+  // Use contextPhase from snapshot context when available, otherwise use phase prop
+  const effectivePhase = parentSnapshot ? contextPhase : phase;
 
   const isReportContext = isReportContextProp ?? false;
 
@@ -517,11 +549,15 @@ const MetricDrilldownModal = ({
   return (
     <Tabs defaultValue={initialTab}>
       <Modal
+        useRadixButton={false}
         open={true}
+        close={close}
         borderlessHeader={true}
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
+        showHeaderCloseButton={false}
+        includeCloseCta={false}
         dismissible
         header={
           <Flex align="center" gap="0">
@@ -600,12 +636,12 @@ const MetricDrilldownModal = ({
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
-          {parentSnapshot && experiment ? (
+          {effectiveSnapshot ? (
             <LocalSnapshotProvider
               experiment={experiment}
-              snapshot={parentSnapshot}
-              phase={contextPhase}
-              dimension={dimension}
+              snapshot={effectiveSnapshot}
+              phase={effectivePhase}
+              dimension={effectiveDimension}
               initialAnalysisSettings={parentAnalysisSettings}
             >
               <MetricDrilldownContent {...contentProps} />

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { QueryStatus } from "shared/types/query";
+import { AppFeatures } from "shared/types/app-features";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -14,7 +15,6 @@ import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
-import { AppFeatures } from "@/types/app-features";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 
@@ -206,7 +206,6 @@ const RefreshData = ({
           </Flex>
         ) : null}
         <RunQueriesButton
-          useRadixButton={true}
           radixVariant="soft"
           cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
           icon={dimensionSlices ? "refresh" : "run"}

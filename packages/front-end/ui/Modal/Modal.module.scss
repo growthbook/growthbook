@@ -3,4 +3,12 @@
     color: var(--text-color-main);
     font-weight: var(--font-weight-bold);
   }
+
+  // Prevents margin-collapsing artifacts from causing a spurious
+  // scrollbar inside the ScrollArea.
+  &::after {
+    content: "";
+    display: block;
+    height: 0;
+  }
 }

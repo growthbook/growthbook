@@ -56,7 +56,6 @@ export function mapV2ApiRuleToFeatureRule(
       match: s.matchType,
       ids: s.savedGroups,
     })),
-    scheduleRules: ruleInput.scheduleRules,
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
   };
@@ -70,6 +69,7 @@ export function mapV2ApiRuleToFeatureRule(
         variationId: v.variationId,
         value: v.value,
       })),
+      ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
     };
   }
   if (ruleInput.type === "rollout") {
@@ -77,6 +77,7 @@ export function mapV2ApiRuleToFeatureRule(
       ...baseRule,
       type: "rollout" as const,
       value: ruleInput.value,
+      ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
     };
@@ -112,6 +113,7 @@ export function mapV2ApiRuleToFeatureRule(
     ...baseRule,
     type: "force" as const,
     value: ruleInput.value,
+    ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };
 }
 

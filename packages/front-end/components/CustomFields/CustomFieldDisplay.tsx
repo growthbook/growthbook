@@ -16,9 +16,10 @@ import {
 import Markdown from "@/components/Markdown/Markdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
-import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -68,7 +69,11 @@ const CustomFieldDisplay: FC<{
   );
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+    canAutoPublish
+      ? "publish"
+      : latestActiveDraft !== null
+        ? "existing"
+        : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     latestActiveDraft?.version ?? null,
@@ -171,7 +176,7 @@ const CustomFieldDisplay: FC<{
     ) : cValue ? (
       cValue
     ) : (
-      <em className="text-muted">none</em>
+      <Text color="text-mid">--</Text>
     );
   };
 
@@ -250,9 +255,9 @@ const CustomFieldDisplay: FC<{
               </Flex>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
-                <Button variant="ghost" onClick={() => setEditModal(true)}>
-                  Edit
-                </Button>
+                <Link onClick={() => setEditModal(true)}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               )}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
@@ -260,15 +265,15 @@ const CustomFieldDisplay: FC<{
         ) : (
           <Frame className={className} my="3">
             <Box>
-              <Flex justify="between" align="center">
-                <Heading as="h4" size="small">
+              <Flex justify="between" align="center" mb="3">
+                <Heading color="text-high" as="h4" size="small" mb="0">
                   {label ? label : ""}
                 </Heading>
                 <div className="flex-1" />
                 {canEdit && hasCustomFieldAccess && (
-                  <Button variant="ghost" onClick={() => setEditModal(true)}>
-                    Edit
-                  </Button>
+                  <Link onClick={() => setEditModal(true)}>
+                    <Text weight="semibold">Edit</Text>
+                  </Link>
                 )}
               </Flex>
               <DataList data={displayFieldsObj} maxColumns={3} />

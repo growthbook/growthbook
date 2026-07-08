@@ -5,12 +5,15 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
+import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Frame from "@/ui/Frame";
+import VariationsTable from "@/components/Experiment/VariationsTable";
+import Button from "@/ui/Button";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
@@ -18,6 +21,7 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "./constants";
+import AddLinkedChanges from "./AddLinkedChanges";
 
 export default function LinkedChanges({
   linkedFeatures,
@@ -33,6 +37,10 @@ export default function LinkedChanges({
   setVisualEditorModal,
   setFeatureModal,
   setUrlRedirectModal,
+  onAddVariation,
+  canEditExperiment,
+  setEditVariationIndex,
+  hideVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -47,6 +55,10 @@ export default function LinkedChanges({
   setVisualEditorModal?: (state: boolean) => void;
   setFeatureModal?: (state: boolean) => void;
   setUrlRedirectModal?: (state: boolean) => void;
+  onAddVariation?: () => void;
+  canEditExperiment?: boolean;
+  setEditVariationIndex?: (index: number) => void;
+  hideVariations?: boolean;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -57,15 +69,20 @@ export default function LinkedChanges({
     { id: "redirects", count: urlRedirects.length },
   ];
 
-  if (numLinkedChanges === 0) return null;
-
   return (
-    <Box className="appbox" px="5" py="4">
-      <Box mb="2" mx="1" mt="2">
-        <Heading as="h4" size="small">
-          {isPublic ? "Linked Changes" : "Values"}
+    <Frame>
+      <Flex justify="between" align="center" mb="4" gap="3">
+        <Heading color="text-high" as="h4" size="small">
+          {isPublic || hideVariations
+            ? "Linked Changes"
+            : "Variations & Values"}
         </Heading>
-      </Box>
+        {!isPublic && onAddVariation && !hideVariations ? (
+          <Button variant="ghost" onClick={onAddVariation}>
+            Edit Variations
+          </Button>
+        ) : null}
+      </Flex>
       {isPublic ? (
         <Flex direction="column" gap="3" mx="1" mb="2" mt="4">
           {publicLinkedChangeSummary
@@ -95,15 +112,36 @@ export default function LinkedChanges({
         </Flex>
       ) : (
         <>
+          {!isPublic && !hideVariations ? (
+            <>
+              <Box>
+                <VariationsTable
+                  experiment={experiment}
+                  canEditExperiment={canEditExperiment ?? false}
+                  mutate={mutate}
+                  noMargin
+                  onEditMetadata={
+                    canEditExperiment && setEditVariationIndex
+                      ? (index) => setEditVariationIndex(index)
+                      : undefined
+                  }
+                />
+              </Box>
+              {(numLinkedChanges !== 0 || experiment.status === "draft") && (
+                <Separator size="4" my="6" />
+              )}
+            </>
+          ) : null}
           {linkedFeatures.map((info) => (
             <LinkedFeatureFlag
               info={info}
               experiment={experiment}
+              mutate={mutate}
               key={info.feature.id}
+              numLinkedChanges={numLinkedChanges}
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
-              mutate={mutate}
             />
           ))}
           <VisualChangesetTable
@@ -124,7 +162,9 @@ export default function LinkedChanges({
             />
           ))}
           {experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
+            numLinkedChanges > 0 &&
             setFeatureModal &&
             setVisualEditorModal &&
             setUrlRedirectModal && (
@@ -143,8 +183,18 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
+          {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
+            <AddLinkedChanges
+              experiment={experiment}
+              numLinkedChanges={numLinkedChanges}
+              hasLinkedFeatures={linkedFeatures.length > 0}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+            />
+          )}
         </>
       )}
-    </Box>
+    </Frame>
   );
 }

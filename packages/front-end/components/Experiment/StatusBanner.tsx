@@ -4,6 +4,7 @@ import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
+import track from "@/services/track";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -133,6 +134,11 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                 body: JSON.stringify({
                   status: "running",
                 }),
+              });
+              track("Start experiment", {
+                source: "experiment-start-banner-on-results",
+                hasDatasource: !!experiment.datasource,
+                hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
               });
               mutateExperiment();
             }}

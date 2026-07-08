@@ -15801,6 +15801,11 @@ paths:
                   description: Shall the attribute be hashed
                   type: boolean
                 enum:
+                  description: >-
+                    Comma-separated list of allowed values. Required for the
+                    'enum' datatype. For array datatypes (string[], number[],
+                    secureString[]) it optionally restricts the list to these
+                    values. Ignored for all other datatypes.
                   type: string
                 format:
                   description: The attribute's format
@@ -15879,6 +15884,11 @@ paths:
                   description: Shall the attribute be hashed
                   type: boolean
                 enum:
+                  description: >-
+                    Comma-separated list of allowed values. Required for the
+                    'enum' datatype. For array datatypes (string[], number[],
+                    secureString[]) it optionally restricts the list to these
+                    values. Ignored for all other datatypes.
                   type: string
                 format:
                   description: The attribute's format
@@ -41797,6 +41807,11 @@ components:
         archived:
           type: boolean
         enum:
+          description: >-
+            Comma-separated list of allowed values. Required for the 'enum'
+            datatype. For array datatypes (string[], number[], secureString[])
+            it optionally restricts the list to these values. Ignored for all
+            other datatypes.
           type: string
         format:
           type: string

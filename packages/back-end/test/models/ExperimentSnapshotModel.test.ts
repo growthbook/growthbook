@@ -6,7 +6,8 @@ import {
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import {
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
+  getLatestSnapshotStatus,
   createExperimentSnapshotModel,
   updateSnapshot,
   addOrUpdateSnapshotAnalysis,
@@ -14,14 +15,14 @@ import {
   updateSnapshotAnalysis,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -41,7 +42,9 @@ jest.mock("back-end/src/services/experimentTimeSeries", () => ({
 }));
 
 jest.mock("back-end/src/services/experimentDimensionAnalyses", () => ({
-  runEagerPrecomputedDimensionAnalyses: jest.fn().mockResolvedValue(undefined),
+  runEagerExperimentAndUnitDimensionsAnalyses: jest
+    .fn()
+    .mockResolvedValue(undefined),
 }));
 
 const snapshotTestContext = {
@@ -425,16 +428,16 @@ describe("ExperimentSnapshotModel", () => {
     );
   });
 
-  describe("getLatestSnapshot", () => {
+  describe("getLatestSnapshotStatus", () => {
     const experiment = "exp_shadow_test";
     const phase = 0;
 
     it("does not let errored scheduled snapshots shadow in-progress manual refreshes", async () => {
       // Multi-replica scenario: a scheduled job on a broken replica wrote
       // an errored snapshot AFTER the user kicked off a manual refresh on
-      // a healthy replica. Without the fix, the UI poll (type=undefined,
-      // withResults=false) would return the scheduled error instead of
-      // the user's running snapshot.
+      // a healthy replica. Without the override, the UI poll (type=undefined)
+      // would return the scheduled error instead of the user's running
+      // snapshot.
 
       // User's manual refresh — started first, still running
       const manual = snapshotFactory.build({
@@ -464,11 +467,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
         // type intentionally omitted — this is what the UI poll sends
       });
 
@@ -504,11 +506,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(runningFromSchedule.id);
@@ -543,56 +544,14 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(scheduledError.id);
       expect(result?.triggeredBy).toBe("schedule");
-      expect(result?.status).toBe("error");
-    });
-
-    it("does not apply the override when beforeSnapshot is passed", async () => {
-      const running = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "manual",
-        status: "running",
-        dateCreated: new Date("2024-01-01T12:00:00Z"),
-      });
-      await createExperimentSnapshotModel({
-        data: running,
-        context: snapshotTestContext,
-      });
-
-      const scheduledError = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "schedule",
-        status: "error",
-        dateCreated: new Date("2024-01-01T12:05:00Z"),
-      });
-      await createExperimentSnapshotModel({
-        data: scheduledError,
-        context: snapshotTestContext,
-      });
-
-      const result = await getLatestSnapshot({
-        context: snapshotTestContext,
-        experiment,
-        phase,
-        withResults: false,
-        beforeSnapshot: {
-          dateCreated: new Date("2024-01-01T12:10:00Z"),
-        } as unknown as ExperimentSnapshotDocument,
-      });
-
-      expect(result?.id).toBe(scheduledError.id);
       expect(result?.status).toBe("error");
     });
 
@@ -624,11 +583,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(scheduled.id);
@@ -651,11 +609,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(manualError.id);
@@ -680,20 +637,26 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
         type: "standard",
       });
 
       expect(result?.id).toBe(scheduled.id);
       expect(result?.status).toBe("error");
     });
+  });
 
-    it("never returns scheduled errors from withResults=true (status filter already excludes them)", async () => {
-      // Sanity check: withResults=true already filters to status="success".
+  describe("getLatestSuccessfulSnapshot", () => {
+    const experiment = "exp_shadow_test";
+    const phase = 0;
+
+    it("never returns scheduled errors (status filter excludes them)", async () => {
+      // Sanity check: the success-only function should always pick the
+      // latest status="success" snapshot and skip errors entirely, even
+      // when an error is newer than the success.
       const scheduledError = snapshotFactory.build({
         experiment,
         phase,
@@ -720,11 +683,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSuccessfulSnapshot({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: true,
       });
 
       expect(result?.id).toBe(scheduledSuccess.id);
@@ -748,11 +710,175 @@ describe("ExperimentSnapshotModel", () => {
       );
       (notifyExperimentChange as jest.Mock).mockResolvedValue([]);
       (updateExperimentTimeSeries as jest.Mock).mockResolvedValue(undefined);
-      (runEagerPrecomputedDimensionAnalyses as jest.Mock).mockResolvedValue(
-        undefined,
-      );
+      (
+        runEagerExperimentAndUnitDimensionsAnalyses as jest.Mock
+      ).mockResolvedValue(undefined);
       return experiment;
     }
+
+    it("runs eager dimension analyses for latest standard success snapshots with populated analyses", async () => {
+      const context = getSnapshotUpdateContext();
+      const snapshot = makeSnapshotWithMetric("snp_eager_success");
+      snapshot.type = "standard";
+      snapshot.settings = {
+        ...snapshot.settings,
+        dimensions: [{ id: "precomputed:country" }],
+        precomputedUnitDimensionIds: ["dim_country"],
+      };
+      mockSuccessfulExperimentLoad(snapshot.experiment);
+
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const analysis = makeAnalysis({
+        settings: makeAnalysisSettings(),
+        value: 10,
+      });
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [analysis],
+        },
+      });
+
+      expect(runEagerExperimentAndUnitDimensionsAnalyses).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(runEagerExperimentAndUnitDimensionsAnalyses).toHaveBeenCalledWith({
+        context,
+        experiment: expect.objectContaining({ id: snapshot.experiment }),
+        experimentSnapshot: expect.objectContaining({
+          id: snapshot.id,
+          analyses: expect.arrayContaining([
+            expect.objectContaining({
+              results: expect.arrayContaining([
+                expect.objectContaining({ variations: expect.any(Array) }),
+              ]),
+            }),
+          ]),
+        }),
+      });
+    });
+
+    it("logs experiment_updated for error snapshots without propagation side effects", async () => {
+      const info = jest.fn();
+      const context = getSnapshotUpdateContext();
+      context.logger = {
+        info,
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      } as never;
+
+      const snapshot = makeSnapshotWithMetric("snp_error_log");
+      snapshot.type = "standard";
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const executionLogger = new ExperimentUpdateExecutionLogger(
+        {
+          runnerKind: "results",
+          incrementalFallbackReason: null,
+          useCache: true,
+          fullRefresh: false,
+          fullRefreshReason: null,
+        },
+        {
+          experimentId: snapshot.experiment,
+          snapshotId: snapshot.id,
+          snapshotType: "standard",
+          triggeredBy: "schedule",
+          datasource: { id: "ds_1", type: "bigquery" } as never,
+        },
+      );
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "error",
+          error: "Failed to run queries",
+        },
+        experimentUpdateExecutionLogger: executionLogger,
+      });
+
+      expect(getExperimentById).not.toHaveBeenCalled();
+      expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "experiment_updated",
+          snapshotStatus: "error",
+          error: "Failed to run queries",
+          timingsMs: expect.objectContaining({
+            persistSnapshot: expect.any(Number),
+            propagateSnapshot: 0,
+          }),
+        }),
+        "Experiment update completed",
+      );
+    });
+
+    it("logs experiment_updated for exploratory success without propagation", async () => {
+      const info = jest.fn();
+      const context = getSnapshotUpdateContext();
+      context.logger = {
+        info,
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      } as never;
+
+      const snapshot = makeSnapshotWithMetric("snp_exploratory_log");
+      snapshot.type = "exploratory";
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const executionLogger = new ExperimentUpdateExecutionLogger(
+        {
+          runnerKind: "incremental-exploratory",
+          incrementalFallbackReason: null,
+          useCache: true,
+          fullRefresh: false,
+          fullRefreshReason: null,
+        },
+        {
+          experimentId: snapshot.experiment,
+          snapshotId: snapshot.id,
+          snapshotType: "exploratory",
+          triggeredBy: "manual",
+          datasource: { id: "ds_1", type: "bigquery" } as never,
+        },
+      );
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [
+            makeAnalysis({
+              settings: makeAnalysisSettings(),
+              value: 10,
+            }),
+          ],
+        },
+        experimentUpdateExecutionLogger: executionLogger,
+      });
+
+      expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "experiment_updated",
+          snapshotType: "exploratory",
+          snapshotStatus: "success",
+          timingsMs: expect.objectContaining({
+            persistSnapshot: expect.any(Number),
+            propagateSnapshot: 0,
+          }),
+        }),
+        "Experiment update completed",
+      );
+    });
 
     it("passes populated chunked analyses to post-success side effects", async () => {
       const context = getSnapshotUpdateContext();
@@ -857,49 +983,6 @@ describe("ExperimentSnapshotModel", () => {
       expect(populateChunkedAnalysesSpy).not.toHaveBeenCalled();
     });
 
-    it("runs eager dimension analyses for latest standard dimensionless success snapshots with populated analyses", async () => {
-      const context = getSnapshotUpdateContext();
-      const snapshot = makeSnapshotWithMetric("snp_eager_success");
-      snapshot.type = "standard";
-      snapshot.settings = {
-        ...snapshot.settings,
-        dimensions: [{ id: "precomputed:country" }],
-      };
-      mockSuccessfulExperimentLoad(snapshot.experiment);
-
-      await createExperimentSnapshotModel({ data: snapshot, context });
-
-      const analysis = makeAnalysis({
-        settings: makeAnalysisSettings(),
-        value: 10,
-      });
-
-      await updateSnapshot({
-        context,
-        id: snapshot.id,
-        updates: {
-          status: "success",
-          analyses: [analysis],
-        },
-      });
-
-      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledTimes(1);
-      expect(runEagerPrecomputedDimensionAnalyses).toHaveBeenCalledWith({
-        context,
-        experiment: expect.objectContaining({ id: snapshot.experiment }),
-        experimentSnapshot: expect.objectContaining({
-          id: snapshot.id,
-          analyses: expect.arrayContaining([
-            expect.objectContaining({
-              results: expect.arrayContaining([
-                expect.objectContaining({ variations: expect.any(Array) }),
-              ]),
-            }),
-          ]),
-        }),
-      });
-    });
-
     it.each([
       {
         label: "non-success",
@@ -950,7 +1033,7 @@ describe("ExperimentSnapshotModel", () => {
         phases: [{}],
       },
     ])(
-      "does not run eager dimension analyses for $label updates",
+      "does not run post-update dimension analysis backfill for $label updates",
       async (testCase) => {
         const context = getSnapshotUpdateContext();
         const snapshot = makeSnapshotWithMetric(`snp_eager_${testCase.label}`);
@@ -971,11 +1054,13 @@ describe("ExperimentSnapshotModel", () => {
           updates: testCase.updates,
         });
 
-        expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
+        expect(
+          runEagerExperimentAndUnitDimensionsAnalyses,
+        ).not.toHaveBeenCalled();
       },
     );
 
-    it("does not rerun eager dimension analyses for metadata-only updates", async () => {
+    it("does not rerun dimension analysis backfill for metadata-only updates", async () => {
       const context = getSnapshotUpdateContext();
       const snapshot = makeSnapshotWithMetric("snp_eager_metadata");
       snapshot.type = "standard";
@@ -1002,7 +1087,9 @@ describe("ExperimentSnapshotModel", () => {
         },
       });
 
-      expect(runEagerPrecomputedDimensionAnalyses).not.toHaveBeenCalled();
+      expect(
+        runEagerExperimentAndUnitDimensionsAnalyses,
+      ).not.toHaveBeenCalled();
     });
 
     it("preserves distinct analysisKeys when multiple analyses share identical settings", async () => {

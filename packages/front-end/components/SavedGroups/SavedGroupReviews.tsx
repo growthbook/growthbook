@@ -2,12 +2,11 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
-import Owner from "@/components/Avatar/Owner";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import {
@@ -19,11 +18,21 @@ import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import {
-  buildSavedGroupRevisionUrl,
-  renderRevisionStatusCell,
-} from "@/components/Revision/revisionUtils";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
 import { useRevisionsEntityType } from "@/hooks/useRevisions";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  draftStatusDotColor,
+  revisionStatusLabel,
+} from "@/components/Reviews/RevisionStatusBadge";
+import Text from "@/ui/Text";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -37,29 +46,45 @@ const DEFAULT_STATUSES: RevisionStatus[] = [
 type ReviewRow = {
   id: string;
   title: string;
+  comment: string;
+  version: number | undefined;
   groupName: string;
   groupId: string;
   authorId: string;
   authorDisplay: string;
   status: RevisionStatus;
   dateCreated: Date;
+  dateUpdated: Date;
   url: string;
 };
 
 function revisionToRow(revision: Revision): ReviewRow {
-  const groupName = revision.target.snapshot?.groupName || revision.target.id;
+  const snapshot =
+    revision.target.type === "saved-group" ? revision.target.snapshot : null;
+  const groupName = snapshot?.groupName || revision.target.id;
   return {
     id: revision.id,
     title: revision.title || "",
+    comment: revision.comment || "",
+    version: revision.version,
     groupName,
     groupId: revision.target.id,
     authorId: revision.authorId,
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
+    dateUpdated: new Date(revision.dateUpdated),
     url: buildSavedGroupRevisionUrl(revision.target.id, revision),
   };
 }
+
+const COL = {
+  REVISION: "5%",
+  NOTES: "30%",
+  AUTHOR: "15%",
+  DATE: "13%",
+  DRAFT_STATUS: "13%",
+} as const;
 
 const SavedGroupReviews: FC = () => {
   const router = useRouter();
@@ -92,18 +117,23 @@ const SavedGroupReviews: FC = () => {
     authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
   }));
 
-  const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
-    useSearch({
-      items: reviewItems,
-      localStorageKey: "savedGroupReviewsList",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
-      searchFields: ["groupName", "authorId", "title", "authorDisplay"],
-      searchTermFilters: {
-        status: (item) => item.status,
-        author: (item) => [item.authorId, item.authorDisplay],
-      },
-    });
+  const {
+    items,
+    searchInputProps,
+    SortableTableColumnHeader,
+    syntaxFilters,
+    setSearchValue,
+  } = useSearch({
+    items: reviewItems,
+    localStorageKey: "savedGroupReviewsList",
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
+    searchFields: ["groupName", "authorId", "title", "authorDisplay"],
+    searchTermFilters: {
+      status: (item) => item.status,
+      author: (item) => [item.authorId, item.authorDisplay],
+    },
+  });
 
   const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
     useSearchFiltersBase({
@@ -208,13 +238,11 @@ const SavedGroupReviews: FC = () => {
       searchValue: "changes-requested",
     },
     { name: "Draft", id: "draft", searchValue: "draft" },
-    { name: "Published", id: "merged", searchValue: "merged" },
-    { name: "Discarded", id: "discarded", searchValue: "discarded" },
   ];
 
   return (
     <Box mt="4">
-      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+      <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </Box>
@@ -250,52 +278,95 @@ const SavedGroupReviews: FC = () => {
         <Callout status="info">No drafts for saved groups.</Callout>
       ) : (
         <>
-          <table className="table gbtable table-valign-top">
-            <thead>
-              <tr>
-                <SortableTH field="title">Revision</SortableTH>
-                <SortableTH field="groupName">Saved Group</SortableTH>
-                <SortableTH field="authorDisplay">Author</SortableTH>
-                <SortableTH field="dateCreated">Date Created</SortableTH>
-                <SortableTH field="status">Status</SortableTH>
-              </tr>
-            </thead>
-            <tbody>
+          <Table variant="list" stickyHeader roundedCorners>
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="groupName">
+                  Saved Group
+                </SortableTableColumnHeader>
+                <TableColumnHeader
+                  style={{ width: COL.REVISION, textAlign: "right" }}
+                >
+                  Revision
+                </TableColumnHeader>
+                <TableColumnHeader style={{ width: COL.NOTES }}>
+                  Notes
+                </TableColumnHeader>
+                <SortableTableColumnHeader
+                  field="authorDisplay"
+                  style={{ width: COL.AUTHOR }}
+                >
+                  Author
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader
+                  field="dateUpdated"
+                  style={{ width: COL.DATE }}
+                >
+                  Last Modified
+                </SortableTableColumnHeader>
+                <TableColumnHeader style={{ width: COL.DRAFT_STATUS }}>
+                  Draft Status
+                </TableColumnHeader>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {paginatedItems.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className="hover-highlight"
                   onClick={() => router.push(row.url)}
                   style={{ cursor: "pointer" }}
                 >
-                  <td>
+                  <TableCell style={{ padding: "var(--space-0)" }}>
                     <Link
                       href={row.url}
                       onClick={(e) => e.stopPropagation()}
-                      className="link-purple"
+                      style={{
+                        display: "block",
+                        color: "var(--gray-12)",
+                        padding: "var(--space-3)",
+                      }}
                     >
-                      {row.title || (
-                        <span className="text-muted">Untitled</span>
-                      )}
+                      {row.groupName}
                     </Link>
-                  </td>
-                  <td>{row.groupName}</td>
-                  <td>
-                    <Owner ownerId={row.authorId} />
-                  </td>
-                  <td>{datetime(row.dateCreated)}</td>
-                  <td>{renderRevisionStatusCell(row.status)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell style={{ textAlign: "right" }}>
+                    {row.version ?? ""}
+                  </TableCell>
+                  <TableCell>
+                    <OverflowText maxWidth={400}>{row.title}</OverflowText>
+                  </TableCell>
+                  <TableCell>{row.authorDisplay}</TableCell>
+                  <TableCell title={datetime(row.dateUpdated)}>
+                    {date(row.dateUpdated)}
+                  </TableCell>
+                  <TableCell>
+                    <Flex align="center" style={{ gap: 6 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          background: draftStatusDotColor(row.status),
+                        }}
+                      />
+                      <Text size="medium">
+                        {revisionStatusLabel(row.status)}
+                      </Text>
+                    </Flex>
+                  </TableCell>
+                </TableRow>
               ))}
               {paginatedItems.length === 0 && (
-                <tr>
-                  <td colSpan={5} align="center">
+                <TableRow>
+                  <TableCell colSpan={6} style={{ textAlign: "center" }}>
                     No matching drafts
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
 
           {statusFilteredItems.length > ITEMS_PER_PAGE && (
             <Pagination

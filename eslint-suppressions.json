@@ -1105,11 +1105,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/ApiKeys.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
@@ -1572,9 +1567,19 @@
       "count": 1
     }
   },
+  "packages/front-end/enterprise/components/ProductAnalytics/MainSection/ExplorerMainSection.tsx": {
+    "prettier/prettier": {
+      "count": 27
+    }
+  },
   "packages/front-end/enterprise/components/ProductAnalytics/SideBar/DatasourceConfigurator.tsx": {
     "local/no-alert-classname": {
       "count": 1
+    }
+  },
+  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar.tsx": {
+    "prettier/prettier": {
+      "count": 2
     }
   },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {

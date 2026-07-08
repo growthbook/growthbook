@@ -22,7 +22,7 @@ export default function BanditUpdateStatus({
   isPublic?: boolean;
   ssrSnapshot?: ExperimentSnapshotInterface;
 }) {
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -144,7 +144,8 @@ export default function BanditUpdateStatus({
                       <td className="text-muted">Next scheduled update:</td>
                       <td>
                         {experiment.nextSnapshotAttempt &&
-                        experiment.autoSnapshots ? (
+                        experiment.autoSnapshots &&
+                        !experiment.disableAutoSnapshots ? (
                           ago(experiment.nextSnapshotAttempt)
                         ) : (
                           <em>Not scheduled</em>

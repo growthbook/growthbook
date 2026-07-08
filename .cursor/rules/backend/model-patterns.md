@@ -90,6 +90,7 @@ const resource = req.context.myResources.getById("abc123");
 | `defaultValues`             | object     | No       | Default values applied on creation                                                                                                                                                               |
 | `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                                                                                                                     |
 | `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                                                                                                             |
+| `skipAuditLogFields`        | string[]   | No       | Fields that don't trigger audit logs when they are the only fields being updated (for operational/scheduling fields)                                                                             |
 | `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                                                                                                                  |
 | `apiConfig`                 | object     | No       | Exposes the model via the external REST API. Set `modelKey` and `openApiSpec`. Requires implementing `toApiInterface` in the model class. See `api-patterns.md` for the full spec-based pattern. |
 

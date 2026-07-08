@@ -11,9 +11,10 @@ import {
   DataSourceInterface,
   DataSourceParams,
   ExposureQuery,
+  FeatureUsageQuery,
 } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
-import { QueryStatistics } from "shared/types/query";
+import { QueryStatistics, QueryType } from "shared/types/query";
 import { formatQueryExecutionErrorForApi } from "shared/util";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { determineColumnTypes } from "back-end/src/util/sql";
@@ -35,6 +36,9 @@ import Mssql from "back-end/src/integrations/Mssql";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+
+// freeFormQuery runs user-authored SQL; we should only use it for this scenario
+const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -182,7 +186,7 @@ export async function runFreeFormQuery(
     const { results, duration, columns } = await integration.runTestQuery(
       sql,
       ["timestamp"],
-      "freeFormQuery",
+      FREE_FORM_QUERY_TYPE,
     );
 
     // Build a type map from SQL engine metadata
@@ -398,6 +402,60 @@ export async function testQueryValidity(
       columns = new Set(columnNames);
     } else {
       // For other datasources, extract from first row (requires LIMIT 1+)
+      if (results.results.length === 0) {
+        return "No rows returned";
+      }
+      columns = new Set(Object.keys(results.results[0]));
+    }
+
+    const missingColumns: string[] = [];
+    for (const col of requiredColumns) {
+      if (!columns.has(col)) {
+        missingColumns.push(col);
+      }
+    }
+
+    if (missingColumns.length > 0) {
+      return `Missing required columns in response: ${missingColumns.join(
+        ", ",
+      )}`;
+    }
+
+    return undefined;
+  } catch (e) {
+    return e.message;
+  }
+}
+
+export async function testFeatureUsageQueryValidity(
+  integration: SourceIntegrationInterface,
+  query: FeatureUsageQuery,
+  testDays?: number,
+): Promise<string | undefined> {
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const requiredColumns = new Set(["timestamp", "feature_key"]);
+
+  const sql = integration.getTestValidityQuery(
+    query.query,
+    testDays,
+    undefined,
+    "timestamp",
+  );
+  try {
+    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+
+    let columns: Set<string>;
+
+    if (results.columns) {
+      const columnNames = results.columns.map((c) => c.name);
+      if (columnNames.length === 0) {
+        return "Unable to determine columns from query";
+      }
+      columns = new Set(columnNames);
+    } else {
       if (results.results.length === 0) {
         return "No rows returned";
       }

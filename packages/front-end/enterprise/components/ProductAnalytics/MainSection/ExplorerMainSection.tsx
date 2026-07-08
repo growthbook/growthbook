@@ -27,6 +27,10 @@ export default function ExplorerMainSection() {
     handleSubmit,
     isSubmittable,
     collapseFunnelStepsForAnalyze,
+    compareEnabled,
+    comparisonExploration,
+    comparisonComputed,
+    submittedPreviousTimeFrame,
   } = useExplorerContext();
 
   const showChartSection = shouldChartSectionShow({
@@ -40,8 +44,7 @@ export default function ExplorerMainSection() {
     draftExploreState.dataset?.type === "funnel" &&
     !hasSubmittablePayload(submittedExploreState);
 
-  const suppressStaleFloatingCallout =
-    funnelMainEmpty && isStale && !loading;
+  const suppressStaleFloatingCallout = funnelMainEmpty && isStale && !loading;
 
   return (
     <Flex
@@ -80,6 +83,12 @@ export default function ExplorerMainSection() {
                     error={error}
                     submittedExploreState={submittedExploreState}
                     loading={loading}
+                    compareEnabled={compareEnabled}
+                    comparisonExploration={comparisonExploration}
+                    submittedPreviousTimeFrame={submittedPreviousTimeFrame}
+                    serverBigNumberTrends={
+                      comparisonComputed?.bigNumberTrends ?? null
+                    }
                   />
                 </Panel>
                 <PanelResizeHandle
@@ -118,6 +127,11 @@ export default function ExplorerMainSection() {
                 hasChart={showChartSection}
                 isStale={isStale}
                 query={query}
+                compareEnabled={compareEnabled}
+                comparisonExploration={comparisonExploration}
+                serverTableTrendsByRow={
+                  comparisonComputed?.tableTrendsByRow ?? null
+                }
               />
             </Panel>
           </PanelGroup>
@@ -137,35 +151,36 @@ export default function ExplorerMainSection() {
           >
             {funnelMainEmpty ? (
               <>
-              <Text size="large" weight="medium">
-              Done configuring steps?
-            </Text>
-              <Button
-                size="lg"
-                variant="solid"
-                disabled={
-                  loading ||
-                  !hasSubmittablePayload(draftExploreState) ||
-                  !isSubmittable
-                }
-                onClick={async () => {
-                  collapseFunnelStepsForAnalyze();
-                  await handleSubmit({ force: true });
-                }}
-              >
-                <Flex align="center" gap="2">
-                  <PiArrowsClockwise />
-                  Analyze Funnel
-                </Flex>
-              </Button>
+                <Text size="large" weight="medium">
+                  Done configuring steps?
+                </Text>
+                <Button
+                  size="lg"
+                  variant="solid"
+                  disabled={
+                    loading ||
+                    !hasSubmittablePayload(draftExploreState) ||
+                    !isSubmittable
+                  }
+                  onClick={async () => {
+                    collapseFunnelStepsForAnalyze();
+                    await handleSubmit({ force: true });
+                  }}
+                >
+                  <Flex align="center" gap="2">
+                    <PiArrowsClockwise />
+                    Analyze Funnel
+                  </Flex>
+                </Button>
               </>
             ) : (
-<>
-            <BsGraphUpArrow size={48} className="text-muted" />
+              <>
+                <BsGraphUpArrow size={48} className="text-muted" />
 
-              <Text size="large" weight="medium">
-              Configure your explorer to visualize data
-            </Text></>
+                <Text size="large" weight="medium">
+                  Configure your explorer to visualize data
+                </Text>
+              </>
             )}
           </Flex>
         )}
@@ -178,6 +193,8 @@ export default function ExplorerMainSection() {
               top: 15,
               right: 15,
               width: "auto",
+              backgroundColor: "var(--color-panel-solid)",
+              borderRadius: "var(--radius-3)",
             }}
           >
             <Callout status="info" size="sm" icon={null} contentsAs="div">

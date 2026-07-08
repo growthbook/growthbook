@@ -122,16 +122,21 @@ export const getArchetypeAndEval = async (
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const safeRolloutMap =
       await context.models.safeRollout.getAllPayloadSafeRollouts();
+    const constants = await context.models.constants.getAll();
 
     archetype.forEach((arch) => {
       try {
         const attributes = arch.attributes
           ? (JSON.parse(arch.attributes) as ArchetypeAttributeValues)
           : ({} as ArchetypeAttributeValues);
+        const archEnvironments =
+          arch.environments && arch.environments.length
+            ? environments.filter((e) => arch.environments?.includes(e.id))
+            : environments;
         const result = evaluateFeature({
           feature,
           attributes,
-          environments,
+          environments: archEnvironments,
           experimentMap,
           groupMap,
           revision,
@@ -140,6 +145,7 @@ export const getArchetypeAndEval = async (
           safeRolloutMap,
           namespaces: namespacesToMap(org.settings?.namespaces),
           organization: org,
+          constants,
         });
 
         if (!result) return;
@@ -164,6 +170,7 @@ type CreateArchetypeRequest = AuthRequest<{
   isPublic: boolean;
   attributes: string;
   projects?: string[];
+  environments?: string[];
 }>;
 
 type CreateArchetypeResponse = {
@@ -177,7 +184,8 @@ export const postArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const { name, attributes, description, isPublic, projects } = req.body;
+  const { name, attributes, description, isPublic, projects, environments } =
+    req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -190,6 +198,18 @@ export const postArchetype = async (
     context.permissions.throwPermissionError();
   }
 
+  if (environments?.length) {
+    const allEnvironments = org.settings?.environments || [];
+    const invalid = environments.filter(
+      (e) => !allEnvironments.some(({ id }) => e === id),
+    );
+    if (invalid.length) {
+      throw new Error(
+        `The following environments do not exist: ${invalid.join(", ")}`,
+      );
+    }
+  }
+
   const archetype = await createArchetype({
     attributes,
     name,
@@ -198,6 +218,7 @@ export const postArchetype = async (
     isPublic,
     organization: org.id,
     projects,
+    environments,
   });
 
   await req.audit({
@@ -224,6 +245,7 @@ type PutArchetypeRequest = AuthRequest<
     attributes: string;
     isPublic: boolean;
     projects?: string[];
+    environments?: string[];
   },
   { id: string }
 >;
@@ -240,7 +262,15 @@ export const putArchetype = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, description, isPublic, owner, attributes, projects } = req.body;
+  const {
+    name,
+    description,
+    isPublic,
+    owner,
+    attributes,
+    projects,
+    environments,
+  } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -254,6 +284,18 @@ export const putArchetype = async (
     });
   }
 
+  if (environments?.length) {
+    const allEnvironments = org.settings?.environments || [];
+    const invalid = environments.filter(
+      (e) => !allEnvironments.some(({ id }) => e === id),
+    );
+    if (invalid.length) {
+      throw new Error(
+        `The following environments do not exist: ${invalid.join(", ")}`,
+      );
+    }
+  }
+
   const updates = {
     attributes,
     name,
@@ -261,6 +303,7 @@ export const putArchetype = async (
     isPublic,
     owner,
     projects,
+    environments,
   };
 
   const archetype = await getArchetypeById(id, org.id);

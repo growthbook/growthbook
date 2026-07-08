@@ -746,7 +746,7 @@ export function ExplorerProvider({
         let dimensions = prev.dimensions;
         let dataset = prev.dataset;
 
-        // Big Number: normalize to single value and no dimensions so config matches what we display
+        // Big Number: no dimensions; keep full dataset values unchanged
         if (chartType === "bigNumber") {
           dimensions = [];
           // Funnels don't carry `values` and the bigNumber chart doesn't

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ago } from "shared/dates";
+import { useEffect, useMemo, useState } from "react";
+import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject, truncateString } from "shared/util";
 import Link from "next/link";
 import {
@@ -21,9 +21,22 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import {
+  draftStatusDots,
+  draftStatusTooltip,
+} from "@/components/Reviews/RevisionStatusBadge";
+import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
+import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
-import SavedGroupRowMenu from "./SavedGroupRowMenu";
 
 export interface Props {
   groups: SavedGroupWithoutValues[];
@@ -38,55 +51,116 @@ export default function IdLists({ groups, mutate }: Props) {
   const settings = useOrgSettings();
   const approvalFlowRequired =
     settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
-  const { project, projects } = useDefinitions();
+  const { project, projects, getProjectById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canViewSavedGroupModal(project, projects);
-  const canUpdate = (savedGroup: Pick<SavedGroupInterface, "projects">) =>
-    permissionsUtil.canUpdateSavedGroup(savedGroup, savedGroup);
-  const canDeleteSavedGroup = (
-    savedGroup: Pick<SavedGroupInterface, "projects">,
-  ) => permissionsUtil.canDeleteSavedGroup(savedGroup);
   const { apiCall } = useAuth();
+
+  const draftHook = useSavedGroupDraftStates();
 
   const idLists = useMemo(() => {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const filteredIdLists = project
-    ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project),
-      )
-    : idLists;
+  const filteredIdLists = useMemo(
+    () =>
+      project
+        ? idLists.filter((list) =>
+            isProjectListValidForProject(list.projects, project),
+          )
+        : idLists,
+    [idLists, project],
+  );
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const idListsWithOwners = useAddComputedFields(
     filteredIdLists,
-    (group) => ({
-      ownerNameDisplay: getOwnerDisplay(group.owner),
-    }),
-    [getOwnerDisplay],
+    (group) => {
+      const projectNames = (group.projects ?? [])
+        .map((id) => getProjectById(id)?.name ?? "")
+        .filter(Boolean);
+      return {
+        ownerNameDisplay: getOwnerDisplay(group.owner),
+        projectNames,
+      };
+    },
+    [getOwnerDisplay, getProjectById],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
-    useSearch({
-      items: idListsWithOwners,
-      localStorageKey: "savedGroups",
-      defaultSortField: "dateCreated",
-      defaultSortDir: -1,
-      searchFields: [
-        "groupName^3",
-        "attributeKey^2",
-        "ownerNameDisplay",
-        "description^2",
-      ],
-      pageSize: 50,
-      updateSearchQueryOnChange: true,
-    });
+  const hasArchived = idLists.some((g) => g.archived);
+  const hasDraftStates = Object.keys(draftHook.draftStates).length > 0;
+
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    pagination,
+    syntaxFilters,
+    setSearchValue,
+  } = useSearch({
+    items: idListsWithOwners,
+    localStorageKey: "savedGroups",
+    defaultSortField: "dateCreated",
+    defaultSortDir: -1,
+    searchFields: [
+      "groupName^3",
+      "attributeKey^2",
+      "ownerNameDisplay",
+      "description^2",
+    ],
+    pageSize: 50,
+    updateSearchQueryOnChange: true,
+    filterResults: !showArchived
+      ? (items) => items.filter((g) => !g.archived)
+      : undefined,
+    // The `has:draft` filter reads async-loaded draft states; declare the dep so
+    // results recompute when they arrive (even when `filterResults` is stable).
+    searchTermFilterDeps: [draftHook.draftStates],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (draftHook.draftStates[item.id]) has.push("draft", "drafts");
+        return has;
+      },
+      owner: (item) => item.ownerNameDisplay,
+      project: (item) => [...(item.projects ?? []), ...item.projectNames],
+    },
+  });
+
+  // Sync showArchived state from is:archived syntax filter
+  useEffect(() => {
+    setShowArchived(
+      syntaxFilters.some(
+        (f) => f.field === "is" && f.values.includes("archived"),
+      ),
+    );
+  }, [syntaxFilters]);
+
+  const hasDraftFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("draft"),
+  );
+
+  useEffect(() => {
+    if (hasDraftFilter) {
+      draftHook.fetchAll();
+    } else {
+      const ids = items.map((s) => s.id);
+      if (ids.length) draftHook.fetchSome(ids);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, hasDraftFilter]);
 
   if (!idLists) return <LoadingOverlay />;
 
@@ -141,6 +215,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <LargeSavedGroupPerformanceWarning
               hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
               unsupportedConnections={unsupportedConnections}
+              connections={connections}
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </Box>
@@ -148,43 +223,62 @@ export default function IdLists({ groups, mutate }: Props) {
 
         {filteredIdLists.length > 0 && (
           <>
-            <Box className="relative" width="40%" mb="4">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+            <Flex align="center" justify="between" gap="3" mb="4">
+              <Box style={{ width: "40%" }}>
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <SavedGroupSearchFilters
+                searchInputProps={searchInputProps}
+                syntaxFilters={syntaxFilters}
+                setSearchValue={setSearchValue}
+                groups={filteredIdLists}
+                hasArchived={hasArchived}
+                hasDraftStates={hasDraftStates}
               />
-            </Box>
-            <table className="table gbtable table-valign-top">
-              <thead>
-                <tr>
-                  <SortableTH field={"groupName"}>Name</SortableTH>
-                  <SortableTH field="attributeKey">Attribute</SortableTH>
-                  <th>Description</th>
-                  <th>Projects</th>
-                  <SortableTH field={"ownerNameDisplay"}>Owner</SortableTH>
-                  <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+            </Flex>
+            <Table variant="list" stickyHeader roundedCorners>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableColumnHeader field="groupName">
+                    Name
+                  </SortableTableColumnHeader>
+                  <SortableTableColumnHeader field="attributeKey">
+                    Attribute
+                  </SortableTableColumnHeader>
+                  <TableColumnHeader>Description</TableColumnHeader>
+                  <TableColumnHeader>Projects</TableColumnHeader>
+                  <TableColumnHeader style={{ textAlign: "center" }}>
+                    Draft Status
+                  </TableColumnHeader>
+                  <SortableTableColumnHeader field="dateUpdated">
+                    Last Modified
+                  </SortableTableColumnHeader>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((s) => {
+                  const draftEntry = draftHook.draftStates[s.id];
                   return (
-                    <tr key={s.id}>
-                      <td>
+                    <TableRow key={s.id}>
+                      <TableCell>
                         <Flex align="center" gap="2">
                           <Link
-                            className="link-purple"
-                            key={s.id}
+                            style={{ color: "var(--gray-12)" }}
                             href={`/saved-groups/${s.id}`}
                           >
                             {s.groupName}
                           </Link>
                         </Flex>
-                      </td>
-                      <td>{s.attributeKey}</td>
-                      <td>{truncateString(s.description || "", 40)}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{s.attributeKey}</TableCell>
+                      <TableCell>
+                        {truncateString(s.description || "", 40)}
+                      </TableCell>
+                      <TableCell>
                         {(s?.projects?.length || 0) > 0 ? (
                           <ProjectBadges
                             resourceType="saved group"
@@ -193,34 +287,62 @@ export default function IdLists({ groups, mutate }: Props) {
                         ) : (
                           <ProjectBadges resourceType="saved group" />
                         )}
-                      </td>
-                      <td>{s.ownerNameDisplay}</td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      <td style={{ width: 30 }}>
-                        <SavedGroupRowMenu
-                          canUpdate={canUpdate(s)}
-                          canDelete={canDeleteSavedGroup(s) && !!s.archived}
-                          deleteDisabledReason={
-                            canDeleteSavedGroup(s) && !s.archived
-                              ? "Archive this saved group before deleting"
-                              : undefined
-                          }
-                          onEdit={() => setSavedGroupForm(s)}
-                          onDelete={() => setDeleteModal(s)}
-                        />
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        {draftEntry
+                          ? (() => {
+                              const dots = draftStatusDots(draftEntry);
+                              if (!dots.length) return null;
+                              return (
+                                <Tooltip
+                                  flipTheme={false}
+                                  body={draftStatusTooltip(draftEntry)}
+                                  usePortal
+                                >
+                                  <Flex
+                                    align="center"
+                                    justify="center"
+                                    gap="1"
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      padding: "0 4px",
+                                    }}
+                                  >
+                                    {dots.map((bg) => (
+                                      <span
+                                        key={bg}
+                                        style={{
+                                          display: "block",
+                                          width: 8,
+                                          height: 8,
+                                          borderRadius: "50%",
+                                          flexShrink: 0,
+                                          background: bg,
+                                        }}
+                                      />
+                                    ))}
+                                  </Flex>
+                                </Tooltip>
+                              );
+                            })()
+                          : null}
+                      </TableCell>
+                      <TableCell title={datetime(s.dateUpdated)}>
+                        {date(s.dateUpdated)}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
                 {!items.length && isFiltered && (
-                  <tr>
-                    <td colSpan={6} align={"center"}>
+                  <TableRow>
+                    <TableCell colSpan={6} style={{ textAlign: "center" }}>
                       No matching saved groups
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {pagination}
           </>
         )}

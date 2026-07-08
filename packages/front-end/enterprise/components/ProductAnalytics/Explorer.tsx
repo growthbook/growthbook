@@ -2,7 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { Flex, Box, AlertDialog } from "@radix-ui/themes";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiDotsSix } from "react-icons/pi";
-import { DatasetType, ExplorationConfig } from "shared/validators";
+import {
+  DatasetType,
+  ExplorationConfig,
+  ExplorationDateRange,
+} from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
 import { useQueryState } from "nuqs";
 import { NuqsAdapter } from "nuqs/adapters/next/pages";
@@ -21,6 +25,9 @@ import {
   createEmptyValue,
   decodeExplorationConfig,
   explorationConfigParser,
+  ExplorerDraftConfig,
+  previousTimeFrameQueryParser,
+  stripExplorerDraftFields,
 } from "./util";
 
 const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
@@ -33,6 +40,11 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
 const explorationQueryParser = explorationConfigParser.withOptions({
   shallow: true,
   throttleMs: 300,
+});
+
+const previousTimeFrameParser = previousTimeFrameQueryParser.withOptions({
+  shallow: true,
+  throttleMs: 0,
 });
 
 function deriveConfigError(
@@ -132,8 +144,27 @@ function ExplorerUrlSync({
       hasUserModified.current = true;
       return;
     }
-    setUrlConfig(draftExploreState);
+    setUrlConfig(stripExplorerDraftFields(draftExploreState));
   }, [draftExploreState, setUrlConfig]);
+
+  return null;
+}
+
+function ExplorerPreviousTimeFrameUrlSync({
+  setUrlPreviousTimeFrame,
+}: {
+  setUrlPreviousTimeFrame: (value: ExplorationDateRange | null) => void;
+}) {
+  const { draftExploreState } = useExplorerContext();
+  const hasUserModified = useRef(false);
+
+  useEffect(() => {
+    if (!hasUserModified.current) {
+      hasUserModified.current = true;
+      return;
+    }
+    void setUrlPreviousTimeFrame(draftExploreState.previousTimeFrame ?? null);
+  }, [draftExploreState.previousTimeFrame, setUrlPreviousTimeFrame]);
 
   return null;
 }
@@ -152,6 +183,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const [urlConfig, setUrlConfig] = useQueryState(
     "config",
     explorationQueryParser,
+  );
+
+  const [urlPreviousTimeFrame, setUrlPreviousTimeFrame] = useQueryState(
+    "previousTimeFrame",
+    previousTimeFrameParser,
   );
 
   const rawParam =
@@ -181,10 +217,15 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
     // let the user add one explicitly via "Group By".
     ...(type === "funnel" ? { dimensions: [] } : {}),
-  } as ExplorationConfig;
+  } as ExplorerDraftConfig;
 
-  const initialConfig =
-    urlConfig && !configError ? urlConfig : defaultDraftState;
+  const baseConfig = urlConfig && !configError ? urlConfig : defaultDraftState;
+  const initialConfig: ExplorerDraftConfig = {
+    ...baseConfig,
+    ...(urlPreviousTimeFrame
+      ? { previousTimeFrame: urlPreviousTimeFrame }
+      : {}),
+  };
 
   return (
     <>
@@ -212,6 +253,9 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         trackingSource="manual-explorer"
       >
         <ExplorerUrlSync setUrlConfig={setUrlConfig} />
+        <ExplorerPreviousTimeFrameUrlSync
+          setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
+        />
         <ExplorerContent />
       </ExplorerProvider>
     </>
