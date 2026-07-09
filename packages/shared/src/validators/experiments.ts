@@ -113,6 +113,25 @@ export const experimentPhase = z
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
+// Payload accepted by PUT /experiment/:id/phase/:phase. This endpoint edits
+// phase *metadata* only. Targeting, traffic, and variation data
+// (condition, savedGroups, prerequisites, coverage, namespace,
+// variationWeights, variations, ...) must be changed via
+// POST /experiment/:id/targeting. `.strict()` ensures any attempt to send
+// those fields here is rejected rather than silently overwriting phase data.
+export const updateExperimentPhaseProps = z
+  .object({
+    name: z.string().min(1),
+    reason: z.string().optional(),
+    dateStarted: z.string().optional(),
+    dateEnded: z.string().optional(),
+    seed: z.string().optional(),
+  })
+  .strict();
+export type UpdateExperimentPhaseProps = z.infer<
+  typeof updateExperimentPhaseProps
+>;
+
 export const experimentStatus = ["draft", "running", "stopped"] as const;
 export type ExperimentStatus = (typeof experimentStatus)[number];
 

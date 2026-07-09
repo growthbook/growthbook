@@ -33,6 +33,7 @@ export {
   ExperimentResultsType,
   PhaseVariation,
   Screenshot,
+  UpdateExperimentPhaseProps,
   Variation,
   VariationStatus,
 } from "shared/validators";

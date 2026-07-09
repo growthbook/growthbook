@@ -44,7 +44,11 @@ export default function LinkedChangeVariationRows({
                 gap="1"
               >
                 <Box minWidth="0" flexShrink="1">
-                  <VariationLabel number={j} name={v.name} size="medium" />
+                  <VariationLabel
+                    number={v.index}
+                    name={v.name}
+                    size="medium"
+                  />
                 </Box>
                 {isSkipped && (
                   <Box flexShrink="0">

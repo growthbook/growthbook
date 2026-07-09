@@ -2,13 +2,13 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  UpdateExperimentPhaseProps,
 } from "shared/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
@@ -55,11 +55,19 @@ export default function EditPhaseModal({
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}
       submit={form.handleSubmit(async (value) => {
-        validateSavedGroupTargeting(value.savedGroups);
+        // This endpoint only edits phase metadata. Targeting, traffic, and
+        // variation changes go through the "Make Changes" (targeting) flow.
+        const metadata: UpdateExperimentPhaseProps = {
+          name: value.name,
+          reason: value.reason,
+          dateStarted: value.dateStarted,
+          dateEnded: value.dateEnded,
+          seed: value.seed,
+        };
 
         await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
           method: "PUT",
-          body: JSON.stringify(value),
+          body: JSON.stringify(metadata),
         });
         mutate();
       })}

@@ -1,6 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   Variation,
+  VariationWithIndex,
 } from "shared/types/experiment";
 import { getVariationsForDisplay } from "shared/experiments";
 import { FC, useState, useRef, useCallback, useEffect } from "react";
@@ -230,7 +231,7 @@ export function VariationBox({
   capWidth = false,
 }: {
   i: number;
-  v: Variation;
+  v: VariationWithIndex;
   experiment: ExperimentInterfaceStringDates;
   showDescription?: boolean;
   showIds?: boolean;
@@ -283,7 +284,7 @@ export function VariationBox({
             <Box minWidth="0" flexGrow="1">
               <Flex align="center" gap="2" minWidth="0">
                 <Box minWidth="0" flexShrink="1">
-                  <VariationLabel number={i} name={v.name} size="large" />
+                  <VariationLabel number={v.index} name={v.name} size="large" />
                 </Box>
                 {isSkipped && (
                   <Box flexShrink="0">

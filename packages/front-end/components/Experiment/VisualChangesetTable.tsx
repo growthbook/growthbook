@@ -733,7 +733,7 @@ function UrlCard({
               key={v.id}
               vc={vc}
               experiment={experiment}
-              variationIndex={j}
+              variationIndex={v.index}
               variationId={v.id}
               variationName={v.name}
               splitPct={decimalToPercent(

@@ -32,8 +32,10 @@ import {
   ExperimentStatus,
   ExperimentTargetingData,
   ExperimentType,
+  UpdateExperimentPhaseProps,
   Variation,
 } from "shared/types/experiment";
+import { updateExperimentPhaseProps } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -2652,14 +2654,19 @@ export async function deleteExperimentPhase(
 }
 
 export async function putExperimentPhase(
-  req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
+  req: AuthRequest<UpdateExperimentPhaseProps, { id: string; phase: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
   const i = parseInt(req.params.phase);
-  const phase = req.body;
+
+  // This endpoint edits phase *metadata* only. The strict schema rejects any
+  // targeting/traffic/variation fields so this endpoint can't be repurposed to
+  // mutate that data. Those changes must go through
+  // POST /experiment/:id/targeting.
+  const phaseUpdates = updateExperimentPhaseProps.parse(req.body);
 
   const changes: Changeset = {};
 
@@ -2703,26 +2710,21 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
-  assertRegisteredAttributes(
-    context,
-    { condition: phase.condition },
-    "experiment phase",
-    undefined,
-    experiment.project,
-  );
-
-  phase.dateStarted = phase.dateStarted
-    ? getValidDate(phase.dateStarted + ":00Z")
+  const dateStarted = phaseUpdates.dateStarted
+    ? getValidDate(phaseUpdates.dateStarted + ":00Z")
     : new Date();
-  phase.dateEnded = phase.dateEnded
-    ? getValidDate(phase.dateEnded + ":00Z")
+  const dateEnded = phaseUpdates.dateEnded
+    ? getValidDate(phaseUpdates.dateEnded + ":00Z")
     : undefined;
 
   const phases = [...experiment.phases];
   phases[i] = {
     ...phases[i],
-    ...phase,
+    name: phaseUpdates.name,
+    reason: phaseUpdates.reason ?? phases[i].reason,
+    dateStarted,
+    dateEnded,
+    ...(phaseUpdates.seed !== undefined ? { seed: phaseUpdates.seed } : {}),
   };
   changes.phases = phases;
 
