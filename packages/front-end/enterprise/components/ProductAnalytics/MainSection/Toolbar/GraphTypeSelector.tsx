@@ -52,7 +52,7 @@ const chartTypes: {
         icon: PiChartBarHorizontalDuotone,
       },
       { value: "table", label: "Table", icon: PiTable },
-      { value: "bigNumber", label: "Big Number", icon: PiHash },
+      { value: "bigNumber", label: "Big Numbers", icon: PiHash },
     ],
   },
 ];

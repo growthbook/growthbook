@@ -1,0 +1,63 @@
+---
+title: Contextual Bandit Technical Details
+description: Technical details of contextual bandit
+sidebar_label: Contextual Bandit Technical
+slug: contextual-bandit-technical
+unlisted: true
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Technical contextual bandit details
+
+Here we document the technical details behind GrowthBook's contextual bandit variation weight updates.
+
+## Thompson Sampling
+
+Suppose we have $K$ variations, and we want to update the variation weights for a given context.  
+For the $k$-th variation, define its mean as $\mu_k$, k = 1, ..., K.
+Denote the probabiity that $\mu_{k}$ is larger than the other means as as $w_k$.  
+Under Thompson Sampling, $w_k$ is the variation weight for the $k$-th variation.
+Define the posterior mean of $\mu_k$ as $m_k$ and its posterior variance as $v_k^2$.  
+Define its posterior standard deviation as $s_k = \sqrt{v_k^2}$.
+Define the posterior distribution of $\mu_k$ as $f_k(\mu_k)$.
+
+This best-arm probability can be expressed as:
+
+$$
+\begin{align*}
+w_k &= P\left(\left[\mu_k > \mu_1 \right] \cap \left[\mu_k > \mu_2 \right] \cap \cdots \cap \left[\mu_k > \mu_{k-1} \right] \cap \left[\mu_k > \mu_{k+1} \right] \cap \cdots \cap \left[\mu_k > \mu_K \right]\right)
+\\ &= \int_{-\infty}^{\mu_{k}}\int_{-\infty}^{\mu_{k}}    \cdots  \int_{-\infty}^{\mu_{k}}  \int_{-\infty}^{\infty}   \int_{-\infty}^{\mu_{1}}  \cdots  \int_{-\infty}^{\mu_{1}} \prod_{i=1}^{K} f_{i}(\mu_i) d\mu_i
+\\ &= \int_{-\infty}^{\infty}f_{k}(\mu_k) \left\{\int_{-\infty}^{\mu_{k}} \cdots \int_{-\infty}^{\mu_{k}} \prod_{i\ne k} f_{i}(\mu_i) d\mu_i  \right\} d\mu_k
+\\ &= \int_{-\infty}^{\infty}f_{k}(\mu_k) \prod_{i\ne k} \Phi\left(\frac{\mu_{k} - m_{i} }{s_{i}}\right)   d\mu_k.
+\end{align*}
+$$
+
+We leverage the fact that the posterior distributions of the $\mu_i$ are normal and independent.
+
+The result above can be expressed as the expected value of the function below over the distribution of $\mu_k$
+
+$$
+\prod_{i\ne k} \Phi\left(\frac{\mu_{k} - m_{i} }{s_{i}}\right).
+$$
+
+We use Gauss-Hermite quadrature to approximate the integral.
+Our integral is well suited for Gauss-Hermite quadrature, as the function inside the integral is smooth and light-tailed.  
+Let $$t = \frac{\mu_{k} - m_{k} }{s_{k}},$$
+which implies that
+$$\mu_{k} = m_{k} + t s_{k}.$$
+
+Define the standard normal distribution as $\phi(.)$.
+The integral can be represented as:
+
+$$
+\begin{align*}
+w_k &= \int_{-\infty}^{\infty} \left\{ \prod_{i\ne k} \Phi\left(\frac{m_{k} + t s_{k} - m_{i} }{s_{i}}\right)\right\}   \phi(t)  dt.
+\end{align*}
+$$
+
+Letting $u = t / \sqrt(2)$ places the integral in the standard form for the Gauss-Hermite quadrature, which is
+
+$$
+\int_{-\infty}^{\infty} \exp^{-u^2} g(u) du.
+$$

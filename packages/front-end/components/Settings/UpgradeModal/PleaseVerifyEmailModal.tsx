@@ -61,6 +61,7 @@ export default function PleaseVerifyEmailModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       cta="Close"

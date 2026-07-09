@@ -29,6 +29,10 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  dispatchSavedGroupRevisionEvent,
+  deriveChange,
+} from "back-end/src/services/savedGroupRevisionEvents";
+import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
@@ -278,6 +282,9 @@ export const postSavedGroupAddItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -285,6 +292,7 @@ export const postSavedGroupAddItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -305,19 +313,37 @@ export const postSavedGroupAddItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -325,6 +351,11 @@ export const postSavedGroupAddItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -419,6 +450,9 @@ export const postSavedGroupRemoveItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -426,6 +460,7 @@ export const postSavedGroupRemoveItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -447,19 +482,37 @@ export const postSavedGroupRemoveItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
-  // caller's change takes effect instead of leaving a stranded draft.
+  // caller's change takes effect instead of leaving a stranded draft. Claim the
+  // (CAS-guarded) merge before the live write so a concurrent discard can't
+  // orphan a half-applied change; reopen if the write then fails.
   if (!approvalRequired) {
-    await context.models.savedGroups.update(savedGroup, { values: newValues });
     revision = await context.models.revisions.merge(
       revision.id,
       context.userId,
       { bypass: false },
     );
+    try {
+      await context.models.savedGroups.update(savedGroup, {
+        values: newValues,
+      });
+    } catch (e) {
+      try {
+        await context.models.revisions.reopen(revision.id, context.userId);
+      } catch {
+        // ignore — surface the original update error
+      }
+      throw e;
+    }
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -467,6 +520,11 @@ export const postSavedGroupRemoveItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -488,6 +546,7 @@ type PutSavedGroupRequest = AuthRequest<
     revisionId?: string;
     forceCreateRevision?: string;
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }
 >;
@@ -680,6 +739,7 @@ export const putSavedGroup = async (
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
   const title = req.query.title;
+  const comment = req.query.comment;
   const revertedFrom = req.query.revertedFrom;
 
   // All edits flow through the revision system: if no draft-intent flag was
@@ -714,18 +774,27 @@ export const putSavedGroup = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // When publishing or creating a fresh draft we force a new revision; an
+  // implicit save while approval is required also forces one (wantsMerge but
+  // can't merge yet). Otherwise we update the targeted draft.
+  const forceCreate = wantsMerge || forceCreateRevision;
+
   // When updating a revision, merge changes (don't replace) to preserve other fields
   let revision = await createOrUpdateRevision(
     context,
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     patchOps,
-    false, // replaceChanges = false to merge with existing proposed changes
-    wantsMerge || forceCreateRevision, // forceCreate when publishing or creating a fresh draft
-    title,
-    revertedFrom,
-    // Only update a specific draft revision when we're staying in draft mode
-    wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    {
+      // replaceChanges: false (default) — merge with existing proposed changes
+      forceCreate,
+      title,
+      comment,
+      revertedFrom,
+      // Only update a specific draft revision when we're staying in draft mode
+      revisionId:
+        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    },
   );
 
   if (wantsMerge) {
@@ -749,16 +818,23 @@ export const putSavedGroup = async (
     // metadata fields AND metadata review is disabled, or (b) the caller has
     // the admin bypass permission.
     if (autoPublish && approvalRequired && !canBypass) {
-      const isMetadataOnlyChange =
-        Object.keys(fieldsToUpdate).length > 0 &&
-        Object.keys(fieldsToUpdate).every((k) =>
-          SAVED_GROUP_METADATA_FIELDS.has(k),
-        );
-      const metadataReviewRequired =
-        getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
-          ?.requireMetadataReview ?? true;
-      if (!isMetadataOnlyChange || metadataReviewRequired) {
-        context.permissions.throwPermissionError();
+      // Reverts restore an already-reviewed state. When the org enables
+      // "reverts bypass approval", any editor may publish a revert without
+      // approval (edit permission already enforced earlier in this handler).
+      const isRevertBypass =
+        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      if (!isRevertBypass) {
+        const isMetadataOnlyChange =
+          Object.keys(fieldsToUpdate).length > 0 &&
+          Object.keys(fieldsToUpdate).every((k) =>
+            SAVED_GROUP_METADATA_FIELDS.has(k),
+          );
+        const metadataReviewRequired =
+          getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
+            ?.requireMetadataReview ?? true;
+        if (!isMetadataOnlyChange || metadataReviewRequired) {
+          context.permissions.throwPermissionError();
+        }
       }
     }
 
@@ -771,8 +847,8 @@ export const putSavedGroup = async (
       // change", which is a normal merge, not a bypass.
       const isBypass = approvalRequired && bypassApproval;
 
-      await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
-
+      // Claim the (CAS-guarded) merge before the live write so a concurrent
+      // discard can't orphan a half-applied change; reopen if the write fails.
       revision = await context.models.revisions.merge(
         revision.id,
         context.userId,
@@ -781,6 +857,21 @@ export const putSavedGroup = async (
         },
       );
 
+      try {
+        await context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+      } catch (e) {
+        try {
+          await context.models.revisions.reopen(revision.id, context.userId);
+        } catch {
+          // ignore — surface the original update error
+        }
+        throw e;
+      }
+
+      await dispatchSavedGroupRevisionEvent(context, revision, {
+        type: revision.revertedFrom ? "reverted" : "published",
+      });
+
       return res.status(200).json({
         status: 200,
         revision,
@@ -788,6 +879,13 @@ export const putSavedGroup = async (
     }
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    forceCreate
+      ? { type: "created" }
+      : { type: "updated", change: deriveChange(patchOps) },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -936,3 +1034,22 @@ export function validateListSize(
     );
   }
 }
+
+// region GET /saved-groups/draft-states
+
+export const getSavedGroupDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const groupIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const groups = await context.models.revisions.getActiveDraftStates(
+    "saved-group",
+    groupIds,
+  );
+  return res.status(200).json({ status: 200, groups });
+};
+
+// endregion GET /saved-groups/draft-states

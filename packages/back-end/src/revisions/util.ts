@@ -1,16 +1,36 @@
-import { applyPatch, deepClone } from "fast-json-patch";
+import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
-import { isEqual } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+
+/**
+ * Apply a set of JSON Patch ops to a snapshot, returning a new object.
+ *
+ * Clones with lodash `cloneDeep` (which preserves Date instances) and lets
+ * applyPatch mutate that throwaway copy in place (mutateDocument = true).
+ * Passing mutateDocument = false would make fast-json-patch internally
+ * JSON-clone the input, converting Date fields (e.g. dateCreated/dateUpdated on
+ * a saved-group snapshot) into ISO strings and breaking downstream serializers
+ * that call `.toISOString()`.
+ */
+export function applyPatchToSnapshot<T extends object>(
+  snapshot: T,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): T {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return snapshot;
+  return applyPatch(cloneDeep(snapshot), ops as Operation[], false, true)
+    .newDocument as T;
+}
 
 /**
  * Ensure a "live" merged revision exists representing the entity's current state.
@@ -32,11 +52,11 @@ export async function ensureLiveRevisionExists(
     dateCreated?: Date;
   },
 ): Promise<void> {
-  const existing = await context.models.revisions.getByTarget(
+  const alreadyExists = await context.models.revisions.hasAnyByTarget(
     entityType,
     entity.id,
   );
-  if (existing.length > 0) return;
+  if (alreadyExists) return;
 
   const authorId = entity.owner || context.userId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
@@ -82,15 +102,6 @@ export function isRevisionRequired(
  * Apply a JSON Patch (RFC 6902) operations array to a snapshot object and return
  * the patched document. The original snapshot is never mutated.
  */
-export function applyPatchToSnapshot<T extends object>(
-  snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
-): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  if (ops.length === 0) return snapshot;
-  return applyPatch(deepClone(snapshot), ops as Operation[], false, false)
-    .newDocument as T;
-}
 
 /**
  * Compute the desired final state for a merge by layering the revision's
@@ -172,26 +183,45 @@ function upsertByPath(
 }
 
 /**
+ * Options for `createOrUpdateRevision`. All fields are optional; defaults match
+ * the historical positional defaults the call site relied on.
+ *
+ * @property replaceChanges If true, replace proposed ops entirely instead of merging
+ * @property forceCreate    If true, always create a new revision (don't update existing)
+ * @property title          Optional title for the revision
+ * @property comment        Optional free-form comment captured at draft creation
+ * @property revertedFrom   Optional ID of the revision this is reverting
+ * @property revisionId     Optional specific revision ID to update (instead of finding by author)
+ */
+export type CreateOrUpdateRevisionOptions = {
+  replaceChanges?: boolean;
+  forceCreate?: boolean;
+  title?: string;
+  comment?: string;
+  revertedFrom?: string;
+  revisionId?: string;
+};
+
+/**
  * Create a new revision or update an existing open one for the current user.
  * Generic: works for any entity type by delegating snapshot-building to the adapter.
- *
- * @param replaceChanges If true, replace proposed ops entirely instead of merging
- * @param forceCreate   If true, always create a new revision (don't update existing)
- * @param title         Optional title for the revision
- * @param revertedFrom  Optional ID of the revision this is reverting
- * @param revisionId    Optional specific revision ID to update (instead of finding by author)
  */
 export async function createOrUpdateRevision(
   context: ReqContext | ApiReqContext,
   entityType: RevisionTargetType,
   entity: Record<string, unknown> & { id: string },
   proposedChanges: JsonPatchOperation[],
-  replaceChanges = false,
-  forceCreate = false,
-  title?: string,
-  revertedFrom?: string,
-  revisionId?: string,
+  options: CreateOrUpdateRevisionOptions = {},
 ): Promise<Revision> {
+  const {
+    replaceChanges = false,
+    forceCreate = false,
+    title,
+    comment,
+    revertedFrom,
+    revisionId,
+  } = options;
+
   if (revisionId && !forceCreate) {
     const targetRevision = await context.models.revisions.getById(revisionId);
     if (targetRevision) {
@@ -252,32 +282,32 @@ export async function createOrUpdateRevision(
     snapshot,
     proposedChanges,
     title,
+    comment,
     revertedFrom,
   });
 }
 
 /**
- * @deprecated Use `createOrUpdateRevision` with `entityType: "saved-group"` instead.
+ * True when the revision's base snapshot no longer matches the live entity on
+ * any updatable field.
+ *
+ * Both sides pass through the adapter's `buildSnapshot` before comparing. The
+ * stored snapshot was normalized that way at capture time, but the live
+ * entity comes straight from the database and can carry representation-only
+ * differences — explicit nulls on optional fields, leftover fields removed
+ * from the schema — that no API response or merge check ever surfaces.
+ * Comparing the raw document against the normalized snapshot makes every
+ * draft of such an entity read as diverged forever: rebasing cannot clear it,
+ * because the next snapshot is normalized again.
  */
-export async function createOrUpdateSavedGroupRevision(
-  context: ReqContext | ApiReqContext,
-  savedGroup: SavedGroupInterface,
-  proposedChanges: JsonPatchOperation[],
-  replaceChanges = false,
-  forceCreate = false,
-  title?: string,
-  revertedFrom?: string,
-  revisionId?: string,
-): Promise<Revision> {
-  return createOrUpdateRevision(
-    context,
-    "saved-group",
-    savedGroup as unknown as Record<string, unknown> & { id: string },
-    proposedChanges,
-    replaceChanges,
-    forceCreate,
-    title,
-    revertedFrom,
-    revisionId,
+export function isRevisionDiverged(
+  adapter: EntityRevisionAdapter,
+  snapshot: Record<string, unknown>,
+  entity: Record<string, unknown>,
+): boolean {
+  const base = adapter.buildSnapshot(snapshot);
+  const live = adapter.buildSnapshot(entity);
+  return [...adapter.getUpdatableFields()].some(
+    (key) => !isEqual(base[key], live[key]),
   );
 }

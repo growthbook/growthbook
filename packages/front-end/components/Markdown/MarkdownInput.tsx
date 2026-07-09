@@ -43,8 +43,15 @@ const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;
   autofocus?: boolean;
+  // When autofocus is set, place the caret at the end of the existing value
+  // instead of the default position 0. Useful when the textarea is
+  // pre-seeded with boilerplate the user should type *after* (e.g. a
+  // diff-ref snapshot block in a new diff comment).
+  autofocusAtEnd?: boolean;
   error?: string;
   cta?: string;
+  // Disable the submit CTA (e.g. while the input is empty).
+  ctaDisabled?: boolean;
   id?: string;
   placeholder?: string;
   aiSuggestFunction?: () => Promise<string>;
@@ -62,8 +69,10 @@ const MarkdownInput: FC<{
   value,
   setValue,
   autofocus = false,
+  autofocusAtEnd = false,
   error: externalError,
   cta,
+  ctaDisabled = false,
   id,
   onCancel,
   placeholder,
@@ -95,10 +104,17 @@ const MarkdownInput: FC<{
 
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
-    if (autofocus && textareaRef.current) {
-      textareaRef.current.focus();
+    const textarea = textareaRef.current;
+    if (!autofocus || !textarea) return;
+    textarea.focus();
+    if (autofocusAtEnd) {
+      const end = textarea.value.length;
+      textarea.setSelectionRange(end, end);
+      // If the seeded content overflows the visible area, focus + caret
+      // alone leaves the bottom out of view — scroll it into view too.
+      textarea.scrollTop = textarea.scrollHeight;
     }
-  }, [autofocus, textareaRef.current]);
+  }, [autofocus, autofocusAtEnd, textareaRef.current]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pasted = e.clipboardData.getData("text/plain").trim();
@@ -328,7 +344,11 @@ const MarkdownInput: FC<{
                     Cancel
                   </Button>
                 )}
-                {cta && <Button type="submit">{cta}</Button>}
+                {cta && (
+                  <Button type="submit" disabled={ctaDisabled}>
+                    {cta}
+                  </Button>
+                )}
               </Flex>
             )}
             {aiSuggestFunction && !aiSuggestionText && (

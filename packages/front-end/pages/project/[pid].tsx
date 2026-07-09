@@ -191,7 +191,7 @@ const ProjectPage: FC = () => {
               />
             </Flex>
           </Flex>
-          <MoreMenu useRadix={true}>
+          <MoreMenu>
             <a
               href="#"
               className="dropdown-item"
@@ -375,7 +375,6 @@ const ProjectPage: FC = () => {
                         {checklist?.id ? (
                           <DeleteButton
                             displayName="Checklist"
-                            useRadix={true}
                             text="Delete Checklist"
                             deleteMessage="Once deleted, all experiments in this project will revert to using your organization's default Pre-Launch Checklist."
                             onClick={async () => {

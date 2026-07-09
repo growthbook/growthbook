@@ -10,6 +10,7 @@ import {
   PiMoon,
   PiSunDim,
   PiBuildingFill,
+  PiSparkle,
 } from "react-icons/pi";
 import Head from "next/head";
 import { Flex, Text } from "@radix-ui/themes";
@@ -43,6 +44,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
+import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -84,6 +86,12 @@ const TopNav: FC<{
 
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+
+  const {
+    available: agentAvailable,
+    open: agentOpen,
+    togglePanel: toggleAgentPanel,
+  } = useAgentPanel();
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -411,6 +419,7 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}
@@ -472,6 +481,24 @@ const TopNav: FC<{
             </>
           )}
           {renderOrganizationDropDown()}
+          {agentAvailable && (
+            <button
+              type="button"
+              onClick={toggleAgentPanel}
+              aria-label={
+                agentOpen
+                  ? "Close GrowthBook AI assistant"
+                  : "Open GrowthBook AI assistant"
+              }
+              aria-pressed={agentOpen}
+              title="Ask GrowthBook AI"
+              className={`nav-link ${styles.agentTrigger} ${
+                agentOpen ? styles.agentTriggerActive : ""
+              }`}
+            >
+              <PiSparkle size={18} />
+            </button>
+          )}
           <DropdownMenu
             variant="solid"
             open={dropdownOpen}

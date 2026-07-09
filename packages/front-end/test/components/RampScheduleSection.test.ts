@@ -16,10 +16,13 @@ vi.mock("@/services/UserContext", () => ({ useUser: vi.fn() }));
 import type { RampScheduleTemplateInterface } from "shared/validators";
 import {
   formatRampStepSummary,
+  isMonitoredTemplate,
   buildTemplatePayload,
   findMatchingTemplate,
   templateToSectionState,
   defaultRampSectionState,
+  buildPatch,
+  reconstructUIPatch,
   type RampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 
@@ -41,6 +44,7 @@ function makeTemplate(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     official: false,
+    order: 0,
     ...buildTemplatePayload(state),
     ...overrides,
   } as RampScheduleTemplateInterface;
@@ -57,8 +61,11 @@ function freshState(): RampSectionState {
 // ---------------------------------------------------------------------------
 
 describe("formatRampStepSummary", () => {
-  const interval = { trigger: { type: "interval" } };
-  const approval = { trigger: { type: "approval" } };
+  const interval = { interval: 600 };
+  const approval = {
+    interval: null,
+    holdConditions: { requiresApproval: true },
+  };
 
   it("'1 step' for a single interval step", () => {
     expect(formatRampStepSummary([interval])).toBe("1 step");
@@ -88,14 +95,46 @@ describe("formatRampStepSummary", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isMonitoredTemplate
+// ---------------------------------------------------------------------------
+
+describe("isMonitoredTemplate", () => {
+  it("is false for a plain ramp template (no monitoring config, no monitored steps)", () => {
+    expect(isMonitoredTemplate(makeTemplate(freshState()))).toBe(false);
+  });
+
+  it("is true when any step is monitored", () => {
+    const s = freshState();
+    const monitored = {
+      ...s,
+      steps: s.steps.map((st) => ({ ...st, monitored: true })),
+    };
+    expect(isMonitoredTemplate(makeTemplate(monitored))).toBe(true);
+  });
+
+  it("is true when a monitoring config is present even with no monitored steps", () => {
+    expect(
+      isMonitoredTemplate({
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "eq_1",
+          guardrailMetricIds: ["met_1"],
+        },
+        steps: [],
+      } as Pick<RampScheduleTemplateInterface, "monitoringConfig" | "steps">),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2. buildTemplatePayload — steps and endPatch are persisted (no start/end timing)
 // ---------------------------------------------------------------------------
 
 describe("buildTemplatePayload", () => {
-  it("returns name, steps, and endPatch (no startDate or endCondition)", () => {
+  it("returns name, steps, and endPatch (no startDate or cutoffDate)", () => {
     const payload = buildTemplatePayload(freshState());
     expect(payload).not.toHaveProperty("startDate");
-    expect(payload).not.toHaveProperty("endCondition");
+    expect(payload).not.toHaveProperty("cutoffDate");
     expect(payload).toHaveProperty("name");
     expect(payload).toHaveProperty("steps");
     expect(payload).toHaveProperty("endPatch");
@@ -110,13 +149,14 @@ describe("buildTemplatePayload", () => {
     const payload = buildTemplatePayload(state);
     // No timing info in the payload
     expect(payload).not.toHaveProperty("startDate");
-    expect(payload).not.toHaveProperty("endCondition");
+    expect(payload).not.toHaveProperty("cutoffDate");
   });
 
   it("uses placeholder IDs for target and rule (not real entity IDs)", () => {
     const payload = buildTemplatePayload(freshState());
     for (const step of payload.steps) {
       for (const action of step.actions) {
+        if (action.targetType !== "feature-rule") continue;
         expect(action.targetId).toBe(PLACEHOLDER_TARGET);
         expect(action.patch.ruleId).toBe(PLACEHOLDER_RULE);
       }
@@ -127,6 +167,28 @@ describe("buildTemplatePayload", () => {
     const state = freshState();
     const payload = buildTemplatePayload(state);
     expect(payload.steps).toHaveLength(state.steps.length);
+  });
+
+  it("persists environment scope fields for step actions and endPatch", () => {
+    const state = freshState();
+    state.steps[0].patch = {
+      ...state.steps[0].patch,
+      allEnvironments: false,
+      environments: ["dev", "staging"],
+    };
+    state.endPatch = {
+      ...state.endPatch,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+
+    const payload = buildTemplatePayload(state);
+    const firstPatch = payload.steps[0]?.actions[0]?.patch;
+
+    expect(firstPatch?.allEnvironments).toBe(false);
+    expect(firstPatch?.environments).toEqual(["dev", "staging"]);
+    expect(payload.endPatch?.allEnvironments).toBe(false);
+    expect(payload.endPatch?.environments).toEqual(["production"]);
   });
 });
 
@@ -257,11 +319,52 @@ describe("templateToSectionState", () => {
     expect(state.endPatch).toEqual({ coverage: 100 });
   });
 
+  it("reconstructs environment scope from template step patches", () => {
+    const state = templateToSectionState(
+      makeStoredTemplate({
+        steps: [
+          {
+            interval: 3600,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: PLACEHOLDER_TARGET,
+                patch: {
+                  ruleId: PLACEHOLDER_RULE,
+                  coverage: 0.5,
+                  allEnvironments: false,
+                  environments: ["dev", "production"],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(state.steps[0]?.patch.allEnvironments).toBe(false);
+    expect(state.steps[0]?.patch.environments).toEqual(["dev", "production"]);
+  });
+
+  it("reconstructs endPatch environment scope from template", () => {
+    const state = templateToSectionState(
+      makeStoredTemplate({
+        endPatch: {
+          allEnvironments: false,
+          environments: ["staging"],
+        },
+      }),
+    );
+
+    expect(state.endPatch.allEnvironments).toBe(false);
+    expect(state.endPatch.environments).toEqual(["staging"]);
+  });
+
   it("correctly maps step count from template", () => {
     const twoStepTemplate = makeStoredTemplate({
       steps: [
         {
-          trigger: { type: "interval", seconds: 3600 },
+          interval: 3600,
           actions: [
             {
               targetType: "feature-rule",
@@ -269,9 +372,10 @@ describe("templateToSectionState", () => {
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 0.5 },
             },
           ],
+          monitored: false,
         },
         {
-          trigger: { type: "interval", seconds: 7200 },
+          interval: 7200,
           actions: [
             {
               targetType: "feature-rule",
@@ -279,6 +383,7 @@ describe("templateToSectionState", () => {
               patch: { ruleId: PLACEHOLDER_RULE, coverage: 1.0 },
             },
           ],
+          monitored: false,
         },
       ],
     });
@@ -292,5 +397,104 @@ describe("templateToSectionState", () => {
     const restored = templateToSectionState(template);
     // The structural match should hold
     expect(findMatchingTemplate(restored, [template])).toBe("tmpl_1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPatch / reconstructUIPatch — coverage conversion
+// ---------------------------------------------------------------------------
+// These two functions are the single source of truth for the UI ↔ backend
+// coverage translation. The conversion must be:
+//   UI value (integer 1–50 for monitored, 1–100 for unmonitored)
+//   → backend fraction: ui / 100  (same formula for both modes)
+//   → payload ranges: [[0, c), [c, 2c)] with c = backend fraction
+//
+// The intent is that UI "40%" on a monitored step means 40% treatment /
+// 40% control / 20% unenrolled, matching the equivalent unmonitored rollout.
+// A previous (incorrect) implementation multiplied by 2 before dividing by 100,
+// producing coverage=0.8 for UI=40 → 80% treatment / 20% control.
+// ---------------------------------------------------------------------------
+
+describe("buildPatch — UI→backend coverage conversion", () => {
+  const RULE = "rule_1";
+
+  it("monitored: UI 40 → backend coverage 0.4 (not 0.8)", () => {
+    const patch = buildPatch({ coverage: 40 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.4);
+  });
+
+  it("monitored: UI 25 → backend coverage 0.25", () => {
+    const patch = buildPatch({ coverage: 25 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.25);
+  });
+
+  it("monitored: UI 50 (max) → backend coverage 0.5, not 1.0", () => {
+    const patch = buildPatch({ coverage: 50 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.5);
+  });
+
+  it("unmonitored: UI 40 → backend coverage 0.4 (unchanged)", () => {
+    const patch = buildPatch({ coverage: 40 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.4);
+  });
+
+  it("unmonitored: UI 100 → backend coverage 1.0", () => {
+    const patch = buildPatch({ coverage: 100 }, RULE);
+    expect(patch.coverage).toBeCloseTo(1.0);
+  });
+
+  it("monitored and unmonitored produce the same backend value for the same UI input", () => {
+    const mon = buildPatch({ coverage: 30 }, RULE);
+    const unmon = buildPatch({ coverage: 30 }, RULE);
+    expect(mon.coverage).toBeCloseTo(unmon.coverage!);
+  });
+
+  it("omits coverage when not in patch", () => {
+    const patch = buildPatch({}, RULE);
+    expect(patch.coverage).toBeUndefined();
+  });
+});
+
+describe("reconstructUIPatch — backend→UI coverage conversion", () => {
+  it("monitored: backend 0.4 → UI 40 (not 20)", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.4 });
+    expect(ui.coverage).toBe(40);
+  });
+
+  it("monitored: backend 0.25 → UI 25", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.25 });
+    expect(ui.coverage).toBe(25);
+  });
+
+  it("monitored: backend 0.5 (max) → UI 50", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.5 });
+    expect(ui.coverage).toBe(50);
+  });
+
+  it("unmonitored: backend 0.4 → UI 40", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.4 });
+    expect(ui.coverage).toBe(40);
+  });
+
+  it("round-trips: buildPatch then reconstructUIPatch returns the original UI value", () => {
+    for (const uiInput of [1, 10, 25, 40, 50]) {
+      const backend = buildPatch({ coverage: uiInput }, "r");
+      const restored = reconstructUIPatch({
+        ruleId: "r",
+        coverage: backend.coverage,
+      });
+      expect(restored.coverage).toBe(uiInput);
+    }
+  });
+
+  it("round-trips for unmonitored steps", () => {
+    for (const uiInput of [1, 25, 50, 75, 100]) {
+      const backend = buildPatch({ coverage: uiInput }, "r");
+      const restored = reconstructUIPatch({
+        ruleId: "r",
+        coverage: backend.coverage,
+      });
+      expect(restored.coverage).toBe(uiInput);
+    }
   });
 });

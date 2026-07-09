@@ -11,7 +11,7 @@ import { ago, datetime } from "shared/dates";
 import { QueryInterface } from "shared/types/query";
 import { capitalize } from "lodash";
 import { IconButton } from "@radix-ui/themes";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
@@ -34,9 +34,7 @@ const DataSourceQueries = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
-  const managedWarehousePending = d
-    ? isManagedWarehouseAwaitingProvisioning(d)
-    : false;
+  const managedWarehousePending = d ? isManagedWarehouseUnavailable(d) : false;
 
   const canView = d && permissions.check("readData", d.projects || []);
   const canCancel = d && permissions.check("runQueries", d.projects || []);

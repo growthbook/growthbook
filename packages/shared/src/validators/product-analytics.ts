@@ -153,17 +153,22 @@ export const lookbackUnit = ["hour", "day", "week", "month"] as const;
 export const showAsValidator = z.enum(["total", "per_unit"]);
 export type ShowAs = z.infer<typeof showAsValidator>;
 
+export const explorationDateRangeValidator = z.object({
+  predefined: z.enum(dateRangePredefined),
+  lookbackValue: z.number().nullish(),
+  lookbackUnit: z.enum(lookbackUnit).nullish(),
+  startDate: z.string().nullish(),
+  endDate: z.string().nullish(),
+});
+export type ExplorationDateRange = z.infer<
+  typeof explorationDateRangeValidator
+>;
+
 export const baseExplorationConfigValidator = z.object({
   datasource: z.string().describe("ID of the datasource to query"),
   dimensions: z.array(dimensionValidator),
   chartType: z.enum(chartTypes),
-  dateRange: z.object({
-    predefined: z.enum(dateRangePredefined),
-    lookbackValue: z.number().nullish(),
-    lookbackUnit: z.enum(lookbackUnit).nullish(),
-    startDate: z.string().nullish(),
-    endDate: z.string().nullish(),
-  }),
+  dateRange: explorationDateRangeValidator,
   // Controls how values with a denominator are rendered at the chart level.
   // "total"    -> render the raw numerator (e.g. total events)
   // "per_unit" -> divide numerator by denominator (e.g. events per unit)
@@ -291,6 +296,42 @@ export type ProductAnalyticsResultRow = z.infer<
 >;
 export type ProductAnalyticsExploration = z.infer<
   typeof productAnalyticsExplorationValidator
+>;
+
+export const productAnalyticsRunRequestBodyValidator = z
+  .object({
+    config: explorationConfigValidator,
+    previousTimeFrame: explorationDateRangeValidator.optional(),
+  })
+  .strict();
+
+export type ProductAnalyticsRunRequestBody = z.infer<
+  typeof productAnalyticsRunRequestBodyValidator
+>;
+
+const bigNumberComparisonTrendComputedValidator = z
+  .object({
+    currentValue: z.number(),
+    previousValue: z.number(),
+    /** Signed fractional change, e.g. -0.12 for −12%. */
+    pctChangeFraction: z.number(),
+    /** Same change as a percentage, rounded to 2 decimals. */
+    pctChangePercent: z.number(),
+  })
+  .nullable();
+
+export const productAnalyticsRunComparisonPayloadValidator = z.object({
+  exploration: productAnalyticsExplorationValidator.nullable(),
+  previousPeriod: z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  bigNumberTrends: z.array(bigNumberComparisonTrendComputedValidator),
+  tableTrendsByRow: z.array(z.record(z.string(), z.number().nullable())),
+});
+
+export type ProductAnalyticsRunComparisonPayload = z.infer<
+  typeof productAnalyticsRunComparisonPayloadValidator
 >;
 
 export const apiExplorationBaseValidator = apiBaseSchema.safeExtend({

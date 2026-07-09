@@ -66,6 +66,7 @@ export interface Props {
       | "Fact Table"
       | "Identity Join"
       | "Experiment Assignment Query"
+      | "Contextual Bandit Assignment Query"
       | "Metric"
       | "Segment"
       | "Feature Usage Query";
@@ -264,6 +265,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       header={

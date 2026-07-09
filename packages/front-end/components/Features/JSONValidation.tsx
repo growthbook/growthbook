@@ -46,7 +46,8 @@ export default function JSONValidation({
 
   const [edit, setEdit] = useState(false);
 
-  if (feature.valueType !== "json") return null;
+  // Boolean flags can't have a validation schema; json/string/number can.
+  if (feature.valueType === "boolean") return null;
 
   return (
     <Box>
@@ -74,7 +75,7 @@ export default function JSONValidation({
       )}
       <Flex align="center" gap="1" mb="1">
         <Heading as="h3" size="medium" mb="0">
-          JSON Validation
+          Schema Validation
         </Heading>
         {hasJsonValidator && (
           <Badge

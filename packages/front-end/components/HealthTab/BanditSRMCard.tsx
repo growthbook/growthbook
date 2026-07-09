@@ -5,7 +5,7 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { getSRMHealthData, getSRMValue } from "shared/health";
+import { getSRMHealthData, getBanditSRMValue } from "shared/health";
 import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
@@ -39,7 +39,7 @@ export default function BanditSRMCard({
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
 
-  const srm = getSRMValue("multi-armed-bandit", snapshot);
+  const srm = getBanditSRMValue(snapshot);
   const users = getLatestPhaseVariations(experiment).map(
     (_, i) =>
       currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,

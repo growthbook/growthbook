@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -119,6 +120,7 @@ const NewPhaseForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="new-phase-form"
       trackingEventModalSource={source}
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -168,6 +170,8 @@ const NewPhaseForm: FC<{
           project={experiment.project || ""}
         />
       )}
+
+      {hasLinkedChanges && <Separator size="4" my="5" />}
 
       {hasLinkedChanges && (
         <ConditionInput

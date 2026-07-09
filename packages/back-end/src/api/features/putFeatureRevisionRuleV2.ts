@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import { resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   SafeRolloutRule,
   FeatureRule,
   RulePatchInput,
@@ -23,6 +24,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -46,6 +48,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
   const patch = req.body.rule as RulePatchInputV2;
+
+  if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
+    throw new BadRequestError(
+      "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
+    );
+  }
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -115,18 +123,15 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
     if (wantsNewSchedule) {
-      const liveSchedules =
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           undefined,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v2/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
 
     // Apply patch including v2 scope fields.
@@ -153,6 +158,25 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       prerequisites:
         basePatch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
+    // Opt-in registered-attribute check, only on fields the patch actually
+    // touches. Validate `changedAttributes` (not `updatedRule`) so an
+    // unchanged condition referencing a now-archived attribute doesn't
+    // block an unrelated edit. Mirrors the v1 controller's per-field gating.
+    const attrPatch = basePatch as {
+      condition?: string;
+      hashAttribute?: string;
+      fallbackAttribute?: string;
+    };
+    const changedAttributes: Parameters<typeof validateRuleAttributes>[0] = {};
+    if (attrPatch.condition !== undefined)
+      changedAttributes.condition = attrPatch.condition;
+    if (attrPatch.hashAttribute !== undefined)
+      changedAttributes.hashAttribute = attrPatch.hashAttribute;
+    if (attrPatch.fallbackAttribute !== undefined)
+      changedAttributes.fallbackAttribute = attrPatch.fallbackAttribute;
+    if (Object.keys(changedAttributes).length > 0) {
+      validateRuleAttributes(changedAttributes, req.context, feature.project);
+    }
     if (
       basePatch.condition !== undefined ||
       basePatch.savedGroups !== undefined ||
@@ -179,15 +203,28 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     const newRules = flatRules.map((r, i) => (i === idx ? updatedRule : r));
     const changes: RevisionChanges = { rules: newRules };
 
-    let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, updatedRule.id)
-      : undefined;
+    const usesLegacyScheduling =
+      oldRule.type === "experiment-ref" || oldRule.type === "safe-rollout";
+
+    if (usesLegacyScheduling && inlineRampSchedule) {
+      throw new BadRequestError(
+        `rampSchedule is not supported for ${oldRule.type} rules. Use "schedule" instead.`,
+      );
+    }
+
+    let resolvedRampAction:
+      | ReturnType<typeof normalizeInlineRampSchedule>
+      | undefined;
+    if (inlineRampSchedule) {
+      resolvedRampAction = normalizeInlineRampSchedule(
+        inlineRampSchedule,
+        updatedRule.id,
+      );
+      updatedRule.scheduleRules = [];
+      updatedRule.scheduleType = "none";
+    }
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-      const hasLegacySchedule =
-        oldRule.scheduleType === "schedule" ||
-        (oldRule.scheduleRules?.some((r) => r.timestamp) &&
-          oldRule.scheduleType !== "ramp");
-      if (hasLegacySchedule) {
+      if (usesLegacyScheduling) {
         updatedRule.scheduleRules = [
           { enabled: true, timestamp: schedule.startDate ?? null },
           { enabled: false, timestamp: schedule.endDate ?? null },
@@ -195,6 +232,8 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         updatedRule.scheduleType = "schedule";
       } else {
         if (schedule.startDate) updatedRule.enabled = false;
+        updatedRule.scheduleRules = [];
+        updatedRule.scheduleType = "none";
         resolvedRampAction = buildScheduleRampAction(
           updatedRule.id,
           schedule.startDate,
@@ -207,9 +246,21 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     // Affected envs for review reset.

@@ -159,6 +159,7 @@ const EditMetricsForm: FC<{
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const form = useForm<EditMetricsFormInterface>({
@@ -227,6 +228,7 @@ const EditMetricsForm: FC<{
         }
         filterConversionWindowMetrics={isHoldout}
         experimentId={experiment.id}
+        experimentType={experiment.type}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (

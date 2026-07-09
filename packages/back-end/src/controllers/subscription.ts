@@ -104,7 +104,10 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
 );
 
 export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
-  async function (req: AuthRequest, res: Response) {
+  async function (
+    req: AuthRequest<{ radarSessionId?: string }>,
+    res: Response,
+  ) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -112,12 +115,14 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
     }
 
     const { org, userName } = context;
+    const { radarSessionId } = req.body || {};
 
     const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
       userName,
+      { radarSessionId },
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
@@ -284,7 +289,7 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
 }
 
 export async function postSetupIntent(
-  req: AuthRequest<null, null>,
+  req: AuthRequest<{ radarSessionId?: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -294,12 +299,15 @@ export async function postSetupIntent(
   }
 
   const { org } = context;
+  const { radarSessionId } = req.body || {};
 
   try {
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const { clientSecret } = await createSetupIntent(org.licenseKey);
+    const { clientSecret } = await createSetupIntent(org.licenseKey, {
+      radarSessionId,
+    });
     return res.status(200).json({ clientSecret });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });

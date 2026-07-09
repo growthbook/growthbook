@@ -83,7 +83,7 @@ import {
   updateFactTableValidator,
 } from "shared/validators";
 import { z } from "zod";
-import { ApiEndpointSpec } from "back-end/src/util/handler";
+import { ApiEndpointSpec } from "shared/api-spec";
 
 // Fill these with actual values for your GrowthBook instance
 const secret = process.env.API_KEY;

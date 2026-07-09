@@ -30,12 +30,14 @@ export const ImpactEstimateModel = mongoose.model<ImpactEstimateInterface>(
 );
 
 export async function createImpactEstimate(
+  context: ReqContext | ApiReqContext,
   data: Partial<ImpactEstimateInterface>,
 ) {
   const doc = await ImpactEstimateModel.create({
     query: "",
     queryLanguage: "none",
     ...data,
+    organization: context.org.id,
     id: uniqid("est_"),
     dateCreated: new Date(),
   });
@@ -106,6 +108,7 @@ export async function getImpactEstimate(
     async () => {
       // Ignore calls to setExternalId
     },
+    { queryType: "impactEstimate" },
   );
   const value = processMetricValueQueryResponse(queryResponse.rows);
 
@@ -116,8 +119,7 @@ export async function getImpactEstimate(
 
   const conversionsPerDay = value.count / daysWithData;
 
-  return createImpactEstimate({
-    organization: context.org.id,
+  return createImpactEstimate(context, {
     metric,
     segment: segment || undefined,
     conversionsPerDay: conversionsPerDay,

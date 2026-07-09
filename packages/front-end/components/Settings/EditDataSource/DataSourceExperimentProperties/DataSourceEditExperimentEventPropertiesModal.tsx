@@ -47,6 +47,7 @@ export const DataSourceEditExperimentEventPropertiesModal: FC<
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       submit={handleSubmit}

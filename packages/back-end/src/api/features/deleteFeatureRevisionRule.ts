@@ -120,7 +120,7 @@ export const deleteFeatureRevisionRule = createApiRequestHandler(
     if (fullyDeleted) {
       const existingActions = revision.rampActions ?? [];
       const filteredActions = existingActions.filter(
-        (a) => a.ruleId !== req.params.ruleId,
+        (a) => !("ruleId" in a) || a.ruleId !== req.params.ruleId,
       );
       if (filteredActions.length !== existingActions.length) {
         changes.rampActions = filteredActions;

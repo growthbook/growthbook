@@ -1,6 +1,7 @@
 import { getSavedGroupValidator } from "shared/validators";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { NotFoundError } from "back-end/src/util/errors";
 
 export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
   async (req) => {
@@ -8,7 +9,7 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
       req.params.id,
     );
     if (!savedGroup) {
-      throw new Error("Could not find savedGroup with that id");
+      throw new NotFoundError("Could not find savedGroup with that id");
     }
 
     return {

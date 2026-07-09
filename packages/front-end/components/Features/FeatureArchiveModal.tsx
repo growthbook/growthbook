@@ -2,7 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { useState } from "react";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
@@ -64,9 +64,12 @@ export default function FeatureArchiveModal({
 
   const canAutoPublish = isAdmin || !archiveGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
+  );
 
-  const [mode, setMode] = useState<DraftMode>(archiveGated ? "new" : "publish");
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -109,7 +112,7 @@ export default function FeatureArchiveModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       }}
       ctaEnabled={canSubmit}
     >
@@ -122,6 +125,7 @@ export default function FeatureArchiveModal({
         setSelectedDraft={setSelectedDraft}
         canAutoPublish={canAutoPublish}
         gatedEnvSet={archiveGated ? "all" : "none"}
+        allowNewDraftAtCap
       />
       {loading ? (
         <Text color="text-disabled">

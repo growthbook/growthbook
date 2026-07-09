@@ -7,7 +7,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { PresentationModel } from "back-end/src/models/PresentationModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -38,7 +38,7 @@ export async function getPresentationSnapshots(
   const promises = experiments.map(async (experiment) => {
     // get best phase to show:
     const phase = experiment.phases.length - 1;
-    const snapshot = await getLatestSnapshot({
+    const snapshot = await getLatestSuccessfulSnapshot({
       context,
       experiment: experiment.id,
       phase,

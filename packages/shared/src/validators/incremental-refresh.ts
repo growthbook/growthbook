@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
+// Identity for each metric a cache materializes. Which side(s) of the metric
+// this cache actually holds (numerator, denominator, or both) is derivable
+// from the metric's column refs and the source's `factTableId`, so we don't
+// persist it here — see `getMetricSourceTableSchema` for the canonical rule.
 export const incrementalRefreshMetricSourceValidator = z.object({
   groupId: z.string(),
   factTableId: z.string(),
@@ -33,6 +37,9 @@ const incrementalRefresh = z
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
 
+    // Snapshot whose run materialized the current tables
+    materializedBySnapshotId: z.string().optional(),
+
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),
 
@@ -42,6 +49,7 @@ const incrementalRefresh = z
 
     // Incremental refresh lock
     currentExecutionSnapshotId: z.string().nullable(),
+    lockHeartbeatAt: z.date().nullable().optional(),
   })
   .strict();
 

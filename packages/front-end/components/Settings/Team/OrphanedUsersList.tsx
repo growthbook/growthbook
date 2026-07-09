@@ -70,7 +70,7 @@ const OrphanedUsersList: FC<{
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
                   {(enableAdd && (
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <button
                         className="dropdown-item"
                         onClick={(e) => {
@@ -81,6 +81,7 @@ const OrphanedUsersList: FC<{
                         Add back to account
                       </button>
                       <DeleteButton
+                        useRadix={false}
                         link={true}
                         text="Permanently delete"
                         useIcon={false}
@@ -96,6 +97,7 @@ const OrphanedUsersList: FC<{
                     </MoreMenu>
                   )) || (
                     <DeleteButton
+                      useRadix={false}
                       link={true}
                       useIcon={true}
                       className="dropdown-item"

@@ -293,6 +293,7 @@ export const SelectStep = ({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="power-calculation-select"
       open
       size="lg"

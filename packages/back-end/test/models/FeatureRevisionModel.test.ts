@@ -3,7 +3,9 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
+  activeReviewsFromLog,
   buildFeatureRevisionInterface,
+  computeRevisionUpdate,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
@@ -647,5 +649,208 @@ describe("normalizeRulesInputToV2", () => {
       expect(persisted).toHaveLength(2);
       expect(new Set(persisted.map((r) => r.id)).size).toBe(2);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// activeReviewsFromLog replays the review lifecycle from merged log entries
+// to reconstruct per-reviewer verdicts. It's both the legacy fallback for
+// revisions that predate the baked `reviews` field and the semantic spec for
+// how that field is maintained (submit upserts, undo removes, request/recall
+// clears).
+// ---------------------------------------------------------------------------
+
+describe("activeReviewsFromLog", () => {
+  const human = (id: string) => ({
+    type: "dashboard" as const,
+    id,
+    email: `${id}@example.com`,
+    name: id,
+  });
+  const bot = (apiKey: string) => ({ type: "api_key" as const, apiKey });
+  const at = (minute: number) => new Date(2024, 0, 1, 0, minute);
+
+  it("returns the latest verdict per reviewer with timestamps", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Requested Changes", user: human("u1"), timestamp: at(1) },
+      { action: "Approved", user: human("u2"), timestamp: at(2) },
+      { action: "Approved", user: human("u1"), timestamp: at(3) },
+    ]);
+    expect(reviews).toHaveLength(2);
+    expect(reviews.find((r) => r.userId === "u1")).toMatchObject({
+      status: "approved",
+      timestamp: at(3),
+    });
+    expect(reviews.find((r) => r.userId === "u2")).toMatchObject({
+      status: "approved",
+      timestamp: at(2),
+    });
+  });
+
+  it("keys api_key reviewers by apiKey and preserves the full event user", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Approved", user: bot("key_abc123"), timestamp: at(1) },
+    ]);
+    expect(reviews).toEqual([
+      {
+        userId: "key_abc123",
+        user: { type: "api_key", apiKey: "key_abc123" },
+        status: "approved",
+        timestamp: at(1),
+      },
+    ]);
+  });
+
+  it("clears all verdicts when a new review cycle starts", () => {
+    for (const reset of ["Review Requested", "Recall Review", "reopen"]) {
+      const reviews = activeReviewsFromLog([
+        { action: "Approved", user: human("u1"), timestamp: at(1) },
+        { action: reset, user: human("author"), timestamp: at(2) },
+        { action: "Approved", user: human("u2"), timestamp: at(3) },
+      ]);
+      expect(reviews.map((r) => r.userId)).toEqual(["u2"]);
+    }
+  });
+
+  it("removes only the retracting reviewer's verdict on Undo Review", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Approved", user: human("u1"), timestamp: at(1) },
+      { action: "Requested Changes", user: human("u2"), timestamp: at(2) },
+      { action: "Undo Review", user: human("u2"), timestamp: at(3) },
+    ]);
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0]).toMatchObject({ userId: "u1", status: "approved" });
+  });
+
+  it("replays out-of-order entries by timestamp and skips system/null users", () => {
+    const reviews = activeReviewsFromLog([
+      // New cycle logged "after" the approval but timestamped before it
+      { action: "Approved", user: human("u1"), timestamp: at(5) },
+      { action: "Review Requested", user: human("author"), timestamp: at(1) },
+      { action: "Approved", user: { type: "system" }, timestamp: at(6) },
+      { action: "Approved", user: null, timestamp: at(7) },
+    ]);
+    expect(reviews.map((r) => r.userId)).toEqual(["u1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeRevisionUpdate decides what an edit does to the review lifecycle:
+// status resets (changes-requested → pending-review on any content change,
+// approved → pending-review when resetReview policy applies) must also demote
+// the baked `reviews` verdicts to their "-stale" variants, since they were
+// given against older content. They stay attributable but no longer count as
+// active verdicts.
+// ---------------------------------------------------------------------------
+
+describe("computeRevisionUpdate review staleness", () => {
+  const reviewer = {
+    type: "dashboard" as const,
+    id: "u1",
+    email: "u1@example.com",
+    name: "u1",
+  };
+  const reviews = [
+    {
+      userId: "u1",
+      user: reviewer,
+      status: "approved" as const,
+      timestamp: new Date("2024-01-02"),
+    },
+  ];
+
+  function revisionWithStatus(status: FeatureRevisionInterface["status"]) {
+    return {
+      ...BASE_REVISION,
+      status,
+      rules: [],
+      reviews,
+    } as unknown as FeatureRevisionInterface;
+  }
+
+  it("demotes reviews to -stale when resetReview knocks an approved draft back to pending-review", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("approved"),
+      { defaultValue: "false" },
+      true,
+    );
+    expect(status).toBe("pending-review");
+    expect(clearReviews).toBe(true);
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "approved-stale" },
+    ]);
+  });
+
+  it("demotes reviews to -stale when a content change resets changes-requested to pending-review", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      {
+        ...revisionWithStatus("changes-requested"),
+        reviews: [{ ...reviews[0], status: "changes-requested" as const }],
+      },
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("pending-review");
+    expect(clearReviews).toBe(true);
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "changes-requested-stale" },
+    ]);
+  });
+
+  it("leaves already-stale verdicts unchanged when demoting", () => {
+    const { proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      {
+        ...revisionWithStatus("approved"),
+        reviews: [
+          ...reviews,
+          {
+            userId: "u2",
+            user: { ...reviewer, id: "u2" },
+            status: "changes-requested-stale" as const,
+            timestamp: new Date("2024-01-01"),
+          },
+        ],
+      },
+      { defaultValue: "false" },
+      true,
+    );
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "approved-stale" },
+      expect.objectContaining({
+        userId: "u2",
+        status: "changes-requested-stale",
+      }),
+    ]);
+  });
+
+  it("keeps verdicts when the org policy does not reset approved drafts", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("approved"),
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("approved");
+    expect(clearReviews).toBe(false);
+    expect(proposedRevision.reviews).toEqual(reviews);
+  });
+
+  it("does not scrub on plain draft edits", () => {
+    const { status, clearReviews } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("draft"),
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("draft");
+    expect(clearReviews).toBe(false);
   });
 });

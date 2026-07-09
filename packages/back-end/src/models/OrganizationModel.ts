@@ -143,6 +143,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  suspended: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
 });
@@ -231,6 +232,8 @@ export async function createOrganization({
       ],
       disablePrecomputedDimensions: false,
       restApiBypassesReviews: false,
+      requireRebaseBeforePublish: false,
+      revertsBypassApproval: false,
       requireReviews: [
         {
           requireReviewOn: false,

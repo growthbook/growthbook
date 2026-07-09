@@ -7,10 +7,12 @@ import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
-import { getBanditVariationPeriodWeights } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
+import {
+  getBanditDates,
+  getBanditVariationPeriodWeights,
+} from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
 import { getUnitCountCTE } from "back-end/src/integrations/sql/ctes/unit-count-cte";
 
@@ -19,25 +21,24 @@ export function getExperimentAggregateUnitsQuery(
   datasource: DataSourceInterface,
   params: ExperimentAggregateUnitsQueryParams,
 ): string {
-  const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
-    params;
+  const {
+    activationMetric,
+    segment,
+    settings,
+    factTableMap,
+    useUnitsTable,
+    unitsSettings,
+  } = params;
 
   const experimentDimensions = params.dimensions;
 
-  const exposureQuery = getExposureQuery(
-    datasource,
-    settings.exposureQueryId || "",
-  );
+  const exposureQuery = unitsSettings.exposureQuery;
 
-  const banditDates = settings.banditSettings?.historicalWeights.map(
-    (w) => w.date,
+  const banditDates = getBanditDates(settings.banditSettings);
+  const variationPeriodWeights = getBanditVariationPeriodWeights(
+    settings.banditSettings,
+    settings.variations,
   );
-  const variationPeriodWeights = settings.banditSettings
-    ? getBanditVariationPeriodWeights(
-        settings.banditSettings,
-        settings.variations,
-      )
-    : undefined;
 
   const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 

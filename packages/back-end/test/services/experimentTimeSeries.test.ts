@@ -80,7 +80,9 @@ function makeAnalysis({
   };
 }
 
-function makeSnapshot(): ExperimentSnapshotInterface {
+function makeSnapshot(
+  overrides: Partial<ExperimentSnapshotInterface> = {},
+): ExperimentSnapshotInterface {
   return {
     id: "snp_1",
     organization: "org_1",
@@ -124,6 +126,7 @@ function makeSnapshot(): ExperimentSnapshotInterface {
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [],
+    ...overrides,
   };
 }
 
@@ -146,6 +149,95 @@ function makeExperiment(): ExperimentInterface {
     ],
   } as ExperimentInterface;
 }
+
+function makeContext(extraFns: Record<string, unknown> = {}) {
+  return {
+    models: {
+      metricTimeSeries: {
+        upsertMultipleSingleDataPoint: jest.fn().mockResolvedValue(undefined),
+      },
+      ...extraFns,
+    },
+  };
+}
+
+describe("updateExperimentAnalysisTimeSeries dimension gate", () => {
+  it("rejects on-demand unit-dim analyses when the snapshot did not precompute that unit dimension", async () => {
+    const context = makeContext();
+    await expect(
+      updateExperimentAnalysisTimeSeries({
+        context: context as never,
+        experiment: makeExperiment(),
+        experimentSnapshot: makeSnapshot({
+          dimension: "dim_country",
+          triggeredBy: "manual",
+        }),
+        analyses: [
+          makeAnalysis({
+            differenceType: "relative",
+            value: 1.2,
+            settings: { dimensions: ["dim_country"] },
+          }),
+        ],
+        allMetricIds: ["met_1"],
+        factMetrics: undefined,
+        factTableMap: new Map(),
+      }),
+    ).rejects.toThrow(/unsupported dimension: dim_country/);
+  });
+
+  it("accepts a unit-dim analysis when the parent snapshot precomputed that unit dimension", async () => {
+    const context = makeContext();
+    await expect(
+      updateExperimentAnalysisTimeSeries({
+        context: context as never,
+        experiment: makeExperiment(),
+        experimentSnapshot: makeSnapshot({
+          settings: {
+            ...makeSnapshot().settings,
+            precomputedUnitDimensionIds: ["dim_country"],
+          },
+        }),
+        analyses: [
+          makeAnalysis({
+            differenceType: "relative",
+            value: 1.2,
+            settings: { dimensions: ["dim_country"] },
+          }),
+        ],
+        allMetricIds: ["met_1"],
+        factMetrics: undefined,
+        factTableMap: new Map(),
+      }),
+    ).resolves.toBeUndefined();
+    expect(
+      context.models.metricTimeSeries.upsertMultipleSingleDataPoint,
+    ).toHaveBeenCalled();
+  });
+
+  it("still accepts precomputed dim analyses regardless of triggeredBy (no regression)", async () => {
+    const context = makeContext();
+    await expect(
+      updateExperimentAnalysisTimeSeries({
+        context: context as never,
+        experiment: makeExperiment(),
+        experimentSnapshot: makeSnapshot({
+          triggeredBy: "manual",
+        }),
+        analyses: [
+          makeAnalysis({
+            differenceType: "relative",
+            value: 1.2,
+            settings: { dimensions: ["precomputed:country"] },
+          }),
+        ],
+        allMetricIds: ["met_1"],
+        factMetrics: undefined,
+        factTableMap: new Map(),
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe("updateExperimentAnalysisTimeSeries", () => {
   it("does not let covariate absolute analyses replace regular absolute results", async () => {

@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import {
-  explorationConfigValidator,
+  productAnalyticsRunRequestBodyValidator,
   aiChatFeedbackRatingValidator,
 } from "shared/validators";
 import { aiModelValidator } from "back-end/src/routers/ai/ai.validators";
@@ -24,7 +24,7 @@ router.get(
 router.post(
   "/run",
   validateRequestMiddleware({
-    body: z.object({ config: explorationConfigValidator }).strict(),
+    body: productAnalyticsRunRequestBodyValidator,
     query: z
       .object({ cache: z.enum(["preferred", "required", "never"]) })
       .optional(),

@@ -89,6 +89,7 @@ export async function _dangerousAdminPutOrganization(
     enterprise?: boolean;
     freeSeats?: number;
     disableSelfServeBilling?: boolean;
+    suspended?: boolean;
     messages?: OrganizationMessage[];
   }>,
   res: Response,
@@ -111,6 +112,7 @@ export async function _dangerousAdminPutOrganization(
     enterprise,
     freeSeats,
     disableSelfServeBilling,
+    suspended,
     messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
@@ -163,6 +165,10 @@ export async function _dangerousAdminPutOrganization(
   ) {
     updates.disableSelfServeBilling = disableSelfServeBilling;
     orig.disableSelfServeBilling = org.disableSelfServeBilling;
+  }
+  if ((suspended ?? false) !== (org.suspended ?? false)) {
+    updates.suspended = suspended;
+    orig.suspended = org.suspended;
   }
   if (messages !== undefined) {
     const VALID_LEVELS = new Set(["info", "warning", "danger"]);
@@ -287,6 +293,7 @@ export async function _dangerousAdminEnableOrganization(
     status: 200,
   });
 }
+
 export async function _dangerousAdminGetMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response,

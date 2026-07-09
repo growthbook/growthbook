@@ -204,6 +204,7 @@ export default function ErrorIssuePage(): React.ReactElement {
     isLoading: eventLoading,
   } = useApi<{
     event: Record<string, unknown> & {
+      timestamp?: string;
       symbolicatedStack?: SymbolicatedStack | null;
     };
   }>(eventDetailPath, {

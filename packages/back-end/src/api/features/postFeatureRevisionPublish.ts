@@ -2,8 +2,12 @@ import { postFeatureRevisionPublishValidator } from "shared/validators";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
+  draftDiffersFromLive,
+  evaluatePublishGovernance,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
+  getLiveChangesSinceBase,
   liveRevisionFromFeature,
 } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -22,14 +26,17 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
   ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string };
+    body: { comment?: string; mergeNow?: boolean };
   },
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -63,6 +70,22 @@ export async function publishFeatureRevision(
     revision,
   });
 
+  const hasLinkedPendingRamp =
+    (
+      await req.context.models.rampSchedules.findByActivatingRevision(
+        feature.id,
+        revision.version,
+      )
+    ).length > 0;
+  const hasChanges =
+    draftDiffersFromLive(revision, live, feature, environmentIds) ||
+    hasLinkedPendingRamp;
+  if (!hasChanges) {
+    throw new BadRequestError(
+      "Cannot publish: no changes detected in this revision",
+    );
+  }
+
   // Review requirements are evaluated against the post-merge state.
   const mergeResult = autoMerge(
     liveRevisionFromFeature(live, feature),
@@ -73,10 +96,42 @@ export async function publishFeatureRevision(
   );
 
   if (!mergeResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       mergeResult.conflicts,
     );
+  }
+
+  // Governance friction: when the org enforces same-base merges, a stale or
+  // diverged draft can't be force-merged on publish without bypass authority.
+  // `mergeNow` is the explicit "merge anyway" opt-in but — like the dashboard's
+  // adminOverride — only takes effect for callers with bypass-approval
+  // permission; otherwise it's ignored and the draft must be rebased. Bypass
+  // callers remain exempt either way.
+  if (req.organization.settings?.requireRebaseBeforePublish) {
+    const canBypassGovernance =
+      req.context.permissions.canBypassApprovalChecks(feature);
+    const forceMerge = !!req.body.mergeNow && canBypassGovernance;
+    if (!forceMerge) {
+      const governance = evaluatePublishGovernance({
+        revisionStatus: revision.status,
+        baseVersion: revision.baseVersion,
+        liveVersion: feature.version,
+        mergeSuccess: mergeResult.success,
+        liveChanges: getLiveChangesSinceBase(
+          liveRevisionFromFeature(live, feature),
+          fillRevisionFromFeature(base, feature),
+          environmentIds,
+        ),
+        approvedBaseVersion: revision.approvedBaseVersion ?? null,
+        requireRebaseBeforePublish: true,
+      });
+      if (governance.rebaseRequired && !canBypassGovernance) {
+        throw new ConflictError(
+          `${governance.blockReason} Rebase the revision (POST .../rebase) first. ("mergeNow": true bypasses this only with bypass-approval permission.)`,
+        );
+      }
+    }
   }
 
   const filledLive = {
@@ -91,7 +146,28 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
+    // rampActions live on the draft revision; autoMerge doesn't carry them
+    // through MergeResultChanges, so we must re-attach them explicitly so
+    // that checkIfRevisionNeedsReview can inspect the ramp-schedule changes.
+    rampActions: revision.rampActions,
   };
+
+  // For ramp `update` actions, the live schedule's step patches may include
+  // environments that the new draft removes. Build a map so the review check
+  // can union old+new environments and catch the "removing env" direction.
+  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
+  for (const action of revision.rampActions ?? []) {
+    if (action.mode !== "update") continue;
+    const liveSchedule = await req.context.models.rampSchedules.getById(
+      action.rampScheduleId,
+    );
+    if (liveSchedule) {
+      liveRampScheduleEnvs.set(
+        action.rampScheduleId,
+        getEnvsFromRampSchedule(liveSchedule),
+      );
+    }
+  }
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -101,11 +177,13 @@ export async function publishFeatureRevision(
     settings: req.organization.settings,
     requireApprovalsLicensed:
       req.context.hasPremiumFeature("require-approvals"),
+    liveRampScheduleEnvs,
   });
 
-  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypass ||
     req.context.permissions.canBypassApprovalChecks(feature);
 
   if (requiresReview && revision.status !== "approved" && !canBypass) {
@@ -127,13 +205,21 @@ export async function publishFeatureRevision(
     req.context.permissions.throwPermissionError();
   }
 
-  const updatedFeature = await publishRevision(
-    req.context,
+  const updatedFeature = await publishRevision({
+    context: req.context,
     feature,
     revision,
-    mergeResult.result,
-    req.body.comment ?? "",
-  );
+    result: mergeResult.result,
+    comment: req.body.comment ?? "",
+    // bypassLockdown intentionally mirrors canBypassApprovalChecks. The policy
+    // choice: anyone who can skip the revision-review queue (admins and API keys
+    // with restApiBypassesReviews) can also override a ramp lockdown. Lockdown is
+    // a safety gate against accidental live-traffic changes, not a security
+    // boundary — the same elevated trust that lets you skip review also lets you
+    // push through a lockdown. If you need a stricter separation in the future,
+    // introduce a dedicated canBypassRampLockdown() permission method here.
+    bypassLockdown: canBypass,
+  });
 
   if (
     mergeResult.result.metadata?.tags !== undefined &&
@@ -181,6 +267,9 @@ export async function publishFeatureRevision(
 export const postFeatureRevisionPublish = createApiRequestHandler(
   postFeatureRevisionPublishValidator,
 )(async (req) => {
-  const { feature, revision } = await publishFeatureRevision(req);
+  const { feature, revision } = await publishFeatureRevision(
+    req,
+    canUseRestApiBypassSetting(req),
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

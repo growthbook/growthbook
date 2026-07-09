@@ -10,7 +10,7 @@ export const getFeatureRevisionLatestV2 = createApiRequestHandler(
     req.context,
     req.organization.id,
     req.params.id,
-    req.query.mine,
+    req.query,
   );
   return { revision: toApiRevisionV2(revision) };
 });

@@ -11,14 +11,23 @@ import { getFeatureStaleV2 } from "./getFeatureStaleV2";
 import { getFeatureRevisionsV2 } from "./getFeatureRevisionsV2";
 import { getFeatureRevisionV2 } from "./getFeatureRevisionV2";
 import { getFeatureRevisionLatestV2 } from "./getFeatureRevisionLatestV2";
+import { getFeatureRevisionDiffV2 } from "./getFeatureRevisionDiffV2";
 import { postFeatureRevisionV2 } from "./postFeatureRevisionV2";
 import { postFeatureRevisionDiscardV2 } from "./postFeatureRevisionDiscardV2";
+import { postFeatureRevisionReopenV2 } from "./postFeatureRevisionReopenV2";
 import { postFeatureRevisionPublishV2 } from "./postFeatureRevisionPublishV2";
 import { postFeatureRevisionRevertV2 } from "./postFeatureRevisionRevertV2";
 import { getFeatureRevisionMergeStatusV2 } from "./getFeatureRevisionMergeStatusV2";
+import { postFeatureRevisionRebasePreviewV2 } from "./postFeatureRevisionRebasePreviewV2";
 import { postFeatureRevisionRebaseV2 } from "./postFeatureRevisionRebaseV2";
 import { postFeatureRevisionRequestReviewV2 } from "./postFeatureRevisionRequestReviewV2";
+import { postFeatureRevisionSchedulePublishV2 } from "./postFeatureRevisionSchedulePublishV2";
 import { postFeatureRevisionSubmitReviewV2 } from "./postFeatureRevisionSubmitReviewV2";
+import { postFeatureRevisionRecallReviewV2 } from "./postFeatureRevisionRecallReviewV2";
+import { postFeatureRevisionUndoReviewV2 } from "./postFeatureRevisionUndoReviewV2";
+import { getFeatureRevisionLogV2 } from "./getFeatureRevisionLogV2";
+import { putFeatureRevisionLogCommentV2 } from "./putFeatureRevisionLogCommentV2";
+import { deleteFeatureRevisionLogEntryV2 } from "./deleteFeatureRevisionLogEntryV2";
 import { postFeatureRevisionRuleAddV2 } from "./postFeatureRevisionRuleAddV2";
 import { postFeatureRevisionRulesReorderV2 } from "./postFeatureRevisionRulesReorderV2";
 import { putFeatureRevisionRuleV2 } from "./putFeatureRevisionRuleV2";
@@ -52,6 +61,7 @@ export const featureV2Routes: OpenApiRoute[] = [
   // swallowed by the :version param and fail int validation.
   getFeatureRevisionLatestV2,
   getFeatureRevisionV2,
+  getFeatureRevisionDiffV2,
 
   // Draft creation
   postFeatureRevisionV2,
@@ -74,10 +84,18 @@ export const featureV2Routes: OpenApiRoute[] = [
 
   // Review & lifecycle
   postFeatureRevisionRequestReviewV2,
+  postFeatureRevisionSchedulePublishV2,
   postFeatureRevisionSubmitReviewV2,
+  postFeatureRevisionRecallReviewV2,
+  postFeatureRevisionUndoReviewV2,
+  getFeatureRevisionLogV2,
+  putFeatureRevisionLogCommentV2,
+  deleteFeatureRevisionLogEntryV2,
   getFeatureRevisionMergeStatusV2,
+  postFeatureRevisionRebasePreviewV2,
   postFeatureRevisionRebaseV2,
   postFeatureRevisionPublishV2,
   postFeatureRevisionDiscardV2,
+  postFeatureRevisionReopenV2,
   postFeatureRevisionRevertV2,
 ];

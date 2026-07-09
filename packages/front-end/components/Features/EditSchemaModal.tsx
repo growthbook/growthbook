@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import {
   FeatureInterface,
+  FeatureValueType,
   JSONSchemaDef,
   SchemaField,
   SimpleSchema,
@@ -13,10 +14,11 @@ import {
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
   getReviewSetting,
+  assertSchemaMatchesValueType,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
@@ -50,56 +52,55 @@ function EditSchemaField({
   value,
   inObject,
   onChange,
+  valueType,
 }: {
   i: number;
   value: SchemaField;
   inObject: boolean;
   onChange: (value: SchemaField) => void;
+  valueType?: FeatureValueType;
 }) {
+  // String features only have 1 type option, so hide the selector
+  const hideTypeSelector = valueType === "string";
+  const allTypeOptions = [
+    { value: "string", label: "Text String" },
+    { value: "integer", label: "Integer" },
+    { value: "float", label: "Float (Decimal)" },
+    { value: "boolean", label: "Boolean (True/False)" },
+  ];
+  const typeOptions =
+    valueType === "number"
+      ? allTypeOptions.filter((o) => ["integer", "float"].includes(o.value))
+      : allTypeOptions;
   return (
     <div>
-      <div className="row">
-        {inObject && (
+      {!hideTypeSelector && (
+        <div className="row">
+          {inObject && (
+            <div className="col">
+              <Field
+                label="Property Key"
+                value={value.key}
+                onChange={(e) => onChange({ ...value, key: e.target.value })}
+                required
+                maxLength={64}
+              />
+            </div>
+          )}
           <div className="col">
-            <Field
-              label="Property Key"
-              value={value.key}
-              onChange={(e) => onChange({ ...value, key: e.target.value })}
+            <SelectField
+              label="Type"
+              value={value.type}
+              onChange={(type) =>
+                onChange({ ...value, type: type as SchemaField["type"] })
+              }
+              sort={false}
+              options={typeOptions}
               required
-              maxLength={64}
             />
           </div>
-        )}
-        <div className="col">
-          <SelectField
-            label="Type"
-            value={value.type}
-            onChange={(type) =>
-              onChange({ ...value, type: type as SchemaField["type"] })
-            }
-            sort={false}
-            options={[
-              {
-                value: "string",
-                label: "Text String",
-              },
-              {
-                value: "integer",
-                label: "Integer",
-              },
-              {
-                value: "float",
-                label: "Float (Decimal)",
-              },
-              {
-                value: "boolean",
-                label: "Boolean (True/False)",
-              },
-            ]}
-            required
-          />
         </div>
-      </div>
+      )}
       <Field
         label="Description"
         value={value.description}
@@ -125,7 +126,10 @@ function EditSchemaField({
             value={value.enum}
             onChange={(e) => {
               if (e.length > 256) return;
-              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
+              e = e.filter(
+                (v) =>
+                  v !== "" && v !== null && v !== undefined && v.length <= 256,
+              );
               onChange({ ...value, enum: e });
             }}
             options={value.enum.map((v) => ({ value: v, label: v }))}
@@ -223,57 +227,66 @@ function EditSchemaField({
 function EditSimpleSchema({
   schema,
   setSchema,
+  valueType,
 }: {
   schema: SimpleSchema;
   setSchema: (schema: SimpleSchema) => void;
+  valueType?: FeatureValueType;
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
+  const lockedPrimitive = valueType === "string" || valueType === "number";
+
   return (
     <div>
-      <SelectField
-        label="Type"
-        labelClassName="font-weight-bold text-dark"
-        value={schema.type}
-        sort={false}
-        onChange={(type) =>
-          setSchema({
-            ...schema,
-            type: type as SimpleSchema["type"],
-          })
-        }
-        options={[
-          {
-            value: "object",
-            label: "Object",
-          },
-          {
-            value: "object[]",
-            label: "Array of Objects",
-          },
-          {
-            value: "primitive",
-            label: "Primitive Value (string, number, boolean)",
-          },
-          {
-            value: "primitive[]",
-            label: "Array of Primitive Values",
-          },
-        ]}
-        required
-      />
-      {schema.type === "primitive[]" || schema.type === "primitive" ? (
+      {!lockedPrimitive && (
+        <SelectField
+          label="Type"
+          labelClassName="font-weight-bold text-dark"
+          value={schema.type}
+          sort={false}
+          onChange={(type) =>
+            setSchema({
+              ...schema,
+              type: type as SimpleSchema["type"],
+            })
+          }
+          options={[
+            {
+              value: "object",
+              label: "Object",
+            },
+            {
+              value: "object[]",
+              label: "Array of Objects",
+            },
+            {
+              value: "primitive",
+              label: "Primitive Value (string, number, boolean)",
+            },
+            {
+              value: "primitive[]",
+              label: "Array of Primitive Values",
+            },
+          ]}
+          required
+        />
+      )}
+      {lockedPrimitive ||
+      schema.type === "primitive[]" ||
+      schema.type === "primitive" ? (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            {schema.type === "primitive" ? "Primitive Value" : "Array Items"}
+            {schema.type === "primitive[]" ? "Array Items" : "Primitive Value"}
           </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
               i={0}
+              valueType={valueType}
               value={
                 schema.fields[0] || {
                   key: "",
-                  type: "string",
+                  type: valueType === "number" ? "float" : "string",
                   required: false,
                   default: "",
                   description: "",
@@ -440,9 +453,28 @@ export default function EditSchemaModal({
   defaultEnable,
   onEnable,
 }: Props) {
-  const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
+  const valueType = feature.valueType;
+  const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
+    ?.length
     ? feature.jsonSchema.simple
-    : inferSimpleSchemaFromValue(feature.defaultValue);
+    : valueType === "string" || valueType === "number"
+      ? {
+          // String/number flags hold a single primitive value
+          type: "primitive",
+          fields: [
+            {
+              key: "",
+              type: valueType === "string" ? "string" : "float",
+              required: true,
+              default: "",
+              description: "",
+              enum: [],
+              min: 0,
+              max: valueType === "string" ? 256 : 100,
+            },
+          ],
+        }
+      : inferSimpleSchemaFromValue(feature.defaultValue);
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
@@ -475,11 +507,12 @@ export default function EditSchemaModal({
 
   const canAutoPublish = gatedEnvSet === "none";
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
@@ -532,6 +565,8 @@ export default function EditSchemaModal({
           }
         }
 
+        assertSchemaMatchesValueType(value, feature.valueType);
+
         const body: Record<string, unknown> = {
           ...value,
           ...(mode === "publish"
@@ -550,7 +585,7 @@ export default function EditSchemaModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}
@@ -623,6 +658,7 @@ export default function EditSchemaModal({
             <EditSimpleSchema
               schema={form.watch("simple")}
               setSchema={(v) => form.setValue("simple", v)}
+              valueType={valueType}
             />
           ) : (
             <CodeTextArea

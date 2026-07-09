@@ -75,3 +75,39 @@ export function parseEnvInt(
   }
   return n;
 }
+
+/**
+ * Display arbitrary table / query cell values for UI:
+ * - `null` / `undefined` → empty string
+ * - booleans → `"true"` / `"false"`
+ * - finite numbers → `toLocaleString()`; non-finite → `String(number)`
+ * - strings → trim; if the trim parses as a finite number, format like numbers;
+ *   whitespace-only strings are returned unchanged
+ * - `Date` (finite) → `toLocaleString()`
+ * - `bigint` → decimal string
+ * - plain objects and arrays → `JSON.stringify`
+ * - symbols and other values → `String(value)`
+ */
+export function formatNumericLikeForDisplay(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "boolean") return String(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value.toLocaleString() : String(value);
+  }
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (t === "") return value;
+    const n = Number(t);
+    if (Number.isFinite(n)) return n.toLocaleString();
+    return value;
+  }
+  if (typeof value === "symbol") return String(value);
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? "" : value.toLocaleString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}

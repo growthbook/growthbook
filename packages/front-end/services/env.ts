@@ -67,6 +67,9 @@ export function getApiHost(): string {
 export function isCloud(): boolean {
   return env.cloud;
 }
+export function isLocalhost(): boolean {
+  return getAppOrigin().startsWith("http://localhost:");
+}
 export function isMultiOrg(): boolean {
   return !!env.isMultiOrg;
 }

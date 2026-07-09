@@ -1,7 +1,6 @@
 import {
   Flex,
   Grid,
-  Text,
   Switch as RadixSwitch,
   type SwitchProps as RadixSwitchProps,
 } from "@radix-ui/themes";
@@ -9,6 +8,7 @@ import { useId, forwardRef } from "react";
 import { PiWarningFill, PiWarningOctagonFill } from "react-icons/pi";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import styles from "./Switch.module.scss";
+import Text from "./Text";
 
 type UncontrolledSwitchProps = {
   defaultValue?: boolean;
@@ -75,11 +75,11 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
   function getTextSize() {
     switch (size) {
       case "1":
-        return "1";
+        return "small";
       case "2":
-        return "2";
+        return "medium";
       case "3":
-        return "3";
+        return "large";
     }
   }
 
@@ -146,14 +146,9 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
           as="label"
           htmlFor={switchId}
           size={getTextSize()}
-          style={{
-            fontWeight: 500,
-            color: disabled
-              ? "var(--color-text-disabled)"
-              : "var(--color-text-high)",
-            // Override bootstrap _reboot default
-            marginBottom: 0,
-          }}
+          weight="medium"
+          color={disabled ? "text-disabled" : "text-high"}
+          mb="0"
         >
           {label}
         </Text>
@@ -163,11 +158,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
           {label && description && (
             <Text
               size={getTextSize()}
-              style={{
-                color: disabled
-                  ? "var(--color-text-disabled)"
-                  : "var(--color-text-mid)",
-              }}
+              color={disabled ? "text-disabled" : "text-mid"}
             >
               {description}
             </Text>

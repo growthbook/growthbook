@@ -1,6 +1,6 @@
 import { z, ZodType } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { apiBaseSchema } from "shared/validators";
+import { apiBaseSchema, ApiErrorCode } from "shared/validators";
 import { capitalizeFirstCharacter } from "shared/util";
 import { ModelName } from "back-end/src/services/context";
 import {
@@ -95,6 +95,8 @@ export type OpenApiEndpointSpec = {
   validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
 };
 
 /**
@@ -126,6 +128,8 @@ export type OpenApiModelSpec<
   customEndpoints?: OpenApiEndpointSpec[];
   /** Per-CRUD-action descriptions (longer form text shown below the summary in docs). */
   crudDescriptions?: Partial<Record<CrudAction, string>>;
+  /** Error codes that may be thrown by CRUD actions, used to generate OpenAPI error response schemas. */
+  possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
@@ -272,6 +276,7 @@ export function getOpenApiRoutesForApiConfig(
         description: apiConfig.openApiSpec.crudDescriptions?.[action],
         tags: [tag],
         responseSchema: returnSchema,
+        possibleErrors: apiConfig.openApiSpec.possibleErrors?.[action],
       })(async (req) => {
         const modelInstance = req.context.models[
           apiConfig.modelKey
@@ -293,6 +298,7 @@ export function getOpenApiRoutesForApiConfig(
       operationId,
       summary,
       zodReturnObject,
+      possibleErrors,
     }) => {
       const route = createApiRequestHandler({
         ...validator,
@@ -302,6 +308,7 @@ export function getOpenApiRoutesForApiConfig(
         summary,
         tags: [tag],
         responseSchema: zodReturnObject,
+        possibleErrors,
       })(reqHandler);
       routes.push(route);
     },

@@ -25,6 +25,7 @@ const EditLicenseModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       header="Enter License Key"
       open={true}

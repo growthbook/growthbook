@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -21,7 +22,7 @@ export const apiMetricValidator = namedSchema(
       ownerEmail: ownerEmailField,
       datasourceId: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       type: z.enum(["binomial", "count", "duration", "revenue"]),
       tags: z.array(z.string()),
       projects: z.array(z.string()),
@@ -88,6 +89,7 @@ export const apiMetricValidator = namedSchema(
               ),
             stddev: z.coerce
               .number()
+              .gt(0)
               .describe(
                 "Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.",
               ),
@@ -215,7 +217,11 @@ const postMetricBody = z
       .optional(),
     owner: ownerInputField.optional(),
     name: z.string().describe("Name of the metric"),
-    description: z.string().describe("Description of the metric").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the metric")
+      .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
       .describe(
@@ -460,7 +466,11 @@ const putMetricBody = z
       .optional(),
     owner: ownerInputField.optional(),
     name: z.string().describe("Name of the metric").optional(),
-    description: z.string().describe("Description of the metric").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the metric")
+      .optional(),
     type: z
       .enum(["binomial", "count", "duration", "revenue"])
       .describe(

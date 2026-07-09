@@ -2,11 +2,10 @@ import { ReactNode } from "react";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { parseIntWithDefault } from "shared/util";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
 export function HashVersionTooltip({ children }: { children: ReactNode }) {
@@ -36,14 +35,8 @@ export default function HashVersionSelector({
   onChange: (value: 1 | 2) => void;
   project?: string;
 }) {
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    project,
-  );
-
   return (
-    <>
+    <div style={{ marginTop: "var(--space-6)" }}>
       <Text as="label" weight="semibold">
         Hashing Algorithm
       </Text>
@@ -54,16 +47,14 @@ export default function HashVersionSelector({
             value: "2",
             description:
               "Fixes potential bias issues when using similarly named tracking keys",
-            renderOnSelect: hasSDKWithNoBucketingV2 ? (
-              <Callout status="warning" size="sm">
-                Some of your SDK Connections may not support V2 hashing. Make
-                sure you are only using it with{" "}
-                <HashVersionTooltip>
-                  <span className="underline">compatible SDKs</span>
-                </HashVersionTooltip>
-                .
-              </Callout>
-            ) : undefined,
+            renderOnSelect: (
+              <SDKCapabilityWarning
+                capability="bucketingV2"
+                project={project}
+                someMessage="Some of your SDK Connections may not support V2 hashing."
+                noneMessage="None of your SDK Connections support V2 hashing."
+              />
+            ),
           },
           { label: "V1 (Legacy)", value: "1" },
         ]}
@@ -72,7 +63,7 @@ export default function HashVersionSelector({
           onChange(parseIntWithDefault(v, 2) as 1 | 2);
         }}
       />
-    </>
+    </div>
   );
 }
 

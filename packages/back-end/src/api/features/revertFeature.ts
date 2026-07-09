@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -24,10 +25,11 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureCore(
   context: ApiReqContext,
@@ -36,6 +38,7 @@ export async function revertFeatureCore(
   params: { id: string },
   body: { revision: number; comment?: string },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) {
@@ -195,10 +198,25 @@ export async function revertFeatureCore(
     );
   }
 
-  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
+  // Flag restored values the current schema/value-type can no longer read as a
+  // bypassable soft warning (?ignoreWarnings=true) instead of publishing blind.
+  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
+  if (valueWarnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(
+      "Reverting to this revision restores values that no longer pass validation:\n" +
+        valueWarnings.join("\n"),
+      valueWarnings,
+    );
+  }
+
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions), bypassApprovalChecks, or the
+  // org-wide "reverts bypass approval" setting (publish perms already enforced
+  // per-change above, so any publisher may revert without approval).
   const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass ||
+    context.permissions.canBypassApprovalChecks(feature) ||
+    !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {
     const liveRevision = await getRevision({
@@ -281,6 +299,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.params,
       req.body,
       req.audit,
+      canUseRestApiBypassSetting(req),
     );
     return {
       feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),

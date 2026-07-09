@@ -213,6 +213,7 @@ const TeamPage: FC = () => {
                       {canManageTeam && isEditable && (
                         <>
                           <DeleteButton
+                            useRadix={false}
                             link={true}
                             useIcon={true}
                             displayName={member.email}

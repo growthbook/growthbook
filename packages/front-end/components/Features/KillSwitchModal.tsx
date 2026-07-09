@@ -320,7 +320,7 @@ export default function KillSwitchModal({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
   const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
 
@@ -334,7 +334,7 @@ export default function KillSwitchModal({
     const liveRevision = revisions?.find((r) => r.version === feature.version);
     if (liveRevision) {
       const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
-      if (mode === "existing" && selectedDraft != null) {
+      if (mode === "existing" && selectedDraft !== null) {
         const draftRevision = revisions?.find(
           (r) => r.version === selectedDraft,
         );
@@ -442,7 +442,7 @@ export default function KillSwitchModal({
     await mutate();
     const finalVersion =
       res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (finalVersion != null) setVersion(finalVersion);
+    if (finalVersion !== null) setVersion(finalVersion);
   };
 
   const noNetChange = visibleEnvs.every(

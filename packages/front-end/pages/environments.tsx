@@ -90,7 +90,6 @@ const EnvironmentsPage: FC = () => {
             trackingEventModalType="show-environment-connections"
             close={() => setShowConnectionsModal(null)}
             open={true}
-            useRadixButton={true}
             closeCta="Close"
           >
             <Text as="p" mb="3">

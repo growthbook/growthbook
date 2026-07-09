@@ -4,6 +4,19 @@ import type {
   DimensionColumnData,
 } from "shared/types/integrations";
 
+export function banditDimensionJoinCondition(
+  leftPrefix: string,
+  rightPrefix: string,
+  dimensionCols: DimensionColumnData[],
+): string {
+  if (!dimensionCols.length) {
+    return "1=1";
+  }
+  return dimensionCols
+    .map((d) => `${leftPrefix}.${d.alias} = ${rightPrefix}.${d.alias}`)
+    .join(" AND ");
+}
+
 export function getBanditStatisticsCTE(
   dialect: SqlDialect,
   {
@@ -119,7 +132,7 @@ export function getBanditStatisticsCTE(
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
   ),
   __banditPeriodWeights AS (
     SELECT
@@ -156,10 +169,9 @@ export function getBanditStatisticsCTE(
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN __dimensionTotals dt ON
-      (${dimensionCols
-        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
-        .join(" AND ")})
+    LEFT JOIN __dimensionTotals dt ON (
+      ${banditDimensionJoinCondition("bps", "dt", dimensionCols)}
+    )
     GROUP BY
       bps.bandit_period
       ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
@@ -192,7 +204,7 @@ export function getBanditStatisticsCTE(
       FROM
         __banditPeriodWeights
       GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
       )
     `
       : ""
@@ -287,19 +299,21 @@ export function getBanditStatisticsCTE(
   LEFT JOIN
     __banditPeriodWeights bpw
     ON (
-      bps.bandit_period = bpw.bandit_period 
-      ${dimensionCols
-        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join("\n")}
+      bps.bandit_period = bpw.bandit_period
+      ${
+        dimensionCols.length
+          ? dimensionCols
+              .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+              .join("\n")
+          : ""
+      }
     )
   ${
     hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t
-      ON (${dimensionCols
-        .map((d) => `bps.${d.alias} = t.${d.alias}`)
-        .join(" AND ")})
+      ON (${banditDimensionJoinCondition("bps", "t", dimensionCols)})
     `
       : ""
   }

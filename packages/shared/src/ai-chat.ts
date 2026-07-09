@@ -167,6 +167,24 @@ export type AIChatUserMessage = {
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  /**
+   * URL path (+ search) the user was on when they sent this message.
+   * Captured at send time and persisted on the message so per-turn page
+   * context is preserved across navigation. Not displayed in the chat UI;
+   * `toModelMessages` injects it as a `[Page context: …]` prefix into the
+   * model-bound message so the agent can interpret references like "this
+   * experiment". Skills document the URL → entity mapping.
+   */
+  currentPage?: string;
+  /**
+   * Optional product-analytics datasource the client had selected when this
+   * message was sent (e.g. the explorer's last-used datasource). Kept off the
+   * static system prompt so the prompt stays cacheable; instead persisted on
+   * the message and injected by `toModelMessages` as an
+   * `[Active product-analytics datasource: …]` prefix. It is a soft hint — the
+   * agent may still search other datasources or ask the user to switch.
+   */
+  datasourceHint?: string;
 };
 
 export type AIChatAssistantMessage = {

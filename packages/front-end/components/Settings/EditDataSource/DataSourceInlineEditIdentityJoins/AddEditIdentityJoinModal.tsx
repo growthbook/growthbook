@@ -117,6 +117,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         submit={handleSubmit}

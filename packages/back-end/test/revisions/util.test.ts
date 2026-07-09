@@ -1,5 +1,9 @@
 import type { JsonPatchOperation } from "shared/enterprise";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
+import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
 
 const updatable = new Set([
   "groupName",
@@ -190,5 +194,54 @@ describe("buildMergeDesiredState", () => {
     );
 
     expect(desired).toEqual(liveEntity);
+  });
+});
+
+describe("isRevisionDiverged", () => {
+  // Minimal live saved-group document as stored in the database.
+  const liveDoc = {
+    id: "sg-1",
+    organization: "org-1",
+    groupName: "My group",
+    type: "condition",
+    condition: '{"id": {"$in": ["a"]}}',
+    dateCreated: new Date("2024-01-01"),
+    dateUpdated: new Date("2024-01-02"),
+  };
+
+  const snapshotOf = (entity: Record<string, unknown>) =>
+    savedGroupAdapter.buildSnapshot(entity as never) as unknown as Record<
+      string,
+      unknown
+    >;
+
+  it("is not diverged when the live document only differs in representation", () => {
+    // Regression for raw stored documents carrying representation-only
+    // differences — see the rationale on isRevisionDiverged.
+    const snapshot = snapshotOf(liveDoc);
+    const rawWithNull = { ...liveDoc, description: null };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, rawWithNull)).toBe(
+      false,
+    );
+
+    // Same for leftover fields that were removed from the schema.
+    const rawWithLegacyField = { ...liveDoc, passByReferenceOnly: true };
+    expect(
+      isRevisionDiverged(savedGroupAdapter, snapshot, rawWithLegacyField),
+    ).toBe(false);
+  });
+
+  it("is diverged when an updatable field genuinely changed", () => {
+    const snapshot = snapshotOf(liveDoc);
+    const changed = { ...liveDoc, condition: '{"id": {"$in": ["a", "b"]}}' };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, changed)).toBe(true);
+  });
+
+  it("ignores changes to non-updatable fields", () => {
+    const snapshot = snapshotOf(liveDoc);
+    const touched = { ...liveDoc, dateUpdated: new Date("2024-06-01") };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, touched)).toBe(
+      false,
+    );
   });
 });

@@ -30,6 +30,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
           "screenshots",
           "customField",
           "prerequisiteTargeting",
+          "schedule",
         ],
       },
       url: String,

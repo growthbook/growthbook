@@ -1,4 +1,8 @@
-import { FeatureInterface, SafeRolloutRule } from "shared/validators";
+import {
+  FeatureInterface,
+  SafeRolloutInterface,
+  SafeRolloutRule,
+} from "shared/validators";
 import { getRulesForEnvironment } from "shared/util";
 
 export function getSafeRolloutRuleFromFeature(
@@ -25,4 +29,14 @@ export function getSafeRolloutRuleFromFeature(
     }
   }
   return null;
+}
+
+export function shouldSkipScheduledSafeRolloutSnapshot(
+  feature: FeatureInterface,
+  safeRollout: Pick<SafeRolloutInterface, "id" | "rampScheduleId">,
+): boolean {
+  if (safeRollout.rampScheduleId) return false;
+
+  const rule = getSafeRolloutRuleFromFeature(feature, safeRollout.id, true);
+  return !rule || !rule.enabled;
 }

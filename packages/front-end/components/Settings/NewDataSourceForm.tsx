@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
@@ -15,6 +16,7 @@ import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -39,7 +41,6 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
 import { DocLink } from "@/components/DocLink";
-import { AppFeatures } from "@/types/app-features";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -345,6 +346,7 @@ const NewDataSourceForm: FC<{
 
     const resources = getInitialDatasourceResources({
       datasource: ds,
+      attributeSchema: settings.attributeSchema,
       enableErrorTracking,
     });
     if (!resources.factTables.length) {
@@ -484,7 +486,7 @@ const NewDataSourceForm: FC<{
             <Callout status="info" mt="3">
               Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
+              <DocLink useRadix={false} docSection="ga4BigQuery">
                 Learn more <FaExternalLinkAlt />
               </DocLink>
             </Callout>
@@ -586,7 +588,7 @@ const NewDataSourceForm: FC<{
                 or{" "}
               </>
             ) : null}
-            <DocLink docSection={datasourceInfo.docs}>
+            <DocLink useRadix={false} docSection={datasourceInfo.docs}>
               {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
             </DocLink>{" "}
           </Callout>
@@ -608,6 +610,7 @@ const NewDataSourceForm: FC<{
           <label>Description</label>
           <textarea
             className="form-control"
+            maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
             value={connectionInfo.description}
@@ -749,6 +752,7 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

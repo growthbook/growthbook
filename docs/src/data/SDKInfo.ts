@@ -561,7 +561,7 @@ export default {
         caseInsensitiveRegex: "≥ v0.10.6",
       },
       {
-        remoteEvaluation: "≥ v0.9.92",
+        remoteEval: "≥ v0.9.92",
       },
       {
         prerequisites: "≥ v0.9.3",
@@ -613,7 +613,7 @@ export default {
         experimentation: "All versions",
       },
       {
-        remoteEvaluation: "≥ v1.1.3",
+        remoteEval: "≥ v1.1.3",
       },
       {
         stickyBucketing: "≥ v1.1.0",

@@ -1,6 +1,6 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   Fragment,
   useCallback,
@@ -41,8 +41,7 @@ export default function SchemaBrowser({
   updateSqlInput,
   cursorData,
 }: Props) {
-  const managedWarehousePending =
-    isManagedWarehouseAwaitingProvisioning(datasource);
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const { data, mutate } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;

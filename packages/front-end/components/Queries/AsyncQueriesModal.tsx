@@ -182,6 +182,7 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"

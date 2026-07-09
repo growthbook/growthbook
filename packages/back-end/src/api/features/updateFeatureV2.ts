@@ -31,7 +31,8 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import { validateCustomFields, validateRuleAttributes } from "./validations";
+import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
@@ -124,12 +125,26 @@ export const updateFeatureV2 = createApiRequestHandler(
   await assertValidHoldout(req.body.holdout, req.context);
 
   const jsonSchema =
-    feature.valueType === "json" && req.body.jsonSchema != null
-      ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
+    feature.valueType !== "boolean" && req.body.jsonSchema != null
+      ? parseApiJsonSchema(
+          req.organization,
+          req.body.jsonSchema,
+          feature.valueType,
+        )
       : null;
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
+    // Opt-in registered-attribute check on each replacement rule before any
+    // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
+    // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).
+    for (const rule of req.body.rules) {
+      validateRuleAttributes(
+        rule as Parameters<typeof validateRuleAttributes>[0],
+        req.context,
+        feature.project,
+      );
+    }
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
@@ -182,9 +197,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     );
   }
 
-  const canBypass =
-    !!req.context.org.settings?.restApiBypassesReviews ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+  // JWT-backed REST calls should behave like dashboard actions: the org-level
+  // REST bypass setting only applies to API keys/PATs.
+  const canBypass = canBypassReviewChecks(req, feature);
 
   const newTagsForDiff = updates.tags;
 

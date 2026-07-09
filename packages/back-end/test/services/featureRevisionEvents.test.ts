@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { deriveRevisionEventEnvironments } from "back-end/src/services/featureRevisionEvents";
+import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 
 // Dispatch of `feature.revision.*` events fans out to webhook/Slack filters
 // keyed by (project, tag, environment). The derivation here feeds that

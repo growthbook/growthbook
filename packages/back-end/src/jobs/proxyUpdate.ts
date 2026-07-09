@@ -106,11 +106,11 @@ const proxyUpdate = async (job: ProxyUpdateJob) => {
 
   if (!res.ok) {
     const e = "POST returned an invalid status code: " + res.status;
-    await setProxyError(connection, e);
+    await setProxyError(context, connection, e);
     throw new Error(e);
   }
 
-  await clearProxyError(connection);
+  await clearProxyError(context, connection);
 };
 
 let agenda: Agenda;

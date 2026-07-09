@@ -267,7 +267,13 @@ ORDER BY last_seen DESC
 LIMIT ${limit} OFFSET ${offset}
 `;
 
-    const { rows: issueRows } = await integration.runQuery(groupedSql);
+    const { rows: issueRows } = await integration.runQuery(
+      groupedSql,
+      undefined,
+      {
+        queryType: "errorTrackingIssueList",
+      },
+    );
     const fingerprints = issueRows.map((r) =>
       String(r.issue_fingerprint || ""),
     );
@@ -306,11 +312,19 @@ ORDER BY issue_fingerprint, ts
 
     const trend24 =
       fingerprints.length > 0
-        ? (await integration.runQuery(trend24Sql)).rows
+        ? (
+            await integration.runQuery(trend24Sql, undefined, {
+              queryType: "errorTrackingIssueList",
+            })
+          ).rows
         : [];
     const trend30 =
       fingerprints.length > 0
-        ? (await integration.runQuery(trend30Sql)).rows
+        ? (
+            await integration.runQuery(trend30Sql, undefined, {
+              queryType: "errorTrackingIssueList",
+            })
+          ).rows
         : [];
 
     const trend24Buckets = buildTrendBuckets(24, "hour");
@@ -399,7 +413,9 @@ FROM errors
 WHERE client_key = '${esc(integration, clientKey)}'
 AND issue_fingerprint = '${esc(integration, fingerprint)}'
 `;
-    const { rows } = await integration.runQuery(sql);
+    const { rows } = await integration.runQuery(sql, undefined, {
+      queryType: "errorTrackingIssueDetail",
+    });
     const row = rows[0];
     if (!row || !row.last_seen) {
       return res.status(404).json({ status: 404, message: "Issue not found" });
@@ -419,7 +435,11 @@ GROUP BY environment
 ORDER BY c DESC
 LIMIT 20
 `;
-    const { rows: envRows } = await integration.runQuery(dimensionsSql);
+    const { rows: envRows } = await integration.runQuery(
+      dimensionsSql,
+      undefined,
+      { queryType: "errorTrackingIssueDetail" },
+    );
 
     const releaseSql = `
 SELECT release_version, count() AS c
@@ -431,7 +451,13 @@ GROUP BY release_version
 ORDER BY c DESC
 LIMIT 20
 `;
-    const { rows: relRows } = await integration.runQuery(releaseSql);
+    const { rows: relRows } = await integration.runQuery(
+      releaseSql,
+      undefined,
+      {
+        queryType: "errorTrackingIssueDetail",
+      },
+    );
 
     const graphRange = parseIssueGraphRange(req.query.graphRange);
     const graphQuery = getIssueGraphQuery(
@@ -451,7 +477,13 @@ ${graphQuery.filterSql}
 GROUP BY ${graphQuery.groupExpr}
 ORDER BY ts
 `;
-    const { rows: graphRows } = await integration.runQuery(graphSql);
+    const { rows: graphRows } = await integration.runQuery(
+      graphSql,
+      undefined,
+      {
+        queryType: "errorTrackingIssueDetail",
+      },
+    );
     const graphPoints = fillIssueTrendSeries(
       graphQuery.buckets,
       graphRows.map((g) => ({
@@ -594,7 +626,9 @@ ${timeClause}
 ORDER BY timestamp ${orderAscending ? "ASC" : "DESC"}, event_uuid ${orderAscending ? "ASC" : "DESC"}
 LIMIT ${limit} OFFSET ${offset}
 `;
-    const { rows } = await integration.runQuery(sql);
+    const { rows } = await integration.runQuery(sql, undefined, {
+      queryType: "errorTrackingEventList",
+    });
     return res.status(200).json({
       status: 200,
       events: rows.map((r) => ({
@@ -679,7 +713,9 @@ ${fpClause}
 ORDER BY timestamp DESC
 LIMIT 1
 `;
-    const { rows } = await integration.runQuery(sql);
+    const { rows } = await integration.runQuery(sql, undefined, {
+      queryType: "errorTrackingEventDetail",
+    });
     const row = rows[0];
     if (!row) {
       return res.status(404).json({ status: 404, message: "Event not found" });
@@ -727,8 +763,16 @@ GROUP BY experiment_id, variation_id
 ORDER BY lastSeen DESC
 LIMIT 40
 `;
-      relatedFeatureUsage = (await integration.runQuery(fuSql)).rows;
-      relatedExperimentViews = (await integration.runQuery(evSql)).rows;
+      relatedFeatureUsage = (
+        await integration.runQuery(fuSql, undefined, {
+          queryType: "errorTrackingEventDetail",
+        })
+      ).rows;
+      relatedExperimentViews = (
+        await integration.runQuery(evSql, undefined, {
+          queryType: "errorTrackingEventDetail",
+        })
+      ).rows;
     }
 
     const relatedFeatureUsageNormalized = relatedFeatureUsage.map((r) => ({
@@ -820,7 +864,9 @@ AND issue_fingerprint = '${esc(integration, fingerprint)}'
 AND event_uuid = '${esc(integration, req.params.eventUuid)}'
 LIMIT 1
 `;
-    const { rows: curRows } = await integration.runQuery(curSql);
+    const { rows: curRows } = await integration.runQuery(curSql, undefined, {
+      queryType: "errorTrackingEventAdjacent",
+    });
     const current = curRows[0];
     if (!current) {
       return res.status(404).json({ status: 404, message: "Event not found" });
@@ -863,8 +909,12 @@ LIMIT 1
 `;
 
     const [{ rows: prevRows }, { rows: nextRows }] = await Promise.all([
-      integration.runQuery(prevSql),
-      integration.runQuery(nextSql),
+      integration.runQuery(prevSql, undefined, {
+        queryType: "errorTrackingEventAdjacent",
+      }),
+      integration.runQuery(nextSql, undefined, {
+        queryType: "errorTrackingEventAdjacent",
+      }),
     ]);
 
     return res.status(200).json({

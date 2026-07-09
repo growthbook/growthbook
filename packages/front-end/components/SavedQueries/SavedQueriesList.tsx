@@ -116,7 +116,6 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
               trackingEventModalType="show-saved-query-references"
               close={() => setShowReferencesModal(null)}
               open={true}
-              useRadixButton={true}
               closeCta="Close"
             >
               <Text as="p" mb="3">
@@ -211,7 +210,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       onClick={(e) => e.stopPropagation()}
                       style={{ cursor: "initial" }}
                     >
-                      <MoreMenu>
+                      <MoreMenu useRadix={false}>
                         {canEdit(query) && (
                           <button
                             className="dropdown-item"
@@ -226,6 +225,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               <div className="dropdown-divider" />
                             )}
                             <DeleteButton
+                              useRadix={false}
                               displayName="Saved Query"
                               onClick={() => handleDelete(query)}
                               useIcon={false}

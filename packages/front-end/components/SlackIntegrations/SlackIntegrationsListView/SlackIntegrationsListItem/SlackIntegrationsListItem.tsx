@@ -41,6 +41,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
             </button>
 
             <DeleteButton
+              useRadix={false}
               displayName={slackIntegration.name}
               onClick={onDelete}
               outline={true}

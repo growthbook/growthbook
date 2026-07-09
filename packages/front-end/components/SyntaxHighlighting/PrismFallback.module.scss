@@ -1,0 +1,47 @@
+.fallback {
+  &.withLineNumbers::before {
+    content: attr(data-line-numbers);
+    position: absolute;
+    top: 1em;
+    left: 1em;
+    width: var(--syntax-highlight-fallback-line-number-width);
+    text-align: right;
+    white-space: pre;
+    pointer-events: none;
+    user-select: none;
+    color: var(--syntax-highlight-fallback-line-number-color);
+    font-style: var(--syntax-highlight-fallback-line-number-font-style);
+    font-weight: var(--syntax-highlight-fallback-line-number-font-weight);
+  }
+}
+
+.previewCta {
+  appearance: none;
+  background: var(--violet-a3);
+  border: 1px solid var(--violet-a7);
+  border-radius: var(--radius-3);
+  box-shadow: 0 1px 0 var(--violet-a3);
+  color: var(--violet-11);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  line-height: 1.25;
+  padding: 0.08em 0.55em;
+  text-align: left;
+
+  &:hover {
+    background: var(--violet-a4);
+    border-color: var(--violet-a8);
+    color: var(--violet-12);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    background: var(--violet-a5);
+  }
+}

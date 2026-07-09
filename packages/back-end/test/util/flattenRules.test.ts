@@ -490,22 +490,22 @@ describe("flattenV1ToV2Rules", () => {
       expect(bucketBy("prod")).toEqual(["B", "A"]);
     });
 
-    // Regression: real-world multi-env hybrid feature where two rules F, G
-    // are content-equivalent across {production, azure-prod, single-tenants-prod}
-    // but azure-prod ALSO has a non-mergeable multi-env predecessor U at pos 0.
-    // Naive merge anchors F, G at production's iteration and reorders
-    // azure-prod's bucket to [F, G, U, T] instead of v1's [U, T, F, G].
+    // Regression: multi-env feature where two rules F, G are
+    // content-equivalent across {production, production-eu, production-us}
+    // but production-eu ALSO has a non-mergeable multi-env predecessor U at
+    // pos 0. Naive merge anchors F, G at production's iteration and reorders
+    // production-eu's bucket to [F, G, U, T] instead of v1's [U, T, F, G].
     // Order-conflict detection must split F and G to keep the bucket invariant.
     it("splits a mergeable rule when a non-mergeable predecessor only exists in non-canonical-first envs", () => {
       // U is multi-env but content-divergent (split per env).
       const uDev = forceRule("U", { value: "u-dev" });
-      const uAzure = forceRule("U", { value: "u-azure" });
+      const uProdEu = forceRule("U", { value: "u-eu" });
       const uStaging = forceRule("U", { value: "u-staging" });
       // T is multi-env but content-divergent (also split per env).
       const tDev = forceRule("T", { value: "t-dev" });
       const tProd = forceRule("T", { value: "t-prod" });
-      const tAzure = forceRule("T", { value: "t-azure" });
-      const tSingleTenants = forceRule("T", { value: "t-single" });
+      const tProdEu = forceRule("T", { value: "t-eu" });
+      const tProdUs = forceRule("T", { value: "t-us" });
       const tStaging = forceRule("T", { value: "t-staging" });
       // F, G are content-equivalent across the 3 envs they appear in.
       const f = forceRule("F", { value: "f" });
@@ -515,22 +515,22 @@ describe("flattenV1ToV2Rules", () => {
         {
           dev: [tDev, uDev],
           production: [tProd, { ...f }, { ...g }],
-          "azure-prod": [uAzure, tAzure, { ...f }, { ...g }],
-          "single-tenants-prod": [tSingleTenants, { ...f }, { ...g }],
+          "production-eu": [uProdEu, tProdEu, { ...f }, { ...g }],
+          "production-us": [tProdUs, { ...f }, { ...g }],
           staging: [tStaging, uStaging],
         },
         {
           envOrder: [
             "dev",
             "production",
-            "azure-prod",
-            "single-tenants-prod",
+            "production-eu",
+            "production-us",
             "staging",
           ],
         },
       );
 
-      // F and G must NOT merge — they'd reorder azure-prod's bucket.
+      // F and G must NOT merge — they'd reorder production-eu's bucket.
       const byStem = (stem: string) =>
         out.filter((r) => stemRuleId(r.id) === stem);
       expect(byStem("F")).toHaveLength(3);
@@ -547,8 +547,8 @@ describe("flattenV1ToV2Rules", () => {
           .map((r) => stemRuleId(r.id));
       expect(bucketBy("dev")).toEqual(["T", "U"]);
       expect(bucketBy("production")).toEqual(["T", "F", "G"]);
-      expect(bucketBy("azure-prod")).toEqual(["U", "T", "F", "G"]);
-      expect(bucketBy("single-tenants-prod")).toEqual(["T", "F", "G"]);
+      expect(bucketBy("production-eu")).toEqual(["U", "T", "F", "G"]);
+      expect(bucketBy("production-us")).toEqual(["T", "F", "G"]);
       expect(bucketBy("staging")).toEqual(["T", "U"]);
     });
   });

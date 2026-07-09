@@ -13,13 +13,17 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 ## Using Custom Hooks
 
-To manage Custom Hooks, navigate to **Settings → Custom Hooks** in the GrowthBook UI.
-
 :::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
 :::
 
-Custom Hooks can be global or scoped to specific projects, and you can create multiple hooks of the same type for flexible, granular validation rules.
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which features it runs for:
+
+- **Global** — runs for every feature.
+- **Project** — runs only for features in the selected projects.
+- **Feature** — runs only for a single feature.
+
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
 
 ### Limits
 
@@ -32,13 +36,29 @@ The following default limits are in place to prevent abuse and ensure performanc
 - `CUSTOM_HOOK_WALL_TIMEOUT_MS` - Maximum total run time (including async calls) (default: 5000ms)
 - `CUSTOM_HOOK_MAX_FETCH_RESP_SIZE` - Maximum response size from fetch calls in bytes (default: 500KB)
 
+### Execution Frequency
+
+A hook may execute **multiple times for a single save**. GrowthBook runs hooks early in a request (before related records are written) and again immediately before the final database write, and the Incremental Changes option adds additional runs against the previous state. Keep hooks fast and free of side effects — they should validate their inputs and either return, `throw`, or `addWarning()`, nothing else.
+
 ### Debugging
 
 If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
 
-When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, console messages, and the return value (if any).
+When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 
 Use `console.log` statements liberally while developing hooks to inspect variables and understand the flow of execution.
+
+### Warnings
+
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `?ignoreWarnings=true`. A `throw` always blocks and cannot be bypassed.
+
+```js
+if (feature.tags.length === 0) {
+  addWarning("Consider adding at least one tag");
+}
+```
+
+Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
 ### Incremental Changes
 
@@ -173,5 +193,53 @@ if (
           "This feature is locked and cannot be published."
         );
     }
+}
+```
+
+#### Enforcing approval policies at publish
+
+The hook runs at publish time with `revision.status === "published"` on the proposed revision, so you can gate publishes specifically. `revision.reviews` holds the active reviewer verdicts for the current review cycle — one entry per reviewer in the shape `{ userId, user, status, timestamp }`:
+
+- `userId` — stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts.
+- `user` — the full event user: `{ type: "dashboard", id, name, email }` for humans, `{ type: "api_key", apiKey }` for service accounts (where `apiKey` is the key's ID, not its secret).
+- `status` — `"approved"` or `"changes-requested"` for active verdicts. When draft content changes after a verdict is given (and the org's review settings reset reviews on change), the verdict is demoted to `"approved-stale"` / `"changes-requested-stale"` — still attributable, but no longer an active verdict, so policies matching on the active statuses ignore it automatically. A verdict that was retracted no longer appears, and all verdicts clear when a new review cycle starts (review re-requested or recalled).
+- `timestamp` — when the verdict was submitted. Compare against `revision.dateUpdated` to detect approvals that predate later edits.
+
+Disable **Incremental Changes Only** for publish-gating hooks so the policy is enforced on every publish.
+
+Example: Require approval from a specific service account plus at least one human.
+
+```js
+if (revision.status === "published") {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.status === "approved"
+  );
+  if (!approvals.some((r) => r.user?.type === "api_key" && r.user.apiKey === "key_abc123")) {
+    throw new Error(
+      "Publishing requires approval from the release-bot service account."
+    );
+  }
+  if (!approvals.some((r) => r.user?.type === "dashboard")) {
+    throw new Error(
+      "Publishing requires at least one human approval."
+    );
+  }
+}
+```
+
+Example: Require two approvals, at least one from a designated reviewer group.
+
+```js
+const seniorReviewers = ["user_abc", "user_def", "user_ghi"];
+if (revision.status === "published") {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.status === "approved"
+  );
+  if (approvals.length < 2) {
+    throw new Error("Publishing requires at least two approvals.");
+  }
+  if (!approvals.some((r) => seniorReviewers.includes(r.userId))) {
+    throw new Error("At least one approval must come from a senior reviewer.");
+  }
 }
 ```

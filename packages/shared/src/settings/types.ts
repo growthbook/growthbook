@@ -96,6 +96,8 @@ interface BaseSettings {
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
   maxMetricSliceLevels: number;
+  topValuesLookbackValue: number;
+  topValuesLookbackUnit: "days";
   useStickyBucketing: boolean;
 }
 

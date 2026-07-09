@@ -20,7 +20,7 @@ import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useForm } from "react-hook-form";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -154,6 +154,7 @@ function OrganizationRow({
       )}
       {clickhouseModalOpen && (
         <Modal
+          useRadixButton={false}
           open={true}
           header="Create Clickhouse Data Source"
           close={() => setClickhouseModalOpen(false)}
@@ -182,6 +183,7 @@ function OrganizationRow({
         className={clsx({
           "table-warning": current,
           "table-danger": organization.disabled,
+          "table-secondary": organization.suspended && !organization.disabled,
         })}
       >
         <td>
@@ -919,6 +921,7 @@ const EditMember: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
@@ -1133,6 +1136,7 @@ function EditSSOModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       submit={form.handleSubmit(async (data) => {
         const payload = generateSSOConnection({

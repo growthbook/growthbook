@@ -533,7 +533,10 @@ class QuantileStatistic(Statistic):
         quantile_below_zero = self.n <= multiplier**2 * (1.0 - self.nu) / self.nu
         if quantile_above_one or quantile_below_zero:
             return True
-        return self.variance_init <= 0.0 and self.n < 1000
+        # Collapsed bounds (quantile_lower == quantile_upper) mean the sketch
+        # or percentile grid could not resolve a CI at any n_star, so inference
+        # must not proceed with a floored variance regardless of n.
+        return self.variance_init <= 0.0
 
     @property
     def mean(self) -> float:

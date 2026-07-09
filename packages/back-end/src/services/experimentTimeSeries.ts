@@ -4,9 +4,8 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
 } from "shared/experiments";
-import cloneDeep from "lodash/cloneDeep";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesDataPointTag,
@@ -49,9 +48,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // This top-level update only handles the main experiment time series.
-  // Precomputed dimension time series are handled separately by
-  // runEagerPrecomputedDimensionAnalyses.
+  // This function handles the main (dimensionless) experiment time series.
+  // Precomputed dimension time series are written by
+  // runEagerExperimentAndUnitDimensionsAnalyses after their analyses are persisted.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -134,7 +133,7 @@ export async function getExperimentTimeSeriesContext({
 /**
  * Persists time series for a group of analyses that share the same snapshot
  * context. Dimensionless analyses write the main experiment series; analyses
- * for one precomputed dimension write one series per dimension value.
+ * for a precomputed dimension write one series per dimension value.
  */
 export async function updateExperimentAnalysisTimeSeries({
   context,
@@ -162,8 +161,13 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
-  // Only precomputed dimensions are supported for dimension time series for now.
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
+  if (
+    dimensionId &&
+    !isDimensionPrecomputed(
+      dimensionId,
+      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
+  ) {
     throw new Error(
       `Cannot update time series for unsupported dimension: ${dimensionId}`,
     );
@@ -421,90 +425,6 @@ function getMetricSettingsHash(
       },
     });
   }
-}
-
-// TODO(incremental-refresh): Reconcile with getExperimentSettingsHash and getMetricSettingsHash
-export function getExperimentSettingsHashForIncrementalRefresh(
-  snapshotSettings: ExperimentSnapshotSettings,
-): string {
-  return hashObject({
-    // snapshotSettings
-    activationMetric: snapshotSettings.activationMetric,
-    attributionModel: snapshotSettings.attributionModel,
-    queryFilter: snapshotSettings.queryFilter,
-    segment: snapshotSettings.segment,
-    skipPartialData: snapshotSettings.skipPartialData,
-    datasourceId: snapshotSettings.datasourceId,
-    exposureQueryId: snapshotSettings.exposureQueryId,
-    startDate: snapshotSettings.startDate,
-    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
-    experimentId: snapshotSettings.experimentId,
-  });
-}
-
-export function getMetricSettingsHashForIncrementalRefresh({
-  factMetric,
-  factTableMap,
-  metricSettings,
-}: {
-  factMetric: FactMetricInterface;
-  factTableMap: Map<string, FactTableInterface>;
-  metricSettings?: MetricForSnapshot;
-}): string {
-  const numeratorFactTableId = factMetric.numerator.factTableId;
-  const numeratorFactTable = numeratorFactTableId
-    ? factTableMap?.get(numeratorFactTableId)
-    : undefined;
-
-  const denominatorFactTableId = factMetric.denominator?.factTableId;
-  const denominatorFactTable = denominatorFactTableId
-    ? factTableMap?.get(denominatorFactTableId)
-    : undefined;
-
-  if (metricSettings) {
-    const trimmedMetricComputedSettings: Partial<
-      MetricForSnapshot["computedSettings"]
-    > = cloneDeep(metricSettings.computedSettings);
-    // strip fields we don't need for incremental refresh
-    if (trimmedMetricComputedSettings) {
-      delete trimmedMetricComputedSettings.properPrior;
-      delete trimmedMetricComputedSettings.properPriorMean;
-      delete trimmedMetricComputedSettings.properPriorStdDev;
-      delete trimmedMetricComputedSettings.regressionAdjustmentReason;
-      delete trimmedMetricComputedSettings.targetMDE;
-    }
-  }
-
-  return hashObject({
-    ...(metricSettings?.computedSettings
-      ? {
-          regressionAdjustmentEnabled:
-            metricSettings.computedSettings.regressionAdjustmentEnabled,
-          regressionAdjustmentDays:
-            metricSettings.computedSettings.regressionAdjustmentDays,
-          regressionAdjustmentReason:
-            metricSettings.computedSettings.regressionAdjustmentReason,
-          // this drops unneeded analysis settings that don't affect the data
-        }
-      : {}),
-    metricType: factMetric.metricType,
-    numerator: factMetric.numerator,
-    denominator: factMetric.denominator,
-    cappingSettings: factMetric.cappingSettings,
-    quantileSettings: factMetric.quantileSettings,
-    numeratorFactTable: {
-      sql: numeratorFactTable?.sql,
-      eventName: numeratorFactTable?.eventName,
-      filters: getFiltersForHash(numeratorFactTable, factMetric.numerator),
-    },
-    denominatorFactTable: {
-      sql: denominatorFactTable?.sql,
-      eventName: denominatorFactTable?.eventName,
-      // filters should be added here as well in case it is a cross
-      // fact table ratio metric
-      filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
-    },
-  });
 }
 
 function getHasSignificantDifference(

@@ -51,6 +51,7 @@ jest.mock("back-end/src/queryRunners/ExperimentResultsQueryRunner", () => ({
     .mockImplementation((_context, snapshot) => ({
       model: snapshot,
       startAnalysis: jest.fn(),
+      setExperimentUpdateExecutionLogger: jest.fn(),
     })),
 }));
 
@@ -62,6 +63,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -74,6 +76,7 @@ jest.mock(
       .mockImplementation((_context, snapshot) => ({
         model: snapshot,
         startAnalysis: jest.fn(),
+        setExperimentUpdateExecutionLogger: jest.fn(),
       })),
   }),
 );
@@ -109,6 +112,12 @@ function makeContext(): ApiReqContext {
     org: {
       id: "org_123",
       settings: {},
+    },
+    logger: {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
     },
     models: {
       metricGroups: {
@@ -210,6 +219,8 @@ function makePlan(
     useCache: true,
     fullRefresh: false,
     settingsForSnapshotMetrics: [] as MetricSnapshotSettings[],
+    incrementalFallbackReason: null,
+    fullRefreshReason: null,
     ...overrides,
   };
 }
@@ -260,6 +271,11 @@ describe("snapshot lifecycle", () => {
     );
 
     const queryRunner = resultsQueryRunnerMock.mock.results[0].value;
+    expect(queryRunner.setExperimentUpdateExecutionLogger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan: expect.objectContaining({ runnerKind: "results" }),
+      }),
+    );
     expect(queryRunner.startAnalysis).toHaveBeenCalledWith(
       expect.objectContaining({
         snapshotType: "standard",

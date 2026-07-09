@@ -12,6 +12,7 @@ import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
 interface Props {
@@ -51,20 +52,7 @@ export default function RunningExperimentDecisionBanner({
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v) => {
-    variationNames[v.id] = (
-      <Flex
-        direction="row"
-        className={`variation variation${v.index} with-variation-label d-flex align-items-center`}
-      >
-        <span
-          className="label"
-          style={{ width: 20, height: 20, flex: "none", marginRight: 4 }}
-        >
-          {v.index}
-        </span>
-        <span className="d-inline-block">{v.name}</span>
-      </Flex>
-    );
+    variationNames[v.id] = <VariationLabel number={v.index} name={v.name} />;
   });
   if (decidedVariations.length === 0) return null;
 
@@ -101,7 +89,7 @@ export default function RunningExperimentDecisionBanner({
               <Box>
                 <Flex direction="row" align="center">
                   {decisionContent}
-                  <Flex direction="row" gap="1" ml="2">
+                  <Flex direction="row" align="center" gap="1" ml="2">
                     {decidedVariations.map((v, i) => (
                       <>
                         <Box key={v.id}>{variationNames[v.id]}</Box>

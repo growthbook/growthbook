@@ -8,6 +8,12 @@ import {
 
 export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
   async (req) => {
+    if (!req.context.hasPremiumFeature("archetypes")) {
+      req.context.throwPlanDoesNotAllowError(
+        "Archetypes require a premium plan.",
+      );
+    }
+
     const archetypes = await getAllArchetypes(
       req.context.org.id,
       req.context.userId,

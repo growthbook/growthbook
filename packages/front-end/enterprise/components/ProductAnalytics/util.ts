@@ -12,8 +12,7 @@ import type {
   DatasetType,
   ExplorationDataset,
   ExplorationConfig,
-  ProductAnalyticsResultRow,
-  ShowAs,
+  ExplorationDateRange,
 } from "shared/validators";
 import { isEqual } from "lodash";
 import { createParser } from "nuqs";
@@ -23,11 +22,9 @@ import {
   getDateGranularity,
   mapDatabaseTypeToEnum,
   getMetricMixClass,
-  getEffectiveMetricValue,
 } from "shared/enterprise";
 export {
   getMetricMixClass,
-  inferShowAs,
   getEffectiveShowAs,
   clearInapplicableShowAs,
   getEffectiveMetricValue,
@@ -36,9 +33,29 @@ export {
   getIsRatioByIndex,
   buildExplorationColumns,
   getExplorationCellValue,
+  computeDimensionTotals,
+  sortExplorationRows,
 } from "shared/enterprise";
 export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
-import { dateGranularity, explorationConfigValidator } from "shared/validators";
+
+export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
+
+/** Explorer UI state: exploration config plus optional compare period (not on public API config). */
+export type ExplorerDraftConfig = ExplorationConfig & {
+  previousTimeFrame?: ExplorationDateRange;
+};
+
+export function stripExplorerDraftFields(
+  config: ExplorerDraftConfig,
+): ExplorationConfig {
+  const { previousTimeFrame: _, ...rest } = config;
+  return rest;
+}
+import {
+  dateGranularity,
+  explorationConfigValidator,
+  explorationDateRangeValidator,
+} from "shared/validators";
 
 export { mapDatabaseTypeToEnum };
 
@@ -161,12 +178,17 @@ export function getCommonColumns(
 ): Pick<ColumnInterface, "column" | "name">[] {
   if (!dataset || !dataset.values || dataset.values.length === 0) return [];
 
-  type SimpleColumn = Pick<ColumnInterface, "column" | "name" | "deleted">;
+  type SimpleColumn = Pick<
+    ColumnInterface,
+    "column" | "name" | "deleted" | "datatype"
+  >;
   let columns: SimpleColumn[] | null = null;
+  const userIdTypes = new Set<string>();
 
   if (dataset.type === "fact_table") {
     const ft = getFactTableById(dataset.factTableId || "");
     columns = ft?.columns || [];
+    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
   } else if (dataset.type === "metric") {
     for (const value of dataset.values) {
       const metricId = value.metricId;
@@ -176,6 +198,7 @@ export function getCommonColumns(
       if (factMetric) {
         const ft = getFactTableById(factMetric.numerator.factTableId);
         valueColumns = ft?.columns || [];
+        ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
       }
 
       if (columns === null) {
@@ -187,15 +210,18 @@ export function getCommonColumns(
       }
     }
   } else if (dataset.type === "data_source") {
-    columns = Object.keys(dataset.columnTypes).map((name) => ({
+    columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
       column: name,
       name,
       deleted: false,
+      datatype,
     }));
   }
 
   return (columns || [])
     .filter((c) => !c.deleted)
+    .filter((c) => c.datatype === "string")
+    .filter((c) => !userIdTypes.has(c.column))
     .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
     .map((c) => ({ column: c.column, name: c.name }));
 }
@@ -348,7 +374,7 @@ function cleanRowFilters<T extends ProductAnalyticsValue>(value: T): T {
 }
 
 /** Removes incomplete (partially configured) inputs (values, filters) from a dataset. (e.g. sum values without a value column) */
-export function removeIncompleteInputs(
+function removeIncompleteInputs(
   dataset: ExplorationDataset,
 ): ExplorationDataset {
   if (dataset.type === "metric") {
@@ -386,15 +412,16 @@ export function removeIncompleteInputs(
 
 /** Prepares a config for submission by removing incomplete inputs (values, filters) from the dataset. */
 export function cleanConfigForSubmission(
-  config: ExplorationConfig,
+  config: ExplorerDraftConfig,
 ): ExplorationConfig {
-  const cleanedDataset = removeIncompleteInputs(config.dataset);
-  const cleanedDimensions = config.dimensions.filter((d) => {
+  const { previousTimeFrame: _, ...configWithoutPrevious } = config;
+  const cleanedDataset = removeIncompleteInputs(configWithoutPrevious.dataset);
+  const cleanedDimensions = configWithoutPrevious.dimensions.filter((d) => {
     if (d.dimensionType === "date" || d.dimensionType === "slice") return true;
     return "column" in d && d.column !== null;
   });
   return {
-    ...config,
+    ...configWithoutPrevious,
     dataset: cleanedDataset,
     dimensions: cleanedDimensions,
   } as ExplorationConfig;
@@ -423,9 +450,11 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 }
 
 /** Strips fields that only affect rendering, not data fetching. */
-function toFetchKey(config: ExplorationConfig): unknown {
+function toFetchKey(config: ExplorationConfig | ExplorerDraftConfig): unknown {
+  const base =
+    "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { showAs, ...rest } = config;
+  const { showAs, ...rest } = base;
   return {
     ...rest,
     chartType: getChartCategory(config.chartType),
@@ -472,22 +501,30 @@ export function isSubmittableConfig(cleanedConfig: ExplorationConfig): boolean {
 
 /** Compares two configs and determines if a fetch or local update is needed. */
 export function compareConfig(
-  lastSubmittedConfig: ExplorationConfig | null,
+  lastSubmittedConfig: ExplorerDraftConfig | null,
   newConfig: ExplorationConfig,
+  previousWindows?: {
+    lastPreviousTimeFrame: ExplorationDateRange | null;
+    newPreviousTimeFrame: ExplorationDateRange | null;
+  },
 ): { needsFetch: boolean; needsUpdate: boolean } {
+  const lastPrev = previousWindows?.lastPreviousTimeFrame ?? null;
+  const newPrev = previousWindows?.newPreviousTimeFrame ?? null;
+
   if (!lastSubmittedConfig) {
     const hasValues = newConfig.dataset.values.length > 0;
     return { needsFetch: hasValues, needsUpdate: hasValues };
   }
 
-  if (isEqual(lastSubmittedConfig, newConfig)) {
+  const lastComparable = stripExplorerDraftFields(lastSubmittedConfig);
+
+  if (isEqual(lastComparable, newConfig) && isEqual(lastPrev, newPrev)) {
     return { needsFetch: false, needsUpdate: false };
   }
 
-  const needsFetch = !isEqual(
-    toFetchKey(lastSubmittedConfig),
-    toFetchKey(newConfig),
-  );
+  const needsFetch =
+    !isEqual(toFetchKey(lastComparable), toFetchKey(newConfig)) ||
+    !isEqual(lastPrev, newPrev);
   return { needsFetch, needsUpdate: true };
 }
 
@@ -540,7 +577,7 @@ export function getRefreshInterval(elapsedSeconds: number): number {
 export function shouldChartSectionShow(params: {
   loading: boolean;
   error: string | null;
-  submittedExploreState: ExplorationConfig | null;
+  submittedExploreState: ExplorerDraftConfig | null;
 }): boolean {
   const { loading, error, submittedExploreState } = params;
 
@@ -577,52 +614,6 @@ export function getLockedMixClass(
   return null;
 }
 
-export interface RenderOpts {
-  showAs: ShowAs;
-  // Indexed by the metric value's position in the dataset.values array.
-  // Ratio metrics always render as numerator/denominator regardless of showAs.
-  isRatioByIndex: boolean[];
-}
-
-function getRowTotal(row: ProductAnalyticsResultRow, opts: RenderOpts): number {
-  return row.values.reduce(
-    (sum, v, i) =>
-      sum +
-      getEffectiveMetricValue(v, {
-        showAs: opts.showAs,
-        isRatio: opts.isRatioByIndex[i] ?? false,
-      }),
-    0,
-  );
-}
-
-/** Compute the sum of all metric values grouped by a specific dimension index. */
-export function computeDimensionTotals(
-  rows: ProductAnalyticsResultRow[],
-  dimIndex: number,
-  opts: RenderOpts,
-): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const row of rows) {
-    const key = row.dimensions[dimIndex] ?? "";
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
-  }
-  return totals;
-}
-
-/** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
-export function computeGroupTotals(
-  rows: ProductAnalyticsResultRow[],
-  opts: RenderOpts,
-): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const row of rows) {
-    const key = row.dimensions.slice(1).join(" - ");
-    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
-  }
-  return totals;
-}
-
 export type DecodeConfigResult =
   | { config: ExplorationConfig; error: null }
   | { config: null; error: string };
@@ -640,6 +631,25 @@ export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
   }
 }
 
+type DecodePreviousTimeFrameResult =
+  | { previousTimeFrame: ExplorationDateRange; error: null }
+  | { previousTimeFrame: null; error: string };
+
+function decodePreviousTimeFrameParam(
+  encoded: string,
+): DecodePreviousTimeFrameResult {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(atob(encoded)));
+    const previousTimeFrame = explorationDateRangeValidator.parse(parsed);
+    return { previousTimeFrame, error: null };
+  } catch {
+    return {
+      previousTimeFrame: null,
+      error: "The URL contains an invalid comparison date range.",
+    };
+  }
+}
+
 export const explorationConfigParser = createParser<ExplorationConfig>({
   parse: (raw) => {
     const result = decodeExplorationConfig(raw);
@@ -648,34 +658,16 @@ export const explorationConfigParser = createParser<ExplorationConfig>({
   serialize: (config) => encodeExplorationConfig(config),
 });
 
-/**
- * Sort exploration result rows to match the visual ordering of the chart.
- * - Timeseries: chronological by first dimension (date), then by group total descending.
- * - Bar/cumulative: by first-dimension total descending, then by group total descending.
- */
-export function sortExplorationRows(
-  rows: ProductAnalyticsResultRow[],
-  isTimeseries: boolean,
-  opts: RenderOpts,
-): ProductAnalyticsResultRow[] {
-  if (rows.length === 0) return rows;
-
-  const dim0Totals = computeDimensionTotals(rows, 0, opts);
-  const groupTotals = computeGroupTotals(rows, opts);
-
-  return [...rows].sort((a, b) => {
-    const dim0A = a.dimensions[0] ?? "";
-    const dim0B = b.dimensions[0] ?? "";
-
-    if (dim0A !== dim0B) {
-      if (isTimeseries) {
-        return new Date(dim0A).getTime() - new Date(dim0B).getTime();
-      }
-      return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
-    }
-
-    const groupA = a.dimensions.slice(1).join(" - ");
-    const groupB = b.dimensions.slice(1).join(" - ");
-    return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
-  });
+function encodePreviousTimeFrameParam(value: ExplorationDateRange): string {
+  return btoa(encodeURIComponent(JSON.stringify(value)));
 }
+
+export const previousTimeFrameQueryParser =
+  createParser<ExplorationDateRange | null>({
+    parse: (raw) => {
+      if (!raw) return null;
+      const result = decodePreviousTimeFrameParam(raw);
+      return result.previousTimeFrame;
+    },
+    serialize: (value) => (value ? encodePreviousTimeFrameParam(value) : ""),
+  });

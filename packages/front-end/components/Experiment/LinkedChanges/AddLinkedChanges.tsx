@@ -12,7 +12,6 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
-import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -160,6 +159,7 @@ export default function AddLinkedChanges({
   setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   if (experiment.status !== "draft") return null;
+  if (experiment.nextScheduledStatusUpdate) return null;
   if (experiment.archived) return null;
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
@@ -182,34 +182,19 @@ export default function AddLinkedChanges({
   const possibleSections = Object.keys(sections);
 
   return (
-    <Box className="appbox" p="5" my="5">
-      {numLinkedChanges > 0 ? (
-        <>
-          <Heading as="h4" size="small">
-            Add Implementation
-          </Heading>
-        </>
-      ) : (
-        <>
-          <Heading as="h4" size="small">
-            Select an Implementation
-          </Heading>
-        </>
-      )}
-      <Box className="appbox mb-0" p="4" mt="2" mb="0">
-        {possibleSections.map((s, i) => {
-          return (
-            <Box key={s}>
-              <AddLinkedChangeRow
-                type={s as LinkedChange}
-                setModal={sections[s].setModal}
-                experiment={experiment}
-              />
-              {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
-            </Box>
-          );
-        })}
-      </Box>
+    <Box className="appbox mb-0" p="4" mt="2" mb="0">
+      {possibleSections.map((s, i) => {
+        return (
+          <Box key={s}>
+            <AddLinkedChangeRow
+              type={s as LinkedChange}
+              setModal={sections[s].setModal}
+              experiment={experiment}
+            />
+            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
+          </Box>
+        );
+      })}
     </Box>
   );
 }

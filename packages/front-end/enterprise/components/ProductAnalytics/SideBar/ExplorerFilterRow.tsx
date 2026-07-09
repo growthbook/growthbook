@@ -18,6 +18,7 @@ import {
   NUMBER_PATTERN,
   numberRegex,
   getColumnInfo,
+  getAttributeFieldsExposedAsColumns,
 } from "@/components/FactTables/rowFilterUtils";
 
 const NUMBER_PARTIAL_PATTERN = /^-?\.?$|^-?\d*\.?\d*$/;
@@ -36,6 +37,7 @@ export function factTableToColumnSource(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
 ): FilterColumnSource {
   const columns: SingleValue[] = [];
+  const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);
   factTable.columns.forEach((col) => {
     if (col.datatype === "date") return;
     if (factTable.userIdTypes?.includes(col.column)) return;
@@ -45,6 +47,8 @@ export function factTableToColumnSource(
 
     if (col.jsonFields) {
       Object.keys(col.jsonFields).forEach((field) => {
+        if (col.column === "attributes" && hiddenAttributeFields.has(field))
+          return;
         columns.push({
           label: `${col.name || col.column}.${field}`,
           value: `${col.column}.${field}`,

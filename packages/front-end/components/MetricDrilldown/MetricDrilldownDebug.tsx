@@ -136,12 +136,11 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
   sequentialTestingEnabled,
   experimentStatus,
 }) => {
-  const {
-    snapshot,
-    analysis,
-    setAnalysisSettings,
-    mutateSnapshot: mutate,
-  } = useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
+  // Forwarded to BaselineChooserColumnLabel inside the rendered tables,
+  // which appends analyses to the current snapshot in place — bind
+  // `inPlace: true` so the heavy fetch refreshes.
+  const mutateInPlace = () => mutate({ inPlace: true });
 
   const varianceReductionRows = useMemo(() => {
     if (!row) return [];
@@ -332,7 +331,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}
@@ -375,7 +374,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}
@@ -418,7 +417,7 @@ const MetricDrilldownDebug: FC<MetricDrilldownDebugProps> = ({
             snapshot={snapshot}
             analysis={analysis}
             setAnalysisSettings={setAnalysisSettings}
-            mutate={mutate}
+            mutate={mutateInPlace}
           />
         </div>
       )}

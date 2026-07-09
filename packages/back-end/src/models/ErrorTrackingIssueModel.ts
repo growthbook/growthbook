@@ -54,4 +54,4 @@ export type ErrorTrackingIssueDocument = mongoose.Document & {
 export const ErrorTrackingIssueModel = mongoose.model(
   "ErrorTrackingIssue",
   errorTrackingIssueSchema,
-) as mongoose.Model<ErrorTrackingIssueDocument>;
+) as unknown as mongoose.Model<ErrorTrackingIssueDocument>;

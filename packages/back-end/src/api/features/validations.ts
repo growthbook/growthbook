@@ -1,4 +1,8 @@
-import type { FeatureRule, FeaturePrerequisite } from "shared/validators";
+import type {
+  FeatureRule,
+  FeaturePrerequisite,
+  FeatureRulePatch,
+} from "shared/validators";
 import {
   apiRevisionRampCreateAction,
   RevisionRampCreateAction,
@@ -10,6 +14,7 @@ import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -30,24 +35,25 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
+  const normalizeAction = (a: {
+    targetId?: string;
+    patch: Record<string, unknown>;
+  }) => ({
+    targetType: "feature-rule" as const,
+    targetId: a.targetId ?? "",
+    patch: a.patch as FeatureRulePatch,
+  });
   return {
     ...input,
     steps: (input.steps ?? []).map((s) => ({
-      trigger: s.trigger,
-      actions: (s.actions ?? []).map((a) => ({
-        targetType: a.targetType ?? ("feature-rule" as const),
-        targetId: a.targetId ?? "",
-        patch:
-          a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
-      })),
+      interval: s.interval,
+      actions: (s.actions ?? []).map(normalizeAction),
       approvalNotes: s.approvalNotes ?? undefined,
+      monitored: !!s.monitored,
+      holdConditions: s.holdConditions ?? undefined,
     })),
-    endActions: input.endActions?.map((a) => ({
-      targetType: a.targetType ?? ("feature-rule" as const),
-      targetId: a.targetId ?? "",
-      patch:
-        a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
-    })),
+    startActions: input.startActions?.map(normalizeAction),
+    endActions: input.endActions?.map(normalizeAction),
   };
 }
 
@@ -141,41 +147,32 @@ export function assertValidEnvironment(
 
 // Build a RevisionRampCreateAction from start/end dates (enable/disable).
 // `environment` is intentionally absent — new actions target by `ruleId` only.
+//
+// startDate is set at the ramp level — `applyRampStartActions` auto-enables
+// the rule when the schedule starts. cutoffDate disables the rule at the
+// end. No explicit step is needed for either gate; an empty `steps` array is
+// valid as long as startDate or cutoffDate is present.
 export function buildScheduleRampAction(
   ruleId: string,
   startDate?: string | null,
   endDate?: string | null,
 ): RevisionRampCreateAction {
-  // targetId is overwritten at publish time in createRampSchedulesForRevision.
-  const steps: RevisionRampCreateAction["steps"] = startDate
-    ? [
-        {
-          trigger: { type: "scheduled", at: new Date(startDate) },
-          actions: [
-            {
-              targetType: "feature-rule",
-              targetId: "",
-              patch: { ruleId, enabled: true },
-            },
-          ],
-        },
-      ]
-    : [];
-
   const action: RevisionRampCreateAction = {
     mode: "create",
     name: "Rule schedule",
     ruleId,
-    steps,
+    steps: [],
   };
 
+  if (startDate) {
+    action.startDate = startDate;
+  }
+
   if (endDate) {
-    action.endCondition = {
-      trigger: { type: "scheduled", at: new Date(endDate) },
-    };
+    action.cutoffDate = endDate;
     action.endActions = [
       {
-        targetType: "feature-rule",
+        targetType: "feature-rule" as const,
         targetId: "",
         patch: { ruleId, enabled: false },
       },
@@ -301,6 +298,31 @@ export function validateRuleConditions(
     }
   }
   validatePrerequisiteConditions(rule.prerequisites ?? []);
+}
+
+// Opt-in check (org setting `requireRegisteredAttributes`): rejects rules
+// whose hashAttribute, fallbackAttribute, or condition field names aren't
+// declared in the org's attributeSchema. Prevents typo'd attributes from
+// silently shipping dead targeting.
+export function validateRuleAttributes(
+  rule: Partial<Pick<FeatureRule, "condition">> & {
+    hashAttribute?: string;
+    fallbackAttribute?: string;
+  },
+  context: ApiReqContext,
+  project?: string,
+): void {
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: rule.hashAttribute,
+      fallbackAttribute: rule.fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    undefined,
+    project,
+  );
 }
 
 export function validatePrerequisiteConditions(

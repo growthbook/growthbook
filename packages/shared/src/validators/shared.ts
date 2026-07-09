@@ -79,6 +79,17 @@ export const paginationQueryFields = {
     .meta({ default: 0 }),
 };
 
+/** Accepts boolean query params in both string and native boolean form. */
+export const booleanQueryField = z
+  .union([
+    z.literal("true"),
+    z.literal("false"),
+    z.literal("0"),
+    z.literal("1"),
+    z.boolean(),
+  ])
+  .optional();
+
 /**
  * Self-hosted escape hatch for GitOps-style bulk exports. Honored only when
  * API_ALLOW_SKIP_PAGINATION is set on the server.

@@ -12,6 +12,7 @@ import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
+import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,7 @@ export default defineConfig([
     "docs/build",
     "packages/sdk-js/scripts",
     "**/*.tsbuildinfo",
+    "packages/shared/types/*.js",
   ]),
   nextRecommendedConfig,
   {
@@ -369,6 +371,18 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/back-end/**/*.ts"],
+    ignores: ["./packages/back-end/**/*.test.{ts,tsx,js,jsx}"],
+    plugins: {
+      localBackend: {
+        rules: { "restricted-query-types": restrictedQueryTypes },
+      },
+    },
+    rules: {
+      "localBackend/restricted-query-types": "error",
+    },
+  },
+  {
     files: [
       "./packages/back-end/src/controllers/**/*.ts",
       "./packages/back-end/src/routers/**/*.controller.ts",
@@ -437,6 +451,28 @@ export default defineConfig([
               group: ["shared/src", "shared/src/*", "shared/src/**"],
               message:
                 "Within shared, use relative paths or import from shared without /src/",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["./packages/stats-ts/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*"],
+              message: "stats-ts cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/experiments') instead of 'shared/src/...'",
             },
           ],
         },

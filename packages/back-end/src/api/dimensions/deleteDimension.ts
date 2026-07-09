@@ -8,6 +8,10 @@ import {
 export const deleteDimension = createApiRequestHandler(
   deleteDimensionValidator,
 )(async (req) => {
+  if (!req.context.permissions.canDeleteDimension()) {
+    req.context.permissions.throwPermissionError();
+  }
+
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 

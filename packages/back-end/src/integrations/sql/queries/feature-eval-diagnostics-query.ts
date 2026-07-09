@@ -1,5 +1,6 @@
 import { subDays } from "date-fns";
 import { format } from "shared/sql";
+import { getActiveFeatureUsageQuery } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FeatureEvalDiagnosticsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -13,9 +14,10 @@ export function getFeatureEvalDiagnosticsQuery(
   const featureKey = dialect.escapeStringLiteral(params.feature);
   const oneWeekAgo = subDays(new Date(), 7);
 
-  const featureEvalQuery = datasource.settings?.queries?.featureUsage
-    ? datasource.settings.queries.featureUsage[0].query
-    : "";
+  const featureUsageQuery = getActiveFeatureUsageQuery(
+    datasource.settings?.queries?.featureUsage,
+  );
+  const featureEvalQuery = featureUsageQuery?.query ?? "";
 
   const compiledFeatureEvalQuery = compileSqlTemplate(
     featureEvalQuery,

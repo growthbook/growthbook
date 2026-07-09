@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import React, { FC, useEffect, useState } from "react";
 import { ExperimentTemplateInterface } from "shared/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
@@ -234,6 +235,7 @@ const TemplateForm: FC<Props> = ({
   return (
     <FormProvider {...form}>
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         trackingEventModalSource={source}
         header={header}
@@ -316,6 +318,7 @@ const TemplateForm: FC<Props> = ({
               label="Experiment Description"
               textarea
               minRows={1}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               placeholder={"Short human-readable description of the experiment"}
             />

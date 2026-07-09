@@ -1,4 +1,5 @@
 import { ChangeEventHandler, FC, useState } from "react";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -10,7 +11,7 @@ import Button from "@/components/Button";
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
   const [testConnectionResults, setTestConnectionResults] = useState<{
@@ -111,11 +112,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -127,6 +129,7 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
                       }
                     } catch (e) {

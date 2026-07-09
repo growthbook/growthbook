@@ -22,7 +22,7 @@ export default function BanditUpdateStatus({
   isPublic?: boolean;
   ssrSnapshot?: ExperimentSnapshotInterface;
 }) {
-  const { latest: _latest } = useSnapshot();
+  const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 

@@ -6,9 +6,12 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
   CREATE_BLOCK_TYPE,
+  dashboardBlockHasIds,
   getBlockData,
   getInitialConfigByBlockType,
+  DASHBOARD_GRID_COLS,
 } from "shared/enterprise";
+import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   PiCaretDoubleLeft,
@@ -185,6 +188,17 @@ export default function DashboardWorkspace({
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
+  // Whenever a block becomes staged (via add, duplicate, or edit), make sure
+  // the editing drawer is open so the user can actually configure/save it.
+  // Without this, paths like duplicateBlock - which only set addBlockIndex +
+  // stagedAddBlock - leave a staged block with no visible way to commit it
+  // when the drawer happens to be collapsed.
+  useEffect(() => {
+    if (isDefined(addBlockIndex) || isDefined(editingBlockIndex)) {
+      setEditSidebarExpanded(true);
+    }
+  }, [addBlockIndex, editingBlockIndex]);
+
   const [dashboardCopy] = useState<DashboardInterface | undefined>(
     cloneDeep(dashboard),
   );
@@ -270,6 +284,16 @@ export default function DashboardWorkspace({
   const deleteBlock = (i: number) => {
     setBlocksAndSubmit([...blocks.slice(0, i), ...blocks.slice(i + 1)]);
     clearEditingState();
+  };
+
+  // Strip layout so the duplicate doesn't land on top of the source block
+  // (normalizeLayouts on the server doesn't resolve overlaps).
+  const duplicateBlock = (i: number) => {
+    setAddBlockIndex(i + 1);
+    setStagedAddBlock({
+      ...getBlockData(effectiveBlocks[i]),
+      layout: undefined,
+    });
   };
 
   return (
@@ -445,22 +469,43 @@ export default function DashboardWorkspace({
                 focusedBlockIndex: focusedBlockIndex,
                 stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
                 scrollAreaRef: scrollAreaRef,
-                moveBlock: (i, direction) => {
+                updateLayout: (layouts: readonly LayoutItem[]) => {
                   if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
                     return;
-                  const otherBlocks = blocks.toSpliced(i, 1);
-                  setBlocksAndSubmit([
-                    ...otherBlocks.slice(0, i + direction),
-                    blocks[i],
-                    ...otherBlocks.slice(i + direction),
-                  ]);
+                  const byId = new Map(layouts.map((l) => [l.i, l] as const));
+                  let changed = false;
+                  const next = blocks.map((b) => {
+                    if (!dashboardBlockHasIds(b)) return b;
+                    const l = byId.get(b.id);
+                    if (!l) return b;
+                    const w = Math.min(l.w, DASHBOARD_GRID_COLS);
+                    const h = Math.max(1, l.h);
+                    const nextLayout = {
+                      x: l.x,
+                      y: l.y,
+                      w,
+                      h,
+                      ...(b.layout?.static ? { static: true } : {}),
+                    };
+                    const prev = b.layout;
+                    if (
+                      prev &&
+                      prev.x === nextLayout.x &&
+                      prev.y === nextLayout.y &&
+                      prev.w === nextLayout.w &&
+                      prev.h === nextLayout.h
+                    ) {
+                      return b;
+                    }
+                    changed = true;
+                    return { ...b, layout: nextLayout };
+                  });
+                  if (!changed) return;
+                  setBlocksAndSubmit(next);
                 },
                 addBlockType: addBlockType,
                 editBlock: editBlock,
-                duplicateBlock: (i) => {
-                  setAddBlockIndex(i + 1);
-                  setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-                },
+                duplicateBlock,
                 deleteBlock: deleteBlock,
               }}
               mutate={mutate}
@@ -544,10 +589,7 @@ export default function DashboardWorkspace({
               addBlockType={addBlockType}
               focusBlock={focusBlock}
               editBlock={editBlock}
-              duplicateBlock={(i) => {
-                setAddBlockIndex(i + 1);
-                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-              }}
+              duplicateBlock={duplicateBlock}
               deleteBlock={deleteBlock}
             />
           </Flex>

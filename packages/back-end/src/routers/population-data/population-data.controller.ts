@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Response } from "express";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { PopulationDataInterface } from "shared/types/population-data";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { createPopulationDataPropsValidator } from "shared/validators";
@@ -70,7 +71,7 @@ export const postPopulationData = async (
     defaultMetricPriorSettings: {
       proper: false,
       mean: 0,
-      stddev: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       override: false,
     },
     regressionAdjustmentEnabled: false,

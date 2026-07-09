@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getApiHost } from "@/services/env";
+import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
@@ -59,7 +59,25 @@ export async function openVisualEditor({
     ...(aiFeatureMeta ? { "ai-enabled": "true" } : {}),
   });
 
-  if (!bypassChecks) {
+  // Opt-in escape hatch for engineers developing the extension itself.
+  // The probe below pings the production Chrome Web Store extension ID,
+  // which won't match a locally-unpacked dev build (Chrome assigns those
+  // a random ID). Those devs can set this flag once and the probe is
+  // skipped from then on:
+  //
+  //   localStorage.setItem("gb-visual-editor-dev-extension", "1")
+  //
+  // We deliberately do NOT key this off `window.location.hostname` —
+  // running the GrowthBook web app locally is completely independent of
+  // which extension build you have installed, and the common case is
+  // someone on `localhost` using the published extension. Keying off
+  // the host meant those users got no error feedback when their
+  // extension was missing or misconfigured, just a silent no-op.
+  const isExtensionDev =
+    typeof window !== "undefined" &&
+    window.localStorage?.getItem("gb-visual-editor-dev-extension") === "1";
+
+  if (!bypassChecks && !isExtensionDev) {
     if (!["chrome", "firefox"].includes(browser) || deviceType !== "desktop") {
       track("Open visual editor", {
         source: "visual-editor-ui",
@@ -109,6 +127,10 @@ export async function openVisualEditor({
         data: {
           apiHost,
           apiKey,
+          // Teach the extension our app origin so its "Connect with
+          // GrowthBook" button knows where to reopen for future reconnects
+          // (the app origin can differ from apiHost, e.g. on self-hosted).
+          appOrigin: getAppOrigin(),
         },
       },
       window.location.origin,
@@ -138,7 +160,7 @@ const OpenVisualEditorLink: FC<{
 }> = ({
   visualChangeset,
   openSettings,
-  useRadix,
+  useRadix = true,
   useLink,
   button = (
     <>
@@ -209,6 +231,7 @@ const OpenVisualEditorLink: FC<{
 
       {showEditorUrlDialog && openSettings && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open
           header="Visual Editor Target URL"
@@ -226,6 +249,7 @@ const OpenVisualEditorLink: FC<{
 
       {showExtensionDialog && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open
           header="GrowthBook DevTools Extension"

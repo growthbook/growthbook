@@ -109,6 +109,7 @@ export default function AddMaterializedColumnsModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType={`clickhouse-${mode}-materialized-columns`}
       open={true}
       submit={handleSubmit}

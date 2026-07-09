@@ -30,7 +30,7 @@ export default function RadioCardsStories() {
           setRadioCardColumns(v)
         }
       />
-      <Text weight="medium">Rendering</Text>
+      <Text weight="medium">Rendering (truncated descriptions, default)</Text>
       <RadioCards
         columns={radioCardColumns}
         width={radioCardColumns === "1" ? "400px" : undefined}
@@ -83,6 +83,43 @@ export default function RadioCardsStories() {
               </PremiumTooltip>
             ),
             description: "You can't afford this",
+          },
+        ]}
+      />
+      <Text weight="medium">
+        Rendering (wrapping descriptions, truncateDescription=false)
+      </Text>
+      <RadioCards
+        columns={radioCardColumns}
+        width={radioCardColumns === "1" ? "400px" : undefined}
+        value={radioCardSelected}
+        setValue={(v) => {
+          setRadioCardSelected(v);
+        }}
+        truncateDescription={false}
+        align="start"
+        options={[
+          {
+            value: "w1",
+            label: "Radio Card 1, short description",
+            description: "This is a short description.",
+          },
+          {
+            value: "w2",
+            label: "Radio Card 2, long description",
+            description:
+              "This is a description. It is very long. It should wrap around without changing the width of the parent container.",
+          },
+          {
+            value: "w3",
+            label: "Radio Card 3, multi-paragraph description",
+            description: (
+              <>
+                Descriptions can also be ReactNodes — useful when you need
+                multiple paragraphs, links, or inline formatting that should
+                wrap across several lines.
+              </>
+            ),
           },
         ]}
       />

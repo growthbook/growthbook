@@ -23,6 +23,7 @@ export default function ImportSettings({
           The below settings are controlled through your <code>config.yml</code>{" "}
           file and cannot be changed through the web UI.{" "}
           <DocLink
+            useRadix={false}
             docSection="config_organization_settings"
             className="font-weight-bold"
           >
@@ -44,7 +45,11 @@ export default function ImportSettings({
             You can import/export these settings to a <code>config.yml</code>{" "}
             file to more easily move between GrowthBook Cloud accounts and/or
             self-hosted environments.{" "}
-            <DocLink docSection="config_yml" className="font-weight-bold">
+            <DocLink
+              useRadix={false}
+              docSection="config_yml"
+              className="font-weight-bold"
+            >
               Learn More
             </DocLink>
           </p>

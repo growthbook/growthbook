@@ -1,0 +1,222 @@
+---
+title: Saved Group Revisions API
+description: Edit, review, and publish saved groups through the draft revision REST API.
+sidebar_label: Saved Group Revisions API
+slug: /features/saved-group-revisions-api
+---
+
+import CommercialFeature from '@site/src/components/CommercialFeature';
+import Pill from '@site/src/components/Pill';
+
+# Saved Group Revisions API <Pill>beta</Pill>
+
+The saved group revisions REST API is the programmatic counterpart to the UI workflow described in [Publishing & Approval Flows](/features/publishing-and-approval-flows#saved-groups). Every change goes through the same draft → review → publish lifecycle, so a draft you start via REST can be reviewed in the UI (and vice versa). Endpoint shapes may change in minor ways before GA.
+
+If you just need to read or replace a saved group atomically — and your org does not require approvals — keep using [`POST /saved-groups/{id}`](/api/#operation/updateSavedGroup) with the `bypassApproval: true` flag. The endpoints below are for callers who need to stage changes, run approvals, or coordinate with the UI revision flow.
+
+The full endpoint reference lives in the [REST API docs](/api/#tag/saved-group-revisions). This page covers the lifecycle and the request shapes you'll typically reach for.
+
+## Drafts and Publishing
+
+When you edit a saved group via the revision endpoints, GrowthBook creates a draft revision. Drafts hold proposed changes against a snapshot of the saved group at the moment the draft was opened — they don't affect SDK evaluations until they're published.
+
+Open a new draft explicitly:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "Add Q2 beta cohort"}'
+```
+
+The response contains the new revision and its integer `version`, which you pass to subsequent edit calls:
+
+```json
+{
+  "revision": {
+    "id": "rev_...",
+    "version": 4,
+    "status": "draft",
+    "baseSavedGroup":     { "...": "snapshot taken when the draft opened" },
+    "proposedSavedGroup": { "...": "snapshot + proposed changes applied" },
+    "proposedChanges": []
+  }
+}
+```
+
+Stage a change on the draft. For list saved groups, prefer the incremental endpoints — they're idempotent and stack on top of the current draft state, so multiple add/remove calls accumulate:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/items/add' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"items": ["user_42", "user_77"]}'
+```
+
+For an atomic full replacement, use `PUT .../values`. For condition saved groups, use `PUT .../condition`. Metadata edits (name, owner, description, projects) go through `PUT .../metadata`. Archive or unarchive with `PUT .../archive`.
+
+Publish to apply the draft to the live saved group:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+After publish, the revision status becomes `merged` and the proposed changes are applied to the live saved group.
+
+### Auto-creating a draft on edit
+
+Every field-edit endpoint (`PUT .../metadata`, `PUT .../condition`, `PUT .../values`, `PUT .../archive`, `POST .../items/add`, `POST .../items/remove`) accepts the literal `"new"` in place of a version number. This opens a fresh draft, applies the edit, and returns the revision in one round trip. Pass `revisionTitle` / `revisionComment` to label the auto-created draft:
+
+```bash
+curl -X PUT 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/new/metadata' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "revisionTitle": "Rename to internal-beta",
+    "name": "internal-beta",
+    "description": "Cohort moved to the internal-only beta program"
+  }'
+```
+
+`revisionTitle` and `revisionComment` are ignored when editing an existing draft.
+
+## Revisions
+
+A saved group has one live revision and zero or more open draft revisions. Each revision has a status:
+
+| Status              | Meaning                                                                   |
+| ------------------- | ------------------------------------------------------------------------- |
+| `draft`             | Open, editable. Authors can keep staging changes.                         |
+| `pending-review`    | Submitted for review. Reviewers can approve, comment, or request changes. |
+| `changes-requested` | A reviewer asked for changes. Edit the draft and re-request review.       |
+| `approved`          | Approved and ready to publish.                                            |
+| `merged`            | Published. Terminal.                                                      |
+| `discarded`         | Abandoned. Terminal.                                                      |
+
+Use these endpoints to read revisions:
+
+| Endpoint                                                            | Use it for                                                                                          |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `GET /saved-groups-revisions`                                       | List revisions across every saved group. Filter by `savedGroupId`, `status`, `author`, or `mine`.   |
+| `GET /saved-groups-revisions/{savedGroupId}`                        | List revisions for one saved group.                                                                 |
+| `GET /saved-groups-revisions/{savedGroupId}/latest`                 | The most recently updated open draft. 404 if no open draft. `mine=true` filters to your own drafts. |
+| `GET /saved-groups-revisions/{savedGroupId}/{version}`              | Fetch a specific revision, including `baseSavedGroup`, `proposedSavedGroup`, reviews, activity log. |
+| `GET /saved-groups-revisions/{savedGroupId}/{version}/merge-status` | Dry-run merge against the current live state. Returns conflicts and whether they can auto-merge.    |
+
+`baseSavedGroup` is the snapshot taken when the draft opened. `proposedSavedGroup` is what the live saved group would look like if the draft were merged right now — useful for previewing changes without interpreting the raw JSON Patch ops in `proposedChanges`.
+
+### Reverting
+
+`POST /saved-groups-revisions/{savedGroupId}/{version}/revert` creates a new revision whose content matches the specified historical revision. Pass `{"strategy": "draft"}` (default) to stage the revert as a draft, or `{"strategy": "publish"}` to publish immediately. Publish obeys the same approval rules as a normal publish.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/2/revert' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"strategy": "draft", "title": "Roll back the Q2 cohort change"}'
+```
+
+### Discarding
+
+Open drafts you no longer want can be discarded with `POST .../discard`. Merged and already-discarded revisions are rejected.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/discard' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason": "superseded by revision 5"}'
+```
+
+## Merge Conflicts
+
+Your draft can diverge from the live saved group if someone else publishes changes while your draft is open. Publishing detects this and rejects the call with `409 Conflict`, including the conflicting fields in the response body.
+
+The recovery flow is to rebase, then re-publish:
+
+```bash
+# 1. Inspect conflicts
+curl 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/merge-status' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+
+# 2. Rebase, picking a resolution strategy per conflicting field
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/rebase' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "conflictResolutions": {
+      "values": "union",
+      "description": "overwrite"
+    }
+  }'
+
+# 3. Retry publish
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Per-field resolution strategies:
+
+- `overwrite` — keep the draft's value.
+- `discard` — keep the live value.
+- `union` — concatenate arrays (only valid for `values` on list saved groups). Pass `customValues` to supply your own merged array instead of the default union.
+
+`merge-status` is purely informational — it doesn't lock anything. If you need strict optimistic locking, call `merge-status`, then `publish`, and on `409` re-fetch and retry.
+
+## Approval Flows
+
+<CommercialFeature feature="require-approvals" />
+
+When your org [requires approvals for saved groups](/features/publishing-and-approval-flows#saved-group-approval-flows), publishing a draft is blocked unless the revision is in `approved` status, the caller has the `bypassApprovalChecks` permission on every target project, or the org has enabled **REST API always bypasses approval requirements**.
+
+### Requesting a Review
+
+Move a draft from `draft` to `pending-review`. Reviewers are notified per the org's approval-flow settings.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/request-review' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+### Reviewing
+
+A reviewer submits a decision with `POST .../submit-review`. `decision` is one of `approve`, `request-changes`, or `comment`. With `blockSelfApproval` enabled (controlled by the org's **Require approval from a non-editor** setting), authors and contributors cannot submit `approve` on their own drafts.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/submit-review' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{"decision": "approve", "comment": "LGTM"}'
+```
+
+The revision's `reviews` array on subsequent reads shows every decision, who made it, and when.
+
+### Publishing with Approvals
+
+Once the revision is `approved`, publish proceeds normally:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/4/publish' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Three paths can publish without an `approved` revision:
+
+1. **Per-call bypass** — `POST /saved-groups` and `POST /saved-groups/{id}` accept `bypassApproval: true` and write directly to the live saved group, skipping the revision flow entirely. The caller must hold `bypassApprovalChecks` on every target project.
+2. **Per-user bypass on publish** — `POST .../revisions/{version}/publish` succeeds for callers with `bypassApprovalChecks` on the saved group's projects, even if the revision is not `approved`.
+3. **Org-wide bypass** — admins can enable **REST API always bypasses approval requirements** in org settings, after which every REST publish acts as a bypass regardless of the caller's permission.
+
+### Permissions
+
+- Read endpoints require `canReadSavedGroup` on the saved group's projects.
+- Edit, request-review, rebase, revert, and publish endpoints require `canUpdateSavedGroup`.
+- Publish re-checks `canUpdateSavedGroup` against the live saved group at publish time, so a `projects` move encoded in the draft can't launder write access.
+- Submitting a review uses the same write gate as editing the saved group.

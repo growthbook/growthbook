@@ -45,6 +45,7 @@ export default function EditHoldoutInfoModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"

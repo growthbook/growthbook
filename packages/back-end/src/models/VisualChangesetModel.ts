@@ -166,12 +166,15 @@ export async function findVisualChangesetsByExperiment(
 
 export async function findVisualChangesets(
   organization: string,
+  // When set, returns the newest `limit` changesets (sorted by `_id`,
+  // which embeds the creation timestamp). Omit for the full unordered set.
+  limit?: number,
 ): Promise<VisualChangesetInterface[]> {
-  return (
-    await VisualChangesetModel.find({
-      organization,
-    })
-  ).map(toInterface);
+  let query = VisualChangesetModel.find({ organization });
+  if (limit && limit > 0) {
+    query = query.sort({ _id: -1 }).limit(limit);
+  }
+  return (await query).map(toInterface);
 }
 
 export async function createVisualChange(

@@ -10,7 +10,7 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { datetime } from "shared/dates";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";
@@ -30,7 +30,12 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
-import { ExpandableDiff } from "@/components/Features/DraftModal";
+import {
+  ExpandableDiff,
+  useDiffFormat,
+  DiffFormatToggle,
+  stringifyForRawDiff,
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
 import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
 import {
@@ -245,6 +250,8 @@ export default function CompareAuditEvents<T>({
     diffViewMode,
     setDiffViewModeRaw,
     activeDiffs,
+    activeRawPre,
+    activeRawPost,
     customRenderGroups,
     activeBadges,
     displayFailed,
@@ -257,6 +264,9 @@ export default function CompareAuditEvents<T>({
 
   // Tracks which time-range quick action is currently loading (key = range label).
   const [pendingRange, setPendingRange] = useState<string | null>(null);
+
+  // App-wide preference: human-readable renders vs raw JSON diffs.
+  const [format, setFormat] = useDiffFormat();
 
   /**
    * Returns [newestId, oldestId] for the time window: all entries whose dateEnd
@@ -945,85 +955,96 @@ export default function CompareAuditEvents<T>({
             ) : activeDiffs.length === 0 ? (
               <Text color="text-low">No changes between these entries.</Text>
             ) : (
-              <>
-                {/* Hoisted summaries: badges + human-readable renders per section */}
-                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
-                  <Box>
-                    <Heading as="h5" size="small" color="text-mid" mt="4">
-                      Summary of changes
-                    </Heading>
+              <Box>
+                <Heading as="h5" size="small" color="text-mid" mt="4">
+                  Summary of changes
+                </Heading>
 
-                    {/* Badge strip — same layout as revision comparison modal */}
-                    {activeBadges.length > 0 && (
-                      <Flex wrap="wrap" gap="2" mt="2" mb="2">
-                        {activeBadges.map(({ label, action }) => (
-                          <Badge
-                            key={label}
-                            color="gray"
-                            variant="soft"
-                            label={label}
-                            // action is passed through for future colour mapping
-                            data-action={action}
-                          />
-                        ))}
-                      </Flex>
-                    )}
-
-                    <Flex direction="column" gap="0">
-                      {customRenderGroups.map(
-                        ({ label, renders, suppressCardLabel }) => (
-                          <Box
-                            key={label}
-                            p="3"
-                            my="3"
-                            className="rounded bg-light"
-                          >
-                            {!suppressCardLabel && (
-                              <Heading
-                                as="h6"
-                                size="small"
-                                color="text-mid"
-                                mb="2"
-                              >
-                                {label}
-                              </Heading>
-                            )}
-                            {renders.map((r, i) => (
-                              <Box key={i}>{r}</Box>
-                            ))}
-                          </Box>
-                        ),
-                      )}
-                    </Flex>
-                  </Box>
-                )}
-
-                {/* Raw JSON diffs */}
-                {(activeBadges.length > 0 || customRenderGroups.length > 0) && (
-                  <Heading as="h5" size="small" color="text-mid" mt="4" mb="3">
-                    Change details
-                  </Heading>
-                )}
-                <Flex
-                  direction="column"
-                  gap="4"
-                  key={`${stepEntryA?.id ?? singleEntryFirst?.id}-${stepEntryB?.id ?? singleEntryLast?.id}`}
-                >
-                  {activeDiffs.map((d, i) => (
-                    <Box key={i}>
-                      <ExpandableDiff
-                        title={d.label}
-                        a={d.a}
-                        b={d.b}
-                        defaultOpen={
-                          !d.defaultCollapsed && isSectionVisible(d.label)
-                        }
-                        styles={COMPACT_DIFF_STYLES}
+                {/* Badge strip — same layout as revision comparison modal */}
+                {activeBadges.length > 0 && (
+                  <Flex wrap="wrap" gap="2" mt="2">
+                    {activeBadges.map(({ label, action }) => (
+                      <Badge
+                        key={label}
+                        color="gray"
+                        variant="soft"
+                        label={label}
+                        // action is passed through for future colour mapping
+                        data-action={action}
                       />
-                    </Box>
-                  ))}
-                </Flex>
-              </>
+                    ))}
+                  </Flex>
+                )}
+
+                <DiffFormatToggle
+                  value={format}
+                  setValue={setFormat}
+                  mt="3"
+                  mb="3"
+                />
+
+                {/* Formatted mode shows human-readable renders when available;
+                    otherwise it falls back to the JSON diffs. */}
+                {format === "formatted" && customRenderGroups.length > 0 ? (
+                  <Flex direction="column" gap="0">
+                    {customRenderGroups.map(
+                      ({ label, renders, suppressCardLabel }) => (
+                        <Box
+                          key={label}
+                          p="3"
+                          my="3"
+                          className="rounded bg-light"
+                        >
+                          {!suppressCardLabel && (
+                            <Heading
+                              as="h6"
+                              size="small"
+                              color="text-mid"
+                              mb="2"
+                            >
+                              {label}
+                            </Heading>
+                          )}
+                          {renders.map((r, i) => (
+                            <Box key={i}>{r}</Box>
+                          ))}
+                        </Box>
+                      ),
+                    )}
+                  </Flex>
+                ) : format === "raw" ? (
+                  // Non-sectional: a single diff of the entire before/after shape.
+                  <Box my="3">
+                    <ExpandableDiff
+                      title="Raw JSON"
+                      a={stringifyForRawDiff(activeRawPre)}
+                      b={stringifyForRawDiff(activeRawPost)}
+                      defaultOpen
+                      styles={COMPACT_DIFF_STYLES}
+                    />
+                  </Box>
+                ) : (
+                  <Flex
+                    direction="column"
+                    gap="4"
+                    key={`${stepEntryA?.id ?? singleEntryFirst?.id}-${stepEntryB?.id ?? singleEntryLast?.id}`}
+                  >
+                    {activeDiffs.map((d, i) => (
+                      <Box key={i}>
+                        <ExpandableDiff
+                          title={d.label}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen={
+                            !d.defaultCollapsed && isSectionVisible(d.label)
+                          }
+                          styles={COMPACT_DIFF_STYLES}
+                        />
+                      </Box>
+                    ))}
+                  </Flex>
+                )}
+              </Box>
             )}
             {singleEntryLast &&
               (isSingleEntry ||

@@ -9,6 +9,7 @@ import {
 } from "shared/types/stats";
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
+import { MetricTimeSeries } from "shared/validators";
 import { isRatioMetric } from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -31,20 +32,24 @@ interface MetricDrilldownOverviewProps {
   endDate: string;
   experimentStatus?: ExperimentStatus;
   variations: ExperimentReportVariation[];
-  localBaselineRow: number;
-  setLocalBaselineRow: (baseline: number) => void;
+  localBaselineRow?: number;
+  setLocalBaselineRow?: (baseline: number) => void;
   localVariationFilter?: number[];
-  setLocalVariationFilter: (filter: number[] | undefined) => void;
+  setLocalVariationFilter?: (filter: number[] | undefined) => void;
   goalMetrics: string[];
   secondaryMetrics: string[];
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  localDifferenceType: DifferenceType;
-  setLocalDifferenceType: (type: DifferenceType) => void;
+  localDifferenceType?: DifferenceType;
+  setLocalDifferenceType?: (type: DifferenceType) => void;
   sequentialTestingEnabled?: boolean;
   lookbackOverride?: LookbackOverride;
   timeSeriesMessage?: string;
+  preloadedTimeSeries?: MetricTimeSeries;
   dimensionInfo?: DrilldownDimensionInfo;
+  valueColumnWidth?: number;
+  labelMaxWidth?: number;
+  oneSided?: boolean;
 }
 
 function MetricDrilldownOverview({
@@ -58,7 +63,6 @@ function MetricDrilldownOverview({
   endDate,
   experimentStatus,
   variations,
-  localBaselineRow,
   setLocalBaselineRow,
   localVariationFilter,
   setLocalVariationFilter,
@@ -66,20 +70,26 @@ function MetricDrilldownOverview({
   secondaryMetrics,
   statsEngine,
   pValueCorrection,
-  localDifferenceType,
+  localDifferenceType = "relative",
   setLocalDifferenceType,
   sequentialTestingEnabled,
   lookbackOverride,
   timeSeriesMessage,
+  preloadedTimeSeries,
   dimensionInfo,
+  localBaselineRow = 0,
+  valueColumnWidth,
+  labelMaxWidth,
+  oneSided = false,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
-  const { snapshot, analysis, setAnalysisSettings, mutateSnapshot } =
-    useSnapshot();
+  const { snapshot, analysis, setAnalysisSettings, mutate } = useSnapshot();
 
   const { metric } = row;
   const tableId = `${experimentId}_${metric.id}_modal`;
+
+  // Time series: ExperimentMetricTimeSeriesGraphWrapper shows a message when there are no data points (or while loading).
 
   // Determine result group based on metric categorization
   const resultGroup: "goal" | "secondary" | "guardrail" = goalMetrics.includes(
@@ -144,12 +154,19 @@ function MetricDrilldownOverview({
           isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
         }
         timeSeriesMessage={timeSeriesMessage}
+        preloadedTimeSeries={preloadedTimeSeries}
         dimensionId={dimensionInfo?.id}
         dimensionValue={dimensionInfo?.rawValue}
+        valueColumnWidth={valueColumnWidth}
+        labelMaxWidth={labelMaxWidth}
+        oneSided={oneSided}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}
-        mutate={mutateSnapshot}
+        // Forwarded to BaselineChooserColumnLabel, which appends analyses
+        // to the current snapshot in place — need `inPlace: true` so the
+        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+        mutate={() => mutate({ inPlace: true })}
       />
 
       <Box>

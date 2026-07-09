@@ -273,6 +273,7 @@ function MetricRow({
       </td>
       <td style={{ width: "3%" }}>
         <DeleteButton
+          useRadix={false}
           className="dropdown-item text-danger"
           displayName="Metric from Group"
           deleteMessage="Remove this metric from the group?"

@@ -184,6 +184,7 @@ export default function ConfigureLegacyReport({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       inline={true}
       header=""
@@ -355,6 +356,7 @@ export default function ConfigureLegacyReport({
       </div>
 
       <ExperimentMetricsSelector
+        experimentType={experiment?.type}
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         project={project?.id}

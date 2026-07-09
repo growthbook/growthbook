@@ -9,12 +9,16 @@ import {
 } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { ConstantInterface } from "shared/types/constant";
 import {
   buildFeatureRulesFromApiEnvSettings,
   generateRuleId,
+  addIdsToFlatRules,
+  addIdsToRules,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
+  generateFeaturesPayload,
 } from "back-end/src/services/features";
 import { getCurrentEnabledState } from "back-end/src/util/scheduleRules";
 import {
@@ -26,6 +30,21 @@ import {
   getSDKPayloadKeysByDiff,
   roundVariationWeight,
 } from "back-end/src/util/features";
+
+// Minimal constant fixture for payload-resolution tests.
+function makeConstant(
+  partial: Pick<ConstantInterface, "key" | "type"> & Partial<ConstantInterface>,
+): ConstantInterface {
+  return {
+    id: `const_${partial.key}`,
+    organization: "123",
+    name: partial.key,
+    owner: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...partial,
+  };
+}
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -1067,6 +1086,509 @@ describe("SDK Payloads", () => {
 
     expect(getJSONValue("json", "invalid")).toEqual(null);
     expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
+  });
+
+  it("merges sparse JSON force/rollout rule values onto the default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 1, b: 2, c: 3 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        // Only overrides `b`; `a` and `c` fall back to the default.
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+      {
+        type: "force",
+        id: "full-force",
+        description: "",
+        enabled: true,
+        // Not sparse: replaces the whole object.
+        value: JSON.stringify({ b: 99 }),
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+    });
+
+    expect(def).toEqual({
+      defaultValue: { a: 1, b: 2, c: 3 },
+      rules: [{ force: { a: 1, b: 99, c: 3 } }, { force: { b: 99 } }],
+    });
+  });
+
+  it("ignores sparse when the JSON default value is not a plain object", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Array default — sparse merge is undefined, so the rule emits as-is.
+    feature.defaultValue = JSON.stringify([1, 2, 3]);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-force",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+    });
+
+    expect(def).toEqual({
+      defaultValue: [1, 2, 3],
+      rules: [{ force: { b: 99 } }],
+    });
+  });
+
+  it("resolves a JSON constant used as a sparse rule value and merges it onto the default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 0, c: 3 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-const",
+        description: "",
+        enabled: true,
+        // A whole-value JSON constant used as the (sparse) rule value.
+        value: JSON.stringify({ $extends: ["@const:cfg"] }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      ["cfg", { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) }],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The constant resolves first, then merges onto the default; the constant's
+    // fields (the rule value) win over the default.
+    expect(def?.rules).toEqual([{ force: { a: 1, c: 3, b: 2 } }]);
+  });
+
+  it("applies sparse rule fields last so they win over a constant-provided default", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default value is itself a whole-value JSON constant.
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:base"] });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-over-const",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ b: 99 }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "base",
+        { type: "json" as const, value: JSON.stringify({ a: 1, b: 2 }) },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // The default's constant resolves to { a: 1, b: 2 } and forms the merge
+    // base; the sparse field `b` is applied last and wins (b: 99, not 2).
+    expect(def?.rules).toEqual([{ force: { a: 1, b: 99 } }]);
+  });
+
+  it("spreads constants in both the default and a sparse patch, patch winning", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // Default mixes explicit keys with a spread constant.
+    feature.defaultValue = JSON.stringify({
+      versions: [1, 2],
+      ref: 0.1,
+      $extends: ["@const:config-snippet"],
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "sparse-spread",
+        description: "",
+        enabled: true,
+        // Sparse patch also mixes an explicit key with a spread constant.
+        value: JSON.stringify({ ref: 3, $extends: ["@const:my-json"] }),
+        sparse: true,
+      },
+    ];
+
+    const constantMap = new Map([
+      ["config-snippet", { type: "json" as const, value: '{"x":1}' }],
+      ["my-json", { type: "json" as const, value: '{"y":2}' }],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // Base = { versions, ref: 0.1, x: 1 }; patch = { ref: 3, y: 2 } applied last.
+    expect(def?.rules).toEqual([
+      { force: { versions: [1, 2], ref: 3, x: 1, y: 2 } },
+    ]);
+  });
+
+  // A JSON feature with a single non-sparse force rule whose value is `ruleValue`.
+  const jsonForceFeature = (ruleValue: string): FeatureInterface => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = "{}";
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        value: ruleValue,
+      },
+    ];
+    return feature;
+  };
+
+  it("resolves a JSON constant in a non-sparse force value (full payload)", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:cfg"] })),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1, b: 2 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0]).toEqual({ force: { a: 1, b: 2 } });
+  });
+
+  it("spreads a constant among other keys in a non-sparse force value", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(
+          JSON.stringify({ $extends: ["@const:cfg"], extra: 1 }),
+        ),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0]).toEqual({ force: { a: 1, extra: 1 } });
+  });
+
+  it("resolves a constant in the feature default value", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:cfg"] });
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+      ],
+    });
+    expect(payload.feature.defaultValue).toEqual({ a: 1 });
+  });
+
+  it("interpolates a string constant into a string feature value (payload)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "string";
+    feature.defaultValue = "hi {{ @const:name }}";
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({ key: "name", type: "string", value: "world" }),
+      ],
+    });
+    expect(payload.feature.defaultValue).toEqual("hi world");
+  });
+
+  it("scrubs an archived constant from the payload rather than resolving it", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // A spread reference among other keys + a string interpolation elsewhere.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@const:cfg"],
+      keep: 1,
+    });
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+          archived: true,
+        }),
+      ],
+    });
+    // The archived spread ref is dropped; sibling keys remain — no stale value
+    // and no leaked `@const:` placeholder.
+    expect(payload.feature.defaultValue).toEqual({ keep: 1 });
+  });
+
+  it("resolves constants per environment", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ $extends: ["@const:host"] });
+    const constants = [
+      makeConstant({
+        key: "host",
+        type: "json",
+        value: JSON.stringify({ url: "default" }),
+        environmentValues: { production: JSON.stringify({ url: "prod" }) },
+      }),
+    ];
+    const common = {
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"] as const,
+      constants,
+    };
+    const prod = generateFeaturesPayload({
+      features: [cloneDeep(feature)],
+      environment: "production",
+      ...common,
+    });
+    const dev = generateFeaturesPayload({
+      features: [cloneDeep(feature)],
+      environment: "dev",
+      ...common,
+    });
+    expect(prod.feature.defaultValue).toEqual({ url: "prod" });
+    expect(dev.feature.defaultValue).toEqual({ url: "default" });
+  });
+
+  it("drops a cyclic $extends reference in the payload", () => {
+    const payload = generateFeaturesPayload({
+      features: [
+        jsonForceFeature(JSON.stringify({ $extends: ["@const:loop"] })),
+      ],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "loop",
+          type: "json",
+          value: JSON.stringify({ $extends: ["@const:loop"] }),
+        }),
+      ],
+    });
+    // Self-referential $extends is dropped (no infinite recursion, no leftover).
+    expect(payload.feature.rules?.[0]).toEqual({ force: {} });
+  });
+
+  it("resolves constants in experiment-ref variation values", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = "{}";
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_c",
+        id: "er1",
+        description: "",
+        enabled: true,
+        variations: [
+          {
+            variationId: "v0",
+            value: JSON.stringify({ $extends: ["@const:cfg"] }),
+          },
+          {
+            variationId: "v1",
+            value: JSON.stringify({ $extends: ["@const:more"] }),
+          },
+        ],
+      },
+    ];
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_c",
+      metrics: [],
+      name: "Exp",
+      organization: "123",
+      owner: "",
+      phases: [
+        {
+          condition: "{}",
+          coverage: 1,
+          dateStarted: new Date(),
+          name: "Phase",
+          namespace: { enabled: false, name: "", range: [0, 1] },
+          reason: "",
+          variationWeights: [0.5, 0.5],
+          seed: "seed",
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      tags: [],
+      targetURLRegex: "",
+      trackingKey: "exp-c-key",
+      variations: [
+        { id: "v0", key: "0", name: "Control", screenshots: [] },
+        { id: "v1", key: "1", name: "Variation", screenshots: [] },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+    const payload = generateFeaturesPayload({
+      features: [feature],
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map([["exp_c", exp]]),
+      capabilities: ["looseUnmarshalling"],
+      constants: [
+        makeConstant({
+          key: "cfg",
+          type: "json",
+          value: JSON.stringify({ a: 1 }),
+        }),
+        makeConstant({
+          key: "more",
+          type: "json",
+          value: JSON.stringify({ b: 2 }),
+        }),
+      ],
+    });
+    expect(payload.feature.rules?.[0].variations).toEqual([{ a: 1 }, { b: 2 }]);
+  });
+
+  it("resolves a string constant interpolated in a sparse patch leaf", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ greeting: "" });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ greeting: "hi {{ @const:name }}" }),
+      },
+    ];
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap: new Map([["name", { type: "string", value: "world" }]]),
+    });
+    expect(def?.rules).toEqual([{ force: { greeting: "hi world" } }]);
+  });
+
+  it("spreads a constant with a nested value in a sparse patch", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.defaultValue = JSON.stringify({ a: 0 });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f1",
+        description: "",
+        enabled: true,
+        sparse: true,
+        value: JSON.stringify({ $extends: ["@const:cfg"], x: 1 }),
+      },
+    ];
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap: new Map([
+        ["cfg", { type: "json", value: JSON.stringify({ nested: [1, 2] }) }],
+      ]),
+    });
+    expect(def?.rules).toEqual([{ force: { a: 0, nested: [1, 2], x: 1 } }]);
   });
 
   it("Uses linked experiments to build feature definitions", () => {
@@ -2120,12 +2642,18 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
     environmentSettings: {},
     rules: [],
   } as unknown as FeatureInterface;
+  // requireRegisteredAttributes is opt-in; an empty settings object skips the
+  // registered-attribute check so these tests focus on rule-shape concerns.
+  const mockContext = {
+    org: { settings: {} },
+  } as unknown as Parameters<typeof buildFeatureRulesFromApiEnvSettings>[0];
 
   it("preserves rule-level prerequisites across rule types", () => {
     const prerequisites = [
       { id: "parent-feature", condition: '{"value": true}' },
     ];
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2171,6 +2699,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
 
   it("omits prerequisites when not provided", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2198,6 +2727,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       description: "shared across envs",
     };
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }, { id: "staging" }],
       {
@@ -2218,6 +2748,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
       value: "true",
     };
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2233,6 +2764,7 @@ describe("buildFeatureRulesFromApiEnvSettings", () => {
 
   it("does not merge when only content (not id) matches — matching is by id, distinct ids stay split", () => {
     const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
       [{ id: "production" }, { id: "dev" }],
       {
@@ -2273,5 +2805,186 @@ describe("generateRuleId invariant", () => {
       expect(id.startsWith("fr_")).toBe(true);
       expect(id.includes("__")).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addIdsToFlatRules / addIdsToRules — rollout seed backfill
+// ---------------------------------------------------------------------------
+// Rollout rules must always carry an explicit seed so that the monitored-ramp
+// payload and the plain-rollout payload hash users through the same seed,
+// preventing variation hopping when a rule transitions between states.
+// ---------------------------------------------------------------------------
+
+describe("addIdsToFlatRules — rollout seed backfill", () => {
+  it("backfills seed = id for a rollout rule with no explicit seed", () => {
+    const rules: FeatureInterface["rules"] = [
+      {
+        type: "rollout",
+        id: "fr_abc",
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+    ];
+    addIdsToFlatRules(
+      rules as Parameters<typeof addIdsToFlatRules>[0],
+      "feat_1",
+    );
+    expect((rules[0] as { seed?: string }).seed).toBe("fr_abc");
+  });
+
+  it("assigns a new id AND backfills seed when rule has neither", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    const r = rules[0] as { id?: string; seed?: string };
+    expect(r.id).toBeDefined();
+    expect(r.id!.startsWith("fr_")).toBe(true);
+    expect(r.seed).toBe(r.id);
+  });
+
+  it("preserves an explicitly-set seed and does not overwrite it", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        id: "fr_xyz",
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        seed: "custom-seed",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBe("custom-seed");
+  });
+
+  it("does not add seed to non-rollout rules (force, experiment)", () => {
+    const rules = [
+      {
+        type: "force" as const,
+        id: "fr_force",
+        description: "",
+        enabled: true,
+        value: "true",
+        allEnvironments: true,
+      },
+      {
+        type: "experiment" as const,
+        id: "fr_exp",
+        description: "",
+        enabled: true,
+        trackingKey: "exp-1",
+        hashAttribute: "id",
+        values: [
+          { value: "a", weight: 0.5 },
+          { value: "b", weight: 0.5 },
+        ],
+        coverage: 1,
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBeUndefined();
+    expect((rules[1] as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("backfills all rollout rules in a multi-rule array", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        id: "fr_1",
+        description: "",
+        enabled: true,
+        value: "a",
+        coverage: 0.3,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+      {
+        type: "rollout" as const,
+        id: "fr_2",
+        description: "",
+        enabled: true,
+        value: "b",
+        coverage: 0.6,
+        hashAttribute: "id",
+        seed: "explicit",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBe("fr_1");
+    expect((rules[1] as { seed?: string }).seed).toBe("explicit"); // untouched
+  });
+});
+
+describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
+  it("backfills seed = id for rollout rules in legacy environmentSettings", () => {
+    const envSettings = {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "rollout" as const,
+            id: "fr_legacy",
+            description: "",
+            enabled: true,
+            value: "true",
+            coverage: 0.4,
+            hashAttribute: "id",
+          },
+        ] as FeatureInterface["rules"],
+      },
+    };
+    addIdsToRules(
+      envSettings as Parameters<typeof addIdsToRules>[0],
+      "feat_legacy",
+    );
+    const rule = (envSettings.production as { rules?: { seed?: string }[] })
+      .rules?.[0];
+    expect(rule?.seed).toBe("fr_legacy");
+  });
+
+  it("preserves an explicit seed in the legacy path", () => {
+    const envSettings = {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "rollout" as const,
+            id: "fr_kept",
+            description: "",
+            enabled: true,
+            value: "true",
+            coverage: 0.4,
+            hashAttribute: "id",
+            seed: "keep-me",
+          },
+        ] as FeatureInterface["rules"],
+      },
+    };
+    addIdsToRules(
+      envSettings as Parameters<typeof addIdsToRules>[0],
+      "feat_legacy",
+    );
+    const rule = (envSettings.production as { rules?: { seed?: string }[] })
+      .rules?.[0];
+    expect(rule?.seed).toBe("keep-me");
   });
 });

@@ -96,9 +96,12 @@ const CustomMarkdown: React.FC = () => {
         Custom markdown allows you to provide organization-specific guidance and
         documentation to your team on key pages within GrowthBook.
         <br />
-        <DocLink docSection={"customMarkdown"}>View Documentation &gt;</DocLink>
+        <DocLink useRadix={false} docSection={"customMarkdown"}>
+          View Documentation &gt;
+        </DocLink>
       </p>
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         cta={"Save"}
         header={false}

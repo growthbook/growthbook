@@ -1,9 +1,65 @@
 import {
+  formatNumericLikeForDisplay,
   parseEnvInt,
   parseIntWithDefault,
   parseIntWithDefaultCapped,
   parseOptionalInt,
 } from "../../src/util/numbers";
+
+describe("formatNumericLikeForDisplay", () => {
+  it("formats finite numbers like Number#toLocaleString", () => {
+    const n = 1234567.89;
+    expect(formatNumericLikeForDisplay(n)).toBe(n.toLocaleString());
+  });
+
+  it("formats numeric strings after trim like the parsed number", () => {
+    expect(formatNumericLikeForDisplay("  42  ")).toBe((42).toLocaleString());
+    expect(formatNumericLikeForDisplay("3.5")).toBe((3.5).toLocaleString());
+  });
+
+  it("returns non-numeric strings unchanged", () => {
+    expect(formatNumericLikeForDisplay("abc")).toBe("abc");
+    expect(formatNumericLikeForDisplay("12px")).toBe("12px");
+  });
+
+  it("preserves blank string whitespace when trim is empty", () => {
+    expect(formatNumericLikeForDisplay("   ")).toBe("   ");
+  });
+
+  it("treats null and undefined as empty", () => {
+    expect(formatNumericLikeForDisplay(null)).toBe("");
+    expect(formatNumericLikeForDisplay(undefined)).toBe("");
+  });
+
+  it("formats booleans as words", () => {
+    expect(formatNumericLikeForDisplay(true)).toBe("true");
+    expect(formatNumericLikeForDisplay(false)).toBe("false");
+  });
+
+  it("formats bigint as decimal string", () => {
+    expect(formatNumericLikeForDisplay(9007199254740993n)).toBe(
+      "9007199254740993",
+    );
+  });
+
+  it("formats finite dates with toLocaleString", () => {
+    const d = new Date(Date.UTC(2024, 0, 15, 12, 0, 0));
+    expect(formatNumericLikeForDisplay(d)).toBe(d.toLocaleString());
+  });
+
+  it("returns empty string for invalid dates", () => {
+    expect(formatNumericLikeForDisplay(new Date(Number.NaN))).toBe("");
+  });
+
+  it("JSON-stringifies plain objects and arrays", () => {
+    expect(formatNumericLikeForDisplay({ a: 1 })).toBe('{"a":1}');
+    expect(formatNumericLikeForDisplay([1, "x"])).toBe('[1,"x"]');
+  });
+
+  it("stringifies symbols", () => {
+    expect(formatNumericLikeForDisplay(Symbol("s"))).toBe("Symbol(s)");
+  });
+});
 
 describe("parseIntWithDefault", () => {
   it("returns fallback for undefined and null", () => {

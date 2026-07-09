@@ -15,6 +15,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 export const updateDimension = createApiRequestHandler(
   updateDimensionValidator,
 )(async (req) => {
+  if (!req.context.permissions.canUpdateDimension()) {
+    req.context.permissions.throwPermissionError();
+  }
+
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 

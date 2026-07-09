@@ -2,10 +2,17 @@ import path from "path";
 import fs from "fs";
 import md5 from "md5";
 import { LicenseUserCodes } from "shared/enterprise";
-import { MemberRole, OrgMemberInfo } from "shared/types/organization";
+import {
+  MemberRole,
+  OrgMemberInfo,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
-import { getInstallation } from "back-end/src/models/InstallationModel";
+import {
+  getInstallation,
+  getInstallationCached,
+} from "back-end/src/models/InstallationModel";
 import { IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
 import {
@@ -84,6 +91,25 @@ export async function getLicenseMetaData() {
     eventTrackers: eventTrackers,
     isCloud: IS_CLOUD,
   };
+}
+
+// Cheaper alternative to getLicenseMetaData() for per-request use: resolves
+// only the installation name, using the cached installation doc and the
+// caller's org (single-org self-hosted uses the org name) to avoid DB lookups
+export async function getInstallationName(
+  org: OrganizationInterface,
+): Promise<string> {
+  if (IS_CLOUD) return "cloud";
+  try {
+    const installation = await getInstallationCached();
+    if (IS_MULTI_ORG) {
+      return installation.name || installation.id;
+    }
+    return org.name || installation.id;
+  } catch (e) {
+    logger.error("Error getting installation name: " + e.message);
+    return "unknown";
+  }
 }
 
 function isReadOnlyRole(role: MemberRole): boolean {

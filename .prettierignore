@@ -10,3 +10,4 @@ docs/build
 dist
 *.hbs
 packages/back-end/src/templates/javascript.js
+packages/shared/types/*.js

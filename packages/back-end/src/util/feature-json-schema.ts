@@ -1,7 +1,12 @@
-import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureValueType,
+  JSONSchemaDef,
+} from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
+import { assertSchemaMatchesValueType } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 
 function getDefaultJsonSchema(date: Date): JSONSchemaDef {
   return {
@@ -43,6 +48,7 @@ export function getInitialFeatureJsonSchema(
 export function parseApiJsonSchema(
   org: OrganizationInterface,
   jsonSchema: string | undefined,
+  valueType?: FeatureValueType,
 ): JSONSchemaDef {
   const jsonSchemaWrapper = getDefaultJsonSchema(new Date());
   if (!jsonSchema) return jsonSchemaWrapper;
@@ -50,9 +56,13 @@ export function parseApiJsonSchema(
   try {
     jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
     jsonSchemaWrapper.enabled = true;
-    return jsonSchemaWrapper;
   } catch (e) {
-    logger.error(e, "Failed to parse feature json schema");
-    return jsonSchemaWrapper;
+    throw new BadRequestError(
+      `Invalid JSON schema: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
+  if (valueType) {
+    assertSchemaMatchesValueType(jsonSchemaWrapper, valueType);
+  }
+  return jsonSchemaWrapper;
 }

@@ -8,10 +8,12 @@ export default function ForceSummary({
   value,
   feature,
   maxHeight,
+  sparse = false,
 }: {
   value: string;
   feature: FeatureInterface;
   maxHeight?: number;
+  sparse?: boolean;
 }) {
   return (
     <>
@@ -22,6 +24,8 @@ export default function ForceSummary({
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
+            sparse={sparse}
+            defaultValue={feature.defaultValue}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",

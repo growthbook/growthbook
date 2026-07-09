@@ -3,6 +3,7 @@ import {
   FC,
   Fragment,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,7 +20,7 @@ import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
-const USE_SEARCH_BOX = false;
+const USE_SEARCH_BOX = true;
 
 // Common interfaces
 export interface SearchFiltersItem {
@@ -109,34 +110,39 @@ export const FilterDropdown: FC<{
   menuPlacement = "start",
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
+  const filterLabel = heading ?? filter;
   const showSearchFilter = useMemo(
     () => USE_SEARCH_BOX && items.length > 10,
     [items],
   );
-  const filteredItems = useMemo(
-    () =>
-      filterSearch
-        ? items.filter(
-            (i) =>
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).startsWith(filterSearch.toLowerCase()) ||
-              (typeof i.name === "string"
-                ? i.name.toLowerCase()
-                : i.searchValue.toLowerCase()
-              ).includes(filterSearch.toLowerCase()),
-          )
-        : items,
-    [items, filterSearch],
-  );
+  const filteredItems = useMemo(() => {
+    if (!filterSearch) return items;
+    const query = filterSearch.toLowerCase();
+    return items.filter((i) => {
+      const haystack = typeof i.name === "string" ? i.name : i.searchValue;
+      return haystack.toLowerCase().includes(query);
+    });
+  }, [items, filterSearch]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open !== filter) {
+      setFilterSearch("");
+      return;
+    }
+
+    if (!showSearchFilter) return;
+
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(focusTimer);
+  }, [filter, open, showSearchFilter]);
 
   return (
     <DropdownMenu
       trigger={FilterHeading({
-        heading: heading ?? filter,
+        heading: filterLabel,
         open: open === filter,
       })}
       variant="soft"
@@ -146,7 +152,7 @@ export const FilterDropdown: FC<{
         setOpen(o ? filter : "");
       }}
     >
-      <DropdownMenuLabel>Filter by {heading ?? filter}</DropdownMenuLabel>
+      <DropdownMenuLabel>Filter by {filterLabel}</DropdownMenuLabel>
       {showSearchFilter && (
         <Box px="2" pb="1" style={{ maxWidth: "250px" }}>
           <Field
@@ -154,6 +160,8 @@ export const FilterDropdown: FC<{
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
             type="search"
+            placeholder={`Search ${filterLabel}`}
+            aria-label={`Search ${filterLabel} filters`}
             onKeyDown={(e) => {
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
                 e.stopPropagation();

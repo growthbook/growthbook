@@ -37,6 +37,9 @@ type DropdownProps = {
   triggerClassName?: string;
   triggerStyle?: React.CSSProperties;
   menuPlacement?: "start" | "center" | "end";
+  // Preferred side to open toward. Radix auto-flips to the opposite side on
+  // collision, so e.g. "top" opens upward when there's room, else downward.
+  menuSide?: "top" | "right" | "bottom" | "left";
   menuWidth?: "full" | number;
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
@@ -52,6 +55,7 @@ export function DropdownMenu({
   triggerClassName,
   triggerStyle,
   menuPlacement = "start",
+  menuSide = "bottom",
   menuWidth,
   children,
   color,
@@ -147,11 +151,11 @@ export function DropdownMenu({
           {triggerComponent}
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
+          side={menuSide}
           ref={contentRef}
           align={menuPlacement}
           color={color}
           variant={variant}
-          side="bottom"
           className={
             menuWidth === "full" ? "dropdown-content-width-full" : undefined
           }
@@ -261,8 +265,10 @@ export function DropdownMenuItem({
     <RadixDropdownMenu.Item
       disabled={disabled || !!error || !!loading}
       onSelect={async (event) => {
-        event.preventDefault();
         if (confirmation) {
+          // Prevent Radix from closing the menu so the confirmation modal can
+          // appear above it without unmounting the dropdown mid-flow.
+          event.preventDefault();
           if (!hideDropdown || !showDropdown) {
             console.error(
               "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",

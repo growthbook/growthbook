@@ -13,9 +13,11 @@ import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import cloneDeep from "lodash/cloneDeep";
+import { isManagedWarehouse } from "shared/util";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
@@ -142,10 +144,12 @@ export function maxColumnsNeededForMetric({
   metric,
   regressionAdjusted,
   isBandit,
+  efficientQuantileGrid = false,
 }: {
   metric: FactMetricInterface;
   regressionAdjusted: boolean;
   isBandit: boolean;
+  efficientQuantileGrid?: boolean;
 }) {
   // id column
   const boilerplateCols = 1;
@@ -169,7 +173,8 @@ export function maxColumnsNeededForMetric({
         // quantile_n and quantile
         2 +
         // quantile_lower and quantile_upper per n_star
-        N_STAR_VALUES.length * 2
+        // it is packed into a single ARRAY column when supported
+        (efficientQuantileGrid ? 1 : N_STAR_VALUES.length * 2)
       );
   }
 }
@@ -178,6 +183,7 @@ export function chunkMetrics({
   metrics,
   maxColumnsPerQuery,
   isBandit,
+  efficientQuantileGrid = false,
 }: {
   metrics: {
     metric: FactMetricInterface;
@@ -185,6 +191,7 @@ export function chunkMetrics({
   }[];
   maxColumnsPerQuery: number;
   isBandit: boolean;
+  efficientQuantileGrid?: boolean;
 }): FactMetricInterface[][] {
   // up to 100 dimensions (overkill, but also adds in buffer)
   // + 1 for variation + 2 for users and count
@@ -199,6 +206,7 @@ export function chunkMetrics({
       metric: m,
       regressionAdjusted,
       isBandit,
+      efficientQuantileGrid,
     });
     const updatedCols = runningCols + colsNeeded;
     if (
@@ -221,7 +229,17 @@ export function chunkMetrics({
   return chunks;
 }
 
-export function getFactMetricGroup(metric: FactMetricInterface) {
+export function getFactMetricGroup(
+  metric: FactMetricInterface,
+  { skipPartialData }: { skipPartialData: boolean },
+) {
+  // When `skipPartialData` is enabled, the experiment end date is pulled back to
+  // exclude users who haven't had a full conversion window to convert.
+  // Add the conversion window to the group key to keep same-window metrics grouped together
+  const conversionWindowKey = skipPartialData
+    ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
+    : "";
+
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
@@ -231,7 +249,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
         metric.denominator?.factTableId,
       ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
       return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
+        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)${conversionWindowKey}`
         : metric.id;
     }
   }
@@ -240,10 +258,12 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile`
+      ? `${metric.numerator.factTableId}_qtile${conversionWindowKey}`
       : "";
   }
-  return metric.numerator.factTableId || "";
+  return metric.numerator.factTableId
+    ? `${metric.numerator.factTableId}${conversionWindowKey}`
+    : "";
 }
 
 export interface GroupedMetrics {
@@ -270,20 +290,13 @@ export function getFactMetricGroups(
     legacyMetricSingles: legacyMetrics,
   };
 
-  // Combining metrics in a single query is an Enterprise-only feature
-  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
-    return defaultReturn;
-  }
-
-  // Metrics might have different conversion windows which makes the query complicated
-  // TODO(sql): join together metrics with the same date windows for some added efficiency
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-
-  // Org-level setting (in case the multi-metric query introduces bugs)
-  // TODO(sql): deprecate this setting and hide it for orgs that have not set it
-  if (organization.settings?.disableMultiMetricQueries) {
+  // Combining metrics in a single query is normally an Enterprise feature, but
+  // we also enable it for the Managed Warehouse since GrowthBook owns the
+  // compute and wants to run every optimization it can.
+  if (
+    !isManagedWarehouse(integration.datasource) &&
+    !orgHasPremiumFeature(organization, "multi-metric-queries")
+  ) {
     return defaultReturn;
   }
 
@@ -306,7 +319,9 @@ export function getFactMetricGroups(
       return;
     }
 
-    const group = getFactMetricGroup(m);
+    const group = getFactMetricGroup(m, {
+      skipPartialData: !!settings.skipPartialData,
+    });
     if (group) {
       groups[group] = groups[group] || [];
       groups[group].push(m);
@@ -314,6 +329,7 @@ export function getFactMetricGroups(
   });
 
   const groupArrays: FactMetricInterface[][] = [];
+  const sourceProps = integration.getSourceProperties();
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
     const chunks = chunkMetrics({
@@ -328,8 +344,9 @@ export function getFactMetricGroups(
             settings.regressionAdjustmentEnabled,
         };
       }),
-      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!settings.banditSettings,
+      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
     });
     groupArrays.push(...chunks);
   });

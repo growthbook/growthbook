@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Box, Separator, Text } from "@radix-ui/themes";
-import { AppFeatures } from "@/types/app-features";
+import { AppFeatures } from "shared/types/app-features";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -60,6 +60,7 @@ export default function ManagedWarehouseModal({
 
     const resources = getInitialDatasourceResources({
       datasource: ds,
+      attributeSchema: settings.attributeSchema,
       enableErrorTracking,
     });
     if (!resources.factTables.length) {
@@ -96,6 +97,7 @@ export default function ManagedWarehouseModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       header={
         <>

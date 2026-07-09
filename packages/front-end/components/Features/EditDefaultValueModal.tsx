@@ -6,13 +6,12 @@ import { validateFeatureValue, getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Modal from "@/components/Modal";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "./FeatureValueField";
-
 export interface Props {
   feature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
@@ -49,7 +48,7 @@ export default function EditDefaultValueModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -57,16 +56,15 @@ export default function EditDefaultValueModal({
 
   // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
   const targetVersion =
-    mode === "existing" && selectedDraft != null
+    mode === "existing" && selectedDraft !== null
       ? selectedDraft
       : feature.version;
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Default Value"
       cta="Save to draft"
-      useRadixButton={true}
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
           feature,
@@ -95,29 +93,27 @@ export default function EditDefaultValueModal({
       open={true}
       size="lg"
     >
-      <div style={{ minHeight: 300 }}>
-        <DraftSelectorForChanges
-          feature={feature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={setMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={false}
-          gatedEnvSet={gatedEnvSet}
-        />
-        <FeatureValueField
-          label="Value When Enabled"
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-          useCodeInput={true}
-          showFullscreenButton={true}
-        />
-      </div>
-    </Modal>
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
+      <FeatureValueField
+        label="Value When Enabled"
+        id="defaultValue"
+        value={form.watch("defaultValue")}
+        setValue={(v) => form.setValue("defaultValue", v)}
+        valueType={feature.valueType}
+        feature={feature}
+        renderJSONInline={true}
+        useCodeInput={true}
+        showFullscreenButton={true}
+      />
+    </ModalStandard>
   );
 }

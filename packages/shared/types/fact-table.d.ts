@@ -22,6 +22,7 @@ import {
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
   rowFilterValidator,
+  aggregatedFactTableSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -81,7 +82,15 @@ export interface FactTableInterface {
   archived?: boolean;
   timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
+  // Null/undefined means the pipeline is disabled for this fact table.
+  aggregatedFactTableSettings?: z.infer<
+    typeof aggregatedFactTableSettingsValidator
+  > | null;
 }
+
+export type AggregatedFactTableSettings = z.infer<
+  typeof aggregatedFactTableSettingsValidator
+>;
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;
 

@@ -1,4 +1,5 @@
 import { getFeatureV2Validator } from "shared/validators";
+import { stemRuleId } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
@@ -30,6 +31,17 @@ async function loadFeatureForApiV2(
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const rampSchedules = await context.models.rampSchedules.getAllByFeatureId(
+    feature.id,
+  );
+  const rampScheduleMap = new Map<string, string>();
+  for (const schedule of rampSchedules) {
+    for (const target of schedule.targets) {
+      if (target.ruleId) {
+        rampScheduleMap.set(stemRuleId(target.ruleId), schedule.id);
+      }
+    }
+  }
   const revision = await getRevision({
     context,
     organization: feature.organization,
@@ -58,6 +70,7 @@ async function loadFeatureForApiV2(
     revision,
     revisions,
     safeRolloutMap,
+    rampScheduleMap,
   };
 }
 

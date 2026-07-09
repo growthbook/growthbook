@@ -47,7 +47,7 @@ export default function GrowthBookSetupCodeSnippet({
             <br />
             You will need to implement additional tracking for other events. See
             our guide to{" "}
-            <DocLink docSection="managedWarehouseTracking">
+            <DocLink useRadix={false} docSection="managedWarehouseTracking">
               custom event tracking with GrowthBook Managed Warehouse
             </DocLink>
             <br />
@@ -95,7 +95,7 @@ export default function GrowthBookSetupCodeSnippet({
           <div>
             Create a custom event trigger in Google Tag Manager to track
             experiment events to GA4. See our guide to{" "}
-            <DocLink docSection="gtmCustomTracking">
+            <DocLink useRadix={false} docSection="gtmCustomTracking">
               custom event tracking with GTM
             </DocLink>
             .
@@ -134,7 +134,9 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           setEventTracker={setEventTracker}
         />
         Create a GrowthBook instance. Read more about our{" "}
-        <DocLink docSection="javascript">Javascript SDK</DocLink>
+        <DocLink useRadix={false} docSection="javascript">
+          Javascript SDK
+        </DocLink>
         <Code
           language="javascript"
           code={getJSCodeSnippet({
@@ -152,7 +154,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             <br />
             If you want to use GrowthBook for experiments (and metrics), you
             will need to log events you care about. Read more about our{" "}
-            <DocLink docSection="managedWarehouseTracking">
+            <DocLink useRadix={false} docSection="managedWarehouseTracking">
               managed warehouse tracking
             </DocLink>
             . Here are some examples:
@@ -235,7 +237,7 @@ export default function MyApp() {
             <br />
             If you want to use GrowthBook for experiments (and metrics), you
             will need to log events you care about. Read more about our{" "}
-            <DocLink docSection="managedWarehouseTracking">
+            <DocLink useRadix={false} docSection="managedWarehouseTracking">
               managed warehouse tracking
             </DocLink>
             . Here are some examples:
@@ -961,7 +963,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </ul>
         <p>
           See the{" "}
-          <DocLink docSection="cloudflare">Cloudflare Workers docs</DocLink>{" "}
+          <DocLink useRadix={false} docSection="cloudflare">
+            Cloudflare Workers docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1114,7 +1118,10 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="fastly">Fastly Compute docs</DocLink>{" "}
+          See the{" "}
+          <DocLink useRadix={false} docSection="fastly">
+            Fastly Compute docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1217,7 +1224,10 @@ function buildEnv() {
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink>{" "}
+          See the{" "}
+          <DocLink useRadix={false} docSection="lambda">
+            Lambda@Edge docs
+          </DocLink>{" "}
           further instructions.
         </p>
       </>
@@ -1316,8 +1326,11 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           </li>
         </ul>
         <p>
-          See the <DocLink docSection="edge">Other Edge docs</DocLink> further
-          instructions.
+          See the{" "}
+          <DocLink useRadix={false} docSection="edge">
+            Other Edge docs
+          </DocLink>{" "}
+          further instructions.
         </p>
       </>
     );
@@ -1327,7 +1340,10 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
     <p>
       We don&apos;t have an SDK for your language yet, but we do have extensive
       documentation if you want to build your own and contribute it back to the
-      community! <DocLink docSection="buildYourOwn">View Documentation</DocLink>
+      community!{" "}
+      <DocLink useRadix={false} docSection="buildYourOwn">
+        View Documentation
+      </DocLink>
     </p>
   );
 }

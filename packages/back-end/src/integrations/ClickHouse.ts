@@ -1,16 +1,21 @@
+import { subDays } from "date-fns";
 import { createClient, ResponseJSON } from "@clickhouse/client";
 import {
+  FeatureEvalDiagnosticsQueryParams,
   FeatureUsageAggregateRow,
   FeatureUsageLookback,
   QueryResponse,
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -48,7 +53,27 @@ export default class ClickHouse extends SqlIntegration {
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
-    if (isManagedWarehouseAwaitingProvisioning(this.datasource)) {
+    // Legacy (materialized-column) managed warehouses migrate to native JSON
+    // columns on first use — enqueued async + deduped so it never blocks the query.
+    // Runs before the guards below so a warehouse left mid-migration (pending +
+    // matcols still present) OR stuck fully-migrated-but-still-`migrating` (the
+    // flag clear failed) can re-trigger and recover itself on next use.
+    if (
+      isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
+      void queueMigrateManagedWarehouse(this.datasource.organization).catch(
+        (e) =>
+          logger.error(e, "Failed to queue managed warehouse JSON migration"),
+      );
+    }
+    // Block queries while never-provisioned OR mid-migration (tables being recreated).
+    // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
+    // the callout distinguishes the migrating case for honest "upgrading" copy.
+    if (
+      isManagedWarehouseAwaitingProvisioning(this.datasource) ||
+      isManagedWarehouseMigrating(this.datasource)
+    ) {
       throw new ManagedWarehousePendingError();
     }
     const client = createClient({
@@ -93,6 +118,31 @@ export default class ClickHouse extends SqlIntegration {
         : "";
 
     return `table_schema IN ('${this.params.database}')${extraWhere}`;
+  }
+
+  getFeatureEvalDiagnosticsQuery(
+    params: FeatureEvalDiagnosticsQueryParams,
+  ): string {
+    if (this.datasource.type === "growthbook_clickhouse") {
+      const featureKey = this.getSqlDialect().escapeStringLiteral(
+        params.feature,
+      );
+      const oneWeekAgo = subDays(new Date(), 7);
+      return `SELECT
+        timestamp,
+        feature AS feature_key,
+        environment,
+        value,
+        source,
+        ruleId,
+        variationId
+      FROM feature_usage
+      WHERE feature = '${featureKey}'
+        AND timestamp >= ${this.getSqlDialect().toTimestamp(oneWeekAgo)}
+      ORDER BY timestamp DESC
+      LIMIT 100`;
+    }
+    return super.getFeatureEvalDiagnosticsQuery(params);
   }
 
   async getFeatureUsage(

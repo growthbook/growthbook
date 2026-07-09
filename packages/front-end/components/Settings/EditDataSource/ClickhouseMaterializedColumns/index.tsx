@@ -174,7 +174,7 @@ export default function ClickhouseMaterializedColumns({
                   </TableCell>
                   <TableCell>
                     {canEdit && (
-                      <MoreMenu>
+                      <MoreMenu useRadix={false}>
                         <button
                           className="dropdown-item py-2"
                           onClick={() => setEditColumnIdx(idx)}
@@ -182,6 +182,7 @@ export default function ClickhouseMaterializedColumns({
                           Edit
                         </button>
                         <DeleteButton
+                          useRadix={false}
                           onClick={() => deleteColumn(col.columnName)}
                           className="dropdown-item text-danger py-2"
                           iconClassName="mr-2"

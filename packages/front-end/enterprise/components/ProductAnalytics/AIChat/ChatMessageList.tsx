@@ -28,11 +28,11 @@ import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module
 import CollapsedSteps, {
   type CollapsedStepItem,
 } from "@/enterprise/components/AIChat/CollapsedSteps";
+import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
 import ExplorationBubble, {
   chartDataFromToolResult,
   chartDataFromRecord,
 } from "./ExplorationBubble";
-import { useCollapsibleActiveTurnItems } from "./useCollapsibleActiveTurnItems";
 
 export const TOOL_STATUS_LABELS: Record<string, string> = {
   runExploration: "Running query...",
@@ -154,6 +154,13 @@ export default function ChatMessageList({
   const { collapsedItems, visibleItems } = useCollapsibleActiveTurnItems(
     activeTurnItems,
     displayedTextMap,
+    {
+      isPinned: (item) =>
+        item.kind === "tool-status" &&
+        item.status === "done" &&
+        !!item.toolResultData &&
+        chartDataFromRecord(item.toolResultData) !== null,
+    },
   );
 
   // Preserve the user's expanded/collapsed toggle across the active→persisted

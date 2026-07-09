@@ -2,7 +2,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { datetime } from "shared/dates";
-import { Revision, RevisionStatus } from "shared/enterprise";
+import { Revision, RevisionStatus, getRevisionKey } from "shared/enterprise";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { FeatureMetaInfo } from "shared/types/feature";
 import Link from "next/link";
@@ -92,6 +92,7 @@ type ScopeValue = "needs-my-review" | "my-requests" | "all";
 function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
     "saved-group": "Saved Group",
+    constant: "Constant",
     feature: "Feature",
   };
   return labels[entityType] || entityType;
@@ -175,9 +176,23 @@ function revisionToRow(revision: Revision): ApprovalRow {
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
-    url: buildSavedGroupRevisionUrl(revision.target.id, revision),
+    url: buildRevisionUrl(revision),
     projects,
   };
+}
+
+// Build the detail-page URL for a revision based on its entity type. The
+// revision key doubles as the route segment (saved-group → /saved-groups,
+// constant → /constants).
+function buildRevisionUrl(revision: Revision): string {
+  if (revision.target.type === "saved-group") {
+    return buildSavedGroupRevisionUrl(revision.target.id, revision);
+  }
+  const key = getRevisionKey(revision.target.type);
+  const base = `/${key ?? revision.target.type}/${revision.target.id}`;
+  return (revision.version ?? null) !== null
+    ? `${base}?v=${revision.version}`
+    : base;
 }
 
 function featureRevisionToRow(
@@ -520,7 +535,9 @@ const ApprovalRequests: FC = () => {
         </Heading>
         <Text color="text-low">
           Review changes across your organization that require approval.{" "}
-          <DocLink docSection="publishingAndApprovalFlows">View Docs</DocLink>
+          <DocLink useRadix={false} docSection="publishingAndApprovalFlows">
+            View Docs
+          </DocLink>
         </Text>
       </Box>
 

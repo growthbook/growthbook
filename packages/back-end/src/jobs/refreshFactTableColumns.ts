@@ -1,7 +1,12 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
 import { canInlineFilterColumn } from "shared/experiments";
-import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import {
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
+} from "shared/constants";
+import { OrganizationSettings } from "shared/types/organization";
 import {
   ColumnInterface,
   FactTableColumnType,
@@ -26,6 +31,24 @@ const JOB_NAME = "refreshFactTableColumns";
 export const MAX_COLUMNS_WITH_TOP_VALUES = 50;
 export const MAX_TOP_VALUE_LENGTH = 100;
 export const TOP_VALUES_CHUNK_SIZE = 25;
+
+type TopValuesLookbackUnit = NonNullable<
+  OrganizationSettings["topValuesLookbackUnit"]
+>;
+
+function getTopValuesLookbackDays(
+  value: number,
+  unit: TopValuesLookbackUnit,
+): number {
+  switch (unit) {
+    case "days":
+      return value;
+    default: {
+      unit satisfies never;
+      throw new Error(`Unsupported top values lookback unit: ${unit}`);
+    }
+  }
+}
 
 // Selects the string columns on a fact table that should have topValues
 // populated. Columns explicitly opted-in via alwaysInlineFilter or
@@ -143,6 +166,12 @@ export async function runColumnsTopValuesQuery(
       100,
       context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    ),
+    lookbackDays: getTopValuesLookbackDays(
+      context.org.settings?.topValuesLookbackValue ??
+        DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+      context.org.settings?.topValuesLookbackUnit ??
+        DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     ),
     maxValueLength: MAX_TOP_VALUE_LENGTH,
   });
@@ -399,5 +428,22 @@ export async function queueFactTableColumnsRefresh(
     factTableId: factTable.id,
   });
   job.schedule(new Date());
+  await job.save();
+}
+
+/** Same job as queueFactTableColumnsRefresh, but scheduled for a future runAt. */
+export async function queueFactTableColumnsRefreshAt(
+  factTable: Pick<FactTableInterface, "id" | "organization">,
+  runAt: Date,
+) {
+  const job = agenda.create(JOB_NAME, {
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  }) as RefreshFactTableColumnsJob;
+  job.unique({
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  });
+  job.schedule(runAt);
   await job.save();
 }

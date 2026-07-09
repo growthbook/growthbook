@@ -1,10 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextPageContext } from "next";
-import Error, { ErrorProps } from "next/error";
+import NextError, { ErrorProps } from "next/error";
 import { reportException } from "@/services/errorReporting";
 
 const ErrorWrapper = (props: ErrorProps) => {
-  return <Error {...props} />;
+  return <NextError {...props} />;
 };
 
 ErrorWrapper.getInitialProps = async (contextData: NextPageContext) => {
@@ -24,7 +24,7 @@ ErrorWrapper.getInitialProps = async (contextData: NextPageContext) => {
     },
   );
 
-  return Error.getInitialProps(contextData);
+  return NextError.getInitialProps(contextData);
 };
 
 export default ErrorWrapper;

@@ -19,6 +19,7 @@ export interface Props {
   jsonCTA?: string;
   hideTitle?: boolean;
   useJSONButton?: boolean;
+  headerContent?: React.ReactNode;
 }
 
 export default function AttributeForm({
@@ -28,6 +29,7 @@ export default function AttributeForm({
   jsonCTA = "Test Attributes",
   hideTitle = false,
   useJSONButton = true,
+  headerContent,
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
@@ -288,6 +290,7 @@ export default function AttributeForm({
             className={`${styles.attributeBox} pb-2 round appbox`}
             style={{ borderTopRightRadius: 0 }}
           >
+            {headerContent && <div className="p-2">{headerContent}</div>}
             <TabsContent value="simple">
               <div className=" form-group ">
                 <div

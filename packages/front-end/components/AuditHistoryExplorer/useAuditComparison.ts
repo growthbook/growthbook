@@ -411,11 +411,13 @@ export function useAuditComparison<T>(
 
   // For diffing: pre of step A is its postSnapshot, post of step B is its postSnapshot.
   // For a create entry (pre=null), show as "created with these values".
+  // For synthetic create steps currentStep[0] is null, so pre is null
+  // (showing the create event as "everything new").
+  const stepPre = currentStep?.[0] ? (stepEntryA?.postSnapshot ?? null) : null;
+  const stepPost = stepEntryB?.postSnapshot ?? null;
   const stepDiffs = useAuditDiff<T>({
-    // For synthetic create steps currentStep[0] is null, so pre is null
-    // (showing the create event as "everything new").
-    pre: currentStep?.[0] ? (stepEntryA?.postSnapshot ?? null) : null,
-    post: stepEntryB?.postSnapshot ?? null,
+    pre: stepPre,
+    post: stepPost,
     config,
   });
 
@@ -423,12 +425,14 @@ export function useAuditComparison<T>(
   // For multi-entry ranges: if the oldest entry is a create event (preSnapshot===null),
   // treat the range as "from nothing" so all creation-time fields appear as new.
   // Otherwise use oldest.postSnapshot as the baseline.
+  const mergedPre =
+    isSingleEntry || singleEntryFirst?.preSnapshot === null
+      ? (singleEntryFirst?.preSnapshot ?? null)
+      : (singleEntryFirst?.postSnapshot ?? null);
+  const mergedPost = singleEntryLast?.postSnapshot ?? null;
   const mergedDiffs = useAuditDiff<T>({
-    pre:
-      isSingleEntry || singleEntryFirst?.preSnapshot === null
-        ? (singleEntryFirst?.preSnapshot ?? null)
-        : (singleEntryFirst?.postSnapshot ?? null),
-    post: singleEntryLast?.postSnapshot ?? null,
+    pre: mergedPre,
+    post: mergedPost,
     config,
   });
 
@@ -436,6 +440,11 @@ export function useAuditComparison<T>(
     () => (diffViewMode === "single" ? mergedDiffs : stepDiffs),
     [diffViewMode, mergedDiffs, stepDiffs],
   );
+
+  // Whole before/after snapshots for the non-sectional "Raw JSON" view,
+  // matching the pre/post used to build activeDiffsRaw.
+  const activeRawPre = diffViewMode === "single" ? mergedPre : stepPre;
+  const activeRawPost = diffViewMode === "single" ? mergedPost : stepPost;
 
   // Exclude no-op diffs (a === b) so badges, renders, and "No changes" stay consistent
   const activeDiffs = useMemo(
@@ -583,6 +592,8 @@ export function useAuditComparison<T>(
     diffViewMode,
     setDiffViewModeRaw,
     activeDiffs,
+    activeRawPre,
+    activeRawPost,
     customRenderGroups,
     activeBadges,
     displayFailed,

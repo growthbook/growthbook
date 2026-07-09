@@ -164,65 +164,6 @@ export default function ExperimentSettings({
               </Box>
             </Box>
 
-            {/* Fact table optimization */}
-            <Box mb="6">
-              <Flex align="start" justify="start" gap="3">
-                <Box>
-                  <Checkbox
-                    disabled={!hasCommercialFeature("multi-metric-queries")}
-                    value={
-                      hasCommercialFeature("multi-metric-queries") &&
-                      !form.watch("disableMultiMetricQueries")
-                    }
-                    setValue={(v) =>
-                      form.setValue("disableMultiMetricQueries", !v)
-                    }
-                    id="toggle-factoptimization"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column" justify="start">
-                  <Box>
-                    <label
-                      htmlFor="toggle-factTableQueryOptimization"
-                      className="mb-2"
-                    >
-                      <PremiumTooltip
-                        commercialFeature="multi-metric-queries"
-                        body={
-                          <>
-                            <p>
-                              If multiple metrics from the same Fact Table are
-                              added to an experiment, this will combine them
-                              into a single query, which is much faster and more
-                              efficient.
-                            </p>
-                            <p>
-                              For data sources with usage-based billing like
-                              BigQuery or SnowFlake, this can result in
-                              substantial cost savings.
-                            </p>
-                          </>
-                        }
-                      >
-                        <Text size="3" className="font-weight-semibold">
-                          Fact Table Query Optimization
-                        </Text>{" "}
-                        <GBInfo />
-                      </PremiumTooltip>
-                    </label>
-                  </Box>
-                  <Box>
-                    <Text>
-                      Combine multiple metrics from the same Fact Table into a
-                      single query to reduce fees on usage-based data sources,
-                      like BigQuery or Snowflake.
-                    </Text>
-                  </Box>
-                </Flex>
-              </Flex>
-            </Box>
-
             {/* Pre-computed dimension breakdowns */}
             <Box mb="6">
               <Flex align="start" justify="start" gap="3">

@@ -63,6 +63,31 @@ export async function findDimensionsByOrganization(organization: string) {
   return dimensions;
 }
 
+export async function findDimensionsByIds(
+  ids: string[],
+  organization: string,
+): Promise<DimensionInterface[]> {
+  if (ids.length === 0) return [];
+
+  let configDims: DimensionInterface[] = [];
+  if (usingFileConfig()) {
+    configDims = getConfigDimensions(organization).filter((d) =>
+      ids.includes(d.id),
+    );
+
+    if (!ALLOW_CREATE_DIMENSIONS) {
+      return configDims;
+    }
+  }
+
+  const dbDocs = await DimensionModel.find({
+    id: { $in: ids },
+    organization,
+  });
+
+  return [...configDims, ...dbDocs.map(toInterface)];
+}
+
 export async function findDimensionById(id: string, organization: string) {
   // If using config.yml, check there first
   if (usingFileConfig()) {

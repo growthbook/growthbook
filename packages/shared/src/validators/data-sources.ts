@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -13,20 +14,20 @@ export const apiDataSourceValidator = namedSchema(
       dateUpdated: z.string().meta({ format: "date-time" }),
       type: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       projectIds: z.array(z.string()),
       eventTracker: z.string(),
       identifierTypes: z.array(
         z.object({
           id: z.string(),
-          description: z.string(),
+          description: z.string().max(MAX_DESCRIPTION_LENGTH),
         }),
       ),
       assignmentQueries: z.array(
         z.object({
           id: z.string(),
           name: z.string(),
-          description: z.string(),
+          description: z.string().max(MAX_DESCRIPTION_LENGTH),
           identifierType: z.string(),
           sql: z.string(),
           includesNameColumns: z.boolean(),

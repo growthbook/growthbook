@@ -175,6 +175,55 @@ export type SingleVariationResult = {
   ci?: [number, number];
 };
 
+/** One contextual slice from gbstats; stored on snapshots as `contextualBanditSnapshot`. */
+export type ContextualBanditResponseSnapshot = {
+  context: Record<string, unknown>;
+  sampleSizePerVariation?: number[] | null;
+  /** Per-variation sample (data-only) means; not posterior means. */
+  sampleMeans?: number[] | null;
+  /** Per-variation sample (data-only) variances; not posterior variances. */
+  sampleVariances?: number[] | null;
+  updatedWeights?: number[] | null;
+  bestArmProbabilities?: number[] | null;
+  updateMessage?: string | null;
+  error?: string | null;
+};
+
+/** Maps observed context attribute values to a regression-tree leaf id. */
+export type ContextualLeafMapEntry = {
+  context: Record<string, string>;
+  leafId: number;
+};
+
+/** Aggregated per-leaf sample (data-only) statistics. */
+export type ContextualLeafStatsEntry = {
+  leafId: number;
+  sampleSizePerVariation?: number[] | null;
+  sampleMeans?: number[] | null;
+  sampleVariances?: number[] | null;
+};
+
+/**
+ * Total within-tree SSE captured at each stage of greedy regression-tree
+ * growth: index 0 is the root (before the first split), the next entry is the
+ * total SSE after the first split, then after the second split, etc.
+ */
+export type ContextualSseTrajectoryEntry = {
+  /** Number of splits applied so far. 0 = root, before the first split. */
+  numSplits: number;
+  /** Total SSE summed across every leaf of the tree at this stage. */
+  totalSse: number;
+};
+
+/** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
+export type ContextualBanditSnapshot = {
+  attributes: string[];
+  responses: ContextualBanditResponseSnapshot[];
+  leaf_map?: ContextualLeafMapEntry[];
+  leaf_stats?: ContextualLeafStatsEntry[];
+  sse_trajectory?: ContextualSseTrajectoryEntry[];
+};
+
 export type MultipleExperimentMetricAnalysis = {
   id: string;
   results: ExperimentMetricAnalysis;
@@ -218,6 +267,7 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
+  contexts?: string[];
 }
 
 export type BusinessMetricTypeForStatsEngine =

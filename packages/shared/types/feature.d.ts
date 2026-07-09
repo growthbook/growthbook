@@ -22,6 +22,8 @@ export {
   ExperimentRule,
   ScheduleRule,
   ExperimentRefRule,
+  ContextualBanditRefRule,
+  ContextualBanditRefVariation,
   RolloutRule,
   ExperimentRefVariation,
   ComputedFeatureInterface,
@@ -159,6 +161,8 @@ export type FeatureMetaInfo = Pick<
   | "neverStale"
 > & {
   defaultValue?: string;
+  hasPrerequisites?: boolean;
+  hasSavedGroups?: boolean;
   revision?: {
     version: number;
     comment: string;

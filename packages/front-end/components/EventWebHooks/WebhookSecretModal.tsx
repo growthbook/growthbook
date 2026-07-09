@@ -36,6 +36,7 @@ export default function WebhookSecretModal({
 
   return (
     <Modal
+      useRadixButton={false}
       open={true}
       close={close}
       increasedElevation={increasedElevation}

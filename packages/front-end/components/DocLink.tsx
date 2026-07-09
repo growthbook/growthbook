@@ -33,6 +33,7 @@ const docSections = {
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
+  contextualBandits: "/contextual-bandits/overview",
   targeting: "/features/targeting",
   namespaces: "/features/rules#namespaces",
   environments: "/features/environments",
@@ -129,6 +130,8 @@ const docSections = {
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
   errorTracking: "/lib/error-tracking",
   errorTrackingSourceMaps: "/lib/error-tracking#upload-source-maps",
+  eventForwarder: "/app/event-forwarder",
+  chooseDataPath: "/app/choose-data-path",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",
   holdouts: "/app/holdouts",
@@ -297,7 +300,7 @@ export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
-  useRadix,
+  useRadix = true,
   children,
 }: DocLinkProps) {
   if (useRadix) {

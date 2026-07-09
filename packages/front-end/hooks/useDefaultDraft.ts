@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
-import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
+import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
+import { DraftMode } from "@/components/DraftSelector";
 
 // Returns the draft version to pre-select in a modal.
 // Prefers the revision currently viewed on the feature page (if it's an active draft),
@@ -38,4 +39,21 @@ export function useDefaultDraft(
     }
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, ctx]);
+}
+
+// Initial draft mode + target for metadata-style edit modals. When the user
+// can't auto-publish and an active draft already exists, default to iterating on
+// that draft instead of spawning a fresh one on every save — which otherwise
+// leaves a pile of content-identical orphan drafts behind.
+export function useDefaultDraftMode(
+  revisionList: MinimalFeatureRevisionInterface[],
+  canAutoPublish: boolean,
+): { mode: DraftMode; defaultDraft: number | null } {
+  const defaultDraft = useDefaultDraft(revisionList);
+  const mode: DraftMode = canAutoPublish
+    ? "publish"
+    : defaultDraft !== null
+      ? "existing"
+      : "new";
+  return { mode, defaultDraft };
 }

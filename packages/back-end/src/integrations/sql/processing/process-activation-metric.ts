@@ -5,7 +5,7 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export function processActivationMetric(
   activationMetricDoc: null | ExperimentMetricInterface,
-  settings: ExperimentSnapshotSettings,
+  settings: Pick<ExperimentSnapshotSettings, "metricSettings">,
 ): null | ExperimentMetricInterface {
   let activationMetric: null | ExperimentMetricInterface = null;
   if (activationMetricDoc) {

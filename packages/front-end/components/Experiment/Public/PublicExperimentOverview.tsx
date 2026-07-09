@@ -6,6 +6,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
 export default function PublicExperimentOverview({
@@ -74,6 +75,12 @@ export default function PublicExperimentOverview({
       <AnalysisSettings
         experiment={experiment}
         envs={[]}
+        canEdit={false}
+        ssrPolyfills={ssrPolyfills}
+        isPublic={true}
+      />
+      <DecisionMakingSettings
+        experiment={experiment}
         canEdit={false}
         ssrPolyfills={ssrPolyfills}
         isPublic={true}

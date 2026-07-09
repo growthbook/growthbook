@@ -81,7 +81,7 @@ export async function getUpdateFactMetricPropsFromBody(
     metricType &&
     !expectsDenominator(metricType)
   ) {
-    updates.denominator = undefined;
+    updates.denominator = null;
   }
   if (denominator) {
     updates.denominator = FactMetricModel.migrateColumnRef({
@@ -125,7 +125,7 @@ export async function getUpdateFactMetricPropsFromBody(
     if (regressionAdjustmentSettings.override) {
       updates.regressionAdjustmentEnabled =
         !!regressionAdjustmentSettings.enabled;
-      if (regressionAdjustmentSettings.days) {
+      if (regressionAdjustmentSettings.days != null) {
         updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
       }
     }

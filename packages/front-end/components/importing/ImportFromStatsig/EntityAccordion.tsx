@@ -1,6 +1,6 @@
 import React from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { transformPayloadForDiffDisplay } from "@/services/importing/statsig/util";
 
 interface EntityAccordionProps {

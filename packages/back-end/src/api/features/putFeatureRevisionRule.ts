@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
@@ -27,6 +28,7 @@ import {
   isDraftStatus,
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -80,6 +82,7 @@ export function applyPatch(
         experimentId: patch.experimentId,
       }),
       ...(patch.variations !== undefined && { variations: patch.variations }),
+      ...(patch.sparse !== undefined && { sparse: patch.sparse }),
     };
     return updated;
   }
@@ -151,6 +154,10 @@ export function applyPatch(
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.hashVersion !== undefined && {
+          hashVersion: patch.hashVersion,
+        }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     } else {
@@ -166,6 +173,7 @@ export function applyPatch(
           hashAttribute: effectiveHashAttr,
         }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.sparse !== undefined && { sparse: patch.sparse }),
       };
       return updated;
     }
@@ -266,18 +274,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
     if (wantsNewSchedule) {
-      const liveSchedules =
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           environment,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
     const updatedRule = applyPatch(oldRule, patch);
 
@@ -289,6 +294,23 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       prerequisites:
         patch.prerequisites !== undefined ? updatedRule.prerequisites : [],
     });
+    // Attribute registration check: only validate the fields the caller
+    // actually patched. patch is the Zod-typed RulePatchInput, so condition
+    // and hashAttribute are already string | undefined. fallbackAttribute
+    // isn't on the patch schema at all.
+    const changedAttributes: {
+      condition?: string;
+      hashAttribute?: string;
+    } = {};
+    if (patch.condition !== undefined) {
+      changedAttributes.condition = patch.condition;
+    }
+    if (patch.hashAttribute !== undefined) {
+      changedAttributes.hashAttribute = patch.hashAttribute;
+    }
+    if (Object.keys(changedAttributes).length > 0) {
+      validateRuleAttributes(changedAttributes, req.context, feature.project);
+    }
     if (
       patch.condition !== undefined ||
       patch.savedGroups !== undefined ||
@@ -347,9 +369,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     await updateRevision(

@@ -15,3 +15,10 @@ jest.mock("snowflake-sdk", () => ({
   createConnection: jest.fn(),
   configure: jest.fn(),
 }));
+
+jest.mock("back-end/src/services/python", () => ({
+  statsServerPool: {
+    acquire: jest.fn(),
+    release: jest.fn(),
+  },
+}));

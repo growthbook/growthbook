@@ -114,6 +114,7 @@ export default function SetupFlow() {
         </h1>
       )}
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType="setup-growthbook"
         header={""}
         submit={async () => {}}

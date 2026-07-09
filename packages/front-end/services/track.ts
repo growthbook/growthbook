@@ -71,16 +71,32 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+export function getJitsuAnonymousId(): string {
+  const jitsu = getJitsuClient();
+  if (
+    jitsu &&
+    "getAnonymousId" in jitsu &&
+    typeof jitsu.getAnonymousId === "function"
+  ) {
+    const anonymousId = jitsu.getAnonymousId();
+    if (typeof anonymousId === "string") {
+      return anonymousId;
+    }
+  }
+  return "";
+}
+
 const getHost = () => {
   // Mask the hostname and sanitize URLs to avoid leaking private info
   const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
   return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
 };
 
-const getURL = () => {
+/** Sanitized page URL for telemetry (pathname only, masked host). */
+export function getTrackingPageUrl(): string {
   const host = getHost();
   return document.location.protocol + "//" + host + location.pathname;
-};
+}
 
 export default function track(
   event: string,
@@ -104,7 +120,7 @@ export default function track(
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: getURL(),
+    url: getTrackingPageUrl(),
     doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
