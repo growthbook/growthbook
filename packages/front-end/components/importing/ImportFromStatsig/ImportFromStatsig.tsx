@@ -1004,9 +1004,11 @@ export default function ImportFromStatsig() {
     useDefinitions();
   // The import diff compares fact table sql, which the slimmed definitions
   // don't include, so fetch the full fact tables
-  const { data: factTablesData } = useApi<{ factTables: FactTableInterface[] }>(
-    "/fact-tables",
-  );
+  const {
+    data: factTablesData,
+    mutate: mutateFactTables,
+    isLoading: factTablesLoading,
+  } = useApi<{ factTables: FactTableInterface[] }>("/fact-tables");
   const factTables = useMemo(
     () => factTablesData?.factTables || [],
     [factTablesData],
@@ -1176,6 +1178,7 @@ export default function ImportFromStatsig() {
             <Button
               type="button"
               color={step === 1 ? "primary" : "outline-primary"}
+              disabled={factTablesLoading}
               onClick={async () => {
                 if (!token) return;
 
@@ -1254,6 +1257,7 @@ export default function ImportFromStatsig() {
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
+                mutateFactTables();
                 mutateFeatures();
                 refreshOrganization();
               }}
