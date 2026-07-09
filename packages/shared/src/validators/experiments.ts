@@ -174,6 +174,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
@@ -980,6 +981,12 @@ const apiMetricOverrideEntryInput = z
 // Variation for input payloads
 const apiVariationInput = z.object({
   id: z.string().optional(),
+  variationId: z
+    .string()
+    .describe(
+      "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
+    )
+    .optional(),
   key: z.string(),
   name: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
@@ -1020,8 +1027,20 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  reason: z.string().optional(),
-  condition: z.string().optional(),
+  reason: z
+    .string()
+    .describe("Deprecated: use `reasonForStopping`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  condition: z
+    .string()
+    .describe("Deprecated: use `targetingCondition`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  targetingCondition: z
+    .string()
+    .describe("Targeting condition as a JSON string. Mirrors the GET response.")
+    .optional(),
   savedGroupTargeting: z
     .array(
       z.object({
@@ -1030,7 +1049,15 @@ const apiPhaseInput = z.object({
       }),
     )
     .optional(),
-  variationWeights: z.array(z.number()).optional(),
+  variationWeights: z
+    .array(z.number())
+    .describe("Deprecated: use `trafficSplit`. Takes precedence if set.")
+    .meta({ deprecated: true })
+    .optional(),
+  trafficSplit: z
+    .array(z.object({ variationId: z.string(), weight: z.number() }))
+    .describe("Per-variation weights. Mirrors the GET response.")
+    .optional(),
 });
 
 // PostExperimentPayload.yaml
@@ -1280,8 +1307,26 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          reason: z.string().optional(),
-          condition: z.string().optional(),
+          reason: z
+            .string()
+            .describe(
+              "Deprecated: use `reasonForStopping`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          condition: z
+            .string()
+            .describe(
+              "Deprecated: use `targetingCondition`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          targetingCondition: z
+            .string()
+            .describe(
+              "Targeting condition as a JSON string. Mirrors the GET response.",
+            )
+            .optional(),
           savedGroupTargeting: z
             .array(
               z.object({
@@ -1290,7 +1335,17 @@ const updateExperimentBody = z
               }),
             )
             .optional(),
-          variationWeights: z.array(z.number()).optional(),
+          variationWeights: z
+            .array(z.number())
+            .describe(
+              "Deprecated: use `trafficSplit`. Takes precedence if set.",
+            )
+            .meta({ deprecated: true })
+            .optional(),
+          trafficSplit: z
+            .array(z.object({ variationId: z.string(), weight: z.number() }))
+            .describe("Per-variation weights. Mirrors the GET response.")
+            .optional(),
         }),
       )
       .optional(),
