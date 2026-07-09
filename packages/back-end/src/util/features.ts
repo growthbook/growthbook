@@ -22,6 +22,7 @@ import {
   parsePlainJSONObject,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { cloneDeep, isNil, pick } from "lodash";
 import md5 from "md5";
@@ -119,6 +120,7 @@ export function buildPayloadMetadata<
     statusUpdateSchedule?: {
       startAt?: Date | string;
       stopAt?: Date | string;
+      stopAfter?: { value: number; unit: "hours" | "days" } | null;
     } | null;
   },
   opts: MetadataOptions,
@@ -154,11 +156,31 @@ export function buildPayloadMetadata<
   }
 
   // Schedule dates are experiment-only (features have no statusUpdateSchedule).
+  // Note on drafts: a scheduled draft only reaches here when it's already being
+  // included in the payload (the experiment-ref path bails on drafts unless the
+  // SDK Connection opts into draft refs), so emitting a future startDate here is
+  // intentional and gated upstream — not an unconditional leak.
   if (opts.includeExperimentScheduleInMetadata && entity.statusUpdateSchedule) {
-    const { startAt, stopAt } = entity.statusUpdateSchedule;
+    const { startAt, stopAt, stopAfter } = entity.statusUpdateSchedule;
     const expMetadata = metadata as ExperimentMetadata;
     if (startAt) expMetadata.startDate = new Date(startAt).toISOString();
-    if (stopAt) expMetadata.endDate = new Date(stopAt).toISOString();
+    if (stopAt) {
+      expMetadata.endDate = new Date(stopAt).toISOString();
+    } else if (stopAfter) {
+      // A relative end that hasn't resolved yet (scheduled draft). Emit the
+      // offset so it's consumable without a discrete date, plus a concrete
+      // endDate when we already know the start to anchor it to.
+      expMetadata.endAfterStart = {
+        value: stopAfter.value,
+        unit: stopAfter.unit,
+      };
+      if (startAt) {
+        expMetadata.endDate = resolveScheduleStopAfter(
+          new Date(startAt),
+          stopAfter,
+        ).toISOString();
+      }
+    }
   }
 
   return Object.keys(metadata).length > 0 ? metadata : undefined;
