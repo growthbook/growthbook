@@ -204,10 +204,13 @@ export class EventWebHookNotifier implements Notifier {
               event.data,
               eventId,
             );
-          return getSlackMessageForNotificationEvent(event.data, eventId);
+          return getSlackMessageForNotificationEvent(event.data, eventId, {
+            organizationId: event.organizationId,
+          });
         }
 
         case "discord": {
+          // Discord only uses the text; skip card rendering (no renderContext).
           const data = await (!event.version
             ? getSlackMessageForLegacyNotificationEvent(event.data, eventId)
             : getSlackMessageForNotificationEvent(event.data, eventId));
