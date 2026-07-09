@@ -1,7 +1,7 @@
 import Agenda from "agenda";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
-import { MANAGED_WAREHOUSE_MIGRATION_SWEEP_ENABLED } from "back-end/src/util/secrets";
+import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 
 const JOB_NAME = "sweepManagedWarehouseMigrations";
@@ -39,6 +39,13 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // (deduped + idempotent) in small batches. Throughput is bounded by that job's
 // concurrency cap, not this sweep, so a backlog of queued jobs is harmless.
 const sweepManagedWarehouseMigrations = async () => {
+  // Killswitch for the proactive background sweep. Default off (matches the old
+  // env var); flip `managed-warehouse-migration-sweep` on in GrowthBook to drain
+  // legacy warehouses. Evaluated per run so toggling takes effect without a redeploy.
+  if (!getBackendFeatureValue("managed-warehouse-migration-sweep", false)) {
+    return;
+  }
+
   const datasources =
     getCollection<ManagedWarehouseDatasourceDoc>("datasources");
 
@@ -62,8 +69,8 @@ const sweepManagedWarehouseMigrations = async () => {
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, sweepManagedWarehouseMigrations);
 
-  if (!MANAGED_WAREHOUSE_MIGRATION_SWEEP_ENABLED) return;
-
+  // Always schedule; the sweep body no-ops unless the feature flag is on, so the
+  // flag can be toggled at runtime without restarting the app.
   const job = agenda.create(JOB_NAME, {});
   job.unique({});
   job.repeatEvery(SWEEP_INTERVAL);
