@@ -88,6 +88,23 @@ export function isDashboardGlobalControlSupportedBlock(
   return dashboardGlobalControlSupportedBlockTypes.has(block.type);
 }
 
+export function autoEnrollDashboardBlocksInDateControl<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(blocks: T[]): T[] {
+  return blocks.map((block) =>
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === undefined
+      ? ({
+          ...block,
+          globalControlSettings: {
+            ...block.globalControlSettings,
+            dateRange: true,
+          },
+        } as T)
+      : block,
+  );
+}
+
 export function blockUsesDashboardDateControl(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): block is DashboardGlobalControlSupportedBlock & {

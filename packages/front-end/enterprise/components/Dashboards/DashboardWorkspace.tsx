@@ -11,6 +11,7 @@ import {
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
+  autoEnrollDashboardBlocksInDateControl,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -161,15 +162,20 @@ export default function DashboardWorkspace({
       globalControls: DashboardInterface["globalControls"],
       controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
+      const nextControlBlocks =
+        controlBlocks ??
+        (globalControls?.dateRange
+          ? autoEnrollDashboardBlocksInDateControl(blocks)
+          : undefined);
       setHasMadeChanges(true);
       setGlobalControls(globalControls);
-      if (controlBlocks) {
-        setBlocks(controlBlocks);
+      if (nextControlBlocks) {
+        setBlocks(nextControlBlocks);
       }
 
       if (dashboardFirstSave) {
         updateTemporaryDashboard?.({
-          ...(controlBlocks ? { blocks: controlBlocks } : {}),
+          ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
           globalControls,
         });
       } else {
@@ -177,7 +183,7 @@ export default function DashboardWorkspace({
           method: "PUT",
           dashboardId: dashboard.id,
           data: {
-            ...(controlBlocks ? { blocks: controlBlocks } : {}),
+            ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
             globalControls,
           },
         });
@@ -186,6 +192,7 @@ export default function DashboardWorkspace({
   }, [
     dashboard.id,
     dashboardFirstSave,
+    blocks,
     setBlocks,
     submit,
     updateTemporaryDashboard,

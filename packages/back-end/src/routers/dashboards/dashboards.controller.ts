@@ -5,7 +5,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
-  isDashboardGlobalControlSupportedBlock,
+  autoEnrollDashboardBlocksInDateControl,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
@@ -106,19 +106,12 @@ export async function createDashboard(
     userId,
   } = req.body;
 
-  const createdBlocks = blocks
-    .map((blockData) => generateDashboardBlockIds(context.org.id, blockData))
-    .map((block) =>
-      globalControls?.dateRange && isDashboardGlobalControlSupportedBlock(block)
-        ? {
-            ...block,
-            globalControlSettings: {
-              ...block.globalControlSettings,
-              dateRange: true,
-            },
-          }
-        : block,
-    );
+  const createdBlocks = blocks.map((blockData) =>
+    generateDashboardBlockIds(context.org.id, blockData),
+  );
+  const blocksWithGlobalControls = globalControls?.dateRange
+    ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
+    : createdBlocks;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -132,7 +125,7 @@ export async function createDashboard(
     title,
     projects,
     globalControls,
-    blocks: createdBlocks,
+    blocks: blocksWithGlobalControls,
   });
 
   res.status(200).json({
@@ -168,18 +161,7 @@ export async function updateDashboard(
     );
     updates.blocks =
       !dashboard.globalControls?.dateRange && updates.globalControls?.dateRange
-        ? createdBlocks.map((block) =>
-            isDashboardGlobalControlSupportedBlock(block) &&
-            block.globalControlSettings?.dateRange === undefined
-              ? {
-                  ...block,
-                  globalControlSettings: {
-                    ...block.globalControlSettings,
-                    dateRange: true,
-                  },
-                }
-              : block,
-          )
+        ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
         : createdBlocks;
   }
 
@@ -188,18 +170,7 @@ export async function updateDashboard(
     !dashboard.globalControls?.dateRange &&
     updates.globalControls?.dateRange
   ) {
-    updates.blocks = dashboard.blocks.map((block) =>
-      isDashboardGlobalControlSupportedBlock(block) &&
-      block.globalControlSettings?.dateRange === undefined
-        ? {
-            ...block,
-            globalControlSettings: {
-              ...block.globalControlSettings,
-              dateRange: true,
-            },
-          }
-        : block,
-    );
+    updates.blocks = autoEnrollDashboardBlocksInDateControl(dashboard.blocks);
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
