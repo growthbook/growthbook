@@ -87,7 +87,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { getLicense, getOrgLimits, licenseInit } from "back-end/src/enterprise";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
@@ -495,6 +495,43 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+// Free (role-restricted) plans can only assign the admin global role. Project- and
+// environment-scoped roles are separately gated by the advanced-permissions commercial
+// feature, so only the global role needs checking here.
+export function assertRoleAssignmentAllowed(
+  organization: OrganizationInterface,
+  role: string,
+) {
+  if (getOrgLimits(organization).orgSupportsRoles()) return;
+  if (role === "admin") return;
+
+  throw new Error(
+    "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+  );
+}
+
+// The only role a role-restricted org can assign is admin, so automated provisioning
+// flows (verified-domain auto-join, Vercel) clamp to admin instead of throwing and
+// breaking the join.
+export function clampRoleForOrgLimits(
+  organization: OrganizationInterface,
+  role: string,
+): string {
+  if (getOrgLimits(organization).orgSupportsRoles()) return role;
+  return "admin";
+}
+
+// Like getDefaultRole, but clamped to admin for orgs whose plan restricts roles.
+export function getEffectiveDefaultRole(
+  organization: OrganizationInterface,
+): MemberRoleInfo {
+  const defaultRole = getDefaultRole(organization);
+  return {
+    ...defaultRole,
+    role: clampRoleForOrgLimits(organization, defaultRole.role),
+  };
+}
+
 export async function addMemberToOrg({
   organization,
   userId,
@@ -531,6 +568,7 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
 
   const members: Member[] = [
     ...organization.members,
@@ -672,6 +710,7 @@ export async function addPendingMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
 
   const pendingMembers: PendingMember[] = [
     ...(organization.pendingMembers || []),
@@ -781,6 +820,7 @@ export async function inviteUser({
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {

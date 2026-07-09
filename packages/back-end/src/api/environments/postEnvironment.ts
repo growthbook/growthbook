@@ -3,7 +3,6 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
-import { assertEnvironmentCreateAllowed } from "back-end/src/services/plan-limits";
 import { validatePayload } from "./validations";
 
 export const postEnvironment = createApiRequestHandler(
@@ -21,9 +20,11 @@ export const postEnvironment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Pricing Phase 1: soft limit — block creating non-default environments
-  // when the plan's policy is default-only.
-  assertEnvironmentCreateAllowed(org, environment.id);
+  if (!req.context.limits.isEnvironmentIdAllowed(environment.id)) {
+    throw new Error(
+      "Your plan does not support custom environments. Upgrade your plan to create environments other than the defaults.",
+    );
+  }
 
   const updates: Partial<OrganizationInterface> = {
     settings: {

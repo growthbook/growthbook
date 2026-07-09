@@ -6,6 +6,7 @@ import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -14,7 +15,6 @@ import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { useEnvironmentLimit } from "@/hooks/useEnvironmentLimit";
 import { DocLink } from "@/components/DocLink";
 
 export default function EnvironmentModal({
@@ -38,7 +38,6 @@ export default function EnvironmentModal({
   });
   const { apiCall } = useAuth();
   const environments = useEnvironments();
-  const { defaultOnly, missingDefaultIds, atLimit } = useEnvironmentLimit();
 
   const { data: sdkConnectionData } = useSDKConnections();
   const sdkConnections = useMemo(() => {
@@ -62,11 +61,21 @@ export default function EnvironmentModal({
 
   const { refreshOrganization } = useUser();
 
+  const { isEnvironmentIdAllowed, supportsCustomEnvironments } = useOrgLimits();
+  const customEnvironmentsAllowed = supportsCustomEnvironments();
+
   const { projects } = useDefinitions();
 
+  const newEnvironmentOptions = DEFAULT_ENVIRONMENT_IDS.filter(
+    (id) => !environments.some((e) => e.id === id),
+  ).map((id) => ({
+    label: id,
+    value: id,
+  }));
+
   // Creating while every id the plan allows already exists — the back-end
-  // would reject with a 402, so offer the upgrade path instead of the form.
-  if (!existing.id && atLimit) {
+  // would reject the create, so offer the upgrade path instead of the form.
+  if (!existing.id && !customEnvironmentsAllowed && !newEnvironmentOptions.length) {
     return (
       <UpgradeModal
         close={close}
@@ -118,6 +127,11 @@ export default function EnvironmentModal({
           if (newEnvs.find((e) => e.id === value.id)) {
             throw new Error("Environment id is already in use");
           }
+          if (!isEnvironmentIdAllowed(value.id)) {
+            throw new Error(
+              "Your plan only supports the default environments. Upgrade your plan to create custom environments.",
+            );
+          }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
             description: value.description || "",
@@ -143,15 +157,9 @@ export default function EnvironmentModal({
       {!existing.id && (
         <SelectField
           value={form.watch("id") || ""}
-          options={(defaultOnly
-            ? missingDefaultIds
-            : DEFAULT_ENVIRONMENT_IDS
-          ).map((id) => ({
-            label: id,
-            value: id,
-          }))}
+          options={newEnvironmentOptions}
           sort={false}
-          createable={!defaultOnly}
+          createable={customEnvironmentsAllowed}
           isClearable
           formatCreateLabel={(value) =>
             `Use custom environment name "${value}"`
@@ -168,12 +176,7 @@ export default function EnvironmentModal({
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
           label="Id"
           helpText={
-            defaultOnly ? (
-              <div>
-                Your plan only allows the default environments. Upgrade to
-                create custom environments.
-              </div>
-            ) : (
+            customEnvironmentsAllowed ? (
               <>
                 <div>
                   Only letters, numbers, hyphens, and underscores allowed. No
@@ -184,6 +187,8 @@ export default function EnvironmentModal({
                   <code>john_dev</code>
                 </div>
               </>
+            ) : (
+              <div>Upgrade your plan to create custom environments.</div>
             )
           }
         />

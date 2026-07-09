@@ -10,7 +10,6 @@ import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
-import PlanLimitUpgradeModal from "./Settings/PlanLimitUpgradeModal";
 
 const LoggedInPageGuard = ({
   children,
@@ -106,7 +105,6 @@ const ProtectedPage: React.FC<{
 
   return (
     <UserContextProvider key={orgId}>
-      <PlanLimitUpgradeModal />
       <LoggedInPageGuard organizationRequired={organizationRequired}>
         <InAppHelp />
         {!organizationRequired ? (

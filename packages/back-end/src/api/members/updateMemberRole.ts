@@ -11,8 +11,8 @@ import {
   orgHasPremiumFeature,
   getLowestPlanPerFeature,
 } from "back-end/src/enterprise";
-import { assertRoleAssignmentAllowed } from "back-end/src/services/plan-limits";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { assertRoleAssignmentAllowed } from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -115,9 +115,9 @@ export const updateMemberRole = createApiRequestHandler(
     limitAccessByEnvironment: !!member.environments?.length,
   };
 
-  // Pricing Phase 1: soft limit — only a role CHANGE is gated; resubmitting a
-  // member's existing role (e.g. while editing an unrelated field) must not
-  // 402 an already-compliant-or-grandfathered assignment.
+  // Only gate a role CHANGE — resubmitting a member's existing role (e.g.
+  // while editing an unrelated field) must not break assignments that already
+  // exist (e.g. non-admin members kept after a paid→free downgrade).
   if (updatedMember.role !== orgUser.role) {
     assertRoleAssignmentAllowed(req.context.org, updatedMember.role);
   }
@@ -133,7 +133,6 @@ export const updateMemberRole = createApiRequestHandler(
   if (!memberIsValid) {
     throw new Error(reason);
   }
-
   // Then, if member.projectRoles was passed in, we need to validate the each projectRole
   if (member.projectRoles?.length) {
     if (!orgHasPremiumFeature(req.context.org, "advanced-permissions")) {
@@ -143,16 +142,6 @@ export const updateMemberRole = createApiRequestHandler(
     }
     const updatedProjectRoles: ProjectMemberRole[] = [];
     member.projectRoles.forEach((updatedProjectRole) => {
-      const existingProjectRole = orgUser.projectRoles?.find(
-        (pr) => pr.project === updatedProjectRole.project,
-      );
-      if (
-        !existingProjectRole ||
-        existingProjectRole.role !== updatedProjectRole.role
-      ) {
-        assertRoleAssignmentAllowed(req.context.org, updatedProjectRole.role);
-      }
-
       const { memberIsValid, reason } = validateRoleAndEnvs(
         req.context.org,
         updatedProjectRole.role,

@@ -3,7 +3,7 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -28,7 +28,7 @@ import {
 } from "back-end/src/util/errors";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getOrgLimits, orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -407,6 +407,14 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry

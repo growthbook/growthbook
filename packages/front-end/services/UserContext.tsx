@@ -16,10 +16,8 @@ import type {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
-  PlanLimits,
   SubscriptionInfo,
 } from "shared/enterprise";
-import { UNLIMITED_PLAN_LIMITS } from "shared/enterprise";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -138,8 +136,6 @@ export interface UserContextValue {
   };
   canSubscribe: boolean;
   freeSeats: number;
-  // Pricing Phase 1: resolved usage limits (fail-open default while loading)
-  planLimits: PlanLimits;
   usage?: OrganizationUsage;
 }
 
@@ -190,7 +186,6 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
-  planLimits: UNLIMITED_PLAN_LIMITS,
   orgSuspended: false,
 });
 
@@ -676,7 +671,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         watching: watching,
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
-        planLimits: currentOrg?.planLimits ?? UNLIMITED_PLAN_LIMITS,
         usage: currentOrg?.usage,
       }}
     >

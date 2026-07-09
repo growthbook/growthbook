@@ -16,6 +16,8 @@ import {
   LicenseInterface,
   LicenseMetaData,
   LicenseUserCodes,
+  makeOrgLimits,
+  OrgLimitsAccessor,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { StripeAddress, TaxIdType } from "shared/types/subscriptions";
@@ -1045,6 +1047,17 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
   }
 
   return license.plan;
+}
+
+export function getOrgLimits(
+  org: MinimalOrganization & Pick<OrganizationInterface, "limits">,
+): OrgLimitsAccessor {
+  return makeOrgLimits({
+    effectivePlan: getEffectiveAccountPlan(org),
+    orgLimits: org.limits,
+    licenseLimits: getLicense(org.licenseKey || process.env.LICENSE_KEY)
+      ?.limits,
+  });
 }
 
 /**

@@ -3,17 +3,16 @@ import { ProjectInterface } from "shared/types/project";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import ProjectModal from "@/components/Projects/ProjectModal";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useProjectLimit } from "@/hooks/useProjectLimit";
+import useOrgLimits from "@/hooks/useOrgLimits";
+import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
-import Callout from "@/ui/Callout";
-import UILink from "@/ui/Link";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -23,6 +22,7 @@ const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
   const { apiCall } = useAuth();
+  const { organization } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null,
@@ -31,8 +31,17 @@ const ProjectsPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
 
-  const { atLimit: atProjectLimit, maxProjects } = useProjectLimit();
-  const [upgradeModal, setUpgradeModal] = useState(false);
+  const { getMaxProjects } = useOrgLimits();
+  const maxProjects = getMaxProjects();
+  const nonDemoProjectCount = projects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: organization?.id,
+      }),
+  ).length;
+  const atProjectLimit =
+    maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
   const [deleteProjectResources, setDeleteProjectResources] =
     useState<boolean>(true);
@@ -64,14 +73,6 @@ const ProjectsPage: FC = () => {
         />
       )}
 
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="project limit"
-          commercialFeature={null}
-        />
-      )}
-
       <Box mt="4" mb="5">
         <div className="row align-items-center mb-1">
           <div className="col-auto">
@@ -83,9 +84,11 @@ const ProjectsPage: FC = () => {
               body={
                 !canCreateProjects
                   ? "You don't have permission to create projects"
-                  : `Your plan allows up to ${maxProjects} project${
-                      maxProjects === 1 ? "" : "s"
-                    }. Upgrade to create more.`
+                  : atProjectLimit
+                    ? `Your plan is limited to ${maxProjects} project${
+                        maxProjects === 1 ? "" : "s"
+                      }. Upgrade your plan to create more.`
+                    : undefined
               }
               shouldDisplay={!canCreateProjects || atProjectLimit}
             >
@@ -102,15 +105,6 @@ const ProjectsPage: FC = () => {
           Group your ideas and experiments into <strong>Projects</strong> to
           keep things organized and easy to manage.
         </p>
-
-        {atProjectLimit && canCreateProjects ? (
-          <Callout status="info" mb="4">
-            Your plan allows up to {maxProjects} project
-            {maxProjects === 1 ? "" : "s"}.{" "}
-            <UILink onClick={() => setUpgradeModal(true)}>Upgrade</UILink> to
-            create more.
-          </Callout>
-        ) : null}
 
         {projects.length > 0 ? (
           <>

@@ -114,6 +114,15 @@ export class ApiKeyModel extends BaseClass {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
       if (
+        doc.role &&
+        doc.role !== "admin" &&
+        !this.context.limits.orgSupportsRoles()
+      ) {
+        this.context.throwBadRequestError(
+          "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+        );
+      }
+      if (
         doc.limitAccessByEnvironment &&
         !this.context.hasPremiumFeature("advanced-permissions")
       ) {

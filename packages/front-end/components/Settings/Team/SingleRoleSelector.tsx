@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "shared/types/organization";
 import uniqid from "uniqid";
@@ -7,10 +7,10 @@ import {
   roleSupportsEnvLimit,
   getRoleDisplayName,
 } from "shared/permissions";
-import { isRoleAllowed } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import { useEnvironments } from "@/services/features";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Switch from "@/ui/Switch";
 import SelectField, {
@@ -34,13 +34,25 @@ export default function SingleRoleSelector({
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
 }) {
-  const { roles, hasCommercialFeature, organization, planLimits } = useUser();
+  const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
   const deactivatedRoles = organization.deactivatedRoles || [];
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
   const isProjectAdminRoleEnabled = hasCommercialFeature("project-admin-role");
+
+  // Free plans can only assign the admin global role. This only applies to the
+  // global role selector (includeAdminRole); project roles are gated separately.
+  const { orgSupportsRoles } = useOrgLimits();
+  const rolesRestricted = includeAdminRole && !orgSupportsRoles();
+
+  useEffect(() => {
+    if (rolesRestricted && value.role !== "admin") {
+      setValue({ ...value, role: "admin" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesRestricted]);
 
   let roleOptions = [...roles];
 
@@ -62,15 +74,8 @@ export default function SingleRoleSelector({
     roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
   }
 
-  // Pricing Phase 1: soft limit — under the admin-only policy, only the admin
-  // role can be newly assigned. Members who already hold another role keep it.
-  const roleLimited = roleOptions.some(
-    (r) => !isRoleAllowed(r.id, planLimits.rolePolicy),
-  );
-  if (roleLimited) {
-    roleOptions = roleOptions.filter((r) =>
-      isRoleAllowed(r.id, planLimits.rolePolicy),
-    );
+  if (rolesRestricted) {
+    roleOptions = roleOptions.filter((r) => r.id === "admin");
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -157,12 +162,12 @@ export default function SingleRoleSelector({
             </div>
           );
         }}
-        disabled={disabled}
+        disabled={disabled || rolesRestricted}
       />
-
-      {roleLimited && (
+      {rolesRestricted && (
         <HelperText status="info" size="sm" mb="2">
-          Your plan only allows the Admin role. Upgrade to assign other roles.
+          Your plan only supports the admin role. Upgrade your plan to assign
+          other roles.
         </HelperText>
       )}
 

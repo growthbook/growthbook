@@ -5,8 +5,6 @@ import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { useProjectLimit } from "@/hooks/useProjectLimit";
 
 export default function ProjectModal({
   existing,
@@ -25,19 +23,6 @@ export default function ProjectModal({
     },
   });
   const restApiCall = useRestApiCall();
-  const { atLimit: atProjectLimit } = useProjectLimit();
-
-  // Creating (not editing) while at the plan's project limit — the back-end
-  // would reject with a 402, so offer the upgrade path instead of the form.
-  if (!existing.id && atProjectLimit) {
-    return (
-      <UpgradeModal
-        close={close}
-        source="project limit"
-        commercialFeature={null}
-      />
-    );
-  }
 
   return (
     <ModalStandard

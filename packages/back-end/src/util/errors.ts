@@ -55,19 +55,6 @@ export class InvalidStatusError extends ApiError<"invalid_status"> {
   }
 }
 
-// Soft plan-limit enforcement (Pricing Phase 1): thrown when creating a new
-// resource/assignment would exceed the org's plan limits. Existing resources
-// are never affected. 402 + code lets the front-end show an upgrade prompt.
-export class PlanLimitError extends ApiError<"plan_limit_exceeded"> {
-  constructor(
-    message: string,
-    details: ApiErrorDetails<"plan_limit_exceeded">,
-  ) {
-    super("plan_limit_exceeded", message, details);
-    this.name = "PlanLimitError";
-  }
-}
-
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);

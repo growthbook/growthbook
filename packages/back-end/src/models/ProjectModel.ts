@@ -4,14 +4,9 @@ import {
   projectValidator,
   ApiProject,
 } from "shared/validators";
-import {
-  getDemoDatasourceProjectIdForOrganization,
-  isDemoDatasourceProject,
-} from "shared/demo-datasource";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { getPlanLimits } from "back-end/src/services/plan-limits";
-import { PlanLimitError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -68,38 +63,31 @@ export class ProjectModel extends BaseClass {
     return { ...doc, settings };
   }
 
-  // All non-demo projects in the org, unfiltered by the caller's read
-  // permissions — plan-limit enforcement must count the true total.
-  public async countNonDemoProjects(): Promise<number> {
-    const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-      this.context.org.id,
-    );
-    return this._dangerousGetCollection().countDocuments({
-      organization: this.context.org.id,
-      id: { $ne: demoProjectId },
-    });
-  }
-
   protected async beforeCreate(data: Partial<ProjectInterface>) {
-    // Pricing Phase 1: soft plan limit — block creating projects beyond the
-    // allowance. The demo/sample project is never blocked and never counted.
-    if (
-      !isDemoDatasourceProject({
-        projectId: data.id || "",
+    // Enforce the plan's project limit across every creation path. The demo
+    // "Sample Data" project is exempt (it's created with a fixed id).
+    const maxProjects = this.context.limits.getMaxProjects();
+    const isDemo =
+      !!data.id &&
+      isDemoDatasourceProject({
+        projectId: data.id,
         organizationId: this.context.org.id,
-      })
-    ) {
-      const { maxProjects } = getPlanLimits(this.context.org);
-      if (maxProjects !== null) {
-        const current = await this.countNonDemoProjects();
-        if (current >= maxProjects) {
-          throw new PlanLimitError(
-            `Your plan allows up to ${maxProjects} project${
-              maxProjects === 1 ? "" : "s"
-            }. Upgrade to create more.`,
-            { limit: "projects", current, max: maxProjects },
-          );
-        }
+      });
+    if (maxProjects && maxProjects > 0 && !isDemo) {
+      const existingProjects = await this.context.getProjects();
+      const nonDemoProjectCount = existingProjects.filter(
+        (p) =>
+          !isDemoDatasourceProject({
+            projectId: p.id,
+            organizationId: this.context.org.id,
+          }),
+      ).length;
+      if (nonDemoProjectCount >= maxProjects) {
+        this.context.throwBadRequestError(
+          `Your plan is limited to ${maxProjects} project${
+            maxProjects === 1 ? "" : "s"
+          }. Upgrade your plan to create more.`,
+        );
       }
     }
 
