@@ -25,6 +25,12 @@ export interface SlackAssistantMention {
   threadTs?: string;
   /** The bot's own user id, used to strip the leading mention from `text`. */
   botUserId?: string;
+  /**
+   * When true (a non-mention thread message), only respond if this user already
+   * has an assistant conversation in this thread — and stay silent otherwise
+   * (no "link your account" / help nags). @mentions leave this false.
+   */
+  requireActiveThread?: boolean;
 }
 
 const THINKING_TEXT = "_Thinking…_";
@@ -72,6 +78,8 @@ export async function handleSlackAssistantMention(
     slackUserId,
   });
   if (!target.ok) {
+    // Non-mention thread messages stay silent on any failure — don't nag.
+    if (mention.requireActiveThread) return;
     if (target.botToken) {
       await postSlackMessage({
         token: target.botToken,
@@ -92,10 +100,27 @@ export async function handleSlackAssistantMention(
 
   const question = stripBotMention(mention.text, mention.botUserId);
   if (!question) {
+    if (mention.requireActiveThread) return;
     await reply(
       "Ask me about your experiments, features, or metrics — e.g. *what experiments are running right now?*",
     );
     return;
+  }
+
+  const conversationId = conversationIdFor(
+    teamId,
+    target.organizationId,
+    rootTs,
+    target.userId,
+  );
+
+  // Thread-follow: only respond to a non-mention message if this user already
+  // has an assistant conversation in this thread. Otherwise stay silent — we
+  // don't start conversations from ambient thread chatter.
+  if (mention.requireActiveThread) {
+    const existing =
+      await target.context.models.aiConversations.getById(conversationId);
+    if (!existing) return;
   }
 
   // Post a placeholder immediately, then swap it for the answer in place.
@@ -129,15 +154,7 @@ export async function handleSlackAssistantMention(
     const result = await runAgentTurnToCompletion({
       context: target.context,
       config: slackAgentConfig,
-      input: {
-        message: question,
-        conversationId: conversationIdFor(
-          teamId,
-          target.organizationId,
-          rootTs,
-          target.userId,
-        ),
-      },
+      input: { message: question, conversationId },
     });
 
     if (!result.ok) {

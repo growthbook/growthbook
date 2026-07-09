@@ -232,10 +232,14 @@ router.post(
     const event = payload.event;
     if (!event) return;
 
-    // Skip bot/system messages (incl. our own replies) to avoid loops.
+    // Skip bot/system messages (incl. our own replies) and edits/joins to
+    // avoid loops and noise.
     if (event.bot_id || event.subtype) return;
     if (isDuplicateSlackEvent(payload.event_id)) return;
 
+    const botUserId = payload.authorizations?.[0]?.user_id;
+
+    // Direct @mention — always handled (starts or continues a thread).
     if (event.type === "app_mention") {
       if (!event.user || !event.channel || !event.ts || !event.text) return;
       void handleSlackAssistantMention({
@@ -245,10 +249,33 @@ router.post(
         text: event.text,
         messageTs: event.ts,
         threadTs: event.thread_ts,
-        botUserId: payload.authorizations?.[0]?.user_id,
+        botUserId,
       }).catch((e) =>
         logger.error(e, "Slack assistant mention handler failed"),
       );
+      return;
+    }
+
+    // Thread-follow: a plain message inside a thread. We only reply if this
+    // user already has an assistant conversation in the thread (checked in the
+    // handler), so the bot doesn't jump into arbitrary channel chatter.
+    if (event.type === "message") {
+      if (!event.thread_ts) return; // only follow within threads
+      if (!event.user || !event.channel || !event.ts || !event.text) return;
+      if (botUserId && event.user === botUserId) return; // our own message
+      // If it @mentions the bot, the app_mention event handles it — avoid
+      // double-processing the same message.
+      if (botUserId && event.text.includes(`<@${botUserId}>`)) return;
+      void handleSlackAssistantMention({
+        teamId: payload.team_id || "",
+        channelId: event.channel,
+        slackUserId: event.user,
+        text: event.text,
+        messageTs: event.ts,
+        threadTs: event.thread_ts,
+        botUserId,
+        requireActiveThread: true,
+      }).catch((e) => logger.error(e, "Slack assistant thread handler failed"));
     }
   },
 );
