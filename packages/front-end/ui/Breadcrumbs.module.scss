@@ -1,3 +1,10 @@
+// Constrain the nav so it respects the parent container's overflow
+.breadcrumbNav {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
 // Non-last breadcrumb items are hidden on small screens
 .ancestor {
   display: none;
@@ -10,11 +17,25 @@
   }
 }
 
+// The current (last) breadcrumb item truncates with an ellipsis when
+// the title is too long to fit in the available TopNav space.
+// display: block is required for text-overflow: ellipsis to work,
+// and flex: 1 1 0 allows the item to shrink within the Flex container.
+.currentPage {
+  display: block;
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 // Separator icons are hidden on small screens (even for the last item's
 // separator, since its preceding ancestors are hidden and a floating ">"
 // would appear before the current page name)
 .separator {
   display: none;
+  flex-shrink: 0;
 
   @media (min-width: 992px) {
     display: inline-flex;

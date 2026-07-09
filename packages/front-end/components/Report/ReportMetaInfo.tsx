@@ -264,8 +264,8 @@ export default function ReportMetaInfo({
     <>
       <div className="mb-3">
         <div className="d-flex">
-          <div className="flex-1">
-            <h1 className="mt-1 mb-3 mr-2">
+          <div className="flex-1" style={{ minWidth: 0 }}>
+            <h1 className="mt-1 mb-3 mr-2" style={{ overflowWrap: "anywhere" }}>
               {report.title}
               {showEditControls && (
                 <>
