@@ -162,10 +162,60 @@ export async function handleSlackAssistantMention(
       return;
     }
     if (result.pendingAction) {
-      // Read-only from Slack — the agent tried to make a change.
-      await finish(
-        "I can answer questions from Slack, but I can't make changes here yet. Open GrowthBook to apply changes.",
-      );
+      // The agent wants to make a change — ask for explicit confirmation via
+      // buttons rather than applying it silently. The interaction handler
+      // replays the parked mutation on Confirm.
+      const pa = result.pendingAction;
+      const summary = pa.summary || `${pa.method} ${pa.path}`;
+      const value = JSON.stringify({ c: conversationId, a: pa.id, t: rootTs });
+      const preface = result.reply
+        ? `${toSlackMrkdwn(result.reply, { appOrigin: APP_ORIGIN })}\n\n`
+        : "";
+      const blocks = [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `${preface}I'd like to make this change — confirm?\n\`${summary}\``,
+          },
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              action_id: "gb_confirm_action",
+              style: "primary",
+              text: { type: "plain_text", text: "Confirm" },
+              value,
+            },
+            {
+              type: "button",
+              action_id: "gb_cancel_action",
+              text: { type: "plain_text", text: "Cancel" },
+              value,
+            },
+          ],
+        },
+      ];
+      const updated = placeholderTs
+        ? await updateSlackMessage({
+            token,
+            channel: channelId,
+            ts: placeholderTs,
+            text: "Confirm this change?",
+            blocks,
+          })
+        : false;
+      if (!updated) {
+        await postSlackMessage({
+          token,
+          channel: channelId,
+          text: "Confirm this change?",
+          blocks,
+          threadTs: rootTs,
+        });
+      }
       return;
     }
     await finish(result.reply || "I couldn't find an answer to that.");
@@ -221,5 +271,120 @@ async function attachExperimentCards({
         `Slack assistant: failed to attach card for ${experimentId}`,
       );
     }
+  }
+}
+
+/**
+ * Handle a Confirm/Cancel button click on a parked mutation. Verifies the
+ * clicking user owns the conversation, then replays the turn with the decision
+ * (Confirm dispatches the real API call; Cancel records a rejection) and posts
+ * the outcome in-thread. Called after the interactions endpoint ACKs Slack.
+ */
+export async function handleSlackAssistantConfirmation({
+  teamId,
+  channelId,
+  slackUserId,
+  conversationId,
+  actionId,
+  decision,
+  threadTs,
+  buttonsMessageTs,
+}: {
+  teamId: string;
+  channelId: string;
+  slackUserId: string;
+  conversationId: string;
+  actionId: string;
+  decision: "confirm" | "cancel";
+  threadTs?: string;
+  buttonsMessageTs?: string;
+}): Promise<void> {
+  const target = await resolveSlackAssistantTarget({
+    teamId,
+    channelId,
+    slackUserId,
+  });
+  if (!target.ok) {
+    if (target.botToken) {
+      await postSlackMessage({
+        token: target.botToken,
+        channel: channelId,
+        text: target.message,
+        threadTs,
+      });
+    }
+    return;
+  }
+  const token = target.botToken;
+
+  // Only the user who owns this conversation may confirm/cancel it.
+  const existing =
+    await target.context.models.aiConversations.getById(conversationId);
+  if (!existing) {
+    await postSlackMessage({
+      token,
+      channel: channelId,
+      text: "This action isn't yours to confirm.",
+      threadTs,
+    });
+    return;
+  }
+
+  // Swap the buttons for a status line so it can't be double-clicked.
+  if (buttonsMessageTs) {
+    await updateSlackMessage({
+      token,
+      channel: channelId,
+      ts: buttonsMessageTs,
+      text:
+        decision === "confirm" ? "_Applying change…_" : "_Change cancelled._",
+    });
+  }
+
+  try {
+    const result = await runAgentTurnToCompletion({
+      context: target.context,
+      config: slackAgentConfig,
+      input: {
+        message: "",
+        conversationId,
+        confirmActionId: actionId,
+        confirmDecision: decision,
+      },
+    });
+    if (!result.ok) {
+      await postSlackMessage({
+        token,
+        channel: channelId,
+        text: result.message,
+        threadTs,
+      });
+      return;
+    }
+    await postSlackMessage({
+      token,
+      channel: channelId,
+      text: toSlackMrkdwn(
+        result.reply || (decision === "confirm" ? "Done." : "Okay, cancelled."),
+        { appOrigin: APP_ORIGIN },
+      ),
+      threadTs,
+    });
+    await attachExperimentCards({
+      experimentIds: result.experimentCardIds,
+      context: target.context,
+      token,
+      channel: channelId,
+      organizationId: target.organizationId,
+      threadTs: threadTs || "",
+    });
+  } catch (e) {
+    logger.error(e, "Slack assistant confirmation failed");
+    await postSlackMessage({
+      token,
+      channel: channelId,
+      text: "Something went wrong applying that change.",
+      threadTs,
+    });
   }
 }

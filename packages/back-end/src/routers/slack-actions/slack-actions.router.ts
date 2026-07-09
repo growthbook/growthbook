@@ -7,7 +7,10 @@ import { snoozeSlackExperimentNotifications } from "back-end/src/models/SlackNot
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { handleSlackAssistantMention } from "back-end/src/services/slack/slackAssistant";
+import {
+  handleSlackAssistantMention,
+  handleSlackAssistantConfirmation,
+} from "back-end/src/services/slack/slackAssistant";
 import { getDevCardImage } from "back-end/src/services/slack/cardDelivery";
 
 type SlackRequest = Request & {
@@ -143,9 +146,44 @@ router.post(
     const payload = JSON.parse(req.body.payload || "{}") as {
       team?: { id?: string };
       channel?: { id?: string };
+      user?: { id?: string };
+      message?: { ts?: string };
       actions?: { action_id?: string; value?: string }[];
     };
     const action = payload.actions?.[0];
+
+    // Assistant mutation confirm/cancel — replay the parked action async.
+    if (
+      action?.action_id === "gb_confirm_action" ||
+      action?.action_id === "gb_cancel_action"
+    ) {
+      res.status(200).send(""); // ACK within 3s; the turn runs async.
+      try {
+        const parsed = JSON.parse(action.value || "{}") as {
+          c?: string;
+          a?: string;
+          t?: string;
+        };
+        if (!parsed.c || !parsed.a) return;
+        void handleSlackAssistantConfirmation({
+          teamId: payload.team?.id || "",
+          channelId: payload.channel?.id || "",
+          slackUserId: payload.user?.id || "",
+          conversationId: parsed.c,
+          actionId: parsed.a,
+          decision:
+            action.action_id === "gb_confirm_action" ? "confirm" : "cancel",
+          threadTs: parsed.t,
+          buttonsMessageTs: payload.message?.ts,
+        }).catch((e) =>
+          logger.error(e, "Slack assistant confirmation handler failed"),
+        );
+      } catch (e) {
+        logger.error(e, "Failed to parse Slack confirmation action");
+      }
+      return;
+    }
+
     if (action?.action_id !== "growthbook_snooze_experiment_24h") {
       return res.json({ text: "GrowthBook action received." });
     }

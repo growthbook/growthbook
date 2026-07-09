@@ -255,6 +255,13 @@ export interface HeadlessTurnInput {
   currentPage?: string;
   /** Optional product-analytics datasource hint (only used by agents that opt in). */
   datasourceId?: string;
+  /**
+   * Resolve a parked mutation from a prior turn. `confirmDecision: "confirm"`
+   * dispatches the stored call; "cancel" records a rejection. `message` is
+   * typically empty for these control turns.
+   */
+  confirmActionId?: string;
+  confirmDecision?: "confirm" | "cancel";
 }
 
 /**
@@ -281,6 +288,12 @@ export async function runAgentTurnToCompletion<TParams>({
     conversationId: input.conversationId,
     ...(input.currentPage ? { currentPage: input.currentPage } : {}),
     ...(input.datasourceId ? { datasourceId: input.datasourceId } : {}),
+    ...(input.confirmActionId
+      ? { confirmActionId: input.confirmActionId }
+      : {}),
+    ...(input.confirmDecision
+      ? { confirmDecision: input.confirmDecision }
+      : {}),
   };
 
   config.onStreamStart?.(body.conversationId);
