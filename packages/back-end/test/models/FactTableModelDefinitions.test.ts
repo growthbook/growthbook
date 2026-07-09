@@ -57,6 +57,17 @@ function makeFactTable(
         dateUpdated: new Date(),
         deleted: false,
       },
+      {
+        column: "attributes",
+        name: "attributes",
+        description: "",
+        datatype: "json",
+        numberFormat: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        deleted: false,
+        jsonFields: { country: { datatype: "string" } },
+      },
     ],
     filters: [
       {
@@ -89,7 +100,7 @@ describe("getAllFactTablesForDefinitions", () => {
     await mongoose.connection.db!.collection("facttables").deleteMany({});
   });
 
-  it("excludes sql but keeps columns and filter values", async () => {
+  it("excludes sql and column jsonFields but keeps other column and filter values", async () => {
     await mongoose.connection
       .db!.collection("facttables")
       .insertMany([
@@ -102,8 +113,14 @@ describe("getAllFactTablesForDefinitions", () => {
     expect(factTables).toHaveLength(2);
     factTables.forEach((f) => {
       expect(f).not.toHaveProperty("sql");
+      f.columns.forEach((c) => {
+        expect(c).not.toHaveProperty("jsonFields");
+      });
     });
-    expect(factTables[0].columns).toHaveLength(1);
+    // Column skeleton (name/datatype) is preserved even though jsonFields is not
+    expect(factTables[0].columns).toHaveLength(2);
+    expect(factTables[0].columns[1].column).toEqual("attributes");
+    expect(factTables[0].columns[1].datatype).toEqual("json");
     expect(factTables[0].filters[0].value).toEqual("country = 'US'");
   });
 

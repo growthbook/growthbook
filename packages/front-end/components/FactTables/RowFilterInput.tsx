@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
+import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiPlus, PiX } from "react-icons/pi";
 import { useState } from "react";
 import Field from "@/components/Forms/Field";
@@ -26,7 +26,7 @@ export function RowFilterInput({
 }: {
   value: RowFilter[];
   setValue: (value: RowFilter[]) => void;
-  factTable: Pick<FactTableDefinition, "columns" | "filters" | "userIdTypes">;
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
 }) {
   const [rowDeleted, setRowDeleted] = useState(false);
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);

@@ -88,9 +88,19 @@ export interface FactTableInterface {
   > | null;
 }
 
-// Slimmed fact table returned by the definitions endpoint. The sql field is
-// excluded; fetch the full fact table by id when it's needed.
-export type FactTableDefinition = Omit<FactTableInterface, "sql">;
+// A column with the heavy `jsonFields` map excluded. Fetch the full fact table
+// by id when JSON sub-fields are needed (e.g. the metric/filter editors).
+export type FactTableColumnDefinition = Omit<ColumnInterface, "jsonFields">;
+
+// Slimmed fact table returned by the definitions endpoint. The `sql` field is
+// excluded and each column omits `jsonFields`; fetch the full fact table by id
+// when either is needed.
+export type FactTableDefinition = Omit<
+  FactTableInterface,
+  "sql" | "columns"
+> & {
+  columns: FactTableColumnDefinition[];
+};
 
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator

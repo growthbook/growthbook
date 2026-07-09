@@ -185,14 +185,15 @@ export async function getAllFactTablesForOrganization(
 }
 
 // Slimmed version of getAllFactTablesForOrganization for the definitions
-// endpoint. The sql field is excluded at the DB layer to keep the payload
-// small; consumers fetch the full fact table by id when they need it.
+// endpoint. The sql field and per-column jsonFields maps are excluded at the DB
+// layer to keep the payload small; consumers fetch the full fact table by id
+// when they need them.
 export async function getAllFactTablesForDefinitions(
   context: ReqContext | ApiReqContext,
 ): Promise<FactTableDefinition[]> {
   const docs = await FactTableModel.find(
     { organization: context.org.id },
-    { sql: 0 },
+    { sql: 0, "columns.jsonFields": 0 },
   ).sort({ id: 1 });
   return docs
     .map((doc) => toInterface(doc))

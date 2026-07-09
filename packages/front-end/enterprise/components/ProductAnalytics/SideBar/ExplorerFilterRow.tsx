@@ -1,5 +1,5 @@
 import { Flex } from "@radix-ui/themes";
-import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
+import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { PiCaretDown, PiCaretUp, PiX } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import Text from "@/ui/Text";
@@ -34,7 +34,7 @@ export interface FilterColumnSource {
 }
 
 export function factTableToColumnSource(
-  factTable: Pick<FactTableDefinition, "columns" | "filters" | "userIdTypes">,
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
 ): FilterColumnSource {
   const columns: SingleValue[] = [];
   const hiddenAttributeFields = getAttributeFieldsExposedAsColumns(factTable);

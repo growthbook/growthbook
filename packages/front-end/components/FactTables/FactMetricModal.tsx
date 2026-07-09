@@ -16,6 +16,7 @@ import {
   MetricQuantileSettings,
   FactMetricType,
   FactTableDefinition,
+  FactTableInterface,
   MetricWindowSettings,
   ColumnInterface,
   ColumnAggregation,
@@ -32,6 +33,7 @@ import { createLikeStringMatchFn } from "shared/sql";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import {
   formatNumber,
   getDefaultFactMetricProps,
@@ -182,7 +184,7 @@ function getColumnOptions({
   excludeColumns,
   groupPrefix = "",
 }: {
-  factTable: FactTableDefinition | null;
+  factTable: Omit<FactTableInterface, "sql"> | null;
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
@@ -432,8 +434,11 @@ function ColumnRefSelector({
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
-  let factTable = getFactTableById(value.factTableId);
-  if (factTable?.datasource !== datasource.id) factTable = null;
+  // Need full columns (jsonFields) here for JSON sub-field options and filters,
+  // which the slimmed definitions omit
+  const { factTable: fullFactTable } = useFullFactTable(value.factTableId);
+  const factTable =
+    fullFactTable?.datasource === datasource.id ? fullFactTable : null;
 
   const columnOptions = getColumnOptions({
     factTable,
