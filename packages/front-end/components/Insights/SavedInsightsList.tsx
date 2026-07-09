@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPencilSimple, PiSparkleFill, PiTrash } from "react-icons/pi";
+import { PiPencilSimple, PiSparkleFill, PiTrash, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { InsightWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
@@ -10,6 +10,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import { RadixColor } from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -271,6 +272,35 @@ const SavedInsightsList: FC<{
     !!startDate ||
     !!endDate;
 
+  // Chips showing the currently-selected Tag and Status filters (which are
+  // otherwise only visible when the dropdown is open). Each removes itself.
+  const activeFilterChips = useMemo(() => {
+    const chips: {
+      key: string;
+      label: string;
+      color: RadixColor;
+      onRemove: () => void;
+    }[] = [];
+    selectedStatuses.forEach((s) => {
+      chips.push({
+        key: `status-${s}`,
+        label: s === "" ? "No status" : statusMap.get(s)?.label || s,
+        color: statusMap.get(s)?.color || "gray",
+        onRemove: () =>
+          setSelectedStatuses((prev) => prev.filter((x) => x !== s)),
+      });
+    });
+    selectedTags.forEach((t) => {
+      chips.push({
+        key: `tag-${t}`,
+        label: t,
+        color: "violet",
+        onRemove: () => setSelectedTags((prev) => prev.filter((x) => x !== t)),
+      });
+    });
+    return chips;
+  }, [selectedStatuses, selectedTags, statusMap]);
+
   if (insights.length === 0) {
     return (
       <>
@@ -343,7 +373,7 @@ const SavedInsightsList: FC<{
           </Flex>
           <Flex align="center" gap="4" style={{ fontSize: "0.8rem" }}>
             <Flex align="center">
-              <Text as="label" mr="2">
+              <Text as="label" mr="2" mb="0">
                 From
               </Text>
               <DatePicker
@@ -355,7 +385,7 @@ const SavedInsightsList: FC<{
               />
             </Flex>
             <Flex align="center">
-              <Text as="label" mr="2">
+              <Text as="label" mr="2" mb="0">
                 To
               </Text>
               <DatePicker
@@ -380,25 +410,59 @@ const SavedInsightsList: FC<{
               />
             </Box>
           )}
-          {anyFilterActive && (
-            <Box>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearch("");
-                  setSelectedTags([]);
-                  setSelectedProjects([]);
-                  setSelectedStatuses([]);
-                  setStartDate(undefined);
-                  setEndDate(undefined);
-                }}
-              >
-                Clear filters
-              </Button>
-            </Box>
-          )}
         </Flex>
+        {anyFilterActive && (
+          <Flex align="center" gap="2" wrap="wrap" justify="between" mt="3">
+            <Flex gap="2" wrap="wrap" align="center">
+              {activeFilterChips.length > 0 && (
+                <Text size="small" color="text-mid">
+                  Active filters:
+                </Text>
+              )}
+              {activeFilterChips.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={c.onRemove}
+                  aria-label={`Remove ${c.label} filter`}
+                  title="Remove filter"
+                  style={{
+                    background: "none",
+                    border: 0,
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Badge
+                    color={c.color}
+                    variant="solid"
+                    size="sm"
+                    label={
+                      <Flex as="span" align="center" gap="1">
+                        {c.label}
+                        <PiX />
+                      </Flex>
+                    }
+                  />
+                </button>
+              ))}
+            </Flex>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setSelectedTags([]);
+                setSelectedProjects([]);
+                setSelectedStatuses([]);
+                setStartDate(undefined);
+                setEndDate(undefined);
+              }}
+            >
+              Clear filters
+            </Button>
+          </Flex>
+        )}
       </Box>
       {filteredInsights.length === 0 ? (
         <Box py="4">

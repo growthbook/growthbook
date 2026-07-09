@@ -154,11 +154,22 @@ const LearningsPage = (): React.ReactElement => {
                             Find insights across these experiments
                           </Text>
                           <Text size="medium" color="text-mid" as="div">
-                            Let AI scan the {stoppedExperiments.length} filtered
-                            experiment
-                            {stoppedExperiments.length === 1 ? "" : "s"} for
-                            common themes, design tactics, and patterns you can
-                            reuse.
+                            {stoppedExperiments.length === 0 ? (
+                              <>
+                                AI can scan completed experiments for common
+                                themes and patterns you can reuse. Run more
+                                experiments or adjust the date range or remove
+                                filters.
+                              </>
+                            ) : (
+                              <>
+                                Let AI scan the {stoppedExperiments.length}{" "}
+                                filtered experiment
+                                {stoppedExperiments.length === 1 ? "" : "s"} for
+                                common themes, design tactics, and patterns you
+                                can reuse.
+                              </>
+                            )}
                           </Text>
                         </Box>
                         <Button
@@ -176,7 +187,7 @@ const LearningsPage = (): React.ReactElement => {
                           </Text>
                         </Box>
                       )}
-                      {aiEnabled && stoppedExperiments.length < 2 && (
+                      {aiEnabled && stoppedExperiments.length === 1 && (
                         <Box mt="2">
                           <Text size="small" color="text-mid" as="div">
                             Adjust filters so at least 2 stopped experiments

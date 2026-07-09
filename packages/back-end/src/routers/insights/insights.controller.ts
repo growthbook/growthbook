@@ -294,6 +294,21 @@ function summarizeSnapshotResultsForAI(
   return rows.length ? rows : undefined;
 }
 
+// Replace any internal experiment ids the model left in prose with the
+// experiment name, so ids never surface in user-facing insight text.
+function replaceExperimentIdsWithNames(
+  text: string,
+  idToName: Map<string, string>,
+): string {
+  let out = text;
+  for (const [id, name] of idToName) {
+    if (name && out.includes(id)) {
+      out = out.split(id).join(name);
+    }
+  }
+  return out;
+}
+
 // Build a compact, AI-friendly summary of an experiment to keep token usage low
 function summarizeExperimentForAI(
   exp: ExperimentInterface,
@@ -536,6 +551,7 @@ export const postFindInsights = async (
     "For each insight, return a short title, a paragraph (or two) of markdown explaining the pattern and what the evidence is (ending with a concrete, actionable recommendation for what the team should try or do next), a confidence level, 1-5 lowercase hyphenated tags categorizing it, the list of experiment ids that support it, and the list of experiment ids whose outcomes run counter to the insight (contraryExperimentIds). " +
     "Contrary evidence should include experiments in the input set whose results materially disagree with the insight — e.g. the pattern was tried and did NOT win, or produced the opposite effect. If no contrary evidence exists in the input set, return an empty list for contraryExperimentIds. Do not include the same experiment as both supporting and contrary. " +
     "Use only experiment ids from the input set. Return at most 8 insights, ordered from most to least confident, with the confidence field reflecting how strongly the provided evidence supports each one. " +
+    "In the human-facing title and text, always refer to experiments by their name, never by their id. Experiment ids must appear only in the supportingExperimentIds and contraryExperimentIds arrays — never in the prose. " +
     "If no meaningful cross-experiment patterns exist, return an empty list. " +
     "IMPORTANT: A list of insights that the team has ALREADY SAVED is provided. Do not duplicate or paraphrase those — only surface genuinely new patterns. If a candidate insight overlaps meaningfully with a saved one, omit it.";
 
@@ -580,6 +596,10 @@ export const postFindInsights = async (
     // Filter to ids that actually exist in the input set (defense against AI
     // hallucinating ids), and ensure an experiment never appears on both lists.
     const validIds = new Set(experiments.map((e) => e.id));
+    // Safety net: even with the prompt instruction, the model can occasionally
+    // reference an experiment by id in the prose. Swap any such id for its name
+    // so internal ids never surface in user-facing text.
+    const idToName = new Map(experiments.map((e) => [e.id, e.name]));
     const cleaned = (aiResponse.insights || [])
       .map((i) => {
         const supporting = (i.supportingExperimentIds || []).filter((id) =>
@@ -591,6 +611,8 @@ export const postFindInsights = async (
         );
         return {
           ...i,
+          title: replaceExperimentIdsWithNames(i.title, idToName),
+          text: replaceExperimentIdsWithNames(i.text, idToName),
           supportingExperimentIds: supporting,
           contraryExperimentIds: contrary,
         };
