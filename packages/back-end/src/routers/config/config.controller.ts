@@ -48,7 +48,6 @@ import {
   assertConfigArchivable,
   assertConfigDeletable,
   assertKeyAvailable,
-  getRunningExperimentsAffectedByConfigPublish,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -70,7 +69,6 @@ import {
 import {
   BadRequestError,
   PlanDoesNotAllowError,
-  SoftWarningError,
 } from "back-end/src/util/errors";
 
 type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
@@ -840,25 +838,6 @@ export const putConfig = async (
         proposedValues,
         revision,
       );
-
-      // Publishing rewrites the live value served to any running experiment whose
-      // arm is backed by this config (no re-bucketing). Soft-block and name them.
-      if (!context.ignoreWarnings) {
-        const running = await getRunningExperimentsAffectedByConfigPublish(
-          context,
-          existing.key,
-        );
-        if (running.length) {
-          throw new SoftWarningError(
-            `Publishing this config rewrites the live value served to running experiment(s): ${running
-              .map((r) => `"${r.name}"`)
-              .join(
-                ", ",
-              )}. Their variation arms are not re-bucketed. Re-submit to proceed.`,
-            running.map((r) => r.name),
-          );
-        }
-      }
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.

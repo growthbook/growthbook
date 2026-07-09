@@ -11,7 +11,6 @@ import {
   ConflictError,
   MergeConflictError,
   NotFoundError,
-  SoftWarningError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -20,7 +19,6 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
-import { getRunningExperimentsAffectedByConfigPublish } from "back-end/src/services/constants";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
@@ -179,26 +177,6 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     { value: postValue },
     revision,
   );
-
-  // Publishing changes the value served to any running experiment whose arm is
-  // backed by this config — a mid-flight rewrite with no re-bucketing. Soft-block
-  // and name them; ?ignoreWarnings=true proceeds.
-  if (!req.context.ignoreWarnings) {
-    const running = await getRunningExperimentsAffectedByConfigPublish(
-      req.context,
-      config.key,
-    );
-    if (running.length) {
-      throw new SoftWarningError(
-        `Publishing this config rewrites the live value served to running experiment(s): ${running
-          .map((r) => `"${r.name}"`)
-          .join(
-            ", ",
-          )}. Their variation arms are not re-bucketed. Re-submit with ?ignoreWarnings=true to proceed.`,
-        running.map((r) => r.name),
-      );
-    }
-  }
 
   // Claim the merge BEFORE applying to the live entity. `merge` is CAS-guarded,
   // so a concurrent discard either already lost or will lose its `close` CAS.
