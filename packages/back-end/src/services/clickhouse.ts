@@ -597,10 +597,8 @@ export async function migrateManagedWarehouseToJson(
     return;
   }
 
-  const { locked, recreateStatus } = await getManagedWarehouseRecreateState(
-    datasource.id,
-    datasource.organization,
-  );
+  const { locked, recreateStatus } =
+    await getManagedWarehouseRecreateState(context);
 
   // A rebuild is running on the license server (ours or another operation's). It
   // holds the lock for its duration, so wait rather than re-request — the sweep /

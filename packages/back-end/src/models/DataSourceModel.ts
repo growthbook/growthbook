@@ -171,14 +171,13 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
  * GrowthBook rewrites), so they aren't on the Mongoose schema — read them raw.
  */
 export async function getManagedWarehouseRecreateState(
-  id: string,
-  organization: string,
+  context: ReqContext | ApiReqContext,
 ): Promise<{ locked: boolean; recreateStatus: "success" | "error" | null }> {
   const doc = await getCollection<{
     lockUntil?: Date | string | number | null;
     recreateStatus?: { status?: string } | null;
   }>("datasources").findOne(
-    { id, organization },
+    { organization: context.org.id, type: "growthbook_clickhouse" },
     { projection: { lockUntil: 1, recreateStatus: 1 } },
   );
   const lockUntil = doc?.lockUntil ? new Date(doc.lockUntil) : null;
