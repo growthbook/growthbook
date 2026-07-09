@@ -155,6 +155,29 @@ export async function updateSlackMessage({
 }
 
 /**
+ * Provide link-unfurl content for URLs shared in a message (responding to a
+ * `link_shared` event). `unfurls` maps each shared URL to its block content.
+ */
+export async function unfurlSlackLinks({
+  token,
+  channel,
+  ts,
+  unfurls,
+}: {
+  token: string;
+  channel: string;
+  ts: string;
+  unfurls: Record<string, { blocks: SlackBlock[] }>;
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(token, "chat.unfurl", {
+    channel,
+    ts,
+    unfurls,
+  });
+  return !!res?.ok;
+}
+
+/**
  * Look up a Slack user's profile email (requires the `users:read.email` scope,
  * which the OAuth install requests). Returns null if unavailable.
  */

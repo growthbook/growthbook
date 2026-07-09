@@ -12,6 +12,7 @@ import {
   handleSlackAssistantConfirmation,
 } from "back-end/src/services/slack/slackAssistant";
 import { getDevCardImage } from "back-end/src/services/slack/cardDelivery";
+import { handleSlackLinkShared } from "back-end/src/services/slack/slackUnfurl";
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -230,6 +231,9 @@ type SlackEventPayload = {
     channel?: string;
     ts?: string;
     thread_ts?: string;
+    // link_shared
+    message_ts?: string;
+    links?: { url?: string; domain?: string }[];
   };
 };
 
@@ -314,6 +318,20 @@ router.post(
         botUserId,
         requireActiveThread: true,
       }).catch((e) => logger.error(e, "Slack assistant thread handler failed"));
+      return;
+    }
+
+    // Link unfurling: a shared GrowthBook link — unfurl experiment URLs into a
+    // results card (respecting the sharer's permissions).
+    if (event.type === "link_shared") {
+      if (!event.channel || !event.message_ts || !event.user) return;
+      void handleSlackLinkShared({
+        teamId: payload.team_id || "",
+        channelId: event.channel,
+        messageTs: event.message_ts,
+        slackUserId: event.user,
+        links: event.links || [],
+      }).catch((e) => logger.error(e, "Slack link_shared handler failed"));
     }
   },
 );
