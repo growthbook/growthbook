@@ -20,6 +20,7 @@ import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -246,7 +247,13 @@ export default function RestoreConfigYamlButton({
     }
   }
 
-  if (!metricsData) return null;
+  if (!metricsData) {
+    return (
+      <Button disabled loading icon={<FaUpload />}>
+        Import from config.yml
+      </Button>
+    );
+  }
 
   return (
     <div>

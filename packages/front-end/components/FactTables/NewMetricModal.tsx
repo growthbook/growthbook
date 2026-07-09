@@ -12,6 +12,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export type MetricModalState = {
   currentMetric?: MetricDefinitionInterface;
@@ -103,6 +104,13 @@ function EditMetricModal({
         <Modal.Body>
           <Callout status="error">{error.message}</Callout>
         </Modal.Body>
+        <Modal.Footer>
+          <Modal.Close>
+            <Button variant="ghost" onClick={close}>
+              Close
+            </Button>
+          </Modal.Close>
+        </Modal.Footer>
       </Modal.Root>
     );
   }

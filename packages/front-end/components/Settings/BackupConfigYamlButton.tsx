@@ -6,6 +6,7 @@ import { FaDownload } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";
 import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 
 export default function BackupConfigYamlButton({
   settings = {},
@@ -44,7 +45,14 @@ export default function BackupConfigYamlButton({
     }
   }, [config]);
 
-  if (!href || !metricsData) return null;
+  if (!metricsData) {
+    return (
+      <Button disabled loading icon={<FaDownload />}>
+        Export to config.yml
+      </Button>
+    );
+  }
+  if (!href) return null;
 
   return (
     <a href={href} download="config.yml" className="btn btn-primary">
