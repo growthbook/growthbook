@@ -94,6 +94,7 @@ function EditMetricModal({
           if (!open) close();
         }}
         dismissible
+        hasDescription={false}
         trackingEventModalType=""
       >
         <Modal.Header>
