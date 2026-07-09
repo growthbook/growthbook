@@ -21,30 +21,3 @@ export function getMigratedDimensionColumns(
       !reservedColumnNames.has(col.columnName.toLowerCase()),
   );
 }
-
-/**
- * Settings patch to leave behind once a migration run settles, given whether the per-org
- * tables were recreated as JSON (`recreated`) and whether the warehouse is still awaiting
- * migration afterward (`stillAwaiting` — `materializedColumns` not yet cleared, i.e. the
- * run didn't finish). Returns `null` to stay in the `migrating` state.
- *
- *   recreated │ stillAwaiting │ result
- *   ──────────┼───────────────┼──────────────────────────────────────────────────────
- *    true     │ false         │ { migrating: false }       full success → unblock
- *    true     │ true          │ null                       tables JSON but rewrite
- *             │               │                            unfinished → keep blocked so
- *             │               │                            the next query re-triggers
- *             │               │                            (queries would otherwise hit
- *             │               │                            "Unknown identifier")
- *    false    │ (any)         │ { migrating: false,        recreate never ran; tables
- *             │               │   useJsonColumns: false }   still legacy → revert the flag
- */
-export function resolveMigrationFinalState(opts: {
-  recreated: boolean;
-  stillAwaiting: boolean;
-}): { migrating: false; useJsonColumns?: false } | null {
-  if (opts.recreated) {
-    return opts.stillAwaiting ? null : { migrating: false };
-  }
-  return { migrating: false, useJsonColumns: false };
-}

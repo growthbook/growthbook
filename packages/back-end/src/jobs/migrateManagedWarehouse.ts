@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { migrateManagedWarehouseToJson } from "back-end/src/services/clickhouse";
+import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 
 const MIGRATE_MANAGED_WAREHOUSE = "migrateManagedWarehouse";
@@ -38,6 +39,14 @@ export async function queueMigrateManagedWarehouse(organization: string) {
 const migrateManagedWarehouse = async (job: MigrateManagedWarehouseJob) => {
   const orgId = job.attrs.data?.organization;
   if (!orgId) return;
+
+  if (
+    !getBackendFeatureValue("managed-warehouse-json-migration", false, {
+      organizationId: orgId,
+    })
+  ) {
+    return;
+  }
 
   const context = await getContextForAgendaJobByOrgId(orgId);
   try {
