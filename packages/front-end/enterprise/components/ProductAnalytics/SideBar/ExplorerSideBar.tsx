@@ -72,7 +72,7 @@ export default function ExplorerSideBar({
     error,
     trackingSource,
     submittedExploreState,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
   const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
@@ -256,9 +256,7 @@ export default function ExplorerSideBar({
                 label="Compare"
                 value={compareEnabled}
                 onChange={setCompareEnabled}
-                disabled={
-                  !submittedExploreState || managedWarehouseAwaitingProvisioning
-                }
+                disabled={!submittedExploreState || managedWarehouseUnavailable}
               />
             </Flex>
             <GraphTypeSelector />

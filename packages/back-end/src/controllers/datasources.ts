@@ -2045,7 +2045,15 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await dangerousRecreateClickhouseTables(context.org.id);
+  const result = await dangerousRecreateClickhouseTables(context.org.id);
+  if (result === "already-running") {
+    res.status(409).json({
+      status: 409,
+      message:
+        "A recreate is already in progress for this Managed Warehouse. Please wait for it to finish before triggering another.",
+    });
+    return;
+  }
 
   res.status(200).json({
     status: 200,

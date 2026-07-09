@@ -1105,11 +1105,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/ApiKeys.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
