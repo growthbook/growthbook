@@ -392,6 +392,16 @@ interface MdStyle {
   letterSpacing?: string;
 }
 
+// Shared style for the hypothesis + conclusion body prose — deliberately the
+// same size and color so the two read as equally important; each block's label
+// (and the conclusion's tinted background) provides the differentiation.
+const PROSE_STYLE: MdStyle = {
+  fontSize: 13,
+  color: P.text,
+  weight: 400,
+  lineHeight: 1.5,
+};
+
 function runSpan(r: MdRun, base: MdStyle): El {
   return txt(
     r.text,
@@ -1198,18 +1208,15 @@ function hypothesisEl(exp: ExperimentCardData): El | null {
         color: P.subtle,
         marginBottom: 6,
       }),
-      renderMarkdown(exp.hypothesis, {
-        fontSize: 13,
-        lineHeight: 1.5,
-        color: P.muted,
-        weight: 400,
-      }),
+      renderMarkdown(exp.hypothesis, PROSE_STYLE),
     ],
   );
 }
 
 // The main learning, featured near the top — "lead" treatment: soft status-hue
-// background, a caps CONCLUSION label, then the conclusion set large.
+// background, a caps CONCLUSION label, then the conclusion text. The body text
+// matches the hypothesis (same size + color) since the two are of similar
+// importance; the tinted background and colored label carry the emphasis.
 function conclusionEl(exp: ExperimentCardData): El | null {
   if (!exp.conclusion?.text) return null;
   const hue = HUE[exp.state];
@@ -1231,13 +1238,7 @@ function conclusionEl(exp: ExperimentCardData): El | null {
         color: P.st[hue],
         marginBottom: 7,
       }),
-      renderMarkdown(exp.conclusion.text, {
-        fontSize: 17,
-        weight: 500,
-        lineHeight: 1.5,
-        color: P.text,
-        letterSpacing: "-0.01em",
-      }),
+      renderMarkdown(exp.conclusion.text, PROSE_STYLE),
     ],
   );
 }
