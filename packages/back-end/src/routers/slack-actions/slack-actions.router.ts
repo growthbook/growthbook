@@ -8,11 +8,11 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
-  handleSlackAssistantMention,
-  handleSlackAssistantConfirmation,
-} from "back-end/src/services/slack/slackAssistant";
+  queueSlackAssistantMention,
+  queueSlackAssistantConfirmation,
+  queueSlackLinkUnfurl,
+} from "back-end/src/jobs/slackAssistantTasks";
 import { getDevCardImage } from "back-end/src/services/slack/cardDelivery";
-import { handleSlackLinkShared } from "back-end/src/services/slack/slackUnfurl";
 
 type SlackRequest = Request & {
   rawBody?: string;
@@ -166,7 +166,7 @@ router.post(
           t?: string;
         };
         if (!parsed.c || !parsed.a) return;
-        void handleSlackAssistantConfirmation({
+        void queueSlackAssistantConfirmation({
           teamId: payload.team?.id || "",
           channelId: payload.channel?.id || "",
           slackUserId: payload.user?.id || "",
@@ -177,7 +177,7 @@ router.post(
           threadTs: parsed.t,
           buttonsMessageTs: payload.message?.ts,
         }).catch((e) =>
-          logger.error(e, "Slack assistant confirmation handler failed"),
+          logger.error(e, "Failed to enqueue Slack assistant confirmation"),
         );
       } catch (e) {
         logger.error(e, "Failed to parse Slack confirmation action");
@@ -284,16 +284,19 @@ router.post(
     // Direct @mention — always handled (starts or continues a thread).
     if (event.type === "app_mention") {
       if (!event.user || !event.channel || !event.ts || !event.text) return;
-      void handleSlackAssistantMention({
-        teamId: payload.team_id || "",
-        channelId: event.channel,
-        slackUserId: event.user,
-        text: event.text,
-        messageTs: event.ts,
-        threadTs: event.thread_ts,
-        botUserId,
-      }).catch((e) =>
-        logger.error(e, "Slack assistant mention handler failed"),
+      void queueSlackAssistantMention(
+        {
+          teamId: payload.team_id || "",
+          channelId: event.channel,
+          slackUserId: event.user,
+          text: event.text,
+          messageTs: event.ts,
+          threadTs: event.thread_ts,
+          botUserId,
+        },
+        payload.event_id,
+      ).catch((e) =>
+        logger.error(e, "Failed to enqueue Slack assistant mention"),
       );
       return;
     }
@@ -308,16 +311,21 @@ router.post(
       // If it @mentions the bot, the app_mention event handles it — avoid
       // double-processing the same message.
       if (botUserId && event.text.includes(`<@${botUserId}>`)) return;
-      void handleSlackAssistantMention({
-        teamId: payload.team_id || "",
-        channelId: event.channel,
-        slackUserId: event.user,
-        text: event.text,
-        messageTs: event.ts,
-        threadTs: event.thread_ts,
-        botUserId,
-        requireActiveThread: true,
-      }).catch((e) => logger.error(e, "Slack assistant thread handler failed"));
+      void queueSlackAssistantMention(
+        {
+          teamId: payload.team_id || "",
+          channelId: event.channel,
+          slackUserId: event.user,
+          text: event.text,
+          messageTs: event.ts,
+          threadTs: event.thread_ts,
+          botUserId,
+          requireActiveThread: true,
+        },
+        payload.event_id,
+      ).catch((e) =>
+        logger.error(e, "Failed to enqueue Slack assistant thread reply"),
+      );
       return;
     }
 
@@ -325,13 +333,16 @@ router.post(
     // results card (respecting the sharer's permissions).
     if (event.type === "link_shared") {
       if (!event.channel || !event.message_ts || !event.user) return;
-      void handleSlackLinkShared({
-        teamId: payload.team_id || "",
-        channelId: event.channel,
-        messageTs: event.message_ts,
-        slackUserId: event.user,
-        links: event.links || [],
-      }).catch((e) => logger.error(e, "Slack link_shared handler failed"));
+      void queueSlackLinkUnfurl(
+        {
+          teamId: payload.team_id || "",
+          channelId: event.channel,
+          messageTs: event.message_ts,
+          slackUserId: event.user,
+          links: event.links || [],
+        },
+        payload.event_id,
+      ).catch((e) => logger.error(e, "Failed to enqueue Slack link unfurl"));
     }
   },
 );

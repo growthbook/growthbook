@@ -280,6 +280,17 @@ async function attachExperimentCards({
  * (Confirm dispatches the real API call; Cancel records a rejection) and posts
  * the outcome in-thread. Called after the interactions endpoint ACKs Slack.
  */
+export interface SlackAssistantConfirmation {
+  teamId: string;
+  channelId: string;
+  slackUserId: string;
+  conversationId: string;
+  actionId: string;
+  decision: "confirm" | "cancel";
+  threadTs?: string;
+  buttonsMessageTs?: string;
+}
+
 export async function handleSlackAssistantConfirmation({
   teamId,
   channelId,
@@ -289,16 +300,7 @@ export async function handleSlackAssistantConfirmation({
   decision,
   threadTs,
   buttonsMessageTs,
-}: {
-  teamId: string;
-  channelId: string;
-  slackUserId: string;
-  conversationId: string;
-  actionId: string;
-  decision: "confirm" | "cancel";
-  threadTs?: string;
-  buttonsMessageTs?: string;
-}): Promise<void> {
+}: SlackAssistantConfirmation): Promise<void> {
   const target = await resolveSlackAssistantTarget({
     teamId,
     channelId,

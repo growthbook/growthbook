@@ -27,6 +27,7 @@ import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFac
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
 import addEventWebhookDailyDigestJob from "back-end/src/jobs/eventWebhookDailyDigest";
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
+import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantTasks";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
@@ -55,6 +56,7 @@ export async function queueInit() {
   addRampScheduleJob(agenda);
   addEventWebhookDailyDigestJob(agenda);
   addScheduledPublishJob(agenda);
+  addSlackAssistantJobs(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
