@@ -900,7 +900,7 @@ export default function AISettings({
                       })()}
                       {error && (
                         <Box className="col-auto pt-3">
-                          <div className="alert alert-danger">{error}</div>
+                          <Callout status="error">{error}</Callout>
                         </Box>
                       )}
                     </>

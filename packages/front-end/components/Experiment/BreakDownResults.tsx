@@ -41,6 +41,7 @@ import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import UsersTable from "./UsersTable";
 
 export const includeVariation = (
@@ -215,12 +216,12 @@ const BreakDownResults: FC<{
     <div className="mb-3">
       <div className="mb-4">
         {dimensionId === "pre:activation" && activationMetricObj && (
-          <div className="alert alert-info mt-1 mx-3">
+          <Callout status="info" mt="1" mx="3">
             Your experiment has an Activation Metric (
             <strong>{activationMetricObj?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
-          </div>
+          </Callout>
         )}
         {!isBandit && (
           <div className="users">

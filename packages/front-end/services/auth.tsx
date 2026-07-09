@@ -24,6 +24,7 @@ import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
+import Callout from "@/ui/Callout";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
@@ -632,7 +633,7 @@ export const AuthProvider: React.FC<{
           Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
-        <div className="alert alert-danger">{getDetailedError(initError)}</div>
+        <Callout status="error">{getDetailedError(initError)}</Callout>
       </Modal>
     );
   }

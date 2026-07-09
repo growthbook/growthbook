@@ -25,6 +25,7 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
+import Callout from "@/ui/Callout";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -132,10 +133,10 @@ const NewPhaseForm: FC<{
       size="lg"
     >
       {hasLinkedChanges && experiment.status !== "stopped" && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning:</strong> Starting a new phase will immediately affect
           all linked Feature Flags and Visual Changes.
-        </div>
+        </Callout>
       )}
       <div className="row">
         <Field

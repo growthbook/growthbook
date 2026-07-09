@@ -8,6 +8,7 @@ import {
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -97,10 +98,10 @@ export default function FactTablePage() {
 
   if (!factTable) {
     return (
-      <div className="alert alert-danger">
+      <Callout status="error">
         Could not find the requested fact table.{" "}
         <Link href="/fact-tables">Back to all fact tables</Link>
-      </div>
+      </Callout>
     );
   }
   const canDuplicate = permissionsUtil.canCreateFactTable({
@@ -239,11 +240,11 @@ export default function FactTablePage() {
       />
 
       {factTable.archived && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This Fact Table is archived.</strong> Existing references will
           continue working, but you will be unable to add metrics from this Fact
           Table to new experiments.
-        </div>
+        </Callout>
       )}
       <Flex align="start" justify="between" gap="2" mb="2">
         <Flex align="center" gap="3" style={{ marginTop: "-4px" }}>
