@@ -3,7 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaClock, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
+import { PiClock } from "react-icons/pi";
 import {
   experimentHasLinkedChanges,
   includeExperimentInPayload,
@@ -108,10 +109,10 @@ export default function StoppedExperimentBanner({
       </div>
 
       {hasLiveLinkedChanges && !isHoldout && (
-        <Callout status="warning" m="3">
+        <Callout status="warning" m="3" icon={<PiClock />}>
           <div className="d-flex align-items-center">
             <div>
-              <FaClock /> <strong>Temporary Rollout Enabled</strong>
+              <strong>Temporary Rollout Enabled</strong>
               <div className="my-1">
                 This experiment has been stopped, but changes are still being
                 applied to give you time to implement them in code.

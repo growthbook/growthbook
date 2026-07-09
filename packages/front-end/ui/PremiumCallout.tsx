@@ -9,7 +9,7 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
-import { DocSection, docUrl } from "@/components/DocLink";
+import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -68,23 +68,11 @@ export default function PremiumCallout({
     <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
   );
 
-  const externalLinkLabel = (label: string) => (
-    <>
-      <span style={{ textDecoration: "underline" }}>{label}</span>{" "}
-      <PiArrowSquareOut size={15} />
-    </>
-  );
-
   const link =
     hasFeature && docSection ? (
-      <Link
-        href={docUrl(docSection)}
-        target="_blank"
-        rel="noopener noreferrer"
-        underline="none"
-      >
-        {externalLinkLabel("View docs")}
-      </Link>
+      <DocLink docSection={docSection}>
+        View docs <PiArrowSquareOut size={15} />
+      </DocLink>
     ) : pro ? (
       <Link
         href="#"
@@ -100,9 +88,8 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
-        underline="none"
       >
-        {externalLinkLabel("Talk to Sales")}
+        Talk to Sales <PiArrowSquareOut size={15} />
       </Link>
     );
 

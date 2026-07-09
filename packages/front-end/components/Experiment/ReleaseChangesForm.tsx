@@ -10,11 +10,8 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import {
-  BsCheckCircle,
-  BsExclamationCircle,
-  BsLightbulb,
-} from "react-icons/bs";
+import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
+import { PiLightbulb } from "react-icons/pi";
 import {
   getNamespaceRanges,
   hasNarrowedRanges,
@@ -421,8 +418,8 @@ function ImpactTooltips({
                   )}
                 </div>
 
-                <Callout status="info" mt="2" mb="0">
-                  <BsLightbulb /> Re-randomize traffic{" "}
+                <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
+                  Re-randomize traffic{" "}
                   {recommendStickyBucketing && switchToSB
                     ? " or use Sticky Bucketing"
                     : ""}{" "}
@@ -456,9 +453,9 @@ function ImpactTooltips({
         {!isBandit &&
           variationHopping &&
           releasePlan !== "same-phase-sticky" && (
-            <Callout status="info" mt="2" mb="0">
-              <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
-              variation hopping.
+            <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
+              You may be able to use Sticky Bucketing to prevent variation
+              hopping.
             </Callout>
           )}
       </div>
