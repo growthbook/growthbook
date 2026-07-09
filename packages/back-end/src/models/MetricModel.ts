@@ -320,16 +320,19 @@ export async function getMetricMap(
 async function findMetrics(
   context: ReqContext | ApiReqContext,
   additionalQuery?: FilterQuery<LegacyMetricInterface>,
-) {
+  excludeFields?: readonly (keyof MetricInterface)[],
+): Promise<MetricInterface[]> {
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
-  // If using config.yml, first check there
+  // If using config.yml, first check there (projection can't apply here)
   if (usingFileConfig()) {
     getConfigMetrics(context)
       .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
       .forEach((m) => {
-        metrics.push(m);
+        metrics.push(
+          excludeFields ? (omit(m, excludeFields) as MetricInterface) : m,
+        );
         metricIds.add(m.id);
       });
 
@@ -339,17 +342,20 @@ async function findMetrics(
     }
   }
 
+  // `analysis` is never needed when finding multiple metrics and can get
+  // quite large, so it's always excluded
+  const projection: Record<string, 0> = { analysis: 0 };
+  excludeFields?.forEach((f) => {
+    projection[f] = 0;
+  });
+
   const docs = await getCollection(COLLECTION)
     .find(
       {
         ...additionalQuery,
         organization: context.org.id,
       },
-      {
-        // This is never needed when finding multiple metrics
-        // This field can get quite large, so it's best to exclude it
-        projection: { analysis: 0 },
-      },
+      { projection },
     )
     .toArray();
   docs.forEach((doc) => {
@@ -394,48 +400,7 @@ const METRIC_DEFINITION_EXCLUDED_FIELDS = [
 export async function getMetricsForDefinitions(
   context: ReqContext | ApiReqContext,
 ): Promise<MetricDefinitionInterface[]> {
-  const metrics: MetricDefinitionInterface[] = [];
-  const metricIds = new Set<string>();
-
-  // If using config.yml, first check there (projection can't apply here)
-  if (usingFileConfig()) {
-    getConfigMetrics(context).forEach((m) => {
-      metrics.push(omit(m, METRIC_DEFINITION_EXCLUDED_FIELDS));
-      metricIds.add(m.id);
-    });
-
-    // If metrics are locked down to just a config file, return immediately
-    if (!ALLOW_CREATE_METRICS) {
-      return metrics;
-    }
-  }
-
-  const docs = await getCollection(COLLECTION)
-    .find(
-      { organization: context.org.id },
-      {
-        projection: {
-          sql: 0,
-          templateVariables: 0,
-          conditions: 0,
-          queries: 0,
-          analysis: 0,
-          analysisError: 0,
-        },
-      },
-    )
-    .toArray();
-  docs.forEach((doc) => {
-    if (metricIds.has(doc.id)) {
-      return;
-    }
-    metrics.push(toInterface(doc));
-    metricIds.add(doc.id);
-  });
-
-  return metrics.filter((m) =>
-    context.permissions.canReadMultiProjectResource(m.projects),
-  );
+  return findMetrics(context, undefined, METRIC_DEFINITION_EXCLUDED_FIELDS);
 }
 
 export async function getMetricsByDatasource(

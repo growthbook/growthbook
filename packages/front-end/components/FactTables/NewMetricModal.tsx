@@ -10,6 +10,7 @@ import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
 
 export type MetricModalState = {
@@ -85,16 +86,41 @@ function EditMetricModal({
   );
 
   if (error) {
-    return <Callout status="error">{error.message}</Callout>;
+    return (
+      <Modal.Root
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+        dismissible
+        trackingEventModalType=""
+      >
+        <Modal.Header>
+          <Modal.Title>
+            {mode === "edit" ? "Edit Metric" : "Duplicate Metric"}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Callout status="error">{error.message}</Callout>
+        </Modal.Body>
+      </Modal.Root>
+    );
   }
   if (!data) {
     return <LoadingOverlay />;
   }
 
-  // When duplicating, keep the caller's overrides (e.g. "(copy)" name and
-  // cleared managedBy) on top of the full fetched metric
+  // When duplicating, apply only the caller's intended overrides on top of the
+  // full fetched metric — the rest of currentMetric is a possibly-stale
+  // definitions copy
   const current: MetricInterface =
-    mode === "edit" ? data.metric : { ...data.metric, ...currentMetric };
+    mode === "edit"
+      ? data.metric
+      : {
+          ...data.metric,
+          name: currentMetric.name,
+          managedBy: currentMetric.managedBy,
+        };
 
   return (
     <MetricForm
