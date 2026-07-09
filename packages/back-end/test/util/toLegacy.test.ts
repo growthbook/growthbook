@@ -385,11 +385,20 @@ describe("toLegacyFeature", () => {
       expect(v1.environmentSettings?.production?.rules).toEqual([]);
     });
 
-    it("preserves a per-env defaultValue override (and omits it where absent)", () => {
+    it("passes the top-level defaultValueOverrides list through unchanged and never emits a per-env defaultValue", () => {
+      // Per-env defaults now live in a top-level ordered, first-match-wins
+      // `defaultValueOverrides` list (see `featureDefaultValueOverride`), not in
+      // `environmentSettings[env].defaultValue`. toLegacyFeature only strips
+      // `rules`/`environmentSettings`, so the override list rides through the
+      // v2 -> v1 projection verbatim, and no env gains a `defaultValue` key.
+      const overrides = [
+        { id: "o1", value: "dev-override", environments: ["dev"] },
+      ];
       const v2: FeatureInterface = {
         ...BASE_FEATURE,
+        defaultValueOverrides: overrides,
         environmentSettings: {
-          dev: { enabled: true, defaultValue: "dev-override" },
+          dev: { enabled: true },
           production: { enabled: true },
         },
         rules: [],
@@ -397,15 +406,15 @@ describe("toLegacyFeature", () => {
       } as unknown as FeatureInterface;
 
       const v1 = toLegacyFeature(v2, ORG_ENVS);
-      // The override survives the v2 -> v1 projection.
+      // The ordered override list survives the v2 -> v1 projection verbatim.
       expect(
-        (
-          v1.environmentSettings?.dev as unknown as {
-            defaultValue?: string;
-          }
-        ).defaultValue,
-      ).toBe("dev-override");
-      // An env with no override does not gain a defaultValue key.
+        (v1 as unknown as { defaultValueOverrides?: unknown })
+          .defaultValueOverrides,
+      ).toEqual(overrides);
+      // The retired per-env defaultValue map is no longer emitted on any env.
+      expect(
+        v1.environmentSettings?.dev as unknown as Record<string, unknown>,
+      ).not.toHaveProperty("defaultValue");
       expect(
         v1.environmentSettings?.production as unknown as Record<
           string,
@@ -775,11 +784,19 @@ describe("toLegacyFeature -> migrateRawFeatureToV2 shape round-trip", () => {
     expect(roundTripped.rules[0].allEnvironments).toBe(true);
   });
 
-  it("preserves a per-env defaultValue override through the v2 -> v1 -> v2 round-trip", () => {
+  it("preserves the top-level defaultValueOverrides list through the v2 -> v1 -> v2 round-trip", () => {
+    // The ordered override list is a top-level field neither projection touches,
+    // so it must survive the v2 -> v1 -> v2 cycle byte-stable. (Serving
+    // precedence of these overrides is covered in
+    // getFeatureDefinition.environmentDefaults.test.ts.)
+    const overrides = [
+      { id: "o1", value: "dev-override", environments: ["dev"] },
+    ];
     const v2: FeatureInterface = {
       ...BASE_FEATURE,
+      defaultValueOverrides: overrides,
       environmentSettings: {
-        dev: { enabled: true, defaultValue: "dev-override" },
+        dev: { enabled: true },
         production: { enabled: true },
       },
       rules: [],
@@ -791,13 +808,10 @@ describe("toLegacyFeature -> migrateRawFeatureToV2 shape round-trip", () => {
       v1 as unknown as V1FeatureInterface,
       mockContext(),
     );
-    // The override survives both directions and stays scoped to its env.
-    expect(roundTripped.environmentSettings?.dev?.defaultValue).toBe(
-      "dev-override",
-    );
     expect(
-      roundTripped.environmentSettings?.production?.defaultValue,
-    ).toBeUndefined();
+      (roundTripped as unknown as { defaultValueOverrides?: unknown })
+        .defaultValueOverrides,
+    ).toEqual(overrides);
   });
 
   // Pending v2 rules carry an empty `environments: []` footprint — the user
