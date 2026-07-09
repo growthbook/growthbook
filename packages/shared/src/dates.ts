@@ -182,3 +182,46 @@ export function resolveScheduleStopAfter(
   d.setMilliseconds(0);
   return d;
 }
+
+// Single source for "resolve a schedule's end into a concrete stopAt + the
+// staged stop job". Shared by the three places that need it (experiment start,
+// the generic update normalizer, and the REST schedule-stop action) so the
+// timing logic can't drift between them.
+//   - `active` = the experiment is running (or starting): resolve a relative
+//     `stopAfter` off `base` and stage the stop. When inactive (a draft not yet
+//     started) a relative end is left unresolved (returned in `stopAfter`) and
+//     nothing is staged — it resolves later at start.
+//   - An absolute `stopAt` is always kept as-is; it's only staged when active.
+export function resolveScheduledStop(params: {
+  stopAt?: Date | string | null;
+  stopAfter?: { value: number; unit: "hours" | "days" } | null;
+  base: Date;
+  active: boolean;
+  now?: Date;
+}): {
+  stopAt: Date | null;
+  stopAfter: { value: number; unit: "hours" | "days" } | null;
+  stagedStop: { type: "stop"; date: Date } | null;
+} {
+  const reference = params.now ?? new Date();
+  let stopAt: Date | null = null;
+  let stopAfter: { value: number; unit: "hours" | "days" } | null = null;
+
+  if (params.stopAt) {
+    stopAt = getValidDate(params.stopAt);
+  } else if (params.stopAfter) {
+    if (params.active) {
+      stopAt = resolveScheduleStopAfter(params.base, params.stopAfter);
+    } else {
+      // Defer: keep the relative offset for resolution at start.
+      stopAfter = params.stopAfter;
+    }
+  }
+
+  const stagedStop =
+    params.active && stopAt && stopAt > reference
+      ? { type: "stop" as const, date: stopAt }
+      : null;
+
+  return { stopAt, stopAfter, stagedStop };
+}

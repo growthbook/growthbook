@@ -1,5 +1,5 @@
 import { getLatestPhaseVariations, getAllVariations } from "shared/experiments";
-import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   ExperimentInterface,
   LinkedFeatureInfo,
@@ -402,15 +402,14 @@ export async function executeExperimentStart(
   // (and applies shipping) at the cutoff; otherwise clear the staged update.
   const startedAt = new Date();
   const sched = experiment.statusUpdateSchedule;
-  const stopAt = sched?.stopAt
-    ? getValidDate(sched.stopAt)
-    : sched?.stopAfter
-      ? resolveScheduleStopAfter(startedAt, sched.stopAfter)
-      : null;
-  const nextScheduledStatusUpdate =
-    stopAt && stopAt > startedAt
-      ? { type: "stop" as const, date: stopAt }
-      : null;
+  const { stopAt, stagedStop: nextScheduledStatusUpdate } =
+    resolveScheduledStop({
+      stopAt: sched?.stopAt,
+      stopAfter: sched?.stopAfter,
+      base: startedAt,
+      active: true,
+      now: startedAt,
+    });
   // Persist the resolved concrete stop and drop the now-consumed relative
   // offset, so the stored schedule reflects the actual end going forward.
   if (sched?.stopAfter) {

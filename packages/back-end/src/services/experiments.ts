@@ -59,11 +59,7 @@ import {
   getLatestPhaseVariations,
   getPhaseVariations,
 } from "shared/experiments";
-import {
-  getValidDate,
-  hoursBetween,
-  resolveScheduleStopAfter,
-} from "shared/dates";
+import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -4439,20 +4435,14 @@ export function normalizeStatusUpdateScheduleChanges(
       // a relative stopAfter off the real start time. Resolving off the pre-start
       // draft (stale/absent dateStarted) would produce a wrong stopAt.
       const running = experiment.status === "running";
-
-      let stopAt = incoming?.stopAt ? getValidDate(incoming.stopAt) : undefined;
-      let stopAfter = incoming?.stopAfter ?? undefined;
-      // A relative end resolves now for an already-running experiment (off its
-      // actual start) and defers for a draft (resolved at start).
-      if (stopAfter && !stopAt && running) {
-        const dateStarted =
-          experiment.phases[experiment.phases.length - 1]?.dateStarted;
-        stopAt = resolveScheduleStopAfter(
-          dateStarted ? getValidDate(dateStarted) : new Date(),
-          stopAfter,
-        );
-        stopAfter = undefined;
-      }
+      const dateStarted =
+        experiment.phases[experiment.phases.length - 1]?.dateStarted;
+      const { stopAt, stopAfter, stagedStop } = resolveScheduledStop({
+        stopAt: incoming?.stopAt,
+        stopAfter: incoming?.stopAfter,
+        base: dateStarted ? getValidDate(dateStarted) : new Date(),
+        active: running,
+      });
 
       changes.statusUpdateSchedule =
         startAt || stopAt || stopAfter
@@ -4466,10 +4456,7 @@ export function normalizeStatusUpdateScheduleChanges(
       // Re-stage the single pending action from the new schedule:
       //  - running experiment: (re)stage the stop from the resolved stopAt
       //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate =
-        running && stopAt && stopAt > new Date()
-          ? { type: "stop", date: stopAt }
-          : null;
+      changes.nextScheduledStatusUpdate = stagedStop;
     }
   } else if (
     changes.status &&

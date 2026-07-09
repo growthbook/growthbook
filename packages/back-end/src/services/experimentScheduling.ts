@@ -4,7 +4,7 @@ import {
   ExperimentShippingCriteria,
   ScheduleStopAfter,
 } from "shared/validators";
-import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
+import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
   getExperimentResultStatus,
   getHealthSettings,
@@ -350,23 +350,15 @@ export async function setExperimentScheduledStop({
   const warnings: string[] = [];
   const running = experiment.status === "running";
 
-  let resolvedStopAt: Date | null = null;
-  let deferredStopAfter: ScheduleStopAfter | null = null;
-
-  if (stopAt) {
-    resolvedStopAt = getValidDate(stopAt);
-  } else if (stopAfter) {
-    if (running) {
-      const dateStarted =
-        experiment.phases[experiment.phases.length - 1]?.dateStarted;
-      resolvedStopAt = resolveScheduleStopAfter(
-        dateStarted ? getValidDate(dateStarted) : new Date(),
-        stopAfter,
-      );
-    } else {
-      deferredStopAfter = stopAfter;
-    }
-  }
+  const dateStarted =
+    experiment.phases[experiment.phases.length - 1]?.dateStarted;
+  const { stopAt: resolvedStopAt, stopAfter: deferredStopAfter } =
+    resolveScheduledStop({
+      stopAt,
+      stopAfter,
+      base: dateStarted ? getValidDate(dateStarted) : new Date(),
+      active: running,
+    });
 
   if (resolvedStopAt && resolvedStopAt <= new Date()) {
     warnings.push(

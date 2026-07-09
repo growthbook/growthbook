@@ -12,6 +12,10 @@ import { VisualChange } from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
+  SCHEDULE_STOP_AFTER_UNITS,
+  SCHEDULED_STATUS_UPDATE_TYPES,
+  SHIPPING_MODES,
+  SHIPPING_FALLBACKS,
 } from "shared/validators";
 import {
   Changeset,
@@ -196,20 +200,20 @@ const experimentSchema = new mongoose.Schema({
     stopAfter: {
       _id: false,
       value: Number,
-      unit: String,
+      unit: { type: String, enum: [...SCHEDULE_STOP_AFTER_UNITS] },
     },
   },
   nextScheduledStatusUpdate: {
     _id: false,
-    type: { type: String },
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
   },
   shippingCriteria: {
     _id: false,
-    mode: String,
+    mode: { type: String, enum: [...SHIPPING_MODES] },
     tiebreakerMetricId: String,
-    fallback: String,
+    fallback: { type: String, enum: [...SHIPPING_FALLBACKS] },
     fallbackVariationId: String,
   },
   results: String,

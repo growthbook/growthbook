@@ -348,6 +348,19 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+// Enum option arrays — the single source of truth for both the Zod schemas
+// below and the (hand-written) Mongoose experiment schema, which imports these
+// so the DB layer enforces the same values and the two can't drift.
+export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
+export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
+export const SHIPPING_MODES = [
+  "notify",
+  "auto-ship",
+  "force-ship",
+  "stop",
+] as const;
+export const SHIPPING_FALLBACKS = ["notify", "force-ship"] as const;
+
 // A relative end offset. Deferred: `stopAt` is resolved from this at the
 // experiment's actual start (or immediately off `dateStarted` when already
 // running), so "end 7 days after start" tracks the real start time.
@@ -356,7 +369,7 @@ export const scheduleStopAfterValidator = z.object({
   // fractional amounts (0.5 days → +0), so a non-integer offset would silently
   // skew or drop the scheduled end.
   value: z.number().int().positive(),
-  unit: z.enum(["hours", "days"]),
+  unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
 });
 export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 
@@ -414,9 +427,9 @@ const forceShipVariationRefine = {
 
 export const experimentShippingCriteriaValidator = z
   .object({
-    mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
+    mode: z.enum(SHIPPING_MODES),
     tiebreakerMetricId: z.string().optional(),
-    fallback: z.enum(["notify", "force-ship"]),
+    fallback: z.enum(SHIPPING_FALLBACKS),
     fallbackVariationId: z.string().optional(),
   })
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
@@ -425,7 +438,7 @@ export type ExperimentShippingCriteria = z.infer<
 >;
 
 export const nextScheduledStatusUpdateValidator = z.object({
-  type: z.enum(["start", "stop"]),
+  type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
   date: z.date(),
   // Number of times the scheduled job has failed to apply this update.
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
@@ -818,7 +831,7 @@ const apiScheduleStopAfter = z
     // Whole units only — the offset is resolved with date-fns addDays/addHours,
     // which floor fractional amounts.
     value: z.number().int().positive(),
-    unit: z.enum(["hours", "days"]),
+    unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
   })
   .describe(
     "Relative end offset. Deferred: resolved to a concrete `stopAt` at the " +
@@ -859,9 +872,9 @@ export const apiExperimentShippingCriteriaValidator = namedSchema(
   "ExperimentShippingCriteria",
   z
     .object({
-      mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
+      mode: z.enum(SHIPPING_MODES),
       tiebreakerMetricId: z.string().optional(),
-      fallback: z.enum(["notify", "force-ship"]),
+      fallback: z.enum(SHIPPING_FALLBACKS),
       fallbackVariationId: z.string().optional(),
     })
     .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
