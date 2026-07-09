@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import Router from "next/router";
+import { useRouter } from "next/router";
 import {
   DashboardInterface,
   DashboardBlockInterface,
@@ -20,11 +20,14 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
 
 function SingleDashboardPage() {
-  const router = Router;
+  const router = useRouter();
   const { did } = router.query;
+  const dashboardId = typeof did === "string" ? did : "";
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
-  }>(`/dashboards/${did}`);
+  }>(`/dashboards/${dashboardId}`, {
+    shouldRun: () => router.isReady && Boolean(dashboardId),
+  });
   const dashboard = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
   const [initialEditBlockIndex, setInitialEditBlockIndex] = useState<
