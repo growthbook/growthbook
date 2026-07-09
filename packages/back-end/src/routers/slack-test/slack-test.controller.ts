@@ -12,11 +12,8 @@ import {
   EventWebHookModel,
   getSlackBotAccessTokenForWebhook,
 } from "back-end/src/models/EventWebhookModel";
-import {
-  renderExperimentCard,
-  sampleCard,
-  CardState,
-} from "back-end/src/services/slack/chartImage";
+import { sampleCard, CardState } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 

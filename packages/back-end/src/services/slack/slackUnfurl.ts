@@ -1,7 +1,7 @@
 import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { uploadCardPng } from "back-end/src/services/slack/cardDelivery";
 import { unfurlSlackLinks } from "back-end/src/services/slack/slackWebApi";
 

@@ -12,7 +12,7 @@ import { init } from "back-end/src/init";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};

@@ -1,8 +1,8 @@
 import {
-  renderExperimentCard,
   sampleCard,
   CardState,
 } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 
 const STATES: CardState[] = [
   "started",

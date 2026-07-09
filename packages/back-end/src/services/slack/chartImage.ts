@@ -1160,10 +1160,14 @@ function buildCard(exp: ExperimentCardData): El {
 // ---------------------------------------------------------------------------
 
 /**
- * Render an experiment card to a PNG buffer. Rendered at 2x width for crisp
- * display in Slack; height auto-fits the content (image-block mode).
+ * Render the "detailed" experiment card to a PNG buffer — the full results
+ * table with posterior violin plots, CI pills, and health signals. Rendered at
+ * 2x width for crisp display in Slack; height auto-fits (image-block mode).
+ *
+ * This is one card *style*; callers should go through `renderExperimentCard`
+ * in `./cards`, which dispatches by style, rather than calling this directly.
  */
-export async function renderExperimentCard(
+export async function renderDetailedCard(
   exp: ExperimentCardData,
 ): Promise<Buffer> {
   await ensureWasmInitialized();

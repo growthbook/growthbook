@@ -9,7 +9,7 @@ import {
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
 import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
 
 export interface SlackAssistantMention {
