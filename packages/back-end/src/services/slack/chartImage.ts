@@ -735,7 +735,11 @@ function colHeader(): El {
   );
 }
 
-function goalRowEl(r: CardGoalRow): El {
+// `label` overrides the row's variation name (used for 2-way tests, where the
+// single treatment row is labeled with the goal metric name instead of the
+// variation name — and the number circle is dropped, mirroring secondary /
+// guardrail rows).
+function goalRowEl(r: CardGoalRow, label?: string): El {
   const intervalCell = el(
     "div",
     { display: "flex", flexDirection: "column", flexGrow: 1, gap: 2 },
@@ -791,8 +795,8 @@ function goalRowEl(r: CardGoalRow): El {
 
   return gridRow(
     [
-      vnumCircle(r.i, 18),
-      txt(r.v, { fontSize: 13, fontWeight: 500, color: P.text }),
+      label ? null : vnumCircle(r.i, 18),
+      txt(label ?? r.v, { fontSize: 13, fontWeight: 500, color: P.text }),
       txt(r.ctrl, { fontSize: 13, fontWeight: 500, color: P.text }, true),
       vrCell,
       txt(
@@ -957,13 +961,23 @@ function footerEl(items: (string | undefined)[]): El {
   );
 }
 
-function standardBody(exp: ExperimentCardData): El {
-  const children: (El | null)[] = [
+// The goal-metric section. For a 2-way test (one treatment) the single row is
+// labeled with the goal metric name instead of the variation name — dropping
+// the redundant metric-name line and number circle — mirroring how secondary /
+// guardrail metrics read. Multi-way tests keep the metric name up top and one
+// numbered row per variation (so variations stay distinguishable).
+function goalSectionEls(exp: ExperimentCardData): (El | null)[] {
+  const twoWay = exp.rows.length === 1;
+  return [
     sectionLabel("Goal metric"),
-    metricNameEl(exp.goal),
+    twoWay ? null : metricNameEl(exp.goal),
     colHeader(),
-    ...exp.rows.map(goalRowEl),
+    ...exp.rows.map((r) => goalRowEl(r, twoWay ? exp.goal : undefined)),
   ];
+}
+
+function standardBody(exp: ExperimentCardData): El {
+  const children: (El | null)[] = [...goalSectionEls(exp)];
   if (exp.secondary?.length) {
     children.push(sectionLabel("Secondary metrics"));
     for (const m of exp.secondary)
@@ -1104,10 +1118,7 @@ function warningBody(exp: ExperimentCardData): El {
         ),
       ],
     ),
-    sectionLabel("Goal metric"),
-    metricNameEl(exp.goal),
-    colHeader(),
-    ...exp.rows.map(goalRowEl),
+    ...goalSectionEls(exp),
     ...(exp.note
       ? [
           txt(exp.note, {
