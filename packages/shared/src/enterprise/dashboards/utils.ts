@@ -277,6 +277,7 @@ export function canAutoRefreshDashboard(
 ): boolean {
   const applicability = getDashboardGlobalControlApplicability(dashboard);
   const affectedBlocks = new Set(applicability.dateControlledBlocks);
+  if (!affectedBlocks.size) return false;
 
   return [...affectedBlocks].every((block) => {
     const datasource = getDatasourceFromLookup(

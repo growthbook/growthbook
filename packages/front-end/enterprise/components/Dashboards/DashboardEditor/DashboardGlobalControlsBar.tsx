@@ -104,8 +104,8 @@ export default function DashboardGlobalControlsBar({
           datasourceMap,
         )
       ) {
-        setNeedsUpdate(false);
         await updateAllSnapshots();
+        setNeedsUpdate(false);
       } else {
         setNeedsUpdate(true);
       }
