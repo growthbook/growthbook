@@ -1663,11 +1663,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/product-analytics/dashboards/[did].tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/product-analytics/dashboards/index.tsx": {
     "local/no-alert-classname": {
       "count": 1

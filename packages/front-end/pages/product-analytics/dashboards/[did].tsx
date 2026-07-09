@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useCallback, useEffect, useState } from "react";
+import Router from "next/router";
 import {
   DashboardInterface,
   DashboardBlockInterface,
@@ -20,7 +20,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
 
 function SingleDashboardPage() {
-  const router = useRouter();
+  const router = Router;
   const { did } = router.query;
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
@@ -47,11 +47,15 @@ function SingleDashboardPage() {
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
+  const [globalControls, setGlobalControls] =
+    useState<DashboardInterface["globalControls"]>();
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
+      setGlobalControls(dashboard.globalControls);
     } else {
       setBlocks([]);
+      setGlobalControls(undefined);
     }
   }, [dashboard]);
 
@@ -140,11 +144,7 @@ function SingleDashboardPage() {
   }
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
   if (!dashboard) {
@@ -203,8 +203,8 @@ function SingleDashboardPage() {
             isGeneralDashboard={true}
             isEditing={false}
             title={dashboard.title}
-            blocks={dashboard.blocks}
-            globalControls={dashboard.globalControls}
+            blocks={blocks}
+            globalControls={globalControls}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
@@ -215,6 +215,10 @@ function SingleDashboardPage() {
             setIsEditing={setIsEditing}
             enterEditModeForBlock={enterEditModeForBlock}
             onGlobalControlsChange={async (globalControls, controlBlocks) => {
+              setGlobalControls(globalControls);
+              if (controlBlocks) {
+                setBlocks(controlBlocks);
+              }
               await submitDashboard({
                 method: "PUT",
                 dashboardId: dashboard.id,
