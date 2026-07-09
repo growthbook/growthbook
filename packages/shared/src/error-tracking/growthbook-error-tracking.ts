@@ -4,9 +4,9 @@ import {
   UserScopedGrowthBook,
 } from "@growthbook/growthbook";
 import type { Attributes, UserContext } from "@growthbook/growthbook";
+import { EVENT_GROWTHBOOK_ERROR } from "../constants";
 
-/** Managed warehouse `errors` table — must match sdk-js `EVENT_GROWTHBOOK_ERROR`. */
-export const GROWTHBOOK_ERROR_EVENT = "GrowthBook Error";
+export { EVENT_GROWTHBOOK_ERROR };
 
 export type ErrorTrackingStackFrame = {
   filename?: string;
@@ -205,18 +205,19 @@ async function logError({
   });
 
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
-    await gb.logEvent(GROWTHBOOK_ERROR_EVENT, eventProps);
+    await gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps);
     return;
   }
 
   if (gb instanceof GrowthBookClient) {
     if (!userContext) {
+      // eslint-disable-next-line no-console
       console.warn(
         "captureError: pass userContext when gb is a GrowthBookClient.",
       );
       return;
     }
-    gb.logEvent(GROWTHBOOK_ERROR_EVENT, eventProps, userContext);
+    gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps, userContext);
   }
 }
 

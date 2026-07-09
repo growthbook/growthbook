@@ -1,6 +1,6 @@
 import React from "react";
 import { GrowthBookContext } from "@growthbook/growthbook-react";
-import { captureError } from "./growthbook-error-tracking";
+import { captureError } from "shared/error-tracking";
 
 export type GrowthBookErrorBoundaryProps = {
   children: React.ReactNode;

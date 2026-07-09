@@ -4,12 +4,10 @@ export {
   captureError,
   buildErrorEventProperties,
   parseStackFrames,
-} from "shared/error-tracking";
+} from "./growthbook-error-tracking";
 export type {
   BuiltErrorEventProps,
   CaptureErrorOptions,
   ErrorTrackingStackFrame,
   GrowthBookErrorEventProps,
-} from "shared/error-tracking";
-export { GrowthBookErrorBoundary } from "./GrowthBookErrorBoundary";
-export type { GrowthBookErrorBoundaryProps } from "./GrowthBookErrorBoundary";
+} from "./growthbook-error-tracking";

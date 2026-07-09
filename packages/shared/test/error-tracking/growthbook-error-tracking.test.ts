@@ -1,10 +1,9 @@
 import { GrowthBookClient } from "@growthbook/growthbook";
-import { vi } from "vitest";
 import {
-  GROWTHBOOK_ERROR_EVENT,
+  EVENT_GROWTHBOOK_ERROR,
   buildErrorEventProperties,
   captureError,
-} from "@/services/growthbook/plugins";
+} from "../../src/error-tracking/growthbook-error-tracking";
 
 describe("growthbookErrorTracking helpers", () => {
   it("builds GrowthBook Error payload without client fingerprint", () => {
@@ -36,7 +35,7 @@ describe("growthbookErrorTracking helpers", () => {
 
   it("logs via GrowthBookClient when userContext is provided", async () => {
     const client = new GrowthBookClient({ clientKey: "sdk-test" });
-    const logEvent = vi.fn();
+    const logEvent = jest.fn();
     client.logEvent = logEvent;
 
     await captureError({
@@ -47,7 +46,7 @@ describe("growthbookErrorTracking helpers", () => {
     });
 
     expect(logEvent).toHaveBeenCalledWith(
-      GROWTHBOOK_ERROR_EVENT,
+      EVENT_GROWTHBOOK_ERROR,
       expect.objectContaining({
         message: "server error",
         errorType: "manual",
@@ -58,7 +57,7 @@ describe("growthbookErrorTracking helpers", () => {
 
   it("warns when GrowthBookClient is used without userContext", async () => {
     const client = new GrowthBookClient({ clientKey: "sdk-test" });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 
     await captureError({
       gb: client,
@@ -71,7 +70,7 @@ describe("growthbookErrorTracking helpers", () => {
     warn.mockRestore();
   });
 
-  it("GROWTHBOOK_ERROR_EVENT matches warehouse filter string", () => {
-    expect(GROWTHBOOK_ERROR_EVENT).toEqual("GrowthBook Error");
+  it("EVENT_GROWTHBOOK_ERROR matches warehouse filter string", () => {
+    expect(EVENT_GROWTHBOOK_ERROR).toEqual("GrowthBook Error");
   });
 });

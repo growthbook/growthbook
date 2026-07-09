@@ -108,6 +108,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
+import { captureBackendError } from "./services/growthbook";
 import {
   ApiError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
@@ -1331,6 +1332,9 @@ const errorHandler: ErrorRequestHandler = (
   } else {
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
+  // Mirrors Sentry.setupExpressErrorHandler above — this handler logs via
+  // req.log/httpLogger directly, bypassing logger.error's Sentry/GrowthBook reporting.
+  captureBackendError(err);
 
   const body: {
     status: number;
