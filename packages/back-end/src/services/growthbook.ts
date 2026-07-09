@@ -8,7 +8,9 @@ import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { EventSource } from "eventsource";
 import { Request } from "express";
 import { AppFeatures } from "shared/types/app-features";
+import { GB_SDK_ID_PROD } from "shared/constants";
 import { logger } from "back-end/src/util/logger";
+import { GB_DEFAULT_PAYLOAD } from "back-end/src/generated/gb-default-payload";
 import {
   GB_SDK_ID,
   IS_CLOUD,
@@ -184,12 +186,33 @@ async function runGrowthBookClientInit(): Promise<void> {
 
   if (!success) {
     logger.warn({ source, err: error }, "GrowthBook features not loaded");
+    // Fall back to the bundled snapshot so flags evaluate to their
+    // release-time values instead of code defaults when the CDN is
+    // unreachable (offline/air-gapped self-hosted, network outages). A live
+    // fetch or SSE update that arrives later still overwrites this.
+    await seedDefaultPayload(client);
     return;
   }
 
   logger.info(
     { source, streaming: true },
     "GrowthBook client initialized successfully",
+  );
+}
+
+// The snapshot is fetched from the PROD connection at build time (see
+// scripts/fetch-gb-payload.ts), so only seed servers actually using that
+// connection — a dev-keyed server would otherwise evaluate prod values.
+async function seedDefaultPayload(
+  client: GrowthBookClient<AppFeatures>,
+): Promise<void> {
+  if (GB_SDK_ID !== GB_SDK_ID_PROD) return;
+  const numFeatures = Object.keys(GB_DEFAULT_PAYLOAD.features || {}).length;
+  if (numFeatures === 0) return;
+  await client.setPayload(GB_DEFAULT_PAYLOAD);
+  logger.info(
+    { numFeatures, dateUpdated: GB_DEFAULT_PAYLOAD.dateUpdated },
+    "GrowthBook features seeded from bundled snapshot",
   );
 }
 
