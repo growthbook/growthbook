@@ -15,6 +15,12 @@ import {
   VISUAL_EDITOR_MAX_STEPS,
 } from "back-end/src/api/visual-editor-ai/aiTools";
 import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
+import {
+  buildInsertJs,
+  makeScopeToken,
+  normalizeInsertPlacement,
+  wrapWithScope,
+} from "back-end/src/api/visual-editor-ai/insertPrimitive";
 
 // Output-token cap for the edit generation. Above the 8000 parsePrompt
 // default because an edit can REPLACE the variation's entire global CSS/JS
@@ -227,15 +233,55 @@ const outputSchema = z.object({
     .describe(
       "Complete global JS for this variation. REPLACES any prior JS — to add, modify, or remove code, return the rest of the existing JS verbatim alongside your change. Set to null when the user's request doesn't touch global JS (the existing JS stays as-is). Do NOT return a partial fragment or an empty string when JS exists; that wipes it.",
     ),
+  insert: z
+    .array(
+      z.object({
+        targetSelector: z
+          .string()
+          .describe(
+            'Existing element to position the new content relative to. Must be a real selector from the Page elements catalog (e.g. "body", "header", a section selector). For a site-wide banner at the very top of the page, use "body".',
+          ),
+        position: z
+          .enum(["beforebegin", "afterbegin", "beforeend", "afterend"])
+          .describe(
+            'Where to place the new content relative to targetSelector: "beforebegin" = immediately before it (previous sibling); "afterbegin" = as its FIRST child (use this with "body" for a banner at the top of the page); "beforeend" = as its LAST child; "afterend" = immediately after it (next sibling).',
+          ),
+        html: z
+          .string()
+          .describe(
+            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in the global `css` field. Keep it a single logical block (wrap multiple elements in one container).",
+          ),
+      }),
+    )
+    .describe(
+      "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Return an empty array when the request doesn't add any new elements.",
+    ),
   explanation: z
     .string()
     .describe("One-paragraph summary of the changes for the editor user."),
 });
 
+// Selectors whose innerHTML must never be replaced.
+const PAGE_ROOT_SELECTOR_RE = /^\s*(?::root|html|body)\s*$/i;
+
+// Backstop for the crash the `insert` field + prompt rules are meant to
+// prevent: an html mutation is unsafe when it targets a page-root container
+// (replacing body/html innerHTML wipes the page, and dom-mutator's observer
+// then re-fires → freeze) OR its value echoes whole-document markup (a sign
+// the model serialized the existing page instead of a small content swap).
+// The same mutation would run in the production SDK, so this guard protects
+// real visitors, not just the editor preview.
+function isUnsafeHtmlMutation(selector: string, value: string | null): boolean {
+  if (PAGE_ROOT_SELECTOR_RE.test(selector)) return true;
+  if (value && /<\s*(?:!doctype|html|head|body)[\s>]/i.test(value)) return true;
+  return false;
+}
+
 const instructions = `You are GrowthBook's Visual Editor assistant. Your job is to translate natural-language change requests into a structured set of DOM mutations that GrowthBook can apply to a web page in an A/B test variation.
 
 Allowed attribute values and what they do:
 - "html" — replaces the element's innerHTML. Use this for ANY visible text change (plain text is valid HTML). Example: { selector: ".headline", action: "set", attribute: "html", value: "Welcome back!" }
+  CRITICAL: "html" REPLACES everything inside the target element. Only ever target a small, specific element whose entire contents you intend to swap. NEVER use "html" (with "set" OR "append") on "body", "html", ":root", or any large structural/layout container — that destroys the whole page and crashes it. NEVER put the page's existing DOM into an html value (don't echo the current markup back). To ADD new content to the page, use the \`insert\` field (see "Inserting new elements" below) — never an html mutation on a container.
 - "style" — replaces the element's inline style. Value is a CSS declaration string, e.g. "display:none" or "color:red;font-size:20px".
 - "class" — with action "set" replaces the className, with action "append" adds classes (space-separated).
 - "position" — moves the element into a new parent. Use action "set". value MUST be null. Set parentSelector to the destination parent (required, must be in the catalog). Set insertBeforeSelector to a sibling inside that parent to insert this element BEFORE it; omit (null) to append at the end. Example to move a CTA above the headline:
@@ -244,6 +290,13 @@ Allowed attribute values and what they do:
 - Any real HTML attribute name: "src", "href", "alt", "title", "aria-label", "data-foo", etc.
 
 DO NOT invent attribute names. There is NO "text" attribute. To change visible text, ALWAYS use attribute "html". To hide an element use attribute "style" with value containing "display:none".
+
+Inserting new elements (banners, notices, sections, new blocks) — use the \`insert\` field, NOT an html mutation:
+- When the user asks to ADD, insert, prepend, append, or place NEW content on the page (a promotional banner, an announcement bar, a new section, a CTA that doesn't exist yet), return it in the \`insert\` array. Do NOT try to add content by setting or appending "html" on "body"/"html"/a container — that replaces the container's entire contents and crashes the page.
+- Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
+- "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
+- Style the inserted markup with inline styles, or add rules to the global \`css\` field. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
+- You may return \`insert\` alongside \`mutations\` and \`css\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
 
 Position-move rules (critical):
 - A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
@@ -320,7 +373,7 @@ Offering alternatives for the user to choose from:
 - For ordinary single changes (no "alternatives"/"options" language), leave \`options\` null and just set \`value\`.
 
 Conversation continuity:
-- You may be given a "Previous conversation" block. Use it to resolve pronouns ("it", "them", "the same one") and references to earlier edits. Do not re-apply mutations already accepted in earlier turns unless explicitly asked.
+- You may be given a "Previous conversation" block. Use it to resolve pronouns ("it", "them", "the same one") and references to earlier edits. Do not re-apply mutations, or re-insert content, already accepted in earlier turns unless explicitly asked (re-inserting a banner you already added would duplicate it).
 
 Picked-element computed styles:
 - Picked elements may carry a \`computedStyles\` map — a subset of the element's CURRENT CSS (font-family, font-size, color, background-color, padding, margin, border, border-radius, box-shadow, etc.) as the browser is rendering it right now.
@@ -653,6 +706,12 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     mutations: unknown[];
     css?: string;
     js?: string;
+    insert?: Array<{
+      targetSelector: string;
+      position: "beforebegin" | "afterbegin" | "beforeend" | "afterend";
+      html: string;
+      scopeToken: string;
+    }>;
     explanation: string;
   }> => {
     let result = raw;
@@ -678,7 +737,21 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       }
     }
 
+    let droppedUnsafeHtml = false;
     const sanitizedMutations = result.mutations.filter((m) => {
+      const attr = m.attribute === "text" ? "html" : m.attribute;
+      // Guard (#3): never let an html mutation replace a page-root container
+      // or carry whole-document markup. Adding content must go through
+      // `insert`; this backstops the prompt rules and protects visitors
+      // (the same mutation runs in the SDK).
+      if (attr === "html" && isUnsafeHtmlMutation(m.selector, m.value)) {
+        droppedUnsafeHtml = true;
+        logger.warn(
+          { selector: m.selector },
+          "[visual-editor-ai] dropping unsafe html mutation (page-root target or full-document value)",
+        );
+        return false;
+      }
       if (m.attribute !== "position") return true;
       if (!m.parentSelector) {
         logger.warn(
@@ -703,6 +776,63 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       }
       return true;
     });
+
+    // Compile any `insert`s the model returned into idempotent
+    // insertAdjacentHTML snippets (see insertPrimitive.ts). Adding new DOM
+    // goes through the variation's `js`, never a dom-mutation — dom-mutator
+    // has no safe insert primitive.
+    const insertDescriptors: Array<{
+      targetSelector: string;
+      position: "beforebegin" | "afterbegin" | "beforeend" | "afterend";
+      html: string;
+      scopeToken: string;
+    }> = [];
+    const insertJsSnippets: string[] = [];
+    for (const ins of result.insert) {
+      const rawTarget = ins.targetSelector.trim();
+      const rawHtml = ins.html.trim();
+      if (!rawTarget || !rawHtml) continue;
+      // Remap root-relative positions insertAdjacentHTML can't do on <html>
+      // (e.g. "beforebegin" on the root) to a valid spot inside <body>, so a
+      // top/bottom-of-page insert actually lands instead of silently failing.
+      // Normalize once, then use for both the script and the preview descriptor.
+      const { targetSelector, position } = normalizeInsertPlacement(
+        rawTarget,
+        ins.position,
+      );
+      const scopeToken = makeScopeToken();
+      const html = wrapWithScope(rawHtml, scopeToken);
+      insertJsSnippets.push(
+        buildInsertJs({ scopeToken, targetSelector, position, html }),
+      );
+      insertDescriptors.push({ targetSelector, position, html, scopeToken });
+    }
+
+    // Merge the insert snippets into the variation's JS. The model's `js`
+    // (per its contract) is the COMPLETE new global JS; fall back to the
+    // existing JS when it left js null, then append our snippets.
+    let finalJs: string | undefined;
+    if (insertJsSnippets.length > 0) {
+      // Only treat the model's `js` as the new base when it actually has
+      // content. A schema-valid empty string must NOT drop the variation's
+      // existing JS — a plain "add a banner" edit leaves js empty, and `??`
+      // wouldn't catch "" (only null/undefined), so fall back explicitly.
+      const baseJs =
+        result.js && result.js.trim().length > 0
+          ? result.js.trim()
+          : (currentChange?.js ?? "").trim();
+      finalJs = [baseJs, ...insertJsSnippets]
+        .filter((s) => s.length > 0)
+        .join("\n\n");
+    } else if (result.js && result.js !== currentChange?.js) {
+      finalJs = result.js;
+    }
+
+    let explanation = result.explanation;
+    if (droppedUnsafeHtml) {
+      explanation +=
+        " (Skipped an unsafe change that would have replaced the entire page. To add content to the page, ask me to insert a banner or section instead.)";
+    }
 
     return {
       mutations: sanitizedMutations.map((m) => {
@@ -747,10 +877,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       ...(result.css && result.css !== currentChange?.css
         ? { css: result.css }
         : {}),
-      ...(result.js && result.js !== currentChange?.js
-        ? { js: result.js }
-        : {}),
-      explanation: result.explanation,
+      ...(finalJs ? { js: finalJs } : {}),
+      ...(insertDescriptors.length > 0 ? { insert: insertDescriptors } : {}),
+      explanation,
     };
   };
 

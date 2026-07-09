@@ -256,6 +256,7 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
+  apiKey: ["create", "update", "delete", "disable", "enable"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
   constant: ["created", "updated", "deleted"],
