@@ -1661,6 +1661,70 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     expect(changes.nextScheduledStatusUpdate).toBeUndefined();
   });
+
+  it("draft defers a relative stopAfter (no resolution, no staged stop)", () => {
+    const experiment = makeExperiment({ status: "draft" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 7, unit: "days" } },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      stopAt?: Date;
+      stopAfter?: { value: number; unit: string };
+    };
+    expect(sched.stopAfter).toEqual({ value: 7, unit: "days" });
+    expect(sched.stopAt).toBeUndefined();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("running stopAt in the future stages a stop", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAt: future },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toEqual({
+      type: "stop",
+      date: future,
+    });
+  });
+
+  it("running stopAt already in the past does not stage a stop", () => {
+    const experiment = makeExperiment({ status: "running" });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAt: new Date("2000-01-01") },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("running resolves a relative stopAfter off the phase start and stages a stop", () => {
+    const start = new Date();
+    const experiment = makeExperiment({
+      status: "running",
+      phases: [{ dateStarted: start }],
+    } as Partial<ExperimentInterface>);
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { stopAfter: { value: 7, unit: "days" } },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    const sched = changes.statusUpdateSchedule as {
+      stopAt?: Date;
+      stopAfter?: unknown;
+    };
+    expect(sched.stopAt).toBeInstanceOf(Date);
+    expect(sched.stopAfter).toBeUndefined();
+    expect(changes.nextScheduledStatusUpdate?.type).toBe("stop");
+  });
 });
 
 describe("fillEmptyVariationKeys", () => {
@@ -1818,6 +1882,27 @@ describe("validateStatusUpdateSchedule", () => {
       validateStatusUpdateSchedule("standard", {
         startAt: "2099-01-01T00:00:00Z",
       }),
+    ).not.toThrow();
+  });
+
+  it("throws when stopAt is not after startAt", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        startAt: "2099-06-01T00:00:00Z",
+        stopAt: "2099-05-01T00:00:00Z",
+      }),
+    ).toThrow("statusUpdateSchedule.stopAt must be after startAt");
+  });
+
+  it("does not re-check a past startAt that is unchanged from the stored value", () => {
+    // An end-date/shipping edit on an already-scheduled experiment re-submits the
+    // stored (now-past) startAt; it should not trip the future-start check.
+    expect(() =>
+      validateStatusUpdateSchedule(
+        "standard",
+        { startAt: "2000-01-01T00:00:00Z" },
+        "2000-01-01T00:00:00Z",
+      ),
     ).not.toThrow();
   });
 });

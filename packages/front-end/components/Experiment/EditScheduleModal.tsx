@@ -379,14 +379,16 @@ export default function EditScheduleModal({
               <Flex align="center" gap="3">
                 <Field
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="1"
+                  step="1"
                   value={endAfterValue}
                   onFocus={(e) => e.target.select()}
                   onChange={(e) => {
+                    // Whole units only — the back-end resolver floors fractional
+                    // offsets (date-fns addDays/addHours).
                     const n = Math.max(
-                      0.01,
-                      parseFloat(e.target.value) || 0.01,
+                      1,
+                      Math.floor(parseFloat(e.target.value) || 1),
                     );
                     setEndAfterValue(n);
                   }}

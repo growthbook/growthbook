@@ -565,7 +565,12 @@ export function generateAutoExperimentsPayload({
       }
 
       const metadata = buildPayloadMetadata<ExperimentMetadata>(
-        { project: e.project, customFields: e.customFields, tags: e.tags },
+        {
+          project: e.project,
+          customFields: e.customFields,
+          tags: e.tags,
+          statusUpdateSchedule: e.statusUpdateSchedule,
+        },
         {
           includeProjectIdInMetadata,
           includeCustomFieldsInMetadata,

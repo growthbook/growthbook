@@ -281,8 +281,17 @@ export async function getExperimentDecisionCriteria(
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
     context.org.settings?.defaultDecisionCriteriaId;
   if (id) {
-    const dc = await context.models.decisionCriteria.getById(id);
-    if (dc) return dc;
+    try {
+      const dc = await context.models.decisionCriteria.getById(id);
+      if (dc) return dc;
+    } catch (e) {
+      // Degrade to the preset rather than failing the caller (e.g. the enhanced
+      // experiment API response) on a transient lookup error.
+      logger.warn(
+        e,
+        `Failed to load decision criteria ${id}; falling back to preset`,
+      );
+    }
   }
   return (
     getPresetDecisionCriteriaForOrg(context.org.settings) ??

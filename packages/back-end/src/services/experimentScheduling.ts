@@ -63,10 +63,17 @@ async function getTiebreakerLiftMap(
   const metric = await getExperimentMetricById(context, metricId);
   const sign = metric?.inverse ? -1 : 1;
 
+  // Key by the SNAPSHOT's own variation ids, which are index-aligned with the
+  // analysis results. The current experiment.variations order may have been
+  // reordered/edited since this snapshot, so keying by it would misattribute
+  // lift to the wrong variation.
+  const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
+
   const map: Record<string, number> = {};
-  experiment.variations.forEach((variation, i) => {
-    const expected = dimension.variations[i]?.metrics?.[metricId]?.expected;
-    if (typeof expected === "number") map[variation.id] = expected * sign;
+  dimension.variations.forEach((dv, i) => {
+    const id = snapshotVariationIds[i];
+    const expected = dv?.metrics?.[metricId]?.expected;
+    if (id && typeof expected === "number") map[id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
 }

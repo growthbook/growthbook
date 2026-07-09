@@ -352,7 +352,10 @@ export type ExperimentAnalysisSummary = z.infer<
 // experiment's actual start (or immediately off `dateStarted` when already
 // running), so "end 7 days after start" tracks the real start time.
 export const scheduleStopAfterValidator = z.object({
-  value: z.number().positive(),
+  // Whole units only: the resolver uses date-fns addDays/addHours, which floor
+  // fractional amounts (0.5 days → +0), so a non-integer offset would silently
+  // skew or drop the scheduled end.
+  value: z.number().int().positive(),
   unit: z.enum(["hours", "days"]),
 });
 export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
@@ -361,11 +364,18 @@ export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 // just a stop (hard cutoff for an already-running experiment), or both. The end
 // can be absolute (`stopAt`) or a deferred relative offset (`stopAfter`) that
 // resolves to `stopAt` at start.
-export const statusUpdateScheduleValidator = z.object({
-  startAt: z.date().optional(),
-  stopAt: z.date().optional(),
-  stopAfter: scheduleStopAfterValidator.optional().nullable(),
-});
+export const statusUpdateScheduleValidator = z
+  .object({
+    startAt: z.date().optional(),
+    stopAt: z.date().optional(),
+    stopAfter: scheduleStopAfterValidator.optional().nullable(),
+  })
+  // The end is one or the other — never both. Allowing both is ambiguous
+  // (stopAfter resolves to a stopAt at start and would clobber the explicit one).
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  });
 
 // What happens at the scheduled end date. Absent = "notify".
 //  - "notify" (soft): the experiment KEEPS RUNNING; you're just notified the
@@ -382,12 +392,34 @@ export const statusUpdateScheduleValidator = z.object({
 //    recorded as metadata.
 // `tiebreakerMetricId` applies to auto-ship, force-ship, and stop (for the EDF
 // verdict). No auto-rollback.
-export const experimentShippingCriteriaValidator = z.object({
-  mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
-  tiebreakerMetricId: z.string().optional(),
-  fallback: z.enum(["notify", "force-ship"]),
-  fallbackVariationId: z.string().optional(),
-});
+// A `fallbackVariationId` is required whenever the config actually force-ships
+// a variation — either the top-level "force-ship" mode, or auto-ship with a
+// force-ship fallback. Enforced here so every write path (generic PUT, internal
+// controller, action endpoint) rejects the incomplete config, not just the
+// dedicated shipping-criteria service.
+const forceShipCriteriaHasVariation = (c: {
+  mode: string;
+  fallback: string;
+  fallbackVariationId?: string;
+}) =>
+  !(
+    (c.mode === "force-ship" ||
+      (c.mode === "auto-ship" && c.fallback === "force-ship")) &&
+    !c.fallbackVariationId
+  );
+const forceShipVariationRefine = {
+  message: "fallbackVariationId is required when force-shipping a variation.",
+  path: ["fallbackVariationId"] as string[],
+};
+
+export const experimentShippingCriteriaValidator = z
+  .object({
+    mode: z.enum(["notify", "auto-ship", "force-ship", "stop"]),
+    tiebreakerMetricId: z.string().optional(),
+    fallback: z.enum(["notify", "force-ship"]),
+    fallbackVariationId: z.string().optional(),
+  })
+  .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ExperimentShippingCriteria = z.infer<
   typeof experimentShippingCriteriaValidator
 >;
@@ -783,7 +815,9 @@ const apiCustomMetricSlices = z
 
 const apiScheduleStopAfter = z
   .object({
-    value: z.number().positive(),
+    // Whole units only — the offset is resolved with date-fns addDays/addHours,
+    // which floor fractional amounts.
+    value: z.number().int().positive(),
     unit: z.enum(["hours", "days"]),
   })
   .describe(
@@ -812,9 +846,13 @@ const apiStatusUpdateSchedule = z
       ),
     stopAfter: apiScheduleStopAfter.optional(),
   })
+  .refine((s) => !(s.stopAt && s.stopAfter), {
+    message: "Provide either stopAt or stopAfter, not both.",
+    path: ["stopAfter"],
+  })
   .describe(
     "Scheduled start/end for an experiment. All fields optional; the end may be " +
-      "an absolute `stopAt` or a deferred relative `stopAfter`.",
+      "an absolute `stopAt` or a deferred relative `stopAfter`, but not both.",
   );
 
 export const apiExperimentShippingCriteriaValidator = namedSchema(
@@ -826,6 +864,7 @@ export const apiExperimentShippingCriteriaValidator = namedSchema(
       fallback: z.enum(["notify", "force-ship"]),
       fallbackVariationId: z.string().optional(),
     })
+    .refine(forceShipCriteriaHasVariation, forceShipVariationRefine)
     .describe(
       "What happens at the scheduled end date. `notify` keeps the experiment " +
         "running and just notifies (soft). `auto-ship` (requires the Decision " +

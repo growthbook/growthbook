@@ -2072,6 +2072,9 @@ const getExperimentChanges = (
     "excludeFromPayload",
     "autoAssign",
     "phases",
+    // Schedule dates are emitted into experiment metadata (opt-in per SDK
+    // connection), so a schedule-only edit must invalidate the SDK payload.
+    "statusUpdateSchedule",
   ];
 
   return {

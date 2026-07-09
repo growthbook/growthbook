@@ -11879,7 +11879,7 @@ paths:
                   description: >-
                     Scheduled start/end for an experiment. All fields optional;
                     the end may be an absolute `stopAt` or a deferred relative
-                    `stopAfter`.
+                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
@@ -11905,7 +11905,7 @@ paths:
                       type: object
                       properties:
                         value:
-                          type: number
+                          type: integer
                           exclusiveMinimum: 0
                         unit:
                           type: string
@@ -12570,7 +12570,7 @@ paths:
                           type: object
                           properties:
                             value:
-                              type: number
+                              type: integer
                               exclusiveMinimum: 0
                             unit:
                               type: string
@@ -12989,7 +12989,7 @@ paths:
                   type: object
                   properties:
                     value:
-                      type: number
+                      type: integer
                       exclusiveMinimum: 0
                     unit:
                       type: string
@@ -39922,7 +39922,7 @@ components:
             - description: >-
                 Scheduled start/end for an experiment. All fields optional; the
                 end may be an absolute `stopAt` or a deferred relative
-                `stopAfter`.
+                `stopAfter`, but not both.
               type: object
               properties:
                 startAt:
@@ -39947,7 +39947,7 @@ components:
                   type: object
                   properties:
                     value:
-                      type: number
+                      type: integer
                       exclusiveMinimum: 0
                     unit:
                       type: string
@@ -40697,7 +40697,7 @@ components:
                 - description: >-
                     Scheduled start/end for an experiment. All fields optional;
                     the end may be an absolute `stopAt` or a deferred relative
-                    `stopAfter`.
+                    `stopAfter`, but not both.
                   type: object
                   properties:
                     startAt:
@@ -40723,7 +40723,7 @@ components:
                       type: object
                       properties:
                         value:
-                          type: number
+                          type: integer
                           exclusiveMinimum: 0
                         unit:
                           type: string
