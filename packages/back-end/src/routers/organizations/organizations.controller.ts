@@ -182,7 +182,9 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     webhookSecrets,
   ] = await Promise.all([
     getMetricsByOrganization(context),
-    getDataSourcesByOrganization(context),
+    getDataSourcesByOrganization(context).then((ds) =>
+      getDataSourcesWithParams(context, ds),
+    ),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
@@ -200,7 +202,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: await getDataSourcesWithParams(context, datasources),
+    datasources,
     dimensions,
     segments,
     metricGroups,
