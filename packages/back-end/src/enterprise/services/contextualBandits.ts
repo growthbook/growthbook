@@ -31,6 +31,13 @@ import {
 } from "./contextualBanditStats";
 
 /**
+ * Every contextual bandit snapshot only considers the trailing 90 days of data
+ * so weight updates reflect recent behavior rather than the full lifetime.
+ */
+const CONTEXTUAL_BANDIT_LOOKBACK_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
  * Enriched info for the features that link to this Contextual Bandit (via
  * `contextual-bandit-ref` rules). Mirrors `getLinkedFeatureInfo` for experiments
  * so the CB detail page can reuse the same `LinkedFeatureInfo` UI shape.
@@ -366,6 +373,15 @@ export function buildContextualBanditSnapshotSettings(
 ): ContextualBanditSnapshotSettings {
   const numVariations = cb.variations?.length || 1;
 
+  const banditStart = cb.dateStarted ?? new Date();
+  const effectiveEnd = cb.dateStopped ?? new Date();
+  const lookbackStart = new Date(
+    effectiveEnd.getTime() - CONTEXTUAL_BANDIT_LOOKBACK_DAYS * DAY_MS,
+  );
+  const startDate = new Date(
+    Math.max(banditStart.getTime(), lookbackStart.getTime()),
+  );
+
   return {
     experimentId: cb.id,
     trackingKey: cb.trackingKey || cb.id,
@@ -392,7 +408,7 @@ export function buildContextualBanditSnapshotSettings(
     maxLeaves: cb.maxLeaves,
     banditModelVersion: cb.banditModelVersion,
 
-    startDate: cb.dateStarted ?? new Date(),
+    startDate,
     endDate: cb.dateStopped ?? null,
     reweight: true,
     banditWeightsSeed: 0,
