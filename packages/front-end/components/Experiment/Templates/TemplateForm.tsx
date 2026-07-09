@@ -111,7 +111,7 @@ const TemplateForm: FC<Props> = ({
       skipPartialData: initialValue.skipPartialData ? "strict" : "loose",
       segment: initialValue.segment || "",
       targeting: {
-        coverage: initialValue.targeting?.coverage || 1,
+        coverage: initialValue.targeting?.coverage ?? 1,
         savedGroups: initialValue.targeting?.savedGroups || [],
         prerequisites: initialValue.targeting?.prerequisites || [],
         condition: initialValue.targeting?.condition || "",
