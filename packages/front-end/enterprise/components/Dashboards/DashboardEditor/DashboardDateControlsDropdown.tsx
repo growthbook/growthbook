@@ -12,6 +12,7 @@ import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
 import RadioGroup from "@/ui/RadioGroup";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { ControlledGranularitySelector } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GranularitySelector";
 import { useMergedDateRangeUpdates } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/useMergedDateRangeUpdates";
 import {
@@ -262,9 +263,9 @@ export default function DashboardDateControlsDropdown({
       <Separator size="4" my="2" />
 
       <Flex align="center" gap="3" justify="between" pl="5">
-        <Box style={{ fontSize: 14, color: "var(--indigo-12)" }}>
+        <Text size="medium" weight="medium">
           Granularity
-        </Box>
+        </Text>
         <ControlledGranularitySelector
           dateRange={activeDateRange}
           granularity={granularity}

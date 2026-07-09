@@ -66,7 +66,7 @@ export default function DashboardViewQueriesButton({
             className={className}
             variant="ghost"
             style={{
-              color: refreshStatus === "failed" ? "red" : undefined,
+              color: refreshStatus === "failed" ? "var(--red-11)" : undefined,
             }}
             title={buttonProps.title ?? buttonLabel}
             aria-label={buttonProps["aria-label"] ?? buttonLabel}

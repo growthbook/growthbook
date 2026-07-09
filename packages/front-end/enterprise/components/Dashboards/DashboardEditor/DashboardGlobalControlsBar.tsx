@@ -58,7 +58,7 @@ export default function DashboardGlobalControlsBar({
     [datasources],
   );
   const datasourceIds = useMemo(
-    () => [...(savedQueriesMap?.values().map((sq) => sq.datasourceId) ?? [])],
+    () => [...(savedQueriesMap?.values() ?? [])].map((sq) => sq.datasourceId),
     [savedQueriesMap],
   );
   const datasourcesInUse = datasourceIds.map((id) => datasourceMap.get(id));
