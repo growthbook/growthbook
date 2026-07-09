@@ -3,7 +3,6 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ApiContextualBanditQueryInterface,
-  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
@@ -102,7 +101,6 @@ export const AddEditContextualBanditQueryModal: FC<Props> = ({
       "timestamp",
       userEnteredUserIdType,
       ...(userEnteredTargetingAttributeColumns || []),
-      ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
     ]);
   }, [userEnteredUserIdType, userEnteredTargetingAttributeColumns]);
 
