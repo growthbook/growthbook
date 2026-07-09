@@ -358,31 +358,34 @@ describe("buildFeatureRevisionInterface", () => {
     });
   });
 
-  // The complete per-env override snapshot is preserved verbatim on read (the
-  // serving/precedence layer relies on `environmentDefaults` being authoritative,
-  // present-key = override / absent-key = inherit). Legacy revisions that predate
-  // the field stay `undefined` (the apply layer treats that as "don't touch").
-  describe("environmentDefaults (per-env override snapshot)", () => {
-    it("preserves a complete override snapshot through the read", () => {
+  // The complete override snapshot is preserved verbatim on read (the
+  // serving/precedence layer relies on `defaultValueOverrides` being the
+  // authoritative ordered list). Legacy revisions that predate the field stay
+  // `undefined` (the apply layer treats that as "don't touch").
+  describe("defaultValueOverrides (ordered override snapshot)", () => {
+    it("preserves a complete override list through the read", () => {
+      const overrides = [
+        { id: "a", value: "prod-override", environments: ["production"] },
+      ];
       const raw = {
         ...BASE_REVISION,
         rules: [],
-        environmentDefaults: { production: "prod-override" },
+        defaultValueOverrides: overrides,
       } as unknown as FeatureRevisionInterface;
 
       const out = buildFeatureRevisionInterface(raw, mockContext());
-      expect(out.environmentDefaults).toEqual({ production: "prod-override" });
+      expect(out.defaultValueOverrides).toEqual(overrides);
     });
 
-    it("preserves an empty (all-cleared) snapshot as {}", () => {
+    it("preserves an empty (all-cleared) list as []", () => {
       const raw = {
         ...BASE_REVISION,
         rules: [],
-        environmentDefaults: {},
+        defaultValueOverrides: [],
       } as unknown as FeatureRevisionInterface;
 
       const out = buildFeatureRevisionInterface(raw, mockContext());
-      expect(out.environmentDefaults).toEqual({});
+      expect(out.defaultValueOverrides).toEqual([]);
     });
 
     it("leaves the field undefined for a legacy revision that predates it", () => {
@@ -392,7 +395,7 @@ describe("buildFeatureRevisionInterface", () => {
       } as unknown as FeatureRevisionInterface;
 
       const out = buildFeatureRevisionInterface(raw, mockContext());
-      expect(out.environmentDefaults).toBeUndefined();
+      expect(out.defaultValueOverrides).toBeUndefined();
     });
   });
 });

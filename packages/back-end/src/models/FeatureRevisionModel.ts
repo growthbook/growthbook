@@ -74,12 +74,11 @@ function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
   return ids.size > 0 ? [...ids] : undefined;
 }
 
-// `minimize: false` (vs Mongoose's default `true`) is required so an empty
-// `environmentDefaults: {}` snapshot (all per-env overrides cleared) is
-// persisted as `{}` instead of being stripped — see the field comment below.
-// Every Mixed `{}` field on this schema (createdBy, publishedBy, metadata, …)
-// is always written with a populated object on create, so disabling minimize
-// does not change their on-disk shape in practice.
+// `minimize: false` (vs Mongoose's default `true`) is retained so empty Mixed
+// `{}` envelopes are persisted as `{}` instead of being stripped. Every Mixed
+// `{}` field on this schema (createdBy, publishedBy, metadata, …) is always
+// written with a populated object on create, so disabling minimize does not
+// change their on-disk shape in practice.
 const featureRevisionSchema = new mongoose.Schema(
   {
     organization: String,
@@ -100,15 +99,13 @@ const featureRevisionSchema = new mongoose.Schema(
     rules: {},
     // Revision envelopes — only present when explicitly changed
     environmentsEnabled: {},
-    // `environmentDefaults` is a COMPLETE snapshot of per-env default overrides
-    // where an empty `{}` (all overrides cleared) is a MEANINGFUL value distinct
-    // from `undefined` (a legacy revision that predates the field — see
-    // buildFeatureRevisionInterface and the apply layer). The schema-level
-    // `minimize: false` below keeps Mongoose from silently stripping an empty
-    // `{}` on save, which would otherwise collapse "all-cleared" into
-    // "legacy/absent". `default: undefined` keeps the field genuinely absent for
-    // revisions that never set it, preserving the {} vs undefined distinction.
-    environmentDefaults: { type: {}, default: undefined },
+    // `defaultValueOverrides` is a COMPLETE ordered snapshot of default value
+    // overrides where an empty `[]` (all overrides cleared) is a MEANINGFUL value
+    // distinct from `undefined` (a legacy revision that predates the field — see
+    // buildFeatureRevisionInterface and the apply layer). `default: undefined`
+    // stops Mongoose from auto-initializing the array to `[]`, preserving the
+    // `[]` vs `undefined` distinction.
+    defaultValueOverrides: { type: [{}], default: undefined },
     prerequisites: [{}],
     archived: Boolean,
     metadata: {},
@@ -682,7 +679,7 @@ const SPARSE_REVISION_PROJECTION = {
   rules: 0,
   defaultValue: 0,
   environmentsEnabled: 0,
-  environmentDefaults: 0,
+  defaultValueOverrides: 0,
   prerequisites: 0,
   archived: 0,
   metadata: 0,
@@ -784,22 +781,11 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
-  // Seed the initial published revision with a COMPLETE snapshot of the
-  // feature's per-env default overrides (full-map-replace semantics — a present
-  // key is an override, an absent key means "no override"). Every other
-  // revision builder writes `environmentDefaults`; omitting it here would make
-  // the create-with-override path produce a published revision with no override
-  // snapshot. Only real string values are stored (no undefined).
-  const environmentDefaults: Record<string, string> = Object.fromEntries(
-    environments
-      .filter(
-        (env) => feature.environmentSettings?.[env]?.defaultValue !== undefined,
-      )
-      .map((env) => [
-        env,
-        feature.environmentSettings![env].defaultValue as string,
-      ]),
-  );
+  // Seed the initial published revision with a COMPLETE ordered snapshot of the
+  // feature's default value overrides (full-replace semantics). Every other
+  // revision builder writes `defaultValueOverrides`; omitting it here would make
+  // the create-with-override path produce a published revision with no snapshot.
+  const defaultValueOverrides = feature.defaultValueOverrides ?? [];
 
   date = date || new Date();
 
@@ -818,7 +804,7 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
-    environmentDefaults,
+    defaultValueOverrides,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
     metadata: {
@@ -879,11 +865,10 @@ export async function createRevision({
   user: EventUser;
   environments: string[];
   baseVersion?: number;
-  // `environmentDefaults` is a COMPLETE snapshot of per-env overrides. When
-  // provided, it is authoritative and REPLACES the live feature's overrides for
-  // the new draft (a present key is an override; an absent key means "no
-  // override"). When omitted, the draft is seeded from the live feature's
-  // current overrides. No tombstone/undefined values.
+  // `defaultValueOverrides` is a COMPLETE ordered snapshot. When provided in
+  // `changes`, it is authoritative and REPLACES the live feature's overrides for
+  // the new draft. When omitted, the draft is seeded from the live feature's
+  // current overrides.
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
@@ -925,27 +910,14 @@ export async function createRevision({
         false,
     ]),
   );
-  // Complete snapshot of per-env default overrides. When the caller provides
-  // `changes.environmentDefaults`, it is authoritative and REPLACES the live
-  // overrides wholesale (full-map-replace semantics — a present key is an
-  // override, an absent key means "no override"). Otherwise seed the draft
-  // from the live feature's current overrides so it starts at the live state.
-  // Only envs applicable to this revision are considered; only real string
-  // values are stored (no undefined).
-  const environmentDefaultsSource: Record<string, string | undefined> =
-    changes?.environmentDefaults !== undefined
-      ? changes.environmentDefaults
-      : Object.fromEntries(
-          environments.map((env) => [
-            env,
-            feature.environmentSettings?.[env]?.defaultValue,
-          ]),
-        );
-  const environmentDefaults: Record<string, string> = Object.fromEntries(
-    environments
-      .filter((env) => environmentDefaultsSource[env] !== undefined)
-      .map((env) => [env, environmentDefaultsSource[env] as string]),
-  );
+  // Complete ordered snapshot of default value overrides. When the caller
+  // provides `changes.defaultValueOverrides`, it is authoritative and REPLACES
+  // the live overrides wholesale. Otherwise seed the draft from the live
+  // feature's current overrides so it starts at the live state.
+  const defaultValueOverrides =
+    changes?.defaultValueOverrides !== undefined
+      ? changes.defaultValueOverrides
+      : (feature.defaultValueOverrides ?? []);
   const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
   const featureMetadataSnapshot: RevisionMetadata = {
@@ -1008,7 +980,7 @@ export async function createRevision({
     defaultValue,
     rules,
     environmentsEnabled,
-    environmentDefaults,
+    defaultValueOverrides,
     prerequisites,
     archived,
     metadata,
@@ -1069,7 +1041,7 @@ export async function createRevision({
         defaultValue,
         rules,
         environmentsEnabled,
-        environmentDefaults,
+        defaultValueOverrides,
         prerequisites,
         archived,
         metadata,
@@ -1109,7 +1081,7 @@ export function computeRevisionUpdate(
     "defaultValue",
     "rules",
     "environmentsEnabled",
-    "environmentDefaults",
+    "defaultValueOverrides",
     "prerequisites",
     "archived",
     "metadata",

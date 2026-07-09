@@ -12,7 +12,10 @@ import {
   FeatureEnvironment,
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
-import { toV2FeatureSnapshot } from "shared/util";
+import {
+  toV2FeatureSnapshot,
+  getDefaultValueOverrideForEnvironment,
+} from "shared/util";
 import { datetime } from "shared/dates";
 import type {
   RevisionRampAction,
@@ -1365,10 +1368,10 @@ export function renderFeatureDefaultValueSection(
   );
 }
 
-// Per-environment default value override section. Renders one ValueChangedField
-// row per env whose `environmentSettings[env].defaultValue` override changed
-// (added, removed, or modified). Mirrors `renderFeatureDefaultValueSection` but
-// scoped to the per-env override map. Returns null when nothing changed.
+// Default value override section. Resolves the effective override per env
+// (first-match-wins over the ordered `defaultValueOverrides` list) on both sides
+// and renders one ValueChangedField row per env whose resolved override changed
+// (added, removed, or modified). Returns null when nothing changed.
 export function renderFeatureEnvironmentDefaultsSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
@@ -1376,20 +1379,23 @@ export function renderFeatureEnvironmentDefaultsSection(
   const toStr = (v: unknown): string | null =>
     v == null ? null : typeof v === "string" ? v : JSON.stringify(v);
 
-  const preEnvs = (pre?.environmentSettings ?? {}) as Record<
-    string,
-    FeatureEnvironment
-  >;
-  const postEnvs = (post.environmentSettings ?? {}) as Record<
-    string,
-    FeatureEnvironment
-  >;
-  const envs = new Set([...Object.keys(preEnvs), ...Object.keys(postEnvs)]);
+  const envs = new Set([
+    ...Object.keys(pre?.environmentSettings ?? {}),
+    ...Object.keys(post.environmentSettings ?? {}),
+  ]);
 
   const rows: ReactNode[] = [];
   for (const env of envs) {
-    const preStr = (toStr(preEnvs[env]?.defaultValue) ?? "").trim();
-    const postStr = (toStr(postEnvs[env]?.defaultValue) ?? "").trim();
+    const preStr = (
+      toStr(
+        getDefaultValueOverrideForEnvironment(pre?.defaultValueOverrides, env),
+      ) ?? ""
+    ).trim();
+    const postStr = (
+      toStr(
+        getDefaultValueOverrideForEnvironment(post.defaultValueOverrides, env),
+      ) ?? ""
+    ).trim();
     if (preStr === postStr) continue;
     rows.push(
       <div key={`env-default-${env}`} className="mb-2">

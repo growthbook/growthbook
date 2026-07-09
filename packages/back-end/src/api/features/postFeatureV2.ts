@@ -7,6 +7,7 @@ import {
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import { generateId } from "back-end/src/util/uuid";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
@@ -120,6 +121,20 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+
+    // Default value overrides (ordered list); validate each value + assign ids.
+    if (req.body.defaultValueOverrides !== undefined) {
+      feature.defaultValueOverrides = req.body.defaultValueOverrides.map(
+        (o) => ({
+          id: generateId(),
+          value: validateFeatureValue(feature, o.value),
+          ...(o.description !== undefined
+            ? { description: o.description }
+            : {}),
+          environments: o.environments ?? [],
+        }),
+      );
+    }
 
     if (
       !req.context.permissions.canPublishFeature(

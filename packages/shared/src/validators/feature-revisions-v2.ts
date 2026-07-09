@@ -14,7 +14,11 @@ import {
 } from "./feature-revisions";
 import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
+import {
+  JSONSchemaDef,
+  revisionStatusFilterSchema,
+  featureDefaultValueOverride,
+} from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -90,10 +94,9 @@ const mergeResultChangesSchema = z
     defaultValue: z.string().optional(),
     rules: z.array(z.any()).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
-    // Per-env default value overrides — a COMPLETE snapshot of the draft's
-    // overrides. A present key is an override; an absent key means "no
-    // override" (inherit base). No `undefined`/tombstone values.
-    environmentDefaults: z.record(z.string(), z.string()).optional(),
+    // Ordered, first-match-wins default value overrides — a COMPLETE snapshot
+    // of the draft's overrides (full-replace on publish).
+    defaultValueOverrides: z.array(featureDefaultValueOverride).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: z

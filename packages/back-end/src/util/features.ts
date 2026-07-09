@@ -20,6 +20,7 @@ import {
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
   parsePlainJSONObject,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -592,32 +593,35 @@ export function getFeatureDefinition({
     return null;
   }
 
-  // Resolution precedence for the per-environment default value.
+  // Resolution precedence for the default value. Overrides are an ordered,
+  // first-match-wins list; the compiler walks it and takes the first entry whose
+  // scope matches this environment (empty scope matches all). Rules still win
+  // over the resolved default.
   //
-  // When a `revision` carrying a per-env override snapshot is passed (draft
-  // preview / "test this feature" / archetype eval), that snapshot is the
-  // AUTHORITATIVE complete picture for the revision: a present key is the
-  // override, an ABSENT key means the revision has NO override for that env and
-  // must inherit the revision's (or feature's) base — it must NOT silently fall
-  // back to the published per-env override. Otherwise a draft that CLEARED an
-  // env's override would still preview the stale published override (the
-  // override would appear un-clearable in preview).
+  // When a `revision` carrying an override snapshot is passed (draft preview /
+  // "test this feature" / archetype eval), that snapshot is the AUTHORITATIVE
+  // complete picture for the revision — it must NOT fall back to the published
+  // overrides, otherwise a draft that CLEARED an override would still preview the
+  // stale published value.
   //
-  //   revision passed WITH a snapshot (revision.environmentDefaults !== undefined):
-  //     1. revision.environmentDefaults[env]  (present key = override)
-  //     2. revision.defaultValue              (absent key = inherit revision base)
-  //     3. feature.defaultValue
-  //
+  //   revision WITH a snapshot (revision.defaultValueOverrides !== undefined):
+  //     1. first-match in revision.defaultValueOverrides
+  //     2. revision.defaultValue   3. feature.defaultValue
   //   live serving (no revision) OR a legacy revision without the field:
-  //     1. feature.environmentSettings[env].defaultValue  (published override)
-  //     2. revision.defaultValue
-  //     3. feature.defaultValue
+  //     1. first-match in feature.defaultValueOverrides
+  //     2. revision.defaultValue   3. feature.defaultValue
   const defaultValue =
-    revision?.environmentDefaults !== undefined
-      ? (revision.environmentDefaults[environment] ??
+    revision?.defaultValueOverrides !== undefined
+      ? (getDefaultValueOverrideForEnvironment(
+          revision.defaultValueOverrides,
+          environment,
+        ) ??
         revision.defaultValue ??
         feature.defaultValue)
-      : (feature.environmentSettings?.[environment]?.defaultValue ??
+      : (getDefaultValueOverrideForEnvironment(
+          feature.defaultValueOverrides,
+          environment,
+        ) ??
         revision?.defaultValue ??
         feature.defaultValue);
 

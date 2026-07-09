@@ -32,6 +32,7 @@ import {
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
   validateFeatureValue,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -55,6 +56,7 @@ import {
   ContextualBanditRefRule,
   ExperimentRefRule,
   FeatureInterface,
+  FeatureDefaultValueOverride,
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
@@ -101,7 +103,6 @@ import {
   migrateDraft,
   prevalidatePublishRevision,
   publishRevision,
-  setDefaultValue,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
@@ -258,7 +259,7 @@ async function createOrUpdateDraftWithChanges(
     Pick<
       FeatureRevisionInterface,
       | "environmentsEnabled"
-      | "environmentDefaults"
+      | "defaultValueOverrides"
       | "prerequisites"
       | "archived"
       | "metadata"
@@ -297,11 +298,9 @@ async function createOrUpdateDraftWithChanges(
         ...envelopeChanges.environmentsEnabled,
       };
     }
-    if ("environmentDefaults" in envelopeChanges) {
-      merged.environmentDefaults = {
-        ...(existingDraft.environmentDefaults || {}),
-        ...envelopeChanges.environmentDefaults,
-      };
+    if ("defaultValueOverrides" in envelopeChanges) {
+      // Complete ordered snapshot — full-replace (like prerequisites).
+      merged.defaultValueOverrides = envelopeChanges.defaultValueOverrides;
     }
     if ("prerequisites" in envelopeChanges) {
       merged.prerequisites = envelopeChanges.prerequisites;
@@ -794,17 +793,6 @@ export async function postFeatures(
     ),
   );
 
-  // Validate any per-env default value override against the feature's
-  // valueType (+ jsonSchema), exactly like the base defaultValue is validated.
-  Object.values(feature.environmentSettings).forEach((settings) => {
-    if (settings.defaultValue !== undefined) {
-      settings.defaultValue = validateFeatureValue(
-        feature,
-        settings.defaultValue,
-      );
-    }
-  });
-
   if (
     !context.permissions.canPublishFeature(
       feature,
@@ -974,13 +962,13 @@ export async function postFeatureRebase(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
-  // Per-env default overrides — complete snapshot. The merge result, when
-  // present, IS the authoritative complete snapshot (full-map-replace); when
-  // absent, keep the revision's existing complete snapshot.
-  const newEnvironmentDefaults: Record<string, string> =
-    mergeResult.result.environmentDefaults ??
-    revision.environmentDefaults ??
-    {};
+  // Default value overrides — complete ordered snapshot. The merge result, when
+  // present, IS the authoritative complete snapshot (full-replace); when absent,
+  // keep the revision's existing complete snapshot.
+  const newDefaultValueOverrides =
+    mergeResult.result.defaultValueOverrides ??
+    revision.defaultValueOverrides ??
+    [];
 
   // Build complete metadata snapshot: start from live feature, overlay any
   // metadata fields the merge result explicitly changed.
@@ -1032,7 +1020,7 @@ export async function postFeatureRebase(
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
       environmentsEnabled: newEnvironmentsEnabled,
-      environmentDefaults: newEnvironmentDefaults,
+      defaultValueOverrides: newDefaultValueOverrides,
       prerequisites:
         mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
       archived: mergeResult.result.archived ?? feature.archived ?? false,
@@ -1930,12 +1918,12 @@ export async function postFeaturePublish(
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules ?? [],
-        // `mergeResult.result.environmentDefaults`, when present, is the
-        // complete authoritative snapshot (full-map-replace); when absent, the
+        // `mergeResult.result.defaultValueOverrides`, when present, is the
+        // complete authoritative snapshot (full-replace); when absent, the
         // overrides are unchanged from live.
-        environmentDefaults:
-          mergeResult.result.environmentDefaults ??
-          filledLive.environmentDefaults,
+        defaultValueOverrides:
+          mergeResult.result.defaultValueOverrides ??
+          filledLive.defaultValueOverrides,
         // rampActions live on the draft; autoMerge doesn't carry them through
         // MergeResultChanges, so re-attach them for the review gate check.
         rampActions: revision.rampActions,
@@ -2368,30 +2356,34 @@ export async function postFeatureRevert(
       }
     }
 
-    // Per-env default value override — complete snapshot. Track which envs
-    // differ from live for permission gating; the actual full-map-replace is
-    // applied below. Only acts when the revision carries the field; truly
-    // legacy revisions that predate it are left untouched.
-    if (revision.environmentDefaults !== undefined) {
-      const revDefault = revision.environmentDefaults[env];
-      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+    // Default value override — complete ordered snapshot. Track which envs
+    // resolve differently from live for permission gating; the actual
+    // full-replace is applied below. Only acts when the revision carries the
+    // field; truly legacy revisions that predate it are left untouched.
+    if (revision.defaultValueOverrides !== undefined) {
+      const revDefault = getDefaultValueOverrideForEnvironment(
+        revision.defaultValueOverrides,
+        env,
+      );
+      const liveDefault = getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      );
       if (revDefault !== liveDefault) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
     }
   });
-  // Full-map-replace per-env defaults: when the target snapshot differs from
-  // the live overrides, publish the COMPLETE target snapshot so envs the target
-  // didn't override get their live override cleared (inherit base again).
-  if (revision.environmentDefaults !== undefined) {
-    const liveDefaults: Record<string, string> = Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {})
-        .filter(([, val]) => val?.defaultValue !== undefined)
-        .map(([env, val]) => [env, val.defaultValue as string]),
-    );
-    if (!isEqual(revision.environmentDefaults, liveDefaults)) {
-      mergeChanges.environmentDefaults = { ...revision.environmentDefaults };
-    }
+  // Full-replace default value overrides: when the target snapshot differs from
+  // the live list, publish the COMPLETE target snapshot.
+  if (
+    revision.defaultValueOverrides !== undefined &&
+    !isEqual(
+      revision.defaultValueOverrides,
+      feature.defaultValueOverrides ?? [],
+    )
+  ) {
+    mergeChanges.defaultValueOverrides = [...revision.defaultValueOverrides];
   }
   if (anyRulesChanged) {
     mergeChanges.rules = revRules;
@@ -2502,12 +2494,10 @@ export async function postFeatureRevert(
   if (revision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = revision.environmentsEnabled;
   }
-  if (revision.environmentDefaults !== undefined) {
-    // The target revision's per-env overrides are a COMPLETE snapshot. Pass it
-    // through verbatim; createRevision treats it as authoritative (full-replace)
-    // so envs the target didn't override are absent and the new revision records
-    // "no override" for them (publish then clears the live override).
-    revisionChanges.environmentDefaults = { ...revision.environmentDefaults };
+  if (revision.defaultValueOverrides !== undefined) {
+    // The target revision's overrides are a COMPLETE ordered snapshot. Pass it
+    // through verbatim; createRevision treats it as authoritative (full-replace).
+    revisionChanges.defaultValueOverrides = [...revision.defaultValueOverrides];
   }
   if (revision.prerequisites !== undefined) {
     revisionChanges.prerequisites = revision.prerequisites;
@@ -2624,8 +2614,8 @@ export async function postFeatureRevertDraft(
   if (revision.environmentsEnabled !== undefined) {
     changes.environmentsEnabled = revision.environmentsEnabled;
   }
-  if (revision.environmentDefaults !== undefined) {
-    changes.environmentDefaults = revision.environmentDefaults;
+  if (revision.defaultValueOverrides !== undefined) {
+    changes.defaultValueOverrides = revision.defaultValueOverrides;
   }
   if (revision.prerequisites !== undefined) {
     changes.prerequisites = revision.prerequisites;
@@ -3917,14 +3907,25 @@ export async function putRevisionTitle(
   });
 }
 
+// Edits a draft's base default value and, optionally, its default value
+// overrides in a single revision. `defaultValueOverrides`, when present, is the
+// COMPLETE ordered desired list (full-replace): the whole override list is
+// replaced by what's provided (an empty array clears all overrides). Omitting
+// the field entirely leaves the existing overrides untouched.
 export async function postFeatureDefaultValue(
-  req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
+  req: AuthRequest<
+    {
+      defaultValue: string;
+      defaultValueOverrides?: FeatureDefaultValueOverride[];
+    },
+    { id: string; version: string }
+  >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
   const { id, version } = req.params;
-  const { defaultValue } = req.body;
+  const { defaultValue, defaultValueOverrides } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -3939,124 +3940,60 @@ export async function postFeatureDefaultValue(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  // Validate and normalize the complete next override list when provided.
+  // Unknown envs are rejected so a typo can't silently store a dead override.
+  let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
+  if (defaultValueOverrides !== undefined) {
+    if (!Array.isArray(defaultValueOverrides)) {
+      throw new Error("`defaultValueOverrides` must be an array");
+    }
+    const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
+    nextDefaultValueOverrides = defaultValueOverrides.map((o) => {
+      for (const env of o.environments ?? []) {
+        if (!orgEnvironments.includes(env)) {
+          throw new Error(`Unknown environment: ${env}`);
+        }
+      }
+      return {
+        id: o.id || generateId(),
+        value: validateFeatureValue(feature, o.value, "Value"),
+        ...(o.description !== undefined ? { description: o.description } : {}),
+        environments: o.environments ?? [],
+      };
+    });
+  }
+
+  // The base default value change affects every environment, so reset review
+  // across all envs regardless of which overrides changed.
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: environments,
     defaultValueChanged: true,
     settings: org?.settings,
   });
-  const updatedRevisionAfterDefaultValue = await setDefaultValue(
-    context,
-    feature,
-    revision,
-    defaultValue,
-    res.locals.eventAudit,
-    resetReview,
-  );
-  await recordRevisionUpdate(
-    context,
-    feature,
-    updatedRevisionAfterDefaultValue ?? revision,
-    "defaultValue",
-  );
 
-  res.status(200).json({
-    status: 200,
-    version: revision.version,
-  });
-}
+  const changes =
+    nextDefaultValueOverrides !== undefined
+      ? { defaultValue, defaultValueOverrides: nextDefaultValueOverrides }
+      : { defaultValue };
 
-// Full-map-replace endpoint for per-env default value overrides on a draft
-// revision. The body carries the COMPLETE desired set of overrides (Constants-
-// style): every env the caller wants overridden is present; any env that should
-// have no override is simply absent; `{}` clears all overrides. This sets the
-// draft's `environmentDefaults` to exactly the provided (validated) snapshot.
-export async function postFeatureEnvironmentDefault(
-  req: AuthRequest<
-    { environmentDefaults: Record<string, string> },
-    { id: string; version: string }
-  >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id, version } = req.params;
-  const { environmentDefaults } = req.body;
-
-  if (
-    typeof environmentDefaults !== "object" ||
-    environmentDefaults === null ||
-    Array.isArray(environmentDefaults)
-  ) {
-    throw new Error("`environmentDefaults` must be an object");
-  }
-
-  const feature = await getFeature(context, id);
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  const environments = getEnvironmentIdsFromOrg(context.org);
-
-  // Validate every value and build the complete next snapshot. Unknown envs are
-  // rejected so a typo can't silently store a dead override.
-  const nextEnvironmentDefaults: Record<string, string> = {};
-  for (const [environment, value] of Object.entries(environmentDefaults)) {
-    if (!environments.includes(environment)) {
-      throw new Error(`Unknown environment: ${environment}`);
-    }
-    nextEnvironmentDefaults[environment] = validateFeatureValue(
-      feature,
-      value,
-      "Value",
-    );
-  }
-
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  // Envs whose override changed vs the draft's current complete snapshot —
-  // covers sets, updates, and clears (present in current, absent in next).
-  const currentDefaults = revision.environmentDefaults ?? {};
-  const changedEnvironments = environments.filter(
-    (env) => currentDefaults[env] !== nextEnvironmentDefaults[env],
-  );
-
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments,
-    defaultValueChanged: true,
-    settings: org?.settings,
-  });
   const updatedRevision =
     (await updateRevision(
       context,
       feature,
       revision,
-      { environmentDefaults: nextEnvironmentDefaults },
+      changes,
       {
         user: res.locals.eventAudit,
-        action: "edit environment default values",
+        action: "edit default value",
         subject: "",
-        value: JSON.stringify({ environmentDefaults: nextEnvironmentDefaults }),
+        value: JSON.stringify(changes),
       },
       resetReview,
     )) ?? revision;
-  await recordRevisionUpdate(
-    context,
-    feature,
-    updatedRevision,
-    "defaultValue",
-    {
-      environments: changedEnvironments,
-    },
-  );
+
+  await recordRevisionUpdate(context, feature, updatedRevision, "defaultValue");
 
   res.status(200).json({
     status: 200,

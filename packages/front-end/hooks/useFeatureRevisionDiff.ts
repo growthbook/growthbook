@@ -4,6 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
+import { getDefaultValueOverrideForEnvironment } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
@@ -52,7 +53,8 @@ export const revisionToFeatureRevisionDiffInput = (
     defaultValue: r.defaultValue,
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
-    environmentDefaults: r.environmentDefaults ?? fallback?.environmentDefaults,
+    defaultValueOverrides:
+      r.defaultValueOverrides ?? fallback?.defaultValueOverrides,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
@@ -65,23 +67,17 @@ export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {
   const environmentsEnabled: Record<string, boolean> = {};
-  const environmentDefaults: Record<string, string> = {};
   for (const [envId, env] of Object.entries(
     feature.environmentSettings || {},
   )) {
     environmentsEnabled[envId] = env.enabled;
-    // Sparse: only record an entry when this env actually overrides the base
-    // default value (absence means "inherit the base").
-    if (env.defaultValue !== undefined) {
-      environmentDefaults[envId] = env.defaultValue;
-    }
   }
 
   return {
     defaultValue: feature.defaultValue,
     rules: feature.rules ?? [],
     environmentsEnabled,
-    environmentDefaults,
+    defaultValueOverrides: feature.defaultValueOverrides ?? [],
     prerequisites: feature.prerequisites,
     archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
@@ -122,7 +118,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "defaultValue"
   | "rules"
   | "environmentsEnabled"
-  | "environmentDefaults"
+  | "defaultValueOverrides"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -318,21 +314,21 @@ export function useFeatureRevisionDiff({
       }
     });
 
-    // 2b. Per-environment default value overrides. Sparse on both sides:
-    // an env entry means "override the base default for this env"; absence
-    // means "inherit the base default". Emit one row per env whose override
-    // value actually changed (added, removed, or modified). Rendered with the
-    // same renderer as the base default value so boolean/number/string/json
-    // all display consistently.
-    const currentEnvDefaults = current.environmentDefaults || {};
-    const draftEnvDefaults = draft.environmentDefaults || {};
-    const envDefaultKeys = new Set([
-      ...Object.keys(currentEnvDefaults),
-      ...Object.keys(draftEnvDefaults),
-    ]);
-    envDefaultKeys.forEach((envId) => {
-      const currentOverride = currentEnvDefaults[envId];
-      const draftOverride = draftEnvDefaults[envId];
+    // 2b. Default value overrides (ordered, first-match-wins list). Resolve the
+    // effective override per env on both sides and emit one row per env whose
+    // resolved override value actually changed (added, removed, or modified).
+    // Rendered with the same renderer as the base default value so
+    // boolean/number/string/json all display consistently.
+    orgEnvs.forEach((e) => {
+      const envId = e.id;
+      const currentOverride = getDefaultValueOverrideForEnvironment(
+        current.defaultValueOverrides,
+        envId,
+      );
+      const draftOverride = getDefaultValueOverrideForEnvironment(
+        draft.defaultValueOverrides,
+        envId,
+      );
       const aParsed = parseDefaultValue(currentOverride ?? "");
       const bParsed = parseDefaultValue(draftOverride ?? "");
       // Only diff when the resolved override values differ. Use isEqual so an
@@ -341,7 +337,7 @@ export function useFeatureRevisionDiff({
         return;
       }
       diffs.push({
-        key: `environmentDefaults.${envId}`,
+        key: `defaultValueOverrides.${envId}`,
         title: `Default value (${envId})`,
         a:
           typeof aParsed === "string"
@@ -489,12 +485,11 @@ export function mergeResultToDiffInput(
     ...(result.environmentsEnabled !== undefined
       ? { environmentsEnabled: result.environmentsEnabled }
       : {}),
-    ...(result.environmentDefaults !== undefined
+    ...(result.defaultValueOverrides !== undefined
       ? {
-          // `result.environmentDefaults` is the complete authoritative snapshot
-          // of per-env overrides (full-map-replace), so use it directly as the
-          // post-state map (cleared envs are simply absent).
-          environmentDefaults: result.environmentDefaults,
+          // `result.defaultValueOverrides` is the complete authoritative ordered
+          // snapshot (full-replace), so use it directly as the post-state list.
+          defaultValueOverrides: result.defaultValueOverrides,
         }
       : {}),
     ...(result.prerequisites !== undefined

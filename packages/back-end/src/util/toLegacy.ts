@@ -91,13 +91,6 @@ export function toLegacyFeature(
       ...(existingEnv?.prerequisites
         ? { prerequisites: existingEnv.prerequisites }
         : {}),
-      // Preserve any per-env default value override so it survives the
-      // v2 → v1 projection (v1FeatureEnvironment is `.passthrough()`, and a
-      // v1 → v2 round trip reads it back off the same field). Without this the
-      // override is silently dropped on every v2 → v1 conversion (data loss).
-      ...(existingEnv?.defaultValue !== undefined
-        ? { defaultValue: existingEnv.defaultValue }
-        : {}),
       rules: rulesByEnv[env] ?? [],
     };
   }

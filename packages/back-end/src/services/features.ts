@@ -28,6 +28,7 @@ import {
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -2091,8 +2092,8 @@ export function revisionToApiInterface(
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
     }),
-    ...(rev.environmentDefaults !== undefined && {
-      environmentDefaults: rev.environmentDefaults,
+    ...(rev.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: rev.defaultValueOverrides,
     }),
     ...(rev.prerequisites !== undefined && {
       prerequisites: rev.prerequisites,
@@ -2166,8 +2167,8 @@ export function revisionToApiInterfaceV2(
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
     }),
-    ...(rev.environmentDefaults !== undefined && {
-      environmentDefaults: rev.environmentDefaults,
+    ...(rev.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: rev.defaultValueOverrides,
     }),
     ...(rev.prerequisites !== undefined && {
       // Strip internal condition field — v2 only exposes the flag ID.
@@ -2307,8 +2308,12 @@ export function getApiFeatureObjV2({
       safeRolloutMap,
       organization,
     });
-    // Resolve the per-env default value override, falling back to the base.
-    const envDefaultValue = envSettings?.defaultValue ?? defaultValue;
+    // Resolve the default value override for this env, falling back to the base.
+    const envDefaultValue =
+      getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      ) ?? defaultValue;
     featureEnvironments[env] = { enabled, defaultValue: envDefaultValue };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
@@ -2331,6 +2336,9 @@ export function getApiFeatureObjV2({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
+    ...(feature.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: feature.defaultValueOverrides,
+    }),
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
@@ -2421,8 +2429,12 @@ export function getApiFeatureObj({
       organization,
     });
 
-    // Resolve the per-env default value override, falling back to the base.
-    const envDefaultValue = envSettings?.defaultValue ?? defaultValue;
+    // Resolve the default value override for this env, falling back to the base.
+    const envDefaultValue =
+      getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      ) ?? defaultValue;
     featureEnvironments[env] = {
       enabled,
       defaultValue: envDefaultValue,
@@ -2511,8 +2523,8 @@ export function getApiFeatureObj({
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
       }),
-      ...(rev.environmentDefaults !== undefined && {
-        environmentDefaults: rev.environmentDefaults,
+      ...(rev.defaultValueOverrides !== undefined && {
+        defaultValueOverrides: rev.defaultValueOverrides,
       }),
       ...(rev.prerequisites !== undefined && {
         prerequisites: rev.prerequisites,
@@ -2538,6 +2550,9 @@ export function getApiFeatureObj({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
+    ...(feature.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: feature.defaultValueOverrides,
+    }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
@@ -2907,16 +2922,6 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
       ...acc,
       [e.id]: {
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
-        // Carry an optional per-env default value override, validated against
-        // the feature's valueType (+ jsonSchema) exactly like the base default.
-        ...(incomingEnvs?.[e.id]?.defaultValue !== undefined
-          ? {
-              defaultValue: validateFeatureValue(
-                feature,
-                incomingEnvs[e.id].defaultValue as string,
-              ),
-            }
-          : {}),
       },
     }),
     {} as Record<string, FeatureEnvironment>,
@@ -2928,25 +2933,10 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
 ): FeatureInterface["environmentSettings"] => {
   const existing = feature.environmentSettings;
   return Object.keys(incomingEnvs).reduce((acc, k) => {
-    // Per-env default value override: a provided value is validated against the
-    // feature's valueType (+ jsonSchema) and set; omitting it leaves the
-    // current override in place. (Empty string is a valid value for string
-    // features, so it is NOT treated as a clear signal here.) Note: the v1
-    // `updateFeature` handler routes per-env defaults through the revision and
-    // strips/re-syncs this value afterwards, so it is only authoritative for
-    // callers that write `environmentSettings` directly.
-    let defaultValue = existing[k]?.defaultValue;
-    if (incomingEnvs[k].defaultValue !== undefined) {
-      defaultValue = validateFeatureValue(
-        feature,
-        incomingEnvs[k].defaultValue as string,
-      );
-    }
     return {
       ...acc,
       [k]: {
         enabled: incomingEnvs[k].enabled ?? existing[k]?.enabled ?? false,
-        ...(defaultValue !== undefined ? { defaultValue } : {}),
       },
     };
   }, existing);
@@ -3352,29 +3342,25 @@ export async function getMergeResultPublishEnvs({
             ),
         );
   const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
-  // A per-env default value override is a served-value change for that env, so
-  // permission-check it like a rule/toggle change. `result.environmentDefaults`
-  // is a COMPLETE snapshot, so `Object.keys(...)` would over-broadly include
-  // envs whose override is unchanged AND miss CLEARED overrides (absent from
-  // the snapshot but present on the live feature). Diff the snapshot against the
-  // live per-env overrides instead — mirroring how checkIfRevisionNeedsReview /
-  // getDraftAffectedEnvironments compute changed envs — so only genuinely
-  // added/changed/cleared envs are permission-checked.
+  // A default value override is a served-value change for the envs it resolves
+  // to, so permission-check it like a rule/toggle change. `result` carries a
+  // COMPLETE ordered snapshot; resolve the first-match value per env on both the
+  // snapshot and the live feature and keep envs where it differs (covers adds,
+  // changes, and clears) — mirroring checkIfRevisionNeedsReview /
+  // getDraftAffectedEnvironments.
   const changedDefaultEnvs: string[] =
-    result.environmentDefaults === undefined
+    result.defaultValueOverrides === undefined
       ? []
-      : Array.from(
-          new Set([
-            ...Object.keys(result.environmentDefaults),
-            ...environmentIds.filter(
-              (env) =>
-                feature.environmentSettings?.[env]?.defaultValue !== undefined,
-            ),
-          ]),
-        ).filter(
+      : environmentIds.filter(
           (env) =>
-            result.environmentDefaults![env] !==
-            feature.environmentSettings?.[env]?.defaultValue,
+            getDefaultValueOverrideForEnvironment(
+              result.defaultValueOverrides,
+              env,
+            ) !==
+            getDefaultValueOverrideForEnvironment(
+              feature.defaultValueOverrides,
+              env,
+            ),
         );
   const holdoutEnvs = await collectHoldoutAffectedEnvs(
     context,

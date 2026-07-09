@@ -161,23 +161,25 @@ describe("revertFeatureCore empty-diff guard", () => {
     });
   });
 
-  it("restores the target revision's per-env default overrides", async () => {
+  it("restores the target revision's default value overrides", async () => {
     // Live feature has prod overridden to "live-prod"; the target revision had
-    // it set to "old-prod". Revert should restore the old override.
+    // it set to "old-prod". Revert should restore the old override list.
     mockGetFeature.mockResolvedValue(
       makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "live-prod" },
-          dev: { enabled: true },
-        },
+        defaultValueOverrides: [
+          { id: "live", value: "live-prod", environments: ["production"] },
+        ],
       }),
     );
+    const targetOverrides = [
+      { id: "old", value: "old-prod", environments: ["production"] },
+    ];
     mockGetRevision.mockResolvedValue({
       version: 3,
       status: "published",
       defaultValue: "live-default",
       rules: [],
-      environmentDefaults: { production: "old-prod" },
+      defaultValueOverrides: targetOverrides,
     } as never);
     mockCreateAndPublish.mockResolvedValue({
       revision: { version: 6 } as never,
@@ -196,20 +198,19 @@ describe("revertFeatureCore empty-diff guard", () => {
 
     expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
     expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
-      environmentDefaults: { production: "old-prod" },
+      defaultValueOverrides: targetOverrides,
     });
   });
 
-  it("clears an override the target revision did not have (full-map-replace)", async () => {
-    // Live feature has prod overridden, but the target revision had no override
-    // for prod. Revert carries the COMPLETE target snapshot ({}), so publishing
-    // full-replaces and clears prod's override (inherit the base default again).
+  it("clears overrides the target revision did not have (full-replace)", async () => {
+    // Live feature has prod overridden, but the target revision had no overrides.
+    // Revert carries the COMPLETE target snapshot ([]), so publishing full-
+    // replaces and clears the override (inherit the base default again).
     mockGetFeature.mockResolvedValue(
       makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "live-prod" },
-          dev: { enabled: true },
-        },
+        defaultValueOverrides: [
+          { id: "live", value: "live-prod", environments: ["production"] },
+        ],
       }),
     );
     mockGetRevision.mockResolvedValue({
@@ -217,8 +218,8 @@ describe("revertFeatureCore empty-diff guard", () => {
       status: "published",
       defaultValue: "live-default",
       rules: [],
-      // Field present but no override for production — the clear case.
-      environmentDefaults: {},
+      // Field present but empty — the clear case.
+      defaultValueOverrides: [],
     } as never);
     mockCreateAndPublish.mockResolvedValue({
       revision: { version: 6 } as never,
@@ -236,16 +237,8 @@ describe("revertFeatureCore empty-diff guard", () => {
     );
 
     expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);
-    const passedChanges = mockCreateAndPublish.mock.calls[0][0].changes;
-    // The complete (empty) snapshot — no tombstone keys.
-    expect(passedChanges).toEqual({
-      environmentDefaults: {},
+    expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
+      defaultValueOverrides: [],
     });
-    expect(
-      Object.prototype.hasOwnProperty.call(
-        passedChanges?.environmentDefaults ?? {},
-        "production",
-      ),
-    ).toBe(false);
   });
 });

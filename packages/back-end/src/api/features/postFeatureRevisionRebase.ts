@@ -159,13 +159,13 @@ export async function rebaseFeatureRevision(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
-  // Per-env default overrides — complete snapshot. The merge result, when
-  // present, IS the authoritative complete snapshot (full-map-replace); when
-  // absent, keep the revision's existing complete snapshot.
-  const newEnvironmentDefaults: Record<string, string> =
-    mergeResult.result.environmentDefaults ??
-    revision.environmentDefaults ??
-    {};
+  // Default value overrides — complete ordered snapshot. The merge result, when
+  // present, IS the authoritative complete snapshot (full-replace); when absent,
+  // keep the revision's existing complete snapshot.
+  const newDefaultValueOverrides =
+    mergeResult.result.defaultValueOverrides ??
+    revision.defaultValueOverrides ??
+    [];
 
   const featureMetadataSnapshot: RevisionMetadata = {
     description: feature.description,
@@ -216,7 +216,7 @@ export async function rebaseFeatureRevision(
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
       environmentsEnabled: newEnvironmentsEnabled,
-      environmentDefaults: newEnvironmentDefaults,
+      defaultValueOverrides: newDefaultValueOverrides,
       prerequisites:
         mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
       archived: mergeResult.result.archived ?? feature.archived ?? false,

@@ -1,16 +1,27 @@
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureDefaultValueOverride,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
-// Pure (non-Mongo) coverage of the per-environment default-value override
-// serving precedence inside `getFeatureDefinition`:
+// Pure (non-Mongo) coverage of the default-value override serving precedence
+// inside `getFeatureDefinition`. Overrides are an ordered, first-match-wins list
+// resolved at bake time:
 //
-//   revision.environmentDefaults[env]
-//     ?? feature.environmentSettings[env].defaultValue   (published override)
+//   first-match in revision.defaultValueOverrides   (draft snapshot, if passed)
 //     ?? revision.defaultValue
+//     ?? first-match in feature.defaultValueOverrides  (published, live serving)
 //     ?? feature.defaultValue
 //
 // plus the interactions with rules, value types, and disabled envs.
+
+const ov = (
+  id: string,
+  value: string,
+  environments: string[] = [],
+): FeatureDefaultValueOverride => ({ id, value, environments });
 
 function makeFeature(overrides?: Partial<FeatureInterface>): FeatureInterface {
   return {
@@ -49,7 +60,7 @@ function getDef(
   });
 }
 
-// Minimal draft revision carrying the (complete) per-env override snapshot.
+// Minimal draft revision carrying the (complete) override snapshot.
 function makeRevision(
   overrides?: Partial<FeatureRevisionInterface>,
 ): FeatureRevisionInterface {
@@ -71,33 +82,45 @@ function makeRevision(
   } as FeatureRevisionInterface;
 }
 
-describe("getFeatureDefinition per-environment default overrides", () => {
+describe("getFeatureDefinition default value overrides", () => {
   describe("serving precedence", () => {
-    it("serves the published per-env override over the base default", () => {
+    it("serves the published override over the base default", () => {
       const feature = makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "prod-override" },
-          staging: { enabled: true },
-        },
+        defaultValueOverrides: [ov("a", "prod-override", ["production"])],
       });
       expect(getDef(feature)?.defaultValue).toBe("prod-override");
-      // staging has no override -> falls back to the base default.
+      // staging is matched by no override -> falls back to the base default.
       expect(getDef(feature, "staging")?.defaultValue).toBe("base");
     });
 
-    it("falls back to the base default when no override exists", () => {
+    it("falls back to the base default when no override matches", () => {
       expect(getDef(makeFeature())?.defaultValue).toBe("base");
+    });
+
+    it("serves the first matching override (order wins)", () => {
+      const feature = makeFeature({
+        defaultValueOverrides: [
+          ov("first", "first", ["production"]),
+          ov("second", "second", ["production"]),
+        ],
+      });
+      expect(getDef(feature)?.defaultValue).toBe("first");
+    });
+
+    it("an empty-scope override matches every environment", () => {
+      const feature = makeFeature({
+        defaultValueOverrides: [ov("all", "everywhere", [])],
+      });
+      expect(getDef(feature, "production")?.defaultValue).toBe("everywhere");
+      expect(getDef(feature, "staging")?.defaultValue).toBe("everywhere");
     });
 
     it("serves the draft revision override over the published override", () => {
       const feature = makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "published-override" },
-          staging: { enabled: true },
-        },
+        defaultValueOverrides: [ov("a", "published-override", ["production"])],
       });
       const revision = makeRevision({
-        environmentDefaults: { production: "draft-override" },
+        defaultValueOverrides: [ov("b", "draft-override", ["production"])],
       });
       expect(getDef(feature, "production", revision)?.defaultValue).toBe(
         "draft-override",
@@ -106,7 +129,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
 
     it("serves the draft revision override over the base default", () => {
       const revision = makeRevision({
-        environmentDefaults: { production: "draft-override" },
+        defaultValueOverrides: [ov("b", "draft-override", ["production"])],
       });
       expect(getDef(makeFeature(), "production", revision)?.defaultValue).toBe(
         "draft-override",
@@ -114,48 +137,43 @@ describe("getFeatureDefinition per-environment default overrides", () => {
     });
 
     it("a draft that cleared the override inherits the base, NOT the published override", () => {
-      // When a revision is passed its `environmentDefaults` snapshot is the
-      // AUTHORITATIVE complete picture: an absent key means the revision has no
-      // override for that env, so the preview must inherit the base (draft, then
-      // feature) and must NOT fall back to the stale published per-env override.
-      // Otherwise a cleared override would still preview as the published value.
+      // When a revision is passed its `defaultValueOverrides` snapshot is the
+      // AUTHORITATIVE complete picture: an empty list means the revision has no
+      // overrides, so the preview must inherit the base (draft, then feature) and
+      // must NOT fall back to the stale published overrides.
       const feature = makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "published-override" },
-          staging: { enabled: true },
-        },
+        defaultValueOverrides: [ov("a", "published-override", ["production"])],
       });
-      const revision = makeRevision({ environmentDefaults: {} });
-      // production override cleared in the draft -> inherits the (draft) base.
+      const revision = makeRevision({ defaultValueOverrides: [] });
       expect(getDef(feature, "production", revision)?.defaultValue).toBe(
         "base",
       );
     });
 
-    it("falls back to the draft base default when neither override is present", () => {
+    it("falls back to the draft base default when no override matches", () => {
       const revision = makeRevision({
         defaultValue: "draft-base",
-        environmentDefaults: {},
+        defaultValueOverrides: [],
       });
       expect(getDef(makeFeature(), "production", revision)?.defaultValue).toBe(
         "draft-base",
       );
     });
 
-    it("uses each env's own override independently within a single feature", () => {
+    it("uses each env's own first-match override within a single feature", () => {
       const feature = makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "prod-val" },
-          staging: { enabled: true, defaultValue: "staging-val" },
-        },
+        defaultValueOverrides: [
+          ov("p", "prod-val", ["production"]),
+          ov("s", "staging-val", ["staging"]),
+        ],
       });
       expect(getDef(feature, "production")?.defaultValue).toBe("prod-val");
       expect(getDef(feature, "staging")?.defaultValue).toBe("staging-val");
     });
   });
 
-  describe("rules still win over the env override", () => {
-    it("a matching force rule short-circuits the env override", () => {
+  describe("rules still win over the override", () => {
+    it("a matching force rule short-circuits the override", () => {
       const forceRule: FeatureRule = {
         type: "force",
         id: "rule_force",
@@ -165,10 +183,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
         allEnvironments: true,
       } as FeatureRule;
       const feature = makeFeature({
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "prod-override" },
-          staging: { enabled: true },
-        },
+        defaultValueOverrides: [ov("a", "prod-override", ["production"])],
         rules: [forceRule],
       });
       const def = getDef(feature);
@@ -184,9 +199,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       const feature = makeFeature({
         valueType: "boolean",
         defaultValue: "false",
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "true" },
-        },
+        defaultValueOverrides: [ov("a", "true", ["production"])],
       });
       expect(getDef(feature)?.defaultValue).toBe(true);
     });
@@ -195,9 +208,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       const feature = makeFeature({
         valueType: "number",
         defaultValue: "1",
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "42" },
-        },
+        defaultValueOverrides: [ov("a", "42", ["production"])],
       });
       expect(getDef(feature)?.defaultValue).toBe(42);
     });
@@ -206,9 +217,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       const feature = makeFeature({
         valueType: "string",
         defaultValue: "base",
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "hello" },
-        },
+        defaultValueOverrides: [ov("a", "hello", ["production"])],
       });
       expect(getDef(feature)?.defaultValue).toBe("hello");
     });
@@ -226,12 +235,9 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       const feature = makeFeature({
         valueType: "json",
         defaultValue: JSON.stringify({ a: 0 }),
-        environmentSettings: {
-          production: {
-            enabled: true,
-            defaultValue: JSON.stringify({ a: 1 }),
-          },
-        },
+        defaultValueOverrides: [
+          ov("a", JSON.stringify({ a: 1 }), ["production"]),
+        ],
         rules: [sparseRule],
       });
       const def = getDef(feature);
@@ -241,15 +247,11 @@ describe("getFeatureDefinition per-environment default overrides", () => {
       expect(def?.rules?.[0]).toMatchObject({ force: { a: 1, b: 2 } });
     });
 
-    it("treats a JSON override of the literal `null` as a real override, not a clear", () => {
-      // The exact bug the full-map-replace design avoids: the encoded string
-      // "null" is a legitimate JSON value, not an absent override.
+    it("treats a JSON override of the literal `null` as a real override", () => {
       const feature = makeFeature({
         valueType: "json",
         defaultValue: JSON.stringify({ a: 1 }),
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "null" },
-        },
+        defaultValueOverrides: [ov("a", "null", ["production"])],
       });
       expect(getDef(feature)?.defaultValue).toBeNull();
     });
@@ -259,9 +261,10 @@ describe("getFeatureDefinition per-environment default overrides", () => {
     it("returns null for a disabled env regardless of any override", () => {
       const feature = makeFeature({
         environmentSettings: {
-          production: { enabled: false, defaultValue: "prod-override" },
+          production: { enabled: false },
           staging: { enabled: true },
         },
+        defaultValueOverrides: [ov("a", "prod-override", ["production"])],
       });
       expect(getDef(feature, "production")).toBeNull();
     });
@@ -274,7 +277,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
         },
       });
       const revision = makeRevision({
-        environmentDefaults: { production: "draft-override" },
+        defaultValueOverrides: [ov("a", "draft-override", ["production"])],
       });
       expect(getDef(feature, "production", revision)).toBeNull();
     });
@@ -282,9 +285,7 @@ describe("getFeatureDefinition per-environment default overrides", () => {
     it("returns null when the feature is archived even with an override", () => {
       const feature = makeFeature({
         archived: true,
-        environmentSettings: {
-          production: { enabled: true, defaultValue: "prod-override" },
-        },
+        defaultValueOverrides: [ov("a", "prod-override", ["production"])],
       });
       expect(getDef(feature)).toBeNull();
     });

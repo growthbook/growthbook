@@ -1,8 +1,13 @@
 import { validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureDefaultValueOverride,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { generateId } from "back-end/src/util/uuid";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
@@ -152,19 +157,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   const changedEnvEnabled: Record<string, boolean> = {};
-  // Per-env default value overrides, tracked through the revision's
-  // `environmentDefaults` map, which is a COMPLETE snapshot (full-map-replace).
-  // A provided value is validated and MERGED onto the live overrides so envs
-  // the caller didn't mention keep their existing override. This SET/UPDATE-only
-  // path never removes an override (removal is via the dedicated unset endpoint).
-  // `mergedEnvDefaults` is the full snapshot to publish; `changedEnvDefaults`
-  // tracks whether any env actually changed.
-  const mergedEnvDefaults: Record<string, string> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {})
-      .filter(([, val]) => val?.defaultValue !== undefined)
-      .map(([env, val]) => [env, val.defaultValue as string]),
-  );
-  const changedEnvDefaults: Record<string, string> = {};
   if (req.body.environments) {
     for (const [env, s] of Object.entries(req.body.environments)) {
       if (
@@ -173,15 +165,23 @@ export const updateFeatureV2 = createApiRequestHandler(
       ) {
         changedEnvEnabled[env] = s.enabled;
       }
-      if (s.defaultValue !== undefined) {
-        const nextVal = validateFeatureValue(feature, s.defaultValue);
-        mergedEnvDefaults[env] = nextVal;
-        if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
-          changedEnvDefaults[env] = nextVal;
-        }
-      }
     }
   }
+
+  // Default value overrides (top-level, ordered list). When provided in the body
+  // it is a COMPLETE list (full-replace); validate each value and assign ids.
+  let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
+  if (req.body.defaultValueOverrides !== undefined) {
+    nextDefaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
+      id: generateId(),
+      value: validateFeatureValue(feature, o.value),
+      ...(o.description !== undefined ? { description: o.description } : {}),
+      environments: o.environments ?? [],
+    }));
+  }
+  const hasEnvDefaultChanges =
+    nextDefaultValueOverrides !== undefined &&
+    !isEqual(nextDefaultValueOverrides, feature.defaultValueOverrides ?? []);
 
   let updates: Partial<FeatureInterface> = {
     ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
@@ -256,7 +256,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     (inboundFlatRules != null &&
       !isEqual(inboundFlatRules, feature.rules ?? []));
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
-  const hasEnvDefaultChanges = Object.keys(changedEnvDefaults).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
@@ -276,7 +275,7 @@ export const updateFeatureV2 = createApiRequestHandler(
         ? { environmentsEnabled: changedEnvEnabled }
         : {}),
       ...(hasEnvDefaultChanges
-        ? { environmentDefaults: mergedEnvDefaults }
+        ? { defaultValueOverrides: nextDefaultValueOverrides }
         : {}),
       ...(hasRuleChanges || hasEnvEnabledChanges
         ? {

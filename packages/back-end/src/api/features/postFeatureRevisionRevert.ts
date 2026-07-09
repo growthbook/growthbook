@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRulesForEnvironment,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -129,14 +130,20 @@ export async function revertFeatureRevision(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
 
-    // Per-env default value override — complete snapshot. Track which envs
-    // differ from live for permission gating here; the actual full-map-replace
-    // snapshot is assembled via revisionChanges.environmentDefaults below. Only
-    // acts when the revision carries the field; legacy revisions predating it
-    // are left untouched.
-    if (targetRevision.environmentDefaults !== undefined) {
-      const revDefault = targetRevision.environmentDefaults[env];
-      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+    // Default value override — complete ordered snapshot. Track which envs
+    // resolve differently from live for permission gating here; the full-replace
+    // snapshot is assembled via revisionChanges.defaultValueOverrides below.
+    // Only acts when the revision carries the field; legacy revisions predating
+    // it are left untouched.
+    if (targetRevision.defaultValueOverrides !== undefined) {
+      const revDefault = getDefaultValueOverrideForEnvironment(
+        targetRevision.defaultValueOverrides,
+        env,
+      );
+      const liveDefault = getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      );
       if (revDefault !== liveDefault) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
@@ -248,14 +255,12 @@ export async function revertFeatureRevision(
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
   }
-  if (targetRevision.environmentDefaults !== undefined) {
-    // The target revision's per-env overrides are a COMPLETE snapshot. Pass it
-    // through verbatim; createRevision treats it as authoritative (full-replace)
-    // so envs the target didn't override are absent → "no override", and on
-    // publish the live override for those envs is cleared (inherit base again).
-    revisionChanges.environmentDefaults = {
-      ...targetRevision.environmentDefaults,
-    };
+  if (targetRevision.defaultValueOverrides !== undefined) {
+    // The target revision's overrides are a COMPLETE ordered snapshot. Pass it
+    // through verbatim; createRevision treats it as authoritative (full-replace).
+    revisionChanges.defaultValueOverrides = [
+      ...targetRevision.defaultValueOverrides,
+    ];
   }
   if (targetRevision.prerequisites !== undefined) {
     revisionChanges.prerequisites = targetRevision.prerequisites;

@@ -8,6 +8,7 @@ import {
   checkIfRevisionNeedsReview,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
@@ -71,12 +72,9 @@ export async function revertFeatureCore(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  // Revert copies concrete values from a published target revision. Per-env
-  // default overrides use full-map-replace semantics: `changes.environmentDefaults`
-  // carries the COMPLETE target snapshot (a present key is an override; an env
-  // absent from the snapshot has NO override and gets cleared on publish). There
-  // are no `undefined` tombstones — absence is the signal. See the snapshot
-  // assembly below.
+  // Revert copies concrete values from a published target revision. Default
+  // value overrides use full-replace semantics: `changes.defaultValueOverrides`
+  // carries the COMPLETE target ordered snapshot. See the assembly below.
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
@@ -117,30 +115,35 @@ export async function revertFeatureCore(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
 
-    // Per-env default value override — complete snapshot. Track which envs
-    // differ from live for permission gating; the actual full-map-replace
-    // snapshot is assembled below. Only acts when the revision carries the
-    // field; legacy revisions that predate it are left untouched.
-    if (revision.environmentDefaults !== undefined) {
-      const revDefault = revision.environmentDefaults[env];
-      const liveDefault = feature.environmentSettings?.[env]?.defaultValue;
+    // Default value override — complete ordered snapshot. Track which envs
+    // resolve differently from live for permission gating; the full-replace is
+    // assembled below. Only acts when the revision carries the field; legacy
+    // revisions that predate it are left untouched.
+    if (revision.defaultValueOverrides !== undefined) {
+      const revDefault = getDefaultValueOverrideForEnvironment(
+        revision.defaultValueOverrides,
+        env,
+      );
+      const liveDefault = getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      );
       if (revDefault !== liveDefault) {
         if (!changedEnvs.includes(env)) changedEnvs.push(env);
       }
     }
   });
-  // Full-map-replace per-env defaults: when the target snapshot differs from
-  // the live overrides, carry the COMPLETE target snapshot so createRevision
-  // records exactly it (envs the target didn't override are absent → cleared).
-  if (revision.environmentDefaults !== undefined) {
-    const liveDefaults: Record<string, string> = Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {})
-        .filter(([, val]) => val?.defaultValue !== undefined)
-        .map(([env, val]) => [env, val.defaultValue as string]),
-    );
-    if (!isEqual(revision.environmentDefaults, liveDefaults)) {
-      changes.environmentDefaults = { ...revision.environmentDefaults };
-    }
+  // Full-replace default value overrides: when the target snapshot differs from
+  // the live list, carry the COMPLETE target snapshot so createRevision records
+  // exactly it.
+  if (
+    revision.defaultValueOverrides !== undefined &&
+    !isEqual(
+      revision.defaultValueOverrides,
+      feature.defaultValueOverrides ?? [],
+    )
+  ) {
+    changes.defaultValueOverrides = [...revision.defaultValueOverrides];
   }
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;

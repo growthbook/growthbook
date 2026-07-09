@@ -146,11 +146,12 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
-    // `mergeResult.result.environmentDefaults`, when present, is the complete
-    // authoritative snapshot of per-env overrides (full-map-replace); when
-    // absent, the overrides are unchanged from live.
-    environmentDefaults:
-      mergeResult.result.environmentDefaults ?? filledLive.environmentDefaults,
+    // `mergeResult.result.defaultValueOverrides`, when present, is the complete
+    // authoritative snapshot (full-replace); when absent, the overrides are
+    // unchanged from live.
+    defaultValueOverrides:
+      mergeResult.result.defaultValueOverrides ??
+      filledLive.defaultValueOverrides,
     // rampActions live on the draft revision; autoMerge doesn't carry them
     // through MergeResultChanges, so we must re-attach them explicitly so
     // that checkIfRevisionNeedsReview can inspect the ramp-schedule changes.

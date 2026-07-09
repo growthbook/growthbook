@@ -15,6 +15,8 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  apiFeatureDefaultValueOverride,
+  postFeatureDefaultValueOverride,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -115,10 +117,10 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
         )
         .optional(),
-      environmentDefaults: z
-        .record(z.string(), z.string())
+      defaultValueOverrides: z
+        .array(apiFeatureDefaultValueOverride)
         .describe(
-          "Per-environment default value overrides captured in this revision (only present when a per-environment override is set)",
+          "Ordered, first-match-wins default value overrides captured in this revision (only present when an override is set)",
         )
         .optional(),
       envPrerequisites: z
@@ -426,15 +428,6 @@ export const postFeatureRuleV2 = z.union([
 
 const postFeatureEnvironmentV2 = z.object({
   enabled: z.boolean().optional(),
-  // Optional per-environment override of the feature's base `defaultValue`.
-  // A string conforming to the feature's `valueType`. When set, it takes
-  // precedence over the base default for this environment (rules still win).
-  defaultValue: z
-    .string()
-    .describe(
-      "Per-environment override of the feature's base default value. Type must match `valueType`. When set, takes precedence over the base default for this environment (rules still win).",
-    )
-    .optional(),
 });
 
 // ---- V2 PostFeaturePayload ----
@@ -462,6 +455,12 @@ export const postFeatureBodyV2 = z
       .describe(
         "Default value when feature is enabled. Type must match `valueType`.",
       ),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Resolved at payload-build time; rules still take precedence.",
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     rules: z
       .array(postFeatureRuleV2)
@@ -501,6 +500,12 @@ export const updateFeatureBodyV2 = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Replaces the full list when provided.",
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(

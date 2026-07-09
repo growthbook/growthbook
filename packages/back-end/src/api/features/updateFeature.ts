@@ -5,8 +5,13 @@ import {
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureDefaultValueOverride,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { generateId } from "back-end/src/util/uuid";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -235,53 +240,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
     }
 
-    // 1b. per-env default value overrides (mirrors environmentsEnabled).
-    // Route these through the revision's `environmentDefaults` map, which is a
-    // COMPLETE snapshot (full-map-replace). A provided value is validated and
-    // MERGED onto the live overrides so envs the caller didn't mention keep
-    // their existing override. This SET/UPDATE-only path never removes an
-    // override (removal is via the dedicated unset endpoint). `mergedEnvDefaults`
-    // is the full snapshot to publish; `changedEnvDefaults` tracks whether any
-    // env actually changed (so we only route through a revision when needed).
-    const mergedEnvDefaults: Record<string, string> = Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {})
-        .filter(([, val]) => val?.defaultValue !== undefined)
-        .map(([env, val]) => [env, val.defaultValue as string]),
-    );
-    const changedEnvDefaults: Record<string, string> = {};
-    for (const [env, envSettings] of Object.entries(
-      req.body.environments ?? {},
-    )) {
-      const requested = envSettings.defaultValue;
-      if (requested === undefined) continue;
-      const nextVal = validateFeatureValue(feature, requested);
-      mergedEnvDefaults[env] = nextVal;
-      if (nextVal !== feature.environmentSettings?.[env]?.defaultValue) {
-        changedEnvDefaults[env] = nextVal;
-      }
+    // 1b. default value overrides (top-level, ordered list). When provided in
+    // the body it is a COMPLETE list (full-replace); validate each value and
+    // assign ids to new entries. Route through the revision like defaultValue.
+    let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
+    if (req.body.defaultValueOverrides !== undefined) {
+      nextDefaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
+        id: generateId(),
+        value: validateFeatureValue(feature, o.value),
+        ...(o.description !== undefined ? { description: o.description } : {}),
+        environments: o.environments ?? [],
+      }));
     }
-    // Strip per-env defaultValue from the direct-write path so it is no longer
-    // double-written; the published revision applies the override to live.
-    // Envs the caller didn't change keep their existing override (frozen to the
-    // live value here); changed envs are re-synced from the published feature
-    // state after the revision publishes (see post-publish block).
-    if (updates.environmentSettings) {
-      for (const env of Object.keys(updates.environmentSettings)) {
-        const settings = updates.environmentSettings[env];
-        if (settings.defaultValue !== undefined) {
-          const liveValue = feature.environmentSettings?.[env]?.defaultValue;
-          if (liveValue === undefined) {
-            const { defaultValue: _omit, ...rest } = settings;
-            updates.environmentSettings[env] = rest;
-          } else {
-            updates.environmentSettings[env] = {
-              ...settings,
-              defaultValue: liveValue,
-            };
-          }
-        }
-      }
-    }
+    const hasEnvDefaultChanges =
+      nextDefaultValueOverrides !== undefined &&
+      !isEqual(nextDefaultValueOverrides, feature.defaultValueOverrides ?? []);
 
     // 2. rules / defaultValue
     // v2: rules live on feature.rules (flat). Normalize inbound per-env rules
@@ -466,7 +439,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     // Determine whether any revision-tracked change exists
     const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
-    const hasEnvDefaultChanges = Object.keys(changedEnvDefaults).length > 0;
     const hasRuleChanges =
       defaultValueChanged || changedRuleEnvironments.length > 0;
     const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
@@ -488,7 +460,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           ? { environmentsEnabled: changedEnvEnabled }
           : {}),
         ...(hasEnvDefaultChanges
-          ? { environmentDefaults: mergedEnvDefaults }
+          ? { defaultValueOverrides: nextDefaultValueOverrides }
           : {}),
         ...(hasRuleChanges || hasEnvEnabledChanges
           ? {
@@ -531,19 +503,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               feature.environmentSettings?.[env]?.enabled ??
               changedEnvEnabled[env],
           };
-        }
-        // Same for per-env defaultValue overrides: they were stripped from the
-        // direct-write path and applied via the revision publish, so re-sync
-        // the published value onto the direct-write object.
-        for (const env of Object.keys(changedEnvDefaults)) {
-          if (updates.environmentSettings[env]) {
-            updates.environmentSettings[env] = {
-              ...updates.environmentSettings[env],
-              defaultValue:
-                feature.environmentSettings?.[env]?.defaultValue ??
-                changedEnvDefaults[env],
-            };
-          }
         }
       }
     }

@@ -29,6 +29,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
@@ -50,7 +51,6 @@ import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
-import EditEnvironmentDefaultValuesModal from "@/components/Features/EditEnvironmentDefaultValuesModal";
 import KillSwitchModal from "@/components/Features/KillSwitchModal";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
@@ -58,6 +58,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -106,6 +107,7 @@ import {
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
+import FeatureEnvironmentTabs from "./FeatureEnvironmentTabs";
 
 export const featureStatusColors = {
   on: "var(--green-10)",
@@ -257,8 +259,6 @@ export default function FeaturesOverview({
     desiredState?: boolean;
   } | null>(null);
   const showKillSwitchManager = killSwitchTarget !== null;
-  // Whether the combined per-environment default-value overrides modal is open.
-  const [editEnvDefaults, setEditEnvDefaults] = useState(false);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -280,6 +280,27 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Selected env tab, shared by the environment tab bar, the Default Value
+  // section, and the Rules section. Owned here (not in FeatureRules) because
+  // `useLocalStorage` is not reactive across instances. `null` = "All
+  // environments". A stored value referencing a stale env falls back to All for
+  // this render without persisting.
+  const [storedRuleEnv, setRuleEnv] = useFeatureRulesEnv();
+  const selectedEnv =
+    storedRuleEnv !== null && !envs.includes(storedRuleEnv)
+      ? null
+      : storedRuleEnv;
+  // Rule-list display toggles surfaced in the tab bar's "More" menu; shared with
+  // the Rules section for filtering.
+  const [hideInactiveRules, setHideInactiveRules] = useLocalStorage(
+    "hide-disabled-rules",
+    false,
+  );
+  const [showOrphanedRules, setShowOrphanedRules] = useLocalStorage(
+    "show-orphaned-rules",
+    false,
+  );
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -1521,11 +1542,42 @@ export default function FeaturesOverview({
         {revision && (
           <>
             <Frame mt="4" px="6" py="4">
+              {/* Shared env tab bar — governs both the Default Value and the
+                  Rules sections below. `null` = "All environments". */}
+              {environments.length > 0 && (
+                <FeatureEnvironmentTabs
+                  environments={environments}
+                  feature={feature}
+                  baseFeature={baseFeature}
+                  holdout={holdout}
+                  experimentsMap={experimentsMap}
+                  value={selectedEnv}
+                  setValue={setRuleEnv}
+                  hideInactive={hideInactiveRules}
+                  setHideInactive={setHideInactiveRules}
+                  showOrphaned={showOrphanedRules}
+                  setShowOrphaned={setShowOrphanedRules}
+                />
+              )}
+
               <Flex align="center" justify="between">
-                <Flex align="center" gap="1" mb="3">
+                <Flex align="center" gap="2" mb="3">
                   <Heading as="h4" size="small" mb="0">
                     Default Value
                   </Heading>
+                  {selectedEnv !== null &&
+                    getDefaultValueOverrideForEnvironment(
+                      feature.defaultValueOverrides,
+                      selectedEnv,
+                    ) !== undefined && (
+                      <Badge
+                        label="Overrides default"
+                        variant="soft"
+                        color="violet"
+                        radius="full"
+                        size="sm"
+                      />
+                    )}
                 </Flex>
                 {canEdit && canEditDrafts && !isReadOnly && (
                   <Button
@@ -1541,59 +1593,19 @@ export default function FeaturesOverview({
                 <Flex width="100%">
                   <Box flexGrow="1">
                     <ForceSummary
-                      value={getFeatureDefaultValue(feature)}
+                      value={
+                        (selectedEnv !== null
+                          ? getDefaultValueOverrideForEnvironment(
+                              feature.defaultValueOverrides,
+                              selectedEnv,
+                            )
+                          : undefined) ?? getFeatureDefaultValue(feature)
+                      }
                       feature={feature}
                     />
                   </Box>
                 </Flex>
               </Box>
-
-              {environments.length > 0 && (
-                <Box mt="4">
-                  <Flex align="center" justify="between" mb="2">
-                    <Heading as="h6" size="small" color="text-mid" mb="0">
-                      Per-environment overrides
-                    </Heading>
-                    {canEdit && canEditDrafts && !isReadOnly && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditEnvDefaults(true)}
-                      >
-                        Edit overrides
-                      </Button>
-                    )}
-                  </Flex>
-                  <Flex direction="column" gap="2">
-                    {(() => {
-                      const overriddenEnvs = environments.filter(
-                        (en) =>
-                          feature.environmentSettings?.[en.id]?.defaultValue !==
-                          undefined,
-                      );
-                      if (overriddenEnvs.length === 0) {
-                        return (
-                          <Text color="text-low" size="small">
-                            <em>
-                              All environments inherit the base default value.
-                            </em>
-                          </Text>
-                        );
-                      }
-                      return overriddenEnvs.map((en) => {
-                        const override = feature.environmentSettings?.[en.id]
-                          ?.defaultValue as string;
-                        return (
-                          <Flex key={en.id} align="center" gap="2" wrap="wrap">
-                            <span className="font-weight-bold">{en.id}:</span>
-                            <ForceSummary value={override} feature={feature} />
-                          </Flex>
-                        );
-                      });
-                    })()}
-                  </Flex>
-                </Box>
-              )}
 
               <Box
                 mt="6"
@@ -1630,6 +1642,10 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      env={selectedEnv}
+                      setEnv={setRuleEnv}
+                      hideInactive={hideInactiveRules}
+                      showOrphaned={showOrphanedRules}
                     />
                   </>
                 ) : (
@@ -1670,15 +1686,6 @@ export default function FeaturesOverview({
         {edit && (
           <EditDefaultValueModal
             close={() => setEdit(false)}
-            feature={feature}
-            revisionList={revisionList || []}
-            mutate={mutate}
-            setVersion={setVersion}
-          />
-        )}
-        {editEnvDefaults && (
-          <EditEnvironmentDefaultValuesModal
-            close={() => setEditEnvDefaults(false)}
             feature={feature}
             revisionList={revisionList || []}
             mutate={mutate}

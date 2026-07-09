@@ -12,6 +12,7 @@ import {
   JSONSchemaDef,
   revisionStatusFilterSchema,
   featureRule,
+  featureDefaultValueOverride,
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
@@ -65,10 +66,9 @@ const mergeResultChangesSchema = z
     defaultValue: z.string().optional(),
     rules: z.array(featureRule).optional(),
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
-    // Per-env default value overrides — a COMPLETE snapshot of the draft's
-    // overrides. A present key is an override; an absent key means "no
-    // override" (inherit base). No `undefined`/tombstone values.
-    environmentDefaults: z.record(z.string(), z.string()).optional(),
+    // Ordered, first-match-wins default value overrides — a COMPLETE snapshot
+    // of the draft's overrides (full-replace on publish).
+    defaultValueOverrides: z.array(featureDefaultValueOverride).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: z
