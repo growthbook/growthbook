@@ -26,6 +26,11 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
  * variation override can never influence the stamp.
  */
 export function getStampedOrgLimits(): OrgLimits {
+  // Self-hosted never reads the CDN for limits: the hardcoded default in
+  // shared/enterprise (FREE_ORG_LIMITS) is the source of truth. The flag is
+  // a cloud-only tuning lever.
+  if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
+
   const client = getGrowthBookClient();
   if (!client) return { ...FREE_ORG_LIMITS };
 
@@ -67,6 +72,10 @@ function getTrustedOrgAttributes(
 // with trusted attributes, explicitly says enabled: false. Fail-closed toward
 // the stamp: an unreachable/invalid flag keeps the stored limits in force.
 function isPricingLimitsDisabledForOrg(org: OrganizationInterface): boolean {
+  // Cloud-only lever: self-hosted enforcement is governed purely by the
+  // stored stamp — no flag eval, no CDN dependency, no attribute egress.
+  if (!IS_CLOUD) return false;
+
   const client = getGrowthBookClient();
   if (!client) return false;
 

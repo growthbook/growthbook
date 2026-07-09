@@ -5,9 +5,10 @@ import {
   resolveOrgLimitsConfig,
 } from "shared/enterprise";
 
-// resolveOrgLimitsConfig turns the pricing-phase-1-limits flag value into the
-// OrgLimits stamped onto newly created free orgs. It must ALWAYS return a
-// complete stamp: per-field fallback to FREE_ORG_LIMITS, valid fields honored.
+// resolveOrgLimitsConfig turns the pricing-phase-1-limits flag value (keyed
+// by plan tier; only `free` is wired today) into the OrgLimits stamped onto
+// newly created orgs. It must ALWAYS return a complete stamp: per-field
+// fallback to FREE_ORG_LIMITS, valid fields honored.
 describe("resolveOrgLimitsConfig", () => {
   it.each([
     ["null", null],
@@ -24,17 +25,25 @@ describe("resolveOrgLimitsConfig", () => {
     });
   });
 
-  it("passes through a complete, valid flag value", () => {
-    const config: OrgLimits = {
+  it("passes through a complete, valid free tier", () => {
+    const free: OrgLimits = {
       maxProjects: 5,
       customEnvironments: true,
       roleManagement: true,
     };
-    expect(resolveOrgLimitsConfig(config)).toEqual(config);
+    expect(resolveOrgLimitsConfig({ enabled: true, free })).toEqual(free);
+  });
+
+  it("falls back fully for a legacy flat (un-tiered) value", () => {
+    // The flag is keyed by tier; a flat value has no `free` key and must not
+    // be silently interpreted.
+    expect(
+      resolveOrgLimitsConfig({ maxProjects: 99, customEnvironments: true }),
+    ).toEqual(FREE_ORG_LIMITS);
   });
 
   it("fills missing fields from the default (partial override)", () => {
-    const result = resolveOrgLimitsConfig({ maxProjects: 3 });
+    const result = resolveOrgLimitsConfig({ free: { maxProjects: 3 } });
     expect(result.maxProjects).toBe(3);
     expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
     expect(result.roleManagement).toBe(FREE_ORG_LIMITS.roleManagement);
@@ -42,9 +51,7 @@ describe("resolveOrgLimitsConfig", () => {
 
   it("falls back per-field when a field is present but invalid", () => {
     const result = resolveOrgLimitsConfig({
-      maxProjects: -1,
-      customEnvironments: "yes",
-      roleManagement: 1,
+      free: { maxProjects: -1, customEnvironments: "yes", roleManagement: 1 },
     });
     expect(result.maxProjects).toBe(FREE_ORG_LIMITS.maxProjects);
     expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
@@ -53,15 +60,16 @@ describe("resolveOrgLimitsConfig", () => {
 
   it("honors explicit unlimited (maxProjects: null) from the flag", () => {
     // null means unlimited in OrgLimits — a valid value, not a fallback case.
-    expect(resolveOrgLimitsConfig({ maxProjects: null }).maxProjects).toBe(
-      null,
-    );
+    expect(
+      resolveOrgLimitsConfig({ free: { maxProjects: null } }).maxProjects,
+    ).toBe(null);
   });
 
-  it("ignores unknown keys (including the enforcement-time enabled field)", () => {
+  it("ignores sibling keys: enabled, future tiers, and unknowns", () => {
     const result = resolveOrgLimitsConfig({
       enabled: false,
-      maxProjects: 2,
+      free: { maxProjects: 2 },
+      pro: { maxProjects: 3 }, // reserved for later — not wired today
       futurePhaseKey: { anything: true },
     });
     expect(result).toEqual({

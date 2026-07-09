@@ -7,17 +7,20 @@ import {
   OrgLimitsAccessor,
 } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 
 export default function useOrgLimits(): OrgLimitsAccessor {
   const { organization, license, effectiveAccountPlan } = useUser();
 
   // Enforcement on/off from the same flag that stamps new orgs: a base value
   // of `enabled: false` (global kill switch) or a targeting rule serving it
-  // for this org (per-customer exemption) lifts all limits. The FE evaluates
-  // with the org attributes set in UserContext; the back-end enforces the
-  // same check server-side, so this is display alignment, not security.
+  // for this org (per-customer exemption) lifts all limits. Cloud-only,
+  // mirroring the server — self-hosted limits are governed purely by the
+  // stored stamp, with no CDN dependency. The FE evaluates with the org
+  // attributes set in UserContext; the back-end enforces the same check
+  // server-side, so this is display alignment, not security.
   const flagValue = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
-  const limitsDisabled = isLimitsFlagDisabled(flagValue);
+  const limitsDisabled = isCloud() && isLimitsFlagDisabled(flagValue);
 
   return useMemo(() => {
     if (limitsDisabled) {
