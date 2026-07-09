@@ -212,10 +212,7 @@ export default function BanditUpdateStatus({
           {!isPublic && error ? (
             <Callout status="error" size="sm" mx="2">
               <Flex align="start" justify="between" gap="2">
-                <div>
-                  <FaExclamationTriangle className="mr-1" />
-                  {error}
-                </div>
+                <div>{error}</div>
                 {generatedSnapshot || latest ? (
                   <div>
                     <ViewAsyncQueriesButton

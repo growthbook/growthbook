@@ -1577,17 +1577,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </Button>
                     }
                   >
-                    <Text>{rampApproveError}</Text>
+                    {rampApproveError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&
                   !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
                     <Callout status="error" mb="2">
-                      <Text>
-                        <Text weight="semibold">Rolled back:</Text>{" "}
-                        {formatRollbackReason(rampSchedule.lastRollbackReason)}
-                      </Text>
+                      <Text weight="semibold">Rolled back:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)}
                     </Callout>
                   )}
                 <RampTimeline

@@ -17,6 +17,7 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 
@@ -266,18 +267,20 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <Callout status="info" className="text-center">
-              <p>
-                Not ready to connect to your data warehouse? Explore a sample
-                experiment first to get a feel for the GrowthBook platform.
-              </p>
-              <Button
-                color="inherit"
-                variant="outline"
-                onClick={openSampleExperiment}
-              >
-                View Sample Experiment
-              </Button>
+            <Callout status="info">
+              <Text as="div" align="center">
+                <p>
+                  Not ready to connect to your data warehouse? Explore a sample
+                  experiment first to get a feel for the GrowthBook platform.
+                </p>
+                <Button
+                  color="inherit"
+                  variant="outline"
+                  onClick={openSampleExperiment}
+                >
+                  View Sample Experiment
+                </Button>
+              </Text>
             </Callout>
           </div>
         ) : (

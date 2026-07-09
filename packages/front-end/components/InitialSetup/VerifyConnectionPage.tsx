@@ -3,7 +3,7 @@ import {
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useCallback, useEffect, useState } from "react";
-import { FaAngleDown, FaAngleRight, FaExclamationCircle } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
 import { Flex, Box } from "@radix-ui/themes";
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
@@ -358,11 +358,7 @@ const VerifyConnectionPage = ({
                           Example, using your organization&apos;s secure
                           attribute salt:
                           {secureAttributeSalt === "" && (
-                            <Callout
-                              status="warning"
-                              mt="2"
-                              className="px-2 py-1"
-                            >
+                            <Callout status="warning" mt="2" size="sm">
                               Your organization has an empty salt string. Add a
                               salt string in your{" "}
                               <Link href="/settings">
@@ -384,12 +380,7 @@ myAttribute = sha256(salt + myAttribute);
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
-                        <Callout
-                          status="warning"
-                          mt="3"
-                          mb="0"
-                          icon={<FaExclamationCircle />}
-                        >
+                        <Callout status="warning" mt="3" mb="0">
                           When using an insecure environment (such as a
                           browser), do not rely exclusively on hashing as a
                           means of securing highly sensitive data. Hashing is an

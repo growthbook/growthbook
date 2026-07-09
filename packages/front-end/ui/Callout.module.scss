@@ -6,7 +6,7 @@
 // line and centered within it. They align on that line and never grow the
 // row, so multi-line content stays top-aligned and tall actions (buttons)
 // overflow into the padding instead of pushing the content down.
-.firstLineBox {
+.firstLineSlot {
   height: var(--callout-line-height);
   display: flex;
   align-items: center;

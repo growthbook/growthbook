@@ -1,4 +1,5 @@
 import { FC, useEffect, useState, CSSProperties } from "react";
+import { Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
@@ -45,8 +46,7 @@ const TempMessage: FC<TempMessageProps> = ({
   }, [closing]);
 
   return (
-    <Callout
-      status="success"
+    <Box
       className={className}
       style={{
         transition: "200ms all",
@@ -54,10 +54,12 @@ const TempMessage: FC<TempMessageProps> = ({
         ...style,
       }}
     >
-      <Text as="div" align="center">
-        {children}
-      </Text>
-    </Callout>
+      <Callout status="success">
+        <Text as="div" align="center">
+          {children}
+        </Text>
+      </Callout>
+    </Box>
   );
 };
 

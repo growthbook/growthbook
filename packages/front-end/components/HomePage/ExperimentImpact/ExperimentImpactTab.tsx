@@ -156,7 +156,7 @@ export default function ExperimentImpactTab({
         </td>
         {e.error ? (
           <td colSpan={3}>
-            <Callout status="error" mb="1" ml="1" className="px-2 py-1">
+            <Callout status="error" mb="1" ml="1" size="sm">
               {e.error}
             </Callout>
           </td>

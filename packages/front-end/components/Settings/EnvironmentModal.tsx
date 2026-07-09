@@ -1,7 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -209,7 +208,7 @@ export default function EnvironmentModal({
           closeMenuOnSelect={true}
         />
         {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
-          <Callout status="warning" icon={<FaExclamationTriangle />}>
+          <Callout status="warning">
             You have made the projects filter more restrictive than before.{" "}
             {sdkConnections.length} SDK Connection
             {sdkConnections.length === 1 ? "" : "s"} using this environment may

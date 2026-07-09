@@ -17,6 +17,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -128,9 +129,11 @@ export default function BanditSRMCard({
                 />
               </>
             ) : (
-              <Callout status="info" className="font-weight-bold">
-                More traffic is required to detect a Sample Ratio Mismatch
-                (SRM).
+              <Callout status="info">
+                <Text weight="semibold">
+                  More traffic is required to detect a Sample Ratio Mismatch
+                  (SRM).
+                </Text>
               </Callout>
             )}
           </div>

@@ -300,14 +300,12 @@ export default function FixRevisionConflictsModal({
       >
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
           <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-            <Text as="p">
-              Conflicting changes have been published since you created this
-              revision. Resolve each conflict below, then click{" "}
-              <Text as="span" weight="medium">
-                Update Draft
-              </Text>{" "}
-              to rebase your draft onto the current live version.
-            </Text>
+            Conflicting changes have been published since you created this
+            revision. Resolve each conflict below, then click{" "}
+            <Text as="span" weight="medium">
+              Update Draft
+            </Text>{" "}
+            to rebase your draft onto the current live version.
           </Callout>
         </Box>
 
@@ -356,14 +354,12 @@ export default function FixRevisionConflictsModal({
       <Page display="Review Changes">
         <Box mb="4" style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}>
           <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-            <Text as="p">
-              Almost done — your revision has been successfully rebased onto the
-              current live version. Review the changes below, then click{" "}
-              <Text as="span" weight="semibold">
-                Update Draft
-              </Text>{" "}
-              to apply them.
-            </Text>
+            Almost done — your revision has been successfully rebased onto the
+            current live version. Review the changes below, then click{" "}
+            <Text as="span" weight="semibold">
+              Update Draft
+            </Text>{" "}
+            to apply them.
           </Callout>
         </Box>
         {hasChanges ? (

@@ -1,7 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
@@ -417,7 +416,7 @@ export default function StandardRuleFields({
                             </Button>
                           }
                         >
-                          <Text>This schedule has finished.</Text>
+                          This schedule has finished.
                         </Callout>
                       )}
                       {isPendingRemoval && (
@@ -519,7 +518,7 @@ export default function StandardRuleFields({
         </Flex>
       )}
       {isCyclic && (
-        <Callout status="error" icon={<FaExclamationTriangle />}>
+        <Callout status="error">
           A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
           dependency. Remove this prerequisite to continue.
         </Callout>

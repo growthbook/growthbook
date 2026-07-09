@@ -251,7 +251,7 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/UrlRedirectModal.tsx": {

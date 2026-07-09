@@ -214,7 +214,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           )}
           {failedInvites.length > 1 && (
             <>
-              <Callout status="error" role="alert">
+              <Callout status="error">
                 <strong>
                   Whoops! We weren&apos;t able to email the following members:
                 </strong>

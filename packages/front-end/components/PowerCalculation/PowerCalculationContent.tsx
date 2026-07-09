@@ -265,7 +265,7 @@ const SampleSizeAndRuntime = ({
           </table>
         </div>
         <div className="col-5">
-          <Callout status="info" className="card">
+          <Callout status="info">
             <h4>{selectedName}</h4>
             <p>
               Reliably detecting a lift of{" "}

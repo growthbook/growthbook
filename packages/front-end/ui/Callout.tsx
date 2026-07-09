@@ -10,7 +10,6 @@ import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
-import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./Callout.module.scss";
@@ -44,8 +43,6 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
     action?: ReactNode;
-    className?: string;
-    style?: React.CSSProperties;
     role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
@@ -59,8 +56,6 @@ export default forwardRef<
     dismissible = false,
     id,
     renderWhenDismissed,
-    className,
-    style,
     role,
     ...containerProps
   },
@@ -91,7 +86,7 @@ export default forwardRef<
   return (
     <RadixCallout.Root
       ref={ref}
-      className={clsx(styles.callout, className)}
+      className={styles.callout}
       color={getRadixColor(status)}
       role={
         role ??
@@ -104,7 +99,6 @@ export default forwardRef<
           display: "flex",
           position: "relative",
           "--callout-line-height": lineHeight,
-          ...style,
         } as React.CSSProperties
       }
       variant="soft"
@@ -120,9 +114,9 @@ export default forwardRef<
         <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
           {children}
         </Text>
-        {action ? <Box className={styles.firstLineBox}>{action}</Box> : null}
+        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
         {dismissible && id ? (
-          <Box className={styles.firstLineBox}>
+          <Box className={styles.firstLineSlot}>
             <Tooltip content="Dismiss">
               <IconButton
                 variant="ghost"

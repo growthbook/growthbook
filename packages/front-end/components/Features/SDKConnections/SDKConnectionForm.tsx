@@ -464,7 +464,7 @@ export default function SDKConnectionForm({
         <div className="form-group">
           <label>SDK Language</label>
           {languageError ? (
-            <Callout status="error" ml="3" mb="0" className="px-1 py-0">
+            <Callout status="error" ml="3" mb="0" size="sm">
               {languageError}
             </Callout>
           ) : null}
@@ -975,12 +975,7 @@ export default function SDKConnectionForm({
                       />
                     </Box>
                     {isCloud() && (
-                      <Callout
-                        status="info"
-                        mb="0"
-                        mt="3"
-                        icon={<FaExclamationCircle />}
-                      >
+                      <Callout status="info" mb="0" mt="3">
                         Cloud customers must self-host a remote evaluation
                         service such as{" "}
                         <a

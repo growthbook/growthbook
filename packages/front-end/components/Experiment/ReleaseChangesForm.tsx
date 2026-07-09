@@ -216,7 +216,7 @@ export default function ReleaseChangesForm({
                 : "Sticky Bucketed users will be excluded from the experiment."
             : "No sticky bucketing."}
           {form.watch("newPhase") && isBandit && (
-            <Callout status="warning" mt="2" className="text-danger">
+            <Callout status="warning" mt="2">
               This Bandit will restart. Variation weights will reset (
               {(() => {
                 const variations = getLatestPhaseVariations(experiment);

@@ -408,7 +408,7 @@ export function CreateSDKWebhookModal({
               helpText={
                 <>
                   {!validHeaders ? (
-                    <Callout status="error" className="mr-auto">
+                    <Callout status="error" mr="auto">
                       Invalid JSON
                     </Callout>
                   ) : (
@@ -584,7 +584,7 @@ const EditSDKWebhooksModal: FC<{
       helpText={
         <>
           {!validHeaders ? (
-            <Callout status="error" className="mr-auto">
+            <Callout status="error" mr="auto">
               Invalid JSON
             </Callout>
           ) : (

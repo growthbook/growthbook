@@ -1,6 +1,5 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
@@ -90,7 +89,7 @@ const EditLicenseModal: FC<{
             {successMessage ? (
               <Callout status="success">{successMessage}</Callout>
             ) : (
-              <Callout status="warning" icon={<FaExclamationTriangle />}>
+              <Callout status="warning">
                 You already have an active license. Click &quot;Change&quot; to
                 enter a new license key.
               </Callout>

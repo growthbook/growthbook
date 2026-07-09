@@ -1,7 +1,7 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
+import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -164,9 +164,7 @@ export default function ExplorerMainSection() {
               icon={
                 loading ? (
                   <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                ) : (
-                  <PiInfo />
-                )
+                ) : undefined
               }
               action={
                 loading ? undefined : (

@@ -426,7 +426,7 @@ const ShareModal = ({
 
   if (experiments.length === 0) {
     return (
-      <Callout status="error" style={{ marginTop: "1rem" }}>
+      <Callout status="error" mt="4">
         You need some experiments to share first.
       </Callout>
     );

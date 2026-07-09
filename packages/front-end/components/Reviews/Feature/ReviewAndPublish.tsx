@@ -1955,15 +1955,13 @@ export default function ReviewAndPublish({
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
             <Callout status="info" icon={<PiGitMergeBold size={18} />}>
-              <Text as="p">
-                Your draft is based on an older version, and the live version
-                has since been published with conflicting changes. Resolve each
-                conflict below, then click{" "}
-                <Text as="span" weight="medium">
-                  Update Draft
-                </Text>{" "}
-                to rebase your draft onto the current live version.
-              </Text>
+              Your draft is based on an older version, and the live version has
+              since been published with conflicting changes. Resolve each
+              conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (

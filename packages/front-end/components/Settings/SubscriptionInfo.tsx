@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { Box, Text } from "@radix-ui/themes";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
@@ -143,44 +142,38 @@ export default function SubscriptionInfo() {
               {subscription?.nextBillDate}
             </div>
             {subscription?.hasPaymentMethod === true ? (
-              <Callout
-                status="success"
-                style={{ maxWidth: 650 }}
-                mt="3"
-                icon={<FaCheckCircle />}
-              >
-                You have a valid payment method on file. You will be billed
-                automatically on this date.
-              </Callout>
+              <Box maxWidth="650px" mt="3">
+                <Callout status="success">
+                  You have a valid payment method on file. You will be billed
+                  automatically on this date.
+                </Callout>
+              </Box>
             ) : subscription?.hasPaymentMethod === false ? (
-              <Callout
-                status="warning"
-                style={{ maxWidth: 550 }}
-                mt="3"
-                icon={<FaExclamationTriangle />}
-              >
-                <p>
-                  You do not have a valid payment method on file. Your
-                  subscription will be cancelled on this date unless you add a
-                  valid payment method.
-                </p>
-                <p className="mb-0">
-                  Click <strong>View Plan Details</strong> below to add a
-                  payment method.
-                </p>
-              </Callout>
+              <Box maxWidth="550px" mt="3">
+                <Callout status="warning">
+                  <p>
+                    You do not have a valid payment method on file. Your
+                    subscription will be cancelled on this date unless you add a
+                    valid payment method.
+                  </p>
+                  <p className="mb-0">
+                    Click <strong>View Plan Details</strong> below to add a
+                    payment method.
+                  </p>
+                </Callout>
+              </Box>
             ) : null}
           </div>
         )}
       {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
-        <Callout status="error" mb="3" className="col-md-12">
+        <Callout status="error" mb="3">
           Your plan will be canceled, but is still available until the end of
           your billing period on
           {` ${subscription?.dateToBeCanceled}.`}
         </Callout>
       )}
       {subscription?.status === "canceled" && (
-        <Callout status="error" mb="3" className="col-md-12">
+        <Callout status="error" mb="3">
           Your plan was canceled on {` ${subscription?.cancelationDate}.`}
         </Callout>
       )}

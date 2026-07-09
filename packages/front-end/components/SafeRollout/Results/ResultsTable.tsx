@@ -428,12 +428,7 @@ export default function ResultsTable({
                                   })}
                                 </div>
                               ) : null}
-                              <Callout
-                                status="error"
-                                mb="1"
-                                ml="1"
-                                className="px-2 py-1"
-                              >
+                              <Callout status="error" mb="1" ml="1" size="sm">
                                 Query error
                               </Callout>
                             </>

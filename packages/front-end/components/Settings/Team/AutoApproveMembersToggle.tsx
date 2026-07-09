@@ -81,7 +81,7 @@ export default function AutoApproveMembersToggle({
               </>
             }
           >
-            <Callout status="info" className="p-2">
+            <Callout status="info" size="sm">
               This organization&apos;s domain must be verified to enable
               automatic approvals <FaQuestionCircle />
             </Callout>
