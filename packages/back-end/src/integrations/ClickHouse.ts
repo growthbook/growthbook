@@ -8,14 +8,14 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
-  isManagedWarehouseAwaitingJsonMigration,
+  // isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
 } from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
+// import { queueMigrateManagedWarehouse } from "back-end/src/jobs/migrateManagedWarehouse";
 import { getHost } from "back-end/src/util/sql";
 import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -58,15 +58,15 @@ export default class ClickHouse extends SqlIntegration {
     // Runs before the guards below so a warehouse left mid-migration (pending +
     // matcols still present) OR stuck fully-migrated-but-still-`migrating` (the
     // flag clear failed) can re-trigger and recover itself on next use.
-    if (
-      isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
-      isManagedWarehouseMigrating(this.datasource)
-    ) {
-      void queueMigrateManagedWarehouse(this.datasource.organization).catch(
-        (e) =>
-          logger.error(e, "Failed to queue managed warehouse JSON migration"),
-      );
-    }
+    // if (
+    //   isManagedWarehouseAwaitingJsonMigration(this.datasource) ||
+    //   isManagedWarehouseMigrating(this.datasource)
+    // ) {
+    //   void queueMigrateManagedWarehouse(this.datasource.organization).catch(
+    //     (e) =>
+    //       logger.error(e, "Failed to queue managed warehouse JSON migration"),
+    //   );
+    // }
     // Block queries while never-provisioned OR mid-migration (tables being recreated).
     // Reuse the pending error so existing UI surfaces show the managed-warehouse callout;
     // the callout distinguishes the migrating case for honest "upgrading" copy.
