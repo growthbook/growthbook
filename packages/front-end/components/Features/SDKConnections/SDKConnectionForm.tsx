@@ -1279,11 +1279,9 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
-                          When enabled, all feature tags will be included in the{" "}
-                          <code>metadata.tags</code> array for each feature in
-                          the SDK payload.
-                        </p>
+                        When enabled, all feature tags will be included in the{" "}
+                        <code>metadata.tags</code> array for each feature in the
+                        SDK payload.
                       </>
                     }
                   >
@@ -1305,12 +1303,12 @@ export default function SDKConnectionForm({
                   Include experiment schedule dates{" "}
                   <Tooltip
                     body={
-                      <p className="mb-0">
+                      <>
                         When enabled, an experiment&apos;s scheduled start/end
                         are included as <code>metadata.startDate</code> and{" "}
                         <code>metadata.endDate</code> on its experiment-ref
                         rules in the SDK payload.
-                      </p>
+                      </>
                     }
                   >
                     <PiInfo />

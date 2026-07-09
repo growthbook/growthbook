@@ -156,7 +156,10 @@ export default function EditScheduleModal({
       mt="4"
       px="3"
       py="3"
-      style={{ backgroundColor: "var(--violet-a3)", borderRadius: "8px" }}
+      style={{
+        backgroundColor: "var(--violet-a3)",
+        borderRadius: "var(--radius-3)",
+      }}
     >
       <Text as="div" size="medium" weight="semibold" color="text-high" mb="1">
         Record a result
