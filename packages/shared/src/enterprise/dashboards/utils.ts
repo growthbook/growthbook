@@ -160,9 +160,7 @@ export function evaluateDashboardGlobalControlsForBlock<
 >(
   block: T,
   dashboard: Pick<DashboardInterface, "globalControls">,
-  blockIndex?: number,
 ): DashboardGlobalControlsEvaluation<T> {
-  void blockIndex;
   const dateRangeEnabled = blockUsesDashboardDateControl(block);
   const dateRangeApplied = Boolean(
     dateRangeEnabled && dashboard.globalControls?.dateRange,
@@ -191,9 +189,8 @@ export function getEffectiveExplorationConfig<
 >(
   block: T,
   dashboard: Pick<DashboardInterface, "globalControls">,
-  blockIndex?: number,
 ): T["config"] {
-  return evaluateDashboardGlobalControlsForBlock(block, dashboard, blockIndex)
+  return evaluateDashboardGlobalControlsForBlock(block, dashboard)
     .effectiveConfig;
 }
 

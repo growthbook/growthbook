@@ -7,6 +7,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   getDashboardGlobalControlApplicability,
+  isDashboardGlobalControlSupportedBlock,
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
@@ -26,6 +27,23 @@ function hasCompleteDateRange(dateRange: DashboardDateRange): boolean {
     return Boolean(dateRange.lookbackValue && dateRange.lookbackUnit);
   }
   return true;
+}
+
+function autoEnrollBlocksInDateControl(
+  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+): DashboardBlockInterfaceOrData<DashboardBlockInterface>[] {
+  return blocks.map((block) =>
+    isDashboardGlobalControlSupportedBlock(block) &&
+    block.globalControlSettings?.dateRange === undefined
+      ? {
+          ...block,
+          globalControlSettings: {
+            ...block.globalControlSettings,
+            dateRange: true,
+          },
+        }
+      : block,
+  );
 }
 
 interface Props {
@@ -75,7 +93,11 @@ export default function DashboardGlobalControlsBar({
     setSaving(true);
     try {
       await onGlobalControlsChange(nextGlobalControls, nextBlocks);
-      const blocksForRefresh = nextBlocks ?? blocks;
+      const blocksForRefresh =
+        nextBlocks ??
+        (!globalControls?.dateRange && nextGlobalControls?.dateRange
+          ? autoEnrollBlocksInDateControl(blocks)
+          : blocks);
       const nextApplicability = getDashboardGlobalControlApplicability({
         blocks: blocksForRefresh,
         globalControls: nextGlobalControls,

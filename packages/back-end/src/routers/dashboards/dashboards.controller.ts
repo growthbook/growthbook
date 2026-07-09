@@ -169,7 +169,8 @@ export async function updateDashboard(
     updates.blocks =
       !dashboard.globalControls?.dateRange && updates.globalControls?.dateRange
         ? createdBlocks.map((block) =>
-            isDashboardGlobalControlSupportedBlock(block)
+            isDashboardGlobalControlSupportedBlock(block) &&
+            block.globalControlSettings?.dateRange === undefined
               ? {
                   ...block,
                   globalControlSettings: {
@@ -188,7 +189,8 @@ export async function updateDashboard(
     updates.globalControls?.dateRange
   ) {
     updates.blocks = dashboard.blocks.map((block) =>
-      isDashboardGlobalControlSupportedBlock(block)
+      isDashboardGlobalControlSupportedBlock(block) &&
+      block.globalControlSettings?.dateRange === undefined
         ? {
             ...block,
             globalControlSettings: {

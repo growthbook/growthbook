@@ -22,7 +22,6 @@ import { BlockProps } from ".";
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
-  blockIndex,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -63,11 +62,9 @@ export default function ProductAnalyticsExplorerBlock({
   // big-number / table trends are computed identically.
   const submittedConfig =
     block.config && dashboardGlobalControls
-      ? getEffectiveExplorationConfig(
-          block,
-          { globalControls: dashboardGlobalControls },
-          blockIndex,
-        )
+      ? getEffectiveExplorationConfig(block, {
+          globalControls: dashboardGlobalControls,
+        })
       : (block.config ?? data?.exploration?.config ?? null);
   const comparisonPayload = useMemo(() => {
     if (
