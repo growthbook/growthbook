@@ -1269,9 +1269,11 @@ export default function ImportFromStatsig() {
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
-                mutateFactTables();
                 mutateFeatures();
                 refreshOrganization();
+                // Await so a quick repeat import diffs against the freshly
+                // imported fact tables, not the stale pre-import cache
+                await mutateFactTables();
               }}
             >
               Step 2: Import to GrowthBook
