@@ -1,6 +1,7 @@
 import {
   ExperimentCardData,
   renderDetailedCard,
+  renderCompactCard,
 } from "back-end/src/services/slack/chartImage";
 
 // Experiment-card styles.
@@ -18,7 +19,7 @@ import {
 //   3. (Later) resolve the org/user's chosen style at the call site and pass it
 //      to `renderExperimentCard`.
 
-export type ExperimentCardStyle = "detailed";
+export type ExperimentCardStyle = "detailed" | "compact";
 
 export const DEFAULT_CARD_STYLE: ExperimentCardStyle = "detailed";
 
@@ -39,6 +40,14 @@ const CARD_STYLES: Record<ExperimentCardStyle, CardStyleDefinition> = {
       "Full results table with per-variation posterior violin plots, " +
       "confidence intervals, hypothesis, conclusion, and health signals.",
     render: renderDetailedCard,
+  },
+  compact: {
+    id: "compact",
+    label: "Compact",
+    description:
+      "A glanceable single-hero-stat card for notifications — headline " +
+      "metric, lift, chance-to-win, and a mini violin.",
+    render: renderCompactCard,
   },
 };
 

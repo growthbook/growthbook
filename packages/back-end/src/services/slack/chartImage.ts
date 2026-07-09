@@ -1296,6 +1296,11 @@ function buildCard(exp: ExperimentCardData): El {
     footerEl(footerItems),
   ].filter(Boolean) as El[];
 
+  return cardShell(hue, column);
+}
+
+// The rounded panel + full-height status rail shared by every card style.
+function cardShell(hue: Hue, column: El[]): El {
   return el(
     "div",
     {
@@ -1319,8 +1324,200 @@ function buildCard(exp: ExperimentCardData): El {
 }
 
 // ---------------------------------------------------------------------------
+// Compact card — a glanceable single-hero-stat card for per-event Slack
+// notifications (significance / stopped / started / warning). Reuses the same
+// header, rail, violin, badge, and tokens as the detailed card, condensed to
+// header + one hero row + slim footer (no full metrics table).
+// ---------------------------------------------------------------------------
+
+// Markdown -> plain text, collapsed and clamped to one line for compact prose.
+function plainClamp(md: string, max: number): string {
+  const plain = parseInlineMd(md)
+    .map((r) => r.text)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  return plain.length <= max ? plain : plain.slice(0, max - 1).trimEnd() + "…";
+}
+
+function compactBody(exp: ExperimentCardData): El {
+  // Started: no results — hypothesis one-liner + goal/target meta.
+  if (exp.state === "started") {
+    const meta = [
+      `Goal: ${exp.goal}`,
+      exp.target ? `Target ~${exp.target.toLocaleString()} users` : undefined,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: "14px 24px 16px",
+      },
+      [
+        exp.hypothesis
+          ? txt(plainClamp(exp.hypothesis, 150), {
+              fontSize: 13,
+              lineHeight: 1.5,
+              color: P.text,
+            })
+          : null,
+        txt(meta, { fontSize: 12, color: P.subtle }),
+      ].filter(Boolean) as El[],
+    );
+  }
+
+  // Warning: a single compact line.
+  if (exp.state === "warning") {
+    const alert = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${P.st.amber}" stroke-width="2.2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14" stroke="${P.st.amber}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.1" fill="${P.st.amber}"/></svg>`;
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        gap: 10,
+        alignItems: "center",
+        padding: "16px 24px",
+        backgroundColor: SOFT.amber,
+      },
+      [
+        svgImg(alert, 16, 16),
+        txt(
+          exp.srm
+            ? `SRM detected — ${exp.srm}. Results are unreliable until fixed.`
+            : "Data-quality warning — results are unreliable until fixed.",
+          { fontSize: 13, fontWeight: 500, color: P.text },
+        ),
+      ],
+    );
+  }
+
+  // Has results: the headline row (first non-control variation) as a hero stat
+  // — goal metric, big lift, chance-to-win, mini violin, + optional conclusion.
+  const r = exp.rows[0];
+  const ctw =
+    r?.ctw !== undefined ? `${r.ctw} chance to win` : "collecting data";
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      padding: "16px 24px",
+    },
+    [
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 20,
+        },
+        [
+          el(
+            "div",
+            { display: "flex", flexDirection: "column", flexGrow: 1, gap: 5 },
+            [
+              txt(exp.goal, {
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                color: P.subtle,
+              }),
+              el(
+                "div",
+                {
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  gap: 12,
+                },
+                [
+                  r?.chg && r.dir
+                    ? pctCell(r.chg, r.dir, 22)
+                    : txt("—", { fontSize: 22, color: P.subtle }, true),
+                  txt(
+                    r ? `${r.v} · ${ctw}` : "",
+                    { fontSize: 12, color: P.subtle },
+                    false,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          r?.vio
+            ? el(
+                "div",
+                { display: "flex", flexDirection: "column", gap: 2 },
+                [
+                  svgImg(
+                    violinSvg(300, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
+                    300,
+                    40,
+                  ),
+                  r.ci
+                    ? txt(
+                        `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
+                        {
+                          fontSize: 9.5,
+                          color: P.subtle,
+                          width: 300,
+                          justifyContent: "center",
+                        },
+                        true,
+                      )
+                    : null,
+                ].filter(Boolean) as El[],
+              )
+            : null,
+        ].filter(Boolean) as El[],
+      ),
+      exp.conclusion?.text
+        ? txt(plainClamp(exp.conclusion.text, 150), {
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: P.muted,
+          })
+        : null,
+    ].filter(Boolean) as El[],
+  );
+}
+
+function buildCompactCard(exp: ExperimentCardData): El {
+  const hue = HUE[exp.state];
+  const footerItems =
+    exp.state === "started"
+      ? [exp.variants.join(" · "), exp.dates, exp.ds]
+      : [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
+  return cardShell(
+    hue,
+    [headerEl(exp), compactBody(exp), footerEl(footerItems)].filter(
+      Boolean,
+    ) as El[],
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Render.
 // ---------------------------------------------------------------------------
+
+// satori (flexbox tree -> SVG) -> resvg-wasm (SVG -> PNG @ 2x width).
+async function rasterize(root: El): Promise<Buffer> {
+  await ensureWasmInitialized();
+  const svg = await satori(root as unknown as Parameters<typeof satori>[0], {
+    width: CARD_WIDTH,
+    fonts: getFonts(),
+  });
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width", value: CARD_WIDTH * 2 },
+  });
+  return Buffer.from(resvg.render().asPng());
+}
 
 /**
  * Render the "detailed" experiment card to a PNG buffer — the full results
@@ -1333,20 +1530,18 @@ function buildCard(exp: ExperimentCardData): El {
 export async function renderDetailedCard(
   exp: ExperimentCardData,
 ): Promise<Buffer> {
-  await ensureWasmInitialized();
+  return rasterize(buildCard(exp));
+}
 
-  const svg = await satori(
-    buildCard(exp) as unknown as Parameters<typeof satori>[0],
-    {
-      width: CARD_WIDTH,
-      fonts: getFonts(),
-    },
-  );
-
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: CARD_WIDTH * 2 },
-  });
-  return Buffer.from(resvg.render().asPng());
+/**
+ * Render the "compact" experiment card — a glanceable single-hero-stat card for
+ * per-event Slack notifications. Same tokens/header/rail as the detailed card,
+ * condensed to one hero row. Go through `renderExperimentCard` in `./cards`.
+ */
+export async function renderCompactCard(
+  exp: ExperimentCardData,
+): Promise<Buffer> {
+  return rasterize(buildCompactCard(exp));
 }
 
 /** Sample cards (from the design prototype) for eyeballing each state. */
