@@ -28,7 +28,7 @@ const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 // follow-up without a mention); the rest cover incoming-webhook notifications,
 // slash commands, posting replies (chat:write), and user lookups (users:read*).
 const SLACK_OAUTH_SCOPE =
-  "incoming-webhook,commands,chat:write,users:read,users:read.email,app_mentions:read,channels:history,groups:history,im:history,mpim:history,links:read";
+  "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:history,groups:history,im:history,mpim:history,links:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const DEFAULT_SLACK_EVENTS = ["feature.*", "experiment.*"];
 

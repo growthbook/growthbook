@@ -52,7 +52,6 @@ import { logger } from "back-end/src/util/logger";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import { uploadCardPng } from "back-end/src/services/slack/cardDelivery";
 
 // region Filtering
 
@@ -68,7 +67,7 @@ export type SlackMessageRenderContext = {
   experimentDetails?: ExperimentDetailsSource;
 };
 
-const buildBaseSlackMessageForNotificationEvent = async (
+export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string,
   renderContext?: SlackMessageRenderContext,
@@ -334,20 +333,17 @@ const buildBaseSlackMessageForNotificationEvent = async (
   }
 };
 
-// Best-effort compact results card for experiment events. Rendered to a PNG,
-// uploaded to a Slack-fetchable URL (object storage in prod, dev host locally),
-// and returned as an image block to append to the notification. Never throws —
-// a render/upload failure just means no image, and the text message stands.
-const buildExperimentCardImageBlock = async (
+// Render the compact results-card PNG for an experiment event (best-effort).
+// Returns the PNG + alt text; the caller decides how to attach it (a private
+// files.upload via chat.postMessage when a bot token is available, else a
+// hosted image_url). Never throws — a failure just means no card.
+export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
-  renderContext?: SlackMessageRenderContext,
-): Promise<KnownBlock | null> => {
+  organizationId: string,
+): Promise<{ png: Buffer; altText: string } | null> => {
   // Deleted experiments can't be rendered; every other experiment event can.
   if (!event.event.startsWith("experiment.")) return null;
   if (event.event === "experiment.deleted") return null;
-
-  const organizationId = renderContext?.organizationId;
-  if (!organizationId) return null;
 
   const object = event.data?.object as
     | { id?: string; experimentId?: string }
@@ -360,39 +356,14 @@ const buildExperimentCardImageBlock = async (
     const card = await buildExperimentCardData(context, experimentId);
     if (!card) return null;
     const png = await renderExperimentCard(card, "compact");
-    const imageUrl = await uploadCardPng(organizationId, png);
-    if (!imageUrl) return null; // no Slack-fetchable URL (needs object storage)
-    return {
-      type: "image",
-      image_url: imageUrl,
-      alt_text: `${card.name} — experiment results`,
-    };
+    return { png, altText: `${card.name} — experiment results` };
   } catch (e) {
     logger.warn(
       e,
-      `Slack notification: failed to build experiment card image for ${experimentId}`,
+      `Slack notification: failed to render experiment card for ${experimentId}`,
     );
     return null;
   }
-};
-
-export const getSlackMessageForNotificationEvent = async (
-  event: NotificationEvent,
-  eventId: string,
-  renderContext?: SlackMessageRenderContext,
-): Promise<SlackMessage | null> => {
-  const message = await buildBaseSlackMessageForNotificationEvent(
-    event,
-    eventId,
-    renderContext,
-  );
-  if (!message) return null;
-
-  // Append a compact results card to experiment notifications (best-effort).
-  const imageBlock = await buildExperimentCardImageBlock(event, renderContext);
-  if (imageBlock) message.blocks.push(imageBlock);
-
-  return message;
 };
 
 export const getSlackMessageForLegacyNotificationEvent = async (

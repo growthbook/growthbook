@@ -1,4 +1,4 @@
-import { cancellableFetch } from "back-end/src/util/http.util";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
 // Minimal Slack Web API client for the interactive assistant. Outbound event
@@ -175,6 +175,57 @@ export async function unfurlSlackLinks({
     unfurls,
   });
   return !!res?.ok;
+}
+
+/**
+ * Upload a PNG to Slack as a private, Slack-hosted file (requires the
+ * `files:write` scope) and return its file id, or null on failure. The file is
+ * NOT shared to a channel here — reference the returned id from an `image`
+ * block's `slack_file: { id }` field in a chat.postMessage call to embed it.
+ *
+ * Uses the current external-upload flow (getUploadURLExternal → PUT bytes →
+ * completeUploadExternal); the older files.upload is deprecated.
+ */
+export async function uploadSlackImageFile({
+  token,
+  png,
+  filename,
+  title,
+}: {
+  token: string;
+  png: Buffer;
+  filename: string;
+  title?: string;
+}): Promise<string | null> {
+  const getRes = await slackApiGet<
+    SlackApiResponse & { upload_url?: string; file_id?: string }
+  >(token, "files.getUploadURLExternal", {
+    filename,
+    length: String(png.length),
+  });
+  if (!getRes?.ok || !getRes.upload_url || !getRes.file_id) return null;
+
+  try {
+    const uploadRes = await fetch(getRes.upload_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: png,
+    });
+    if (!uploadRes.ok) {
+      logger.warn(`Slack file upload POST returned HTTP ${uploadRes.status}`);
+      return null;
+    }
+  } catch (e) {
+    logger.error(e, "Slack file upload POST threw");
+    return null;
+  }
+
+  const completeRes = await slackApiCall<SlackApiResponse>(
+    token,
+    "files.completeUploadExternal",
+    { files: [{ id: getRes.file_id, title: title || filename }] },
+  );
+  return completeRes?.ok ? getRes.file_id : null;
 }
 
 /**

@@ -13,6 +13,7 @@ import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
   getEventWebHookById,
+  getSlackBotAccessTokenForWebhook,
   updateEventWebHookStatus,
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
@@ -24,8 +25,14 @@ import {
   buildCoalescedSlackMessage,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
+  renderExperimentCardForEvent,
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  postSlackMessage,
+  uploadSlackImageFile,
+} from "back-end/src/services/slack/slackWebApi";
+import { uploadCardPng } from "back-end/src/services/slack/cardDelivery";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -177,6 +184,21 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
+    // Slack webhooks that have a bot token deliver via chat.postMessage so we
+    // can embed a privately-uploaded (files.upload) results card, rather than
+    // the incoming-webhook URL. Handled here and short-circuited; every other
+    // case falls through to the generic URL delivery below.
+    if ((eventWebHook.payloadType || "raw") === "slack" && event.version) {
+      const handled = await EventWebHookNotifier.deliverSlackViaBotToken({
+        job,
+        event,
+        eventId,
+        eventWebHook,
+        organizationId: organization.id,
+      });
+      if (handled) return;
+    }
+
     const payload = await (async () => {
       let invalidPayloadType: never;
 
@@ -204,9 +226,29 @@ export class EventWebHookNotifier implements Notifier {
               event.data,
               eventId,
             );
-          return getSlackMessageForNotificationEvent(event.data, eventId, {
-            organizationId: event.organizationId,
-          });
+          // No bot token (handled earlier) — fall back to a hosted image_url
+          // card via the incoming-webhook message.
+          const message = await getSlackMessageForNotificationEvent(
+            event.data,
+            eventId,
+            { organizationId: event.organizationId },
+          );
+          if (!message) return null;
+          const card = await renderExperimentCardForEvent(
+            event.data,
+            event.organizationId,
+          );
+          if (card) {
+            const url = await uploadCardPng(event.organizationId, card.png);
+            if (url) {
+              message.blocks.push({
+                type: "image",
+                image_url: url,
+                alt_text: card.altText,
+              });
+            }
+          }
+          return message;
         }
 
         case "discord": {
@@ -269,6 +311,111 @@ export class EventWebHookNotifier implements Notifier {
           payload,
         });
     }
+  }
+
+  /**
+   * Deliver a Slack notification via chat.postMessage using the webhook's bot
+   * token, so a privately-uploaded (files.upload) results card can be embedded.
+   * Returns false when there's no bot token/channel (caller falls back to the
+   * generic incoming-webhook delivery); true when it handled delivery.
+   */
+  private static async deliverSlackViaBotToken({
+    job,
+    event,
+    eventId,
+    eventWebHook,
+    organizationId,
+  }: {
+    job: Job<EventWebHookJobData>;
+    event: EventInterface;
+    eventId: string;
+    eventWebHook: EventWebHookInterface;
+    organizationId: string;
+  }): Promise<boolean> {
+    if (!event.version) return false; // legacy events use the generic path
+
+    const botToken = await getSlackBotAccessTokenForWebhook({
+      eventWebHookId: eventWebHook.id,
+      organizationId,
+    });
+    const channelId = (eventWebHook.slack as { channelId?: string } | undefined)
+      ?.channelId;
+    if (!botToken || !channelId) return false;
+
+    const message = await getSlackMessageForNotificationEvent(
+      event.data,
+      eventId,
+      { organizationId },
+    );
+    if (!message) return true; // nothing to send; still skip the generic path
+
+    const blocks: Record<string, unknown>[] = [
+      ...(message.blocks as unknown as Record<string, unknown>[]),
+    ];
+
+    // Embed the compact card: prefer a private uploaded file, falling back to a
+    // hosted image_url if the upload fails.
+    const card = await renderExperimentCardForEvent(event.data, organizationId);
+    if (card) {
+      const fileId = await uploadSlackImageFile({
+        token: botToken,
+        png: card.png,
+        filename: "experiment-card.png",
+        title: card.altText,
+      });
+      if (fileId) {
+        blocks.push({
+          type: "image",
+          slack_file: { id: fileId },
+          alt_text: card.altText,
+        });
+      } else {
+        const url = await uploadCardPng(organizationId, card.png);
+        if (url) {
+          blocks.push({
+            type: "image",
+            image_url: url,
+            alt_text: card.altText,
+          });
+        }
+      }
+    }
+
+    const ts = await postSlackMessage({
+      token: botToken,
+      channel: channelId,
+      text: message.text,
+      blocks,
+    });
+
+    const method = eventWebHook.method || "POST";
+    const payload = message as unknown as Record<string, unknown>;
+    if (ts) {
+      await EventWebHookNotifier.handleWebHookSuccess({
+        job,
+        webHookResult: { result: "success", statusCode: 200, responseBody: ts },
+        organizationId,
+        event: event.event,
+        url: eventWebHook.url,
+        method,
+        payload,
+      });
+    } else {
+      await EventWebHookNotifier.handleWebHookError({
+        job,
+        webHookResult: {
+          result: "error",
+          statusCode: null,
+          error: "Slack chat.postMessage failed",
+        },
+        organizationId,
+        event: event.event,
+        url: eventWebHook.url,
+        method,
+        payload,
+      });
+    }
+    return true;
   }
 
   /**
