@@ -22,6 +22,7 @@ import {
   parsePlainJSONObject,
   getFeatureBaseConfigKey,
   ensureConfigBacking,
+  stripConfigExtends,
   deepMergePatch,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -616,14 +617,14 @@ export function getFeatureDefinition({
         )
       : val;
 
-  // For a config-backed feature, every rule/variation value implicitly serves
-  // the base config: if a value doesn't reference its own config, we prepend the
-  // feature's so resolution flattens the base config underneath it. `baseConfig`
-  // is authoritative; the default value itself is stored as a pure patch, so it
-  // too gets the base injected (here and at emission below).
+  // Config-backing is authoritative via `baseConfig`. For a config-backed
+  // feature, every rule/variation value implicitly serves the base config: if a
+  // value doesn't reference its own (family) config, we prepend the feature's so
+  // resolution flattens the base underneath it. For a NON-config feature, a
+  // value must not carry `@config:` at all — strip any stray ref so it can never
+  // resolve a config (`@const:` refs are kept).
   const defaultConfigKey = getFeatureBaseConfigKey({
     valueType: feature.valueType,
-    defaultValue,
     baseConfig: feature.baseConfig,
   });
 
@@ -631,10 +632,11 @@ export function getFeatureDefinition({
     if (feature.valueType !== "json") return null;
     // Inject the base config so the resolved default — the sparse merge base for
     // rules — includes the config layer even when the stored default is a pure
-    // patch (no-op when the default already references its own config).
+    // patch (no-op when the default already references its own config). Non-config
+    // features strip any stray `@config:`.
     const backed = defaultConfigKey
       ? ensureConfigBacking(defaultValue, defaultConfigKey)
-      : defaultValue;
+      : (stripConfigExtends(defaultValue) ?? defaultValue);
     const base = parsePlainJSONObject(backed);
     if (!base || !constantMap) return base;
     const resolved = resolveRefs(base);
@@ -648,11 +650,13 @@ export function getFeatureDefinition({
   const valueForSDK = (valueStr: string, sparse?: boolean): unknown => {
     // Non-object values (array/scalar/string) have replace semantics — ship
     // them as-is rather than prepending a config base they'd never merge with.
-    const normalized =
-      defaultConfigKey &&
-      (valueStr.trim() === "" || parsePlainJSONObject(valueStr) !== null)
+    const normalized = defaultConfigKey
+      ? valueStr.trim() === "" || parsePlainJSONObject(valueStr) !== null
         ? ensureConfigBacking(valueStr, defaultConfigKey)
-        : valueStr;
+        : valueStr
+      : // Non-config feature: drop any stray `@config:` so it can't resolve a
+        // config (keeps `@const:` refs).
+        (stripConfigExtends(valueStr) ?? valueStr);
     if (sparse && jsonDefaultObj) {
       const patch = parsePlainJSONObject(normalized);
       if (patch !== null) {

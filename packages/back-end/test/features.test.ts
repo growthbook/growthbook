@@ -1279,6 +1279,7 @@ describe("SDK Payloads", () => {
   it("deep-merges a sparse rule onto a config-backed feature default", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
+    feature.baseConfig = "base";
     // Config-backed default that also layers `extra` on top of the config.
     feature.defaultValue = JSON.stringify({
       $extends: ["@config:base"],
@@ -1366,9 +1367,55 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
   });
 
+  it("strips a stray @config: on a NON-config flag (no baseConfig)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    // No baseConfig => not config-designed. A stray inline @config: (e.g. from a
+    // permissive v1 write) must NOT resolve the config.
+    feature.defaultValue = JSON.stringify({
+      $extends: ["@config:base"],
+      foo: 1,
+    });
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "force",
+        id: "f",
+        description: "",
+        enabled: true,
+        value: JSON.stringify({ $extends: ["@config:base"], bar: 2 }),
+      },
+    ];
+
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":1}',
+        },
+      ],
+    ]);
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+
+    // `cfg` never appears — the config ref is stripped, only own keys remain.
+    expect(def?.defaultValue).toEqual({ foo: 1 });
+    expect(def?.rules).toEqual([{ force: { bar: 2 } }]);
+  });
+
   it("ships non-object rule values on a config-backed feature as-is", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
+    feature.baseConfig = "base";
     feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
     feature.environmentSettings["production"].rules = [
       {
@@ -1427,6 +1474,7 @@ describe("SDK Payloads", () => {
   it("routes safe-rollout values through config flattening", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
+    feature.baseConfig = "base";
     feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
     feature.environmentSettings["production"].rules = [
       {

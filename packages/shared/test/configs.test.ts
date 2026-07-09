@@ -210,39 +210,24 @@ describe("orderConfigsByLineage", () => {
 describe("getFeatureBaseConfigKey", () => {
   it("returns the first-class baseConfig for a JSON flag", () => {
     expect(
-      getFeatureBaseConfigKey({
-        valueType: "json",
-        defaultValue: "{}",
-        baseConfig: "pricing",
-      }),
+      getFeatureBaseConfigKey({ valueType: "json", baseConfig: "pricing" }),
     ).toBe("pricing");
   });
 
-  it("falls back to the default value's @config ref when baseConfig is unset", () => {
+  it("returns null for a JSON flag with no baseConfig (no $extends fallback)", () => {
+    // baseConfig is the SOLE source — a stray inline @config: does not count.
+    expect(getFeatureBaseConfigKey({ valueType: "json" })).toBeNull();
     expect(
-      getFeatureBaseConfigKey({
-        valueType: "json",
-        defaultValue: JSON.stringify({ $extends: ["@config:pricing"] }),
-      }),
-    ).toBe("pricing");
+      getFeatureBaseConfigKey({ valueType: "json", baseConfig: null }),
+    ).toBeNull();
   });
 
   it("returns null for a non-JSON flag even when baseConfig is set", () => {
     expect(
-      getFeatureBaseConfigKey({
-        valueType: "string",
-        defaultValue: "OFF",
-        baseConfig: "pricing",
-      }),
+      getFeatureBaseConfigKey({ valueType: "string", baseConfig: "pricing" }),
     ).toBeNull();
     expect(
       getFeatureBaseConfigKey({ valueType: "boolean", baseConfig: "pricing" }),
-    ).toBeNull();
-  });
-
-  it("returns null for a plain JSON flag with no config", () => {
-    expect(
-      getFeatureBaseConfigKey({ valueType: "json", defaultValue: "{}" }),
     ).toBeNull();
   });
 });

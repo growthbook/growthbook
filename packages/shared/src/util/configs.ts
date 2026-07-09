@@ -144,21 +144,17 @@ export function valueHasConfigExtends(value: string | undefined): boolean {
   );
 }
 
-// The config backing a feature, if any. `baseConfig` is the first-class,
-// authoritative source; when absent we fall back to sniffing the default value's
-// `@config:` `$extends` (legacy features and the "optional config on the default
-// value" case). This — not `getConfigBackingKey(defaultValue)` — is the canonical
-// "is this feature config-backed?" check across the front-end, API, and compiler.
+// The config backing a feature, if any. `baseConfig` is the SOLE, authoritative
+// source of config-backing ("Config mode") — a value's own `@config:` `$extends`
+// is never treated as backing the feature (the payload compiler strips such
+// stray refs for non-config flags). Only applies to JSON flags. This is the
+// canonical "is this feature config-backed?" check across FE, API, and compiler.
 export function getFeatureBaseConfigKey(feature: {
   valueType: string;
-  defaultValue?: string;
   baseConfig?: string | null;
 }): string | null {
-  // Config backing only applies to JSON flags; a stray baseConfig on a
-  // non-JSON flag (e.g. a bad v1 write) is not treated as config-backed.
   if (feature.valueType !== "json") return null;
-  if ((feature.baseConfig ?? null) !== null) return feature.baseConfig ?? null;
-  return getConfigBackingKey(feature.defaultValue);
+  return feature.baseConfig ?? null;
 }
 
 // Compose a config key + an override patch into the stored value string. The
