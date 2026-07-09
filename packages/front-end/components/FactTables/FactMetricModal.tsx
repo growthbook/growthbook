@@ -15,7 +15,7 @@ import {
   UpdateFactMetricProps,
   MetricQuantileSettings,
   FactMetricType,
-  FactTableInterface,
+  FactTableDefinition,
   MetricWindowSettings,
   ColumnInterface,
   ColumnAggregation,
@@ -156,7 +156,7 @@ function QuantileSelector({
 }
 
 function getNumericColumns(
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): ColumnInterface[] {
   if (!factTable) return [];
   return factTable.columns.filter(
@@ -182,7 +182,7 @@ function getColumnOptions({
   excludeColumns,
   groupPrefix = "",
 }: {
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
@@ -683,7 +683,7 @@ function getWHERE({
   quantileSettings,
   type,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
@@ -772,8 +772,8 @@ function getPreviewSQL({
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
-  numeratorFactTable: FactTableInterface | null;
-  denominatorFactTable: FactTableInterface | null;
+  numeratorFactTable: FactTableDefinition | null;
+  denominatorFactTable: FactTableDefinition | null;
 }): { sql: string; denominatorSQL?: string; experimentSQL: string } {
   const identifier =
     "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";

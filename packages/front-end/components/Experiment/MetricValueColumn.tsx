@@ -11,7 +11,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -72,7 +72,7 @@ interface Props
   noDataMessage?: ReactElement | string;
   displayCurrency: string;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   asTd?: boolean;
 }
 

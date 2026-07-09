@@ -88,6 +88,10 @@ export interface FactTableInterface {
   > | null;
 }
 
+// Slimmed fact table returned by the definitions endpoint. The sql field is
+// excluded; fetch the full fact table by id when it's needed.
+export type FactTableDefinition = Omit<FactTableInterface, "sql">;
+
 export type AggregatedFactTableSettings = z.infer<
   typeof aggregatedFactTableSettingsValidator
 >;
@@ -159,6 +163,10 @@ export type CreateFactMetricProps = CreateProps<FactMetricInterface>;
 export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 
 export type FactTableMap = Map<string, FactTableInterface>;
+
+// Accepts both full fact tables and slimmed definitions. Use for utils that
+// don't read `sql`.
+export type FactTableDefinitionMap = Map<string, FactTableDefinition>;
 
 export type FactFilterTestResults = {
   sql: string;

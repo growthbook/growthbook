@@ -7,7 +7,7 @@ import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
 import {
   expandMetricGroups,
@@ -483,7 +483,7 @@ export function generateRowsForMetric({
   }>;
   expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
   sliceTagsFilter?: string[];
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];

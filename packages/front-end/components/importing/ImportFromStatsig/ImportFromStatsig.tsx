@@ -4,6 +4,7 @@ import { FaCheck, FaMinusCircle, FaExchangeAlt } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
+import { FactTableInterface } from "shared/types/fact-table";
 import {
   buildImportedData,
   runImport,
@@ -16,6 +17,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   useEnvironments,
@@ -998,14 +1000,17 @@ export default function ImportFromStatsig() {
   const { features, mutate: mutateFeatures } = useFeaturesList({
     useCurrentProject: false,
   });
-  const {
-    mutateDefinitions,
-    savedGroups,
-    tags,
-    projects,
-    factTables,
-    factMetrics,
-  } = useDefinitions();
+  const { mutateDefinitions, savedGroups, tags, projects, factMetrics } =
+    useDefinitions();
+  // The import diff compares fact table sql, which the slimmed definitions
+  // don't include, so fetch the full fact tables
+  const { data: factTablesData } = useApi<{ factTables: FactTableInterface[] }>(
+    "/fact-tables",
+  );
+  const factTables = useMemo(
+    () => factTablesData?.factTables || [],
+    [factTablesData],
+  );
   const { experiments } = useExperiments();
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();

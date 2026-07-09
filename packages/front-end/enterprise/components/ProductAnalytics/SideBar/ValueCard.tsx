@@ -11,7 +11,7 @@ import {
 import Collapsible from "react-collapsible";
 import { z } from "zod";
 import { rowFilterValidator } from "shared/validators";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -45,7 +45,7 @@ export default function ValueCard({
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  let factTable: FactTableInterface | null = null;
+  let factTable: FactTableDefinition | null = null;
   if (draftExploreState.dataset?.type === "fact_table") {
     factTable = getFactTableById(draftExploreState.dataset.factTableId ?? "");
   } else if (draftExploreState.dataset?.type === "metric") {
