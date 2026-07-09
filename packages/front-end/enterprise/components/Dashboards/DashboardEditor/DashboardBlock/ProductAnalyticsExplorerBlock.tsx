@@ -22,6 +22,7 @@ import { BlockProps } from ".";
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
+  isEditing,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -66,6 +67,18 @@ export default function ProductAnalyticsExplorerBlock({
           globalControls: dashboardGlobalControls,
         })
       : (block.config ?? data?.exploration?.config ?? null);
+  const configWithCurrentGlobalControls =
+    data?.exploration?.config && dashboardGlobalControls
+      ? getEffectiveExplorationConfig(
+          {
+            ...block,
+            config: data.exploration.config,
+          } as typeof block,
+          {
+            globalControls: dashboardGlobalControls,
+          },
+        )
+      : null;
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -110,7 +123,11 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  if (submittedConfig && !isEqual(data.exploration.config, submittedConfig)) {
+  if (
+    !isEditing &&
+    configWithCurrentGlobalControls &&
+    !isEqual(data.exploration.config, configWithCurrentGlobalControls)
+  ) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
         <Callout status="info">
