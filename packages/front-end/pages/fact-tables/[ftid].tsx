@@ -103,7 +103,9 @@ export default function FactTablePage() {
   const factTable = data?.factTable;
 
   // Child modals refresh definitions after saving; cascade that to the full
-  // fact table fetch so this page never shows stale data
+  // fact table fetch so this page never shows stale data. Keying off the whole
+  // definition (not dateUpdated) is intentional: background column refreshes
+  // update columns without bumping dateUpdated.
   useEffect(() => {
     mutateFactTable();
   }, [factTableDefinition, mutateFactTable]);

@@ -1182,6 +1182,18 @@ export default function ImportFromStatsig() {
               onClick={async () => {
                 if (!token) return;
 
+                // Fact tables feed the import diff; running without them would
+                // treat every existing fact table as new
+                if (!factTablesData) {
+                  setData({
+                    ...data,
+                    status: "error",
+                    error:
+                      "Could not load existing fact tables. Please refresh and try again.",
+                  });
+                  return;
+                }
+
                 track("Statsig import fetch started", {
                   source: "statsig",
                   step: 1,
