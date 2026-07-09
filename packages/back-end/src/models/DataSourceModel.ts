@@ -189,6 +189,21 @@ export async function getManagedWarehouseRecreateState(
   };
 }
 
+/**
+ * Clear the license-server recreate outcome at the start of a migration so a stale
+ * `recreateStatus` from an earlier rebuild (e.g. a prior super-admin recreate) can't
+ * be misread as the current migration's result. Raw `$unset` since `recreateStatus`
+ * is a top-level field the license server owns, not on the Mongoose schema.
+ */
+export async function clearManagedWarehouseRecreateStatus(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await getCollection<{ recreateStatus?: unknown }>("datasources").updateOne(
+    { organization: context.org.id, type: "growthbook_clickhouse" },
+    { $unset: { recreateStatus: "" } },
+  );
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,

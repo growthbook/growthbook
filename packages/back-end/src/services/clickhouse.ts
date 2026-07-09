@@ -36,6 +36,7 @@ import {
 import {
   getGrowthbookDatasource,
   dangerouslyGetGrowthbookDatasourceBypassPermission,
+  clearManagedWarehouseRecreateStatus,
   getManagedWarehouseRecreateState,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
@@ -694,6 +695,11 @@ export async function migrateManagedWarehouseToJson(
     );
     return;
   }
+  // Forget any prior rebuild outcome BEFORE clearing materializedColumns, so once the
+  // warehouse is structurally migrated (matcols cleared) the settle branch can't read a
+  // stale `recreateStatus="success"` from an earlier recreate and unblock over the wrong
+  // tables. The rebuild we fire below records this migration's fresh outcome.
+  await clearManagedWarehouseRecreateStatus(context);
   await updateDataSource(
     context,
     synced,
