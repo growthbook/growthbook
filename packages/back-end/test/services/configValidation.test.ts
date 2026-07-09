@@ -1,5 +1,9 @@
 import { ConfigInterface } from "shared/types/config";
-import { assertConfigInvariantsValid } from "back-end/src/services/configValidation";
+import { FeatureRule } from "shared/types/feature";
+import {
+  assertConfigInvariantsValid,
+  assertConfigBackedFeatureValuesValid,
+} from "back-end/src/services/configValidation";
 import { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 
@@ -141,5 +145,116 @@ describe("assertConfigInvariantsValid (descendants)", () => {
         '{"log_level":"debug"}',
       ),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("assertConfigBackedFeatureValuesValid", () => {
+  const field = (
+    key: string,
+    type: "integer" | "string",
+  ): Record<string, unknown> => ({
+    key,
+    type,
+    required: false,
+    default: "",
+    description: "",
+    enum: [],
+  });
+  const pricing = {
+    key: "pricing",
+    name: "Pricing",
+    value: '{"context_window":8000,"log_level":"info"}',
+    schema: {
+      type: "object" as const,
+      fields: [
+        field("context_window", "integer"),
+        field("log_level", "string"),
+      ],
+      invariants: [noDebug],
+    },
+  };
+  const forceRule = (value: string): FeatureRule =>
+    ({
+      type: "force",
+      id: "r",
+      description: "",
+      enabled: true,
+      value,
+      allEnvironments: true,
+    }) as unknown as FeatureRule;
+
+  it("blocks a default-value patch whose field type violates the config schema", async () => {
+    const context = makeContext({ configs: [pricing] });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: "pricing" },
+        { defaultValue: '{"context_window":"banana"}' },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it("blocks a rule patch that violates a config invariant", async () => {
+    const context = makeContext({ configs: [pricing] });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: "pricing" },
+        { rules: [forceRule('{"log_level":"debug"}')] },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it("passes a valid patch", async () => {
+    const context = makeContext({ configs: [pricing] });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: "pricing" },
+        {
+          defaultValue: '{"context_window":16000}',
+          rules: [forceRule('{"log_level":"warn"}')],
+        },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("is a no-op for a non-config flag", async () => {
+    const context = makeContext({ configs: [pricing] });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: null },
+        { defaultValue: '{"context_window":"banana"}' },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("respects skipSchemaValidation", async () => {
+    const context = makeContext({
+      configs: [pricing],
+      skipSchemaValidation: true,
+    });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: "pricing" },
+        { defaultValue: '{"context_window":"banana"}' },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("soft-warns instead of blocking when the org disables hard blocking", async () => {
+    const context = makeContext({
+      configs: [pricing],
+      settings: { blockPublishOnSchemaError: false },
+    });
+    await expect(
+      assertConfigBackedFeatureValuesValid(
+        context,
+        { valueType: "json", baseConfig: "pricing" },
+        { defaultValue: '{"context_window":"banana"}' },
+      ),
+    ).rejects.toBeInstanceOf(SoftWarningError);
   });
 });

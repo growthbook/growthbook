@@ -16,6 +16,7 @@ import {
   getApiFeatureObjV2,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
@@ -175,6 +176,10 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     // `mapV2ApiRuleToFeatureRule` doesn't validate rule values — enforce here.
     assertFeatureValuesValid(req.context, feature, { rules: feature.rules });
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
+      defaultValue: feature.defaultValue,
+      rules: feature.rules,
+    });
 
     assertConfigSchemaCompat({
       jsonSchemaEnabled: feature.jsonSchema?.enabled,

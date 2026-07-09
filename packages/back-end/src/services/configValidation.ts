@@ -9,8 +9,15 @@ import {
   findIncompatibleConfigValueKeys,
   collectConfigInvariantViolations,
   collectDescendantInvariantViolations,
+  getConfigBackingKey,
+  getConfigBackingPatch,
 } from "shared/util";
-import { SchemaField, SimpleSchema } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  SchemaField,
+  SimpleSchema,
+} from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -351,6 +358,91 @@ export async function assertConfigInvariantsValid(
     if (context.ignoreWarnings) return;
     throw new SoftWarningError(
       "Publishing config value(s) that violate a validation rule:\n" +
+        errors.join("\n"),
+      errors,
+    );
+  }
+  throw new BadRequestError(errors.join("; "));
+}
+
+// Validate a config-backed feature's values against the backing config's schema
+// and invariants. Each value is an override patch on a config (its own
+// `@config:` ref, else the feature's `baseConfig`); the patch's fields must
+// conform to the config's effective schema, and the patch merged onto the
+// config's resolved value must satisfy the config's invariants. Blocking follows
+// the org's `blockPublishOnSchemaError` (bypassable soft warning when false);
+// opt out with ?skipSchemaValidation=true.
+export async function assertConfigBackedFeatureValuesValid(
+  context: Context,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): Promise<void> {
+  if (context.skipSchemaValidation) return;
+  if (feature.valueType !== "json") return;
+
+  const backed: { config: string; patch: string; label: string }[] = [];
+  const add = (raw: string | undefined, label: string) => {
+    if (raw === undefined) return;
+    const config = getConfigBackingKey(raw) ?? feature.baseConfig ?? null;
+    if (!config) return;
+    backed.push({ config, patch: getConfigBackingPatch(raw), label });
+  };
+  add(values.defaultValue, "Default value");
+  for (const rule of values.rules ?? []) {
+    if (rule.type === "force" || rule.type === "rollout") {
+      add(rule.value, "Rule value");
+    } else if (rule.type === "experiment-ref") {
+      rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+    } else if (rule.type === "experiment") {
+      rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+    } else if (rule.type === "safe-rollout") {
+      add(rule.controlValue, "Control value");
+      add(rule.variationValue, "Variation value");
+    }
+  }
+  if (!backed.length) return;
+
+  const all = await context.models.configs.getAllForReconcile();
+  const byKey = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
+  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
+  // Not a valid config key (leading underscore), so it can't collide with a real
+  // config when modeling the patch as a lineage child for invariant evaluation.
+  const PATCH_KEY = "__feature_patch__";
+
+  const errors: string[] = [];
+  for (const { config, patch, label } of backed) {
+    const patchObj = parsePlainJSONObject(patch);
+    // Non-object patches (arrays/scalars) replace rather than merge onto the
+    // config's object shape, so there's nothing to schema-check.
+    if (!patchObj) continue;
+
+    const { effectiveSchema } = resolveConfigChain(
+      linearizeConfigDag(config, byKey),
+    );
+    const spineRoot = byKey.get(getConfigSpineRootKey(config, byKey));
+    const res = validateConfigValue({
+      value: patchObj,
+      fields: effectiveSchema,
+      additionalProperties: configIsExtensible(spineRoot, extensibleDefault),
+    });
+    if (!res.valid) errors.push(`${label}: ${res.errors.join(", ")}`);
+
+    const withPatch = new Map(byKey);
+    withPatch.set(PATCH_KEY, {
+      key: PATCH_KEY,
+      parent: config,
+      value: patch,
+    } as ConfigInterface);
+    for (const vi of collectConfigInvariantViolations(PATCH_KEY, withPatch)) {
+      errors.push(`${label}: ${vi.message}`);
+    }
+  }
+  if (!errors.length) return;
+
+  if (context.org.settings?.blockPublishOnSchemaError === false) {
+    if (context.ignoreWarnings) return;
+    throw new SoftWarningError(
+      "Config-backed value(s) don't conform to the config's schema:\n" +
         errors.join("\n"),
       errors,
     );

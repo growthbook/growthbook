@@ -22,6 +22,7 @@ import {
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
@@ -212,6 +213,19 @@ export async function publishFeatureRevision(
     defaultValue: mergeResult.result.defaultValue,
     rules: mergeResult.result.rules,
   });
+  // For a config-backed flag, validate against the backing config's schema +
+  // invariants (against the baseConfig going live, which the revision may change).
+  await assertConfigBackedFeatureValuesValid(
+    req.context,
+    {
+      valueType: feature.valueType,
+      baseConfig: mergeResult.result.metadata?.baseConfig ?? feature.baseConfig,
+    },
+    {
+      defaultValue: mergeResult.result.defaultValue,
+      rules: mergeResult.result.rules,
+    },
+  );
 
   const updatedFeature = await publishRevision({
     context: req.context,

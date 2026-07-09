@@ -29,6 +29,7 @@ import {
   getNextScheduledUpdate,
   getSavedGroupMap,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -239,6 +240,17 @@ export const updateFeatureV2 = createApiRequestHandler(
       rules: inboundFlatRules,
     });
   }
+
+  // Config-backed values (default + rules) validate against the backing config's
+  // schema + invariants, using the effective post-update baseConfig.
+  await assertConfigBackedFeatureValuesValid(
+    req.context,
+    { valueType: feature.valueType, baseConfig: effectiveBaseConfig },
+    {
+      defaultValue: storedDefault ?? feature.defaultValue,
+      rules: inboundFlatRules ?? feature.rules,
+    },
+  );
 
   const changedEnvEnabled: Record<string, boolean> = {};
   if (req.body.environments) {
