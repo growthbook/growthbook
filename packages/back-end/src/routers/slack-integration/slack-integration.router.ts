@@ -46,6 +46,16 @@ router.post(
   slackIntegrationController.postSlackOAuthInstall,
 );
 
+// Complete the Slack account-link flow (maps a Slack user to this GrowthBook
+// account). The signed `state` was minted by the bot for that Slack user.
+router.post(
+  "/link",
+  validateRequestMiddleware({
+    body: z.object({ state: z.string().min(1) }).strict(),
+  }),
+  slackIntegrationController.postSlackLink,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

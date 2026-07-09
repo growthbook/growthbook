@@ -1,9 +1,9 @@
 import type { ApiReqContext } from "back-end/types/api";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
-import { getUserByEmail } from "back-end/src/models/UserModel";
+import { getSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import { getSlackUserEmail } from "back-end/src/services/slack/slackWebApi";
+import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 
 // Minimal shape we read off the (lean) Slack Event Webhook docs.
 // `botAccessToken` is intentionally absent from the public
@@ -56,18 +56,16 @@ export function selectCandidateWebhooks<
 export type SlackTargetFailureReason =
   | "no_connection"
   | "no_bot_token"
-  | "no_email"
-  | "unknown_user"
+  | "not_linked"
   | "not_a_member"
   | "ambiguous_org";
 
 export type SlackAssistantTarget =
   | {
       ok: true;
-      /** Permission-scoped context for the matched user in the resolved org. */
+      /** Permission-scoped context for the linked user in the resolved org. */
       context: ApiReqContext;
       userId: string;
-      userEmail: string;
       organizationId: string;
       eventWebHookId: string;
       /** Bot token to post replies with (the resolved org's token). */
@@ -131,36 +129,33 @@ export async function resolveSlackAssistantTarget({
     };
   }
 
-  const email = await getSlackUserEmail({ token: botToken, slackUserId });
-  if (!email) {
+  // Identity comes from an explicit account link (proven via a GrowthBook
+  // login), NOT the Slack profile email — which is user-settable/spoofable in
+  // non-SSO workspaces and can be unset.
+  const link = teamId
+    ? await getSlackUserLink({ slackTeamId: teamId, slackUserId })
+    : null;
+  if (!link) {
     return {
       ok: false,
-      reason: "no_email",
+      reason: "not_linked",
       message:
-        "I couldn't read your Slack email, so I can't match you to a GrowthBook account.",
-      botToken,
-    };
-  }
-
-  const user = await getUserByEmail(email);
-  if (!user) {
-    return {
-      ok: false,
-      reason: "unknown_user",
-      message: `I couldn't find a GrowthBook account for ${email}. Ask an admin to invite that email to your organization.`,
+        "To use me, link your Slack account to GrowthBook (takes a few seconds): " +
+        buildSlackLinkUrl({ slackTeamId: teamId || "", slackUserId }),
       botToken,
     };
   }
 
   const candidates = selectCandidateWebhooks(webhooks, channelId);
 
-  // Narrow to orgs the user belongs to.
+  // Narrow to orgs the linked user belongs to. Membership is re-checked here so
+  // a stale link (user removed from the org) can't act.
   const memberTargets: { webhook: SlackWebhookDoc; context: ApiReqContext }[] =
     [];
   for (const webhook of candidates) {
     const org = await findOrganizationById(webhook.organizationId);
     if (!org) continue;
-    const context = await getContextForUserIdInOrg(org, user.id);
+    const context = await getContextForUserIdInOrg(org, link.growthbookUserId);
     if (context) memberTargets.push({ webhook, context });
   }
 
@@ -168,7 +163,8 @@ export async function resolveSlackAssistantTarget({
     return {
       ok: false,
       reason: "not_a_member",
-      message: `${email} isn't a member of the GrowthBook organization connected here.`,
+      message:
+        "Your linked GrowthBook account isn't a member of the organization connected to this channel.",
       botToken,
     };
   }
@@ -189,7 +185,8 @@ export async function resolveSlackAssistantTarget({
     return {
       ok: false,
       reason: "not_a_member",
-      message: `${email} isn't a member of the GrowthBook organization connected here.`,
+      message:
+        "Your linked GrowthBook account isn't a member of the organization connected to this channel.",
       botToken,
     };
   }
@@ -197,8 +194,7 @@ export async function resolveSlackAssistantTarget({
   return {
     ok: true,
     context: target.context,
-    userId: user.id,
-    userEmail: email,
+    userId: link.growthbookUserId,
     organizationId: target.webhook.organizationId,
     eventWebHookId: target.webhook.id,
     botToken: readBotToken(target.webhook) || botToken,

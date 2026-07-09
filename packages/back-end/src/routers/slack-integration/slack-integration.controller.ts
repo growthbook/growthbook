@@ -16,6 +16,8 @@ import {
   getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
 } from "back-end/src/services/slackIntegration";
+import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
+import { upsertSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 
 // region GET /integrations/slack
 
@@ -154,6 +156,40 @@ export const postSlackOAuthInstall = async (
 };
 
 // endregion POST /integrations/slack/oauth-install
+
+// region POST /integrations/slack/link
+
+// Complete the Slack account-link flow: the signed `state` proves the request
+// came from the bot for a specific Slack user; the session proves the acting
+// GrowthBook identity. We record the mapping so the assistant acts as this
+// user going forward (replacing the untrusted Slack profile email).
+type PostSlackLinkRequest = AuthRequest<{ state: string }>;
+
+export const postSlackLink = async (
+  req: PostSlackLinkRequest,
+  res: Response<{ linked: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  const parsed = verifySlackLinkState(req.body.state);
+  if (!parsed) {
+    return res.status(400).json({
+      message:
+        "This link is invalid or expired. Mention the bot again to get a fresh link.",
+    });
+  }
+
+  await upsertSlackUserLink({
+    slackTeamId: parsed.slackTeamId,
+    slackUserId: parsed.slackUserId,
+    organizationId: context.org.id,
+    growthbookUserId: context.userId,
+  });
+
+  return res.json({ linked: true });
+};
+
+// endregion POST /integrations/slack/link
 
 // region GET /integrations/slack/:id
 
