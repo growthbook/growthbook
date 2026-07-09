@@ -316,6 +316,151 @@ function svgImg(svg: string, width: number, height: number): El {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Lightweight markdown for user-authored prose (hypothesis / conclusion). These
+// fields come from GrowthBook's markdown editor, so a raw string would show
+// literal `**`, `-`, `[label](url)` etc. Satori has no HTML/markdown support and
+// only the vendored font weights (Inter 400/500/600, no bold-700 / italic), so
+// we parse a safe subset into styled runs: bold -> weight 600, inline code ->
+// mono, links -> their label, bullet lists -> real bullets. Italic markers are
+// unwrapped to plain text (no italic font available). Not a full parser — just
+// the marks that show up in short experiment write-ups.
+// ---------------------------------------------------------------------------
+
+type MdRun = { text: string; bold?: boolean; code?: boolean };
+type MdBlock = { type: "p" | "li"; runs: MdRun[] };
+
+function parseInlineMd(input: string): MdRun[] {
+  // Links first: keep the label, drop the URL (not clickable in an image).
+  const s = input.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  const runs: MdRun[] = [];
+  // Bold (**x** / __x__), `code`, then italic (*x* / _x_) unwrapped to plain.
+  // The italic branch is boundary-guarded so it doesn't fire inside
+  // snake_case identifiers or the like.
+  const re =
+    /(\*\*|__)(.+?)\1|`([^`]+)`|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\4(?![\w*])/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    if (m.index > last) runs.push({ text: s.slice(last, m.index) });
+    if (m[2] !== undefined) runs.push({ text: m[2], bold: true });
+    else if (m[3] !== undefined) runs.push({ text: m[3], code: true });
+    else if (m[5] !== undefined) runs.push({ text: m[5] });
+    last = re.lastIndex;
+  }
+  if (last < s.length) runs.push({ text: s.slice(last) });
+  return runs.filter((r) => r.text.length > 0);
+}
+
+function parseMarkdownBlocks(md: string): MdBlock[] {
+  const blocks: MdBlock[] = [];
+  let paragraph: string[] = [];
+  const flush = () => {
+    if (paragraph.length) {
+      blocks.push({ type: "p", runs: parseInlineMd(paragraph.join(" ")) });
+      paragraph = [];
+    }
+  };
+  for (const raw of md.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    const bullet = line.match(/^[-*+]\s+(.*)$/);
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (bullet) {
+      flush();
+      blocks.push({ type: "li", runs: parseInlineMd(bullet[1]!) });
+    } else if (heading) {
+      flush();
+      // Render a heading as a bold paragraph (no distinct heading sizes here).
+      blocks.push({ type: "p", runs: [{ text: heading[1]!, bold: true }] });
+    } else {
+      paragraph.push(line);
+    }
+  }
+  flush();
+  return blocks;
+}
+
+interface MdStyle {
+  fontSize: number;
+  color: string;
+  weight: 400 | 500 | 600;
+  lineHeight: number;
+  letterSpacing?: string;
+}
+
+function runSpan(r: MdRun, base: MdStyle): El {
+  return txt(
+    r.text,
+    {
+      fontSize: r.code ? base.fontSize - 0.5 : base.fontSize,
+      lineHeight: base.lineHeight,
+      color: r.code ? P.st.slate : base.color,
+      fontWeight: r.bold ? 600 : base.weight,
+      // Preserve the spaces at run boundaries — Satori trims each flex child's
+      // edge whitespace otherwise, gluing adjacent runs together.
+      whiteSpace: "pre-wrap",
+      ...(base.letterSpacing ? { letterSpacing: base.letterSpacing } : {}),
+      ...(r.code
+        ? {
+            backgroundColor: P.chip,
+            borderRadius: 3,
+            padding: "0 4px",
+          }
+        : {}),
+    },
+    r.code,
+  );
+}
+
+// Render markdown prose into a stacked block layout. Paragraphs and list items
+// are `flexWrap` rows of styled runs so text still wraps within the card.
+function renderMarkdown(md: string, base: MdStyle): El {
+  const blocks = parseMarkdownBlocks(md);
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: 6 },
+    blocks.map((b) => {
+      const runsRow = el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "baseline",
+        },
+        b.runs.map((r) => runSpan(r, base)),
+      );
+      if (b.type === "li") {
+        return el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            gap: 8,
+            alignItems: "flex-start",
+          },
+          [
+            el("div", {
+              width: 5,
+              height: 5,
+              borderRadius: 9999,
+              backgroundColor: base.color,
+              marginTop: base.fontSize * 0.5,
+              flexShrink: 0,
+            }),
+            runsRow,
+          ],
+        );
+      }
+      return runsRow;
+    }),
+  );
+}
+
 function fmtPct(v: number): string {
   return (v > 0 ? "+" : "") + Math.round(v * 10) / 10 + "%";
 }
@@ -888,10 +1033,11 @@ function startedBody(exp: ExperimentCardData): El {
           },
           true,
         ),
-        txt(exp.hypothesis ?? "", {
+        renderMarkdown(exp.hypothesis ?? "", {
           fontSize: 15,
           lineHeight: 1.55,
           color: P.text,
+          weight: 400,
         }),
       ]),
       el(
@@ -1052,7 +1198,12 @@ function hypothesisEl(exp: ExperimentCardData): El | null {
         color: P.subtle,
         marginBottom: 6,
       }),
-      txt(exp.hypothesis, { fontSize: 13, lineHeight: 1.5, color: P.muted }),
+      renderMarkdown(exp.hypothesis, {
+        fontSize: 13,
+        lineHeight: 1.5,
+        color: P.muted,
+        weight: 400,
+      }),
     ],
   );
 }
@@ -1080,9 +1231,9 @@ function conclusionEl(exp: ExperimentCardData): El | null {
         color: P.st[hue],
         marginBottom: 7,
       }),
-      txt(exp.conclusion.text, {
+      renderMarkdown(exp.conclusion.text, {
         fontSize: 17,
-        fontWeight: 500,
+        weight: 500,
         lineHeight: 1.5,
         color: P.text,
         letterSpacing: "-0.01em",
