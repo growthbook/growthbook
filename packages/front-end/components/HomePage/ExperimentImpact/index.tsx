@@ -23,6 +23,7 @@ import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
@@ -550,27 +551,25 @@ export default function ExperimentImpact({
       ) : summaryObj ? (
         <>
           {experimentsWithNoImpact.length > 0 ? (
-            <Callout status="warning" mt="2">
-              <div className="row">
-                <div className="col-auto">
-                  <span style={{ fontSize: "1.2em" }}>
-                    Some experiments are missing scaled impact results.
-                  </span>
-                </div>
-                <div className="flex-1" />
-                <div className="col-auto">
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() =>
-                      updateSnapshots(experimentsWithNoImpact).then(
-                        fetchSnapshots,
-                      )
-                    }
-                  >
-                    Calculate Scaled Impact
-                  </button>
-                </div>
-              </div>
+            <Callout
+              status="warning"
+              mt="2"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() =>
+                    updateSnapshots(experimentsWithNoImpact).then(
+                      fetchSnapshots,
+                    )
+                  }
+                >
+                  Calculate Scaled Impact
+                </Button>
+              }
+            >
+              <span style={{ fontSize: "1.2em" }}>
+                Some experiments are missing scaled impact results.
+              </span>
             </Callout>
           ) : null}
           {summaryObj.losers.experiments.length +

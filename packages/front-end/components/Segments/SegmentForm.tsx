@@ -1,11 +1,12 @@
 import { FC, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { SegmentInterface } from "shared/types/segment";
 import { useForm } from "react-hook-form";
-import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt } from "react-icons/fa";
+import { PiArrowRight } from "react-icons/pi";
 import { isProjectListValidForProject } from "shared/util";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -185,20 +186,20 @@ const SegmentForm: FC<{
         })}
       >
         {!current.id && factTables.length > 0 ? (
-          <Callout status="info">
-            <Flex align="center" gap="2">
-              Want to use Fact Tables to create your segments instead?{" "}
-              <a
-                href="#"
-                className="ml-2 btn btn-primary btn-sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCreateFactSegment(true);
-                }}
+          <Callout
+            status="info"
+            action={
+              <Button
+                color="inherit"
+                icon={<PiArrowRight />}
+                iconPosition="right"
+                onClick={() => setCreateFactSegment(true)}
               >
-                Use Fact Tables <FaArrowRight />
-              </a>
-            </Flex>
+                Use Fact Tables
+              </Button>
+            }
+          >
+            Want to use Fact Tables to create your segments instead?
           </Callout>
         ) : null}
         <Field

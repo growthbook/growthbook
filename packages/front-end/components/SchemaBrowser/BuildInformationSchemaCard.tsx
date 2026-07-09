@@ -1,5 +1,6 @@
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
@@ -12,28 +13,25 @@ export default function BuildInformationSchemaCard({
 }) {
   return (
     <div>
-      <Callout status="info">
-        <div>
-          <span>
-            Need help building your query? Click the button below to get insight
-            into what tables and columns are available in the datasource.
-          </span>
-        </div>
-        <Tooltip
-          body="You do not have permission to generate an information schema for this datasource."
-          shouldDisplay={!canRunQueries}
-        >
-          <button
-            disabled={!canRunQueries}
-            className="mt-2 btn btn-primary"
-            onClick={async (e) => {
-              e.preventDefault();
-              refreshOrCreateInfoSchema("POST");
-            }}
+      <Callout
+        status="info"
+        action={
+          <Tooltip
+            body="You do not have permission to generate an information schema for this datasource."
+            shouldDisplay={!canRunQueries}
           >
-            Generate Information Schema
-          </button>
-        </Tooltip>
+            <Button
+              color="inherit"
+              disabled={!canRunQueries}
+              onClick={() => refreshOrCreateInfoSchema("POST")}
+            >
+              Generate Information Schema
+            </Button>
+          </Tooltip>
+        }
+      >
+        Need help building your query? Click the button to get insight into what
+        tables and columns are available in the datasource.
       </Callout>
       {error && <Callout status="error">{error}</Callout>}
     </div>

@@ -5,7 +5,6 @@ import Markdown from "@/components/Markdown/Markdown";
 import track from "@/services/track";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -111,12 +110,16 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
         mb="0"
         action={
           editResult && (
-            <Link onClick={() => editResult()}>
+            <Button
+              variant="ghost"
+              color="inherit"
+              onClick={() => editResult()}
+            >
               Stop{" "}
               {experiment.type === "multi-armed-bandit"
                 ? "Bandit"
                 : "Experiment"}
-            </Link>
+            </Button>
           )
         }
       >
