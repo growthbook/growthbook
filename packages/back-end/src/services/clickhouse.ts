@@ -36,16 +36,14 @@ import {
 import {
   getGrowthbookDatasource,
   dangerouslyGetGrowthbookDatasourceBypassPermission,
+  getManagedWarehouseRecreateState,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import {
   dangerousRecreateClickhouseTables,
   updateMaterializedColumnsInClickhouse,
 } from "back-end/src/services/licenseServerManagedClickhouse";
-import {
-  getMigratedDimensionColumns,
-  resolveMigrationFinalState,
-} from "back-end/src/util/migrateManagedWarehouseColumns";
+import { getMigratedDimensionColumns } from "back-end/src/util/migrateManagedWarehouseColumns";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
@@ -552,10 +550,31 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   }
 }
 
+// Kick off the async table rebuild. The license server acks and rebuilds in the
+// background, so this doesn't wait for the tables — a later run finalizes once the
+// rebuild's lock frees (see migrateManagedWarehouseToJson).
+async function fireManagedWarehouseRecreate(
+  organization: string,
+): Promise<void> {
+  const result = await dangerousRecreateClickhouseTables(organization);
+  if (result === "already-running") {
+    // The lock was taken between our read and this call; the in-progress rebuild
+    // will record its own outcome, so just wait for it.
+    logger.info(
+      `Managed warehouse migration for org ${organization}: recreate already in progress; waiting`,
+    );
+  }
+}
+
 // Migrate a legacy (materialized-column) managed warehouse to native JSON columns.
-// Idempotent + resumable: no-ops once `useJsonColumns` is set and `materializedColumns`
-// is cleared, and a crash mid-migration leaves a re-runnable state. Triggered lazily
-// on first use of a legacy warehouse (see the runQuery hook + migrateManagedWarehouse job).
+// Recreate now acks and rebuilds the per-org tables in the background under a
+// datasource lock (holding the connection open for the whole rebuild 504'd behind the
+// proxy), so this is idempotent + resumable and re-driven by the sweep / next query
+// until it settles: it prepares metadata and fires the rebuild, then finalizes on
+// success or retries on failure once the lock frees — reading `lockUntil` (rebuild in
+// progress) and `recreateStatus` (its outcome) via getManagedWarehouseRecreateState.
+// A crash at any step leaves a re-runnable state, and `migrating` blocks queries
+// throughout so nothing hits the tables mid-rebuild.
 export async function migrateManagedWarehouseToJson(
   context: ReqContext | ApiReqContext,
 ): Promise<void> {
@@ -565,32 +584,53 @@ export async function migrateManagedWarehouseToJson(
     return;
   }
 
-  // Recovery: a fully-migrated warehouse still flagged `migrating` (e.g. the
-  // finally-block flag clear failed after a successful run) is stuck — queries
-  // block but nothing re-derives migration work. Clear the flag and return.
-  if (
-    isManagedWarehouseMigrating(datasource) &&
-    !isManagedWarehouseAwaitingJsonMigration(datasource)
-  ) {
-    await updateDataSource(
-      context,
-      datasource,
-      { settings: { ...datasource.settings, migrating: false } },
-      { skipExposureQueryValidation: true },
-    );
+  // Defer until provisioned: recreating tables for a never-provisioned org would
+  // race the normal provisioning flow (and spam Sentry).
+  if (isManagedWarehouseAwaitingProvisioning(datasource)) {
     return;
   }
 
-  if (
-    !isManagedWarehouseAwaitingJsonMigration(datasource) ||
-    // Defer until provisioned: recreating tables for a never-provisioned org would
-    // race the normal provisioning flow (and spam Sentry). The runQuery enqueue runs
-    // before its guard, so a genuinely stuck mid-migration warehouse still recovers.
-    isManagedWarehouseAwaitingProvisioning(datasource)
-  ) {
+  const migrating = isManagedWarehouseMigrating(datasource);
+  const awaiting = isManagedWarehouseAwaitingJsonMigration(datasource);
+  // Fully migrated and settled — nothing to do.
+  if (!migrating && !awaiting) {
     return;
   }
 
+  const { locked, recreateStatus } = await getManagedWarehouseRecreateState(
+    datasource.id,
+    datasource.organization,
+  );
+
+  // A rebuild is running on the license server (ours or another operation's). It
+  // holds the lock for its duration, so wait rather than re-request — the sweep /
+  // next query re-drives this once the lock frees.
+  if (locked) {
+    return;
+  }
+
+  // We already prepared the migration (materializedColumns cleared) and the rebuild
+  // we fired is no longer running — settle based on its recorded outcome.
+  if (migrating && !awaiting) {
+    if (recreateStatus === "success") {
+      // Tables were rebuilt as JSON and the fact table was synced before we fired the
+      // rebuild, so unblocking queries now is safe.
+      await updateDataSource(
+        context,
+        datasource,
+        { settings: { ...datasource.settings, migrating: false } },
+        { skipExposureQueryValidation: true },
+      );
+      return;
+    }
+    // "error", or missing (rebuild crashed before recording its outcome, or we
+    // crashed before firing it): retry. The rebuild is idempotent and matcols stay
+    // cleared (JSON tables ignore them), so re-firing rebuilds the JSON tables cleanly.
+    await fireManagedWarehouseRecreate(datasource.organization);
+    return;
+  }
+
+  // awaiting === true: (re)start the migration.
   const matColumns = datasource.settings.materializedColumns || [];
   const attributeSchema = context.org.settings?.attributeSchema;
 
@@ -615,10 +655,10 @@ export async function migrateManagedWarehouseToJson(
   );
 
   // Enter the transient "migrating" state (still provisioned) so in-flight usage
-  // degrades to "warehouse upgrading" instead of hitting tables mid-recreate, and flip
+  // degrades to "warehouse upgrading" instead of hitting tables mid-rebuild, and flip
   // the flag (the license server reads `useJsonColumns` to pick the JSON DDL). Record the
   // preserved identifiers + dimensions up front so the sync (below) aliases them. Keep
-  // `materializedColumns` until the end so a crash before the final clear is re-runnable.
+  // `materializedColumns` for now so a crash before we clear them re-runs this branch.
   await updateDataSource(
     context,
     datasource,
@@ -636,69 +676,34 @@ export async function migrateManagedWarehouseToJson(
     { skipExposureQueryValidation: true },
   );
 
-  let recreated = false;
-  try {
-    // Recreate the per-org ClickHouse tables as JSON and repopulate from enriched_events.
-    await dangerousRecreateClickhouseTables(datasource.organization);
-    recreated = true;
-    // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
-    // The sync re-exposes the preserved identifiers and dimensions as top-level aliases
-    // (from migratedIdentifiers/migratedColumns), so existing metric refs keep resolving
-    // against real columns — no metric rewrite needed.
-    await syncManagedWarehouseIdentifiers(context);
-    // Clear materializedColumns (re-fetch: sync mutated the datasource settings).
-    const updated =
-      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-    if (updated && updated.type === "growthbook_clickhouse") {
-      await updateDataSource(
-        context,
-        updated,
-        {
-          settings: { ...updated.settings, materializedColumns: undefined },
-        },
-        { skipExposureQueryValidation: true },
-      );
-    } else {
-      // Couldn't re-fetch the warehouse to clear materializedColumns: it stays
-      // awaiting-migration and will re-trigger on next use. Log so the (rare)
-      // re-trigger loop is visible rather than silent.
-      logger.error(
-        `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource to clear materializedColumns; migration will re-trigger on next use`,
-      );
-    }
-  } finally {
-    const finalDs =
-      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-    if (
-      finalDs &&
-      finalDs.type === "growthbook_clickhouse" &&
-      finalDs.settings.migrating
-    ) {
-      // Compute the settle state from whether recreate ran and whether the run finished
-      // (see resolveMigrationFinalState). null = stay blocked: the tables are JSON but
-      // metric refs aren't rewritten yet, so queries must keep blocking until the
-      // re-triggered run finishes (else they'd hit "Unknown identifier").
-      const patch = resolveMigrationFinalState({
-        recreated,
-        stillAwaiting: isManagedWarehouseAwaitingJsonMigration(finalDs),
-      });
-      if (patch) {
-        try {
-          await updateDataSource(
-            context,
-            finalDs,
-            { settings: { ...finalDs.settings, ...patch } },
-            { skipExposureQueryValidation: true },
-          );
-        } catch (e) {
-          // Leaves the warehouse stuck `migrating: true`; the recovery branch on the
-          // next run (re-triggered by runQuery's enqueue) clears it without manual help.
-          logger.error(
-            e,
-            `Managed warehouse migration for org ${finalDs.organization}: failed to clear migrating flag; will self-heal on next use`,
-          );
-        }
-      }
-    }
+  // Regenerate the ch_events fact table + datasource userIdTypes/exposure queries.
+  // Mongo-only (queries stay blocked by `migrating`), and re-exposes the preserved
+  // identifiers/dimensions as top-level aliases so existing metric refs keep resolving —
+  // no metric rewrite needed. Must finish before we fire the rebuild, so that when a
+  // later run unblocks queries on success, the fact table already matches the tables.
+  await syncManagedWarehouseIdentifiers(context);
+
+  // Clear materializedColumns (re-fetch: sync mutated the datasource settings). Only once
+  // this is persisted is the warehouse structurally migrated; the rebuild we fire next
+  // produces the physical JSON tables.
+  const synced =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (!synced || synced.type !== "growthbook_clickhouse") {
+    // Couldn't re-fetch to clear materializedColumns: it stays awaiting-migration and
+    // re-runs this branch on next use. Log so the (rare) re-trigger loop is visible.
+    logger.error(
+      `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource after sync; migration will re-trigger on next use`,
+    );
+    return;
   }
+  await updateDataSource(
+    context,
+    synced,
+    { settings: { ...synced.settings, materializedColumns: undefined } },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Fire the async rebuild last: the license server acks and rebuilds in the background,
+  // recording the outcome. A later run finalizes (unblocks) once the lock frees.
+  await fireManagedWarehouseRecreate(datasource.organization);
 }

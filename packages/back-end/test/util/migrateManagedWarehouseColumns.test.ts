@@ -1,9 +1,6 @@
 import { MaterializedColumn } from "shared/types/datasource";
 import { FactTableColumnType } from "shared/types/fact-table";
-import {
-  getMigratedDimensionColumns,
-  resolveMigrationFinalState,
-} from "back-end/src/util/migrateManagedWarehouseColumns";
+import { getMigratedDimensionColumns } from "back-end/src/util/migrateManagedWarehouseColumns";
 
 const reserved = new Set(["geo_country", "url_path", "device_id"]);
 
@@ -52,30 +49,5 @@ describe("getMigratedDimensionColumns", () => {
   it("matches reserved names case-insensitively", () => {
     const cols = [matCol("Geo_Country", "Geo_Country", "dimension")];
     expect(getMigratedDimensionColumns(cols, reserved)).toEqual([]);
-  });
-});
-
-describe("resolveMigrationFinalState", () => {
-  it("full success (recreated, not still awaiting): clears migrating only", () => {
-    expect(
-      resolveMigrationFinalState({ recreated: true, stillAwaiting: false }),
-    ).toEqual({ migrating: false });
-  });
-
-  it("recreated but unfinished (still awaiting): stays blocked (null)", () => {
-    expect(
-      resolveMigrationFinalState({ recreated: true, stillAwaiting: true }),
-    ).toBeNull();
-  });
-
-  it("recreate never ran: clears migrating AND reverts useJsonColumns", () => {
-    expect(
-      resolveMigrationFinalState({ recreated: false, stillAwaiting: true }),
-    ).toEqual({ migrating: false, useJsonColumns: false });
-    // stillAwaiting can't actually be false when recreate didn't run, but the result
-    // is still the safe legacy-consistent state.
-    expect(
-      resolveMigrationFinalState({ recreated: false, stillAwaiting: false }),
-    ).toEqual({ migrating: false, useJsonColumns: false });
   });
 });

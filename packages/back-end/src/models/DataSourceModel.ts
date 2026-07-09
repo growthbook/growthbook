@@ -30,6 +30,7 @@ import {
   getConfigDatasources,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
@@ -161,6 +162,32 @@ export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
     organization: context.org.id,
   });
   return doc ? toInterface(doc) : null;
+}
+
+/**
+ * Read the managed-warehouse recreate coordination fields the license server
+ * writes to the shared datasource doc: `lockUntil` (a rebuild is in progress) and
+ * `recreateStatus` (its outcome). Both live top-level (outside `settings`, which
+ * GrowthBook rewrites), so they aren't on the Mongoose schema — read them raw.
+ */
+export async function getManagedWarehouseRecreateState(
+  id: string,
+  organization: string,
+): Promise<{ locked: boolean; recreateStatus: "success" | "error" | null }> {
+  const doc = await getCollection<{
+    lockUntil?: Date | string | number | null;
+    recreateStatus?: { status?: string } | null;
+  }>("datasources").findOne(
+    { id, organization },
+    { projection: { lockUntil: 1, recreateStatus: 1 } },
+  );
+  const lockUntil = doc?.lockUntil ? new Date(doc.lockUntil) : null;
+  const locked = lockUntil !== null && lockUntil.getTime() > Date.now();
+  const status = doc?.recreateStatus?.status;
+  return {
+    locked,
+    recreateStatus: status === "success" || status === "error" ? status : null,
+  };
 }
 
 export async function getDataSourceById(
