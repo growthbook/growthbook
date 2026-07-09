@@ -1807,11 +1807,22 @@ Triggered when an experiment is created
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            shippingCriteria?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2065,11 +2076,22 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            shippingCriteria?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2283,11 +2305,22 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            shippingCriteria?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2546,11 +2579,22 @@ Triggered when an experiment is deleted
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
-                startAt: string;
+                startAt?: string | undefined;
+                stopAt?: string | undefined;
+                /** Relative end offset. Deferred: resolved to a concrete `stopAt` at the experiment's actual start (or off `dateStarted` when already running). */
+                stopAfter?: {
+                    value: number;
+                    unit: "hours" | "days";
+                } | undefined;
+            } | null) | undefined;
+            shippingCriteria?: ({
+                mode: "notify" | "auto-ship" | "force-ship" | "stop";
+                tiebreakerMetricId?: string | undefined;
+                fallback: "notify" | "force-ship";
+                fallbackVariationId?: string | undefined;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
-                type: "start";
+                type: "start" | "stop";
                 date: string;
             } | null) | undefined;
         };
@@ -2718,10 +2762,11 @@ Triggered when a scheduled start or stop is automatically applied to an experime
         object: {
             experimentId: string;
             experimentName: string;
-            action: "started" | "stopped";
+            action: "started" | "stopped" | "kept-running";
             shipped?: boolean | undefined;
             shippedVariationId?: string | undefined;
             forced?: boolean | undefined;
+            recommendedVariationId?: string | undefined;
         };
     };
     user: {
