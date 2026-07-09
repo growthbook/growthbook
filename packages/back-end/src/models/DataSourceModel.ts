@@ -6,6 +6,7 @@ import {
   isEventForwarderManagedExposureQuery,
   isEventForwarderManagedFeatureUsageQuery,
   isManagedWarehouseAwaitingProvisioning,
+  isManagedWarehouseUnavailable,
 } from "shared/util";
 import {
   DataSourceInterface,
@@ -391,7 +392,11 @@ export async function validateExposureQueriesAndAddMissingIds(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        // Skip live validation while the warehouse can't serve queries — never
+        // provisioned OR mid-migration (tables being recreated). Otherwise a
+        // concurrent settings save would test-run against unavailable tables and
+        // stamp a spurious error that self-heals only on the next validation.
+        if (isManagedWarehouseUnavailable(datasource)) {
           exposure.error = undefined;
           return;
         }
@@ -438,7 +443,7 @@ export async function validateExposureQueriesAndAddMissingIds(
   if (updatesCopy.queries?.featureUsage) {
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
-        if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+        if (isManagedWarehouseUnavailable(datasource)) {
           featureUsage.error = undefined;
           return;
         }

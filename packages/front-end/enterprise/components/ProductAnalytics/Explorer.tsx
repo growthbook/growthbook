@@ -70,11 +70,11 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseAwaitingProvisioning } = useExplorerContext();
+  const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
-      {managedWarehouseAwaitingProvisioning ? (
+      {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
         </Box>
