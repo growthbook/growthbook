@@ -56,9 +56,13 @@ export default function BaselineChooserColumnLabel({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [desiredBaselineRow, setDesiredBaselineRow] = useState(baselineRow);
 
+  // ExperimentReportVariation carries the real variation index (position in
+  // experiment.variations), which can differ from the array position when a
+  // phase reorders or subsets variations. Prefer it over the map index so the
+  // displayed number and baseline selection all use the true index.
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
-    index: i,
+    index: "index" in v ? v.index : i,
   }));
   const baselineVariation =
     indexedVariations.find((v) => v.index === desiredBaselineRow) ??

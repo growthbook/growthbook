@@ -34,9 +34,13 @@ export default function VariationChooserColumnLabel({
 }: VariationChooserColumnLabelProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // ExperimentReportVariation carries the real variation index (position in
+  // experiment.variations), which can differ from the array position when a
+  // phase reorders or subsets variations. Prefer it over the map index so the
+  // displayed number, baseline selection, and filtering all use the true index.
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
-    index: i,
+    index: "index" in v ? v.index : i,
   }));
 
   const validVariations = indexedVariations.filter(
