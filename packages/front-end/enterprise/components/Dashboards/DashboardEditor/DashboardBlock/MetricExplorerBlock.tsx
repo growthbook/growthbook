@@ -26,11 +26,16 @@ export default function MetricExplorerBlock({
   setBlock,
   metricAnalysis,
   factMetric,
+  ssrPolyfills,
 }: BlockProps<MetricExplorerBlockInterface>) {
   const { visualizationType, valueType, analysisSettings } = block;
-  const { getFactTableById } = useDefinitions();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const { loading, error } = useDashboardMetricAnalysis(block, setBlock);
-  const displayCurrency = useCurrency();
+  // Anonymous public view has no currency hook context; fall back to the
+  // ssrPolyfills currency (both hooks are called unconditionally per hooks rules).
+  const _displayCurrency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const chartsContext = useDashboardCharts();

@@ -2,19 +2,25 @@ import { ReactElement, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterface,
+  DataSourceExplorationBlockInterface,
   ExperimentDimensionBlockInterface,
   ExperimentMetadataBlockInterface,
   ExperimentMetricBlockInterface,
   ExperimentTimeSeriesBlockInterface,
   ExperimentTrafficBlockInterface,
+  FactTableExplorationBlockInterface,
   getBlockSnapshotAnalysis,
   MarkdownBlockInterface,
+  MetricExplorationBlockInterface,
+  MetricExplorerBlockInterface,
   resolveExperimentBlockMetricIds,
   SqlExplorerBlockInterface,
 } from "shared/enterprise";
-import { SavedQuery } from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { isDefined } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { FactMetricInterface } from "shared/types/fact-table";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -31,6 +37,8 @@ import ExperimentTrafficBlock from "@/enterprise/components/Dashboards/Dashboard
 import ExperimentMetricBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentMetricBlock";
 import ExperimentDimensionBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentDimensionBlock";
 import ExperimentTimeSeriesBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTimeSeriesBlock";
+import MetricExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MetricExplorerBlock";
+import ProductAnalyticsExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock";
 import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock";
 
 export interface PublicDashboardBlockProps {
@@ -38,6 +46,8 @@ export interface PublicDashboardBlockProps {
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
+  metricAnalysesMap: Map<string, MetricAnalysisInterface>;
+  explorationsMap: Map<string, ProductAnalyticsExploration>;
   // Block result data is lazy-loaded client-side; true while it's in flight so
   // data-dependent blocks show a spinner instead of a "not available" message.
   blockDataLoading: boolean;
@@ -87,13 +97,15 @@ function BlockCard({
 // payload + ssrPolyfills instead of authenticated hooks/snapshot context.
 //
 // Supported: markdown, sql-explorer, all experiment-* blocks (metadata,
-// traffic, metric, dimension, time-series). metric-explorer and the
-// product-analytics exploration blocks still render a placeholder.
+// traffic, metric, dimension, time-series), metric-explorer, and the
+// product-analytics exploration blocks (metric/fact-table/data-source).
 export default function PublicDashboardBlock({
   block,
   ssrPolyfills,
   savedQueriesMap,
   snapshotsMap,
+  metricAnalysesMap,
+  explorationsMap,
   blockDataLoading,
 }: PublicDashboardBlockProps): ReactElement {
   // Props every block component declares. The no-auth blocks ignore the
@@ -151,6 +163,39 @@ export default function PublicDashboardBlock({
         analysis,
         metrics,
       });
+    }
+    return blockDataLoading ? (
+      <LoadingSpinner />
+    ) : (
+      <Callout status="info" size="sm">
+        Results for this block aren&apos;t available.
+      </Callout>
+    );
+  };
+
+  // Renders a product-analytics exploration block from the redacted exploration
+  // in the public payload (no authenticated fetch). NOTE: getFactMetricById is
+  // null on the public page, so a metric-exploration charting a *ratio* fact
+  // metric renders numerator-only (see design doc REMAINING); non-ratio metrics
+  // and fact-table/data-source explorations render correctly.
+  const renderExplorationBlock = (
+    b:
+      | MetricExplorationBlockInterface
+      | FactTableExplorationBlockInterface
+      | DataSourceExplorationBlockInterface,
+  ): ReactNode => {
+    const exploration = b.explorerAnalysisId
+      ? explorationsMap.get(b.explorerAnalysisId)
+      : undefined;
+    if (exploration) {
+      return (
+        <ProductAnalyticsExplorerBlock
+          {...(baseProps as unknown as BlockProps<typeof b>)}
+          block={b}
+          exploration={exploration}
+          query={null}
+        />
+      );
     }
     return blockDataLoading ? (
       <LoadingSpinner />
@@ -220,9 +265,7 @@ export default function PublicDashboardBlock({
           <ExperimentTrafficBlock
             {...(baseProps as unknown as BlockProps<ExperimentTrafficBlockInterface>)}
             block={block}
-            experiment={
-              experiment as unknown as ExperimentInterfaceStringDates
-            }
+            experiment={experiment as unknown as ExperimentInterfaceStringDates}
             snapshot={snapshot}
             analysis={analysis}
           />
@@ -279,6 +322,41 @@ export default function PublicDashboardBlock({
           />
         ),
       );
+      break;
+    case "metric-explorer": {
+      // The fact metric lives in ssrData.metrics (getExperimentMetricById
+      // resolves fact metrics too); the redacted metric analysis is lazy-loaded.
+      const resolvedMetric = ssrPolyfills.getExperimentMetricById(
+        block.factMetricId,
+      );
+      const factMetric: FactMetricInterface | undefined =
+        resolvedMetric && isFactMetric(resolvedMetric)
+          ? resolvedMetric
+          : undefined;
+      const metricAnalysis = block.metricAnalysisId
+        ? metricAnalysesMap.get(block.metricAnalysisId)
+        : undefined;
+      content =
+        factMetric && metricAnalysis ? (
+          <MetricExplorerBlock
+            {...(baseProps as unknown as BlockProps<MetricExplorerBlockInterface>)}
+            block={block}
+            factMetric={factMetric}
+            metricAnalysis={metricAnalysis}
+          />
+        ) : blockDataLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <Callout status="info" size="sm">
+            Results for this block aren&apos;t available.
+          </Callout>
+        );
+      break;
+    }
+    case "metric-exploration":
+    case "fact-table-exploration":
+    case "data-source-exploration":
+      content = renderExplorationBlock(block);
       break;
     default:
       content = (

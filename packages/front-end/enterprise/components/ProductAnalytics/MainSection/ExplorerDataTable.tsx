@@ -14,6 +14,7 @@ export default function ExplorerDataTable({
   hasChart = false,
   isStale = false,
   query = null,
+  hideSql = false,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
@@ -22,6 +23,7 @@ export default function ExplorerDataTable({
   hasChart?: boolean;
   isStale?: boolean;
   query?: QueryInterface | null;
+  hideSql?: boolean;
 }) {
   const {
     rowData,
@@ -45,6 +47,7 @@ export default function ExplorerDataTable({
       orderedColumnKeys={orderedColumnKeys}
       columnLabels={columnLabels}
       paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
+      hideSql={hideSql}
     />
   );
 }

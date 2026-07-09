@@ -15,6 +15,7 @@ import Callout from "@/ui/Callout";
 import PageHead from "@/components/Layout/PageHead";
 import { DashboardGrid } from "@/enterprise/components/Dashboards/DashboardEditor";
 import PublicDashboardBlock from "@/enterprise/components/Dashboards/Public/PublicDashboardBlock";
+import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
 // Only the lightweight shell (dashboard config + ssrData) is server-rendered.
 // The heavy block result data is fetched client-side (see below) so it never
@@ -110,6 +111,33 @@ export default function PublicDashboardPage({
     () => new Map((blockData?.snapshots ?? []).map((s) => [s.id, s])),
     [blockData?.snapshots],
   );
+  const metricAnalysesMap = useMemo(
+    () => new Map((blockData?.metricAnalyses ?? []).map((a) => [a.id, a])),
+    [blockData?.metricAnalyses],
+  );
+  const explorationsMap = useMemo(
+    () => new Map((blockData?.explorations ?? []).map((e) => [e.id, e])),
+    [blockData?.explorations],
+  );
+
+  // Seed the dashboard snapshot context with the public block data so blocks
+  // that resolve their own data via context hooks (e.g. metric-explorer's
+  // useDashboardMetricAnalysis) find it in these maps and never fire an
+  // authenticated fetch, which would 401 for an anonymous viewer.
+  const dashboardSnapshotContextValue = useMemo(
+    () => ({
+      snapshotsMap,
+      savedQueriesMap,
+      metricAnalysesMap,
+      loading: false,
+      refreshStatus: "succeeded" as const,
+      allQueries: [],
+      mutateSnapshot: async () => {},
+      mutateSnapshotsMap: async () => {},
+      updateAllSnapshots: async () => {},
+    }),
+    [snapshotsMap, savedQueriesMap, metricAnalysesMap],
+  );
 
   return (
     <div className="pagecontents container-fluid pt-3">
@@ -144,22 +172,28 @@ export default function PublicDashboardPage({
       />
 
       {dashboard ? (
-        <DashboardGrid
-          blocks={dashboard.blocks}
-          isEditing={false}
-          editSidebarDirty={false}
-          stagedBlockIndex={undefined}
-          updateLayout={undefined}
-          renderBlock={(block) => (
-            <PublicDashboardBlock
-              block={block as DashboardBlockInterface}
-              ssrPolyfills={ssrPolyfills}
-              savedQueriesMap={savedQueriesMap}
-              snapshotsMap={snapshotsMap}
-              blockDataLoading={blockDataLoading}
-            />
-          )}
-        />
+        <DashboardSnapshotContext.Provider
+          value={dashboardSnapshotContextValue}
+        >
+          <DashboardGrid
+            blocks={dashboard.blocks}
+            isEditing={false}
+            editSidebarDirty={false}
+            stagedBlockIndex={undefined}
+            updateLayout={undefined}
+            renderBlock={(block) => (
+              <PublicDashboardBlock
+                block={block as DashboardBlockInterface}
+                ssrPolyfills={ssrPolyfills}
+                savedQueriesMap={savedQueriesMap}
+                snapshotsMap={snapshotsMap}
+                metricAnalysesMap={metricAnalysesMap}
+                explorationsMap={explorationsMap}
+                blockDataLoading={blockDataLoading}
+              />
+            )}
+          />
+        </DashboardSnapshotContext.Provider>
       ) : (
         <Callout status="error">This dashboard was not found.</Callout>
       )}
