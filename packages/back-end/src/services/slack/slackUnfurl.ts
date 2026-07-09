@@ -30,7 +30,13 @@ export async function handleSlackLinkShared(
     .filter(
       (x): x is { url: string; experimentId: string } => !!x.experimentId,
     );
-  if (!experimentLinks.length) return;
+  if (!experimentLinks.length) {
+    logger.info(
+      { urls: evt.links.map((l) => l.url) },
+      "Slack unfurl: no experiment links matched (nothing to unfurl)",
+    );
+    return;
+  }
 
   // Unfurl respects the sharer's permissions — resolve their linked account and
   // render only what they can see. Unlinked / non-member → don't unfurl (no
@@ -40,16 +46,38 @@ export async function handleSlackLinkShared(
     channelId: evt.channelId,
     slackUserId: evt.slackUserId,
   });
-  if (!target.ok) return;
+  if (!target.ok) {
+    logger.warn(
+      {
+        reason: target.reason,
+        teamId: evt.teamId,
+        slackUserId: evt.slackUserId,
+      },
+      "Slack unfurl: could not resolve sharer identity (is the user linked & an org member?)",
+    );
+    return;
+  }
 
   const unfurls: Record<string, { blocks: Record<string, unknown>[] }> = {};
   for (const { url, experimentId } of experimentLinks) {
     try {
       const card = await buildExperimentCardData(target.context, experimentId);
-      if (!card) continue;
+      if (!card) {
+        logger.warn(
+          { experimentId },
+          "Slack unfurl: no card data (experiment not found or no results)",
+        );
+        continue;
+      }
       const png = await renderExperimentCard(card);
       const imageUrl = await uploadCardPng(target.organizationId, png);
-      if (!imageUrl) continue; // no Slack-fetchable URL (needs S3/GCS or the dev host)
+      if (!imageUrl) {
+        logger.warn(
+          { experimentId },
+          "Slack unfurl: no Slack-fetchable image URL — set SLACK_CARD_PUBLIC_BASE_URL (dev) or configure S3/GCS uploads",
+        );
+        continue;
+      }
       unfurls[url] = {
         blocks: [
           {
@@ -65,10 +93,14 @@ export async function handleSlackLinkShared(
   }
 
   if (!Object.keys(unfurls).length) return;
-  await unfurlSlackLinks({
+  const ok = await unfurlSlackLinks({
     token: target.botToken,
     channel: evt.channelId,
     ts: evt.messageTs,
     unfurls,
   });
+  logger.info(
+    { ok, urls: Object.keys(unfurls) },
+    "Slack unfurl: chat.unfurl call completed",
+  );
 }

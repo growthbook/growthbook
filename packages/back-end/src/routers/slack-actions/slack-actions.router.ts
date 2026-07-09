@@ -332,6 +332,14 @@ router.post(
     // Link unfurling: a shared GrowthBook link — unfurl experiment URLs into a
     // results card (respecting the sharer's permissions).
     if (event.type === "link_shared") {
+      logger.info(
+        {
+          channel: event.channel,
+          user: event.user,
+          links: event.links?.map((l) => l.url),
+        },
+        "Slack: link_shared event received",
+      );
       if (!event.channel || !event.message_ts || !event.user) return;
       void queueSlackLinkUnfurl(
         {

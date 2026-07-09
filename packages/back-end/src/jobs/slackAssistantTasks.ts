@@ -40,6 +40,8 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
   const data = job.attrs.data;
   if (!data) return;
 
+  logger.info({ kind: data.kind }, "Slack task: processing from queue");
+
   switch (data.kind) {
     case "mention":
       await handleSlackAssistantMention(data.mention);
