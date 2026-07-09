@@ -18,7 +18,7 @@ import {
   isFactMetric,
   isMetricJoinable,
   expandAllSliceMetricsInMap,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
@@ -532,7 +532,7 @@ export default function AnalysisSettingsSummary({
       ...expandedSecondaries,
       ...expandedGuardrails,
     ];
-    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const allMetricsMap = new Map<string, ExperimentMetricDefinition>();
     allExpandedIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !allMetricsMap.has(id)) {
@@ -572,12 +572,12 @@ export default function AnalysisSettingsSummary({
       const expanded = expandMetricGroups(filtered, groupsToUse);
       const defs = expanded
         .map((id) => getExperimentMetricById(id))
-        .filter((m): m is ExperimentMetricInterface => !!m);
+        .filter((m): m is ExperimentMetricDefinition => !!m);
       return filterMetricsByTags(defs, metricTagFilter);
     };
 
     const filteredIds = allMetricsArrays.flatMap(processMetrics);
-    const filteredMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const filteredMetricsMap = new Map<string, ExperimentMetricDefinition>();
     filteredIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !filteredMetricsMap.has(id)) {
@@ -975,7 +975,7 @@ export default function AnalysisSettingsSummary({
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={useMemo(() => {
-                const metricMap = new Map<string, ExperimentMetricInterface>();
+                const metricMap = new Map<string, ExperimentMetricDefinition>();
                 const allBaseMetrics = [...metrics, ...factMetrics];
                 allBaseMetrics.forEach((metric) =>
                   metricMap.set(metric.id, metric),

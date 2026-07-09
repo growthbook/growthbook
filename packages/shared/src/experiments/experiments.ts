@@ -10,7 +10,10 @@ import {
   NULL_DIMENSION_VALUE,
   NULL_DIMENSION_DISPLAY,
 } from "shared/constants";
-import { MetricInterface } from "shared/types/metric";
+import {
+  MetricDefinitionInterface,
+  MetricInterface,
+} from "shared/types/metric";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -53,6 +56,13 @@ import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
+// Metrics as returned by the definitions endpoint, where legacy metrics are
+// slimmed (fact metrics are always returned in full). A full
+// ExperimentMetricInterface is assignable to this type.
+export type ExperimentMetricDefinition =
+  | MetricDefinitionInterface
+  | FactMetricInterface;
+
 export type ExperimentSortBy =
   | "significance"
   | "change"
@@ -81,7 +91,7 @@ export function isMetricGroupId(id: string): boolean {
 }
 
 export function isFactMetric(
-  m: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
 ): m is FactMetricInterface {
   if (!m || typeof m !== "object") return false;
   return "metricType" in m;
@@ -89,7 +99,11 @@ export function isFactMetric(
 
 export function isLegacyMetric(
   m: ExperimentMetricInterface,
-): m is MetricInterface {
+): m is MetricInterface;
+export function isLegacyMetric(
+  m: ExperimentMetricDefinition,
+): m is MetricDefinitionInterface;
+export function isLegacyMetric(m: ExperimentMetricDefinition): boolean {
   return !isFactMetric(m);
 }
 
@@ -425,30 +439,30 @@ export function getMetricTemplateVariables(
   return m.templateVariables || {};
 }
 
-export function isCappableMetricType(m: ExperimentMetricInterface) {
+export function isCappableMetricType(m: ExperimentMetricDefinition) {
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
-export function isBinomialMetric(m: ExperimentMetricInterface) {
+export function isBinomialMetric(m: ExperimentMetricDefinition) {
   if (isFactMetric(m))
     return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
 }
 
-export function isRetentionMetric(m: ExperimentMetricInterface) {
+export function isRetentionMetric(m: ExperimentMetricDefinition) {
   return isFactMetric(m) && m.metricType === "retention";
 }
 
 export function isRatioMetric(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return m.metricType === "ratio";
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
 export function quantileMetricType(
-  m: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
   if (isFactMetric(m) && m.metricType === "quantile") {
     return m.quantileSettings?.type || "";
@@ -457,16 +471,16 @@ export function quantileMetricType(
 }
 
 export function isFunnelMetric(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
 export function isRegressionAdjusted(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface,
+  m: ExperimentMetricDefinition,
+  denominatorMetric?: ExperimentMetricDefinition,
 ) {
   const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
@@ -478,7 +492,7 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
   return (
     metric.cappingSettings.type === "percentile" &&
     !!metric.cappingSettings.value &&
@@ -487,7 +501,7 @@ export function isPercentileCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
+function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
   return (
     metric.cappingSettings.type === "absolute" &&
     !!metric.cappingSettings.value &&
@@ -495,11 +509,11 @@ function isAbsoluteCappedMetric(metric: ExperimentMetricInterface) {
   );
 }
 
-export function isSliceMetric(metric: ExperimentMetricInterface) {
+export function isSliceMetric(metric: ExperimentMetricDefinition) {
   return parseSliceMetricId(metric.id).isSliceMetric;
 }
 
-export function eligibleForUncappedMetric(metric: ExperimentMetricInterface) {
+export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
     (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
@@ -560,7 +574,7 @@ export function getSelectedColumnDatatype({
 }
 
 export function getUserIdTypes(
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
   factTableMap: FactTableMap,
   useDenominator?: boolean,
 ): string[] {
@@ -723,7 +737,9 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
-export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
+export function getMetricSnapshotSettings<
+  T extends ExperimentMetricDefinition,
+>({
   metric,
   denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
@@ -731,13 +747,13 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metricOverrides,
 }: {
   metric: T;
-  denominatorMetrics: MetricInterface[];
+  denominatorMetrics: MetricDefinitionInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA and prior settings from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
-  denominatorMetrics: MetricInterface[];
+  denominatorMetrics: MetricDefinitionInterface[];
   metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
@@ -895,7 +911,7 @@ export function getAllMetricSettingsForSnapshot({
   datasourceType,
   hasRegressionAdjustmentFeature,
 }: {
-  allExperimentMetrics: (ExperimentMetricInterface | null)[];
+  allExperimentMetrics: (ExperimentMetricDefinition | null)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
   experimentRegressionAdjustmentEnabled?: boolean;
@@ -991,7 +1007,7 @@ export function shouldHighlight({
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
 ): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
@@ -1004,7 +1020,7 @@ export function getMetricSampleSize(
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
   metricDefaults: MetricDefaults,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
@@ -1087,7 +1103,7 @@ export function getMetricResultStatus({
   statsEngine,
   differenceType,
 }: {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricDefaults: MetricDefaults;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
@@ -1308,7 +1324,7 @@ export function getAllExpandedMetricIdsFromExperiment({
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   };
-  expandedMetricMap: Map<string, ExperimentMetricInterface>;
+  expandedMetricMap: Map<string, ExperimentMetricDefinition>;
   includeActivationMetric?: boolean;
   metricGroups?: MetricGroupInterface[];
 }): string[] {
@@ -1353,7 +1369,7 @@ export function createAutoSliceDataForMetric({
   factTable,
   includeOther = true,
 }: {
-  parentMetric: ExperimentMetricInterface | null | undefined;
+  parentMetric: ExperimentMetricDefinition | null | undefined;
   factTable: FactTableInterface | null | undefined;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
@@ -1914,7 +1930,7 @@ export function expandAllSliceMetricsInMap({
   experiment,
   metricGroups = [],
 }: {
-  metricMap: Map<string, ExperimentMetricInterface>;
+  metricMap: Map<string, ExperimentMetricDefinition>;
   factTableMap: FactTableMap;
   experiment: Pick<
     ExperimentInterface,
@@ -1990,7 +2006,7 @@ export function expandAllSliceMetricsInMap({
 
         const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
 
-        const customSliceMetric: ExperimentMetricInterface = {
+        const customSliceMetric: ExperimentMetricDefinition = {
           ...metric,
           id: `${metric.id}?${sliceString}`,
           name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,

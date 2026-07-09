@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { MetricInterface } from "shared/types/metric";
+import {
+  MetricDefinitionInterface,
+  MetricInterface,
+} from "shared/types/metric";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Callout from "@/ui/Callout";
 
 export type MetricModalState = {
-  currentMetric?: MetricInterface;
+  currentMetric?: MetricDefinitionInterface;
   currentFactMetric?: FactMetricInterface;
   mode: "edit" | "duplicate" | "new";
 };
@@ -38,12 +44,11 @@ export function MetricModal({
     );
   } else if (currentMetric) {
     return (
-      <MetricForm
-        current={currentMetric}
-        edit={mode === "edit"}
-        duplicate={mode === "duplicate"}
-        source={source + (mode === "duplicate" ? "-duplicate" : "")}
-        onClose={close}
+      <EditMetricModal
+        close={close}
+        mode={mode}
+        source={source}
+        currentMetric={currentMetric}
       />
     );
   } else if (currentFactMetric) {
@@ -59,6 +64,47 @@ export function MetricModal({
     // This should never happen
     return null;
   }
+}
+
+// Metrics coming from the definitions endpoint are missing heavy fields like
+// `sql`, so fetch the full metric before seeding the form. Otherwise saving an
+// edit would silently wipe those fields.
+function EditMetricModal({
+  close,
+  mode,
+  source,
+  currentMetric,
+}: {
+  close: () => void;
+  mode: "edit" | "duplicate";
+  source: string;
+  currentMetric: MetricDefinitionInterface;
+}) {
+  const { data, error } = useApi<{ metric: MetricInterface }>(
+    `/metric/${currentMetric.id}`,
+  );
+
+  if (error) {
+    return <Callout status="error">{error.message}</Callout>;
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
+
+  // When duplicating, keep the caller's overrides (e.g. "(copy)" name and
+  // cleared managedBy) on top of the full fetched metric
+  const current: MetricInterface =
+    mode === "edit" ? data.metric : { ...data.metric, ...currentMetric };
+
+  return (
+    <MetricForm
+      current={current}
+      edit={mode === "edit"}
+      duplicate={mode === "duplicate"}
+      source={source + (mode === "duplicate" ? "-duplicate" : "")}
+      onClose={close}
+    />
+  );
 }
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {

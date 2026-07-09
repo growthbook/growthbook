@@ -1,20 +1,28 @@
 import { dump } from "js-yaml";
 import { useMemo } from "react";
 import { OrganizationSettings } from "shared/types/organization";
+import { MetricInterface } from "shared/types/metric";
 import { FaDownload } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";
+import useApi from "@/hooks/useApi";
 
 export default function BackupConfigYamlButton({
   settings = {},
 }: {
   settings?: OrganizationSettings;
 }) {
-  const { datasources, metrics, dimensions, segments } = useDefinitions();
+  const { datasources, dimensions, segments } = useDefinitions();
+
+  // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
+  // full versions for the export
+  const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
+    "/metrics",
+  );
 
   const config = useConfigJson({
     datasources,
-    metrics,
+    metrics: metricsData?.metrics || [],
     dimensions,
     settings,
     segments,
@@ -34,7 +42,7 @@ export default function BackupConfigYamlButton({
     }
   }, [config]);
 
-  if (!href) return null;
+  if (!href || !metricsData) return null;
 
   return (
     <a href={href} download="config.yml" className="btn btn-primary">

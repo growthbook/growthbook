@@ -15,9 +15,11 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
 } from "shared/constants";
+import { MetricInterface } from "shared/types/metric";
 import { useAuth } from "@/services/auth";
 import { useConfigJson } from "@/services/config";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -49,8 +51,14 @@ export default function RestoreConfigYamlButton({
   settings?: OrganizationSettings;
   mutate: () => void;
 }) {
-  const { datasources, metrics, dimensions, mutateDefinitions, segments } =
+  const { datasources, dimensions, mutateDefinitions, segments } =
     useDefinitions();
+
+  // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
+  // full versions for the import diff
+  const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
+    "/metrics",
+  );
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -67,7 +75,7 @@ export default function RestoreConfigYamlButton({
 
   const config = useConfigJson({
     datasources,
-    metrics,
+    metrics: metricsData?.metrics || [],
     dimensions,
     settings,
     segments,
@@ -235,6 +243,8 @@ export default function RestoreConfigYamlButton({
       throw new Error(e);
     }
   }
+
+  if (!metricsData) return null;
 
   return (
     <div>

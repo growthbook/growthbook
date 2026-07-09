@@ -24,7 +24,7 @@ import {
 } from "shared/types/stats";
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { PiPencilSimpleFill } from "react-icons/pi";
 import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
 import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
@@ -63,7 +63,7 @@ export type ResultsTableProps = {
     maxRows,
   }: {
     label: string | ReactNode;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
   }) => string | ReactElement;

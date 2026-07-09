@@ -29,7 +29,7 @@ import {
 } from "react-icons/pi";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getMetricLink,
   ExperimentSortBy,
   SetExperimentSortBy,
@@ -249,7 +249,7 @@ const CompactResults: FC<{
       ...expandedSecondaries,
       ...expandedGuardrails,
     ];
-    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const allMetricsMap = new Map<string, ExperimentMetricDefinition>();
     allExpandedIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !allMetricsMap.has(id)) {
@@ -553,7 +553,7 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getExperimentMetricById?: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById?: (id: string) => null | ExperimentMetricDefinition;
   getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => number;
@@ -567,7 +567,7 @@ export function getRenderLabelColumn({
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row?: ExperimentTableRow;
     maxRows?: number;
     location?: "goal" | "secondary" | "guardrail";

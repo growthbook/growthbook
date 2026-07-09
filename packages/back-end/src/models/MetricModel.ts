@@ -1,9 +1,11 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { evalCondition } from "@growthbook/growthbook";
 import { ExperimentMetricInterface } from "shared/experiments";
+import omit from "lodash/omit";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
+  MetricDefinitionInterface,
   MetricInterface,
 } from "shared/types/metric";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
@@ -376,6 +378,64 @@ export async function getMetricsByOrganization(
   };
 
   return findMetrics(context, query);
+}
+
+const METRIC_DEFINITION_EXCLUDED_FIELDS = [
+  "sql",
+  "templateVariables",
+  "conditions",
+  "queries",
+  "analysis",
+  "analysisError",
+] as const;
+
+// Slimmed version of getMetricsByOrganization for the definitions endpoint.
+// Heavy fields are excluded at the DB layer to keep the payload small.
+export async function getMetricsForDefinitions(
+  context: ReqContext | ApiReqContext,
+): Promise<MetricDefinitionInterface[]> {
+  const metrics: MetricDefinitionInterface[] = [];
+  const metricIds = new Set<string>();
+
+  // If using config.yml, first check there (projection can't apply here)
+  if (usingFileConfig()) {
+    getConfigMetrics(context).forEach((m) => {
+      metrics.push(omit(m, METRIC_DEFINITION_EXCLUDED_FIELDS));
+      metricIds.add(m.id);
+    });
+
+    // If metrics are locked down to just a config file, return immediately
+    if (!ALLOW_CREATE_METRICS) {
+      return metrics;
+    }
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(
+      { organization: context.org.id },
+      {
+        projection: {
+          sql: 0,
+          templateVariables: 0,
+          conditions: 0,
+          queries: 0,
+          analysis: 0,
+          analysisError: 0,
+        },
+      },
+    )
+    .toArray();
+  docs.forEach((doc) => {
+    if (metricIds.has(doc.id)) {
+      return;
+    }
+    metrics.push(toInterface(doc));
+    metricIds.add(doc.id);
+  });
+
+  return metrics.filter((m) =>
+    context.permissions.canReadMultiProjectResource(m.projects),
+  );
 }
 
 export async function getMetricsByDatasource(
