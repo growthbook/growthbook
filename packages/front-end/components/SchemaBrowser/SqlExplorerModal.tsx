@@ -21,7 +21,7 @@ import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { FiChevronRight } from "react-icons/fi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -222,7 +222,7 @@ export default function SqlExplorerModal({
     datasource?.properties?.supportsInformationSchema;
 
   const managedWarehousePendingEvents =
-    !!datasource && isManagedWarehouseAwaitingProvisioning(datasource);
+    !!datasource && isManagedWarehouseUnavailable(datasource);
 
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
 
@@ -749,7 +749,7 @@ export default function SqlExplorerModal({
         return;
       }
       const dsForSchema = getDatasourceById(datasourceId);
-      if (dsForSchema && isManagedWarehouseAwaitingProvisioning(dsForSchema)) {
+      if (dsForSchema && isManagedWarehouseUnavailable(dsForSchema)) {
         setInformationSchema(undefined);
         return;
       }

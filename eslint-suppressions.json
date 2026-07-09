@@ -1577,11 +1577,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar.tsx": {
-    "prettier/prettier": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1

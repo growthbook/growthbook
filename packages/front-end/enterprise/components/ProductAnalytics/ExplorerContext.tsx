@@ -23,7 +23,7 @@ import {
   buildContiguousPreviousCustomDateRange,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
@@ -77,7 +77,7 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   trackingSource: string | undefined;
 
   compareEnabled: boolean;
@@ -277,14 +277,12 @@ export function ExplorerProvider({
     return datasource?.type === "growthbook_clickhouse";
   }, [getDatasourceById, draftExploreState.datasource]);
 
-  const managedWarehouseAwaitingProvisioning = useMemo(() => {
+  const managedWarehouseUnavailable = useMemo(() => {
     if (!draftExploreState.datasource) return false;
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
     );
-    return datasource
-      ? isManagedWarehouseAwaitingProvisioning(datasource)
-      : false;
+    return datasource ? isManagedWarehouseUnavailable(datasource) : false;
   }, [datasources, draftExploreState.datasource]);
 
   const setSubmittedExploreState = useCallback((state: ExplorerDraftConfig) => {
@@ -404,7 +402,7 @@ export function ExplorerProvider({
       const previousForRequest = sourceConfig.previousTimeFrame ?? null;
       if (!isSubmittableConfig(configToSubmit)) return;
 
-      if (managedWarehouseAwaitingProvisioning) {
+      if (managedWarehouseUnavailable) {
         return;
       }
 
@@ -537,7 +535,7 @@ export function ExplorerProvider({
       fetchData,
       onRunComplete,
       isManagedWarehouse,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       trackingSource,
       getDatasourceById,
     ],
@@ -576,7 +574,7 @@ export function ExplorerProvider({
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
     if (!isSubmittable) return;
     if (skipNextAutoSubmitRef.current) {
       skipNextAutoSubmitRef.current = false;
@@ -613,7 +611,7 @@ export function ExplorerProvider({
     draftExploreState.previousTimeFrame,
     setSubmittedExploreState,
     isSubmittable,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
     isManagedWarehouse,
   ]);
 
@@ -877,7 +875,7 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       clearAllDatasets,
       query,
       trackingSource,
@@ -907,7 +905,7 @@ export function ExplorerProvider({
       isStale,
       isSubmittable,
       loading,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       needsFetch,
       needsUpdate,
       query,

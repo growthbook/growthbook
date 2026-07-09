@@ -2622,6 +2622,10 @@ Triggered when a warning condition is detected on an experiment
             maxAttempts: number;
             willRetry: boolean;
             reason: string;
+        } | {
+            type: "underpowered";
+            experimentName: string;
+            experimentId: string;
         };
     };
     user: {
