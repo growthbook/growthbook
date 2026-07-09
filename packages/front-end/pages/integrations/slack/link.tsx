@@ -172,7 +172,7 @@ const SlackLinkPage = () => {
             <Text as="p" color="text-mid" align="center">
               Your Slack account is now linked to{" "}
               <strong>{currentOrgName}</strong>. You can close this tab and go
-              back to Slack — the bot will answer as you.
+              back to Slack.
             </Text>
           </Flex>
         )}

@@ -158,6 +158,13 @@ const SOFT: Record<Hue, string> = {
   amber: "rgba(255,178,36,.16)",
   slate: "rgba(31,45,92,.06)",
 };
+// Soft tag badges (bg / text), cycled by index — GrowthBook's tag treatment.
+const TAG_COLORS: { bg: string; fg: string }[] = [
+  { bg: "#ECEAFB", fg: "#5746AF" }, // violet
+  { bg: "#E5F1FF", fg: "#0A4A9E" }, // blue
+  { bg: "#E3F5F1", fg: "#0A6E62" }, // teal
+  { bg: "#FCEEE6", fg: "#944100" }, // orange
+];
 
 type Hue = "violet" | "blue" | "green" | "red" | "amber" | "slate";
 export type CardState =
@@ -242,8 +249,14 @@ export interface ExperimentCardData {
   rows: CardGoalRow[];
   secondary?: CardCiMetric[];
   guardrail?: CardCiMetric[];
-  // started-only
+  // Shown above the conclusion for non-started states; and in the started body.
   hypothesis?: string;
+  // Completed experiments (won / lost / stopped) with a written analysis.
+  conclusion?: { text: string };
+  // Orthogonal to state — an experiment can be Running or Won and still be
+  // flagged unhealthy. Renders a red banner under the header when unhealthy.
+  health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
+  // started-only
   metrics?: { goal: string; secondary: string[]; guardrail: string[] };
   target?: number;
   // warning-only
@@ -457,17 +470,6 @@ function vnumCircle(i: number, size = 18): El {
   );
 }
 
-function chip(label: string): El {
-  return txt(label, {
-    fontSize: 12,
-    fontWeight: 500,
-    color: P.muted,
-    padding: "4px 10px",
-    backgroundColor: P.chip,
-    borderRadius: 6,
-  });
-}
-
 function pctCell(chg: string, dir: "up" | "down", size = 13): El {
   const col = dir === "up" ? P.st.green : P.st.red;
   return el("div", { display: "flex", alignItems: "center", gap: 5 }, [
@@ -528,16 +530,21 @@ function gridRow(
   );
 }
 
-function colHeader(goalLabel: string): El {
-  const labels = [
-    "",
-    goalLabel,
-    "Control",
-    "Variation",
-    "Chance",
-    "",
-    "Change",
-  ];
+// The metric's display name on its own line, above the column header. (The
+// name is intentionally NOT in the column header — see the design handoff.)
+function metricNameEl(name: string): El {
+  return txt(name, {
+    fontSize: 14,
+    fontWeight: 500,
+    color: P.text,
+    padding: "0 24px 9px",
+  });
+}
+
+function colHeader(): El {
+  // First cell (number circle) and the Interval cell are intentionally
+  // label-less; "Interval" was dropped from the header per product feedback.
+  const labels = ["", "", "Control", "Variation", "Chance", "", "Change"];
   return el(
     "div",
     {
@@ -685,17 +692,35 @@ function sectionLabel(t: string): El {
 // Card sections.
 // ---------------------------------------------------------------------------
 
+// Soft tag badges (no leading '#'), colors cycled from TAG_COLORS.
+function tagBadges(tags: string[]): El[] {
+  return tags.map((t, i) => {
+    const c = TAG_COLORS[i % TAG_COLORS.length]!;
+    return txt(t, {
+      fontSize: 11,
+      fontWeight: 500,
+      color: c.fg,
+      backgroundColor: c.bg,
+      padding: "2px 9px",
+      borderRadius: 3,
+    });
+  });
+}
+
+// Condensed single-row header, no background tint (status is carried by the
+// left rail + the badge): name · key · badge on the left, tags + logo right.
 function headerEl(exp: ExperimentCardData): El {
-  const hue = HUE[exp.state];
-  const logoH = 16;
+  const logoH = 15;
   return el(
     "div",
     {
       display: "flex",
-      flexDirection: "column",
-      backgroundColor: SOFT[hue],
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 16,
+      padding: "14px 24px",
       borderBottom: `1px solid ${P.border}`,
-      padding: "16px 24px 14px",
     },
     [
       el(
@@ -703,30 +728,31 @@ function headerEl(exp: ExperimentCardData): El {
         {
           display: "flex",
           flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
         },
         [
-          el("div", { display: "flex", flexDirection: "column", gap: 9 }, [
-            badge(exp.state),
-            el(
-              "div",
-              { display: "flex", flexDirection: "row", alignItems: "baseline" },
-              [
-                txt(exp.name, {
-                  fontSize: 19,
-                  fontWeight: 600,
-                  color: P.text,
-                  letterSpacing: "-0.01em",
-                }),
-                txt(
-                  exp.key,
-                  { fontSize: 12, color: P.subtle, marginLeft: 10 },
-                  true,
-                ),
-              ],
-            ),
-          ]),
+          txt(exp.name, {
+            fontSize: 17,
+            fontWeight: 600,
+            color: P.text,
+            letterSpacing: "-0.01em",
+          }),
+          txt(exp.key, { fontSize: 12, color: P.subtle }, true),
+          badge(exp.state),
+        ],
+      ),
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+        },
+        [
+          ...(exp.tags?.length ? tagBadges(exp.tags) : []),
           {
             type: "img",
             props: {
@@ -738,48 +764,49 @@ function headerEl(exp: ExperimentCardData): El {
           } as El,
         ],
       ),
-      ...(exp.tags && exp.tags.length
-        ? [
-            el(
-              "div",
-              { display: "flex", flexDirection: "row", gap: 6, marginTop: 11 },
-              exp.tags.map((t) =>
-                txt(`#${t}`, {
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: P.muted,
-                  padding: "2px 9px",
-                  backgroundColor: P.chip,
-                  border: `1px solid ${P.border}`,
-                  borderRadius: 4,
-                }),
-              ),
-            ),
-          ]
-        : []),
     ],
   );
 }
 
+// Plain-text metadata footer, items joined by a middot separator (not chips).
 function footerEl(items: (string | undefined)[]): El {
+  const fitems = items.filter((x): x is string => !!x);
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
-      gap: 8,
+      flexWrap: "wrap",
       alignItems: "center",
-      padding: "12px 24px",
+      padding: "11px 24px",
       borderTop: `1px solid ${P.border}`,
       marginTop: "auto",
     },
-    items.filter((x): x is string => !!x).map((t) => chip(t)),
+    fitems.map((t, i) =>
+      el(
+        "div",
+        { display: "flex", flexDirection: "row", alignItems: "center" },
+        [
+          i > 0
+            ? txt("·", {
+                fontSize: 11.5,
+                color: P.subtle,
+                margin: "0 9px",
+                opacity: 0.55,
+              })
+            : null,
+          txt(t, { fontSize: 11.5, color: P.subtle }),
+        ].filter(Boolean) as El[],
+      ),
+    ),
   );
 }
 
 function standardBody(exp: ExperimentCardData): El {
   const children: (El | null)[] = [
-    colHeader(`Goal · ${exp.goal}`),
+    sectionLabel("Goal metric"),
+    metricNameEl(exp.goal),
+    colHeader(),
     ...exp.rows.map(goalRowEl),
   ];
   if (exp.secondary?.length) {
@@ -921,7 +948,9 @@ function warningBody(exp: ExperimentCardData): El {
         ),
       ],
     ),
-    colHeader(`Goal · ${exp.goal}`),
+    sectionLabel("Goal metric"),
+    metricNameEl(exp.goal),
+    colHeader(),
     ...exp.rows.map(goalRowEl),
     ...(exp.note
       ? [
@@ -934,6 +963,132 @@ function warningBody(exp: ExperimentCardData): El {
         ]
       : []),
   ]);
+}
+
+function triAlertSvg(color: string, size = 18): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/></svg>`;
+}
+
+// Health is orthogonal to status — an unhealthy experiment gets a red banner
+// under the header regardless of whether it's Running, Won, etc.
+function healthBannerEl(exp: ExperimentCardData): El | null {
+  if (!exp.health || exp.health.status !== "unhealthy") return null;
+  const col = P.st.red;
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      gap: 12,
+      alignItems: "flex-start",
+      padding: "13px 24px",
+      backgroundColor: SOFT.red,
+      borderBottom: `1px solid ${P.border}`,
+    },
+    [
+      svgImg(triAlertSvg(col, 18), 18, 18),
+      el(
+        "div",
+        { display: "flex", flexDirection: "column", flexGrow: 1, gap: 6 },
+        [
+          txt("Health · Needs attention", {
+            fontSize: 12.5,
+            fontWeight: 700,
+            color: col,
+          }),
+          el(
+            "div",
+            { display: "flex", flexDirection: "column", gap: 4 },
+            exp.health.issues.map(([label, detail]) =>
+              el(
+                "div",
+                {
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  alignItems: "baseline",
+                  gap: 4,
+                },
+                [
+                  txt(label, {
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    fontWeight: 600,
+                    color: P.text,
+                  }),
+                  txt(`— ${detail}`, {
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    color: P.muted,
+                  }),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+// Hypothesis above the conclusion for non-started states (the started layout
+// carries its own, larger hypothesis inside the body).
+function hypothesisEl(exp: ExperimentCardData): El | null {
+  if (exp.state === "started" || !exp.hypothesis) return null;
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      padding: "14px 24px 13px",
+      borderBottom: `1px solid ${P.borderSub}`,
+    },
+    [
+      txt("Hypothesis", {
+        fontSize: 9.5,
+        fontWeight: 600,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        color: P.subtle,
+        marginBottom: 6,
+      }),
+      txt(exp.hypothesis, { fontSize: 13, lineHeight: 1.5, color: P.muted }),
+    ],
+  );
+}
+
+// The main learning, featured near the top — "lead" treatment: soft status-hue
+// background, a caps CONCLUSION label, then the conclusion set large.
+function conclusionEl(exp: ExperimentCardData): El | null {
+  if (!exp.conclusion?.text) return null;
+  const hue = HUE[exp.state];
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      padding: "18px 24px 16px",
+      backgroundColor: SOFT[hue],
+      borderBottom: `1px solid ${P.border}`,
+    },
+    [
+      txt("Conclusion", {
+        fontSize: 9.5,
+        fontWeight: 600,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: P.st[hue],
+        marginBottom: 7,
+      }),
+      txt(exp.conclusion.text, {
+        fontSize: 17,
+        fontWeight: 500,
+        lineHeight: 1.5,
+        color: P.text,
+        letterSpacing: "-0.01em",
+      }),
+    ],
+  );
 }
 
 function buildCard(exp: ExperimentCardData): El {
@@ -959,14 +1114,24 @@ function buildCard(exp: ExperimentCardData): El {
     ];
   } else {
     body = standardBody(exp);
+    const healthy = !exp.health || exp.health.status !== "unhealthy";
     footerItems = [
       exp.days,
       exp.users ? `${exp.users} users` : undefined,
       exp.dates,
       exp.ds,
-      "SRM check: passed",
+      healthy ? "Health: healthy" : "Health: needs attention",
     ];
   }
+
+  const column = [
+    headerEl(exp),
+    healthBannerEl(exp),
+    hypothesisEl(exp),
+    conclusionEl(exp),
+    body,
+    footerEl(footerItems),
+  ].filter(Boolean) as El[];
 
   return el(
     "div",
@@ -981,11 +1146,11 @@ function buildCard(exp: ExperimentCardData): El {
     },
     [
       el("div", { display: "flex", width: RAIL, backgroundColor: SOLID[hue] }),
-      el("div", { display: "flex", flexDirection: "column", flexGrow: 1 }, [
-        headerEl(exp),
-        body,
-        footerEl(footerItems),
-      ]),
+      el(
+        "div",
+        { display: "flex", flexDirection: "column", flexGrow: 1 },
+        column,
+      ),
     ],
   );
 }
@@ -1075,6 +1240,16 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         days: "Day 21",
         dates: "Started Jun 9, 2026",
         ds: "Snowflake · Prod",
+        health: {
+          status: "unhealthy",
+          issues: [
+            ["Multiple exposures", "1.9k users saw more than one variation"],
+            [
+              "Sample Ratio Mismatch",
+              "observed traffic split deviates from the configured split",
+            ],
+          ],
+        },
         rows: [
           {
             v: "Bottom tabs",
@@ -1135,6 +1310,11 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         days: "Day 30 · stopped",
         dates: "May 1 – May 31, 2026",
         ds: "BigQuery · Prod",
+        hypothesis:
+          "Regrouping plans by use case on the pricing page will reduce decision friction and increase purchases.",
+        conclusion: {
+          text: "No clear winner. Neither layout produced a significant change in purchase rate over 30 days, so the experiment was stopped and traffic returned to control.",
+        },
         rows: [
           {
             v: "Layout B",
@@ -1208,6 +1388,11 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         days: "Day 26 · stopped",
         dates: "May 12 – Jun 7, 2026",
         ds: "Snowflake · Prod",
+        hypothesis:
+          "A benefit-led hero that leads with the core value proposition will reduce confusion and drive more visitors to sign up.",
+        conclusion: {
+          text: "The winning variation is Hero B. It drove a significant improvement in signup conversion without hurting revenue or page-load guardrails. Rolling out to 100%.",
+        },
         rows: [
           {
             v: "Hero B",

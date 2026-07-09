@@ -299,6 +299,41 @@ export async function buildExperimentCardData(
       ? `Observed split deviates from configuration`
       : undefined;
 
+  // Health is orthogonal to status. SRM is already surfaced by the dedicated
+  // "warning" card, so only add it here when the card isn't already a warning
+  // (e.g. an SRM on a stopped experiment). Multiple exposures and unknown
+  // variations are always health issues regardless of state.
+  const healthIssues: [string, string][] = [];
+  if (
+    state !== "warning" &&
+    srmPValue !== undefined &&
+    srmPValue < SRM_P_THRESHOLD
+  ) {
+    healthIssues.push([
+      "Sample Ratio Mismatch",
+      "observed traffic split deviates from the configured split",
+    ]);
+  }
+  if (snapshot && snapshot.multipleExposures > 0) {
+    healthIssues.push([
+      "Multiple exposures",
+      `${compact(snapshot.multipleExposures)} users saw more than one variation`,
+    ]);
+  }
+  if (snapshot && snapshot.unknownVariations.length > 0) {
+    healthIssues.push([
+      "Unknown variations",
+      "traffic seen for variation ids not in the experiment config",
+    ]);
+  }
+
+  // Conclusion (the written analysis) is only meaningful for completed
+  // experiments — show it for stopped experiments that have one.
+  const conclusion =
+    experiment.status === "stopped" && experiment.analysis?.trim()
+      ? { text: experiment.analysis.trim() }
+      : undefined;
+
   return {
     ...base,
     state,
@@ -308,6 +343,11 @@ export async function buildExperimentCardData(
     users: compact(totalUsers),
     days,
     dates,
+    ...(experiment.hypothesis ? { hypothesis: experiment.hypothesis } : {}),
+    ...(conclusion ? { conclusion } : {}),
+    ...(healthIssues.length
+      ? { health: { status: "unhealthy" as const, issues: healthIssues } }
+      : {}),
     ...(srm ? { srm, p: `p < ${SRM_P_THRESHOLD}` } : {}),
     ...(state === "warning"
       ? {
