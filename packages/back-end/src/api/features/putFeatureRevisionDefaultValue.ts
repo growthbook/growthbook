@@ -62,10 +62,10 @@ export async function setRevisionDefaultValue(
       "Default value",
     );
 
-    // Covers raw `$extends` values too, not just the v2 `config` param.
+    // Config-backing is determined by the feature's `baseConfig`, not the value.
     assertConfigSchemaCompat({
       jsonSchemaEnabled: feature.jsonSchema?.enabled,
-      defaultValue,
+      baseConfig: feature.baseConfig,
     });
 
     const currentDefaultValue =

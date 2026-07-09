@@ -27,6 +27,8 @@ import { validateCustomFields } from "./validations";
 import {
   assertValidProjectId,
   validateEnvRulesScheduleRules,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
 } from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
@@ -146,6 +148,18 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   feature.jsonSchema = jsonSchema;
+
+  // Config mode: baseConfig must be a live config on a JSON flag, and can't
+  // coexist with the flag's own JSON schema (the config's schema is authoritative).
+  await assertValidBaseConfig(
+    req.context,
+    feature.baseConfig,
+    feature.valueType,
+  );
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: feature.jsonSchema?.enabled,
+    baseConfig: feature.baseConfig,
+  });
 
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);

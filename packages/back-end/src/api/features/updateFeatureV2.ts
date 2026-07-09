@@ -201,7 +201,6 @@ export const updateFeatureV2 = createApiRequestHandler(
   // values.
   assertConfigSchemaCompat({
     jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
-    defaultValue: defaultValue ?? feature.defaultValue,
     baseConfig: effectiveBaseConfig,
   });
 

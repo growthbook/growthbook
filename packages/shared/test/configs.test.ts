@@ -36,6 +36,7 @@ import {
   ConfigFamilyMember,
   findUndeclaredInvariantRuleFields,
   undeclaredRuleFieldWarnings,
+  getFeatureBaseConfigKey,
 } from "../src/util/configs";
 import { fieldsContractEqual } from "../src/util/config-schema";
 import { SimpleSchema, SchemaField } from "../types/feature";
@@ -203,6 +204,46 @@ describe("orderConfigsByLineage", () => {
     ]);
     expect(result.map(([key]) => key).sort()).toEqual(["a", "b"]);
     expect(result).toHaveLength(2);
+  });
+});
+
+describe("getFeatureBaseConfigKey", () => {
+  it("returns the first-class baseConfig for a JSON flag", () => {
+    expect(
+      getFeatureBaseConfigKey({
+        valueType: "json",
+        defaultValue: "{}",
+        baseConfig: "pricing",
+      }),
+    ).toBe("pricing");
+  });
+
+  it("falls back to the default value's @config ref when baseConfig is unset", () => {
+    expect(
+      getFeatureBaseConfigKey({
+        valueType: "json",
+        defaultValue: JSON.stringify({ $extends: ["@config:pricing"] }),
+      }),
+    ).toBe("pricing");
+  });
+
+  it("returns null for a non-JSON flag even when baseConfig is set", () => {
+    expect(
+      getFeatureBaseConfigKey({
+        valueType: "string",
+        defaultValue: "OFF",
+        baseConfig: "pricing",
+      }),
+    ).toBeNull();
+    expect(
+      getFeatureBaseConfigKey({ valueType: "boolean", baseConfig: "pricing" }),
+    ).toBeNull();
+  });
+
+  it("returns null for a plain JSON flag with no config", () => {
+    expect(
+      getFeatureBaseConfigKey({ valueType: "json", defaultValue: "{}" }),
+    ).toBeNull();
   });
 });
 

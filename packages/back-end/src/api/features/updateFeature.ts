@@ -48,6 +48,8 @@ import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
   extractRevisionMetadata,
   validateEnvRulesScheduleRules,
 } from "./v2Shared";
@@ -156,6 +158,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             feature.valueType,
           )
         : null;
+
+    // Config mode: validate the effective baseConfig (live + JSON) and that it
+    // doesn't coexist with an enabled JSON schema.
+    const effectiveBaseConfig =
+      req.body.baseConfig !== undefined
+        ? (req.body.baseConfig ?? null)
+        : (feature.baseConfig ?? null);
+    await assertValidBaseConfig(
+      req.context,
+      effectiveBaseConfig,
+      feature.valueType,
+    );
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+      baseConfig: effectiveBaseConfig,
+    });
 
     let updates: Partial<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),

@@ -12,27 +12,22 @@ import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 
-// A flag can't carry its own JSON schema while its default value is backed by a
-// config — the config's schema is authoritative, so the two would conflict.
-// Guards both directions: enabling a schema with a config-backed value, and
-// pointing the default value at a config while a schema is enabled. Pass the
-// *effective* post-update values (new value falling back to the existing one).
+// A flag can't carry its own JSON schema while it's a config-backed ("Config
+// mode") flag — the config's schema is authoritative, so the two would conflict.
+// Config-backing is determined solely by `baseConfig` (the authoritative field),
+// never by sniffing the value's `$extends`. Pass the *effective* post-update
+// `baseConfig` (new value falling back to the existing one).
 export function assertConfigSchemaCompat({
   jsonSchemaEnabled,
-  defaultValue,
   baseConfig,
 }: {
   jsonSchemaEnabled: boolean | undefined;
-  defaultValue: string | undefined;
   baseConfig?: string | null;
 }): void {
-  const configBacked =
-    (baseConfig ?? null) !== null ||
-    (defaultValue !== undefined && getConfigBackingKey(defaultValue) !== null);
-  if (jsonSchemaEnabled && configBacked) {
+  if (jsonSchemaEnabled && (baseConfig ?? null) !== null) {
     throw new BadRequestError(
-      "A flag cannot define its own JSON schema while its default value is backed by a config. " +
-        "The config's schema is authoritative — detach the config from the default value or remove the flag's jsonSchema.",
+      "A flag cannot define its own JSON schema while it is backed by a config (`baseConfig`). " +
+        "The config's schema is authoritative — remove `baseConfig` or the flag's jsonSchema.",
     );
   }
 }

@@ -154,10 +154,11 @@ export function getFeatureBaseConfigKey(feature: {
   defaultValue?: string;
   baseConfig?: string | null;
 }): string | null {
+  // Config backing only applies to JSON flags; a stray baseConfig on a
+  // non-JSON flag (e.g. a bad v1 write) is not treated as config-backed.
+  if (feature.valueType !== "json") return null;
   if ((feature.baseConfig ?? null) !== null) return feature.baseConfig ?? null;
-  return feature.valueType === "json"
-    ? getConfigBackingKey(feature.defaultValue)
-    : null;
+  return getConfigBackingKey(feature.defaultValue);
 }
 
 // Compose a config key + an override patch into the stored value string. The

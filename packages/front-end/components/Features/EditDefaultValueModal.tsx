@@ -9,6 +9,7 @@ import {
   getConfigSubtree,
   getConfigBackingKey,
   getConfigBackingPatch,
+  stripConfigExtends,
 } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
@@ -99,11 +100,14 @@ export default function EditDefaultValueModal({
           );
         }
 
-        // Keep the stored default a pure patch when it targets the base config
-        // (`feature.baseConfig` supplies it); a descendant config stays as a layer.
+        // Config-backed: keep a pure patch when it targets the base config
+        // (`feature.baseConfig` supplies it); a descendant stays as a layer.
+        // Non-config flag: strip any manually-entered `@config:` — a plain flag
+        // can't extend a config (keeps `@const:` refs).
         const ownConfig = getConfigBackingKey(newDefaultValue);
-        const storedDefault =
-          isConfigBacked && ownConfig !== null && ownConfig === defaultConfigKey
+        const storedDefault = !isConfigBacked
+          ? (stripConfigExtends(newDefaultValue) ?? newDefaultValue)
+          : ownConfig !== null && ownConfig === defaultConfigKey
             ? getConfigBackingPatch(newDefaultValue)
             : newDefaultValue;
 
@@ -142,7 +146,7 @@ export default function EditDefaultValueModal({
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}
-        allowConfigBacking={feature.valueType === "json"}
+        allowConfigBacking={isConfigBacked}
         configBackingOptionKeys={configBackingOptionKeys}
         configBackingShowPatch={isConfigBacked}
         lockConfigBacking={isConfigBacked}
