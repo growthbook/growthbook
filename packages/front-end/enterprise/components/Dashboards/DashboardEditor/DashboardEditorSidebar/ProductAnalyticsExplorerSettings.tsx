@@ -3,6 +3,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   buildComparisonDateRange,
 } from "shared/enterprise";
 import type {
@@ -21,12 +22,14 @@ interface Props {
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
     >
   >;
   saveAndCloseTrigger?: number;
@@ -108,7 +111,8 @@ export default function ProductAnalyticsExplorerSettings({
         } as
           | MetricExplorationBlockInterface
           | FactTableExplorationBlockInterface
-          | DataSourceExplorationBlockInterface);
+          | DataSourceExplorationBlockInterface
+          | SqlExplorationBlockInterface);
       }}
     >
       <ProductAnalyticsExplorerSideBarWrapper

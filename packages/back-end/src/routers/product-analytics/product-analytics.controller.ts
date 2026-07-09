@@ -6,6 +6,7 @@ import {
   ExplorationCacheQuery,
   ProductAnalyticsRunRequestBody,
   ProductAnalyticsRunComparisonPayload,
+  sqlDatasetColumnResponseValidator,
   type AIChatFeedbackEntry,
   type AIChatFeedbackRating,
 } from "shared/validators";
@@ -14,10 +15,12 @@ import { QueryInterface } from "shared/types/query";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { getQueryById } from "back-end/src/models/QueryModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
   getConversationStatus,
   listConversations,
@@ -167,6 +170,52 @@ export const postProductAnalyticsRun = async (
       bigNumberTrends: comparisonPayload.bigNumberTrends,
       tableTrendsByRow: comparisonPayload.tableTrendsByRow,
     },
+  });
+};
+
+export const postSqlColumns = async (
+  req: AuthRequest<
+    {
+      datasource: string;
+      sql: string;
+    },
+    unknown,
+    never
+  >,
+  res: Response<{
+    status: 200;
+    columns: {
+      column: string;
+      type: "string" | "number" | "date" | "boolean" | "other";
+    }[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.body.datasource);
+  if (!datasource) {
+    throw new NotFoundError("Datasource not found");
+  }
+
+  const { columns, error } = await runFreeFormQuery(
+    context,
+    datasource,
+    req.body.sql,
+    100,
+  );
+  if (error) {
+    throw new BadRequestError(error);
+  }
+
+  const response = sqlDatasetColumnResponseValidator.parse({
+    columns: (columns ?? []).map((column) => ({
+      column: column.name,
+      type: column.dataType ?? "other",
+    })),
+  });
+
+  return res.status(200).json({
+    status: 200,
+    columns: response.columns,
   });
 };
 

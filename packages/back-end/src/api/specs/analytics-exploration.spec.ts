@@ -4,9 +4,11 @@ import {
   apiMetricExplorationValidator,
   apiFactTableExplorationValidator,
   apiDataSourceExplorationValidator,
+  apiSqlExplorationValidator,
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   explorationCacheQuerySchema,
   apiBaseSchema,
   apiQueryValidator,
@@ -82,6 +84,16 @@ export const postDataSourceExplorationEndpoint = makeExplorationEndpoint(
   },
 );
 
+export const postSqlExplorationEndpoint = makeExplorationEndpoint(
+  apiSqlExplorationValidator,
+  sqlExplorationConfigValidator,
+  {
+    pathFragment: "/sql-exploration",
+    operationId: "postSqlExploration",
+    summary: "Create a SQL based visualization",
+  },
+);
+
 export const analyticsExplorationApiSpec = {
   modelSingular: "analyticsExploration",
   modelPlural: "analyticsExplorations",
@@ -100,6 +112,7 @@ export const analyticsExplorationApiSpec = {
     postMetricExplorationEndpoint,
     postFactTableExplorationEndpoint,
     postDataSourceExplorationEndpoint,
+    postSqlExplorationEndpoint,
   ],
 } satisfies OpenApiModelSpec;
 

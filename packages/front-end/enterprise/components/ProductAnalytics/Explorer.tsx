@@ -34,6 +34,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  sql: "SQL",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -70,7 +71,11 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseAwaitingProvisioning } = useExplorerContext();
+  const { managedWarehouseAwaitingProvisioning, draftExploreState } =
+    useExplorerContext();
+  const hideSidebar =
+    draftExploreState.type === "sql" &&
+    Object.keys(draftExploreState.dataset.columnTypes).length === 0;
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
@@ -91,36 +96,40 @@ function ExplorerContent() {
           <ExplorerMainSection />
         </Panel>
 
-        {/* Resize Handle */}
-        <PanelResizeHandle
-          style={{
-            width: "10px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Box
-            flexGrow="1"
-            mb="3"
-            mt="9"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-          <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
-          <Box
-            flexGrow="1"
-            my="3"
-            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-          ></Box>
-        </PanelResizeHandle>
+        {!hideSidebar && (
+          <>
+            {/* Resize Handle */}
+            <PanelResizeHandle
+              style={{
+                width: "10px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                flexGrow="1"
+                mb="3"
+                mt="9"
+                style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+              ></Box>
+              <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
+              <Box
+                flexGrow="1"
+                my="3"
+                style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+              ></Box>
+            </PanelResizeHandle>
 
-        {/* Sidebar */}
-        <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          <ShadowedScrollArea height="calc(100vh - 160px)">
-            <ExplorerSideBar />
-          </ShadowedScrollArea>
-        </Panel>
+            {/* Sidebar */}
+            <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
+              <ShadowedScrollArea height="calc(100vh - 160px)">
+                <ExplorerSideBar />
+              </ShadowedScrollArea>
+            </Panel>
+          </>
+        )}
       </PanelGroup>
     </Flex>
   );

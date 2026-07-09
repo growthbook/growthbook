@@ -358,6 +358,7 @@ const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
 ] as const;
 
 function isProductAnalyticsExplorationBlock(

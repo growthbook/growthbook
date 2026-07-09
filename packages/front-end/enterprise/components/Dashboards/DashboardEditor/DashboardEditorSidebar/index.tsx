@@ -34,6 +34,7 @@ const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "sql-explorer",
   "metric-explorer",
 ];

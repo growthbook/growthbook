@@ -93,7 +93,8 @@ export default function ValueCard({
 
   if (
     draftExploreState.dataset.type === "fact_table" ||
-    draftExploreState.dataset.type === "data_source"
+    draftExploreState.dataset.type === "data_source" ||
+    draftExploreState.dataset.type === "sql"
   ) {
     supportsUnitSelection =
       draftExploreState.dataset.values[index].valueType === "unit_count";
@@ -121,7 +122,8 @@ export default function ValueCard({
       return factTableToColumnSource(factTable);
     }
     if (
-      draftExploreState.dataset.type === "data_source" &&
+      (draftExploreState.dataset.type === "data_source" ||
+        draftExploreState.dataset.type === "sql") &&
       draftExploreState.dataset.columnTypes &&
       Object.keys(draftExploreState.dataset.columnTypes).length > 0
     ) {

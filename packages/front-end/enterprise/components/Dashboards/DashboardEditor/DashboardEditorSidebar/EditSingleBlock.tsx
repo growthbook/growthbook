@@ -14,6 +14,7 @@ import {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   MetricExplorationConfig,
+  SqlExplorationConfig,
   SavedQuery,
 } from "shared/validators";
 import {
@@ -113,6 +114,13 @@ const REQUIRED_FIELDS: {
       field: "config",
       validation: (config) =>
         isSubmittableConfig(config as DataSourceExplorationConfig),
+    },
+  ],
+  "sql-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as SqlExplorationConfig),
     },
   ],
 };
@@ -269,7 +277,8 @@ export default function EditSingleBlock({
   const isExplorationBlock =
     block?.type === "metric-exploration" ||
     block?.type === "fact-table-exploration" ||
-    block?.type === "data-source-exploration";
+    block?.type === "data-source-exploration" ||
+    block?.type === "sql-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -1689,6 +1698,14 @@ export default function EditSingleBlock({
               />
             )}
             {block.type === "data-source-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "sql-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}

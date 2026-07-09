@@ -4,6 +4,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
   resolveBlockComparison,
   computeExplorationComparisonPayload,
 } from "shared/enterprise";
@@ -23,6 +24,7 @@ export default function ProductAnalyticsExplorerBlock({
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
 >) {
   const { getFactMetricById } = useDefinitions();
   const { data, error, isLoading } = useApi<{

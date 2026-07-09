@@ -122,6 +122,7 @@ const BLOCK_COMPONENTS: {
   "metric-exploration": ProductAnalyticsExplorerBlock,
   "fact-table-exploration": ProductAnalyticsExplorerBlock,
   "data-source-exploration": ProductAnalyticsExplorerBlock,
+  "sql-exploration": ProductAnalyticsExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -357,7 +358,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       (block.metricAnalysisId.length === 0 || !metricAnalysis)) ||
     ((block.type === "metric-exploration" ||
       block.type === "fact-table-exploration" ||
-      block.type === "data-source-exploration") &&
+      block.type === "data-source-exploration" ||
+      block.type === "sql-exploration") &&
       !isSubmittableConfig(block.config));
 
   const blockMissingHealthCheck =

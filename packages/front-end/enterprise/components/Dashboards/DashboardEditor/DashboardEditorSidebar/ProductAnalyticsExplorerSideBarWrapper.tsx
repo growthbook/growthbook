@@ -4,10 +4,12 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
+import SqlQuerySection from "@/enterprise/components/ProductAnalytics/MainSection/SqlQuerySection";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalytics/util";
 
@@ -21,12 +23,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | SqlExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | SqlExplorationBlockInterface
     >
   >;
   saveAndCloseTrigger?: number;
@@ -80,7 +84,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
-        | DataSourceExplorationBlockInterface);
+        | DataSourceExplorationBlockInterface
+        | SqlExplorationBlockInterface);
     }
   }, [
     needsFetch,
@@ -118,5 +123,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     needsFetch,
   ]);
 
-  return <ExplorerSideBar renderingInDashboardSidebar />;
+  const hideSidebar =
+    draftExploreState.type === "sql" &&
+    Object.keys(draftExploreState.dataset.columnTypes).length === 0;
+
+  return (
+    <>
+      {draftExploreState.type === "sql" && <SqlQuerySection />}
+      {!hideSidebar && <ExplorerSideBar renderingInDashboardSidebar />}
+    </>
+  );
 }

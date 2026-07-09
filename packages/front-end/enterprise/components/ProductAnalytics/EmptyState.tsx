@@ -283,7 +283,7 @@ export default function EmptyState() {
                     </Flex>
                   </LinkButton>
                   <LinkButton
-                    href="/sql-explorer"
+                    href="/product-analytics/explore/sql"
                     variant="outline"
                     style={buttonStyle}
                     disabled={

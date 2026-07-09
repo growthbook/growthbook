@@ -10,6 +10,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  SqlExplorationConfig,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -306,6 +307,19 @@ export const CREATE_BLOCK_TYPE: {
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
       ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "sql-exploration": ({ initialValues }) => ({
+    type: "sql-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "sql-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as SqlExplorationConfig),
     ...(initialValues || {}),
   }),
 };

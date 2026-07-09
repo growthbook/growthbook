@@ -25,6 +25,7 @@ import analyticsExplorationApiSpec, {
   postMetricExplorationEndpoint,
   postFactTableExplorationEndpoint,
   postDataSourceExplorationEndpoint,
+  postSqlExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
 
@@ -95,6 +96,7 @@ const BaseClass = MakeModelClass({
       makeExplorationHandler(postMetricExplorationEndpoint),
       makeExplorationHandler(postFactTableExplorationEndpoint),
       makeExplorationHandler(postDataSourceExplorationEndpoint),
+      makeExplorationHandler(postSqlExplorationEndpoint),
     ],
   },
 });
@@ -129,8 +131,11 @@ export class AnalyticsExplorationModel extends BaseClass {
         factTableId: dataset.type === "fact_table" ? dataset.factTableId : null,
         table: dataset.type === "data_source" ? dataset.table : null,
         path: dataset.type === "data_source" ? dataset.path : null,
+        sql: dataset.type === "sql" ? dataset.sql : null,
         timestampColumn:
-          dataset.type === "data_source" ? dataset.timestampColumn : null,
+          dataset.type === "data_source" || dataset.type === "sql"
+            ? dataset.timestampColumn
+            : null,
       }),
     );
 

@@ -69,7 +69,8 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
 export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
-  | "data-source-exploration";
+  | "data-source-exploration"
+  | "sql-exploration";
 
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
@@ -101,6 +102,19 @@ export function getInitialConfigByBlockType(
           values: [],
           table: "",
           path: "",
+          timestampColumn: "",
+          columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "sql-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "sql",
+        dataset: {
+          type: "sql",
+          values: [],
+          sql: "",
           timestampColumn: "",
           columnTypes: {},
         },

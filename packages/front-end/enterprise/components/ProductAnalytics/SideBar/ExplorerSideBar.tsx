@@ -34,6 +34,7 @@ import track from "@/services/track";
 import MetricTabContent from "./MetricTabContent";
 import FactTableTabContent from "./FactTableTabContent";
 import DatasourceTabContent from "./DatasourceTabContent";
+import SqlTabContent from "./SqlTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
@@ -334,6 +335,7 @@ export default function ExplorerSideBar({
         {activeType === "metric" && <MetricTabContent />}
         {activeType === "fact_table" && <FactTableTabContent />}
         {activeType === "data_source" && <DatasourceTabContent />}
+        {activeType === "sql" && <SqlTabContent />}
       </Box>
 
       {showAsAppliesTo(draftExploreState, getFactMetricById) && (

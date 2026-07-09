@@ -121,6 +121,10 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Data Source Explorer",
     icon: <PiDatabase />,
   },
+  "sql-exploration": {
+    name: "SQL Explorer",
+    icon: <PiFileSqlDuotone />,
+  },
 };
 
 export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
@@ -131,7 +135,12 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
   [
     "Product Analytics",
-    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
+    [
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
+      "sql-exploration",
+    ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
@@ -143,6 +152,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
   "markdown",
 ];
 

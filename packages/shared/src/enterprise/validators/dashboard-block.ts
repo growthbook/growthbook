@@ -8,6 +8,7 @@ import {
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
   explorationDateRangeValidator,
 } from "../../validators/product-analytics";
 import { differenceTypes, pinSources } from "../dashboards/utils";
@@ -62,6 +63,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "metric-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "fact-table-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
   "data-source-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
+  "sql-exploration": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
 };
 
 export function getBlockSizeBounds(
@@ -375,6 +377,12 @@ const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   config: dataSourceExplorationConfigValidator,
 });
 
+const sqlExplorationBlockInterface = baseBlockInterface.extend({
+  type: z.literal("sql-exploration"),
+  ...explorationBlockCommon,
+  config: sqlExplorationConfigValidator,
+});
+
 /**
  * The effective comparison for an exploration block. Today this is just the
  * block's own setting (saved from the explorer). The `dashboard` arg is the
@@ -400,6 +408,9 @@ export type FactTableExplorationBlockInterface = z.infer<
 export type DataSourceExplorationBlockInterface = z.infer<
   typeof dataSourceExplorationBlockInterface
 >;
+export type SqlExplorationBlockInterface = z.infer<
+  typeof sqlExplorationBlockInterface
+>;
 // Blocks that are the same for both the standard interface and the api interface
 const standardAndApiCommonBlocks = [
   markdownBlockInterface,
@@ -412,6 +423,7 @@ const standardAndApiCommonBlocks = [
   metricExplorationBlockInterface,
   factTableExplorationBlockInterface,
   dataSourceExplorationBlockInterface,
+  sqlExplorationBlockInterface,
 ];
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
@@ -462,6 +474,7 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   metricExplorationBlockInterface.omit(createOmits),
   factTableExplorationBlockInterface.omit(createOmits),
   dataSourceExplorationBlockInterface.omit(createOmits),
+  sqlExplorationBlockInterface.omit(createOmits),
 ]);
 export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
@@ -520,6 +533,10 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   dataSourceExplorationBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  sqlExplorationBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

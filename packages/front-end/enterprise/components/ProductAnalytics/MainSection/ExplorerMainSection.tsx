@@ -10,6 +10,7 @@ import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
+import SqlQuerySection from "./SqlQuerySection";
 import Toolbar from "./Toolbar";
 
 export default function ExplorerMainSection() {
@@ -34,6 +35,9 @@ export default function ExplorerMainSection() {
     error,
     submittedExploreState,
   });
+  const isSqlSetupState =
+    draftExploreState.type === "sql" &&
+    Object.keys(draftExploreState.dataset.columnTypes).length === 0;
 
   return (
     <Flex
@@ -46,12 +50,17 @@ export default function ExplorerMainSection() {
     >
       <Toolbar />
 
-      <Flex
-        direction="column"
-        gap="3"
-        style={{ flex: "1", minHeight: 0, position: "relative" }}
-        id="main-section-visuals"
-      >
+      {draftExploreState.type === "sql" && (
+        <SqlQuerySection fullHeight={isSqlSetupState} />
+      )}
+
+      {!isSqlSetupState && (
+        <Flex
+          direction="column"
+          gap="3"
+          style={{ flex: "1", minHeight: 0, position: "relative" }}
+          id="main-section-visuals"
+        >
         {submittedExploreState?.dataset?.values?.length &&
         submittedExploreState?.dataset?.values?.length > 0 ? (
           <PanelGroup direction="vertical" id="visualization-group">
@@ -190,7 +199,8 @@ export default function ExplorerMainSection() {
             </Callout>
           </Box>
         )}
-      </Flex>
+        </Flex>
+      )}
     </Flex>
   );
 }
