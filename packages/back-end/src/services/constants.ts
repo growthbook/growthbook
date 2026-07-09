@@ -14,7 +14,10 @@ import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
+import {
+  getPayloadKeysForAllEnvs,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -501,4 +504,44 @@ export async function assertConfigDeletable(
         )}). Re-parent or remove the mixin from them, or delete them first.`,
     );
   }
+}
+
+// Experiment IDs with an experiment-ref variation arm backed by a config in
+// `affected` (the arm's own `@config:` ref, else the feature's baseConfig). Pure
+// + exported for unit testing.
+export function experimentIdsWithConfigBackedArm(
+  features: Pick<FeatureInterface, "valueType" | "rules" | "baseConfig">[],
+  affected: Set<string>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const f of features) {
+    if (f.valueType !== "json") continue;
+    for (const rule of f.rules ?? []) {
+      if (rule.type !== "experiment-ref" || !rule.experimentId) continue;
+      const armAffected = (rule.variations ?? []).some((v) => {
+        const c = getConfigBackingKey(v.value) ?? f.baseConfig ?? null;
+        return c !== null && affected.has(c);
+      });
+      if (armAffected) ids.add(rule.experimentId);
+    }
+  }
+  return ids;
+}
+
+// Running experiments whose config-backed variation arm resolves through
+// `configKey` or one of its descendants — i.e. experiments whose live value(s) a
+// publish of this config would rewrite mid-flight (arms aren't re-bucketed).
+export async function getRunningExperimentsAffectedByConfigPublish(
+  context: ReqContext | ApiReqContext,
+  configKey: string,
+): Promise<{ id: string; name: string }[]> {
+  const allConfigs = await context.models.configs.getAll();
+  const affected = new Set(getConfigSubtree(configKey, allConfigs));
+  const features = await getAllFeatures(context, {});
+  const experimentIds = experimentIdsWithConfigBackedArm(features, affected);
+  if (!experimentIds.size) return [];
+  const experiments = await getExperimentsByIds(context, [...experimentIds]);
+  return experiments
+    .filter((e) => e.status === "running")
+    .map((e) => ({ id: e.id, name: e.name }));
 }

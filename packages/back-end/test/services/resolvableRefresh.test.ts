@@ -4,6 +4,7 @@ import {
   featureReferenceTokens,
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
+  experimentIdsWithConfigBackedArm,
 } from "back-end/src/services/constants";
 import {
   configToResolvable,
@@ -545,5 +546,65 @@ describe("featuresAffectedByResolvable", () => {
     expect(
       ids(featuresAffectedByResolvable([], features, "constant", "deleted")),
     ).toEqual(["dangling"]);
+  });
+});
+
+describe("experimentIdsWithConfigBackedArm", () => {
+  const expRef = (
+    experimentId: string,
+    variationValues: string[],
+  ): FeatureRule =>
+    ({
+      id: "r",
+      type: "experiment-ref",
+      experimentId,
+      variations: variationValues.map((value, i) => ({
+        variationId: `v${i}`,
+        value,
+      })),
+    }) as unknown as FeatureRule;
+
+  it("matches an arm backed by an affected config via the feature's baseConfig", () => {
+    const f = feat({
+      valueType: "json",
+      baseConfig: "pricing",
+      rules: [expRef("exp1", ["{}", "{}"])],
+    });
+    expect([
+      ...experimentIdsWithConfigBackedArm([f], new Set(["pricing"])),
+    ]).toEqual(["exp1"]);
+  });
+
+  it("matches an arm whose own @config ref is an affected descendant", () => {
+    const f = feat({
+      valueType: "json",
+      baseConfig: "pricing",
+      rules: [expRef("exp2", [extendsValue(["@config:pricing-vip"])])],
+    });
+    expect([
+      ...experimentIdsWithConfigBackedArm([f], new Set(["pricing-vip"])),
+    ]).toEqual(["exp2"]);
+  });
+
+  it("ignores experiments whose arms don't resolve through an affected config", () => {
+    const f = feat({
+      valueType: "json",
+      baseConfig: "other",
+      rules: [expRef("exp3", ["{}"])],
+    });
+    expect(
+      experimentIdsWithConfigBackedArm([f], new Set(["pricing"])).size,
+    ).toBe(0);
+  });
+
+  it("ignores non-JSON flags", () => {
+    const f = feat({
+      valueType: "string",
+      baseConfig: "pricing",
+      rules: [expRef("exp4", ["{}"])],
+    });
+    expect(
+      experimentIdsWithConfigBackedArm([f], new Set(["pricing"])).size,
+    ).toBe(0);
   });
 });
