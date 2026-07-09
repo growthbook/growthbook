@@ -349,7 +349,8 @@ export async function getDashboardSnapshots(
           } =>
             (block.type === "metric-exploration" ||
               block.type === "fact-table-exploration" ||
-              block.type === "data-source-exploration") &&
+              block.type === "data-source-exploration" ||
+              block.type === "funnel-exploration") &&
             "explorerAnalysisId" in block &&
             typeof (block as { explorerAnalysisId?: string })
               .explorerAnalysisId === "string" &&

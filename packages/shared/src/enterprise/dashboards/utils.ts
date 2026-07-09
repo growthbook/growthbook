@@ -10,6 +10,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  FunnelExplorationConfig,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -306,6 +307,19 @@ export const CREATE_BLOCK_TYPE: {
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
       ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "funnel-exploration": ({ initialValues }) => ({
+    type: "funnel-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "funnel-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as FunnelExplorationConfig),
     ...(initialValues || {}),
   }),
 };

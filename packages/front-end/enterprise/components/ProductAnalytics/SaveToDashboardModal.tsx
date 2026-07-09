@@ -38,7 +38,11 @@ import track from "@/services/track";
 
 function datasetTypeToBlockType(
   type: "metric" | "fact_table" | "data_source" | "funnel",
-): "metric-exploration" | "fact-table-exploration" | "data-source-exploration" {
+):
+  | "metric-exploration"
+  | "fact-table-exploration"
+  | "data-source-exploration"
+  | "funnel-exploration" {
   switch (type) {
     case "metric":
       return "metric-exploration";
@@ -47,10 +51,7 @@ function datasetTypeToBlockType(
     case "data_source":
       return "data-source-exploration";
     case "funnel":
-      // Saving funnels to dashboards isn't supported in Phase 1. The
-      // sidebar's Save-to-Dashboard button is disabled for funnels, so this
-      // code path shouldn't be reachable.
-      throw new Error("Saving funnels to dashboards is not supported yet");
+      return "funnel-exploration";
   }
 }
 

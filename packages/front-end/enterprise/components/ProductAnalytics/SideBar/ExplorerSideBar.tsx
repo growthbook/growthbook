@@ -85,11 +85,9 @@ export default function ExplorerSideBar({
       ? "You do not have permission to create or edit dashboards in this project."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
-        : draftExploreState.dataset?.type === "funnel"
-          ? "Saving funnels to dashboards isn't supported yet."
-          : loading || isStale || needsFetch
-            ? "Run the updated exploration before saving to a dashboard."
-            : undefined;
+        : loading || isStale || needsFetch
+          ? "Run the updated exploration before saving to a dashboard."
+          : undefined;
 
   const dataset = draftExploreState.dataset;
   const activeType: DatasetType = dataset?.type ?? "metric";

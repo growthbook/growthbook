@@ -4,6 +4,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -21,12 +22,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     | MetricExplorationBlockInterface
     | FactTableExplorationBlockInterface
     | DataSourceExplorationBlockInterface
+    | FunnelExplorationBlockInterface
   >;
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<
       | MetricExplorationBlockInterface
       | FactTableExplorationBlockInterface
       | DataSourceExplorationBlockInterface
+      | FunnelExplorationBlockInterface
     >
   >;
   saveAndCloseTrigger?: number;
@@ -80,7 +83,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       } as
         | MetricExplorationBlockInterface
         | FactTableExplorationBlockInterface
-        | DataSourceExplorationBlockInterface);
+        | DataSourceExplorationBlockInterface
+        | FunnelExplorationBlockInterface);
     }
   }, [
     needsFetch,

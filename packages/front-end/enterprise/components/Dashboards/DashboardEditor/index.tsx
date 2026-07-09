@@ -7,6 +7,8 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import {
   PiCaretDownFill,
   PiTableDuotone,
@@ -18,6 +20,7 @@ import {
   PiDatabase,
   PiTable,
   PiChartBar,
+  PiFunnel,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -121,6 +124,10 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Data Source Explorer",
     icon: <PiDatabase />,
   },
+  "funnel-exploration": {
+    name: "Funnel Explorer",
+    icon: <PiFunnel />,
+  },
 };
 
 export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
@@ -131,7 +138,12 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
   [
     "Product Analytics",
-    ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
+    [
+      "metric-exploration",
+      "fact-table-exploration",
+      "data-source-exploration",
+      "funnel-exploration",
+    ],
   ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
@@ -143,6 +155,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "funnel-exploration",
   "markdown",
 ];
 
@@ -150,7 +163,14 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
 export const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
   isGeneralDashboard: boolean,
+  // Funnel dashboard tiles are behind the same rollout flag as the funnel
+  // explorer (`product-analytics-funnels`). Callers pass the flag value; it
+  // defaults to enabled so non-UI callers don't accidentally hide it.
+  funnelExplorerEnabled: boolean = true,
 ): boolean => {
+  if (blockType === "funnel-exploration" && !funnelExplorerEnabled) {
+    return false;
+  }
   if (isGeneralDashboard) {
     return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
   } else {
@@ -250,6 +270,8 @@ function AddBlockDropdown({
   isGeneralDashboard?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const gb = useGrowthBook<AppFeatures>();
+  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
   useEffect(() => {
     if (dropdownOpen) {
       onDropdownOpen && onDropdownOpen();
@@ -271,7 +293,7 @@ function AddBlockDropdown({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(bType, isGeneralDashboard, funnelExplorerEnabled),
         );
 
         // Don't render the subgroup if no block types are allowed

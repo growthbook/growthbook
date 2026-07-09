@@ -69,7 +69,8 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
 export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
-  | "data-source-exploration";
+  | "data-source-exploration"
+  | "funnel-exploration";
 
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
@@ -103,6 +104,17 @@ export function getInitialConfigByBlockType(
           path: "",
           timestampColumn: "",
           columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "funnel-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "funnel",
+        dataset: {
+          type: "funnel",
+          unit: null,
+          steps: [],
         },
         datasource: datasourceId,
       };
