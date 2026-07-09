@@ -87,7 +87,8 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getLicense, getOrgLimits, licenseInit } from "back-end/src/enterprise";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
@@ -502,7 +503,7 @@ export function assertRoleAssignmentAllowed(
   organization: OrganizationInterface,
   role: string,
 ) {
-  if (getOrgLimits(organization).orgSupportsRoles()) return;
+  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return;
   if (role === "admin") return;
 
   throw new Error(
@@ -517,7 +518,7 @@ export function clampRoleForOrgLimits(
   organization: OrganizationInterface,
   role: string,
 ): string {
-  if (getOrgLimits(organization).orgSupportsRoles()) return role;
+  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return role;
   return "admin";
 }
 

@@ -28,7 +28,8 @@ import {
 } from "back-end/src/util/errors";
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
-import { getOrgLimits, orgHasPremiumFeature } from "back-end/src/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -412,7 +413,7 @@ export class ReqContextClass {
   private _limits: OrgLimitsAccessor | null = null;
   public get limits(): OrgLimitsAccessor {
     if (!this._limits) {
-      this._limits = getOrgLimits(this.org);
+      this._limits = getEffectiveOrgLimits(this.org);
     }
     return this._limits;
   }

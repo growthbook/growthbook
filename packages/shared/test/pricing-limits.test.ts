@@ -1,6 +1,7 @@
 import {
   FREE_ORG_LIMITS,
   OrgLimits,
+  isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
 } from "shared/enterprise";
 
@@ -35,9 +36,7 @@ describe("resolveOrgLimitsConfig", () => {
   it("fills missing fields from the default (partial override)", () => {
     const result = resolveOrgLimitsConfig({ maxProjects: 3 });
     expect(result.maxProjects).toBe(3);
-    expect(result.customEnvironments).toBe(
-      FREE_ORG_LIMITS.customEnvironments,
-    );
+    expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
     expect(result.roleManagement).toBe(FREE_ORG_LIMITS.roleManagement);
   });
 
@@ -48,9 +47,7 @@ describe("resolveOrgLimitsConfig", () => {
       roleManagement: 1,
     });
     expect(result.maxProjects).toBe(FREE_ORG_LIMITS.maxProjects);
-    expect(result.customEnvironments).toBe(
-      FREE_ORG_LIMITS.customEnvironments,
-    );
+    expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
     expect(result.roleManagement).toBe(FREE_ORG_LIMITS.roleManagement);
   });
 
@@ -61,8 +58,9 @@ describe("resolveOrgLimitsConfig", () => {
     );
   });
 
-  it("ignores unknown keys", () => {
+  it("ignores unknown keys (including the enforcement-time enabled field)", () => {
     const result = resolveOrgLimitsConfig({
+      enabled: false,
       maxProjects: 2,
       futurePhaseKey: { anything: true },
     });
@@ -71,5 +69,29 @@ describe("resolveOrgLimitsConfig", () => {
       customEnvironments: FREE_ORG_LIMITS.customEnvironments,
       roleManagement: FREE_ORG_LIMITS.roleManagement,
     });
+  });
+});
+
+// The same flag's enforcement-time on/off switch. Only an explicit
+// `enabled: false` disables; every failure mode stays enabled so an
+// unreachable flag falls back to the stamped snapshot.
+describe("isLimitsFlagDisabled", () => {
+  it("is true only for an explicit enabled: false", () => {
+    expect(isLimitsFlagDisabled({ enabled: false })).toBe(true);
+    expect(isLimitsFlagDisabled({ enabled: false, maxProjects: 1 })).toBe(true);
+  });
+
+  it.each([
+    ["enabled: true", { enabled: true }],
+    ["missing enabled", { maxProjects: 1 }],
+    ["empty object", {}],
+    ["null", null],
+    ["undefined", undefined],
+    ["a string false", { enabled: "false" }],
+    ["enabled: 0", { enabled: 0 }],
+    ["an array", []],
+    ["a bare boolean", false],
+  ])("stays enabled for %s", (_label, raw) => {
+    expect(isLimitsFlagDisabled(raw)).toBe(false);
   });
 });

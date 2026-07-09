@@ -2,13 +2,33 @@ import { z } from "zod";
 import { OrgLimits } from "./license-consts";
 import { FREE_ORG_LIMITS } from "./entitlements";
 
-// GrowthBook feature-flag key holding the OrgLimits stamped onto NEWLY
-// CREATED free organizations. Read once at org creation (see back-end
-// services/plan-limits.ts) — enforcement always reads the stored snapshot,
-// never the flag, so editing the flag tunes future orgs without touching
-// existing ones. Flag value shape (any field may be omitted):
-//   { "maxProjects": 1, "customEnvironments": false, "roleManagement": false }
+// GrowthBook feature-flag key with two jobs. Flag value shape (any field may
+// be omitted):
+//   { "enabled": true, "maxProjects": 1, "customEnvironments": false,
+//     "roleManagement": false }
+//
+// 1. STAMP (org creation, base value): the limit fields are stamped onto
+//    newly created free organizations — see back-end services/plan-limits.ts.
+//    Editing them tunes future orgs only; enforcement reads the stored stamp.
+// 2. ON/OFF (enforcement time, per-org targeting): when the value evaluated
+//    for an org has `enabled: false`, that org's stored limits are ignored
+//    entirely. Base value `enabled: false` = global kill switch; a targeting
+//    rule serving {"enabled": false} = per-customer exemption. Both apply
+//    instantly, no deploy.
 export const PRICING_PHASE_1_FLAG_KEY = "pricing-phase-1-limits";
+
+// Only an explicit `enabled: false` disables enforcement for the evaluated
+// org. Anything else — missing flag, missing field, garbage — means enabled,
+// so an unreachable flag falls back to the stamped snapshot (which is itself
+// the safe default), never to a silently-widened exemption.
+export function isLimitsFlagDisabled(raw: unknown): boolean {
+  return (
+    !!raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    (raw as Record<string, unknown>).enabled === false
+  );
+}
 
 const maxProjectsSchema = z.number().int().nonnegative().nullable();
 const flagBoolSchema = z.boolean();
