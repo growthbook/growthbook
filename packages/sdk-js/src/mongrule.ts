@@ -144,7 +144,7 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
   for (let i = 0; i < actual.length; i++) {
     // Only skip nullish elements; falsy values like 0, "" and false are valid
     // array members and must still be tested against the condition.
-    if (actual[i] != null && check(actual[i])) {
+    if ((actual[i] ?? null) !== null && check(actual[i])) {
       return true;
     }
   }
