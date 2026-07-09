@@ -1,3 +1,9 @@
+import {
+  calculateNamespaceCoverage,
+  getNamespaceRanges,
+  NamespaceValue,
+} from "shared/util";
+
 export type RangeTuple = [number, number];
 
 export type NamespaceGap = {
@@ -150,6 +156,25 @@ export function mergeContiguousRanges(ranges: RangeTuple[]): RangeTuple[] {
     }
   }
   return merged;
+}
+
+export function getNamespaceDisplayData(
+  namespace?: NamespaceValue,
+  namespacesList?: { name: string; label?: string }[],
+): { coverage: number; ranges: [number, number][]; name: string } {
+  if (!namespace || !namespace.enabled) {
+    return { coverage: 1, ranges: [], name: "" };
+  }
+  const coverage = calculateNamespaceCoverage(namespace);
+  // Mirror the merge that happens on save so the review accurately reflects
+  // what will be persisted. Without this, three discrete ranges like
+  // [0.2, 0.3], [0.6, 0.9], [0.9, 1] get collapsed into a single hull
+  // [0.2 - 1], hiding the gap between 0.3 and 0.6.
+  const ranges = mergeContiguousRanges(getNamespaceRanges(namespace));
+  const name =
+    namespacesList?.find((n) => n.name === namespace.name)?.label ||
+    namespace.name;
+  return { coverage, ranges, name };
 }
 
 export function shiftDraftKeysAfterRangeRemoval(

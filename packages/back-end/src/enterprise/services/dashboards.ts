@@ -428,8 +428,12 @@ export async function updateDashboardExplorations(
       }
       block.explorerAnalysisId = primaryResult.value.id;
       if (comparisonResult.status === "fulfilled") {
-        // Clear a stale comparison id when comparison is off (null result).
-        block.comparisonExplorerAnalysisId = comparisonResult.value?.id;
+        if (comparisonResult.value) {
+          block.comparisonExplorerAnalysisId = comparisonResult.value.id;
+        } else {
+          // Clear a stale comparison id when comparison is off.
+          delete block.comparisonExplorerAnalysisId;
+        }
       } else {
         // Keep the previous comparison id so the primary still refreshes.
         logger.warn(
