@@ -49,12 +49,9 @@ export type FeatureRule<T = any> = {
     result: Result<T>;
   }>;
   type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
-  // Pointer into the payload's top-level `contextualBandits` map, which holds
-  // the leaf contexts once per CB (savedGroups-style) instead of inline per rule.
   contextualBanditRef?: string;
 };
 
-// One entry in the payload's top-level `contextualBandits` map, keyed by CB id.
 export type ContextualBanditData = {
   banditVersion?: number;
   attributesRequired?: string[];

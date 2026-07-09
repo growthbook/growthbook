@@ -69,9 +69,6 @@ function makeLinkedFeature(
   } as unknown as FeatureInterface;
 }
 
-// These tests intentionally run the REAL getAffectedSDKPayloadKeys so a
-// regression back to derive-keys-from-an-empty-feature-list (the bug where
-// leaf-weight updates never refreshed any SDK payload) fails loudly.
 describe("refreshLinkedFeaturePayloads", () => {
   beforeEach(() => {
     jest.clearAllMocks();

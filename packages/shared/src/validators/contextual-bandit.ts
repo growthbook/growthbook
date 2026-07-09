@@ -5,10 +5,6 @@ import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
-// Upper bound on maxLeaves accepted at the API boundary. Caps the leaf count L
-// in the SDK payload (but NOT per-leaf condition size — that's bounded by the
-// stats engine's output shape). Intentionally absent from the base schema so
-// stored docs are never rejected on read.
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 15;
 
 export const variationWeightPairValidator = z.object({
@@ -194,8 +190,6 @@ export const apiCreateContextualBanditBody = z.strictObject({
 
   contextualAttributes: z.array(z.string()),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  // Request-boundary cap only (never on the base schema — BaseModel parses
-  // stored docs on read). Bounds the leaf count L in the SDK payload.
   maxLeaves: z
     .number()
     .int()
@@ -215,9 +209,6 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-// Strict so unsupported fields fail loudly instead of silently stripping —
-// e.g. `namespace`: CBs intentionally do NOT support namespaces (unlike
-// experiment rules); a client sending one should get an error, not a no-op.
 export const apiUpdateContextualBanditBody = z.strictObject({
   name: z.string().optional(),
   description: z.string().optional(),
@@ -236,7 +227,6 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   contextualAttributes: z.array(z.string()).optional(),
   decisionMetric: z.string().optional(),
   minUsersPerLeaf: z.number().int().positive().optional(),
-  // Request-boundary cap only; see apiCreateContextualBanditBody.
   maxLeaves: z
     .number()
     .int()

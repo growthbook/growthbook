@@ -954,9 +954,6 @@ export function getFeatureDefinition({
             capabilities.includes("contextualBandits");
           if (cbCapable) {
             rule.type = "contextual-bandit";
-            // Contexts live once per CB in the payload's top-level
-            // `contextualBandits` map (see filterUsedContextualBandits);
-            // the rule only carries a pointer.
             rule.contextualBanditRef = cb.id;
           }
 

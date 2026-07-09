@@ -357,8 +357,6 @@ export function evalFeature<V = unknown>(
       if (rule.type === "contextual-bandit" && rule.contextualBanditRef) {
         const cbData = ctx.global.contextualBandits?.[rule.contextualBanditRef];
         if (!cbData) {
-          // Dangling ref (map entry missing). Fall through and run as a plain
-          // experiment with the rule's aggregate weights.
           process.env.NODE_ENV !== "production" &&
             ctx.global.log(
               "Contextual bandit ref not found in payload, using aggregate weights",

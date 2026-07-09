@@ -322,8 +322,6 @@ describe("getPayloadAllowedKeys (contextual bandits)", () => {
     const { featureRuleKeys } = getPayloadAllowedKeys(["contextualBandits"]);
     expect(featureRuleKeys).toContain("type");
     expect(featureRuleKeys).toContain("contextualBanditRef");
-    // Contexts/attributesRequired/banditVersion live in the payload's
-    // top-level `contextualBandits` map now, never on the rule.
     expect(featureRuleKeys).not.toContain("contexts");
     expect(featureRuleKeys).not.toContain("attributesRequired");
     expect(featureRuleKeys).not.toContain("banditVersion");
