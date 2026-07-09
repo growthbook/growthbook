@@ -41,7 +41,7 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
-  assertMemberRolesAllowed,
+  assertRoleAssignmentAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
@@ -442,12 +442,8 @@ export async function putMemberRole(
     });
   }
 
-  const existingMember =
-    org.members.find((m) => m.id === id) ||
-    org.pendingMembers?.find((m) => m.id === id);
-
   try {
-    assertMemberRolesAllowed(org, role, projectRoles, existingMember);
+    assertRoleAssignmentAllowed(org, role);
   } catch (e) {
     return res.status(400).json({
       status: 400,
@@ -724,12 +720,6 @@ export async function postMemberApproval(
       limitAccessByEnvironment: pendingMember.limitAccessByEnvironment,
       environments: pendingMember.environments,
       projectRoles: pendingMember.projectRoles,
-      // The pending member's role was already vetted/grandfathered when set, so
-      // approving it must not re-trigger the admin-only restriction.
-      existingRoles: {
-        role: pendingMember.role,
-        projectRoles: pendingMember.projectRoles,
-      },
     });
   } catch (e) {
     return res.status(400).json({
@@ -807,10 +797,8 @@ export async function putInviteRole(
     });
   }
 
-  const existingInvite = org.invites.find((m) => m.key === key);
-
   try {
-    assertMemberRolesAllowed(org, role, projectRoles, existingInvite);
+    assertRoleAssignmentAllowed(org, role);
   } catch (e) {
     return res.status(400).json({
       status: 400,

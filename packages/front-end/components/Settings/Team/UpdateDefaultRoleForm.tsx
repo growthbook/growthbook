@@ -94,7 +94,6 @@ export default function UpdateDefaultRoleForm() {
               setIsDirty(true);
               form.setValue("defaultRole", value);
             }}
-            currentRole={getDefaultRole(organization).role}
           />
           {defaultRoleError ? (
             <div>

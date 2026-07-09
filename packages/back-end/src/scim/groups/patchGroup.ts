@@ -10,7 +10,6 @@ import {
 } from "back-end/types/scim";
 import {
   addMembersToTeam,
-  clampRoleForOrgLimits,
   expandOrgMembers,
   getMembersOfTeam,
   removeMembersFromTeam,
@@ -108,7 +107,7 @@ export async function patchGroup(
         await req.context.models.teams.update(team, {
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,
-          role: clampRoleForOrgLimits(org, role || team.role),
+          role: role || team.role,
         });
       } else {
         return res.status(400).json({

@@ -4,7 +4,6 @@ import { getDefaultRole, isRoleValid } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   addMemberToOrg,
-  clampRoleForOrgLimits,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "back-end/src/services/organizations";
@@ -32,10 +31,6 @@ export async function createUser(
       environments: [],
     };
   }
-
-  // On role-restricted plans the only assignable role is admin; clamp instead of
-  // failing so directory sync keeps working.
-  roleInfo = { ...roleInfo, role: clampRoleForOrgLimits(org, roleInfo.role) };
 
   const expandedMembers = await expandOrgMembers(org.members);
   const userNameLower = (userName || "").toLowerCase();

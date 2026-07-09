@@ -495,44 +495,24 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
-// currentRole grandfathers an existing member's role; omit it to force admin-only.
+// Free (role-restricted) plans can only assign the admin global role. Project- and
+// environment-scoped roles are separately gated by the advanced-permissions commercial
+// feature, so only the global role needs checking here.
 export function assertRoleAssignmentAllowed(
   organization: OrganizationInterface,
-  newRole: string,
-  currentRole?: string,
+  role: string,
 ) {
   if (getOrgLimits(organization).orgSupportsRoles()) return;
-  if (newRole === "admin" || newRole === currentRole) return;
+  if (role === "admin") return;
 
   throw new Error(
     "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
   );
 }
 
-// Asserts a full set of role changes (global + per-project) is allowed, grandfathering
-// any role that matches the member/invite/team's existing role. Use this for
-// user-driven writes; pass `existing` when editing an existing subject.
-export function assertMemberRolesAllowed(
-  organization: OrganizationInterface,
-  role: string,
-  projectRoles?: ProjectMemberRole[],
-  existing?: { role?: string; projectRoles?: ProjectMemberRole[] },
-) {
-  assertRoleAssignmentAllowed(organization, role, existing?.role);
-  projectRoles?.forEach((projectRole) => {
-    const existingProjectRole = existing?.projectRoles?.find(
-      (p) => p.project === projectRole.project,
-    );
-    assertRoleAssignmentAllowed(
-      organization,
-      projectRole.role,
-      existingProjectRole?.role,
-    );
-  });
-}
-
 // The only role a role-restricted org can assign is admin, so automated provisioning
-// flows (SSO, SCIM, Vercel) clamp to admin instead of throwing and breaking sync/login.
+// flows (verified-domain auto-join, Vercel) clamp to admin instead of throwing and
+// breaking the join.
 export function clampRoleForOrgLimits(
   organization: OrganizationInterface,
   role: string,
@@ -562,7 +542,6 @@ export async function addMemberToOrg({
   externalId,
   managedByIdp,
   teams = [],
-  existingRoles,
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -573,8 +552,6 @@ export async function addMemberToOrg({
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-  // Roles to grandfather (e.g. approving a pending member with an existing role).
-  existingRoles?: { role?: string; projectRoles?: ProjectMemberRole[] };
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -591,7 +568,7 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  assertMemberRolesAllowed(organization, role, projectRoles, existingRoles);
+  assertRoleAssignmentAllowed(organization, role);
 
   const members: Member[] = [
     ...organization.members,
@@ -733,7 +710,7 @@ export async function addPendingMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  assertMemberRolesAllowed(organization, role, projectRoles);
+  assertRoleAssignmentAllowed(organization, role);
 
   const pendingMembers: PendingMember[] = [
     ...(organization.pendingMembers || []),
@@ -843,7 +820,7 @@ export async function inviteUser({
   ) {
     throw new Error("Invalid role");
   }
-  assertMemberRolesAllowed(organization, role, projectRoles);
+  assertRoleAssignmentAllowed(organization, role);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
@@ -1310,7 +1287,7 @@ export async function addMemberFromSSOConnection(
         name: req.name || "",
         email: req.email || "",
         userId: req.userId,
-        ...getEffectiveDefaultRole(organization),
+        ...getDefaultRole(organization),
       });
       try {
         const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
@@ -1331,7 +1308,7 @@ export async function addMemberFromSSOConnection(
   await addMemberToOrg({
     organization,
     userId: req.userId,
-    ...getEffectiveDefaultRole(organization),
+    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(

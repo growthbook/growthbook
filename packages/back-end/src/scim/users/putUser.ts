@@ -3,10 +3,7 @@ import { Response } from "express";
 import { isRoleValid } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { ScimError, ScimUser, ScimUserPutRequest } from "back-end/types/scim";
-import {
-  clampRoleForOrgLimits,
-  expandOrgMembers,
-} from "back-end/src/services/organizations";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 
 async function updateUserRole(
@@ -90,11 +87,8 @@ export async function putUser(
         detail: `"${growthbookRole}" is not a valid GrowthBook role.`,
       });
     }
-    // On role-restricted plans the only assignable role is admin; clamp so the
-    // IDP can't grant a role the plan doesn't allow.
-    const newRole = clampRoleForOrgLimits(org, growthbookRole);
     try {
-      await updateUserRole(org, userId, newRole);
+      await updateUserRole(org, userId, growthbookRole);
     } catch (e) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],

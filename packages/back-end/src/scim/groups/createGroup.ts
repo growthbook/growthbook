@@ -5,10 +5,7 @@ import {
   ScimGroup,
   ScimGroupPostRequest,
 } from "back-end/types/scim";
-import {
-  addMembersToTeam,
-  clampRoleForOrgLimits,
-} from "back-end/src/services/organizations";
+import { addMembersToTeam } from "back-end/src/services/organizations";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
@@ -27,10 +24,6 @@ export async function createGroup(
       environments: [],
     };
   }
-
-  // On role-restricted plans the only assignable role is admin; clamp so team
-  // membership can't grant a role the plan doesn't allow.
-  roleInfo = { ...roleInfo, role: clampRoleForOrgLimits(org, roleInfo.role) };
 
   try {
     const group = await req.context.models.teams.create({

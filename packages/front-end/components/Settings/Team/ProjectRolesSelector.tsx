@@ -27,6 +27,8 @@ export default function ProjectRolesSelector({
   const usedProjectIds = projectRoles.map((r) => r.project) || [];
   const unusedProjects = projects.filter((p) => !usedProjectIds.includes(p.id));
 
+  if (!hasFeature && !projectRoles.length) return null;
+
   return (
     <>
       <Text as="label" weight="semibold" mb="2">

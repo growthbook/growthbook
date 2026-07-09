@@ -49,7 +49,6 @@ export const PermissionsModal = ({
       <RoleSelector
         value={form.watch("roleInfo")}
         setValue={(value) => form.setValue("roleInfo", value)}
-        currentRole={team.role}
       />
     </ModalStandard>
   );

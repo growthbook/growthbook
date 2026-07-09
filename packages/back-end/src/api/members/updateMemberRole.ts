@@ -126,11 +126,7 @@ export const updateMemberRole = createApiRequestHandler(
   if (!memberIsValid) {
     throw new Error(reason);
   }
-  assertRoleAssignmentAllowed(
-    req.context.org,
-    updatedMember.role,
-    orgUser.role,
-  );
+  assertRoleAssignmentAllowed(req.context.org, updatedMember.role);
 
   // Then, if member.projectRoles was passed in, we need to validate the each projectRole
   if (member.projectRoles?.length) {
@@ -151,14 +147,6 @@ export const updateMemberRole = createApiRequestHandler(
       if (!memberIsValid) {
         throw new Error(reason);
       }
-      const existingProjectRole = orgUser.projectRoles?.find(
-        (p) => p.project === updatedProjectRole.project,
-      );
-      assertRoleAssignmentAllowed(
-        req.context.org,
-        updatedProjectRole.role,
-        existingProjectRole?.role,
-      );
 
       updatedProjectRoles.push({
         ...updatedProjectRole,

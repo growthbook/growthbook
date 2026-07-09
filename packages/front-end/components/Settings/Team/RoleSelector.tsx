@@ -1,6 +1,5 @@
 import { MemberRoleWithProjects } from "shared/types/organization";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import { useUser } from "@/services/UserContext";
 import SingleRoleSelector from "./SingleRoleSelector";
 import ProjectRolesSelector from "./ProjectRolesSelector";
 
@@ -8,15 +7,11 @@ export default function RoleSelector({
   value,
   setValue,
   showUpgradeModal,
-  currentRole,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal?: () => void;
-  currentRole?: string;
 }) {
-  const { hasCommercialFeature } = useUser();
-
   return (
     <div>
       <SingleRoleSelector
@@ -34,20 +29,16 @@ export default function RoleSelector({
         label="Global Role"
         includeAdminRole={true}
         includeProjectAdminRole={true}
-        currentRole={currentRole}
       />
-
-      {hasCommercialFeature("advanced-permissions") ? (
-        <ProjectRolesSelector
-          projectRoles={value.projectRoles || []}
-          setProjectRoles={(projectRoles) => {
-            setValue({
-              ...value,
-              projectRoles,
-            });
-          }}
-        />
-      ) : null}
+      <ProjectRolesSelector
+        projectRoles={value.projectRoles || []}
+        setProjectRoles={(projectRoles) => {
+          setValue({
+            ...value,
+            projectRoles,
+          });
+        }}
+      />
       {!!showUpgradeModal && (
         <UpgradeMessage
           className="mt-3"
