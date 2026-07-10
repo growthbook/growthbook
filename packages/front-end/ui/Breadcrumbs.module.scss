@@ -10,6 +10,16 @@
   }
 }
 
+// The last breadcrumb item is the current page title. Long titles are
+// truncated with an ellipsis so they stay on one line and don't overflow
+// the fixed top bar. min-width: 0 lets the item shrink inside the flex row.
+.current {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 // Separator icons are hidden on small screens (even for the last item's
 // separator, since its preceding ancestors are hidden and a floating ">"
 // would appear before the current page name)
