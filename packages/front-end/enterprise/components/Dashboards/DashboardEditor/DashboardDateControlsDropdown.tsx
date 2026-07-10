@@ -66,7 +66,7 @@ function getPresetOptionLabel(option: PresetDateRangeOption) {
       <span style={{ whiteSpace: "nowrap" }}>
         Chart Default
         <Tooltip
-          body="Use each chart's own configured date range instead of applying a dashboard-wide date range."
+          body="Use each chart's own configured date range instead of applying a dashboard-wide date filter."
           tipPosition="right"
           className="ml-1"
         />
