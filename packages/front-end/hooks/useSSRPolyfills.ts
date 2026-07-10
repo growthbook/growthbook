@@ -4,7 +4,7 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { CommercialFeature } from "shared/enterprise";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { FactTableInterface } from "shared/types/fact-table";
@@ -23,7 +23,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 
 export interface SSRPolyfills {
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;

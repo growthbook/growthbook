@@ -1,5 +1,5 @@
 import { FC, useMemo } from "react";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import {
   DifferenceType,
   StatsEngine,
@@ -21,7 +21,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 interface MetricDrilldownDebugProps {
   row?: ExperimentTableRow;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   statsEngine: StatsEngine;
   differenceType: DifferenceType;
   setDifferenceType: (type: DifferenceType) => void;

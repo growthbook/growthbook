@@ -1,6 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { SegmentInterface } from "shared/types/segment";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -18,7 +18,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -32,8 +32,8 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 type Definitions = {
-  metrics: MetricInterface[];
-  _metricsIncludingArchived: MetricInterface[];
+  metrics: MetricDefinitionInterface[];
+  _metricsIncludingArchived: MetricDefinitionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
@@ -60,7 +60,7 @@ type DefinitionContextValue = Definitions & {
   setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
-  getMetricById: (id: string) => null | MetricInterface;
+  getMetricById: (id: string) => null | MetricDefinitionInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
@@ -71,7 +71,7 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };
