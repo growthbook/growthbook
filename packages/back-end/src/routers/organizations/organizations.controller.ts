@@ -460,11 +460,17 @@ export async function putMemberRole(
     });
   }
 
-  // Only gate a role change so existing assignments keep working
   const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
     (m) => m.id === id,
   );
-  if (!existingMember || existingMember.role !== role) {
+  if (!existingMember) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  // Only gate a role change so existing assignments keep working
+  if (existingMember.role !== role) {
     try {
       assertRoleAssignmentAllowed(org, role);
     } catch (e) {

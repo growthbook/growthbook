@@ -73,7 +73,7 @@ export class ProjectModel extends BaseClass {
         projectId: data.id,
         organizationId: this.context.org.id,
       });
-    if (maxProjects && maxProjects > 0 && !isDemo) {
+    if (maxProjects !== null && !isDemo) {
       const existingProjects = await this.context.getProjects();
       const nonDemoProjectCount = existingProjects.filter(
         (p) =>
@@ -84,7 +84,7 @@ export class ProjectModel extends BaseClass {
       ).length;
       if (nonDemoProjectCount >= maxProjects) {
         this.context.throwBadRequestError(
-          `Your plan is limited to ${maxProjects} project${
+          `Your plan only supports ${maxProjects} project${
             maxProjects === 1 ? "" : "s"
           }. Upgrade your plan to create more.`,
         );
