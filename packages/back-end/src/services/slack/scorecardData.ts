@@ -1,0 +1,210 @@
+import { EventModel } from "back-end/src/models/EventModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import type {
+  CardState,
+  ScorecardData,
+  ScorecardNotable,
+} from "back-end/src/services/slack/chartImage";
+import { logger } from "back-end/src/util/logger";
+
+// Aggregates a week of experiment activity into the ScorecardData the weekly
+// program digest renders. First-pass heuristics (documented inline) — the
+// numbers are meant as an at-a-glance program pulse, not an exact audit.
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_NOTABLE = 8;
+
+// The notable "category" an experiment lands in this week, most significant
+// first (a shipped experiment shows as Won even if it also hit significance).
+type Category =
+  | "won"
+  | "lost"
+  | "stopped"
+  | "significance"
+  | "warning"
+  | "started";
+const CATEGORY_PRIORITY: Category[] = [
+  "won",
+  "lost",
+  "stopped",
+  "significance",
+  "warning",
+  "started",
+];
+const CATEGORY_TO_STATE: Record<Category, CardState> = {
+  won: "winner",
+  lost: "loser",
+  stopped: "stopped",
+  significance: "running",
+  warning: "warning",
+  started: "started",
+};
+
+function categorize(eventName: string): Category | null {
+  switch (eventName) {
+    case "experiment.decision.ship":
+    case "experiment.stopped.shipped":
+      return "won";
+    case "experiment.decision.rollback":
+    case "experiment.stopped.rolledback":
+      return "lost";
+    case "experiment.info.significance":
+      return "significance";
+    case "experiment.warning":
+    case "experiment.health.guardrailFailed":
+    case "experiment.health.noData":
+    case "experiment.health.queryFailed":
+      return "warning";
+    case "experiment.started":
+      return "started";
+    default:
+      if (eventName.startsWith("experiment.stopped")) return "stopped";
+      return null;
+  }
+}
+
+function fmtDateShort(d: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
+/** Human-readable label for the trailing 7-day window ending now. */
+export function weekLabel(now: Date): string {
+  const start = new Date(now.getTime() - WEEK_MS);
+  return `${fmtDateShort(start)} – ${fmtDateShort(now)}, ${now.getUTCFullYear()}`;
+}
+
+/**
+ * Build the weekly scorecard model for an organization from the last 7 days of
+ * experiment events (+ current running count). Returns null when there's
+ * nothing worth reporting (no events and nothing running).
+ */
+export async function buildWeeklyScorecardData(
+  organizationId: string,
+  now: Date,
+): Promise<ScorecardData | null> {
+  const context = await getContextForAgendaJobByOrgId(organizationId);
+  const since = new Date(now.getTime() - WEEK_MS);
+
+  const events = await EventModel.find({
+    organizationId,
+    object: "experiment",
+    dateCreated: { $gte: since },
+  })
+    .sort({ dateCreated: -1 })
+    .limit(500)
+    .lean<{ event: string; objectId?: string }[]>();
+
+  // Reduce to the top-priority category per experiment, and count categories.
+  const byExperiment = new Map<string, Category>();
+  const significant = new Set<string>();
+  const shipped = new Set<string>();
+  const rolledback = new Set<string>();
+  for (const ev of events) {
+    const experimentId = ev.objectId;
+    if (!experimentId) continue;
+    const category = categorize(ev.event);
+    if (!category) continue;
+    if (category === "significance") significant.add(experimentId);
+    if (category === "won") shipped.add(experimentId);
+    if (category === "lost") rolledback.add(experimentId);
+    const current = byExperiment.get(experimentId);
+    if (
+      !current ||
+      CATEGORY_PRIORITY.indexOf(category) < CATEGORY_PRIORITY.indexOf(current)
+    ) {
+      byExperiment.set(experimentId, category);
+    }
+  }
+
+  const running = (await getAllExperiments(context, { status: "running" }))
+    .length;
+
+  if (!byExperiment.size && !running) return null;
+
+  const notable: ScorecardNotable[] = [];
+  let highlight: ScorecardData["highlight"] | undefined;
+  let bestLift = -Infinity;
+
+  for (const [experimentId, category] of byExperiment) {
+    if (notable.length >= MAX_NOTABLE) break;
+    const state = CATEGORY_TO_STATE[category];
+    let name = experimentId;
+    let goal = "goal metric";
+    let lift: string | null = null;
+    let dir: "up" | "down" | undefined;
+    try {
+      const card = await buildExperimentCardData(context, experimentId);
+      if (card) {
+        name = card.name;
+        goal = card.goal;
+        const row = card.rows[0];
+        const hasLift =
+          category === "won" ||
+          category === "lost" ||
+          category === "significance";
+        if (hasLift && row?.chg && row.dir) {
+          lift = row.chg;
+          dir = row.dir;
+        }
+      }
+    } catch (e) {
+      logger.warn(e, `Scorecard: failed to load card data for ${experimentId}`);
+    }
+
+    const note =
+      lift !== null
+        ? undefined
+        : category === "warning"
+          ? "Needs attention"
+          : category === "stopped"
+            ? "Inconclusive"
+            : category === "started"
+              ? "Started"
+              : "Collecting";
+
+    notable.push({ name, state, lift, dir, note });
+
+    if (category === "won" && lift && dir === "up") {
+      const value = parseFloat(lift);
+      if (!Number.isNaN(value) && value > bestLift) {
+        bestLift = value;
+        highlight = { name, metric: goal, lift };
+      }
+    }
+  }
+
+  // Cumulative wins year-to-date (footer). Best-effort.
+  let cumWins = shipped.size;
+  try {
+    const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const ytd = await EventModel.find({
+      organizationId,
+      object: "experiment",
+      event: {
+        $in: ["experiment.decision.ship", "experiment.stopped.shipped"],
+      },
+      dateCreated: { $gte: yearStart },
+    }).distinct("objectId");
+    cumWins = (ytd as unknown[]).length;
+  } catch (e) {
+    logger.warn(e, "Scorecard: failed to compute year-to-date wins");
+  }
+
+  return {
+    week: weekLabel(now),
+    stats: {
+      running,
+      significant: significant.size,
+      shipped: shipped.size,
+      rolledback: rolledback.size,
+    },
+    highlight,
+    cumWins,
+    notable,
+  };
+}
