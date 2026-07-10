@@ -543,7 +543,6 @@ export async function addMemberToOrg({
   externalId,
   managedByIdp,
   teams = [],
-  skipRoleLimitCheck = false,
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -554,7 +553,6 @@ export async function addMemberToOrg({
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-  skipRoleLimitCheck?: boolean;
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -571,9 +569,7 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  if (!skipRoleLimitCheck) {
-    assertRoleAssignmentAllowed(organization, role);
-  }
+  assertRoleAssignmentAllowed(organization, role);
 
   const members: Member[] = [
     ...organization.members,
@@ -689,7 +685,6 @@ export async function addPendingMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
-  skipRoleLimitCheck = false,
 }: {
   organization: OrganizationInterface;
   name: string;
@@ -699,7 +694,6 @@ export async function addPendingMemberToOrg({
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
-  skipRoleLimitCheck?: boolean;
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -717,9 +711,7 @@ export async function addPendingMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  if (!skipRoleLimitCheck) {
-    assertRoleAssignmentAllowed(organization, role);
-  }
+  assertRoleAssignmentAllowed(organization, role);
 
   const pendingMembers: PendingMember[] = [
     ...(organization.pendingMembers || []),
@@ -1291,15 +1283,12 @@ export async function addMemberFromSSOConnection(
       (m) => m.id === req.userId,
     );
     if (!alreadyPending) {
-      // SSO joins honor the org's configured default role even when the plan
-      // restricts roles — throwing here would block login entirely.
       await addPendingMemberToOrg({
         organization,
         name: req.name || "",
         email: req.email || "",
         userId: req.userId,
-        ...getDefaultRole(organization),
-        skipRoleLimitCheck: true,
+        ...getEffectiveDefaultRole(organization),
       });
       try {
         const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
@@ -1320,8 +1309,7 @@ export async function addMemberFromSSOConnection(
   await addMemberToOrg({
     organization,
     userId: req.userId,
-    ...getDefaultRole(organization),
-    skipRoleLimitCheck: true,
+    ...getEffectiveDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(
