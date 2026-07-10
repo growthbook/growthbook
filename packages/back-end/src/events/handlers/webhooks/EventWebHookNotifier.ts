@@ -347,15 +347,15 @@ export class EventWebHookNotifier implements Notifier {
     let error: string | null = null;
     let responseBody = "ok";
     if (card) {
+      // No caption: the card image is self-describing (state, name, metrics),
+      // and the accompanying status/text notification carries the words +
+      // action buttons. A caption here would just duplicate the card.
       const fileId = await uploadSlackImageFile({
         token: botToken,
         png: card.png,
         filename: "experiment-card.png",
         title: card.altText,
         channelId,
-        // Short, URL-free caption — the card shows the (possibly URL-bearing)
-        // experiment name, so we keep it out of the text to avoid unfurls.
-        initialComment: card.caption,
       });
       ok = !!fileId;
       if (fileId) responseBody = fileId;

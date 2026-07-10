@@ -195,6 +195,10 @@ const BADGE: Record<CardState, string> = {
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
+// The compact notification card is narrower + taller than the detailed card so
+// its aspect ratio isn't extreme — Slack center-crops very wide/short image
+// previews, and a narrower card also reads better in the message column.
+const COMPACT_WIDTH = 600;
 const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
@@ -1316,13 +1320,13 @@ function buildCard(exp: ExperimentCardData): El {
 }
 
 // The rounded panel + full-height status rail shared by every card style.
-function cardShell(hue: Hue, column: El[]): El {
+function cardShell(hue: Hue, column: El[], width: number = CARD_WIDTH): El {
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "row",
-      width: CARD_WIDTH,
+      width,
       backgroundColor: P.panel,
       border: `1px solid ${P.border}`,
       borderRadius: 14,
@@ -1652,58 +1656,44 @@ function compactHero(
     const days = exp.daysToPower ?? 14;
     return el(
       "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 26,
-        alignItems: "flex-start",
-        width: "100%",
-      },
+      { display: "flex", flexDirection: "column", gap: 14, width: "100%" },
       [
-        el("div", { display: "flex", flexDirection: "column", width: 615 }, [
+        el("div", { display: "flex", flexDirection: "column" }, [
           capLabel("Hypothesis"),
           renderMarkdown(
             exp.hypothesis ? plainClamp(exp.hypothesis, 220) : "",
-            {
-              fontSize: 14.5,
-              lineHeight: 1.5,
-              color: P.text,
-              weight: 400,
-            },
+            { fontSize: 14, lineHeight: 1.5, color: P.text, weight: 400 },
           ),
         ]),
         el(
           "div",
           {
             display: "flex",
-            flexDirection: "column",
-            width: 300,
-            gap: 12,
-            paddingLeft: 26,
-            borderLeft: `1px solid ${P.borderSub}`,
+            flexDirection: "row",
+            gap: 34,
+            paddingTop: 14,
+            borderTop: `1px solid ${P.borderSub}`,
           },
           [
             el("div", { display: "flex", flexDirection: "column" }, [
               capLabel("Goal metric", 4),
-              txt(exp.goal, { fontSize: 15, fontWeight: 500, color: P.text }),
+              txt(exp.goal, { fontSize: 14.5, fontWeight: 500, color: P.text }),
             ]),
-            el("div", { display: "flex", flexDirection: "row", gap: 28 }, [
-              el("div", { display: "flex", flexDirection: "column" }, [
-                capLabel("Target", 4),
-                txt(
-                  `~${exp.target ? exp.target.toLocaleString() : "—"}`,
-                  { fontSize: 14, fontWeight: 500, color: P.text },
-                  true,
-                ),
-              ]),
-              el("div", { display: "flex", flexDirection: "column" }, [
-                capLabel("To power", 4),
-                txt(
-                  `~${days} days`,
-                  { fontSize: 14, fontWeight: 500, color: accentText },
-                  true,
-                ),
-              ]),
+            el("div", { display: "flex", flexDirection: "column" }, [
+              capLabel("Target", 4),
+              txt(
+                `~${exp.target ? exp.target.toLocaleString() : "—"}`,
+                { fontSize: 14, fontWeight: 500, color: P.text },
+                true,
+              ),
+            ]),
+            el("div", { display: "flex", flexDirection: "column" }, [
+              capLabel("To power", 4),
+              txt(
+                `~${days} days`,
+                { fontSize: 14, fontWeight: 500, color: accentText },
+                true,
+              ),
             ]),
           ],
         ),
@@ -1726,18 +1716,27 @@ function compactHero(
       },
       [
         svgImg(triAlertSvg(P.st.amber, 20), 20, 20),
-        el("div", { display: "flex", flexDirection: "column", width: 855 }, [
-          txt("Sample Ratio Mismatch — results paused", {
-            fontSize: 14,
-            fontWeight: 700,
-            color: P.st.amber,
-            marginBottom: 4,
-          }),
-          renderMarkdown(
-            `${exp.srm ? `${exp.srm} · ${exp.p ?? ""}. ` : ""}Traffic isn't splitting as configured; fix the assignment before trusting results.`,
-            { fontSize: 13, lineHeight: 1.5, color: P.text, weight: 400 },
-          ),
-        ]),
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            minWidth: 0,
+          },
+          [
+            txt("Sample Ratio Mismatch — results paused", {
+              fontSize: 14,
+              fontWeight: 700,
+              color: P.st.amber,
+              marginBottom: 4,
+            }),
+            renderMarkdown(
+              `${exp.srm ? `${exp.srm} · ${exp.p ?? ""}. ` : ""}Traffic isn't splitting as configured; fix the assignment before trusting results.`,
+              { fontSize: 13, lineHeight: 1.5, color: P.text, weight: 400 },
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1745,67 +1744,58 @@ function compactHero(
   if (event === "significance" && r) {
     return el(
       "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 26,
-        alignItems: "center",
-        width: "100%",
-      },
+      { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
       [
-        el("div", { display: "flex", flexDirection: "column", width: 330 }, [
-          capLabel(exp.goal),
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "flex-start",
-              gap: 4,
-              marginBottom: 5,
-            },
-            [
-              r.dir ? arrowImg(r.dir, accentText, 17) : null,
-              txt((r.chg ?? "").replace(/^[+-]/, ""), {
-                fontSize: 40,
-                fontWeight: 700,
-                color: accentText,
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
-              }),
-              txt(r.v, {
-                fontSize: 14,
-                fontWeight: 500,
-                color: P.muted,
-                marginLeft: 6,
-                alignSelf: "flex-end",
-                marginBottom: 4,
-              }),
-            ].filter(Boolean) as El[],
-          ),
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "baseline",
-              gap: 7,
-            },
-            [
-              txt(
-                r.ctw ?? "—",
-                { fontSize: 17, fontWeight: 600, color: ctwColor(r.ctw) },
-                true,
-              ),
-              txt("chance to beat control", {
-                fontSize: 12.5,
-                fontWeight: 500,
-                color: P.subtle,
-              }),
-            ],
-          ),
-        ]),
-        el("div", { display: "flex", flexGrow: 1 }, [compactViolin(r, 380)]),
+        capLabel(exp.goal),
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 6,
+          },
+          [
+            r.dir ? arrowImg(r.dir, accentText, 20) : null,
+            txt((r.chg ?? "").replace(/^[+-]/, ""), {
+              fontSize: 44,
+              fontWeight: 700,
+              color: accentText,
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+            }),
+            txt(r.v, {
+              fontSize: 14,
+              fontWeight: 500,
+              color: P.muted,
+              marginLeft: 6,
+              alignSelf: "flex-end",
+              marginBottom: 6,
+            }),
+          ].filter(Boolean) as El[],
+        ),
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "baseline",
+            gap: 7,
+          },
+          [
+            txt(
+              r.ctw ?? "—",
+              { fontSize: 16, fontWeight: 600, color: ctwColor(r.ctw) },
+              true,
+            ),
+            txt("chance to beat control", {
+              fontSize: 12.5,
+              fontWeight: 500,
+              color: P.subtle,
+            }),
+          ],
+        ),
+        compactViolin(r, COMPACT_WIDTH - RAIL - 44),
       ],
     );
   }
@@ -1819,64 +1809,55 @@ function compactHero(
   const word =
     event === "won" ? "Winner" : event === "lost" ? "No lift" : "Inconclusive";
   const dirColor = r?.dir === "up" ? P.st.green : P.st.red;
-  return el(
-    "div",
-    {
-      display: "flex",
-      flexDirection: "row",
-      gap: 26,
-      alignItems: "center",
-      width: "100%",
-    },
-    [
-      el("div", { display: "flex", flexDirection: "column", width: 250 }, [
+  const heroChildren: (El | null)[] = [
+    el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "baseline",
+        gap: 12,
+      },
+      [
         txt(word, {
           fontSize: 26,
           fontWeight: 700,
           color: accentText,
           letterSpacing: "-0.02em",
-          marginBottom: 8,
         }),
-        el(
-          "div",
-          {
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "baseline",
-            gap: 8,
-          },
-          [
-            r?.chg && r.dir
-              ? el(
-                  "div",
-                  {
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 5,
-                  },
-                  [
-                    arrowImg(r.dir, dirColor, 11),
-                    txt(
-                      r.chg,
-                      { fontSize: 18, fontWeight: 600, color: dirColor },
-                      true,
-                    ),
-                  ],
-                )
-              : null,
-            txt(exp.goal, { fontSize: 12.5, fontWeight: 500, color: P.subtle }),
-          ].filter(Boolean) as El[],
-        ),
-      ]),
+        r?.chg && r.dir
+          ? el(
+              "div",
+              {
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+              },
+              [
+                arrowImg(r.dir, dirColor, 11),
+                txt(
+                  r.chg,
+                  { fontSize: 16, fontWeight: 600, color: dirColor },
+                  true,
+                ),
+              ],
+            )
+          : null,
+        txt(exp.goal, { fontSize: 12.5, fontWeight: 500, color: P.subtle }),
+      ].filter(Boolean) as El[],
+    ),
+  ];
+  if (line) {
+    heroChildren.push(
       el(
         "div",
         {
           display: "flex",
           flexDirection: "column",
-          width: 640,
-          paddingLeft: 26,
-          borderLeft: `1px solid ${P.borderSub}`,
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: `1px solid ${P.borderSub}`,
         },
         [
           capLabel("Conclusion"),
@@ -1888,7 +1869,12 @@ function compactHero(
           }),
         ],
       ),
-    ],
+    );
+  }
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", width: "100%" },
+    heroChildren.filter(Boolean) as El[],
   );
 }
 
@@ -1914,17 +1900,21 @@ function buildCompactCard(exp: ExperimentCardData): El {
             exp.ds,
           ];
 
-  return cardShell(hue, [
-    compactHeaderEl(exp, ev, hue),
-    // Column direction so the hero row stretches to full width (bounds its
-    // flex-grow text columns so long conclusions wrap instead of clipping).
-    el(
-      "div",
-      { display: "flex", flexDirection: "column", padding: "18px 22px" },
-      [compactHero(exp, event, hue)],
-    ),
-    footerEl(footerItems),
-  ]);
+  return cardShell(
+    hue,
+    [
+      compactHeaderEl(exp, ev, hue),
+      // Column direction so the hero row stretches to full width (bounds its
+      // flex-grow text columns so long conclusions wrap instead of clipping).
+      el(
+        "div",
+        { display: "flex", flexDirection: "column", padding: "18px 22px" },
+        [compactHero(exp, event, hue)],
+      ),
+      footerEl(footerItems),
+    ],
+    COMPACT_WIDTH,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -2293,14 +2283,17 @@ function buildScorecard(data: ScorecardData): El {
 // ---------------------------------------------------------------------------
 
 // satori (flexbox tree -> SVG) -> resvg-wasm (SVG -> PNG @ 2x width).
-async function rasterize(root: El): Promise<Buffer> {
+async function rasterize(
+  root: El,
+  width: number = CARD_WIDTH,
+): Promise<Buffer> {
   await ensureWasmInitialized();
   const svg = await satori(root as unknown as Parameters<typeof satori>[0], {
-    width: CARD_WIDTH,
+    width,
     fonts: getFonts(),
   });
   const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: CARD_WIDTH * 2 },
+    fitTo: { mode: "width", value: width * 2 },
   });
   return Buffer.from(resvg.render().asPng());
 }
@@ -2327,7 +2320,7 @@ export async function renderDetailedCard(
 export async function renderCompactCard(
   exp: ExperimentCardData,
 ): Promise<Buffer> {
-  return rasterize(buildCompactCard(exp));
+  return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
 }
 
 /** Render the weekly program scorecard (turn 8) to a PNG buffer. */
