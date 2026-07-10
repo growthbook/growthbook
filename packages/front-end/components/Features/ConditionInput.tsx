@@ -145,7 +145,10 @@ export function checkSecureStringRegex(
           if (checkObj(v)) return true;
         } else {
           const attr = attributes.get(k);
-          if (attr && attr.datatype === "secureString") {
+          if (
+            attr &&
+            ["secureString", "secureString[]"].includes(attr.datatype)
+          ) {
             if (typeof v === "object" && v !== null) {
               const ops = v as Record<string, unknown>;
               if (
@@ -155,6 +158,12 @@ export function checkSecureStringRegex(
                 "$notRegexi" in ops
               ) {
                 return true;
+              }
+              // Recurse into nesting operators like $not and $elemMatch
+              for (const nestKey of ["$not", "$elemMatch"]) {
+                if (nestKey in ops && checkObj({ [k]: ops[nestKey] })) {
+                  return true;
+                }
               }
             }
           } else {
