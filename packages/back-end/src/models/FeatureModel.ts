@@ -2067,19 +2067,19 @@ async function createRampSchedulesForRevision(
     // enabled immediately when this revision publishes rather than waiting
     // for the next poller tick.
     //
-    // Thread the pre-built auditEvent ("config-edited") into the schedule
-    // object so startReadyScheduleNow appends "started" on top of it,
-    // preserving full audit history parity with the direct-edit path.
+    // The pre-built auditEvent ("config-edited") is passed via contentUpdates
+    // so startReadyScheduleNow appends "started" on top of it, preserving
+    // full audit history parity with the direct-edit path.
     if (
       updateAction.startDate === null &&
       existingSchedule?.status === "ready"
     ) {
-      const scheduleForStart = auditEvent.eventHistory
-        ? { ...existingSchedule, eventHistory: auditEvent.eventHistory }
-        : existingSchedule;
-      await startReadyScheduleNow(context, scheduleForStart, {
+      await startReadyScheduleNow(context, existingSchedule, {
         ...contentUpdates,
         cutoffDate: nextCutoffDate,
+        ...(auditEvent.eventHistory
+          ? { eventHistory: auditEvent.eventHistory }
+          : {}),
       });
       continue;
     }

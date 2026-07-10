@@ -3479,19 +3479,15 @@ describe("startReadyScheduleNow", () => {
   it("sets nextStepAt≈now for multi-step schedules", async () => {
     // Multi-step schedule with a far-future cutoffDate to keep advanceUntilBlocked
     // from completing. nextStepAt in the initial update must be ≈ now so step 0
-    // is immediately eligible.
-    const { ctx, updateById } = makeStartNowCtx();
-    const multiStepSchedule = makeSchedule({
-      status: "ready",
-      currentStepIndex: -1,
+    // is immediately eligible. The steps live on the stored doc (the in-lock
+    // fresh read is authoritative, not the caller's snapshot).
+    const { ctx, updateById, schedule } = makeStartNowCtx({
+      steps: makeSchedule({}).steps,
       nextStepAt: null,
-      startedAt: null,
-      phaseStartedAt: null,
-      cutoffDate: new Date(Date.now() + 24 * 60 * 60_000),
     });
 
     const before = Date.now();
-    await startReadyScheduleNow(ctx as never, multiStepSchedule);
+    await startReadyScheduleNow(ctx as never, schedule);
     const after = Date.now();
 
     // The first updateById call is the transition; subsequent calls may come

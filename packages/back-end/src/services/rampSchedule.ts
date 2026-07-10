@@ -2045,46 +2045,42 @@ export async function onActivatingRevisionPublished(
 export async function startReadyScheduleNow(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  contentUpdates: Partial<
-    Pick<
-      RampScheduleInterface,
-      | "name"
-      | "steps"
-      | "startActions"
-      | "endActions"
-      | "cutoffDate"
-      | "monitoringConfig"
-      | "lockdownConfig"
-    >
-  > = {},
+  contentUpdates: StartNowContentUpdates = {},
 ): Promise<void> {
   if (schedule.status !== "ready") return;
 
-  // Serialize against the scheduler tick; re-verify "ready" inside the lock.
-  // Retry rather than defer: with startDate about to be cleared, the scheduler
-  // has no path that would replay this start.
+  // Serialize against the scheduler tick; re-verify "ready" inside the lock
+  // and start from the in-lock read so an edit that landed while waiting
+  // isn't overwritten with the caller's stale snapshot. Retry rather than
+  // defer: with startDate about to be cleared, the scheduler has no path
+  // that would replay this start.
   await withRampScheduleAdvanceLockRetry(ctx, schedule.id, async () => {
     const fresh = await ctx.models.rampSchedules.getById(schedule.id);
     if (!fresh || fresh.status !== "ready") return;
-    await startReadyScheduleNowLocked(ctx, schedule, contentUpdates);
+    await startReadyScheduleNowLocked(ctx, fresh, contentUpdates);
   });
 }
+
+type StartNowContentUpdates = Partial<
+  Pick<
+    RampScheduleInterface,
+    | "name"
+    | "steps"
+    | "startActions"
+    | "endActions"
+    | "cutoffDate"
+    | "monitoringConfig"
+    | "lockdownConfig"
+    // Pre-built history (e.g. a "config-edited" audit event) for the
+    // "started" event to append on top of, instead of the stored history.
+    | "eventHistory"
+  >
+>;
 
 async function startReadyScheduleNowLocked(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
-  contentUpdates: Partial<
-    Pick<
-      RampScheduleInterface,
-      | "name"
-      | "steps"
-      | "startActions"
-      | "endActions"
-      | "cutoffDate"
-      | "monitoringConfig"
-      | "lockdownConfig"
-    >
-  > = {},
+  contentUpdates: StartNowContentUpdates = {},
 ): Promise<void> {
   const now = new Date();
   const steps = contentUpdates.steps ?? schedule.steps;
@@ -2093,6 +2089,10 @@ async function startReadyScheduleNowLocked(
       ? contentUpdates.cutoffDate
       : schedule.cutoffDate;
   const initialNextStepAt = steps.length > 0 ? now : null;
+
+  const eventBase = contentUpdates.eventHistory
+    ? { ...schedule, eventHistory: contentUpdates.eventHistory }
+    : schedule;
 
   let current = await ctx.models.rampSchedules.updateById(schedule.id, {
     ...contentUpdates,
@@ -2107,7 +2107,7 @@ async function startReadyScheduleNowLocked(
       nextStepAt: initialNextStepAt,
       cutoffDate: cutoffDate ?? null,
     }),
-    eventHistory: appendRampEvent(schedule, "started", {
+    eventHistory: appendRampEvent(eventBase, "started", {
       stepIndex: -1,
       status: "running",
       previousStatus: schedule.status,
