@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
@@ -57,9 +57,24 @@ const EnvironmentSelect: FC<{
     });
   }, [relevantEnvironments, permissionsUtil, project]);
 
-  const selectAllChecked = environmentsUserCanAccess.every(
-    (env) => environmentSettings[env.id]?.enabled,
-  );
+  useEffect(() => {
+    environments.forEach((env) => {
+      const isRelevant = relevantEnvironments.some((e) => e.id === env.id);
+      if (!isRelevant && environmentSettings[env.id]?.enabled) {
+        setValue(env, false);
+      }
+    });
+    // Only re-run when the relevant set changes (i.e. selected project
+    // changes) — environments/environmentSettings/setValue are recreated
+    // every render and would otherwise cause a render loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relevantEnvironments]);
+
+  const selectAllChecked =
+    environmentsUserCanAccess.length > 0 &&
+    environmentsUserCanAccess.every(
+      (env) => environmentSettings[env.id]?.enabled,
+    );
   const selectAllIndeterminate = environmentsUserCanAccess.some(
     (env) => environmentSettings[env.id]?.enabled,
   );
