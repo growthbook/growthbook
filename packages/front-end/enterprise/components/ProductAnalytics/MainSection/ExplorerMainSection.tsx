@@ -64,15 +64,24 @@ export default function ExplorerMainSection() {
       {draftExploreState.type === "sql" ? (
         <SqlQuerySection fullHeight={isSqlSetupState} />
       ) : null}
-      <Toolbar />
 
       {!isSqlSetupState && (
         <Flex
           direction="column"
           gap="3"
-          style={{ flex: "1", minHeight: 0, position: "relative" }}
+          p="3"
+          style={{
+            flex: "1",
+            minHeight: 0,
+            position: "relative",
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+            backgroundColor: "var(--color-panel-translucent)",
+            overflow: "hidden",
+          }}
           id="main-section-visuals"
         >
+          <Toolbar />
           {submittedExploreState?.dataset?.values?.length &&
           submittedExploreState?.dataset?.values?.length > 0 ? (
             <PanelGroup direction="vertical" id="visualization-group">
