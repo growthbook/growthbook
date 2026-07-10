@@ -262,7 +262,23 @@ export interface ExperimentCardData {
   // warning-only
   srm?: string;
   p?: string;
+  // compact-card-only: the notification *event* the card announces (distinct
+  // from `state`/status). When unset, the compact card derives it from state.
+  event?: CompactEvent;
+  daysToPower?: number; // "started" compact hero: est. days to reach power
+  compactLine?: string; // one-line conclusion fallback for outcome events
 }
+
+// A compact notification announces an EVENT (distinct from the experiment's
+// status). started/significance fire while Running; won/lost/stopped once
+// Stopped; warning is a health alert.
+export type CompactEvent =
+  | "started"
+  | "significance"
+  | "won"
+  | "lost"
+  | "stopped"
+  | "warning";
 
 // ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
@@ -1340,73 +1356,167 @@ function plainClamp(md: string, max: number): string {
   return plain.length <= max ? plain : plain.slice(0, max - 1).trimEnd() + "…";
 }
 
-function compactBody(exp: ExperimentCardData): El {
-  // Started: no results — hypothesis one-liner + goal/target meta.
-  if (exp.state === "started") {
-    const meta = [
-      `Goal: ${exp.goal}`,
-      exp.target ? `Target ~${exp.target.toLocaleString()} users` : undefined,
-    ]
-      .filter(Boolean)
-      .join("  ·  ");
-    return el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        padding: "14px 24px 16px",
-      },
-      [
-        exp.hypothesis
-          ? txt(plainClamp(exp.hypothesis, 150), {
-              fontSize: 13,
-              lineHeight: 1.5,
-              color: P.text,
-            })
-          : null,
-        txt(meta, { fontSize: 12, color: P.subtle }),
-      ].filter(Boolean) as El[],
-    );
-  }
+type EventIconKind = "play" | "check" | "trophy" | "x" | "stop" | "warn";
 
-  // Warning: a single compact line.
-  if (exp.state === "warning") {
-    const alert = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M12 3 L22 20 H2 Z" fill="none" stroke="${P.st.amber}" stroke-width="2.2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14" stroke="${P.st.amber}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.1" fill="${P.st.amber}"/></svg>`;
-    return el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        gap: 10,
-        alignItems: "center",
-        padding: "16px 24px",
-        backgroundColor: SOFT.amber,
-      },
-      [
-        svgImg(alert, 16, 16),
-        txt(
-          exp.srm
-            ? `SRM detected — ${exp.srm}. Results are unreliable until fixed.`
-            : "Data-quality warning — results are unreliable until fixed.",
-          { fontSize: 13, fontWeight: 500, color: P.text },
-        ),
-      ],
-    );
+// Event catalog: label, hue, the experiment status the event implies, and icon.
+const COMPACT_EVENT: Record<
+  CompactEvent,
+  {
+    label: string;
+    hue: Hue;
+    status: "running" | "stopped";
+    icon: EventIconKind;
   }
+> = {
+  started: {
+    label: "Experiment started",
+    hue: "violet",
+    status: "running",
+    icon: "play",
+  },
+  significance: {
+    label: "Reached significance",
+    hue: "green",
+    status: "running",
+    icon: "check",
+  },
+  won: {
+    label: "Declared a winner",
+    hue: "green",
+    status: "stopped",
+    icon: "trophy",
+  },
+  lost: { label: "Rolled back", hue: "red", status: "stopped", icon: "x" },
+  stopped: {
+    label: "Experiment stopped",
+    hue: "slate",
+    status: "stopped",
+    icon: "stop",
+  },
+  warning: {
+    label: "Health alert",
+    hue: "amber",
+    status: "running",
+    icon: "warn",
+  },
+};
 
-  // Has results: the headline row (first non-control variation) as a hero stat
-  // — goal metric, big lift, chance-to-win, mini violin, + optional conclusion.
-  const r = exp.rows[0];
-  const ctw =
-    r?.ctw !== undefined ? `${r.ctw} chance to win` : "collecting data";
+// Icons drawn in a 24x24 viewBox (svgImg scales to the requested px).
+function eventIconSvg(kind: EventIconKind, color: string): string {
+  const wrap = (inner: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${inner}</svg>`;
+  switch (kind) {
+    case "play":
+      return wrap(`<path d="M6 4 L20 12 L6 20 Z" fill="${color}"/>`);
+    case "check":
+      return wrap(
+        `<path d="M4 12.5 L10 18 L20 5" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+      );
+    case "trophy":
+      return wrap(
+        `<path d="M7 3 H17 V8 A5 5 0 0 1 7 8 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><path d="M7 5 H3 V7 A3 3 0 0 0 7 9 M17 5 H21 V7 A3 3 0 0 1 17 9" fill="none" stroke="${color}" stroke-width="2"/><line x1="12" y1="13" x2="12" y2="18" stroke="${color}" stroke-width="2"/><line x1="8" y1="20" x2="16" y2="20" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`,
+      );
+    case "x":
+      return wrap(
+        `<line x1="5" y1="5" x2="19" y2="19" stroke="${color}" stroke-width="3" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`,
+      );
+    case "stop":
+      return wrap(
+        `<rect x="5" y="5" width="14" height="14" rx="2" fill="${color}"/>`,
+      );
+    case "warn":
+    default:
+      return wrap(
+        `<path d="M12 3 L22 20 H2 Z" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="9.5" x2="12" y2="14.5" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.2" fill="${color}"/>`,
+      );
+  }
+}
+
+function statusPillEl(status: "running" | "stopped"): El {
+  const running = status === "running";
+  const color = running ? P.st.blue : P.st.slate;
+  const bg = running ? SOFT.blue : SOFT.slate;
+  const dot = running
+    ? el("div", {
+        width: 6,
+        height: 6,
+        borderRadius: 9999,
+        backgroundColor: SOLID.blue,
+      })
+    : svgImg(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="${SOLID.slate}"/></svg>`,
+        8,
+        8,
+      );
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      padding: "2px 9px",
+      borderRadius: 9999,
+      backgroundColor: bg,
+    },
+    [
+      dot,
+      txt(running ? "Running" : "Stopped", {
+        fontSize: 11.5,
+        fontWeight: 500,
+        color,
+      }),
+    ],
+  );
+}
+
+// Derive the event when the caller didn't set one (samples / assistant path).
+function compactEventFor(exp: ExperimentCardData): CompactEvent {
+  if (exp.event) return exp.event;
+  switch (exp.state) {
+    case "started":
+      return "started";
+    case "running":
+      return "significance";
+    case "winner":
+      return "won";
+    case "loser":
+      return "lost";
+    case "warning":
+      return "warning";
+    case "stopped":
+    default:
+      return "stopped";
+  }
+}
+
+function capLabel(text: string, marginBottom = 6): El {
+  return txt(text, {
+    fontSize: 9.5,
+    fontWeight: 600,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: P.subtle,
+    marginBottom,
+  });
+}
+
+// Two-row header: event (icon chip + label) over name / key / status pill.
+function compactHeaderEl(
+  exp: ExperimentCardData,
+  ev: (typeof COMPACT_EVENT)[CompactEvent],
+  hue: Hue,
+): El {
+  const accentText = P.st[hue];
+  const logoH = 14;
   return el(
     "div",
     {
       display: "flex",
       flexDirection: "column",
-      gap: 8,
-      padding: "16px 24px",
+      gap: 9,
+      padding: "12px 22px",
+      borderBottom: `1px solid ${P.borderSub}`,
     },
     [
       el(
@@ -1414,92 +1524,407 @@ function compactBody(exp: ExperimentCardData): El {
         {
           display: "flex",
           flexDirection: "row",
+          justifyContent: "space-between",
           alignItems: "center",
-          gap: 20,
+          gap: 16,
         },
         [
           el(
             "div",
-            { display: "flex", flexDirection: "column", flexGrow: 1, gap: 5 },
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 9,
+            },
             [
-              txt(exp.goal, {
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: P.subtle,
-              }),
               el(
                 "div",
                 {
                   display: "flex",
-                  flexDirection: "row",
-                  alignItems: "baseline",
-                  gap: 12,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  backgroundColor: SOFT[hue],
+                  alignItems: "center",
+                  justifyContent: "center",
                 },
-                [
-                  r?.chg && r.dir
-                    ? pctCell(r.chg, r.dir, 22)
-                    : txt("—", { fontSize: 22, color: P.subtle }, true),
-                  txt(
-                    r ? `${r.v} · ${ctw}` : "",
-                    { fontSize: 12, color: P.subtle },
-                    false,
-                  ),
-                ],
+                svgImg(eventIconSvg(ev.icon, accentText), 14, 14),
               ),
+              txt(ev.label, {
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "0.02em",
+                color: accentText,
+              }),
             ],
           ),
-          r?.vio
-            ? el(
-                "div",
-                { display: "flex", flexDirection: "column", gap: 2 },
-                [
-                  svgImg(
-                    violinSvg(300, 40, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
-                    300,
-                    40,
-                  ),
-                  r.ci
-                    ? txt(
-                        `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
-                        {
-                          fontSize: 9.5,
-                          color: P.subtle,
-                          width: 300,
-                          justifyContent: "center",
-                        },
-                        true,
-                      )
-                    : null,
-                ].filter(Boolean) as El[],
-              )
-            : null,
-        ].filter(Boolean) as El[],
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+            },
+            [
+              ...(exp.tags?.length ? tagBadges(exp.tags) : []),
+              {
+                type: "img",
+                props: {
+                  src: getLogoDataUri(),
+                  width: Math.round(logoH * LOGO_ASPECT),
+                  height: logoH,
+                  style: { display: "flex" },
+                },
+              } as El,
+            ],
+          ),
+        ],
       ),
-      exp.conclusion?.text
-        ? txt(plainClamp(exp.conclusion.text, 150), {
-            fontSize: 12,
-            lineHeight: 1.5,
-            color: P.muted,
-          })
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          flexWrap: "wrap",
+        },
+        [
+          txt(exp.name, {
+            fontSize: 17,
+            fontWeight: 600,
+            color: P.text,
+            letterSpacing: "-0.01em",
+          }),
+          txt(exp.key, { fontSize: 11.5, color: P.subtle }, true),
+          statusPillEl(ev.status),
+        ],
+      ),
+    ],
+  );
+}
+
+// A mini violin + axis labels + CI caption (compact significance hero).
+function compactViolin(r: CardGoalRow, width: number): El {
+  return el(
+    "div",
+    { display: "flex", flexDirection: "column", gap: 2 },
+    [
+      r.vio
+        ? svgImg(
+            violinSvg(width, 46, VIOLIN_DOMAIN, r.vio, { ci: r.ci }),
+            width,
+            46,
+          )
+        : null,
+      el("div", { display: "flex", justifyContent: "space-between", width }, [
+        txt(fmtPct(VIOLIN_DOMAIN[0]), { fontSize: 8.5, color: P.subtle }, true),
+        txt("0", { fontSize: 8.5, color: P.subtle }, true),
+        txt(fmtPct(VIOLIN_DOMAIN[1]), { fontSize: 8.5, color: P.subtle }, true),
+      ]),
+      r.ci
+        ? txt(
+            `95% CI [${fmtPct(r.ci.lo)}, ${fmtPct(r.ci.hi)}]`,
+            {
+              fontSize: 10.5,
+              color: P.subtle,
+              width,
+              justifyContent: "center",
+            },
+            true,
+          )
         : null,
     ].filter(Boolean) as El[],
   );
 }
 
-function buildCompactCard(exp: ExperimentCardData): El {
-  const hue = HUE[exp.state];
-  const footerItems =
-    exp.state === "started"
-      ? [exp.variants.join(" · "), exp.dates, exp.ds]
-      : [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds];
-  return cardShell(
-    hue,
-    [headerEl(exp), compactBody(exp), footerEl(footerItems)].filter(
-      Boolean,
-    ) as El[],
+function compactHero(
+  exp: ExperimentCardData,
+  event: CompactEvent,
+  hue: Hue,
+): El {
+  const accentText = P.st[hue];
+  const r = exp.rows[0];
+
+  if (event === "started") {
+    const days = exp.daysToPower ?? 14;
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        gap: 26,
+        alignItems: "flex-start",
+        width: "100%",
+      },
+      [
+        el("div", { display: "flex", flexDirection: "column", width: 615 }, [
+          capLabel("Hypothesis"),
+          renderMarkdown(
+            exp.hypothesis ? plainClamp(exp.hypothesis, 220) : "",
+            {
+              fontSize: 14.5,
+              lineHeight: 1.5,
+              color: P.text,
+              weight: 400,
+            },
+          ),
+        ]),
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "column",
+            width: 300,
+            gap: 12,
+            paddingLeft: 26,
+            borderLeft: `1px solid ${P.borderSub}`,
+          },
+          [
+            el("div", { display: "flex", flexDirection: "column" }, [
+              capLabel("Goal metric", 4),
+              txt(exp.goal, { fontSize: 15, fontWeight: 500, color: P.text }),
+            ]),
+            el("div", { display: "flex", flexDirection: "row", gap: 28 }, [
+              el("div", { display: "flex", flexDirection: "column" }, [
+                capLabel("Target", 4),
+                txt(
+                  `~${exp.target ? exp.target.toLocaleString() : "—"}`,
+                  { fontSize: 14, fontWeight: 500, color: P.text },
+                  true,
+                ),
+              ]),
+              el("div", { display: "flex", flexDirection: "column" }, [
+                capLabel("To power", 4),
+                txt(
+                  `~${days} days`,
+                  { fontSize: 14, fontWeight: 500, color: accentText },
+                  true,
+                ),
+              ]),
+            ]),
+          ],
+        ),
+      ],
+    );
+  }
+
+  if (event === "warning") {
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        gap: 13,
+        alignItems: "flex-start",
+        padding: "14px 16px",
+        backgroundColor: SOFT.amber,
+        borderRadius: 8,
+        width: "100%",
+      },
+      [
+        svgImg(triAlertSvg(P.st.amber, 20), 20, 20),
+        el("div", { display: "flex", flexDirection: "column", width: 855 }, [
+          txt("Sample Ratio Mismatch — results paused", {
+            fontSize: 14,
+            fontWeight: 700,
+            color: P.st.amber,
+            marginBottom: 4,
+          }),
+          renderMarkdown(
+            `${exp.srm ? `${exp.srm} · ${exp.p ?? ""}. ` : ""}Traffic isn't splitting as configured; fix the assignment before trusting results.`,
+            { fontSize: 13, lineHeight: 1.5, color: P.text, weight: 400 },
+          ),
+        ]),
+      ],
+    );
+  }
+
+  if (event === "significance" && r) {
+    return el(
+      "div",
+      {
+        display: "flex",
+        flexDirection: "row",
+        gap: 26,
+        alignItems: "center",
+        width: "100%",
+      },
+      [
+        el("div", { display: "flex", flexDirection: "column", width: 330 }, [
+          capLabel(exp.goal),
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 4,
+              marginBottom: 5,
+            },
+            [
+              r.dir ? arrowImg(r.dir, accentText, 17) : null,
+              txt((r.chg ?? "").replace(/^[+-]/, ""), {
+                fontSize: 40,
+                fontWeight: 700,
+                color: accentText,
+                letterSpacing: "-0.02em",
+                lineHeight: 1,
+              }),
+              txt(r.v, {
+                fontSize: 14,
+                fontWeight: 500,
+                color: P.muted,
+                marginLeft: 6,
+                alignSelf: "flex-end",
+                marginBottom: 4,
+              }),
+            ].filter(Boolean) as El[],
+          ),
+          el(
+            "div",
+            {
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "baseline",
+              gap: 7,
+            },
+            [
+              txt(
+                r.ctw ?? "—",
+                { fontSize: 17, fontWeight: 600, color: ctwColor(r.ctw) },
+                true,
+              ),
+              txt("chance to beat control", {
+                fontSize: 12.5,
+                fontWeight: 500,
+                color: P.subtle,
+              }),
+            ],
+          ),
+        ]),
+        el("div", { display: "flex", flexGrow: 1 }, [compactViolin(r, 380)]),
+      ],
+    );
+  }
+
+  // won / lost / stopped — outcome-forward.
+  const line = exp.conclusion?.text
+    ? plainClamp(exp.conclusion.text, 200)
+    : exp.compactLine
+      ? plainClamp(exp.compactLine, 200)
+      : "";
+  const word =
+    event === "won" ? "Winner" : event === "lost" ? "No lift" : "Inconclusive";
+  const dirColor = r?.dir === "up" ? P.st.green : P.st.red;
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      gap: 26,
+      alignItems: "center",
+      width: "100%",
+    },
+    [
+      el("div", { display: "flex", flexDirection: "column", width: 250 }, [
+        txt(word, {
+          fontSize: 26,
+          fontWeight: 700,
+          color: accentText,
+          letterSpacing: "-0.02em",
+          marginBottom: 8,
+        }),
+        el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "baseline",
+            gap: 8,
+          },
+          [
+            r?.chg && r.dir
+              ? el(
+                  "div",
+                  {
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                  },
+                  [
+                    arrowImg(r.dir, dirColor, 11),
+                    txt(
+                      r.chg,
+                      { fontSize: 18, fontWeight: 600, color: dirColor },
+                      true,
+                    ),
+                  ],
+                )
+              : null,
+            txt(exp.goal, { fontSize: 12.5, fontWeight: 500, color: P.subtle }),
+          ].filter(Boolean) as El[],
+        ),
+      ]),
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "column",
+          width: 640,
+          paddingLeft: 26,
+          borderLeft: `1px solid ${P.borderSub}`,
+        },
+        [
+          capLabel("Conclusion"),
+          renderMarkdown(line, {
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: P.text,
+            weight: 400,
+          }),
+        ],
+      ),
+    ],
   );
+}
+
+function buildCompactCard(exp: ExperimentCardData): El {
+  const event = compactEventFor(exp);
+  const ev = COMPACT_EVENT[event];
+  const r0 = exp.rows[0];
+  // Event hue drives the rail + eyebrow; win/significance tint by direction.
+  let hue = ev.hue;
+  if ((event === "significance" || event === "won") && r0?.dir === "down") {
+    hue = "red";
+  }
+
+  const footerItems =
+    event === "started"
+      ? [exp.variants.join(" · "), exp.dates, exp.ds]
+      : event === "warning" || event === "significance"
+        ? [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds]
+        : [
+            exp.days,
+            exp.users ? `${exp.users} users` : undefined,
+            exp.dates,
+            exp.ds,
+          ];
+
+  return cardShell(hue, [
+    compactHeaderEl(exp, ev, hue),
+    // Column direction so the hero row stretches to full width (bounds its
+    // flex-grow text columns so long conclusions wrap instead of clipping).
+    el(
+      "div",
+      { display: "flex", flexDirection: "column", padding: "18px 22px" },
+      [compactHero(exp, event, hue)],
+    ),
+    footerEl(footerItems),
+  ]);
 }
 
 // ---------------------------------------------------------------------------

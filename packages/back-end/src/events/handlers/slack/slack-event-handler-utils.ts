@@ -52,6 +52,7 @@ import { logger } from "back-end/src/util/logger";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
+import type { CompactEvent } from "back-end/src/services/slack/chartImage";
 
 // region Filtering
 
@@ -333,6 +334,33 @@ export const getSlackMessageForNotificationEvent = async (
   }
 };
 
+// Map a notification event name to the compact card's *event* (which drives
+// its hero layout). Returns undefined for events that don't map cleanly — the
+// compact card then derives an event from the experiment's state.
+const compactEventForNotification = (
+  eventName: string,
+): CompactEvent | undefined => {
+  switch (eventName) {
+    case "experiment.started":
+      return "started";
+    case "experiment.info.significance":
+      return "significance";
+    case "experiment.decision.ship":
+    case "experiment.stopped.shipped":
+      return "won";
+    case "experiment.decision.rollback":
+    case "experiment.stopped.rolledback":
+      return "lost";
+    case "experiment.warning":
+    case "experiment.health.guardrailFailed":
+    case "experiment.health.noData":
+    case "experiment.health.queryFailed":
+      return "warning";
+    default:
+      return undefined;
+  }
+};
+
 // Render the compact results-card PNG for an experiment event (best-effort).
 // Returns the PNG + alt text; the caller decides how to attach it (a private
 // files.upload via chat.postMessage when a bot token is available, else a
@@ -355,6 +383,8 @@ export const renderExperimentCardForEvent = async (
     const context = await getContextForAgendaJobByOrgId(organizationId);
     const card = await buildExperimentCardData(context, experimentId);
     if (!card) return null;
+    const compactEvent = compactEventForNotification(event.event);
+    if (compactEvent) card.event = compactEvent;
     const png = await renderExperimentCard(card, "compact");
     return { png, altText: `${card.name} — experiment results` };
   } catch (e) {
