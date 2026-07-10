@@ -14,6 +14,7 @@ import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
 import {
@@ -116,6 +117,62 @@ export function blockUsesDashboardDateControl(
   );
 }
 
+/**
+ * True when a save transitions the dashboard from "no date control" to
+ * "date control enabled" — the moment we auto-enroll supported blocks.
+ */
+export function isEnablingDashboardDateControl(
+  existingGlobalControls: DashboardInterface["globalControls"] | undefined,
+  nextGlobalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return Boolean(
+    !existingGlobalControls?.dateRange && nextGlobalControls?.dateRange,
+  );
+}
+
+/**
+ * Resolves the blocks to persist when global controls change, applying
+ * first-enable auto-enrollment consistently across the internal controller and
+ * the REST API model.
+ *
+ * - When `nextBlocks` is provided (create, or update whose payload includes
+ *   blocks), returns those blocks, auto-enrolled if this save is enabling the
+ *   date control.
+ * - When `nextBlocks` is omitted (update without a blocks payload), returns
+ *   auto-enrolled `existingBlocks` only if this save is enabling the date
+ *   control, otherwise `undefined` to signal "leave blocks untouched".
+ */
+export function resolveGlobalControlsBlockEnrollment<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>({
+  existingGlobalControls,
+  nextGlobalControls,
+  existingBlocks,
+  nextBlocks,
+}: {
+  existingGlobalControls?: DashboardInterface["globalControls"];
+  nextGlobalControls?: DashboardInterface["globalControls"];
+  existingBlocks?: T[];
+  nextBlocks?: T[];
+}): T[] | undefined {
+  const enrolling = isEnablingDashboardDateControl(
+    existingGlobalControls,
+    nextGlobalControls,
+  );
+
+  if (nextBlocks) {
+    return enrolling
+      ? autoEnrollDashboardBlocksInDateControl(nextBlocks)
+      : nextBlocks;
+  }
+
+  if (enrolling && existingBlocks) {
+    return autoEnrollDashboardBlocksInDateControl(existingBlocks);
+  }
+
+  return undefined;
+}
+
 export type DashboardGlobalControlsEvaluation<
   T extends DashboardGlobalControlSupportedBlock,
 > = {
@@ -209,6 +266,32 @@ export function getEffectiveExplorationConfig<
 ): T["config"] {
   return evaluateDashboardGlobalControlsForBlock(block, dashboard)
     .effectiveConfig;
+}
+
+/**
+ * The only fields a dashboard date control drives on an exploration config:
+ * the date range and the date dimension's granularity. Staleness checks compare
+ * this fingerprint instead of the whole config so unrelated fields (or future
+ * server-side normalization of other fields) can't produce a spurious
+ * "controls changed" state.
+ */
+export function getExplorationDateControlFingerprint(config: {
+  dateRange: ExplorationDateRange;
+  dimensions: ReadonlyArray<{
+    dimensionType: string;
+    dateGranularity?: DateGranularity;
+  }>;
+}): {
+  dateRange: ExplorationDateRange;
+  dateGranularity: DateGranularity | null;
+} {
+  const dateDimension = config.dimensions.find(
+    (dimension) => dimension.dimensionType === "date",
+  );
+  return {
+    dateRange: config.dateRange,
+    dateGranularity: dateDimension?.dateGranularity ?? null,
+  };
 }
 
 export function getDashboardGlobalControlApplicability(dashboard: {

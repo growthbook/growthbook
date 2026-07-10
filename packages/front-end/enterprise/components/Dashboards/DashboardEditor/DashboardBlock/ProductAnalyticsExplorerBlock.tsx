@@ -4,7 +4,9 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
+  getExplorationDateControlFingerprint,
   resolveBlockComparison,
   computeExplorationComparisonPayload,
 } from "shared/enterprise";
@@ -67,18 +69,10 @@ export default function ProductAnalyticsExplorerBlock({
           globalControls: dashboardGlobalControls,
         })
       : (block.config ?? data?.exploration?.config ?? null);
-  const configWithCurrentGlobalControls =
-    data?.exploration?.config && dashboardGlobalControls
-      ? getEffectiveExplorationConfig(
-          {
-            ...block,
-            config: data.exploration.config,
-          } as typeof block,
-          {
-            globalControls: dashboardGlobalControls,
-          },
-        )
-      : null;
+  // A block only tracks the dashboard date control when it hasn't opted out.
+  const usesDashboardDateRange =
+    blockUsesDashboardDateControl(block) &&
+    Boolean(dashboardGlobalControls?.dateRange);
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -125,8 +119,12 @@ export default function ProductAnalyticsExplorerBlock({
 
   if (
     !isEditing &&
-    configWithCurrentGlobalControls &&
-    !isEqual(data.exploration.config, configWithCurrentGlobalControls)
+    usesDashboardDateRange &&
+    submittedConfig &&
+    !isEqual(
+      getExplorationDateControlFingerprint(submittedConfig),
+      getExplorationDateControlFingerprint(data.exploration.config),
+    )
   ) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>

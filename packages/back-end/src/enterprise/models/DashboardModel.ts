@@ -7,7 +7,7 @@ import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
-  autoEnrollDashboardBlocksInDateControl,
+  resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
   ApiDashboardInterface,
@@ -444,9 +444,11 @@ export class DashboardModel extends BaseClass {
         ),
       ),
     );
-    const blocksWithGlobalControls = globalControls?.dateRange
-      ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
-      : createdBlocks;
+    const blocksWithGlobalControls =
+      resolveGlobalControlsBlockEnrollment({
+        nextGlobalControls: globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
     return {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
@@ -495,22 +497,19 @@ export class DashboardModel extends BaseClass {
         ),
       );
       updates.blocks = normalizeLayouts(
-        !existingDashboard?.globalControls?.dateRange &&
-          updates.globalControls?.dateRange
-          ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
-          : createdBlocks,
+        resolveGlobalControlsBlockEnrollment({
+          existingGlobalControls: existingDashboard?.globalControls,
+          nextGlobalControls: updates.globalControls,
+          nextBlocks: createdBlocks,
+        }) ?? createdBlocks,
       );
-    }
-
-    if (
-      !updates.blocks &&
-      existingDashboard &&
-      !existingDashboard.globalControls?.dateRange &&
-      updates.globalControls?.dateRange
-    ) {
-      updates.blocks = autoEnrollDashboardBlocksInDateControl(
-        existingDashboard.blocks,
-      );
+    } else if (existingDashboard) {
+      const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: existingDashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        existingBlocks: existingDashboard.blocks,
+      });
+      if (enrolledBlocks) updates.blocks = enrolledBlocks;
     }
     return updates;
   }

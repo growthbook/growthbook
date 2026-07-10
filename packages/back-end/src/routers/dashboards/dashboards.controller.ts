@@ -5,7 +5,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
-  autoEnrollDashboardBlocksInDateControl,
+  resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
@@ -109,9 +109,11 @@ export async function createDashboard(
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
-  const blocksWithGlobalControls = globalControls?.dateRange
-    ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
-    : createdBlocks;
+  const blocksWithGlobalControls =
+    resolveGlobalControlsBlockEnrollment({
+      nextGlobalControls: globalControls,
+      nextBlocks: createdBlocks,
+    }) ?? createdBlocks;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -160,17 +162,18 @@ export async function updateDashboard(
         : generateDashboardBlockIds(context.org.id, blockData),
     );
     updates.blocks =
-      !dashboard.globalControls?.dateRange && updates.globalControls?.dateRange
-        ? autoEnrollDashboardBlocksInDateControl(createdBlocks)
-        : createdBlocks;
-  }
-
-  if (
-    !updates.blocks &&
-    !dashboard.globalControls?.dateRange &&
-    updates.globalControls?.dateRange
-  ) {
-    updates.blocks = autoEnrollDashboardBlocksInDateControl(dashboard.blocks);
+      resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: dashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
+  } else {
+    const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+      existingGlobalControls: dashboard.globalControls,
+      nextGlobalControls: updates.globalControls,
+      existingBlocks: dashboard.blocks,
+    });
+    if (enrolledBlocks) updates.blocks = enrolledBlocks;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
