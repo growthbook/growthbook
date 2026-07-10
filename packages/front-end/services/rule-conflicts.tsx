@@ -6,7 +6,7 @@ import { paddedVersionString } from "@growthbook/growthbook";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { RadixColor, RadixStatusIcon } from "@/ui/HelperText";
+import { getRadixColor, RadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 
@@ -1468,10 +1468,6 @@ function joinEnvNames(names: string[]): ReactElement {
   );
 }
 
-// The orange shared by the unreachable status badge and its callout. "error"
-// semantics (alert role + octagon icon) are kept, only the colour is overridden.
-const CONFLICT_UNREACHABLE_COLOR: RadixColor = "orange";
-
 // The status badge for a rule's conflicts, mirroring the colour + icon of the
 // callout it summarizes so the top-right pill and the detail banner can never
 // disagree. Unreachable is the strongest tier (orange + the error/octagon icon);
@@ -1490,8 +1486,10 @@ export function getConflictBadge(
   if (!banners?.length) return null;
   if (banners.some((b) => b.isUnreachable)) {
     return {
-      color: CONFLICT_UNREACHABLE_COLOR,
-      icon: <RadixStatusIcon status="error" size="sm" />,
+      // Sourced from the "attention" status so the badge and the
+      // ConflictCallout always share the same orange + octagon icon.
+      color: getRadixColor("attention"),
+      icon: <RadixStatusIcon status="attention" size="sm" />,
       label: "Unreachable",
       title: "No matching traffic will reach this rule",
     };
@@ -1539,13 +1537,12 @@ export function ConflictCallout({
     </span>
   );
   const hasDetails = hasHard || hasSoft;
-  // Unreachable keeps "error" semantics (role=alert + the octagon icon) but is
-  // recoloured to the same orange the status badge uses, so the badge and this
-  // callout never disagree. Lesser conflicts stay amber "warning".
-  const status = isUnreachable ? "error" : "warning";
-  const color = isUnreachable ? CONFLICT_UNREACHABLE_COLOR : undefined;
+  // Unreachable uses the orange "attention" status (orange + the error octagon
+  // icon + alert role) so the banner matches its status badge; lesser conflicts
+  // stay amber "warning".
+  const status = isUnreachable ? "attention" : "warning";
   return (
-    <Callout status={status} color={color} size="sm" contentsAs="div">
+    <Callout status={status} size="sm">
       <Flex direction="column" gap="1">
         <Flex align="center" gap="2" wrap="wrap">
           {headline}

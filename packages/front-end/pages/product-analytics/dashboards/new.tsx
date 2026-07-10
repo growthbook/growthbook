@@ -121,7 +121,7 @@ export default function NewDashboardPage() {
       <div className="p-3 container-fluid pagecontents">
         <PremiumCallout
           id="product-analytics-new-dashboard"
-          dismissable={false}
+          dismissible={false}
           commercialFeature="product-analytics-dashboards"
         >
           Use of Product Analytics Dashboards requires a paid plan

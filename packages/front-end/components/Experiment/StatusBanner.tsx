@@ -1,10 +1,10 @@
-import clsx from "clsx";
 import { FaPencilAlt } from "react-icons/fa";
 import { getAllVariations } from "shared/experiments";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
 import Markdown from "@/components/Markdown/Markdown";
 import track from "@/services/track";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
@@ -32,13 +32,17 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
       "";
 
     return (
-      <div
-        className={clsx("alert mb-0", {
-          "alert-success": result === "won",
-          "alert-danger": result === "lost",
-          "alert-info": !result || result === "inconclusive",
-          "alert-warning": result === "dnf",
-        })}
+      <Callout
+        status={
+          result === "won"
+            ? "success"
+            : result === "lost"
+              ? "error"
+              : result === "dnf"
+                ? "warning"
+                : "info"
+        }
+        mb="0"
       >
         <div className="d-flex">
           <div className="mr-auto">
@@ -95,59 +99,68 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
             </div>
           </div>
         )}
-      </div>
+      </Callout>
     );
   }
 
   if (experiment?.status === "running") {
     return (
-      <div className={clsx("alert mb-0 alert-info")}>
-        {editResult && (
-          <a
-            href="#"
-            className="alert-link float-right ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editResult();
-            }}
-          >
-            Stop{" "}
-            {experiment.type === "multi-armed-bandit" ? "Bandit" : "Experiment"}
-          </a>
-        )}
+      <Callout
+        status="info"
+        mb="0"
+        action={
+          editResult && (
+            <Button
+              variant="ghost"
+              color="inherit"
+              onClick={() => editResult()}
+            >
+              Stop{" "}
+              {experiment.type === "multi-armed-bandit"
+                ? "Bandit"
+                : "Experiment"}
+            </Button>
+          )
+        }
+      >
         <strong>This experiment is currently running.</strong>
-      </div>
+      </Callout>
     );
   }
 
   if (experiment?.status === "draft") {
     return (
-      <div className={clsx("alert mb-0 alert-warning")}>
-        {editResult && (
-          <Button
-            color="link"
-            className="alert-link float-right ml-2 p-0"
-            onClick={async () => {
-              // Already has a phase, just update the status
-              await apiCall(`/experiment/${experiment?.id}/status`, {
-                method: "POST",
-                body: JSON.stringify({
-                  status: "running",
-                }),
-              });
-              track("Start experiment", {
-                source: "experiment-start-banner-on-results",
-                hasDatasource: !!experiment.datasource,
-                hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
-              });
-              mutateExperiment();
-            }}
-          >
-            Start Experiment
-          </Button>
-        )}
+      <Callout
+        status="warning"
+        mb="0"
+        action={
+          editResult && (
+            <Button
+              variant="ghost"
+              color="inherit"
+              onClick={async () => {
+                // Already has a phase, just update the status
+                await apiCall(`/experiment/${experiment?.id}/status`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                  }),
+                });
+                track("Start experiment", {
+                  source: "experiment-start-banner-on-results",
+                  hasDatasource: !!experiment.datasource,
+                  hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
+                });
+                mutateExperiment();
+              }}
+            >
+              Start Experiment
+            </Button>
+          )
+        }
+      >
         <strong>This is a draft experiment.</strong>
-      </div>
+      </Callout>
     );
   }
 

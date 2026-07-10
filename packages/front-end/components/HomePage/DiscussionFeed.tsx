@@ -6,6 +6,7 @@ import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import Markdown from "@/components/Markdown/Markdown";
+import Callout from "@/ui/Callout";
 
 const DiscussionFeed: FC<{
   num?: number;
@@ -27,7 +28,7 @@ const DiscussionFeed: FC<{
   const { users } = useUser();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

@@ -7,7 +7,7 @@ import {
   isFactMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import { FactTableMap } from "shared/types/fact-table";
+import { FactTableDefinitionMap } from "shared/types/fact-table";
 import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -200,7 +200,7 @@ export default function ExperimentMetricsSelector({
     }
 
     // Build factTableMap for getUserIdTypes
-    const factTableMap: FactTableMap = new Map();
+    const factTableMap: FactTableDefinitionMap = new Map();
     factTables.forEach((ft) => {
       factTableMap.set(ft.id, ft);
     });
