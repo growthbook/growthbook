@@ -32,6 +32,7 @@ export default function RoleSelector({
         includeAdminRole={true}
         includeProjectAdminRole={true}
         isNewAssignment={isNewAssignment}
+        onUpgradeClick={showUpgradeModal}
       />
       <ProjectRolesSelector
         projectRoles={value.projectRoles || []}

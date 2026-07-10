@@ -8,6 +8,7 @@ import {
   getRoleDisplayName,
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
+import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
 import { useEnvironments } from "@/services/features";
 import useOrgLimits from "@/hooks/useOrgLimits";
@@ -27,6 +28,7 @@ export default function SingleRoleSelector({
   includeProjectAdminRole = false,
   disabled = false,
   isNewAssignment = false,
+  onUpgradeClick,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
@@ -35,6 +37,7 @@ export default function SingleRoleSelector({
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
   isNewAssignment?: boolean;
+  onUpgradeClick?: () => void;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -169,10 +172,26 @@ export default function SingleRoleSelector({
         disabled={disabled || rolesRestricted}
       />
       {rolesRestricted && (
-        <HelperText status="info" size="sm" mb="2">
-          Your plan only supports the admin role. Upgrade your plan to assign
-          other roles.
-        </HelperText>
+        <Flex align="center" gap="2" mb="2">
+          <Badge label="Pro" color="gold" variant="outline" radius="full" />
+          <HelperText status="info" size="sm">
+            Your plan only supports the admin role.{" "}
+            {onUpgradeClick ? (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onUpgradeClick();
+                }}
+              >
+                Upgrade your plan
+              </a>
+            ) : (
+              "Upgrade your plan"
+            )}{" "}
+            to assign other roles.
+          </HelperText>
+        </Flex>
       )}
 
       {roleSupportsEnvLimit(value.role, organization) &&
