@@ -57,10 +57,6 @@ const EnvironmentSelect: FC<{
     });
   }, [relevantEnvironments, permissionsUtil, project]);
 
-  // Effect should only re-run when the relevant set changes (i.e. the
-  // selected project changes), not on every render — environments,
-  // environmentSettings, and setValue are recreated each render, so read
-  // them from a ref instead of listing them as dependencies.
   const latestRef = useRef({ environments, environmentSettings, setValue });
   latestRef.current = { environments, environmentSettings, setValue };
 
