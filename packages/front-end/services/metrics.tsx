@@ -9,7 +9,7 @@ import {
 } from "shared/types/fact-table";
 import {
   canInlineFilterColumn,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
 } from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
@@ -325,7 +325,7 @@ export function getColumnRefFormatter(
 }
 
 export function getExperimentMetricFormatter(
-  metric: ExperimentMetricInterface,
+  metric: ExperimentMetricDefinition,
   getFactTableById: (id: string) => FactTableDefinition | null,
   proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage",
 ): (value: number, options?: Intl.NumberFormatOptions) => string {

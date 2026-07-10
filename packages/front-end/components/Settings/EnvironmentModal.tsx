@@ -1,7 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -14,6 +13,7 @@ import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
 
 export default function EnvironmentModal({
   existing,
@@ -208,12 +208,12 @@ export default function EnvironmentModal({
           closeMenuOnSelect={true}
         />
         {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
-          <div className="alert alert-warning">
-            <FaExclamationTriangle /> You have made the projects filter more
-            restrictive than before. {sdkConnections.length} SDK Connection
+          <Callout status="warning">
+            You have made the projects filter more restrictive than before.{" "}
+            {sdkConnections.length} SDK Connection
             {sdkConnections.length === 1 ? "" : "s"} using this environment may
             be impacted.
-          </div>
+          </Callout>
         )}
       </div>
       <Switch

@@ -14,7 +14,6 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -565,11 +564,9 @@ export default function TabbedPage({
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) && (
             <Callout status="info">
-              <Text>
-                {isHoldout
-                  ? "You are viewing the results of the entire holdout period."
-                  : "You are viewing the results of a previous experiment phase."}
-              </Text>
+              {isHoldout
+                ? "You are viewing the results of the entire holdout period."
+                : "You are viewing the results of a previous experiment phase."}
               <Link
                 ml="2"
                 onClick={() => setPhase(experiment.phases.length - 1)}
@@ -670,7 +667,7 @@ export default function TabbedPage({
         {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
-            dismissable={true}
+            dismissible={true}
             id="metrics-list-metric-group-promo"
             docSection="metricGroups"
             mb="2"

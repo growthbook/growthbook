@@ -7,7 +7,7 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAggregateFilters,
   isBinomialMetric,
   isFactMetric,
@@ -22,7 +22,7 @@ import { getPercentileLabel } from "@/services/metrics";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 interface MetricDrilldownMetricCardProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   type: "numerator" | "denominator";
 }
 

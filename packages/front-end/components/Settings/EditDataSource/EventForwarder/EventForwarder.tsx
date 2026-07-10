@@ -608,7 +608,7 @@ export default function EventForwarder({
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
               <Box mt="3">
-                <Button onClick={() => setShowEditModal(true)}>
+                <Button color="inherit" onClick={() => setShowEditModal(true)}>
                   Set Up Event Forwarder
                 </Button>
               </Box>

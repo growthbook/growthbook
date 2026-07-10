@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import DSTooltip from "@/ui/Tooltip";
 
@@ -353,31 +354,26 @@ export default function ExecExperimentImpact({
                 {summaryObj ? (
                   <>
                     {experimentsWithNoImpact.length > 0 ? (
-                      <div className={`mt-2 alert alert-warning`}>
-                        <div className="row">
-                          <div className="col-auto">
-                            <span>
-                              Some experiments are missing scaled impact
-                              results.
-                            </span>
-                          </div>
-                          <div className="flex-1" />
-                          <div className="col-auto">
-                            <button
-                              className="btn btn-sm btn-primary"
-                              onClick={() =>
-                                updateSnapshots(experimentsWithNoImpact).then(
-                                  () => {
-                                    fetchSnapshots(experiments);
-                                  },
-                                )
-                              }
-                            >
-                              Calculate Scaled Impact
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <Callout
+                        status="warning"
+                        mt="2"
+                        action={
+                          <Button
+                            color="inherit"
+                            onClick={() =>
+                              updateSnapshots(experimentsWithNoImpact).then(
+                                () => {
+                                  fetchSnapshots(experiments);
+                                },
+                              )
+                            }
+                          >
+                            Calculate Scaled Impact
+                          </Button>
+                        }
+                      >
+                        Some experiments are missing scaled impact results.
+                      </Callout>
                     ) : null}
                     <Box p="2" px="3" className="appbox" mb="3">
                       <Flex gap="2" align="center">
