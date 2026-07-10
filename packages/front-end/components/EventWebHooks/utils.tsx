@@ -2,6 +2,7 @@ import {
   NotificationEventNameOrWildcard,
   notificationEventNames as allNotificationEventNames,
   notificationEvents,
+  SlackEventWebHookOptions,
 } from "shared/validators";
 import React, { ReactNode, useMemo } from "react";
 import clsx from "clsx";
@@ -47,6 +48,7 @@ export type EventWebHookEditParams = {
   headers: string;
   coalesceWindowMs?: number;
   dailyDigestHourUtc?: number;
+  slackOptions?: SlackEventWebHookOptions;
 };
 
 // Exclude internal/noDoc events (e.g. webhook.test) from user-facing lists

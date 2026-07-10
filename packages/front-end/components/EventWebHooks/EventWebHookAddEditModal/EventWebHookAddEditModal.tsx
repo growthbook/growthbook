@@ -14,6 +14,7 @@ import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
+import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import {
   eventWebHookPayloadTypes,
@@ -508,6 +509,92 @@ const EventWebHookAddEditSettings = ({
               handleFormValidation();
             }}
           />
+        </Box>
+      )}
+
+      {selectedPayloadType === "slack" && (
+        <Box mt="4">
+          <SelectField
+            label="Results card on notifications"
+            value={
+              form.watch("slackOptions")?.experimentCardFormat ?? "compact"
+            }
+            options={[
+              { value: "compact", label: "Compact card" },
+              { value: "detailed", label: "Detailed card" },
+              { value: "none", label: "No card (text only)" },
+            ]}
+            helpText="Which experiment results card (if any) to attach to experiment notifications."
+            onChange={(value) => {
+              form.setValue("slackOptions", {
+                ...form.watch("slackOptions"),
+                experimentCardFormat: value as "none" | "compact" | "detailed",
+              });
+              handleFormValidation();
+            }}
+          />
+
+          <Box mt="3">
+            <Switch
+              id="weeklyDigestEnabled"
+              label="Weekly scorecard"
+              value={!!form.watch("slackOptions")?.weeklyDigestEnabled}
+              onChange={(enabled) => {
+                form.setValue("slackOptions", {
+                  ...form.watch("slackOptions"),
+                  weeklyDigestEnabled: enabled,
+                });
+                handleFormValidation();
+              }}
+            />
+            <Text as="span" ml="2" color="text-low">
+              Post a once-a-week program summary to this channel.
+            </Text>
+          </Box>
+
+          {form.watch("slackOptions")?.weeklyDigestEnabled && (
+            <Flex gap="3" mt="3">
+              <SelectField
+                label="Day (UTC)"
+                value={String(
+                  form.watch("slackOptions")?.weeklyDigestDayOfWeekUtc ?? 1,
+                )}
+                options={[
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ].map((label, value) => ({ value: String(value), label }))}
+                onChange={(value) => {
+                  form.setValue("slackOptions", {
+                    ...form.watch("slackOptions"),
+                    weeklyDigestDayOfWeekUtc: Number(value),
+                  });
+                  handleFormValidation();
+                }}
+              />
+              <Field
+                label="Hour (UTC)"
+                type="number"
+                min="0"
+                max="23"
+                value={form.watch("slackOptions")?.weeklyDigestHourUtc ?? 14}
+                onChange={(evt) => {
+                  form.setValue("slackOptions", {
+                    ...form.watch("slackOptions"),
+                    weeklyDigestHourUtc: Math.max(
+                      0,
+                      Math.min(23, Number(evt.target.value || 0)),
+                    ),
+                  });
+                  handleFormValidation();
+                }}
+              />
+            </Flex>
+          )}
         </Box>
       )}
     </>

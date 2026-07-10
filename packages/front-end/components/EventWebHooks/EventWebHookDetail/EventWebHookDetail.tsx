@@ -478,6 +478,7 @@ export const EventWebHookDetailContainer = ({
               "headers",
               "coalesceWindowMs",
               "dailyDigestHourUtc",
+              "slackOptions",
             ]),
           ),
         },
