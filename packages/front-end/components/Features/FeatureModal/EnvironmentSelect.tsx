@@ -44,9 +44,6 @@ const EnvironmentSelect: FC<{
 }) => {
   const permissionsUtil = usePermissionsUtil();
 
-  // Environments can be scoped to specific projects. Exclude ones that don't
-  // apply to the selected project so users can't accidentally toggle a
-  // feature in an environment meant for another project.
   const relevantEnvironments = useMemo(() => {
     if (!project) return environments;
     return environments.filter(
