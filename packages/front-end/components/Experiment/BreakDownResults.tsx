@@ -21,7 +21,7 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
   formatDimensionValueForDisplay,
@@ -90,7 +90,7 @@ const BreakDownResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   renderMetricName?: (
-    metric: ExperimentMetricInterface,
+    metric: ExperimentMetricDefinition,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
   sortBy?: ExperimentSortBy;
