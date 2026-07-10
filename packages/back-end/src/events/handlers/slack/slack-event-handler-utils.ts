@@ -370,15 +370,27 @@ const compactEventForNotification = (
   }
 };
 
+// Short, URL-free headline used as the card message's caption. Deliberately
+// omits the experiment name (which can contain a URL that Slack would unfurl) —
+// the card image already shows the name.
+const CARD_CAPTION: Record<CompactEvent, string> = {
+  started: "Experiment started",
+  significance: "Reached significance",
+  won: "Declared a winner",
+  lost: "Rolled back",
+  stopped: "Experiment stopped",
+  warning: "Health alert",
+};
+
 // Render the compact results-card PNG for an experiment event (best-effort).
 // Only meaningful lifecycle events get a card — started, significance,
 // won/lost, stopped, warning — NOT metadata changes like experiment.updated.
-// Never throws — a failure just means no card.
+// Returns the PNG plus a short, URL-free caption. Never throws.
 export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,
   format: "none" | "compact" | "detailed" = "compact",
-): Promise<{ png: Buffer; altText: string } | null> => {
+): Promise<{ png: Buffer; altText: string; caption: string } | null> => {
   if (format === "none") return null;
   const compactEvent = compactEventForNotification(event);
   if (!compactEvent) return null; // not a card-worthy event
@@ -398,7 +410,11 @@ export const renderExperimentCardForEvent = async (
       card,
       format === "detailed" ? "detailed" : "compact",
     );
-    return { png, altText: `${card.name} — experiment results` };
+    return {
+      png,
+      altText: `${card.name} — experiment results`,
+      caption: CARD_CAPTION[compactEvent],
+    };
   } catch (e) {
     logger.warn(
       e,

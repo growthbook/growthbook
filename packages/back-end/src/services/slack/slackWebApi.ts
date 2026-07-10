@@ -109,12 +109,16 @@ export async function postSlackMessageResult({
   text,
   blocks,
   threadTs,
+  unfurl,
 }: {
   token: string;
   channel: string;
   text: string;
   blocks?: SlackBlock[];
   threadTs?: string;
+  // When false, suppress Slack's link/media previews (e.g. for experiment
+  // names that contain a URL). Defaults to Slack's behavior (previews on).
+  unfurl?: boolean;
 }): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
     token,
@@ -124,6 +128,7 @@ export async function postSlackMessageResult({
       text,
       ...(blocks ? { blocks } : {}),
       ...(threadTs ? { thread_ts: threadTs } : {}),
+      ...(unfurl === false ? { unfurl_links: false, unfurl_media: false } : {}),
     },
   );
   return {
@@ -143,6 +148,7 @@ export async function postSlackMessage(args: {
   text: string;
   blocks?: SlackBlock[];
   threadTs?: string;
+  unfurl?: boolean;
 }): Promise<string | null> {
   return (await postSlackMessageResult(args)).ts;
 }

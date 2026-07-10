@@ -353,7 +353,9 @@ export class EventWebHookNotifier implements Notifier {
         filename: "experiment-card.png",
         title: card.altText,
         channelId,
-        initialComment: message.text,
+        // Short, URL-free caption — the card shows the (possibly URL-bearing)
+        // experiment name, so we keep it out of the text to avoid unfurls.
+        initialComment: card.caption,
       });
       ok = !!fileId;
       if (fileId) responseBody = fileId;
@@ -364,6 +366,9 @@ export class EventWebHookNotifier implements Notifier {
         channel: channelId,
         text: message.text,
         blocks: message.blocks as unknown as Record<string, unknown>[],
+        // Don't preview links that happen to appear in the text (e.g. an
+        // experiment name that contains a URL).
+        unfurl: false,
       });
       ok = result.ok;
       error = result.error;
