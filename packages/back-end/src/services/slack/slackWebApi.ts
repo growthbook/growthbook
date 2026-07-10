@@ -100,9 +100,10 @@ async function slackApiGet<T extends SlackApiResponse>(
 
 /**
  * Post a message to a channel (optionally threaded). Returns the new message's
- * `ts` so callers can later chat.update it, or null on failure.
+ * `ts` (for a later chat.update), `ok`, and the Slack `error` on failure so
+ * callers can surface *why* it failed (e.g. not_in_channel, invalid_blocks).
  */
-export async function postSlackMessage({
+export async function postSlackMessageResult({
   token,
   channel,
   text,
@@ -114,7 +115,7 @@ export async function postSlackMessage({
   text: string;
   blocks?: SlackBlock[];
   threadTs?: string;
-}): Promise<string | null> {
+}): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
     token,
     "chat.postMessage",
@@ -125,7 +126,25 @@ export async function postSlackMessage({
       ...(threadTs ? { thread_ts: threadTs } : {}),
     },
   );
-  return res?.ok ? (res.ts ?? null) : null;
+  return {
+    ok: !!res?.ok,
+    ts: res?.ok ? (res.ts ?? null) : null,
+    error: res?.ok ? null : (res?.error ?? "unknown error"),
+  };
+}
+
+/**
+ * Post a message to a channel (optionally threaded). Returns the new message's
+ * `ts` so callers can later chat.update it, or null on failure.
+ */
+export async function postSlackMessage(args: {
+  token: string;
+  channel: string;
+  text: string;
+  blocks?: SlackBlock[];
+  threadTs?: string;
+}): Promise<string | null> {
+  return (await postSlackMessageResult(args)).ts;
 }
 
 /**

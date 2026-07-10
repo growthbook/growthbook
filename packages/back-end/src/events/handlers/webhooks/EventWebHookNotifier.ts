@@ -29,7 +29,7 @@ import {
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
-  postSlackMessage,
+  postSlackMessageResult,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
@@ -361,7 +361,7 @@ export class EventWebHookNotifier implements Notifier {
       }
     }
 
-    const ts = await postSlackMessage({
+    const result = await postSlackMessageResult({
       token: botToken,
       channel: channelId,
       text: message.text,
@@ -370,10 +370,14 @@ export class EventWebHookNotifier implements Notifier {
 
     const method = eventWebHook.method || "POST";
     const payload = message as unknown as Record<string, unknown>;
-    if (ts) {
+    if (result.ok) {
       await EventWebHookNotifier.handleWebHookSuccess({
         job,
-        webHookResult: { result: "success", statusCode: 200, responseBody: ts },
+        webHookResult: {
+          result: "success",
+          statusCode: 200,
+          responseBody: result.ts ?? "ok",
+        },
         organizationId,
         event: event.event,
         url: eventWebHook.url,
@@ -386,7 +390,9 @@ export class EventWebHookNotifier implements Notifier {
         webHookResult: {
           result: "error",
           statusCode: null,
-          error: "Slack chat.postMessage failed",
+          // Surface the real Slack error (e.g. not_in_channel, invalid_blocks)
+          // so it shows in the webhook Run Logs.
+          error: `Slack chat.postMessage failed: ${result.error}`,
         },
         organizationId,
         event: event.event,
