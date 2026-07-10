@@ -25,10 +25,9 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                     size={15}
                     style={{ color: "var(--color-text-high)" }}
                   />
-                </span>
-              )}
               <span
                 title={item.display}
+                aria-current={isLast ? "page" : undefined}
                 className={isLast ? styles.currentPage : styles.ancestor}
               >
                 {item.href ? (
@@ -46,7 +45,6 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                     weight="semibold"
                     color="text-high"
                     truncate={isLast}
-                    aria-current={isLast ? "page" : undefined}
                   >
                     {item.display}
                   </Text>
