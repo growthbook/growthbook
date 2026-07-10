@@ -1,8 +1,3 @@
----
-description: "TypeScript and React conventions for front-end development"
-globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts"]
-alwaysApply: false
----
 
 # Frontend React & TypeScript Patterns
 

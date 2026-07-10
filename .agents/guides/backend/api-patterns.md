@@ -1,8 +1,3 @@
----
-description: "Backend API patterns for both internal and external APIs"
-globs: ["packages/back-end/src/**/*.ts"]
-alwaysApply: false
----
 
 # Backend API Patterns
 

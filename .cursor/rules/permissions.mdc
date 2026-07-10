@@ -1,0 +1,9 @@
+---
+description: "Permission system for access control across front-end and back-end"
+alwaysApply: true
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/permissions.md

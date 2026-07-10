@@ -1,8 +1,3 @@
----
-description: "Data fetching and mutation patterns for the front-end application"
-globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts"]
-alwaysApply: false
----
 
 # Frontend Data Fetching Patterns
 

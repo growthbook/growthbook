@@ -1,0 +1,10 @@
+---
+description: "TypeScript and React conventions for front-end development"
+globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts"]
+alwaysApply: false
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/frontend/react-patterns.md

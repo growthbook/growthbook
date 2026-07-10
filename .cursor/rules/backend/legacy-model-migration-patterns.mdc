@@ -1,0 +1,9 @@
+---
+description: "Guidance for migrating legacy back-end models to BaseModel"
+alwaysApply: false
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/backend/legacy-model-migration-patterns.md
