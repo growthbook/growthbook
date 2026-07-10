@@ -7,10 +7,12 @@ export default function RoleSelector({
   value,
   setValue,
   showUpgradeModal,
+  isNewAssignment = false,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   showUpgradeModal?: () => void;
+  isNewAssignment?: boolean;
 }) {
   return (
     <div>
@@ -29,6 +31,7 @@ export default function RoleSelector({
         label="Global Role"
         includeAdminRole={true}
         includeProjectAdminRole={true}
+        isNewAssignment={isNewAssignment}
       />
       <ProjectRolesSelector
         projectRoles={value.projectRoles || []}

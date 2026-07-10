@@ -26,6 +26,7 @@ export default function SingleRoleSelector({
   includeAdminRole = false,
   includeProjectAdminRole = false,
   disabled = false,
+  isNewAssignment = false,
 }: {
   value: MemberRoleInfo;
   setValue: (value: MemberRoleInfo) => void;
@@ -33,6 +34,7 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   includeProjectAdminRole?: boolean;
   disabled?: boolean;
+  isNewAssignment?: boolean;
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
@@ -47,12 +49,14 @@ export default function SingleRoleSelector({
   const { orgSupportsRoles } = useOrgLimits();
   const rolesRestricted = includeAdminRole && !orgSupportsRoles();
 
+  // Only default NEW assignments to admin — existing assignments are
+  // grandfathered and must never be auto-escalated.
   useEffect(() => {
-    if (rolesRestricted && value.role !== "admin") {
+    if (isNewAssignment && rolesRestricted && value.role !== "admin") {
       setValue({ ...value, role: "admin" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rolesRestricted]);
+  }, [rolesRestricted, isNewAssignment]);
 
   let roleOptions = [...roles];
 

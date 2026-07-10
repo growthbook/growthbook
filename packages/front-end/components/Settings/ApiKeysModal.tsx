@@ -133,7 +133,11 @@ const ApiKeysModal: FC<{
               </Box>
             </Callout>
           )}
-          <RoleSelector value={roleState} setValue={setRoleState} />
+          <RoleSelector
+            value={roleState}
+            setValue={setRoleState}
+            isNewAssignment={!editMode}
+          />
         </>
       )}
     </ModalStandard>
