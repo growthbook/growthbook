@@ -1,4 +1,3 @@
-
 # Backend API Patterns
 
 The back-end serves **two distinct types of APIs** with different patterns and purposes:

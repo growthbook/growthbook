@@ -1,4 +1,3 @@
-
 # Development Guidelines
 
 ## General Rules

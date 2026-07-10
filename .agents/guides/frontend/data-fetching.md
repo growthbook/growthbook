@@ -1,4 +1,3 @@
-
 # Frontend Data Fetching Patterns
 
 ## Overview

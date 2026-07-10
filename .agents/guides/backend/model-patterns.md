@@ -1,4 +1,3 @@
-
 # Backend Model Patterns
 
 ## Overview

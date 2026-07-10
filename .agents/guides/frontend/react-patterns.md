@@ -1,4 +1,3 @@
-
 # Frontend React & TypeScript Patterns
 
 ## Component Structure

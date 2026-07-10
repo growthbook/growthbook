@@ -1,4 +1,3 @@
-
 # Package Import Boundaries
 
 These restrictions are enforced by ESLint and must be strictly followed.

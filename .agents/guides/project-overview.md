@@ -1,4 +1,3 @@
-
 # GrowthBook Project Overview
 
 You are working on GrowthBook, an open-source feature flagging and A/B testing platform.

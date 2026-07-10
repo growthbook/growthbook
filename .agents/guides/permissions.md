@@ -1,4 +1,3 @@
-
 # Permission System
 
 ## Overview
