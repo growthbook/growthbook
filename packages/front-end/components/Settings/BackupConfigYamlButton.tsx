@@ -16,12 +16,12 @@ export default function BackupConfigYamlButton({
   const { datasources, dimensions, segments } = useDefinitions();
 
   // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
-  // full versions for the export. Skip archived metrics to match the old
-  // definitions-based behavior (/metrics includes them, definitions didn't).
+  // full versions for the export. /metrics excludes archived metrics by
+  // default, matching the old definitions-based behavior.
   const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
     "/metrics",
   );
-  const metrics = metricsData?.metrics.filter((m) => m.status !== "archived");
+  const metrics = metricsData?.metrics;
 
   const config = useConfigJson({
     datasources,

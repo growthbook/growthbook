@@ -325,7 +325,7 @@ async function findMetrics(
   const metrics: MetricInterface[] = [];
   const metricIds = new Set<string>();
 
-  // If using config.yml, first check there (projection can't apply here)
+  // If using config.yml, first check there
   if (usingFileConfig()) {
     getConfigMetrics(context)
       .filter((m) => !additionalQuery || evalCondition(m, additionalQuery))
@@ -376,11 +376,15 @@ export async function getMetricsByOrganization(
   options?: {
     datasourceId?: string;
     projectId?: string;
+    includeArchived?: boolean;
   },
 ) {
   const query: FilterQuery<LegacyMetricInterface> = {
     ...(options?.datasourceId && { datasource: options.datasourceId }),
     ...(options?.projectId && projectFilterQuery(options.projectId)),
+    ...(options?.includeArchived === false && {
+      status: { $ne: "archived" },
+    }),
   };
 
   return findMetrics(context, query);

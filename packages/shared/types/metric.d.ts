@@ -98,9 +98,6 @@ export interface MetricInterface {
 
 // Slimmed metric returned by the definitions endpoint. Heavy fields are
 // excluded; fetch the full metric by id when they're needed.
-// NOTE: omitting the required `queries` field is what makes this type
-// non-assignable to MetricInterface (the other omitted fields are optional).
-// If `queries` ever becomes optional, that compile-time guard disappears.
 export type MetricDefinitionInterface = Omit<
   MetricInterface,
   | "sql"

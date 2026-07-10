@@ -3,7 +3,10 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { Permissions, roleToPermissionMap } from "shared/permissions";
 import { OrganizationInterface } from "shared/types/organization";
 import { MetricInterface } from "shared/types/metric";
-import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
+import {
+  getMetricsForDefinitions,
+  getMetricsByOrganization,
+} from "back-end/src/models/MetricModel";
 import { usingFileConfig, getConfigMetrics } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
 
@@ -149,5 +152,74 @@ describe("getMetricsForDefinitions", () => {
     const metrics = await getMetricsForDefinitions(context);
 
     expect(metrics.map((m) => m.id)).toEqual(["met_1"]);
+  });
+});
+
+describe("getMetricsByOrganization includeArchived", () => {
+  let mongod: MongoMemoryServer;
+
+  beforeAll(async () => {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+  }, 60000);
+
+  afterAll(async () => {
+    await mongoose.connection.close();
+    await mongod.stop();
+  });
+
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await mongoose.connection.db!.collection("metrics").deleteMany({});
+  });
+
+  it("excludes archived metrics from the database when includeArchived is false", async () => {
+    mockedUsingFileConfig.mockReturnValue(false);
+    await mongoose.connection.db!.collection("metrics").insertMany([
+      makeMetric({ id: "met_active", status: "active" }),
+      makeMetric({ id: "met_archived", status: "archived" }),
+      // Metrics with no status should be kept (matches the $ne semantics)
+      makeMetric({ id: "met_nostatus", status: undefined }),
+    ]);
+
+    const metrics = await getMetricsByOrganization(context, {
+      includeArchived: false,
+    });
+
+    expect(metrics.map((m) => m.id).sort()).toEqual([
+      "met_active",
+      "met_nostatus",
+    ]);
+  });
+
+  it("excludes archived config.yml metrics when includeArchived is false", async () => {
+    mockedUsingFileConfig.mockReturnValue(true);
+    mockedGetConfigMetrics.mockReturnValue([
+      makeMetric({ id: "met_active", status: "active" }),
+      makeMetric({ id: "met_archived", status: "archived" }),
+    ]);
+
+    const metrics = await getMetricsByOrganization(context, {
+      includeArchived: false,
+    });
+
+    expect(metrics.map((m) => m.id)).toEqual(["met_active"]);
+  });
+
+  it("includes archived metrics by default", async () => {
+    mockedUsingFileConfig.mockReturnValue(false);
+    await mongoose.connection
+      .db!.collection("metrics")
+      .insertMany([
+        makeMetric({ id: "met_active", status: "active" }),
+        makeMetric({ id: "met_archived", status: "archived" }),
+      ]);
+
+    const metrics = await getMetricsByOrganization(context);
+
+    expect(metrics.map((m) => m.id).sort()).toEqual([
+      "met_active",
+      "met_archived",
+    ]);
   });
 });

@@ -56,12 +56,12 @@ export default function RestoreConfigYamlButton({
     useDefinitions();
 
   // Definitions only contain slimmed metrics (no sql, etc.), so fetch the
-  // full versions for the import diff. Skip archived metrics to match the old
-  // definitions-based behavior (/metrics includes them, definitions didn't).
+  // full versions for the import diff. /metrics excludes archived metrics by
+  // default, matching the old definitions-based behavior.
   const { data: metricsData } = useApi<{ metrics: MetricInterface[] }>(
     "/metrics",
   );
-  const metrics = metricsData?.metrics.filter((m) => m.status !== "archived");
+  const metrics = metricsData?.metrics;
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
