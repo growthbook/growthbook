@@ -4,7 +4,6 @@ import {
   ExperimentsWinRateBlockInterface,
 } from "shared/enterprise";
 import { Box, Flex } from "@radix-ui/themes";
-import { format } from "date-fns";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,6 +21,7 @@ import {
   WinRateSummary,
   computeWinRateByProject,
   computeWinRateSummary,
+  rangeLabel,
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
 
@@ -87,16 +87,6 @@ function winLossOther(row: {
 
 function winRatePct(row: { total: number; winRate: number }): string {
   return row.total > 0 ? `${row.winRate.toFixed(0)}%` : "-";
-}
-
-function rangeLabel({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}): string {
-  return `${format(startDate, "MMM d, yyyy")} – ${format(endDate, "MMM d, yyyy")}`;
 }
 
 // Gauge + one-line summary, with an optional period label on top (compare mode).

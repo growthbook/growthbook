@@ -37434,16 +37434,24 @@ components:
     startDate:
       name: startDate
       in: query
-      description: Only include experiments whose last phase ended on or after
+      description: >-
+        Only include experiments that have a phase which ended on or after this
+        date
       schema:
-        description: Only include experiments whose last phase ended on or after
+        description: >-
+          Only include experiments that have a phase which ended on or after
+          this date
         type: string
     endDate:
       name: endDate
       in: query
-      description: Only include experiments whose last phase ended on or before
+      description: >-
+        Only include experiments that have a phase which ended on or before this
+        date
       schema:
-        description: Only include experiments whose last phase ended on or before
+        description: >-
+          Only include experiments that have a phase which ended on or before
+          this date
         type: string
     property:
       name: property

@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ResolvedGranularity } from "@/enterprise/components/ProductAnalytics/util";
 
@@ -12,6 +13,18 @@ export const VELOCITY_RESULT_KEYS = [
 export type VelocityResultKey = (typeof VELOCITY_RESULT_KEYS)[number];
 
 export type Window = { startDate: Date; endDate: Date };
+
+/**
+ * Human-readable label for a date window, e.g. "Jan 1, 2026 – Feb 1, 2026".
+ * Shared by the Win Percentage and Team Velocity blocks so the compare-mode
+ * period labels stay formatted the same way.
+ */
+export function rangeLabel({ startDate, endDate }: Window): string {
+  return `${format(startDate, "MMM d, yyyy")} – ${format(
+    endDate,
+    "MMM d, yyyy",
+  )}`;
+}
 
 export type VelocityBucket = {
   // Bucket start, floored to the granularity.

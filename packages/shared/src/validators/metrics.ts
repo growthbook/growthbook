@@ -848,7 +848,9 @@ export const listMetricExperimentsValidator = {
         .refine((v) => !Number.isNaN(Date.parse(v)), {
           message: "Invalid date",
         })
-        .describe("Only include experiments whose last phase ended on or after")
+        .describe(
+          "Only include experiments that have a phase which ended on or after this date",
+        )
         .optional(),
       endDate: z
         .string()
@@ -856,7 +858,7 @@ export const listMetricExperimentsValidator = {
           message: "Invalid date",
         })
         .describe(
-          "Only include experiments whose last phase ended on or before",
+          "Only include experiments that have a phase which ended on or before this date",
         )
         .optional(),
     })

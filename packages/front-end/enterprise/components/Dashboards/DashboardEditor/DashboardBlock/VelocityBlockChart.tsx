@@ -5,7 +5,6 @@ import {
   getDateGranularity,
 } from "shared/enterprise";
 import { Box, Flex } from "@radix-ui/themes";
-import { format } from "date-fns";
 import EChartsReact from "echarts-for-react";
 import {
   ResolvedGranularity,
@@ -21,6 +20,7 @@ import {
   VELOCITY_RESULT_KEYS,
   VelocityResultKey,
   bucketVelocity,
+  rangeLabel,
 } from "./completedExperimentsData";
 import { useCompletedExperimentsComparison } from "./completedExperiments";
 
@@ -164,16 +164,6 @@ function compactBucketLabel(
         year: "2-digit",
       });
   }
-}
-
-function rangeLabel({
-  startDate,
-  endDate,
-}: {
-  startDate: Date;
-  endDate: Date;
-}): string {
-  return `${format(startDate, "MMM d, yyyy")} – ${format(endDate, "MMM d, yyyy")}`;
 }
 
 // Simple centered legend used when comparison is off.
