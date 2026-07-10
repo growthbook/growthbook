@@ -131,12 +131,13 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       continue;
     }
 
-    // "Milestones only": suppress low-signal experiment events from live Slack
-    // delivery. The event still exists in the store, so it appears in the
-    // daily/weekly digest — just not as its own live ping.
+    // By default, suppress low-signal experiment events from live Slack
+    // delivery (only important events post). Channels can opt into the full
+    // change log to receive them too. Suppressed events still exist in the
+    // store, so they appear in the daily/weekly digest.
     if (
       eventWebHook.payloadType === "slack" &&
-      eventWebHook.slackOptions?.milestonesOnly &&
+      !eventWebHook.slackOptions?.showFullChangeLog &&
       isLowSignalExperimentEvent(event.data.event)
     ) {
       continue;

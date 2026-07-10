@@ -536,22 +536,22 @@ const EventWebHookAddEditSettings = ({
 
           <Box mt="3">
             <Switch
-              id="milestonesOnly"
-              label="Only important updates"
-              value={!!form.watch("slackOptions")?.milestonesOnly}
+              id="showFullChangeLog"
+              label="Show full change log"
+              value={!!form.watch("slackOptions")?.showFullChangeLog}
               onChange={(enabled) => {
                 form.setValue("slackOptions", {
                   ...form.watch("slackOptions"),
-                  milestonesOnly: enabled,
+                  showFullChangeLog: enabled,
                 });
                 handleFormValidation();
               }}
             />
             <Text as="span" ml="2" color="text-low">
-              Only announce key events — started, reached significance, ship /
-              rollback decisions, stopped, and health alerts. Routine updates
-              like edits, status changes, and ending-soon are kept out of the
-              channel.
+              By default only important events are announced — started, reached
+              significance, ship / rollback decisions, stopped, and health
+              alerts. Turn this on to also post routine updates: edits, status
+              changes, ending-soon, and stale.
             </Text>
           </Box>
 
