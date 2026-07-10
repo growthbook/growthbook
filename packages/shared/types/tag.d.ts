@@ -8,6 +8,7 @@ export interface TagDBInterface {
   organization: string;
   tags: string[];
   settings: { [key: string]: TagSettings };
+  dateUpdated?: Date;
 }
 
 export interface TagSettings {

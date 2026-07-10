@@ -158,6 +158,7 @@ import {
   getInstallation,
   setInstallationName,
 } from "back-end/src/models/InstallationModel";
+import { getDefinitionsVersion } from "back-end/src/util/definitionsVersion";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -166,6 +167,18 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     throw new Error("Must be part of an organization");
   }
 
+  const version = await getDefinitionsVersion(orgId);
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (typeof ifNoneMatch === "string" && ifNoneMatch === version) {
+    res.set("ETag", version);
+    return res.status(304).end();
+  }
+  res.set("ETag", version);
+
+  // If you add/remove/rename a source below, update the mirrored collection
+  // list in `getDefinitionsVersion` (back-end/src/util/definitionsVersion.ts)
+  // too — otherwise its ETag won't reflect changes to the new source and
+  // clients can get served a stale 304.
   const [
     metrics,
     datasources,

@@ -8,6 +8,12 @@ const tagSchema = new mongoose.Schema({
   },
   tags: [String],
   settings: {},
+  // Must be set (via $set) on every write below. Read by
+  // `getDefinitionsVersion` (back-end/src/util/definitionsVersion.ts) to
+  // detect tag changes cheaply — if a new write path is added here without
+  // updating this field, that change won't invalidate the cached
+  // /organization/definitions response.
+  dateUpdated: Date,
 });
 
 type TagDocument = mongoose.Document & TagDBInterface;
@@ -52,6 +58,9 @@ export async function addTags(organization: string, tags: string[]) {
       $addToSet: {
         tags: { $each: tags },
       },
+      $set: {
+        dateUpdated: new Date(),
+      },
     },
     {
       upsert: true,
@@ -90,6 +99,7 @@ export async function addTag(
         // Need to set the entire settings object, not just settings.{tag},
         // since tags can contains dots in the name
         settings,
+        dateUpdated: new Date(),
       },
     },
     {
@@ -105,6 +115,7 @@ export async function removeTag(organization: string, tag: string) {
     },
     {
       $pull: { tags: tag },
+      $set: { dateUpdated: new Date() },
     },
   );
 }
