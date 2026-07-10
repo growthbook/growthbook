@@ -9,7 +9,7 @@ on:
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -24,7 +24,7 @@ jobs:
           OWNER=${{ github.repository_owner }}
           REPO=${{ github.event.repository.name }}
 
-          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          RESPONSE=$(curl -s --globoff -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/$OWNER/$REPO/collaborators/$USER/permission)
           PERMISSION=$(echo $RESPONSE | jq -r .permission)
 
@@ -53,7 +53,7 @@ jobs:
           REPO=${{ github.event.repository.name }}
           PR_NUMBER=${{ github.event.pull_request.number }}
 
-          CHANGED_FILES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          CHANGED_FILES=$(curl -s --globoff -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/$OWNER/$REPO/pulls/$PR_NUMBER/files)
 
           echo "$CHANGED_FILES" | jq -r '.[].filename' > changed_files.txt
