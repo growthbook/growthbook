@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
 import { filterProjectsByEnvironment } from "shared/util";
@@ -57,17 +57,21 @@ const EnvironmentSelect: FC<{
     });
   }, [relevantEnvironments, permissionsUtil, project]);
 
+  // Effect should only re-run when the relevant set changes (i.e. the
+  // selected project changes), not on every render — environments,
+  // environmentSettings, and setValue are recreated each render, so read
+  // them from a ref instead of listing them as dependencies.
+  const latestRef = useRef({ environments, environmentSettings, setValue });
+  latestRef.current = { environments, environmentSettings, setValue };
+
   useEffect(() => {
+    const { environments, environmentSettings, setValue } = latestRef.current;
     environments.forEach((env) => {
       const isRelevant = relevantEnvironments.some((e) => e.id === env.id);
       if (!isRelevant && environmentSettings[env.id]?.enabled) {
         setValue(env, false);
       }
     });
-    // Only re-run when the relevant set changes (i.e. selected project
-    // changes) — environments/environmentSettings/setValue are recreated
-    // every render and would otherwise cause a render loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relevantEnvironments]);
 
   const selectAllChecked =
