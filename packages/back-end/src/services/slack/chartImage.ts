@@ -86,7 +86,7 @@ function getFonts(): LoadedFont[] {
 let logoDataUri: string | null = null;
 function getLogoDataUri(): string {
   if (!logoDataUri) {
-    const svg = fs.readFileSync(resolveAssetPath("gb-logo-color.svg"));
+    const svg = fs.readFileSync(resolveAssetPath("gb-logo-brand.svg"));
     logoDataUri = `data:image/svg+xml;base64,${svg.toString("base64")}`;
   }
   return logoDataUri;
@@ -1907,7 +1907,7 @@ function buildCompactCard(exp: ExperimentCardData): El {
 // Compact-card footer: metadata on the left, GrowthBook logo bottom-right.
 function compactFooterEl(items: (string | undefined)[]): El {
   const fitems = items.filter((x): x is string => !!x);
-  const logoH = 22;
+  const logoH = 16;
   const logoW = Math.round(logoH * LOGO_ASPECT);
   const gap = 12;
   // Fixed metadata width so a long row wraps instead of pushing the logo off
