@@ -197,8 +197,11 @@ const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 const CARD_WIDTH = 1000;
 // The compact notification card is narrower + taller than the detailed card so
 // its aspect ratio isn't extreme — Slack center-crops very wide/short image
-// previews, and a narrower card also reads better in the message column.
-const COMPACT_WIDTH = 600;
+// previews, and a narrower card also reads better in the message column. A
+// min-height keeps short cards from being wide-and-short (the hero centers in
+// the leftover space); taller ones (e.g. significance + violin) just grow.
+const COMPACT_WIDTH = 560;
+const COMPACT_MIN_HEIGHT = 300;
 const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
@@ -1436,22 +1439,9 @@ function eventIconSvg(kind: EventIconKind, color: string): string {
   }
 }
 
+// Translucent-white status pill that sits on the solid event banner.
 function statusPillEl(status: "running" | "stopped"): El {
   const running = status === "running";
-  const color = running ? P.st.blue : P.st.slate;
-  const bg = running ? SOFT.blue : SOFT.slate;
-  const dot = running
-    ? el("div", {
-        width: 6,
-        height: 6,
-        borderRadius: 9999,
-        backgroundColor: SOLID.blue,
-      })
-    : svgImg(
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="${SOLID.slate}"/></svg>`,
-        8,
-        8,
-      );
   return el(
     "div",
     {
@@ -1459,16 +1449,21 @@ function statusPillEl(status: "running" | "stopped"): El {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      padding: "2px 9px",
+      padding: "3px 10px",
       borderRadius: 9999,
-      backgroundColor: bg,
+      backgroundColor: "rgba(255,255,255,0.22)",
     },
     [
-      dot,
+      el("div", {
+        width: 6,
+        height: 6,
+        borderRadius: 9999,
+        backgroundColor: "#ffffff",
+      }),
       txt(running ? "Running" : "Stopped", {
-        fontSize: 11.5,
+        fontSize: 11,
         fontWeight: 500,
-        color,
+        color: "#ffffff",
       }),
     ],
   );
@@ -1505,22 +1500,24 @@ function capLabel(text: string, marginBottom = 6): El {
   });
 }
 
-// Two-row header: event (icon chip + label) over name / key / status pill.
-function compactHeaderEl(
-  exp: ExperimentCardData,
+// Full-width solid event banner (turn 9): a rounded icon chip + the event label
+// in white on the event color, with a translucent-white status pill on the
+// right. Carries the card's status color (there's no left rail on the compact
+// card).
+function compactBannerEl(
   ev: (typeof COMPACT_EVENT)[CompactEvent],
   hue: Hue,
 ): El {
-  const accentText = P.st[hue];
-  const logoH = 14;
   return el(
     "div",
     {
       display: "flex",
-      flexDirection: "column",
-      gap: 9,
-      padding: "12px 22px",
-      borderBottom: `1px solid ${P.borderSub}`,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 14,
+      padding: "13px 22px",
+      backgroundColor: SOLID[hue],
     },
     [
       el(
@@ -1528,84 +1525,57 @@ function compactHeaderEl(
         {
           display: "flex",
           flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 16,
-        },
-        [
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 9,
-            },
-            [
-              el(
-                "div",
-                {
-                  display: "flex",
-                  width: 24,
-                  height: 24,
-                  borderRadius: 6,
-                  backgroundColor: SOFT[hue],
-                  alignItems: "center",
-                  justifyContent: "center",
-                },
-                svgImg(eventIconSvg(ev.icon, accentText), 14, 14),
-              ),
-              txt(ev.label, {
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: "0.02em",
-                color: accentText,
-              }),
-            ],
-          ),
-          el(
-            "div",
-            {
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-            },
-            [
-              ...(exp.tags?.length ? tagBadges(exp.tags) : []),
-              {
-                type: "img",
-                props: {
-                  src: getLogoDataUri(),
-                  width: Math.round(logoH * LOGO_ASPECT),
-                  height: logoH,
-                  style: { display: "flex" },
-                },
-              } as El,
-            ],
-          ),
-        ],
-      ),
-      el(
-        "div",
-        {
-          display: "flex",
-          flexDirection: "row",
           alignItems: "center",
           gap: 10,
-          flexWrap: "wrap",
         },
         [
-          txt(exp.name, {
-            fontSize: 17,
-            fontWeight: 600,
-            color: P.text,
-            letterSpacing: "-0.01em",
+          el(
+            "div",
+            {
+              display: "flex",
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              backgroundColor: "rgba(255,255,255,0.22)",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+            svgImg(eventIconSvg(ev.icon, "#ffffff"), 15, 15),
+          ),
+          txt(ev.label, {
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: "0.01em",
+            color: "#ffffff",
           }),
-          txt(exp.key, { fontSize: 11.5, color: P.subtle }, true),
-          statusPillEl(ev.status),
         ],
       ),
+      statusPillEl(ev.status),
+    ],
+  );
+}
+
+// Name row on the white body, directly under the banner.
+function compactNameRowEl(exp: ExperimentCardData): El {
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      flexWrap: "wrap",
+      padding: "14px 22px 0",
+    },
+    [
+      txt(exp.name, {
+        fontSize: 18,
+        fontWeight: 600,
+        color: P.text,
+        letterSpacing: "-0.01em",
+      }),
+      txt(exp.key, { fontSize: 11.5, color: P.subtle }, true),
+      ...(exp.tags?.length ? tagBadges(exp.tags) : []),
     ],
   );
 }
@@ -1795,7 +1765,7 @@ function compactHero(
             }),
           ],
         ),
-        compactViolin(r, COMPACT_WIDTH - RAIL - 44),
+        compactViolin(r, COMPACT_WIDTH - 44),
       ],
     );
   }
@@ -1900,20 +1870,100 @@ function buildCompactCard(exp: ExperimentCardData): El {
             exp.ds,
           ];
 
-  return cardShell(
-    hue,
+  // Rail-less panel: the solid banner carries the status color, so there's no
+  // 6px left rail. The hero wrapper flex-grows and centers its content so short
+  // cards sit at min-height without looking wide-and-short; tall ones grow.
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      width: COMPACT_WIDTH,
+      minHeight: COMPACT_MIN_HEIGHT,
+      backgroundColor: P.panel,
+      border: `1px solid ${P.border}`,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
     [
-      compactHeaderEl(exp, ev, hue),
-      // Column direction so the hero row stretches to full width (bounds its
-      // flex-grow text columns so long conclusions wrap instead of clipping).
+      compactBannerEl(ev, hue),
+      compactNameRowEl(exp),
       el(
         "div",
-        { display: "flex", flexDirection: "column", padding: "18px 22px" },
+        {
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          justifyContent: "center",
+          padding: "16px 22px 18px",
+        },
         [compactHero(exp, event, hue)],
       ),
-      footerEl(footerItems),
+      compactFooterEl(footerItems),
     ],
-    COMPACT_WIDTH,
+  );
+}
+
+// Compact-card footer: metadata on the left, GrowthBook logo bottom-right.
+function compactFooterEl(items: (string | undefined)[]): El {
+  const fitems = items.filter((x): x is string => !!x);
+  const logoH = 22;
+  const logoW = Math.round(logoH * LOGO_ASPECT);
+  const gap = 12;
+  // Fixed metadata width so a long row wraps instead of pushing the logo off
+  // the right edge (Satori doesn't wrap flexGrow text — fixed widths do).
+  const metaW = COMPACT_WIDTH - 44 - gap - logoW;
+  return el(
+    "div",
+    {
+      display: "flex",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap,
+      padding: "11px 22px",
+      borderTop: `1px solid ${P.border}`,
+      marginTop: "auto",
+    },
+    [
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          width: metaW,
+        },
+        fitems.map((t, i) =>
+          el(
+            "div",
+            { display: "flex", flexDirection: "row", alignItems: "center" },
+            [
+              i > 0
+                ? txt("·", {
+                    fontSize: 11.5,
+                    color: P.subtle,
+                    margin: "0 9px",
+                    opacity: 0.55,
+                  })
+                : null,
+              txt(t, { fontSize: 11.5, color: P.subtle }),
+            ].filter(Boolean) as El[],
+          ),
+        ),
+      ),
+      {
+        type: "img",
+        props: {
+          src: getLogoDataUri(),
+          width: logoW,
+          height: logoH,
+          // flexShrink:0 so a long metadata row can't squeeze/clip the logo.
+          style: { display: "flex", flexShrink: 0 },
+        },
+      } as El,
+    ],
   );
 }
 
