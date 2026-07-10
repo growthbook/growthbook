@@ -748,6 +748,7 @@ Triggered when a feature ramp schedule advances to the next step
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {
