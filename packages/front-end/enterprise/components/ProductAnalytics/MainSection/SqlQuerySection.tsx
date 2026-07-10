@@ -1,11 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckCircle,
-  PiCode,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiPlay } from "react-icons/pi";
 import {
   ExplorationConfig,
   SqlValue,
@@ -166,11 +161,7 @@ export default function SqlQuerySection({
         <Button variant="ghost" onClick={() => setOpen(!open)}>
           <Flex align="center" gap="2">
             {open ? <PiCaretDown /> : <PiCaretRight />}
-            <PiCode />
-            <Text weight="medium">SQL Query</Text>
-            {dataset.sql.trim() && !sqlChanged ? (
-              <PiCheckCircle color="var(--green-9)" />
-            ) : null}
+            <Text weight="medium">Query</Text>
           </Flex>
         </Button>
         <Flex align="center" gap="2">
@@ -181,12 +172,17 @@ export default function SqlQuerySection({
           ) : null}
           {open && (
             <Button
-              size="sm"
+              size="xs"
+              aria-label="Run query"
+              title="Run query"
               disabled={!canRunPreview}
               loading={loading}
               onClick={() => previewColumns(localSql)}
             >
-              Run Query
+              <Flex align="center" gap="2">
+                <PiPlay />
+                Run
+              </Flex>
             </Button>
           )}
         </Flex>
