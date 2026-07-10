@@ -74,6 +74,23 @@ export const getFactTables = async (
   });
 };
 
+export const getFactTableById = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200; factTable: FactTableInterface }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  res.status(200).json({
+    status: 200,
+    factTable,
+  });
+};
+
 async function testFilterQuery(
   context: ReqContext,
   datasource: DataSourceInterface,

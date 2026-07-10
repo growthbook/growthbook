@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
@@ -18,7 +18,7 @@ import ExperimentResultTooltipContent, {
 
 interface ResultPopoverData {
   stats: SnapshotMetric;
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   pValueThreshold: number;
   significant: boolean;
   resultsStatus: RowResults["resultsStatus"];

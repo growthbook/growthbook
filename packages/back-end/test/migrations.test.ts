@@ -1869,6 +1869,22 @@ describe("Experiment Migration", () => {
       releasedVariationId: "foo",
     });
   });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
+    });
+  });
   it("Doesn't overwrite other attribution models", () => {
     expect(
       upgradeExperimentDoc({
