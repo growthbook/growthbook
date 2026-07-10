@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
   getMetricResultStatus,
   isFactMetric,
@@ -39,7 +39,7 @@ import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface MetricAnalysisProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   outerClassName?: string;
   bandits?: boolean;
   includeOnlyResults?: boolean;
@@ -50,7 +50,7 @@ interface MetricAnalysisProps {
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   bandits?: boolean;
   numPerPage?: number;
   differenceType?: DifferenceType;

@@ -11,6 +11,7 @@ import { useEnvironments } from "@/services/features";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
@@ -74,14 +75,14 @@ const InviteList: FC<{
 
       if (status !== 200) {
         setResendMessage(
-          <div className="alert alert-danger">
+          <Callout status="error">
             {dismissButton}
             {message || "Error re-sending the invitation"}
-          </div>,
+          </Callout>,
         );
       } else if (!emailSent) {
         setResendMessage(
-          <div className="alert alert-info">
+          <Callout status="info">
             {dismissButton}
             <p>
               Failed to send email to <strong>{email}</strong>. You can manually
@@ -90,15 +91,15 @@ const InviteList: FC<{
             <div>
               <code>{inviteUrl}</code>
             </div>
-          </div>,
+          </Callout>,
         );
       }
     } catch (e) {
       setResendMessage(
-        <div className="alert alert-danger">
+        <Callout status="error">
           {dismissButton}
           {e.message}
-        </div>,
+        </Callout>,
       );
     }
 

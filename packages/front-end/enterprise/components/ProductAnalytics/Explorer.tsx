@@ -71,7 +71,7 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { managedWarehouseAwaitingProvisioning, draftExploreState } =
+  const { draftExploreState, managedWarehouseUnavailable } =
     useExplorerContext();
   const hideSidebar =
     draftExploreState.type === "sql" &&
@@ -79,7 +79,7 @@ function ExplorerContent() {
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
-      {managedWarehouseAwaitingProvisioning ? (
+      {managedWarehouseUnavailable ? (
         <Box px="2">
           <ManagedWarehouseNoEventsCallout />
         </Box>

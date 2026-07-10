@@ -174,6 +174,7 @@ export const experimentNotification = [
   "srm",
   "no-data",
   "significance",
+  "underpowered",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 
