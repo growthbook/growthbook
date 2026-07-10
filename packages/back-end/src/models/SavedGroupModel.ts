@@ -124,7 +124,15 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     existing: SavedGroupInterface,
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
+    writeOptions?: WriteOptions,
   ) {
+    // Reverts/restores must never be blocked by hooks, so a known-good state is
+    // always restorable. The revert path is the sole caller that sets
+    // `skipAttributeValidation` (see saved-group.adapter `applyChanges`), so we
+    // reuse it here — consistent with the attribute exemption in
+    // `customValidation`.
+    if (writeOptions?.skipAttributeValidation) return;
+
     // Authoritative custom-hook validation, run against the projected
     // post-change saved group before it is persisted. This single gate covers
     // direct updates AND revision publishes (publish -> adapter applyChanges ->

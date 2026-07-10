@@ -41,7 +41,7 @@ function makeContext(query: Record<string, string> = {}) {
   });
 }
 
-async function seedSavedGroup() {
+async function seedSavedGroup(projects: string[] = []) {
   await mongoose.connection.collection("savedgroups").insertOne({
     id: GROUP_ID,
     organization: ORG.id,
@@ -50,7 +50,7 @@ async function seedSavedGroup() {
     type: "condition",
     condition: '{"country": "US"}',
     description: "original",
-    projects: [],
+    projects,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
@@ -65,6 +65,21 @@ async function seedGlobalSavedGroupHook() {
     enabled: true,
     projects: [],
     name: "test saved group hook",
+    hook: "validateSavedGroup",
+    code: "// behavior comes from the runInSandbox mock",
+    incrementalChangesOnly: false,
+  });
+}
+
+async function seedProjectScopedHook(project: string) {
+  await mongoose.connection.collection("customhooks").insertOne({
+    id: "hook_sg_project",
+    organization: ORG.id,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    enabled: true,
+    projects: [project],
+    name: "project-scoped saved group hook",
     hook: "validateSavedGroup",
     code: "// behavior comes from the runInSandbox mock",
     incrementalChangesOnly: false,
@@ -222,5 +237,76 @@ describe("saved group custom-hook validation gate", () => {
 
     expect(mockRunInSandbox).not.toHaveBeenCalled();
     expect((await rawGroup())?.description).toBe("changed");
+  });
+
+  it("does not run hooks on a revert (skipAttributeValidation write)", async () => {
+    const context = makeContext();
+    setReqContext(context);
+    await seedSavedGroup();
+    await seedGlobalSavedGroupHook();
+
+    // A revert must always be able to restore a known-good state, so hooks
+    // must not run and must not be able to block it.
+    mockRunInSandbox.mockResolvedValue({
+      ok: false,
+      error: "should not run on revert",
+      warnings: [],
+    });
+
+    const group = await context.models.savedGroups.getById(GROUP_ID);
+    await context.models.savedGroups.update(
+      group!,
+      { description: "changed" },
+      { skipAttributeValidation: true },
+    );
+
+    expect(mockRunInSandbox).not.toHaveBeenCalled();
+    expect((await rawGroup())?.description).toBe("changed");
+  });
+
+  it("does not run a project-scoped hook against a global saved group", async () => {
+    const context = makeContext();
+    setReqContext(context);
+    // Global saved group (empty projects) runs global hooks ONLY.
+    await seedSavedGroup([]);
+    await seedProjectScopedHook("prj_a");
+
+    // If the project-scoped hook were (wrongly) applied to the global group,
+    // this rejection would block the update. It must not.
+    mockRunInSandbox.mockResolvedValue({
+      ok: false,
+      error: "should not run",
+      warnings: [],
+    });
+
+    const group = await context.models.savedGroups.getById(GROUP_ID);
+    await context.models.savedGroups.update(group!, { description: "changed" });
+
+    expect(mockRunInSandbox).not.toHaveBeenCalled();
+    expect((await rawGroup())?.description).toBe("changed");
+  });
+
+  it("runs global and matching project hooks against a project-scoped saved group", async () => {
+    const context = makeContext();
+    setReqContext(context);
+    // Project-scoped saved group runs global hooks + that project's hooks.
+    await seedSavedGroup(["prj_a"]);
+    await seedGlobalSavedGroupHook();
+    await seedProjectScopedHook("prj_a");
+
+    mockRunInSandbox.mockResolvedValue({
+      ok: false,
+      error: "Rejected by hook",
+      warnings: [],
+    });
+
+    const group = await context.models.savedGroups.getById(GROUP_ID);
+    await expect(
+      context.models.savedGroups.update(group!, { description: "changed" }),
+    ).rejects.toThrow("Rejected by hook");
+
+    // Both the global and the matching project-scoped hook are in scope.
+    expect(mockRunInSandbox).toHaveBeenCalled();
+    expect((await rawGroup())?.description).toBe("original");
   });
 });

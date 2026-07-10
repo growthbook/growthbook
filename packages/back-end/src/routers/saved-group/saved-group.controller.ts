@@ -36,7 +36,6 @@ import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
-import { runValidateSavedGroupHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 // region POST /saved-groups
 
@@ -763,17 +762,12 @@ export const putSavedGroup = async (
     });
   }
 
-  // Best-effort early gate: run custom-hook validation against the projected
-  // saved group so formatting errors surface interactively at authoring time
-  // (mirrors features' prevalidatePublishRevision). The authoritative gate is
-  // the model write in SavedGroupModel.beforeUpdate, which also covers draft
-  // publishes that never reach this handler.
-  await runValidateSavedGroupHooks({
-    context,
-    savedGroup: { ...comparisonBase, ...fieldsToUpdate } as SavedGroupInterface,
-    original: savedGroup,
-  });
-
+  // Custom-hook validation is NOT run here. Draft-only saves must not be
+  // blocked by hooks — validation fires only when a change goes live. The
+  // authoritative gate is the model write in SavedGroupModel.beforeUpdate,
+  // which runs on every live write (immediate-merge update and every publish
+  // path, including background scheduled/auto publishes) but never on
+  // draft-only saves (which don't call savedGroups.update).
   await ensureLiveRevisionExists(
     context,
     "saved-group",

@@ -139,7 +139,15 @@ export class CustomHookModel extends BaseClass {
         ? [projects]
         : [];
 
-    // Entity-scoped hooks match by entityId; others match by project (empty = all).
+    // Scoping model (conventional narrowing):
+    //   - Global hooks (empty `projects`) are universal rules: they match every
+    //     resource, whatever its projects.
+    //   - Project-scoped hooks add on for project-scoped resources: they match a
+    //     resource only when they share at least one project with it.
+    //   - A global resource (empty `projectList`) therefore runs global hooks
+    //     ONLY — a project-scoped hook can never share a project with it and so
+    //     never reaches it.
+    // Entity-scoped hooks are exempt from project matching and match by entityId.
     return hooks.filter((h) =>
       h.entityType && h.entityId
         ? h.entityId === entityId
