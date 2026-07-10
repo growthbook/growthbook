@@ -47,7 +47,6 @@ const CUSTOM_HOOK_DIFF_CONFIG: AuditDiffConfig<CustomHookInterface> = {
         "projects",
         "entityType",
         "entityId",
-        "includeDescendants",
         "incrementalChangesOnly",
       ],
       render: renderCustomHookSettingsSection,

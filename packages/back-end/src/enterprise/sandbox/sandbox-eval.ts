@@ -1,4 +1,5 @@
 import { CustomHookInterface, CustomHookType } from "shared/validators";
+import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SoftWarningError } from "back-end/src/util/errors";
@@ -52,16 +53,79 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+// The config being validated, positioned in its lineage — exposed to config
+// hooks so they can reason about where "self" sits (root vs leaf, whether it has
+// a parent or children, and the full ancestor/descendant key lists).
+type ConfigLineage = {
+  ancestors: string[];
+  descendants: string[];
+  hasParent: boolean;
+  hasChildren: boolean;
+  isRoot: boolean;
+  isLeaf: boolean;
+};
+
 // A config's publish-time content passed to config hooks. `key`/`project`/
-// `parent`/`extends` drive hook scoping (entity-scoped by key, family-scoped by
-// the staged lineage, project-scoped by project); the rest is the config's own
-// fields + staged value.
+// `parent`/`extends` drive hook scoping (entity-scoped by key, descendant-scoped
+// by the staged lineage, project-scoped by project); the rest is the config's
+// own fields. `value` is handed to hooks as a parsed JSON object (not the stored
+// string) so hook code can read it directly.
 type ConfigHookInput = {
   key: string;
   project?: string;
   parent?: string;
   extends?: string[];
+  lineage?: ConfigLineage;
 } & Record<string, unknown>;
+
+// Configs store `value` as a JSON string; hooks get it parsed. A non-JSON /
+// unparseable value is passed through unchanged so the hook still sees it.
+function parseConfigValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+// Shape the config args for hooks: parse `value` and attach lineage facts.
+// Skipped when hooks won't run anyway (cloud / no premium feature) so we don't
+// pay for the config-collection read.
+async function prepareConfigHookArgs(
+  context: Context,
+  config: ConfigHookInput,
+  original: ConfigHookInput | null | undefined,
+): Promise<{
+  config: ConfigHookInput;
+  original: ConfigHookInput | null | undefined;
+}> {
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) {
+    return { config, original };
+  }
+  const all = await context.models.configs.getAllForReconcile();
+  const byKey = new Map(all.map((c) => [c.key, c]));
+  const shape = (c: ConfigHookInput): ConfigHookInput => {
+    const ancestors = [...getConfigAncestorKeys(c, byKey)];
+    const descendants = getConfigSubtree(c.key, all).filter((k) => k !== c.key);
+    return {
+      ...c,
+      value: parseConfigValue(c.value),
+      lineage: {
+        ancestors,
+        descendants,
+        hasParent: ancestors.length > 0,
+        hasChildren: descendants.length > 0,
+        isRoot: ancestors.length === 0,
+        isLeaf: descendants.length === 0,
+      },
+    };
+  };
+  return {
+    config: shape(config),
+    original: original ? shape(original) : original,
+  };
+}
 
 export async function runValidateConfigHooks({
   context,
@@ -72,13 +136,14 @@ export async function runValidateConfigHooks({
   config: ConfigHookInput;
   original: ConfigHookInput | null;
 }): Promise<void> {
+  const enriched = await prepareConfigHookArgs(context, config, original);
   return _runCustomHooks(
     context,
     "validateConfig",
-    { config },
+    { config: enriched.config },
     config.project ?? "",
     config.key,
-    original ? { config: original } : undefined,
+    enriched.original ? { config: enriched.original } : undefined,
     { parent: config.parent, extends: config.extends },
   );
 }
@@ -113,18 +178,45 @@ export async function runValidateConfigRevisionHooks({
   revision?: ConfigRevisionHookInput;
   original?: ConfigHookInput | null;
 }): Promise<void> {
+  const enriched = await prepareConfigHookArgs(context, config, original);
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.
   // Direct publishes (REST value update, revert) have no revision → null.
   return _runCustomHooks(
     context,
     "validateConfigRevision",
-    { config, revision: revision ?? null },
+    { config: enriched.config, revision: revision ?? null },
     config.project ?? "",
     config.key,
-    original ? { config: original, revision: revision ?? null } : undefined,
+    enriched.original
+      ? { config: enriched.original, revision: revision ?? null }
+      : undefined,
     { parent: config.parent, extends: config.extends },
   );
+}
+
+// Per-hook: tell a config hook whether the config being validated is the exact
+// config it's pinned to (`isHookTarget`) versus a descendant it also runs on.
+// `hookTargetKey` names the pinned config (null for project/global hooks, where
+// every in-scope config is a direct target). No-op for non-config args.
+function withHookTarget(
+  hook: CustomHookInterface,
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!args) return args;
+  const config = args.config;
+  if (!config || typeof config !== "object") return args;
+  const cfg = config as Record<string, unknown>;
+  const targetKey =
+    hook.entityType === "config" ? (hook.entityId ?? null) : null;
+  return {
+    ...args,
+    config: {
+      ...cfg,
+      hookTargetKey: targetKey,
+      isHookTarget: targetKey === null || targetKey === cfg.key,
+    },
+  };
 }
 
 // Private methods
@@ -168,8 +260,8 @@ async function _runCustomHooks(
     const { error, warnings } = await _runCustomHook(
       adminContext,
       hook,
-      functionArgs,
-      originalFunctionArgs,
+      withHookTarget(hook, functionArgs) ?? functionArgs,
+      withHookTarget(hook, originalFunctionArgs),
     );
     if (error) {
       throw new Error(error);

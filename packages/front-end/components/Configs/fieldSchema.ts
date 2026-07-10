@@ -61,10 +61,11 @@ export const FIELD_TYPE_OPTIONS = [
   { value: "any", label: "Any" },
 ];
 
-// key | value | type | source | actions. Right-hand columns are fixed-width so
-// they line up across rows (each row is its own grid); value (1fr) absorbs slack.
+// key | value | type | source | usage | actions. Right-hand columns are
+// fixed-width so they line up across rows (each row is its own grid); value
+// (1fr) absorbs slack.
 export const FIELD_GRID_TEMPLATE =
-  "minmax(110px, 200px) minmax(120px, 1fr) 110px 110px 150px";
+  "minmax(110px, 200px) minmax(120px, 1fr) 110px 110px 48px 150px";
 
 const PRESET_LABELS: Record<PresetKey, string> = {
   json: "JSON",

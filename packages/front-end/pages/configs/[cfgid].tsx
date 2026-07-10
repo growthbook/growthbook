@@ -40,6 +40,7 @@ import {
   PiCheckBold,
   PiCopy,
   PiLockSimple,
+  PiInfo,
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -88,7 +89,11 @@ import {
   getConstantSchemaBadges,
 } from "@/components/Constants/ConstantDiffRenders";
 import { useConstantRevision } from "@/hooks/useConstantRevision";
-import { useConfigFamilyReferences } from "@/hooks/useConstantReferences";
+import {
+  useConfigFamilyReferences,
+  useConfigKeyUsage,
+  ConfigKeyImplementation,
+} from "@/hooks/useConstantReferences";
 import ConfigArchiveModal from "@/components/Configs/ConfigArchiveModal";
 import ConfigLockModal from "@/components/Configs/ConfigLockModal";
 import ConfigRevertModal from "@/components/Configs/ConfigRevertModal";
@@ -287,7 +292,7 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [composeAdding, setComposeAdding] = useState(false);
 
-  // Page-level tabs (Overview | Validation | Review & Publish).
+  // Page-level tabs (Overview | Review & Publish | Validation).
   const [tab, setTab] = useState<"overview" | "validation" | "review">(
     "overview",
   );
@@ -357,6 +362,19 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateRevisions,
   } = useConstantRevision(config?.id, mutate, config, "config");
 
+  // With no draft selected, fall back to the live (most-recently-merged) revision
+  // so the review tab renders its read-only Live view instead of the "select a
+  // revision" empty state, matching constants and saved groups.
+  const displayRevision = useMemo(() => {
+    if (selectedRevision) return selectedRevision;
+    return [...allRevisions]
+      .filter((r) => r.status === "merged")
+      .sort(
+        (a, b) =>
+          new Date(b.dateUpdated).getTime() - new Date(a.dateUpdated).getTime(),
+      )[0];
+  }, [selectedRevision, allRevisions]);
+
   // The page instance is reused across configs (and the selected revision can
   // change under an open editor), so clear in-progress edits when either changes.
   useEffect(() => {
@@ -388,6 +406,19 @@ export default function ConfigDetailPage(): React.ReactElement {
 
   const { references: familyReferences, loading: familyReferencesLoading } =
     useConfigFamilyReferences(config?.id);
+
+  const { usage: keyUsage } = useConfigKeyUsage(config?.id);
+  const implementationsByKey = useMemo(() => {
+    const map = new Map<string, ConfigKeyImplementation[]>();
+    for (const impl of keyUsage?.implementations ?? []) {
+      for (const key of impl.keys) {
+        const list = map.get(key);
+        if (list) list.push(impl);
+        else map.set(key, [impl]);
+      }
+    }
+    return map;
+  }, [keyUsage]);
 
   // Scrub cycle-creating keys + own key so a value can't reference back into a cycle.
   const { data: cyclicData } = useApi<{ cyclicKeys: string[] }>(
@@ -1087,7 +1118,7 @@ export default function ConfigDetailPage(): React.ReactElement {
             </Text>
           </Flex>
         </Box>
-        <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
+        <Box style={{ minWidth: 0, gridColumn: "span 4" }}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
             <Link href={`/configs/${parentKey}`} size="2">
               {name}
@@ -1123,7 +1154,7 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Flex>
         </Box>
 
-        <Box style={{ minWidth: 0, gridColumn: "span 3" }}>
+        <Box style={{ minWidth: 0, gridColumn: "span 4" }}>
           <Flex align="center" gap="3" wrap="wrap" style={{ minHeight: 32 }}>
             {mixinKeys.map((k) => {
               const name =
@@ -1548,7 +1579,6 @@ export default function ConfigDetailPage(): React.ReactElement {
               >
                 <TabsList>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="validation">Validation</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
                     {openRevisions.length > 0 && (
@@ -1564,6 +1594,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       </Tooltip>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="validation">Validation</TabsTrigger>
                 </TabsList>
               </Tabs>
             </Box>
@@ -1688,19 +1719,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                               .join(" · ")}
                           </Callout>
                         )}
-                        {parentKey && (
-                          <Text
-                            as="p"
-                            size="small"
-                            color="text-low"
-                            mt="3"
-                            mb="0"
-                          >
-                            Nested objects deep-merge onto{" "}
-                            {parentName || "the parent"}; arrays and scalars
-                            replace.
-                          </Text>
-                        )}
                         {/* Row-level errors render inline while editing; dropdown
                             actions (remove field/override) have no row editor. */}
                         {editError && editKey === null && (
@@ -1725,20 +1743,37 @@ export default function ConfigDetailPage(): React.ReactElement {
                               background: "var(--color-panel-solid)",
                             }}
                           >
-                            {["Key", "Value", "Type", "Source"].map((label) => (
-                              <Box key={label} style={{ minWidth: 0 }}>
-                                <Flex align="center" style={{ minHeight: 24 }}>
-                                  <Text
-                                    size="small"
-                                    weight="medium"
-                                    color="text-low"
-                                    textTransform="uppercase"
+                            {["Key", "Value", "Type", "Source", "Usage"].map(
+                              (label) => (
+                                <Box key={label} style={{ minWidth: 0 }}>
+                                  <Flex
+                                    align="center"
+                                    gap="1"
+                                    style={{ minHeight: 24 }}
                                   >
-                                    {label}
-                                  </Text>
-                                </Flex>
-                              </Box>
-                            ))}
+                                    <Text
+                                      size="small"
+                                      weight="medium"
+                                      color="text-low"
+                                      textTransform="uppercase"
+                                    >
+                                      {label}
+                                    </Text>
+                                    {label === "Usage" && (
+                                      <Tooltip
+                                        body="Flag rules and defaults that override this key."
+                                        style={{
+                                          display: "inline-flex",
+                                          color: "var(--slate-9)",
+                                        }}
+                                      >
+                                        <PiInfo />
+                                      </Tooltip>
+                                    )}
+                                  </Flex>
+                                </Box>
+                              ),
+                            )}
                             <Flex
                               align="center"
                               justify="end"
@@ -1805,6 +1840,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 key={f.key}
                                 field={f}
                                 configKey={config.key}
+                                inheritsValue={!!parentKey}
                                 isOwnField={ownSchemaKeys.includes(f.key)}
                                 canEditInline={canEditInline}
                                 constantContext={constantContext}
@@ -1832,6 +1868,9 @@ export default function ConfigDetailPage(): React.ReactElement {
                                 validationTooltip={failingFieldInfo
                                   .get(f.key)
                                   ?.join("; ")}
+                                keyImplementations={implementationsByKey.get(
+                                  f.key,
+                                )}
                               />
                             );
                           })}
@@ -1907,7 +1946,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
             {tab === "review" && (
               <ReviewAndPublishTab<ConfigInterface>
-                revision={selectedRevision ?? null}
+                revision={selectedRevision ?? displayRevision ?? null}
                 allRevisions={allRevisions}
                 currentState={config}
                 diffConfig={REVISION_CONFIG_DIFF_CONFIG}

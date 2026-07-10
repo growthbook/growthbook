@@ -45,6 +45,12 @@ router.get(
   configController.getConfigFamilyReferences,
 );
 
+router.get(
+  "/:id/key-usage",
+  validateRequestMiddleware({ params: idParams }),
+  configController.getConfigKeyUsage,
+);
+
 router.post(
   "/",
   validateRequestMiddleware({ body: postConfigBodyValidator }),

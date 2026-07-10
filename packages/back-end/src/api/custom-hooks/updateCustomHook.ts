@@ -41,16 +41,6 @@ export const updateCustomHook = createApiRequestHandler(
     if (customHook.projects.length) updates.projects = [];
   }
 
-  // Family matching is config-only; drop a stale flag when the scope moves away
-  // from a config (unless the caller set it explicitly, which the model rejects).
-  if (
-    nextEntityType !== "config" &&
-    req.body.includeDescendants === undefined &&
-    customHook.includeDescendants
-  ) {
-    updates.includeDescendants = false;
-  }
-
   const updated = await req.context.models.customHooks.update(
     customHook,
     updates,

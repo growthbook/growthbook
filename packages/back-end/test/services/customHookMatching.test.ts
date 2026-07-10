@@ -1,10 +1,7 @@
 import { CustomHookInterface } from "shared/validators";
 import { customHookMatchesScope } from "back-end/src/models/CustomHookModel";
 
-type Scope = Pick<
-  CustomHookInterface,
-  "entityType" | "entityId" | "projects" | "includeDescendants"
->;
+type Scope = Pick<CustomHookInterface, "entityType" | "entityId" | "projects">;
 
 const hook = (over: Partial<Scope>): Scope => ({
   entityType: undefined,
@@ -56,12 +53,8 @@ describe("customHookMatchesScope", () => {
     ).toBe(false);
   });
 
-  it("matches a family-scoped hook for the config itself and its descendants", () => {
-    const h = hook({
-      entityType: "config",
-      entityId: "base_preset",
-      includeDescendants: true,
-    });
+  it("matches a config-scoped hook for the config itself and its descendants", () => {
+    const h = hook({ entityType: "config", entityId: "base_preset" });
     expect(customHookMatchesScope(h, { entityId: "base_preset" })).toBe(true);
     expect(
       customHookMatchesScope(h, {
@@ -76,18 +69,8 @@ describe("customHookMatchesScope", () => {
         ancestorIds: ["other_base"],
       }),
     ).toBe(false);
-    // No ancestor info provided
+    // No ancestor info provided — a descendant can't be recognized as one.
     expect(customHookMatchesScope(h, { entityId: "child_preset" })).toBe(false);
-  });
-
-  it("never matches descendants without includeDescendants", () => {
-    const h = hook({ entityType: "config", entityId: "base_preset" });
-    expect(
-      customHookMatchesScope(h, {
-        entityId: "child_preset",
-        ancestorIds: ["base_preset"],
-      }),
-    ).toBe(false);
   });
 
   it("ignores ancestorIds for global/project hooks (projects decide)", () => {

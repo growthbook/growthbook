@@ -270,9 +270,10 @@ tags:
       their revisions are saved or published. Throwing an Error blocks the save;
       `addWarning(msg)` raises a soft warning. Hooks are scoped by projects, or
       pinned to a single feature/config via `entityType`/`entityId`; a
-      config-scoped hook with `includeDescendants` also runs for every config
-      inheriting from it. Scope can be retargeted on update (or cleared with
-      nulls). Requires an enterprise plan; not available on GrowthBook Cloud.
+      config-scoped hook also runs for every config inheriting from it (its
+      whole descendant lineage). Scope can be retargeted on update (or cleared
+      with nulls). Requires an enterprise plan; not available on GrowthBook
+      Cloud.
   - name: organizations
     x-displayName: Organizations
     description: >-
@@ -357,6 +358,9 @@ tags:
   - name: Config_model
     x-displayName: Config
     description: <SchemaDefinition schemaRef="#/components/schemas/Config" />
+  - name: ConfigKeyUsage_model
+    x-displayName: Config Key Usage
+    description: <SchemaDefinition schemaRef="#/components/schemas/ConfigKeyUsage" />
   - name: ConfigLineage_model
     x-displayName: Config Lineage
     description: <SchemaDefinition schemaRef="#/components/schemas/ConfigLineage" />
@@ -20034,6 +20038,51 @@ paths:
             'https://api.growthbook.io/api/v1/configs/checkout-flow/references'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/configs/{key}/key-usage:
+    get:
+      operationId: getConfigKeyUsage
+      summary: Get the feature rules and default values implementing each key
+      description: >-
+        Lists every feature rule and default value that overrides a key of this
+        config's lineage family, so you can see which keys are implemented and
+        where.
+      tags:
+        - configs
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The key of the config
+          schema:
+            description: The key of the config
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                id: ConfigKeyUsage
+                type: object
+                properties:
+                  familyKeys:
+                    type: array
+                    items:
+                      type: string
+                  implementations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/implementations'
+                required:
+                  - familyKeys
+                  - implementations
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/configs/checkout-flow/key-usage' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/configs/{key}/lineage:
     get:
       operationId: getConfigLineage
@@ -21922,11 +21971,6 @@ paths:
                     - config
                 entityId:
                   type: string
-                includeDescendants:
-                  description: >-
-                    Config scope only: also run the hook for every config that
-                    inherits from entityId (via parent/extends, transitively)
-                  type: boolean
                 incrementalChangesOnly:
                   type: boolean
               required:
@@ -22109,11 +22153,6 @@ paths:
                   anyOf:
                     - type: string
                     - type: 'null'
-                includeDescendants:
-                  description: >-
-                    Config scope only: also run the hook for every config that
-                    inherits from entityId (via parent/extends, transitively)
-                  type: boolean
                 incrementalChangesOnly:
                   type: boolean
               additionalProperties: false
@@ -45895,13 +45934,11 @@ components:
             - feature
             - config
         entityId:
-          description: 'The scoped resource: a feature id, or a config key.'
-          type: string
-        includeDescendants:
           description: >-
-            Config scope only: when true, the hook also runs for every config
-            that inherits from entityId (via parent/extends, transitively)
-          type: boolean
+            The scoped resource: a feature id, or a config key. A config-scoped
+            hook always runs for that config and every config that inherits from
+            it (via parent/extends, transitively).
+          type: string
         incrementalChangesOnly:
           description: >-
             When true, errors/warnings that already existed before the change
@@ -51441,6 +51478,70 @@ components:
         - features
         - constants
       additionalProperties: false
+    ConfigKeyUsage:
+      type: object
+      properties:
+        familyKeys:
+          type: array
+          items:
+            type: string
+        implementations:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              project:
+                type: string
+              location:
+                type: string
+                enum:
+                  - defaultValue
+                  - rule
+              ruleType:
+                type: string
+              ruleId:
+                type: string
+              experimentId:
+                type: string
+              experimentName:
+                type: string
+              experimentStatus:
+                type: string
+              variationId:
+                type: string
+              configKey:
+                type: string
+              relation:
+                type: string
+                enum:
+                  - self
+                  - ancestor
+                  - descendant
+                  - other
+              keys:
+                type: array
+                items:
+                  type: string
+              state:
+                type: string
+                enum:
+                  - live
+                  - draft
+              revisionVersion:
+                type: number
+            required:
+              - featureId
+              - location
+              - configKey
+              - keys
+              - state
+            additionalProperties: false
+      required:
+        - familyKeys
+        - implementations
+      additionalProperties: false
     ConfigLineage:
       type: object
       properties:
@@ -53962,6 +54063,57 @@ components:
         - key
         - name
       additionalProperties: false
+    implementations:
+      type: object
+      properties:
+        featureId:
+          type: string
+        project:
+          type: string
+        location:
+          type: string
+          enum:
+            - defaultValue
+            - rule
+        ruleType:
+          type: string
+        ruleId:
+          type: string
+        experimentId:
+          type: string
+        experimentName:
+          type: string
+        experimentStatus:
+          type: string
+        variationId:
+          type: string
+        configKey:
+          type: string
+        relation:
+          type: string
+          enum:
+            - self
+            - ancestor
+            - descendant
+            - other
+        keys:
+          type: array
+          items:
+            type: string
+        state:
+          type: string
+          enum:
+            - live
+            - draft
+        revisionVersion:
+          type: number
+      required:
+        - featureId
+        - location
+        - configKey
+        - keys
+        - state
+      additionalProperties: false
     nodes:
       type: object
       properties:
@@ -54724,6 +54876,7 @@ x-tagGroups:
       - Attribute_model
       - CodeRef_model
       - Config_model
+      - ConfigKeyUsage_model
       - ConfigLineage_model
       - ConfigReferences_model
       - ConfigRevision_model

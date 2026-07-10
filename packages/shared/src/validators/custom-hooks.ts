@@ -27,9 +27,6 @@ export const customHookValidator = z
     // via projects (null because clearing the scope on update stores null).
     entityType: z.enum(customHookEntityTypes).nullable().optional(),
     entityId: z.string().nullable().optional(),
-    // Config scope only: also match every config that inherits from entityId
-    // (via parent/extends, transitively).
-    includeDescendants: z.boolean().optional(),
     lastSuccess: z.date().optional(),
     lastFailure: z.date().optional(),
     incrementalChangesOnly: z.boolean().optional(),
@@ -79,12 +76,8 @@ export const apiCustomHookValidator = namedSchema(
         .optional(),
       entityId: z
         .string()
-        .describe("The scoped resource: a feature id, or a config key.")
-        .optional(),
-      includeDescendants: z
-        .boolean()
         .describe(
-          "Config scope only: when true, the hook also runs for every config that inherits from entityId (via parent/extends, transitively)",
+          "The scoped resource: a feature id, or a config key. A config-scoped hook always runs for that config and every config that inherits from it (via parent/extends, transitively).",
         )
         .optional(),
       incrementalChangesOnly: z
@@ -115,12 +108,6 @@ const postCustomHookApiBody = z
       .optional(),
     entityType: z.enum(customHookEntityTypes).optional(),
     entityId: z.string().optional(),
-    includeDescendants: z
-      .boolean()
-      .describe(
-        "Config scope only: also run the hook for every config that inherits from entityId (via parent/extends, transitively)",
-      )
-      .optional(),
     incrementalChangesOnly: z.boolean().optional(),
   })
   .strict();
@@ -144,12 +131,6 @@ const updateCustomHookApiBody = z
       .nullable()
       .describe(
         "The scoped resource: a feature id, or a config key. Pass null (with entityType: null) to clear the scope; omit to leave unchanged.",
-      )
-      .optional(),
-    includeDescendants: z
-      .boolean()
-      .describe(
-        "Config scope only: also run the hook for every config that inherits from entityId (via parent/extends, transitively)",
       )
       .optional(),
     incrementalChangesOnly: z.boolean().optional(),

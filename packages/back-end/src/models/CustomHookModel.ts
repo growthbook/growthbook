@@ -11,24 +11,18 @@ import { FeatureInterface } from "shared/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
 // Whether a hook applies to the entity being validated. Entity-scoped hooks
-// (feature/config) match by their exact `entityId` — or, with
-// `includeDescendants` (config only), by any of the target's `ancestorIds`.
-// Global/project hooks (no entityType) match by project (empty projects = all).
-// Callers pre-filter by `hook` type, so an entity-scoped match can only ever be
-// the correct entity type. Pure + exported for unit testing.
+// (feature/config) match by their exact `entityId`; a config-scoped hook also
+// matches every descendant of `entityId` (any target whose `ancestorIds`
+// include it). Global/project hooks (no entityType) match by project (empty
+// projects = all). Callers pre-filter by `hook` type, so an entity-scoped match
+// can only ever be the correct entity type. Pure + exported for unit testing.
 export function customHookMatchesScope(
-  hook: Pick<
-    CustomHookInterface,
-    "entityType" | "entityId" | "projects" | "includeDescendants"
-  >,
+  hook: Pick<CustomHookInterface, "entityType" | "entityId" | "projects">,
   target: { entityId?: string; project?: string; ancestorIds?: string[] },
 ): boolean {
   if (hook.entityType && hook.entityId) {
     if (hook.entityId === target.entityId) return true;
-    return (
-      !!hook.includeDescendants &&
-      (target.ancestorIds ?? []).includes(hook.entityId)
-    );
+    return (target.ancestorIds ?? []).includes(hook.entityId);
   }
   return !hook.projects.length || hook.projects.includes(target.project ?? "");
 }
@@ -51,6 +45,14 @@ const BaseClass = MakeModelClass({
 });
 
 export class CustomHookModel extends BaseClass {
+  // Config-scoped hooks now always apply to descendants, so drop the legacy
+  // per-hook `includeDescendants` toggle from stored docs on read.
+  protected migrate(legacy: unknown): CustomHookInterface {
+    const doc = { ...(legacy as Record<string, unknown>) };
+    delete doc.includeDescendants;
+    return doc as CustomHookInterface;
+  }
+
   // Resolve the referenced feature synchronously (foreign refs are populated first).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
     if (doc.entityType !== "feature" || !doc.entityId) return null;
@@ -123,12 +125,6 @@ export class CustomHookModel extends BaseClass {
       );
     }
 
-    if (doc.includeDescendants && entityType !== "config") {
-      throw new Error(
-        "includeDescendants is only valid for config-scoped custom hooks",
-      );
-    }
-
     // Entity-scoped hooks derive their scope from the entity alone; stray
     // projects would silently narrow the permission checks.
     if (entityType !== null && doc.projects.length) {
@@ -169,7 +165,6 @@ export class CustomHookModel extends BaseClass {
       // absent — normalize so responses omit the keys instead of emitting null.
       entityType: hook.entityType ?? undefined,
       entityId: hook.entityId ?? undefined,
-      includeDescendants: hook.includeDescendants ?? undefined,
       incrementalChangesOnly: hook.incrementalChangesOnly ?? undefined,
       lastSuccess: hook.lastSuccess?.toISOString(),
       lastFailure: hook.lastFailure?.toISOString(),
@@ -183,22 +178,18 @@ export class CustomHookModel extends BaseClass {
     project: string = "",
     entityId: string = "",
     // The target config's staged immediate bases, when the hook type targets
-    // configs. Family-scoped (includeDescendants) hooks match against the
-    // lineage the write is about to create, so a re-parenting publish is judged
-    // by the family it's entering. Falls back to the stored config's bases.
+    // configs. A config-scoped hook matches the lineage the write is about to
+    // create, so a re-parenting publish is judged by the family it's entering.
+    // Falls back to the stored config's bases.
     configBases?: { parent?: string; extends?: string[] },
   ) {
     const hooks = await this._find({ hook, enabled: true });
 
     // The ancestor walk reads the whole config collection — only pay for it
-    // when a family-scoped hook could match beyond its exact entityId.
+    // when a config-scoped hook could match this target as a descendant.
     let ancestorIds: string[] | undefined;
     const needsAncestors = hooks.some(
-      (h) =>
-        h.includeDescendants &&
-        h.entityType === "config" &&
-        h.entityId &&
-        h.entityId !== entityId,
+      (h) => h.entityType === "config" && h.entityId && h.entityId !== entityId,
     );
     if (needsAncestors) {
       const all = await this.context.models.configs.getAllForReconcile();

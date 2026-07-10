@@ -94,13 +94,56 @@ const dummyRevision: FeatureRevisionInterface = {
   ],
 };
 
+// Parse a JSON string for the test prefill; leave non-JSON text as-is.
+const parseJSON = (v: unknown): unknown => {
+  if (typeof v !== "string") return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+};
+
 const dummyConfig = {
   key: "checkout_limits",
   name: "Checkout limits",
   project: "",
-  value: JSON.stringify({ maxItems: 50, currency: "USD" }),
-  schema: { type: "object", fields: [] },
+  // Hooks receive `value` as a parsed object, so the sample shows it as one.
+  value: { maxItems: 50, currency: "USD" },
+  schema: {
+    type: "object",
+    fields: [
+      {
+        key: "maxItems",
+        type: "integer",
+        required: true,
+        default: "10",
+        description: "Max items allowed in a cart",
+        enum: [],
+      },
+      {
+        key: "currency",
+        type: "string",
+        required: true,
+        default: "USD",
+        description: "",
+        enum: [],
+      },
+    ],
+  },
   extensible: true,
+  lineage: {
+    ancestors: ["base_limits"],
+    descendants: [],
+    hasParent: true,
+    hasChildren: false,
+    isRoot: false,
+    isLeaf: true,
+  },
+  // Whether this config is the one the hook is pinned to, vs a descendant it
+  // also runs on. `hookTargetKey` is the pinned config (null for project hooks).
+  hookTargetKey: "checkout_limits",
+  isHookTarget: true,
 };
 const dummyConfigRevision = {
   version: 3,
@@ -141,27 +184,28 @@ export const hookTypes: Record<
     label: "Validate Config",
     availableArguments: {
       config: {
-        description: "The config being validated (its fields + staged value)",
+        description:
+          "The config being validated: schema fields, staged value (parsed JSON object), lineage, and isHookTarget (is this the config the hook is pinned to, vs a descendant)",
         testValue: stringify(dummyConfig),
       },
     },
-    example: `\n// Block the save (hard error):\nif (!config.value) {\n  throw new Error("Config must have a value");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!config.name) {\n  addWarning("Consider naming this config");\n}`,
+    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the save (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!config.name) {\n  addWarning("Consider naming this config");\n}`,
   },
   validateConfigRevision: {
     label: "Validate Config Revision",
     availableArguments: {
       config: {
         description:
-          "The config's published content (key, value, schema, lineage)",
+          "The config's changed content: schema fields, value (parsed JSON object), lineage, and isHookTarget (is this the config the hook is pinned to, vs a descendant)",
         testValue: stringify(dummyConfig),
       },
       revision: {
         description:
-          "The revision being published (version, status, reviews) — for approval gating",
+          "Publish metadata for approval gating (version, status, reviews). The changed content is in `config`.",
         testValue: stringify(dummyConfigRevision),
       },
     },
-    example: `\n// Block the publish (hard error):\nconst v = JSON.parse(config.value || "{}");\nif (v.maxItems > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.decision === "approve" && !r.stale);\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
+    example: `\n// config.value is a parsed object — no JSON.parse needed.\n// Block the publish (hard error):\nif ((config.value.maxItems ?? 0) > 100) {\n  throw new Error("maxItems cannot exceed 100");\n}\n\n// Gate on approval policy:\nif (revision) {\n  const approvals = (revision.reviews || []).filter(r => r.decision === "approve" && !r.stale);\n  if (!approvals.some(r => r.userId === "key_abc123")) {\n    throw new Error("Requires release-bot approval");\n  }\n}`,
   },
   validateFeature: {
     label: "Validate Feature",
@@ -205,7 +249,22 @@ export default function CustomHookModal({
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
   // When set, scopes the hook to this config and hides the Projects field.
-  config?: { key: string; project?: string; name?: string; value?: string };
+  // `schema`/`lineage` enrich the test prefill to mirror what hooks receive.
+  config?: {
+    key: string;
+    project?: string;
+    name?: string;
+    value?: string;
+    schema?: unknown;
+    lineage?: {
+      ancestors: string[];
+      descendants: string[];
+      hasParent: boolean;
+      hasChildren: boolean;
+      isRoot: boolean;
+      isLeaf: boolean;
+    };
+  };
 }) {
   // The entity this modal is scoped to (feature or config), if any. Drives the
   // hook-type options, the hidden Projects field, and the submit/test scope.
@@ -224,7 +283,6 @@ export default function CustomHookModal({
       hook: defaultHook,
       code: current?.code || "",
       projects: current?.projects || [],
-      includeDescendants: current?.includeDescendants ?? false,
       incrementalChangesOnly: current?.incrementalChangesOnly ?? true,
     },
   });
@@ -253,7 +311,14 @@ export default function CustomHookModal({
           : revision && k === "revision"
             ? stringify(revision)
             : config && k === "config"
-              ? stringify(config)
+              ? // Mirror the runtime shape: parsed value + this config as the
+                // hook's pinned target (a hook created here scopes to it).
+                stringify({
+                  ...config,
+                  value: parseJSON(config.value),
+                  hookTargetKey: config.key,
+                  isHookTarget: true,
+                })
               : v.testValue,
       ]),
     );
@@ -379,13 +444,10 @@ export default function CustomHookModal({
             />
           )}
           {scope === "config" && (
-            <Checkbox
-              label="Include descendant configs"
-              value={form.watch("includeDescendants") ?? false}
-              setValue={(value) => form.setValue("includeDescendants", value)}
-              description={`Also run this hook for every config that inherits from ${config?.key} (via parent or extends).`}
-              mb="3"
-            />
+            <Callout status="info" mb="3">
+              This hook applies to {config?.key} and all of its descendant
+              configs.
+            </Callout>
           )}
           <Separator size="4" mb="4" my="2" />
 
@@ -424,6 +486,8 @@ export default function CustomHookModal({
             placeholder="// Your validation logic (throw to block, addWarning to warn)"
             onCtrlEnter={runTest}
             containerClassName="mb-0"
+            showCopyButton
+            showFullscreenButton
           />
           <Text as="div" size="small" color="text-low" mt="1" mb="5">
             Need a starting point? See an{" "}
@@ -457,6 +521,8 @@ export default function CustomHookModal({
               }
               onCtrlEnter={runTest}
               maxLines={8}
+              showCopyButton
+              showFullscreenButton
             />
           ))}
           <Button

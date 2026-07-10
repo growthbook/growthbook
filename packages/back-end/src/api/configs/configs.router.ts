@@ -8,6 +8,7 @@ import { lockConfig } from "./postConfigLock";
 import { unlockConfig } from "./postConfigUnlock";
 import { deleteConfig } from "./deleteConfig";
 import { getConfigReferences } from "./getConfigReferences";
+import { getConfigKeyUsage } from "./getConfigKeyUsage";
 import { getConfigLineage } from "./getConfigLineage";
 import { getConfigSchema } from "./getConfigSchema";
 import { verifyConfigSchema } from "./verifyConfigSchema";
@@ -39,6 +40,7 @@ export const configsRoutes: OpenApiRoute[] = [
   postConfig,
   listConfigRevisions,
   getConfigReferences,
+  getConfigKeyUsage,
   getConfigLineage,
   verifyConfigSchema,
   getConfigSchema,

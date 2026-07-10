@@ -4,6 +4,8 @@ import {
   featureReferenceTokens,
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
+  computeConfigKeyImplementations,
+  FeatureValueSource,
 } from "back-end/src/services/constants";
 import {
   configToResolvable,
@@ -545,5 +547,169 @@ describe("featuresAffectedByResolvable", () => {
     expect(
       ids(featuresAffectedByResolvable([], features, "constant", "deleted")),
     ).toEqual(["dangling"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeConfigKeyImplementations — which rules/defaults override each key
+// ---------------------------------------------------------------------------
+
+describe("computeConfigKeyImplementations", () => {
+  const family = new Set(["base", "child"]);
+  const backed = (own: Record<string, unknown>, key = "base") =>
+    extendsValue([`@config:${key}`], own);
+
+  // Mirror the live-feature normalization the service does (top-level rules plus
+  // every environment's rules, flattened).
+  const liveSource = (f: FeatureInterface): FeatureValueSource => {
+    const envRules = Object.values(f.environmentSettings ?? {}).flatMap(
+      (e) => e?.rules ?? [],
+    );
+    return {
+      featureId: f.id,
+      project: f.project || undefined,
+      state: "live",
+      defaultValue: f.defaultValue,
+      rules: [...(f.rules ?? []), ...envRules] as FeatureValueSource["rules"],
+    };
+  };
+
+  it("captures a config-backed default value with its overridden keys", () => {
+    const impls = computeConfigKeyImplementations(
+      [
+        liveSource(
+          feat({
+            valueType: "json",
+            defaultValue: backed({ context_window: 8000 }),
+          }),
+        ),
+      ],
+      family,
+    );
+    expect(impls).toHaveLength(1);
+    expect(impls[0]).toMatchObject({
+      featureId: "feat_x",
+      location: "defaultValue",
+      configKey: "base",
+      keys: ["context_window"],
+      state: "live",
+    });
+  });
+
+  it("captures force rules with rule metadata, excluding $extends from keys", () => {
+    const impls = computeConfigKeyImplementations(
+      [
+        liveSource(
+          feat({
+            valueType: "json",
+            defaultValue: "{}",
+            rules: [rule(backed({ log_level: "warn" }))],
+          }),
+        ),
+      ],
+      family,
+    );
+    expect(impls).toHaveLength(1);
+    expect(impls[0]).toMatchObject({
+      location: "rule",
+      ruleType: "force",
+      ruleId: "r",
+      keys: ["log_level"],
+    });
+  });
+
+  it("captures each experiment-ref arm with its variation and experiment id", () => {
+    const impls = computeConfigKeyImplementations(
+      [
+        liveSource(
+          feat({
+            valueType: "json",
+            defaultValue: "{}",
+            rules: [expRefRule(backed({ a: 1 }), backed({ a: 2 }))],
+          }),
+        ),
+      ],
+      family,
+    );
+    expect(impls).toHaveLength(2);
+    expect(impls.map((i) => i.variationId).sort()).toEqual(["v0", "v1"]);
+    expect(impls.every((i) => i.experimentId === "exp_1")).toBe(true);
+  });
+
+  it("ignores values backed by a config outside the family, or not config-backed", () => {
+    const impls = computeConfigKeyImplementations(
+      [
+        liveSource(
+          feat({
+            id: "out",
+            valueType: "json",
+            defaultValue: backed({ a: 1 }, "unrelated"),
+          }),
+        ),
+        liveSource(
+          feat({ id: "plain", valueType: "json", defaultValue: '{"a":1}' }),
+        ),
+      ],
+      family,
+    );
+    expect(impls).toHaveLength(0);
+  });
+
+  it("collapses the same rule across environments, unioning overridden keys", () => {
+    const f = feat({
+      id: "multi",
+      valueType: "json",
+      defaultValue: "{}",
+      rules: [],
+      environmentSettings: {
+        dev: { enabled: true, rules: [rule(backed({ a: 1 }))] },
+        production: { enabled: true, rules: [rule(backed({ b: 2 }))] },
+      },
+    } as Partial<FeatureInterface>);
+    const impls = computeConfigKeyImplementations([liveSource(f)], family);
+    expect(impls).toHaveLength(1);
+    expect(impls[0].keys.sort()).toEqual(["a", "b"]);
+  });
+
+  it("records a config-backed value that overrides nothing with empty keys", () => {
+    const impls = computeConfigKeyImplementations(
+      [liveSource(feat({ valueType: "json", defaultValue: backed({}) }))],
+      family,
+    );
+    expect(impls).toHaveLength(1);
+    expect(impls[0].keys).toEqual([]);
+  });
+
+  it("tags a draft-only linkage as draft with its revision version", () => {
+    const draft: FeatureValueSource = {
+      featureId: "feat_x",
+      state: "draft",
+      revisionVersion: 4,
+      defaultValue: "{}",
+      rules: [rule(backed({ a: 1 }))] as FeatureValueSource["rules"],
+    };
+    const impls = computeConfigKeyImplementations([draft], family);
+    expect(impls).toHaveLength(1);
+    expect(impls[0]).toMatchObject({ state: "draft", revisionVersion: 4 });
+  });
+
+  it("lets a published slot win over the same slot re-declared in a draft", () => {
+    const live = liveSource(
+      feat({
+        valueType: "json",
+        defaultValue: "{}",
+        rules: [rule(backed({ a: 1 }))],
+      }),
+    );
+    const draft: FeatureValueSource = {
+      featureId: "feat_x",
+      state: "draft",
+      revisionVersion: 4,
+      defaultValue: "{}",
+      rules: [rule(backed({ a: 1 }))] as FeatureValueSource["rules"],
+    };
+    const impls = computeConfigKeyImplementations([live, draft], family);
+    expect(impls).toHaveLength(1);
+    expect(impls[0].state).toBe("live");
   });
 });

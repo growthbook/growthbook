@@ -1,6 +1,6 @@
 import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface, hookEntityType } from "shared/validators";
-import { getConfigAncestorKeys } from "shared/util";
+import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
@@ -41,8 +41,8 @@ export default function ConfigCustomHooksSection({
 }: {
   config: ConfigInterface;
   canManage: boolean;
-  // Family + mixin nodes, for resolving which ancestors' family-scoped
-  // (includeDescendants) hooks apply to this config.
+  // Family + mixin nodes, for resolving which ancestors' config hooks apply
+  // to this config.
   lineage?: { key: string; parentKey: string | null; extendsKeys?: string[] }[];
 }) {
   const { hasCommercialFeature } = useUser();
@@ -70,6 +70,28 @@ export default function ConfigCustomHooksSection({
     );
   }, [lineage, config.parent, config.extends]);
 
+  // This config's position in its lineage — passed to the hook test prefill so
+  // it mirrors what hooks receive at runtime.
+  const configLineage = useMemo(() => {
+    const nodes = (lineage ?? []).map((n) => ({
+      key: n.key,
+      parent: n.parentKey ?? undefined,
+      extends: n.extendsKeys,
+    }));
+    const ancestors = [...ancestorKeys];
+    const descendants = getConfigSubtree(config.key, nodes).filter(
+      (k) => k !== config.key,
+    );
+    return {
+      ancestors,
+      descendants,
+      hasParent: ancestors.length > 0,
+      hasChildren: descendants.length > 0,
+      isRoot: ancestors.length === 0,
+      isLeaf: descendants.length === 0,
+    };
+  }, [ancestorKeys, lineage, config.key]);
+
   // Config-scoped hooks (by key, or family-scoped on an ancestor) plus
   // global/project config hooks in scope.
   const applicableHooks = useMemo(
@@ -79,9 +101,7 @@ export default function ConfigCustomHooksSection({
         if (h.entityType === "config") {
           return (
             h.entityId === config.key ||
-            (!!h.includeDescendants &&
-              !!h.entityId &&
-              ancestorKeys.has(h.entityId))
+            (!!h.entityId && ancestorKeys.has(h.entityId))
           );
         }
         return (
@@ -111,6 +131,8 @@ export default function ConfigCustomHooksSection({
             project: config.project,
             name: config.name,
             value: config.value,
+            schema: config.schema,
+            lineage: configLineage,
           }}
           close={() => setModalData(null)}
           onSave={() => mutate()}
@@ -308,14 +330,12 @@ function HooksTable({
           {hooks.map((hook) => {
             const configScoped =
               hook.entityType === "config" && hook.entityId === config.key;
-            // Scoped to an ancestor with includeDescendants — applies here,
-            // but is managed from the ancestor's page.
+            // Scoped to an ancestor — applies here, but is managed from the
+            // ancestor's page.
             const inherited =
               hook.entityType === "config" && hook.entityId !== config.key;
             const scopeLabel = configScoped
-              ? hook.includeDescendants
-                ? "Config + descendants"
-                : "Config"
+              ? "Config + descendants"
               : inherited
                 ? `From ${hook.entityId}`
                 : hook.projects.length

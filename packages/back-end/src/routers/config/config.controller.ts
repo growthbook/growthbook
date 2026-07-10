@@ -43,8 +43,10 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   ConstantReferences,
   ConfigFamilyFeatureRef,
+  ConfigKeyImplementation,
   loadConstantReferences,
   loadConfigFamilyFeatureReferences,
+  getConfigKeyImplementations,
   assertConfigArchivable,
   assertConfigDeletable,
   assertKeyAvailable,
@@ -159,6 +161,24 @@ export const getConfigFamilyReferences = async (
     context,
     req.params.id,
   );
+  if (!result) {
+    return context.throwNotFoundError("Config not found");
+  }
+  return res.status(200).json({ status: 200, ...result });
+};
+
+// Feature rules and default values that override each key across this config's
+// lineage family — for the detail-page per-key usage counts and drill-down.
+export const getConfigKeyUsage = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    familyKeys: string[];
+    implementations: ConfigKeyImplementation[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+  const result = await getConfigKeyImplementations(context, req.params.id);
   if (!result) {
     return context.throwNotFoundError("Config not found");
   }

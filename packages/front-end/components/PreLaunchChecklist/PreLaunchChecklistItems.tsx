@@ -260,10 +260,16 @@ export function getChecklistItems({
           });
         });
 
-      // When the draft also has unrelated changes, the FF-page publish flow
-      // already covers approval — skip the redundant approval row.
+      // Publishing this feature's own draft (from its Review & Publish page) is
+      // what approves it, so skip the self-referential approval row. Drafts with
+      // unrelated changes are likewise covered by that publish flow.
       linkedFeatures
-        .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
+        .filter(
+          (f) =>
+            f.pendingApproval &&
+            !f.hasUnrelatedDraftChanges &&
+            f.feature.id !== publishingFeatureId,
+        )
         .forEach((f) => {
           items.push({
             status:

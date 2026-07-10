@@ -332,7 +332,6 @@ export default function CustomHooksPage() {
                         <Link href={`/configs/${hook.entityId}#validation`}>
                           {hook.entityId}
                         </Link>
-                        {hook.includeDescendants ? " + descendants" : null}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu

@@ -20,6 +20,8 @@ import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import SelectField from "@/components/Forms/SelectField";
+import ConfigKeyUsageBadge from "@/components/Configs/ConfigKeyUsageBadge";
+import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -40,6 +42,7 @@ import styles from "./ConfigFieldRow.module.scss";
 export default function ConfigFieldRow({
   field: f,
   configKey,
+  inheritsValue = false,
   isOwnField,
   canEditInline,
   constantContext,
@@ -60,9 +63,12 @@ export default function ConfigFieldRow({
   parentValue,
   hasValidationError = false,
   validationTooltip,
+  keyImplementations = [],
 }: {
   field: ResolvedField;
   configKey: string;
+  // The config inherits from a parent, so its JSON edits deep-merge onto it.
+  inheritsValue?: boolean;
   isOwnField: boolean;
   canEditInline: boolean;
   constantContext: { project?: string; excludeKeys?: string[] };
@@ -85,6 +91,8 @@ export default function ConfigFieldRow({
   // This field is referenced by a validation rule that currently fails.
   hasValidationError?: boolean;
   validationTooltip?: string;
+  // Feature rules / default values that override this field, for the usage badge.
+  keyImplementations?: ConfigKeyImplementation[];
 }): React.ReactElement {
   const here = f.source === configKey;
   // Read schema-derived info from the canonical simple form so raw-authored
@@ -113,11 +121,20 @@ export default function ConfigFieldRow({
       pb="2"
       px="3"
       style={{
+        background: isEditing
+          ? "var(--violet-a2)"
+          : hasValidationError
+            ? "var(--red-a2)"
+            : undefined,
+        // Always reserve the 3px left border so toggling the edit/validation
+        // states never shifts row content on the x-axis.
+        borderLeft:
+          hasValidationError && !isEditing
+            ? "3px solid var(--red-9)"
+            : "3px solid transparent",
+        // Editing reads as a rounded (padded) box; the row divider is kept.
+        borderRadius: isEditing ? 8 : undefined,
         borderBottom: "1px solid var(--slate-a3)",
-        borderLeft: hasValidationError
-          ? "3px solid var(--red-9)"
-          : "3px solid transparent",
-        background: hasValidationError ? "var(--red-a2)" : undefined,
       }}
     >
       <Box style={{ minWidth: 0 }}>
@@ -213,6 +230,21 @@ export default function ConfigFieldRow({
                           inlineConstantButton
                           disabled={disabled}
                         />
+                      )}
+                      {vt === "json" && inheritsValue && !disabled && (
+                        <Tooltip
+                          body="Nested JSON objects deep-merge onto the inherited value — set only the keys you want to change."
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            marginTop: 4,
+                            color: "var(--slate-10)",
+                            fontSize: 11,
+                          }}
+                        >
+                          <PiInfo /> Deep merge
+                        </Tooltip>
                       )}
                       {((nullable && vt !== "json") || optional) && (
                         <Flex mt="1" gap="4" align="center">
@@ -458,21 +490,26 @@ export default function ConfigFieldRow({
           )}
         </Flex>
       </Box>
+      <Box style={{ minWidth: 0 }}>
+        <Flex align="center" style={{ minHeight: 32 }}>
+          <ConfigKeyUsageBadge implementations={keyImplementations} />
+        </Flex>
+      </Box>
       <Flex
         gap="2"
         align="center"
-        justify="end"
+        justify={isEditing ? "center" : "end"}
         style={{ minWidth: 0, minHeight: 32 }}
       >
         {isEditing ? (
-          <>
+          <Flex gap="3" align="center">
             <Button size="sm" onClick={onSubmit}>
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={onCancelEdit}>
+            <Link size="2" onClick={onCancelEdit}>
               Cancel
-            </Button>
-          </>
+            </Link>
+          </Flex>
         ) : (
           canEditInline && (
             <>
@@ -487,41 +524,56 @@ export default function ConfigFieldRow({
                   Edit
                 </Button>
               ) : (
-                <Link size="2" weight="medium" onClick={onStartEdit}>
-                  <PiPlusBold
-                    style={{ marginRight: 3, verticalAlign: "middle" }}
-                  />
-                  Override
-                </Link>
-              )}
-              {(isOwnField || here) && (
-                <DropdownMenu
-                  variant="soft"
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  triggerStyle={{ marginRight: 0, marginLeft: 0 }}
-                  menuPlacement="end"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Add override"
+                  icon={<PiPlusBold />}
+                  onClick={onStartEdit}
                 >
-                  {isOwnField ? (
-                    <DropdownMenuItem color="red" onClick={onRemoveField}>
-                      Remove field
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem color="red" onClick={onRemoveOverride}>
-                      Remove override
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenu>
+                  Override
+                </Button>
               )}
+              {/* Reserve the menu slot even when there's no menu (override
+                  rows) so the Edit/Override buttons stay column-aligned. */}
+              <Box
+                style={{
+                  width: 28,
+                  display: "flex",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  marginLeft: -6,
+                  marginRight: -12,
+                }}
+              >
+                {(isOwnField || here) && (
+                  <DropdownMenu
+                    variant="soft"
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        size="2"
+                        highContrast
+                      >
+                        <BsThreeDotsVertical size={16} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                  >
+                    {isOwnField ? (
+                      <DropdownMenuItem color="red" onClick={onRemoveField}>
+                        Remove field
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem color="red" onClick={onRemoveOverride}>
+                        Remove override
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenu>
+                )}
+              </Box>
             </>
           )
         )}

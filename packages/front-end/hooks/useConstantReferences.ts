@@ -62,6 +62,59 @@ export function useConfigFamilyReferences(
   };
 }
 
+export type ConfigKeyImplementation = {
+  featureId: string;
+  project?: string;
+  location: "defaultValue" | "rule";
+  ruleType?: string;
+  ruleId?: string;
+  experimentId?: string;
+  experimentName?: string;
+  experimentStatus?: string;
+  variationId?: string;
+  // The family config this value extends.
+  configKey: string;
+  // The backing config's relationship to the config being viewed.
+  relation?: "self" | "ancestor" | "descendant" | "other";
+  // The config field keys this value overrides.
+  keys: string[];
+  // Whether the linkage is published or only in an open feature draft.
+  state: "live" | "draft";
+  revisionVersion?: number;
+};
+
+export type ConfigKeyUsage = {
+  familyKeys: string[];
+  implementations: ConfigKeyImplementation[];
+};
+
+// Feature rules and default values overriding each key across a config's lineage
+// family — for the detail-page per-key usage counts and drill-down. Cached for 5
+// minutes.
+export function useConfigKeyUsage(configId: string | null | undefined): {
+  usage: ConfigKeyUsage | null;
+  loading: boolean;
+} {
+  const { apiCall, orgId } = useAuth();
+  const path = configId ? `/configs/${configId}/key-usage` : null;
+  const key = path && orgId ? `${orgId}::${path}` : null;
+
+  const { data, isLoading } = useSWR<ConfigKeyUsage & { status: 200 }, Error>(
+    key,
+    () => apiCall(path!, { method: "GET" }),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 5 * 60_000,
+    },
+  );
+
+  return {
+    usage: data ?? null,
+    loading: isLoading,
+  };
+}
+
 // Features/constants/configs that reference a given constant/config via
 // `@const:key`. Cached for 5 minutes; `entity` selects the API base path.
 export function useConstantReferences(

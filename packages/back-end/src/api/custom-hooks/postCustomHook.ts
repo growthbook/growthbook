@@ -14,7 +14,6 @@ export const postCustomHook = createApiRequestHandler(postCustomHookValidator)(
       projects,
       entityType,
       entityId,
-      includeDescendants,
       incrementalChangesOnly,
     } = req.body;
 
@@ -30,7 +29,6 @@ export const postCustomHook = createApiRequestHandler(postCustomHookValidator)(
       projects: projects ?? [],
       ...(entityType !== undefined ? { entityType } : {}),
       ...(entityId !== undefined ? { entityId } : {}),
-      ...(includeDescendants !== undefined ? { includeDescendants } : {}),
       ...(incrementalChangesOnly !== undefined
         ? { incrementalChangesOnly }
         : {}),

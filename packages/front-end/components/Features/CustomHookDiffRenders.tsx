@@ -66,11 +66,6 @@ export function renderCustomHookSettingsSection(
   add("Status", statusStr(pre), statusStr(post));
   add("Scope", scopeStr(pre), scopeStr(post));
   add(
-    "Descendants",
-    onOff(pre?.includeDescendants),
-    onOff(post.includeDescendants),
-  );
-  add(
     "Incremental only",
     onOff(pre?.incrementalChangesOnly),
     onOff(post.incrementalChangesOnly),
@@ -102,12 +97,6 @@ export function getCustomHookSettingsBadges(
   }
   if (scopeStr(pre) !== scopeStr(post)) {
     badges.push({ label: "Scope changed", action: "update" });
-  }
-  if (!!pre?.includeDescendants !== !!post.includeDescendants) {
-    badges.push({
-      label: post.includeDescendants ? "Descendants on" : "Descendants off",
-      action: "update",
-    });
   }
   if (!!pre?.incrementalChangesOnly !== !!post.incrementalChangesOnly) {
     badges.push({

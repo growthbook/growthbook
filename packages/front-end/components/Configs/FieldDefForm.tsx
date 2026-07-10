@@ -503,23 +503,23 @@ export default function FieldDefForm({
   );
 
   const saveCancel = (
-    <Flex gap="2">
+    <Flex gap="3" align="center">
       <Button size="sm" onClick={save} disabled={saving}>
         Save
       </Button>
-      <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>
+      <Link size="2" onClick={saving ? undefined : onCancel}>
         Cancel
-      </Button>
+      </Link>
     </Flex>
   );
 
   return (
     <Box
-      mt="2"
       p="3"
       style={{
         background: "var(--violet-a2)",
-        borderRadius: "var(--radius-3)",
+        borderRadius: 8,
+        borderBottom: "1px solid var(--slate-a3)",
       }}
     >
       {/* Same grid template as the header/rows so the columns line up. The JSON

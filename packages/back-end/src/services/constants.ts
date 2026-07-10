@@ -7,15 +7,23 @@ import {
 import {
   getConfigParentKey,
   getConfigSubtree,
+  getConfigAncestorKeys,
   getConfigBackingKey,
+  getConfigBackingPatch,
   getFeatureBaseConfigKey,
+  parsePlainJSONObject,
 } from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getPayloadKeysForAllEnvs } from "back-end/src/models/ExperimentModel";
+import {
+  getPayloadKeysForAllEnvs,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { getResolvableValues, ResolvableValue } from "./resolvableValues";
@@ -368,20 +376,26 @@ export type ConfigFamilyFeatureRef = {
 // config, its ancestors, and all descendants. Each result splits the default
 // config from the (differing) rule configs so the UI can render an inverted
 // tree: feature → default config, then rules → rule configs.
-export async function loadConfigFamilyFeatureReferences(
+// The lineage family of a config: its root ancestor's whole subtree (the config,
+// its ancestors, and all descendants). Null if the config doesn't exist. Returns
+// the loaded configs so callers can reason about lineage without re-querying.
+async function resolveConfigFamily(
   context: ReqContext | ApiReqContext,
   configId: string,
 ): Promise<{
+  config: ConfigInterface;
+  allConfigs: ConfigInterface[];
+  byKey: Map<string, ConfigInterface>;
   familyKeys: string[];
-  features: ConfigFamilyFeatureRef[];
 } | null> {
-  const config = await context.models.configs.getById(configId);
+  // The target config is already in `getAll`, so find it there rather than
+  // paying for a separate `getById`.
+  const allConfigs = await context.models.configs.getAll();
+  const config = allConfigs.find((c) => c.id === configId);
   if (!config) return null;
 
-  const allConfigs = await context.models.configs.getAll();
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
 
-  // Walk to the lineage root, then take its whole subtree as the family.
   let rootKey = config.key;
   const seen = new Set<string>();
   let cur: typeof config | undefined = config;
@@ -391,7 +405,24 @@ export async function loadConfigFamilyFeatureReferences(
     const parentKey = getConfigParentKey(cur);
     cur = parentKey ? byKey.get(parentKey) : undefined;
   }
-  const familyKeys = getConfigSubtree(rootKey, allConfigs);
+  return {
+    config,
+    allConfigs,
+    byKey,
+    familyKeys: getConfigSubtree(rootKey, allConfigs),
+  };
+}
+
+export async function loadConfigFamilyFeatureReferences(
+  context: ReqContext | ApiReqContext,
+  configId: string,
+): Promise<{
+  familyKeys: string[];
+  features: ConfigFamilyFeatureRef[];
+} | null> {
+  const resolved = await resolveConfigFamily(context, configId);
+  if (!resolved) return null;
+  const { familyKeys } = resolved;
   const familySet = new Set(familyKeys);
 
   const allFeatures = await getAllFeatures(context, {});
@@ -419,6 +450,248 @@ export async function loadConfigFamilyFeatureReferences(
     });
   }
   return { familyKeys, features };
+}
+
+// One place a config-backed value implements the config: a feature's default
+// value or a single rule/variation. `configKey` is the family config the value
+// extends; `keys` are the config fields the value overrides in its own patch.
+// `state` distinguishes a published linkage from one that only exists in an open
+// feature draft revision (`revisionVersion`). Experiment refs carry the linked
+// experiment's name and status.
+export type ConfigKeyImplementation = {
+  featureId: string;
+  project?: string;
+  location: "defaultValue" | "rule";
+  ruleType?: string;
+  ruleId?: string;
+  experimentId?: string;
+  experimentName?: string;
+  experimentStatus?: string;
+  variationId?: string;
+  configKey: string;
+  // The backing config's relationship to the config being viewed.
+  relation?: "self" | "ancestor" | "descendant" | "other";
+  keys: string[];
+  state: "live" | "draft";
+  revisionVersion?: number;
+};
+
+type ImplementingRule = {
+  type?: string;
+  id?: string;
+  experimentId?: string;
+  value?: unknown;
+  variations?: Array<{ variationId?: string; value?: unknown }>;
+  values?: Array<{ variationId?: string; value?: unknown }>;
+  controlValue?: unknown;
+  variationValue?: unknown;
+};
+
+// A feature's values in one state: its published form ("live") or an open draft
+// revision ("draft"). `rules` is the flat rule list (all environments merged).
+export type FeatureValueSource = {
+  featureId: string;
+  project?: string;
+  state: "live" | "draft";
+  revisionVersion?: number;
+  defaultValue?: unknown;
+  rules: ImplementingRule[];
+};
+
+// The config field keys a stored value overrides: its patch's own keys, minus
+// the `$extends` slot (which only carries reference tokens, not field data).
+function overriddenConfigKeys(value: string): string[] {
+  const patch = parsePlainJSONObject(getConfigBackingPatch(value));
+  if (!patch) return [];
+  return Object.keys(patch).filter((k) => k !== CONSTANT_EXTENDS_KEY);
+}
+
+// Every config-backed value slot across the sources whose backing config is in
+// `familySet`, with the metadata to trace each back to where it's implemented.
+// Live wins: a draft slot is dropped when the identical slot is already live
+// (drafts snapshot every rule, so unchanged ones would otherwise duplicate).
+// Per-source, per-environment duplicates collapse, unioning overridden keys.
+export function computeConfigKeyImplementations(
+  sources: FeatureValueSource[],
+  familySet: Set<string>,
+): ConfigKeyImplementation[] {
+  const liveSignatures = new Set<string>();
+  const bySignature = new Map<string, ConfigKeyImplementation>();
+
+  const addSlot = (
+    source: FeatureValueSource,
+    value: unknown,
+    location: ConfigKeyImplementation["location"],
+    meta: Pick<
+      ConfigKeyImplementation,
+      "ruleType" | "ruleId" | "experimentId" | "variationId"
+    >,
+  ) => {
+    if (typeof value !== "string") return;
+    const configKey = getConfigBackingKey(value);
+    if (!configKey || !familySet.has(configKey)) return;
+
+    const signature = [
+      source.featureId,
+      location,
+      meta.ruleId ?? "",
+      meta.variationId ?? "",
+      configKey,
+    ].join("|");
+    if (source.state === "live") liveSignatures.add(signature);
+    else if (liveSignatures.has(signature)) return;
+
+    const keys = overriddenConfigKeys(value);
+    const existing = bySignature.get(signature);
+    if (existing) {
+      existing.keys = [...new Set([...existing.keys, ...keys])];
+      return;
+    }
+    bySignature.set(signature, {
+      featureId: source.featureId,
+      project: source.project,
+      location,
+      configKey,
+      keys,
+      state: source.state,
+      revisionVersion: source.revisionVersion,
+      ...meta,
+    });
+  };
+
+  const collect = (source: FeatureValueSource) => {
+    addSlot(source, source.defaultValue, "defaultValue", {});
+    for (const rule of source.rules) {
+      const base = {
+        ruleType: rule.type,
+        ruleId: rule.id,
+        experimentId: rule.experimentId,
+      };
+      addSlot(source, rule.value, "rule", base);
+      for (const v of rule.variations ?? []) {
+        addSlot(source, v.value, "rule", {
+          ...base,
+          variationId: v.variationId,
+        });
+      }
+      for (const v of rule.values ?? []) {
+        addSlot(source, v.value, "rule", {
+          ...base,
+          variationId: v.variationId,
+        });
+      }
+      addSlot(source, rule.controlValue, "rule", {
+        ...base,
+        variationId: "control",
+      });
+      addSlot(source, rule.variationValue, "rule", {
+        ...base,
+        variationId: "variation",
+      });
+    }
+  };
+
+  // Live first, so every live signature is known before drafts are filtered.
+  for (const s of sources) if (s.state === "live") collect(s);
+  for (const s of sources) if (s.state === "draft") collect(s);
+
+  return [...bySignature.values()];
+}
+
+// Which feature rules and default values implement each key of a config's
+// lineage family — for the config-detail "Usage" surface. Spans published
+// features and open feature drafts, and resolves the linked experiment's name +
+// status for experiment-ref rules. Null if the config doesn't exist.
+export async function getConfigKeyImplementations(
+  context: ReqContext | ApiReqContext,
+  configId: string,
+): Promise<{
+  familyKeys: string[];
+  implementations: ConfigKeyImplementation[];
+} | null> {
+  // These three reads are independent — run them concurrently.
+  const [resolved, allFeatures, drafts] = await Promise.all([
+    resolveConfigFamily(context, configId),
+    getAllFeatures(context, {}),
+    getRevisionsByStatus(context, [
+      "draft",
+      "pending-review",
+      "changes-requested",
+      "approved",
+    ]),
+  ]);
+  if (!resolved) return null;
+  const { config, allConfigs, byKey, familyKeys } = resolved;
+  const familySet = new Set(familyKeys);
+
+  // Classify each backing config relative to the config being viewed, for the
+  // "Config source" column.
+  const ancestorKeys = getConfigAncestorKeys(config, byKey);
+  const descendantKeys = new Set(
+    getConfigSubtree(config.key, allConfigs).filter((k) => k !== config.key),
+  );
+  const relationOf = (
+    configKey: string,
+  ): ConfigKeyImplementation["relation"] => {
+    if (configKey === config.key) return "self";
+    if (ancestorKeys.has(configKey)) return "ancestor";
+    if (descendantKeys.has(configKey)) return "descendant";
+    return "other";
+  };
+
+  const featureById = new Map(allFeatures.map((f) => [f.id, f]));
+
+  const sources: FeatureValueSource[] = allFeatures.map((f) => {
+    const envSettings = (f.environmentSettings ?? {}) as Record<
+      string,
+      { rules?: ImplementingRule[] }
+    >;
+    const envRules = Object.values(envSettings).flatMap((e) => e?.rules ?? []);
+    return {
+      featureId: f.id,
+      project: f.project || undefined,
+      state: "live",
+      defaultValue: f.defaultValue,
+      rules: [...((f.rules ?? []) as ImplementingRule[]), ...envRules],
+    };
+  });
+
+  for (const rev of drafts) {
+    sources.push({
+      featureId: rev.featureId,
+      project: featureById.get(rev.featureId)?.project || undefined,
+      state: "draft",
+      revisionVersion: rev.version,
+      defaultValue: rev.defaultValue,
+      rules: (rev.rules ?? []) as ImplementingRule[],
+    });
+  }
+
+  const implementations = computeConfigKeyImplementations(sources, familySet);
+  for (const impl of implementations) {
+    impl.relation = relationOf(impl.configKey);
+  }
+
+  const experimentIds = [
+    ...new Set(
+      implementations
+        .map((i) => i.experimentId)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (experimentIds.length) {
+    const experiments = await getExperimentsByIds(context, experimentIds);
+    const byId = new Map(experiments.map((e) => [e.id, e]));
+    for (const impl of implementations) {
+      const exp = impl.experimentId ? byId.get(impl.experimentId) : undefined;
+      if (exp) {
+        impl.experimentName = exp.name;
+        impl.experimentStatus = exp.status;
+      }
+    }
+  }
+
+  return { familyKeys, implementations };
 }
 
 // Block archiving a still-referenced constant; unarchiving is always allowed.

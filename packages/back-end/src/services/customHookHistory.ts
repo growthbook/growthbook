@@ -41,10 +41,6 @@ function snapshotToApi(s: Record<string, unknown>): ApiCustomHook {
     projects: Array.isArray(s.projects) ? (s.projects as string[]) : [],
     entityType: (s.entityType as CustomHookEntityType) ?? undefined,
     entityId: typeof s.entityId === "string" ? s.entityId : undefined,
-    includeDescendants:
-      typeof s.includeDescendants === "boolean"
-        ? s.includeDescendants
-        : undefined,
     incrementalChangesOnly:
       typeof s.incrementalChangesOnly === "boolean"
         ? s.incrementalChangesOnly
@@ -150,10 +146,6 @@ export async function revertCustomHookToVersion(
     // null (not undefined) clears an entity scope; matches the update-body contract.
     entityType: (snapshot.entityType as CustomHookEntityType | null) ?? null,
     entityId: typeof snapshot.entityId === "string" ? snapshot.entityId : null,
-    includeDescendants:
-      typeof snapshot.includeDescendants === "boolean"
-        ? snapshot.includeDescendants
-        : undefined,
     incrementalChangesOnly:
       typeof snapshot.incrementalChangesOnly === "boolean"
         ? snapshot.incrementalChangesOnly

@@ -514,6 +514,45 @@ export const apiConfigReferencesValidator = namedSchema(
     .strict(),
 );
 
+export const apiConfigKeyUsageValidator = namedSchema(
+  "ConfigKeyUsage",
+  z
+    .object({
+      // Every config in the target's lineage family (the config, its ancestors,
+      // and all descendants) — the scope the implementations are drawn from.
+      familyKeys: z.array(z.string()),
+      // Each feature rule or default value that overrides one or more of the
+      // family's keys, with the location needed to trace it back.
+      implementations: z.array(
+        z
+          .object({
+            featureId: z.string(),
+            project: z.string().optional(),
+            location: z.enum(["defaultValue", "rule"]),
+            ruleType: z.string().optional(),
+            ruleId: z.string().optional(),
+            experimentId: z.string().optional(),
+            experimentName: z.string().optional(),
+            experimentStatus: z.string().optional(),
+            variationId: z.string().optional(),
+            // The family config this value extends.
+            configKey: z.string(),
+            // The backing config's relationship to the queried config.
+            relation: z
+              .enum(["self", "ancestor", "descendant", "other"])
+              .optional(),
+            // The config field keys this value overrides.
+            keys: z.array(z.string()),
+            // Whether the linkage is published or only in an open feature draft.
+            state: z.enum(["live", "draft"]),
+            revisionVersion: z.number().optional(),
+          })
+          .strict(),
+      ),
+    })
+    .strict(),
+);
+
 const apiConfigLineageNodeValidator = z
   .object({
     key: z.string(),
@@ -851,6 +890,21 @@ export const getConfigLineageValidator = {
   tags: ["configs"],
   method: "get" as const,
   path: "/configs/:key/lineage",
+  exampleRequest: { params: { key: "checkout-flow" } },
+};
+
+export const getConfigKeyUsageValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: configKeyParams,
+  responseSchema: apiConfigKeyUsageValidator,
+  summary: "Get the feature rules and default values implementing each key",
+  description:
+    "Lists every feature rule and default value that overrides a key of this config's lineage family, so you can see which keys are implemented and where.",
+  operationId: "getConfigKeyUsage",
+  tags: ["configs"],
+  method: "get" as const,
+  path: "/configs/:key/key-usage",
   exampleRequest: { params: { key: "checkout-flow" } },
 };
 
