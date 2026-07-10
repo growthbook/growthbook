@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { Environment } from "shared/types/organization";
 import { FeatureEnvironment } from "shared/types/feature";
+import { filterProjectsByEnvironment } from "shared/util";
 import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
@@ -42,11 +43,22 @@ const EnvironmentSelect: FC<{
   isEditing = false,
 }) => {
   const permissionsUtil = usePermissionsUtil();
+
+  // Environments can be scoped to specific projects. Exclude ones that don't
+  // apply to the selected project so users can't accidentally toggle a
+  // feature in an environment meant for another project.
+  const relevantEnvironments = useMemo(() => {
+    if (!project) return environments;
+    return environments.filter(
+      (env) => filterProjectsByEnvironment([project], env).length > 0,
+    );
+  }, [environments, project]);
+
   const environmentsUserCanAccess = useMemo(() => {
-    return environments.filter((env) => {
+    return relevantEnvironments.filter((env) => {
       return permissionsUtil.canPublishFeature({ project }, [env.id]);
     });
-  }, [environments, permissionsUtil, project]);
+  }, [relevantEnvironments, permissionsUtil, project]);
 
   const selectAllChecked = environmentsUserCanAccess.every(
     (env) => environmentSettings[env.id]?.enabled,
@@ -57,8 +69,11 @@ const EnvironmentSelect: FC<{
 
   const [expanded, setExpanded] = useState(isEditing);
 
-  const visible = environments.slice(0, MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
-  const overflow = environments.slice(MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
+  const visible = relevantEnvironments.slice(
+    0,
+    MAX_VISIBLE_PREVIEW_ENVIRONMENTS,
+  );
+  const overflow = relevantEnvironments.slice(MAX_VISIBLE_PREVIEW_ENVIRONMENTS);
 
   return (
     <div className="form-group">
@@ -133,7 +148,7 @@ const EnvironmentSelect: FC<{
             style={{ maxHeight: "168px", wordBreak: "break-all" }}
             overflowY="auto"
           >
-            {environments.map((env) => (
+            {relevantEnvironments.map((env) => (
               <Checkbox
                 disabled={
                   !permissionsUtil.canPublishFeature({ project }, [env.id])
