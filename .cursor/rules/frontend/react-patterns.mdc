@@ -3,8 +3,6 @@ description: "TypeScript and React conventions for front-end development"
 globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts"]
 alwaysApply: false
 ---
-# Shared Agent Guidance
+# Front-end React Patterns
 
-Follow the canonical guide for this task:
-
-@.agents/guides/frontend/react-patterns.md
+Before changing front-end React code, read and follow `.agents/guides/frontend/react-patterns.md`.

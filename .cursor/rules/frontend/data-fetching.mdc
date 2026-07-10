@@ -3,8 +3,6 @@ description: "Data fetching and mutation patterns for the front-end application"
 globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts"]
 alwaysApply: false
 ---
-# Shared Agent Guidance
+# Front-end Data Fetching
 
-Follow the canonical guide for this task:
-
-@.agents/guides/frontend/data-fetching.md
+Before changing front-end data fetching or mutations, read and follow `.agents/guides/frontend/data-fetching.md`.
