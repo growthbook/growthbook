@@ -4,7 +4,6 @@ import { cloneDeep } from "lodash";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
-import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import {
   DemographicData,
   Invite,
@@ -16,6 +15,7 @@ import {
   Role,
 } from "shared/types/organization";
 import { ApiOrganization } from "shared/validators";
+import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -254,7 +254,7 @@ export async function createOrganization({
     getStartedChecklistItems: [],
     isVercelIntegration,
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
-    // Stamped from the pricing-phase-1-limits flag (FREE_ORG_LIMITS fallback)
+    // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
     // so the limits for future orgs can be tuned without a deploy.
     limits: getStampedOrgLimits(),
   });

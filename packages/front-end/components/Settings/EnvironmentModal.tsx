@@ -73,9 +73,12 @@ export default function EnvironmentModal({
     value: id,
   }));
 
-  // Creating while every id the plan allows already exists — the back-end
-  // would reject the create, so offer the upgrade path instead of the form.
-  if (!existing.id && !customEnvironmentsAllowed && !newEnvironmentOptions.length) {
+  // Nothing creatable under the plan — offer the upgrade path instead
+  if (
+    !existing.id &&
+    !customEnvironmentsAllowed &&
+    !newEnvironmentOptions.length
+  ) {
     return (
       <UpgradeModal
         close={close}

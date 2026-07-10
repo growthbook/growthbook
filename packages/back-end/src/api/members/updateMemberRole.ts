@@ -115,9 +115,7 @@ export const updateMemberRole = createApiRequestHandler(
     limitAccessByEnvironment: !!member.environments?.length,
   };
 
-  // Only gate a role CHANGE — resubmitting a member's existing role (e.g.
-  // while editing an unrelated field) must not break assignments that already
-  // exist (e.g. non-admin members kept after a paid→free downgrade).
+  // Only gate a role change so existing assignments keep working
   if (updatedMember.role !== orgUser.role) {
     assertRoleAssignmentAllowed(req.context.org, updatedMember.role);
   }

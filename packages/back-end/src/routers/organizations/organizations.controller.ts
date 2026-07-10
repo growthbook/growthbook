@@ -460,9 +460,7 @@ export async function putMemberRole(
     });
   }
 
-  // Only gate a role CHANGE — resubmitting a member's existing role (e.g.
-  // while editing an unrelated field) must not break assignments that already
-  // exist (e.g. non-admin members kept after a paid→free downgrade).
+  // Only gate a role change so existing assignments keep working
   const existingMember = [...org.members, ...(org.pendingMembers || [])].find(
     (m) => m.id === id,
   );
@@ -823,8 +821,7 @@ export async function putInviteRole(
     });
   }
 
-  // Only gate a role CHANGE — resubmitting an invite's existing role must not
-  // break invites that already exist (see putMemberRole above).
+  // Only gate a role change so existing invites keep working
   const existingInvite = originalInvites.find((m) => m.key === key);
   if (!existingInvite || existingInvite.role !== role) {
     try {

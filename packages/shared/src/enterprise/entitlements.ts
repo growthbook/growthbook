@@ -1,10 +1,19 @@
 import { DEFAULT_ENVIRONMENT_IDS } from "../util";
 import { AccountPlan, OrgLimits } from "./license-consts";
 
-export const FREE_ORG_LIMITS: OrgLimits = {
-  maxProjects: 1,
-  customEnvironments: false,
-  roleManagement: false,
+export type OrgLimitsByPlan = {
+  free: OrgLimits;
+  // Reserved for later — paid-plan limits currently come from license.limits.
+  pro?: OrgLimits;
+};
+
+// Hardcoded defaults, keyed by plan tier to mirror the pricing flag's shape.
+export const DEFAULT_ORG_LIMITS: OrgLimitsByPlan = {
+  free: {
+    maxProjects: 1,
+    customEnvironments: false,
+    roleManagement: false,
+  },
 };
 
 type LimitsInput = {

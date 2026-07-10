@@ -12,19 +12,12 @@ import { isCloud } from "@/services/env";
 export default function useOrgLimits(): OrgLimitsAccessor {
   const { organization, license, effectiveAccountPlan } = useUser();
 
-  // Enforcement on/off from the same flag that stamps new orgs: a base value
-  // of `enabled: false` (global kill switch) or a targeting rule serving it
-  // for this org (per-customer exemption) lifts all limits. Cloud-only,
-  // mirroring the server — self-hosted limits are governed purely by the
-  // stored stamp, with no CDN dependency. The FE evaluates with the org
-  // attributes set in UserContext; the back-end enforces the same check
-  // server-side, so this is display alignment, not security.
+  // Display-side mirror of the server's flag on/off check (cloud only).
   const flagValue = useFeatureValue(PRICING_PHASE_1_FLAG_KEY, null);
   const limitsDisabled = isCloud() && isLimitsFlagDisabled(flagValue);
 
   return useMemo(() => {
     if (limitsDisabled) {
-      // No stored/license limits passed ⇒ the accessor resolves to unlimited
       return makeOrgLimits({ effectivePlan: effectiveAccountPlan || "oss" });
     }
     return makeOrgLimits({

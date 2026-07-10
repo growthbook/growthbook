@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import {
-  FREE_ORG_LIMITS,
+  DEFAULT_ORG_LIMITS,
   OrgLimits,
   OrgLimitsAccessor,
   PRICING_PHASE_1_FLAG_KEY,
@@ -14,45 +14,19 @@ import { getEffectiveAccountPlan, getOrgLimits } from "back-end/src/enterprise";
 import { getGrowthBookClient } from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-/**
- * OrgLimits to stamp onto a newly created free organization. Values come from
- * the `pricing-phase-1-limits` flag so they can be tuned without a deploy;
- * FREE_ORG_LIMITS is the per-field fail-safe for a missing/partial/invalid
- * flag value or an unavailable client. Enforcement never reads the flag —
- * only this stamped snapshot — so editing the flag affects future orgs only.
- *
- * SECURITY: evaluated with EMPTY attributes (the org doesn't exist yet and
- * the flag is untargeted) and no request context, so the SDK's query-string
- * variation override can never influence the stamp.
- */
+// Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
+// always uses the hardcoded defaults.
 export function getStampedOrgLimits(): OrgLimits {
-  // Self-hosted never reads the CDN for limits: the hardcoded default in
-  // shared/enterprise (FREE_ORG_LIMITS) is the source of truth. The flag is
-  // a cloud-only tuning lever.
-  if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
+  if (!IS_CLOUD) return { ...DEFAULT_ORG_LIMITS.free };
 
-  const client = getGrowthBookClient();
-  if (!client) return { ...FREE_ORG_LIMITS };
-
-  let raw: unknown = null;
-  try {
-    raw = client.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
-      attributes: {},
-    }).value;
-  } catch {
-    raw = null;
-  }
+  const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
+    attributes: {},
+  }).value;
   return resolveOrgLimitsConfig(raw);
 }
 
-/**
- * Org-level targeting attributes derived exclusively from trusted server-side
- * data, mirroring the front-end's names (services/UserContext.tsx) so one
- * flag targeting rule matches both apps. Per-user and per-request attributes
- * (role, session ids, url) are deliberately absent — an eval context carrying
- * a `url` would honor query-string variation overrides (see the back-end SDK
- * security audit).
- */
+// Server-derived attributes only — never request context, whose url would
+// enable query-string variation overrides. Names mirror the front-end.
 function getTrustedOrgAttributes(
   org: OrganizationInterface,
 ): Record<string, unknown> {
@@ -68,38 +42,21 @@ function getTrustedOrgAttributes(
   };
 }
 
-// Enforcement-time on/off: true only when the flag, evaluated for this org
-// with trusted attributes, explicitly says enabled: false. Fail-closed toward
-// the stamp: an unreachable/invalid flag keeps the stored limits in force.
 function isPricingLimitsDisabledForOrg(org: OrganizationInterface): boolean {
-  // Cloud-only lever: self-hosted enforcement is governed purely by the
-  // stored stamp — no flag eval, no CDN dependency, no attribute egress.
   if (!IS_CLOUD) return false;
 
-  const client = getGrowthBookClient();
-  if (!client) return false;
-
-  try {
-    const raw = client.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
-      attributes: getTrustedOrgAttributes(org),
-    }).value;
-    return isLimitsFlagDisabled(raw);
-  } catch {
-    return false;
-  }
+  const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
+    attributes: getTrustedOrgAttributes(org),
+  }).value;
+  return isLimitsFlagDisabled(raw);
 }
 
-/**
- * The org's limits accessor with the flag's on/off switch applied: a global
- * base value of `enabled: false`, or a targeting rule serving it for this
- * org, makes the org unlimited (support can exempt a customer with no
- * deploy). Otherwise identical to getOrgLimits (the stored snapshot).
- */
+// getOrgLimits, plus the flag's on/off switch: `enabled: false` (base value or
+// a per-org targeting rule) lifts all limits for the evaluated org.
 export function getEffectiveOrgLimits(
   org: OrganizationInterface,
 ): OrgLimitsAccessor {
   if (isPricingLimitsDisabledForOrg(org)) {
-    // No stored/license limits passed ⇒ the accessor resolves to unlimited
     return makeOrgLimits({ effectivePlan: getEffectiveAccountPlan(org) });
   }
   return getOrgLimits(org);

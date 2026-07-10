@@ -1,14 +1,10 @@
 import {
-  FREE_ORG_LIMITS,
+  DEFAULT_ORG_LIMITS,
   OrgLimits,
   isLimitsFlagDisabled,
   resolveOrgLimitsConfig,
 } from "shared/enterprise";
 
-// resolveOrgLimitsConfig turns the pricing-phase-1-limits flag value (keyed
-// by plan tier; only `free` is wired today) into the OrgLimits stamped onto
-// newly created orgs. It must ALWAYS return a complete stamp: per-field
-// fallback to FREE_ORG_LIMITS, valid fields honored.
 describe("resolveOrgLimitsConfig", () => {
   it.each([
     ["null", null],
@@ -17,11 +13,11 @@ describe("resolveOrgLimitsConfig", () => {
     ["a string", "not-a-config"],
     ["a number", 42],
     ["an array", []],
-  ])("falls back to FREE_ORG_LIMITS for %s", (_label, raw) => {
+  ])("falls back to the defaults for %s", (_label, raw) => {
     expect(resolveOrgLimitsConfig(raw)).toEqual({
-      maxProjects: FREE_ORG_LIMITS.maxProjects,
-      customEnvironments: FREE_ORG_LIMITS.customEnvironments,
-      roleManagement: FREE_ORG_LIMITS.roleManagement,
+      maxProjects: DEFAULT_ORG_LIMITS.free.maxProjects,
+      customEnvironments: DEFAULT_ORG_LIMITS.free.customEnvironments,
+      roleManagement: DEFAULT_ORG_LIMITS.free.roleManagement,
     });
   });
 
@@ -39,23 +35,27 @@ describe("resolveOrgLimitsConfig", () => {
     // be silently interpreted.
     expect(
       resolveOrgLimitsConfig({ maxProjects: 99, customEnvironments: true }),
-    ).toEqual(FREE_ORG_LIMITS);
+    ).toEqual(DEFAULT_ORG_LIMITS.free);
   });
 
   it("fills missing fields from the default (partial override)", () => {
     const result = resolveOrgLimitsConfig({ free: { maxProjects: 3 } });
     expect(result.maxProjects).toBe(3);
-    expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
-    expect(result.roleManagement).toBe(FREE_ORG_LIMITS.roleManagement);
+    expect(result.customEnvironments).toBe(
+      DEFAULT_ORG_LIMITS.free.customEnvironments,
+    );
+    expect(result.roleManagement).toBe(DEFAULT_ORG_LIMITS.free.roleManagement);
   });
 
   it("falls back per-field when a field is present but invalid", () => {
     const result = resolveOrgLimitsConfig({
       free: { maxProjects: -1, customEnvironments: "yes", roleManagement: 1 },
     });
-    expect(result.maxProjects).toBe(FREE_ORG_LIMITS.maxProjects);
-    expect(result.customEnvironments).toBe(FREE_ORG_LIMITS.customEnvironments);
-    expect(result.roleManagement).toBe(FREE_ORG_LIMITS.roleManagement);
+    expect(result.maxProjects).toBe(DEFAULT_ORG_LIMITS.free.maxProjects);
+    expect(result.customEnvironments).toBe(
+      DEFAULT_ORG_LIMITS.free.customEnvironments,
+    );
+    expect(result.roleManagement).toBe(DEFAULT_ORG_LIMITS.free.roleManagement);
   });
 
   it("honors explicit unlimited (maxProjects: null) from the flag", () => {
@@ -74,8 +74,8 @@ describe("resolveOrgLimitsConfig", () => {
     });
     expect(result).toEqual({
       maxProjects: 2,
-      customEnvironments: FREE_ORG_LIMITS.customEnvironments,
-      roleManagement: FREE_ORG_LIMITS.roleManagement,
+      customEnvironments: DEFAULT_ORG_LIMITS.free.customEnvironments,
+      roleManagement: DEFAULT_ORG_LIMITS.free.roleManagement,
     });
   });
 });
