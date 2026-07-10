@@ -87,7 +87,7 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -182,7 +182,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     decisionCriteria,
     webhookSecrets,
   ] = await Promise.all([
-    getMetricsByOrganization(context),
+    getMetricsForDefinitions(context),
     getDataSourcesByOrganization(context).then((ds) =>
       getDataSourcesWithParams(context, ds),
     ),
