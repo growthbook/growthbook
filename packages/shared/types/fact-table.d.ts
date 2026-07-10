@@ -89,7 +89,14 @@ export interface FactTableInterface {
 }
 
 // A column with the heavy `jsonFields` map excluded. Fetch the full fact table
-// by id when JSON sub-fields are needed (e.g. the metric/filter editors).
+// by id (useFullFactTable) when JSON sub-fields are needed (e.g. the
+// metric/filter editors). Direct `.jsonFields` access on this type is a compile
+// error, but the guard is only structural: because `jsonFields` is optional on
+// ColumnInterface, a slim column still assigns to a `ColumnInterface` /
+// `Pick<FactTableInterface, "columns">` param, so passing a definitions fact
+// table into a helper that reads `jsonFields` internally (e.g.
+// getColumnExpression) is NOT caught by the compiler — always source such
+// helpers from the full fact table.
 export type FactTableColumnDefinition = Omit<ColumnInterface, "jsonFields">;
 
 // Slimmed fact table returned by the definitions endpoint. The `sql` field is
