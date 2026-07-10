@@ -80,6 +80,7 @@ export default function PremiumCallout({
           e.preventDefault();
           setUpgradeModal(true);
         }}
+        style={{ whiteSpace: "nowrap" }}
       >
         Upgrade Now
       </Link>
