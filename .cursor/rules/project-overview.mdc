@@ -1,6 +1,6 @@
 ---
 description: "GrowthBook project architecture, monorepo structure, and package organization. Use when orienting to the repo or deciding where new code belongs."
-alwaysApply: false
+alwaysApply: true
 ---
 # Project Overview
 
