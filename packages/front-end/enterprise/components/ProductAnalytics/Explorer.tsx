@@ -71,11 +71,7 @@ function deriveConfigError(
 }
 
 function ExplorerContent() {
-  const { draftExploreState, managedWarehouseUnavailable } =
-    useExplorerContext();
-  const hideSidebar =
-    draftExploreState.type === "sql" &&
-    Object.keys(draftExploreState.dataset.columnTypes).length === 0;
+  const { managedWarehouseUnavailable } = useExplorerContext();
 
   return (
     <Flex direction="column" gap="3" height="calc(100vh - 72px)">
@@ -96,40 +92,36 @@ function ExplorerContent() {
           <ExplorerMainSection />
         </Panel>
 
-        {!hideSidebar && (
-          <>
-            {/* Resize Handle */}
-            <PanelResizeHandle
-              style={{
-                width: "10px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Box
-                flexGrow="1"
-                mb="3"
-                mt="9"
-                style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-              ></Box>
-              <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
-              <Box
-                flexGrow="1"
-                my="3"
-                style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
-              ></Box>
-            </PanelResizeHandle>
+        {/* Resize Handle */}
+        <PanelResizeHandle
+          style={{
+            width: "10px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Box
+            flexGrow="1"
+            mb="3"
+            mt="9"
+            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          ></Box>
+          <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
+          <Box
+            flexGrow="1"
+            my="3"
+            style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          ></Box>
+        </PanelResizeHandle>
 
-            {/* Sidebar */}
-            <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-              <ShadowedScrollArea height="calc(100vh - 160px)">
-                <ExplorerSideBar />
-              </ShadowedScrollArea>
-            </Panel>
-          </>
-        )}
+        {/* Sidebar */}
+        <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
+          <ShadowedScrollArea height="calc(100vh - 160px)">
+            <ExplorerSideBar />
+          </ShadowedScrollArea>
+        </Panel>
       </PanelGroup>
     </Flex>
   );

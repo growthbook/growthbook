@@ -2,6 +2,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
+import { getValidDate } from "shared/dates";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -12,6 +13,8 @@ import ExplorerChart from "./ExplorerChart";
 import ExplorerDataTable from "./ExplorerDataTable";
 import SqlQuerySection from "./SqlQuerySection";
 import Toolbar from "./Toolbar";
+import DataSourceDropdown from "./Toolbar/DataSourceDropdown";
+import LastRefreshedIndicator from "./Toolbar/LastRefreshedIndicator";
 
 export default function ExplorerMainSection() {
   const {
@@ -48,11 +51,20 @@ export default function ExplorerMainSection() {
       id="main-section-wrapper"
       style={{ flex: "1", minHeight: 0 }}
     >
-      <Toolbar />
-
-      {draftExploreState.type === "sql" && (
+      <Flex justify="between" align="center">
+        <DataSourceDropdown />
+        <LastRefreshedIndicator
+          lastRefreshedAt={
+            exploration?.runStarted
+              ? getValidDate(exploration.runStarted)
+              : null
+          }
+        />
+      </Flex>
+      {draftExploreState.type === "sql" ? (
         <SqlQuerySection fullHeight={isSqlSetupState} />
-      )}
+      ) : null}
+      <Toolbar />
 
       {!isSqlSetupState && (
         <Flex

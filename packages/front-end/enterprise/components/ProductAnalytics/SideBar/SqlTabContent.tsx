@@ -1,7 +1,6 @@
 import React, { useMemo } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { PiCode, PiPlus } from "react-icons/pi";
-import { ExplorationConfig } from "shared/validators";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -11,6 +10,7 @@ import {
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
+import TimestampColumnSelector from "./TimestampColumnSelector";
 import ValueCard from "./ValueCard";
 
 const VALUE_TYPE_OPTIONS: {
@@ -26,7 +26,7 @@ export default function SqlTabContent() {
     draftExploreState,
     addValueToDataset,
     updateValueInDataset,
-    setDraftExploreState,
+    updateTimestampColumn,
   } = useExplorerContext();
 
   const dataset =
@@ -50,19 +50,6 @@ export default function SqlTabContent() {
         value: column,
       }));
   }, [dataset?.columnTypes]);
-
-  const updateTimestampColumn = (timestampColumn: string) => {
-    setDraftExploreState((prev) => {
-      if (prev.dataset.type !== "sql") return prev;
-      return {
-        ...prev,
-        dataset: {
-          ...prev.dataset,
-          timestampColumn,
-        },
-      } as ExplorationConfig;
-    });
-  };
 
   if (!dataset?.sql.trim() || Object.keys(dataset.columnTypes).length === 0) {
     return (
@@ -89,26 +76,21 @@ export default function SqlTabContent() {
   }
 
   return (
-    <Flex direction="column" gap="4">
+    <Flex direction="column" gap="2">
       <Flex
         width="100%"
         direction="column"
         p="3"
-        gap="2"
         style={{
           border: "1px solid var(--gray-a3)",
           borderRadius: "var(--radius-4)",
           backgroundColor: "var(--color-panel-translucent)",
         }}
       >
-        <Text weight="medium">Timestamp Column</Text>
-        <SelectField
-          value={dataset.timestampColumn}
+        <TimestampColumnSelector
+          timestampColumn={dataset.timestampColumn}
+          columns={timestampOptions.map(({ value }) => value)}
           onChange={updateTimestampColumn}
-          options={timestampOptions}
-          placeholder="Select timestamp column..."
-          helpText="Date filters are applied to this output column."
-          forceUndefinedValueToNull
         />
       </Flex>
       <Flex direction="column">
