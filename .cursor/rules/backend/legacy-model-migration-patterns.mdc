@@ -1,6 +1,6 @@
 ---
 description: "Guidance for migrating legacy back-end models to BaseModel"
-globs: ["packages/back-end/src/models/**/*.ts"]
+globs: packages/back-end/src/models/**/*.ts
 alwaysApply: false
 ---
 # Legacy Model Migrations

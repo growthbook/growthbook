@@ -1,6 +1,6 @@
 ---
 description: "Permission system for access control across front-end and back-end"
-globs: ["packages/front-end/**/*.tsx", "packages/front-end/**/*.ts", "packages/back-end/src/**/*.ts", "packages/shared/src/permissions/**/*.ts"]
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts,packages/back-end/src/**/*.ts,packages/shared/src/permissions/**/*.ts
 alwaysApply: false
 ---
 # Permissions and Commercial Features
