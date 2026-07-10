@@ -6,7 +6,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
-import { AreaWithHeader } from "./SqlExplorerModal";
+import AreaWithHeader from "./AreaWithHeader";
 
 export default function SchemaBrowserWrapper({
   children,

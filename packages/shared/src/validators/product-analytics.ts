@@ -227,16 +227,6 @@ export const sqlExplorationConfigValidator =
     dataset: sqlDatasetValidator,
   });
 
-// For SQL datasets, we need to know the column types
-// This is the shape of the response from the warehouse / API
-export const sqlDatasetColumnResponseRowValidator = z.object({
-  column: z.string(),
-  type: z.enum(columnType),
-});
-export const sqlDatasetColumnResponseValidator = z.object({
-  columns: z.array(sqlDatasetColumnResponseRowValidator),
-});
-
 // The shape of the final result data from the warehouse / API
 export const productAnalyticsResultRowValidator = z.object({
   dimensions: z.array(z.string().nullable()),

@@ -9,7 +9,7 @@ import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import {

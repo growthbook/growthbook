@@ -33,19 +33,6 @@ router.post(
 );
 
 router.post(
-  "/sql-columns",
-  validateRequestMiddleware({
-    body: z
-      .object({
-        datasource: z.string(),
-        sql: z.string(),
-      })
-      .strict(),
-  }),
-  productAnalyticsController.postSqlColumns,
-);
-
-router.post(
   "/chat",
   validateRequestMiddleware({
     body: z
