@@ -368,7 +368,9 @@ const compactEventForNotification = (
 export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,
+  format: "none" | "compact" | "detailed" = "compact",
 ): Promise<{ png: Buffer; altText: string } | null> => {
+  if (format === "none") return null;
   // Deleted experiments can't be rendered; every other experiment event can.
   if (!event.event.startsWith("experiment.")) return null;
   if (event.event === "experiment.deleted") return null;
@@ -385,7 +387,10 @@ export const renderExperimentCardForEvent = async (
     if (!card) return null;
     const compactEvent = compactEventForNotification(event.event);
     if (compactEvent) card.event = compactEvent;
-    const png = await renderExperimentCard(card, "compact");
+    const png = await renderExperimentCard(
+      card,
+      format === "detailed" ? "detailed" : "compact",
+    );
     return { png, altText: `${card.name} — experiment results` };
   } catch (e) {
     logger.warn(

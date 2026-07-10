@@ -237,6 +237,7 @@ export class EventWebHookNotifier implements Notifier {
           const card = await renderExperimentCardForEvent(
             event.data,
             event.organizationId,
+            eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
           );
           if (card) {
             const url = await uploadCardPng(event.organizationId, card.png);
@@ -353,9 +354,13 @@ export class EventWebHookNotifier implements Notifier {
       ...(message.blocks as unknown as Record<string, unknown>[]),
     ];
 
-    // Embed the compact card: prefer a private uploaded file, falling back to a
-    // hosted image_url if the upload fails.
-    const card = await renderExperimentCardForEvent(event.data, organizationId);
+    // Embed the results card (format per the webhook's Slack options; default
+    // compact): prefer a private uploaded file, fall back to a hosted URL.
+    const card = await renderExperimentCardForEvent(
+      event.data,
+      organizationId,
+      eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
+    );
     if (card) {
       const fileId = await uploadSlackImageFile({
         token: botToken,

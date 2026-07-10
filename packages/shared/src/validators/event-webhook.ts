@@ -32,6 +32,21 @@ export const slackEventWebHookMetadata = z
   })
   .strict();
 
+// User-facing Slack bot options (the "simple list of options"). Flat keys in
+// one object so adding a toggle later only touches this schema.
+export const experimentCardFormats = ["none", "compact", "detailed"] as const;
+export const slackEventWebHookOptions = z
+  .object({
+    // Which results card (if any) to attach to per-event notifications.
+    experimentCardFormat: z.enum(experimentCardFormats).optional(),
+    // Weekly program scorecard: opt-in + when to deliver (UTC).
+    weeklyDigestEnabled: z.boolean().optional(),
+    weeklyDigestDayOfWeekUtc: z.number().int().min(0).max(6).optional(), // 0=Sun
+    weeklyDigestHourUtc: z.number().int().min(0).max(23).optional(),
+  })
+  .strict();
+export type SlackEventWebHookOptions = z.infer<typeof slackEventWebHookOptions>;
+
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
 export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-zA-Z]+(\.[a-zA-Z]+)*\.\*$/;
@@ -102,6 +117,9 @@ export const eventWebHookInterface = z
       .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
       .optional(),
     dailyDigestHourUtc: z.number().int().min(0).max(23).optional(),
+    // Slack bot display/digest options. A single object (flat keys) so new
+    // toggles are just a new key here — no model/router/controller surgery.
+    slackOptions: slackEventWebHookOptions.optional(),
   })
   .strict();
 

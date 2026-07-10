@@ -201,6 +201,12 @@ const eventWebHookSchema = new mongoose.Schema({
     min: 0,
     max: 23,
   },
+  // Slack bot options (flat keys). Stored as a free-form object so new toggles
+  // don't require a schema change; validated by slackEventWebHookOptions.
+  slackOptions: {
+    type: Object,
+    required: false,
+  },
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
@@ -274,6 +280,7 @@ type CreateEventWebHookOptions = {
   slack?: EventWebHookInterface["slack"];
   coalesceWindowMs?: number;
   dailyDigestHourUtc?: number;
+  slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
 /**
@@ -298,6 +305,7 @@ export const createEventWebHook = async ({
   slack,
   coalesceWindowMs,
   dailyDigestHourUtc,
+  slackOptions,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -326,6 +334,7 @@ export const createEventWebHook = async ({
     lastResponseBody: null,
     ...(coalesceWindowMs !== undefined ? { coalesceWindowMs } : {}),
     ...(dailyDigestHourUtc !== undefined ? { dailyDigestHourUtc } : {}),
+    ...(slackOptions !== undefined ? { slackOptions } : {}),
   });
 
   return toInterface(doc);
@@ -402,6 +411,7 @@ export type UpdateEventWebHookAttributes = {
   slack?: EventWebHookInterface["slack"];
   coalesceWindowMs?: number;
   dailyDigestHourUtc?: number | null;
+  slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
 /**
