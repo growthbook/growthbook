@@ -511,28 +511,6 @@ export function assertRoleAssignmentAllowed(
   );
 }
 
-// The only role a role-restricted org can assign is admin, so automated provisioning
-// flows (verified-domain auto-join, Vercel) clamp to admin instead of throwing and
-// breaking the join.
-export function clampRoleForOrgLimits(
-  organization: OrganizationInterface,
-  role: string,
-): string {
-  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return role;
-  return "admin";
-}
-
-// Like getDefaultRole, but clamped to admin for orgs whose plan restricts roles.
-export function getEffectiveDefaultRole(
-  organization: OrganizationInterface,
-): MemberRoleInfo {
-  const defaultRole = getDefaultRole(organization);
-  return {
-    ...defaultRole,
-    role: clampRoleForOrgLimits(organization, defaultRole.role),
-  };
-}
-
 export async function addMemberToOrg({
   organization,
   userId,
@@ -569,7 +547,8 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  assertRoleAssignmentAllowed(organization, role);
+  // Role limits are gated where a human picks a role; automated joins keep
+  // the configured default so they never throw or escalate to admin.
 
   const members: Member[] = [
     ...organization.members,
@@ -711,7 +690,6 @@ export async function addPendingMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
-  assertRoleAssignmentAllowed(organization, role);
 
   const pendingMembers: PendingMember[] = [
     ...(organization.pendingMembers || []),
@@ -1288,7 +1266,7 @@ export async function addMemberFromSSOConnection(
         name: req.name || "",
         email: req.email || "",
         userId: req.userId,
-        ...getEffectiveDefaultRole(organization),
+        ...getDefaultRole(organization),
       });
       try {
         const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
@@ -1309,7 +1287,7 @@ export async function addMemberFromSSOConnection(
   await addMemberToOrg({
     organization,
     userId: req.userId,
-    ...getEffectiveDefaultRole(organization),
+    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(

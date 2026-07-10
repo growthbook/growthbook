@@ -11,6 +11,7 @@ import {
   getRoles,
   areProjectRolesValid,
   isRoleValid,
+  getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
@@ -47,7 +48,6 @@ import {
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
-  getEffectiveDefaultRole,
   getInviteUrl,
   getMembersOfTeam,
   getNumberOfUniqueMembersAndInvites,
@@ -666,7 +666,7 @@ export async function putMember(
       await addMemberToOrg({
         organization,
         userId: req.userId,
-        ...getEffectiveDefaultRole(organization),
+        ...getDefaultRole(organization),
       });
     } else {
       // otherwise, add user as pending member
@@ -675,7 +675,7 @@ export async function putMember(
         name: req.name || "",
         userId: req.userId,
         email: req.email,
-        ...getEffectiveDefaultRole(organization),
+        ...getDefaultRole(organization),
       });
 
       try {
@@ -2305,6 +2305,15 @@ export async function addOrphanedUser(
     return res.status(400).json({
       status: 400,
       message: "Invalid role",
+    });
+  }
+
+  try {
+    assertRoleAssignmentAllowed(org, role);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
     });
   }
 
