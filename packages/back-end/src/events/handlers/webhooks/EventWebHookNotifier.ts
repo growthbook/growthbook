@@ -353,8 +353,10 @@ export class EventWebHookNotifier implements Notifier {
       const fileId = await uploadSlackImageFile({
         token: botToken,
         png: card.png,
+        // Title the file by the event (e.g. "Experiment stopped"), not the
+        // experiment name — the card image already shows the name.
+        title: card.caption,
         filename: "experiment-card.png",
-        title: card.altText,
         channelId,
       });
       ok = !!fileId;
