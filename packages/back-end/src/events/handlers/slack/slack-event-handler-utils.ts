@@ -362,18 +362,17 @@ const compactEventForNotification = (
 };
 
 // Render the compact results-card PNG for an experiment event (best-effort).
-// Returns the PNG + alt text; the caller uploads it privately (files.upload)
-// and attaches it via a slack_file image block. Never throws — a failure just
-// means no card.
+// Only meaningful lifecycle events get a card — started, significance,
+// won/lost, stopped, warning — NOT metadata changes like experiment.updated.
+// Never throws — a failure just means no card.
 export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,
   format: "none" | "compact" | "detailed" = "compact",
 ): Promise<{ png: Buffer; altText: string } | null> => {
   if (format === "none") return null;
-  // Deleted experiments can't be rendered; every other experiment event can.
-  if (!event.event.startsWith("experiment.")) return null;
-  if (event.event === "experiment.deleted") return null;
+  const compactEvent = compactEventForNotification(event.event);
+  if (!compactEvent) return null; // not a card-worthy event
 
   const object = event.data?.object as
     | { id?: string; experimentId?: string }
@@ -385,8 +384,7 @@ export const renderExperimentCardForEvent = async (
     const context = await getContextForAgendaJobByOrgId(organizationId);
     const card = await buildExperimentCardData(context, experimentId);
     if (!card) return null;
-    const compactEvent = compactEventForNotification(event.event);
-    if (compactEvent) card.event = compactEvent;
+    card.event = compactEvent;
     const png = await renderExperimentCard(
       card,
       format === "detailed" ? "detailed" : "compact",

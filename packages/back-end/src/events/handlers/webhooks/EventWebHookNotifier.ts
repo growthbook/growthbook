@@ -332,48 +332,50 @@ export class EventWebHookNotifier implements Notifier {
     );
     if (!message) return true; // nothing to send; still skip the generic path
 
-    // Post the rich text/buttons message first (no image — Slack rejects
-    // slack_file image blocks). Then attach the results card as a private
-    // threaded file under it. Delivery success is judged on the text message.
-    const result = await postSlackMessageResult({
-      token: botToken,
-      channel: channelId,
-      text: message.text,
-      blocks: message.blocks as unknown as Record<string, unknown>[],
-    });
+    // For card-worthy events, the results card IS the message: upload+share it
+    // to the channel with a short caption (the event's headline). Slack rejects
+    // slack_file image blocks, so we can't combine the card with rich blocks in
+    // one message — and the card carries the detail, so buttons are dropped
+    // here. Non-card events fall back to the rich text/buttons message.
+    const card = await renderExperimentCardForEvent(
+      event.data,
+      organizationId,
+      eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
+    );
 
-    if (result.ok && result.ts) {
-      const card = await renderExperimentCardForEvent(
-        event.data,
-        organizationId,
-        eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
-      );
-      if (card) {
-        // Best-effort — a card upload failure never fails the notification.
-        await uploadSlackImageFile({
-          token: botToken,
-          png: card.png,
-          filename: "experiment-card.png",
-          title: card.altText,
-          channelId,
-          threadTs: result.ts,
-          initialComment: card.altText,
-        }).catch((e) =>
-          logger.error(e, "Slack notification: card upload failed"),
-        );
-      }
+    let ok: boolean;
+    let error: string | null = null;
+    let responseBody = "ok";
+    if (card) {
+      const fileId = await uploadSlackImageFile({
+        token: botToken,
+        png: card.png,
+        filename: "experiment-card.png",
+        title: card.altText,
+        channelId,
+        initialComment: message.text,
+      });
+      ok = !!fileId;
+      if (fileId) responseBody = fileId;
+      else error = "files.upload/completeUploadExternal failed";
+    } else {
+      const result = await postSlackMessageResult({
+        token: botToken,
+        channel: channelId,
+        text: message.text,
+        blocks: message.blocks as unknown as Record<string, unknown>[],
+      });
+      ok = result.ok;
+      error = result.error;
+      if (result.ts) responseBody = result.ts;
     }
 
     const method = eventWebHook.method || "POST";
     const payload = message as unknown as Record<string, unknown>;
-    if (result.ok) {
+    if (ok) {
       await EventWebHookNotifier.handleWebHookSuccess({
         job,
-        webHookResult: {
-          result: "success",
-          statusCode: 200,
-          responseBody: result.ts ?? "ok",
-        },
+        webHookResult: { result: "success", statusCode: 200, responseBody },
         organizationId,
         event: event.event,
         url: eventWebHook.url,
@@ -386,9 +388,8 @@ export class EventWebHookNotifier implements Notifier {
         webHookResult: {
           result: "error",
           statusCode: null,
-          // Surface the real Slack error (e.g. not_in_channel, invalid_blocks)
-          // so it shows in the webhook Run Logs.
-          error: `Slack chat.postMessage failed: ${result.error}`,
+          // Surface the real Slack error (e.g. not_in_channel) in Run Logs.
+          error: `Slack delivery failed: ${error}`,
         },
         organizationId,
         event: event.event,
