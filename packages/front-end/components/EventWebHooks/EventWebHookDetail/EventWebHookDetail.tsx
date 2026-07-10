@@ -268,7 +268,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
       )}
 
-      <Box className="card mt-3 p-3 p-4">
+      <Box className="appbox mt-3 p-3 p-4">
         <div className="row">
           <div className="col-xs-12 col-md-6">
             <Box mt="2">

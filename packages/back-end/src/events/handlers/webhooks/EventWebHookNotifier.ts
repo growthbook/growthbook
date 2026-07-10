@@ -32,7 +32,6 @@ import {
   postSlackMessage,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
-import { uploadCardPng } from "back-end/src/services/slack/cardDelivery";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { SecretsReplacer } from "back-end/src/util/secrets";
@@ -226,30 +225,13 @@ export class EventWebHookNotifier implements Notifier {
               event.data,
               eventId,
             );
-          // No bot token (handled earlier) — fall back to a hosted image_url
-          // card via the incoming-webhook message.
-          const message = await getSlackMessageForNotificationEvent(
-            event.data,
-            eventId,
-            { organizationId: event.organizationId },
-          );
-          if (!message) return null;
-          const card = await renderExperimentCardForEvent(
-            event.data,
-            event.organizationId,
-            eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
-          );
-          if (card) {
-            const url = await uploadCardPng(event.organizationId, card.png);
-            if (url) {
-              message.blocks.push({
-                type: "image",
-                image_url: url,
-                alt_text: card.altText,
-              });
-            }
-          }
-          return message;
+          // Reached only when there's no bot token (the bot-token path is
+          // handled earlier). Without a token we can't upload a private file,
+          // and we never host experiment results at a public URL — so this is
+          // text-only, delivered via the incoming-webhook URL.
+          return getSlackMessageForNotificationEvent(event.data, eventId, {
+            organizationId: event.organizationId,
+          });
         }
 
         case "discord": {
@@ -368,21 +350,14 @@ export class EventWebHookNotifier implements Notifier {
         filename: "experiment-card.png",
         title: card.altText,
       });
+      // Private upload only — if it fails we send text without a card rather
+      // than fall back to a public image URL.
       if (fileId) {
         blocks.push({
           type: "image",
           slack_file: { id: fileId },
           alt_text: card.altText,
         });
-      } else {
-        const url = await uploadCardPng(organizationId, card.png);
-        if (url) {
-          blocks.push({
-            type: "image",
-            image_url: url,
-            alt_text: card.altText,
-          });
-        }
       }
     }
 

@@ -228,7 +228,6 @@ export async function handleSlackAssistantMention(
       context: target.context,
       token,
       channel: channelId,
-      organizationId: target.organizationId,
       threadTs: rootTs,
     });
   } catch (e) {
@@ -242,14 +241,12 @@ async function attachExperimentCards({
   context,
   token,
   channel,
-  organizationId,
   threadTs,
 }: {
   experimentIds: string[];
   context: Parameters<typeof buildExperimentCardData>[0];
   token: string;
   channel: string;
-  organizationId: string;
   threadTs: string;
 }): Promise<void> {
   for (const experimentId of experimentIds) {
@@ -260,7 +257,6 @@ async function attachExperimentCards({
       await postExperimentCardImage({
         token,
         channel,
-        organizationId,
         png,
         altText: `${card.name} — experiment results`,
         threadTs,
@@ -377,7 +373,6 @@ export async function handleSlackAssistantConfirmation({
       context: target.context,
       token,
       channel: channelId,
-      organizationId: target.organizationId,
       threadTs: threadTs || "",
     });
   } catch (e) {

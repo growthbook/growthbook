@@ -362,9 +362,9 @@ const compactEventForNotification = (
 };
 
 // Render the compact results-card PNG for an experiment event (best-effort).
-// Returns the PNG + alt text; the caller decides how to attach it (a private
-// files.upload via chat.postMessage when a bot token is available, else a
-// hosted image_url). Never throws — a failure just means no card.
+// Returns the PNG + alt text; the caller uploads it privately (files.upload)
+// and attaches it via a slack_file image block. Never throws — a failure just
+// means no card.
 export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,

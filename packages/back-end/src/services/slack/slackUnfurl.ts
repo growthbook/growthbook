@@ -2,7 +2,7 @@ import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import { uploadCardPng } from "back-end/src/services/slack/cardDelivery";
+import { uploadCardImageBlock } from "back-end/src/services/slack/cardDelivery";
 import { unfurlSlackLinks } from "back-end/src/services/slack/slackWebApi";
 
 // Unfurl GrowthBook experiment links shared in Slack into a rich results card,
@@ -70,23 +70,20 @@ export async function handleSlackLinkShared(
         continue;
       }
       const png = await renderExperimentCard(card);
-      const imageUrl = await uploadCardPng(target.organizationId, png);
-      if (!imageUrl) {
+      // Private, Slack-hosted image (files.upload) — never a public URL.
+      const block = await uploadCardImageBlock({
+        token: target.botToken,
+        png,
+        altText: `${card.name} — experiment results`,
+      });
+      if (!block) {
         logger.warn(
           { experimentId },
-          "Slack unfurl: no Slack-fetchable image URL — set SLACK_CARD_PUBLIC_BASE_URL (dev) or configure S3/GCS uploads",
+          "Slack unfurl: files.upload failed (files:write granted?); skipping image",
         );
         continue;
       }
-      unfurls[url] = {
-        blocks: [
-          {
-            type: "image",
-            image_url: imageUrl,
-            alt_text: `${card.name} — experiment results`,
-          },
-        ],
-      };
+      unfurls[url] = { blocks: [block] };
     } catch (e) {
       logger.error(e, `Slack unfurl failed for ${experimentId}`);
     }

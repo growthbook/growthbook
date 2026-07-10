@@ -12,7 +12,11 @@ import {
   EventWebHookModel,
   getSlackBotAccessTokenForWebhook,
 } from "back-end/src/models/EventWebhookModel";
-import { sampleCard, CardState } from "back-end/src/services/slack/chartImage";
+import {
+  sampleCard,
+  CardState,
+  CompactEvent,
+} from "back-end/src/services/slack/chartImage";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
@@ -65,7 +69,12 @@ export const postEventWebhook = async (
 type GetChartPreviewRequest = AuthRequest<
   Record<string, never>,
   Record<string, never>,
-  { state?: string; experimentId?: string }
+  {
+    state?: string;
+    experimentId?: string;
+    style?: string;
+    event?: string;
+  }
 >;
 
 const CARD_STATES: CardState[] = [
@@ -77,9 +86,19 @@ const CARD_STATES: CardState[] = [
   "warning",
 ];
 
-// Render an experiment card to PNG for eyeballing in a browser. With
-// `?experimentId=` it renders real snapshot data; otherwise `?state=` picks a
-// sample card state (default "winner").
+const COMPACT_EVENTS: CompactEvent[] = [
+  "started",
+  "significance",
+  "won",
+  "lost",
+  "stopped",
+  "warning",
+];
+
+// Render an experiment card to PNG for eyeballing in a browser.
+//   ?experimentId=exp_...  real snapshot data (else ?state= picks a sample state)
+//   ?style=compact         the small notification card (default: detailed)
+//   ?event=significance    compact-card event (default: derived from state)
 export const getChartPreview = async (
   req: GetChartPreviewRequest,
   res: Response<Buffer | ApiErrorResponse>,
@@ -105,7 +124,15 @@ export const getChartPreview = async (
       .json({ message: "Experiment not found or has no results yet" });
   }
 
-  const png = await renderExperimentCard(card);
+  const style = req.query.style === "compact" ? "compact" : "detailed";
+  if (
+    style === "compact" &&
+    COMPACT_EVENTS.includes(req.query.event as CompactEvent)
+  ) {
+    card.event = req.query.event as CompactEvent;
+  }
+
+  const png = await renderExperimentCard(card, style);
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "no-store");
   res.send(png);
@@ -155,10 +182,9 @@ export const postChartToSlack = async (
   const posted = await postExperimentCardImage({
     token,
     channel: channelId,
-    organizationId: context.org.id,
     png,
     altText: `${card.name} — experiment results`,
-    fallbackText: `${card.name}: results card couldn't be hosted (Slack needs a public image URL — configure S3/GCS uploads).`,
+    fallbackText: `${card.name}: couldn't upload the results card to Slack (is the files:write scope granted?).`,
   });
 
   res.json({ posted });
