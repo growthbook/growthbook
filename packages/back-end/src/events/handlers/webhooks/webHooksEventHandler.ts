@@ -1,6 +1,7 @@
 import { NotificationEventResource } from "shared/types/events/base-types";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventInterface } from "shared/types/events/event";
+import { isLowSignalExperimentEvent } from "shared/validators";
 import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
@@ -126,6 +127,17 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
         eventWebHookId: eventWebHook.id,
         experimentId: event.objectId,
       }))
+    ) {
+      continue;
+    }
+
+    // "Milestones only": suppress low-signal experiment events from live Slack
+    // delivery. The event still exists in the store, so it appears in the
+    // daily/weekly digest — just not as its own live ping.
+    if (
+      eventWebHook.payloadType === "slack" &&
+      eventWebHook.slackOptions?.milestonesOnly &&
+      isLowSignalExperimentEvent(event.data.event)
     ) {
       continue;
     }

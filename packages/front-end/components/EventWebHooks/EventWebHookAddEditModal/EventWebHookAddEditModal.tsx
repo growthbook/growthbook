@@ -536,6 +536,26 @@ const EventWebHookAddEditSettings = ({
 
           <Box mt="3">
             <Switch
+              id="milestonesOnly"
+              label="Milestones only"
+              value={!!form.watch("slackOptions")?.milestonesOnly}
+              onChange={(enabled) => {
+                form.setValue("slackOptions", {
+                  ...form.watch("slackOptions"),
+                  milestonesOnly: enabled,
+                });
+                handleFormValidation();
+              }}
+            />
+            <Text as="span" ml="2" color="text-low">
+              Announce started / significance / decisions / stopped live; route
+              routine updates (status changes, ending-soon, stale) to the
+              digest.
+            </Text>
+          </Box>
+
+          <Box mt="3">
+            <Switch
               id="weeklyDigestEnabled"
               label="Weekly scorecard"
               value={!!form.watch("slackOptions")?.weeklyDigestEnabled}

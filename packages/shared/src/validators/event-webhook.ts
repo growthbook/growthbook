@@ -43,9 +43,28 @@ export const slackEventWebHookOptions = z
     weeklyDigestEnabled: z.boolean().optional(),
     weeklyDigestDayOfWeekUtc: z.number().int().min(0).max(6).optional(), // 0=Sun
     weeklyDigestHourUtc: z.number().int().min(0).max(23).optional(),
+    // Only announce milestone events live; route low-signal ones to the digest.
+    milestonesOnly: z.boolean().optional(),
   })
   .strict();
 export type SlackEventWebHookOptions = z.infer<typeof slackEventWebHookOptions>;
+
+// Low-signal experiment events suppressed from live delivery when a Slack
+// channel opts into "milestones only". They still land in the daily/weekly
+// digest (which reads events directly). Everything else — started,
+// significance, decisions, stopped, SRM/guardrail warnings — is a milestone.
+export const LOW_SIGNAL_EXPERIMENT_EVENTS = new Set<string>([
+  "experiment.updated",
+  "experiment.status.changed",
+  "experiment.endingSoon",
+  "experiment.stale",
+  "experiment.health.noData",
+  "experiment.health.queryFailed",
+  "experiment.bandit.weightsChanged",
+]);
+
+export const isLowSignalExperimentEvent = (eventName: string): boolean =>
+  LOW_SIGNAL_EXPERIMENT_EVENTS.has(eventName);
 
 // Matches multi-level wildcard patterns like "feature.*", "feature.revision.*",
 // or "savedGroup.revision.*" (resource names may be camelCase).
