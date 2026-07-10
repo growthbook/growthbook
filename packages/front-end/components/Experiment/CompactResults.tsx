@@ -21,7 +21,7 @@ import {
   SignificanceThresholds,
   StatsEngine,
 } from "shared/types/stats";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import {
   PiArrowSquareOut,
   PiCaretCircleRight,
@@ -554,7 +554,7 @@ export function getRenderLabelColumn({
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   getExperimentMetricById?: (id: string) => null | ExperimentMetricDefinition;
-  getFactTableById?: (id: string) => null | FactTableInterface;
+  getFactTableById?: (id: string) => null | FactTableDefinition;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => number;
   sliceTagsFilter?: string[];

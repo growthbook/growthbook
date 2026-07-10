@@ -2,7 +2,7 @@ import { MetricType } from "shared/types/metric";
 import {
   ColumnInterface,
   ColumnRef,
-  FactTableInterface,
+  FactTableDefinition,
   CreateFactMetricProps,
   FactMetricInterface,
   RowFilter,
@@ -34,7 +34,7 @@ import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
 export function getInitialInlineFilters(
-  factTable: FactTableInterface,
+  factTable: FactTableDefinition,
   existingRowFilters?: RowFilter[],
 ): RowFilter[] {
   const rowFilters = [...(existingRowFilters || [])];
@@ -68,7 +68,7 @@ export function getDefaultFactMetricProps({
   project?: string;
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
-  initialFactTable?: FactTableInterface;
+  initialFactTable?: FactTableDefinition;
   managedBy?: "" | "api" | "admin";
 }): CreateFactMetricProps & { targetMDE: number } {
   return {
@@ -306,7 +306,7 @@ export function getColumnFormatter(
 
 export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
@@ -326,7 +326,7 @@ export function getColumnRefFormatter(
 
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricDefinition,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
   proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage",
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric

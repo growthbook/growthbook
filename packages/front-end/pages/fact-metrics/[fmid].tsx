@@ -3,7 +3,7 @@ import { useState } from "react";
 import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import {
   FactMetricType,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import {
@@ -151,7 +151,7 @@ function RowFilterCodeDisplay({
   factTable,
 }: {
   rowFilters: RowFilter[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }) {
   if (!rowFilters.length) return null;
 

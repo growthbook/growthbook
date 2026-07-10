@@ -18,6 +18,8 @@ import {
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
+  FactTableDefinition,
+  FactTableDefinitionMap,
   FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
@@ -575,7 +577,7 @@ export function getSelectedColumnDatatype({
 
 export function getUserIdTypes(
   metric: ExperimentMetricDefinition,
-  factTableMap: FactTableMap,
+  factTableMap: FactTableDefinitionMap,
   useDenominator?: boolean,
 ): string[] {
   if (isFactMetric(metric)) {
@@ -602,7 +604,7 @@ export interface SliceMetricInfo {
  */
 export function parseSliceQueryString(
   queryString: string,
-  factTableMap?: Record<string, FactTableInterface>,
+  factTableMap?: Record<string, FactTableDefinition>,
 ): SliceLevelsData[] {
   const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
@@ -655,7 +657,7 @@ export function isSliceTagSelectAll(tagId: string): {
 
 export function parseSliceMetricId(
   metricId: string,
-  factTableMap?: Record<string, FactTableInterface>,
+  factTableMap?: Record<string, FactTableDefinition>,
 ): SliceMetricInfo {
   const questionMarkIndex = metricId.indexOf("?");
   if (questionMarkIndex === -1) {
@@ -1370,7 +1372,7 @@ export function createAutoSliceDataForMetric({
   includeOther = true,
 }: {
   parentMetric: ExperimentMetricDefinition | null | undefined;
-  factTable: FactTableInterface | null | undefined;
+  factTable: FactTableDefinition | null | undefined;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -1451,7 +1453,7 @@ export function getAutoSliceMetrics({
   factTable,
 }: {
   metric: FactMetricInterface;
-  factTable: FactTableInterface;
+  factTable: FactTableDefinition;
 }): FactMetricInterface[] {
   if (!metric.metricAutoSlices?.length) return [];
 
@@ -1504,7 +1506,7 @@ export function createCustomSliceDataForMetric({
   metricId: string;
   metricName: string;
   customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
-  factTable?: FactTableInterface | null;
+  factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks
   if (!customMetricSlices?.length) return [];
@@ -1931,7 +1933,7 @@ export function expandAllSliceMetricsInMap({
   metricGroups = [],
 }: {
   metricMap: Map<string, ExperimentMetricDefinition>;
-  factTableMap: FactTableMap;
+  factTableMap: FactTableDefinitionMap;
   experiment: Pick<
     ExperimentInterface,
     | "goalMetrics"

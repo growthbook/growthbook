@@ -16,7 +16,7 @@ import {
 import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
 import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
@@ -45,8 +45,8 @@ type Definitions = {
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
-  factTables: FactTableInterface[];
-  _factTablesIncludingArchived: FactTableInterface[];
+  factTables: FactTableDefinition[];
+  _factTablesIncludingArchived: FactTableDefinition[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
@@ -69,7 +69,7 @@ type DefinitionContextValue = Definitions & {
   getConstantById: (id: string) => null | ConstantWithoutValue;
   getConstantByKey: (key: string) => null | ConstantWithoutValue;
   getTagById: (id: string) => null | TagInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;

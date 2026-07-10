@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -11,6 +11,7 @@ import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
@@ -90,11 +91,29 @@ export default function FactTablePage() {
     _factMetricsIncludingArchived: factMetrics,
     getDatasourceById,
   } = useDefinitions();
-  const factTable = getFactTableById(ftid as string);
+  // Definitions only contain a slimmed fact table (no sql or per-column
+  // jsonFields), so fetch the full version for this page
+  const factTableDefinition = getFactTableById(ftid as string);
+  const {
+    data,
+    error: factTableError,
+    mutate: mutateFactTable,
+  } = useApi<{ factTable: FactTableInterface }>(`/fact-tables/${ftid}`, {
+    shouldRun: () => !!ftid,
+  });
+  const factTable = data?.factTable;
+
+  // Child modals refresh definitions after saving; cascade that to the full
+  // fact table fetch so this page never shows stale data. Keying off the whole
+  // definition (not dateUpdated) is intentional: background column refreshes
+  // update columns without bumping dateUpdated.
+  useEffect(() => {
+    mutateFactTable();
+  }, [factTableDefinition, mutateFactTable]);
 
   const metrics = getMetricsForFactTable(factMetrics, factTable?.id || "");
 
-  if (!ready) return <LoadingOverlay />;
+  if (!ready || (!data && !factTableError)) return <LoadingOverlay />;
 
   if (!factTable) {
     return (

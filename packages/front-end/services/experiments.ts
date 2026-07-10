@@ -21,7 +21,7 @@ import { getValidDate } from "shared/dates";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
-  FactTableInterface,
+  FactTableDefinition,
   FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
@@ -1167,9 +1167,9 @@ export function getAvailableSliceTags({
     }>;
   }> | null;
   metricGroups: MetricGroupInterface[];
-  factTables: FactTableInterface[];
+  factTables: FactTableDefinition[];
   getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
 }): AvailableSliceTag[] {
   const sliceTagsMap = new Map<
     string,
@@ -1177,7 +1177,7 @@ export function getAvailableSliceTags({
   >();
 
   // Build factTableMap for parseSliceQueryString
-  const factTableMap: Record<string, FactTableInterface> = {};
+  const factTableMap: Record<string, FactTableDefinition> = {};
   factTables.forEach((table) => {
     factTableMap[table.id] = table;
   });
