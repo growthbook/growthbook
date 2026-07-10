@@ -1,7 +1,7 @@
-import { makeOrgLimits, DEFAULT_ORG_LIMITS } from "shared/enterprise";
+import { makeOrgLimits, FREE_ORG_LIMITS } from "shared/enterprise";
 import type { AccountPlan, OrgLimits } from "shared/enterprise";
 
-const FREE_LIMITS: OrgLimits = DEFAULT_ORG_LIMITS.free;
+const FREE_LIMITS: OrgLimits = FREE_ORG_LIMITS;
 
 const PAID_LIMITS: OrgLimits = {
   maxProjects: 3,

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import {
-  DEFAULT_ORG_LIMITS,
+  FREE_ORG_LIMITS,
   OrgLimits,
   OrgLimitsAccessor,
   PRICING_PHASE_1_FLAG_KEY,
@@ -17,7 +17,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 // Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
 // always uses the hardcoded defaults.
 export function getStampedOrgLimits(): OrgLimits {
-  if (!IS_CLOUD) return { ...DEFAULT_ORG_LIMITS.free };
+  if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
 
   const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
     attributes: {},
