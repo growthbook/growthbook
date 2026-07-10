@@ -191,7 +191,10 @@ export default function EnvironmentModal({
                 </div>
               </>
             ) : (
-              <div>Upgrade your plan to create custom environments.</div>
+              <div>
+                Your plan only supports the default environments. Upgrade your
+                plan to create custom environments.
+              </div>
             )
           }
         />

@@ -17,6 +17,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import ProjectRowMenu from "@/components/Projects/ProjectRowMenu";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -27,6 +28,7 @@ const ProjectsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null,
   );
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
@@ -72,6 +74,13 @@ const ProjectsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
+      {upgradeModalOpen && (
+        <UpgradeModal
+          close={() => setUpgradeModalOpen(false)}
+          source="project limit"
+          commercialFeature={null}
+        />
+      )}
 
       <Box mt="4" mb="5">
         <div className="row align-items-center mb-1">
@@ -85,7 +94,7 @@ const ProjectsPage: FC = () => {
                 !canCreateProjects
                   ? "You don't have permission to create projects"
                   : atProjectLimit
-                    ? `Your plan is limited to ${maxProjects} project${
+                    ? `Your plan only supports ${maxProjects} project${
                         maxProjects === 1 ? "" : "s"
                       }. Upgrade your plan to create more.`
                     : undefined
@@ -93,8 +102,10 @@ const ProjectsPage: FC = () => {
               shouldDisplay={!canCreateProjects || atProjectLimit}
             >
               <Button
-                disabled={!canCreateProjects || atProjectLimit}
-                onClick={() => setModalOpen({})}
+                disabled={!canCreateProjects}
+                onClick={() =>
+                  atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
+                }
               >
                 Create Project
               </Button>
