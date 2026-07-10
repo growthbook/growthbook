@@ -325,7 +325,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? [
               {
                 ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )

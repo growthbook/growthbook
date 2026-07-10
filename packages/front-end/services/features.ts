@@ -1572,7 +1572,7 @@ export function getExperimentDefinitionFromFeature(
     variations,
     phases: [
       {
-        coverage: expRule.coverage || 1,
+        coverage: expRule.coverage ?? 1,
         variationWeights,
         variations: variations.map((v) => ({
           id: v.id,
