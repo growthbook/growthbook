@@ -15,11 +15,14 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,
-  advanceUntilBlocked,
+  computeAutoAdvanceTarget,
   computeNextProcessAt,
   pauseSchedule,
   rollbackSchedule,
+  withRampScheduleAdvanceLock,
 } from "back-end/src/services/rampSchedule";
+import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 
 export type EvalDecision =
   | { action: "advance" }
@@ -514,8 +517,21 @@ export async function applyRampEvaluationDecision(
     return { handled: true, schedule: updated };
   }
 
-  const updated = await advanceStep(ctx, schedule);
-  return { handled: false, schedule: updated };
+  // The evaluator has verified the current step's holds/dueness with real
+  // data, so fold this advance and any purely-time-gated backlog behind it
+  // into a single jump publish (rather than one publish here plus a second
+  // catch-up publish from the caller's advanceUntilBlocked). An "advance"
+  // decision always moves at least one step — for a past-end schedule the
+  // walk returns startIndex, but +1 routes advanceStep into its completion
+  // branch (the pre-collapse behavior).
+  const target = Math.max(
+    computeAutoAdvanceTarget(schedule, new Date(), {
+      currentStepCleared: true,
+    }),
+    schedule.currentStepIndex + 1,
+  );
+  const updated = await advanceStep(ctx, schedule, target);
+  return { handled: true, schedule: updated };
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
@@ -524,21 +540,26 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
   now: Date = new Date(),
 ): Promise<void> {
   if (!safeRollout.rampScheduleId) return;
-  const schedule = await ctx.models.rampSchedules.getById(
-    safeRollout.rampScheduleId,
-  );
-  if (!schedule || schedule.status !== "running") return;
-  const step = schedule.steps[schedule.currentStepIndex];
-  if (!step?.monitored) return;
+  const rampScheduleId = safeRollout.rampScheduleId;
 
-  const decision = await evaluateCurrentStep(ctx, schedule, now);
-  const result = await applyRampEvaluationDecision(ctx, schedule, decision);
+  try {
+    // Serialize against the scheduler tick — both run this same
+    // evaluate-and-advance pipeline and would otherwise double-publish.
+    await withRampScheduleAdvanceLock(ctx, rampScheduleId, async () => {
+      const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
+      if (!schedule || schedule.status !== "running") return;
+      const step = schedule.steps[schedule.currentStepIndex];
+      if (!step?.monitored) return;
 
-  // When the decision is "advance", applyRampEvaluationDecision performs one
-  // advanceStep but stops there. Continue traversing until blocked so that
-  // consecutive non-monitoring steps don't wait for the next agenda tick —
-  // matching the behavior of the agenda-driven advancement path.
-  if (!result.handled) {
-    await advanceUntilBlocked(ctx, result.schedule, now);
+      const decision = await evaluateCurrentStep(ctx, schedule, now);
+      await applyRampEvaluationDecision(ctx, schedule, decision);
+    });
+  } catch (e) {
+    if (!(e instanceof RampAdvanceLockBusyError)) throw e;
+    // The tick is already evaluating this schedule with the same data.
+    logger.info(
+      { rampScheduleId },
+      "Skipping post-snapshot ramp evaluation — advance already in progress",
+    );
   }
 }

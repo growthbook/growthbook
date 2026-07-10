@@ -10,12 +10,16 @@ import {
   ensureSafeRolloutForMonitoredRamp,
   onActivatingRevisionPublished,
   syncLinkedSafeRolloutForRampState,
+  withRampScheduleAdvanceLock,
 } from "back-end/src/services/rampSchedule";
 import {
   applyRampEvaluationDecision,
   evaluateCurrentStep,
 } from "back-end/src/services/rampScheduleEvaluator";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import {
+  ConcurrentIncrementalRefreshError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 
@@ -26,6 +30,7 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
  */
 function isTransientRampError(e: unknown): boolean {
   if (e instanceof ConcurrentIncrementalRefreshError) return true;
+  if (e instanceof RampAdvanceLockBusyError) return true;
   // Mongo network / topology errors surface as generic Errors whose name or
   // message contains well-known driver strings.
   if (e instanceof Error) {
@@ -94,6 +99,17 @@ export default async function addRampScheduleJob(agenda: Agenda) {
   await job.save();
 }
 
+function getActivatingVersion(schedule: {
+  targets: { activatingRevisionVersion?: number | null }[];
+}): number | null {
+  const v = schedule.targets.find(
+    (t) =>
+      t.activatingRevisionVersion !== undefined &&
+      t.activatingRevisionVersion !== null,
+  )?.activatingRevisionVersion;
+  return v ?? null;
+}
+
 export const advanceSingleRampSchedule = async (
   job: AdvanceSingleRampScheduleJob,
 ) => {
@@ -102,21 +118,63 @@ export const advanceSingleRampSchedule = async (
   if (!rampScheduleId || !organization) return;
 
   const context = await getContextForAgendaJobByOrgId(organization);
-  const schedule = await context.models.rampSchedules.getById(rampScheduleId);
-  if (!schedule) return;
-
   const now = new Date();
 
+  // Screen the common no-op cases before taking the lock: the pending poll
+  // clause is time-unbounded (a schedule can await its draft publish for
+  // weeks), and those ticks shouldn't pay two lock writes per minute.
+  const screened = await context.models.rampSchedules.getById(rampScheduleId);
+  if (!screened) return;
+  if (screened.status === "pending") {
+    const activatingVersion = getActivatingVersion(screened);
+    if (activatingVersion === null) return;
+    const feature = screened.entityId
+      ? await getFeature(context, screened.entityId)
+      : undefined;
+    if ((feature?.version ?? -1) < activatingVersion) return;
+  }
+
+  // Serialize against every other advance path: only one advance runs per
+  // schedule at a time, so they can't replay/publish concurrently and clobber
+  // coverage. If another advance holds the lock, skip this tick — the
+  // schedule's nextProcessAt keeps it queued for a retry.
   try {
+    await withRampScheduleAdvanceLock(
+      context,
+      rampScheduleId,
+      async (heartbeat) => {
+        await runRampScheduleTick(context, rampScheduleId, now, heartbeat);
+      },
+    );
+  } catch (e) {
+    if (e instanceof RampAdvanceLockBusyError) {
+      logger.info(
+        { rampScheduleId },
+        "Skipping ramp schedule tick — advance already in progress",
+      );
+      return;
+    }
+    throw e;
+  }
+};
+
+async function runRampScheduleTick(
+  context: Awaited<ReturnType<typeof getContextForAgendaJobByOrgId>>,
+  rampScheduleId: string,
+  now: Date,
+  heartbeat: () => Promise<void>,
+) {
+  try {
+    // Re-read inside the lock so we act on fresh state, not a snapshot taken
+    // before a concurrent advance completed.
+    const schedule = await context.models.rampSchedules.getById(rampScheduleId);
+    if (!schedule) return;
+
     let current = schedule;
 
     if (current.status === "pending") {
-      const activatingVersion = current.targets.find(
-        (t) =>
-          t.activatingRevisionVersion !== undefined &&
-          t.activatingRevisionVersion !== null,
-      )?.activatingRevisionVersion;
-      if (activatingVersion !== undefined && activatingVersion !== null) {
+      const activatingVersion = getActivatingVersion(current);
+      if (activatingVersion !== null) {
         const feature = current.entityId
           ? await getFeature(context, current.entityId)
           : undefined;
@@ -175,21 +233,17 @@ export const advanceSingleRampSchedule = async (
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
       const decision = await evaluateCurrentStep(context, current, now);
-      const result = await applyRampEvaluationDecision(
-        context,
-        current,
-        decision,
-      );
-      if (result.handled) {
-        return;
-      }
-      current = result.schedule;
+      // The evaluation above can involve slow snapshot reads; refresh the
+      // lock's liveness before the (potentially slow) publish phase.
+      await heartbeat();
+      await applyRampEvaluationDecision(context, current, decision);
+      return;
     }
 
     await advanceUntilBlocked(context, current, now);
   } catch (e) {
-    // Transient errors (lock contention, network blips) — log and let the
-    // next scheduler tick retry.
+    // Transient errors (network blips, cross-domain lock contention) — log
+    // and let the next scheduler tick retry.
     if (isTransientRampError(e)) {
       logger.info(
         { rampScheduleId },
@@ -231,4 +285,4 @@ export const advanceSingleRampSchedule = async (
       }
     }
   }
-};
+}

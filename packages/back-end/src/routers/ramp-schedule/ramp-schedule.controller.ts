@@ -17,12 +17,14 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
 } from "back-end/src/services/rampSchedule";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { ConflictError } from "back-end/src/util/errors";
 
 type CreateBody = Pick<
   RampScheduleInterface,
@@ -295,7 +297,18 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
-      updated = await startSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (fresh.status !== "ready") {
+            throw new ConflictError(
+              `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return startSchedule(context, fresh);
+        },
+      );
       break;
     }
 
@@ -306,7 +319,18 @@ export const postRampScheduleAction = async (
           message: `Cannot pause a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await pauseSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (fresh.status !== "running") {
+            throw new ConflictError(
+              `Cannot pause: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return pauseSchedule(context, fresh);
+        },
+      );
       break;
 
     case "resume": {
@@ -316,7 +340,18 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await resumeSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (fresh.status !== "paused") {
+            throw new ConflictError(
+              `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return resumeSchedule(context, fresh);
+        },
+      );
       break;
     }
 
@@ -352,7 +387,18 @@ export const postRampScheduleAction = async (
           });
         }
       }
-      updated = await advanceScheduleManually(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (!["running", "paused"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return advanceScheduleManually(context, fresh);
+        },
+      );
       break;
     }
 
@@ -363,20 +409,28 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      {
-        const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
-        const disableNow = req.body?.disableRule === true || isSimple;
-        const hasFutureCutoff =
-          schedule.cutoffDate && schedule.cutoffDate > new Date();
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
+          const disableNow = req.body?.disableRule === true || isSimple;
+          const hasFutureCutoff =
+            fresh.cutoffDate && fresh.cutoffDate > new Date();
 
-        if (!disableNow && hasFutureCutoff) {
-          updated = await completeRampKeepCutoff(context, schedule);
-        } else {
-          updated = await completeRollout(context, schedule, {
+          if (!disableNow && hasFutureCutoff) {
+            return completeRampKeepCutoff(context, fresh);
+          }
+          return completeRollout(context, fresh, {
             disableActiveTargets: disableNow,
           });
-        }
-      }
+        },
+      );
       break;
 
     case "rollback": {
@@ -388,7 +442,18 @@ export const postRampScheduleAction = async (
       }
       const cause = req.body?.reason?.trim();
       const reason = cause ? `Manual: ${cause}` : "Manual";
-      updated = await rollbackSchedule(context, schedule, reason);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot rollback: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return rollbackSchedule(context, fresh, reason);
+        },
+      );
       break;
     }
 
@@ -399,7 +464,18 @@ export const postRampScheduleAction = async (
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      updated = await restartSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (!["rolled-back", "completed"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return restartSchedule(context, fresh);
+        },
+      );
       break;
     }
 
@@ -422,7 +498,18 @@ export const postRampScheduleAction = async (
         });
       }
 
-      updated = await jumpSchedule(context, schedule, jumpTarget);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return jumpSchedule(context, fresh, jumpTarget);
+        },
+      );
       break;
     }
 
@@ -439,7 +526,23 @@ export const postRampScheduleAction = async (
           message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
-      const approveErr = await approveAndPublishStep(context, schedule, "ui");
+      const approveErr = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          const freshStep = fresh.steps[fresh.currentStepIndex];
+          const stillAwaiting =
+            fresh.status === "running" &&
+            freshStep?.holdConditions?.requiresApproval &&
+            fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+          if (!stillAwaiting) {
+            throw new ConflictError(
+              "Cannot approve step: schedule changed while the request was in flight",
+            );
+          }
+          return approveAndPublishStep(context, fresh, "ui");
+        },
+      );
       if (approveErr) {
         const httpStatus =
           approveErr.code === "permission_denied"
@@ -493,7 +596,11 @@ export const postRampScheduleAction = async (
           message: 'monitoringMode must be "auto" or "manual"',
         });
       }
-      updated = await setRampMonitoringMode(context, schedule, requestedMode);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => setRampMonitoringMode(context, fresh, requestedMode),
+      );
       break;
     }
 

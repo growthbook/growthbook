@@ -235,6 +235,13 @@ export const rampScheduleValidator = baseSchema
     lastRollbackAt: z.date().nullish(),
     lastRollbackReason: z.string().nullish(),
 
+    // Per-schedule advance lock. Serializes progression across the resume HTTP
+    // path and the scheduler job so they can't concurrently replay/publish and
+    // clobber each other's coverage. `advanceLockAt` powers a stale fallback so
+    // a crashed holder can't wedge the schedule forever.
+    advanceLockToken: z.string().nullish(),
+    advanceLockAt: z.date().nullish(),
+
     // Append-only playhead history.
     eventHistory: z.array(rampEvent).optional(),
   })

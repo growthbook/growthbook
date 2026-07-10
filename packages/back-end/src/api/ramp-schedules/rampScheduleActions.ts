@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
-import type { RampScheduleInterface } from "shared/validators";
 import {
   apiRampScheduleInterface,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -29,6 +28,7 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
   syncLinkedSafeRolloutForRampState,
@@ -79,7 +79,18 @@ export const startRampSchedule = createApiRequestHandler({
     );
   }
 
-  const current = await startSchedule(req.context, schedule);
+  const current = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (fresh.status !== "ready") {
+        throw new ConflictError(
+          `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return startSchedule(req.context, fresh);
+    },
+  );
   return { rampSchedule: rampScheduleToApiInterface(current) };
 });
 
@@ -105,7 +116,18 @@ export const pauseRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await pauseSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (fresh.status !== "running") {
+        throw new ConflictError(
+          `Cannot pause: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return pauseSchedule(req.context, fresh);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -132,7 +154,18 @@ export const resumeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await resumeSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (fresh.status !== "paused") {
+        throw new ConflictError(
+          `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return resumeSchedule(req.context, fresh);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -170,7 +203,18 @@ export const jumpRampSchedule = createApiRequestHandler({
     throw new Error(`Invalid targetStepIndex ${targetStepIndex}`);
   }
 
-  const updated = await jumpSchedule(req.context, schedule, targetStepIndex);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return jumpSchedule(req.context, fresh, targetStepIndex);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -197,19 +241,27 @@ export const completeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
-  const disableNow = req.body?.disableRule === true || isSimple;
-  const hasFutureCutoff =
-    schedule.cutoffDate && schedule.cutoffDate > new Date();
+  const completed = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
+      const disableNow = req.body?.disableRule === true || isSimple;
+      const hasFutureCutoff = fresh.cutoffDate && fresh.cutoffDate > new Date();
 
-  let completed: RampScheduleInterface;
-  if (!disableNow && hasFutureCutoff) {
-    completed = await completeRampKeepCutoff(req.context, schedule);
-  } else {
-    completed = await completeRollout(req.context, schedule, {
-      disableActiveTargets: disableNow,
-    });
-  }
+      if (!disableNow && hasFutureCutoff) {
+        return completeRampKeepCutoff(req.context, fresh);
+      }
+      return completeRollout(req.context, fresh, {
+        disableActiveTargets: disableNow,
+      });
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(completed) };
 });
@@ -243,7 +295,23 @@ export const approveStepRampSchedule = createApiRequestHandler({
     );
   }
 
-  const err = await approveAndPublishStep(req.context, schedule, "api");
+  const err = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      const freshStep = fresh.steps[fresh.currentStepIndex];
+      const stillAwaiting =
+        fresh.status === "running" &&
+        freshStep?.holdConditions?.requiresApproval &&
+        fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+      if (!stillAwaiting) {
+        throw new ConflictError(
+          "Cannot approve step: schedule changed while the request was in flight",
+        );
+      }
+      return approveAndPublishStep(req.context, fresh, "api");
+    },
+  );
   if (err) {
     const detail = "detail" in err ? err.detail : undefined;
     if (err.code === "permission_denied") {
@@ -302,7 +370,18 @@ export const rollbackRampSchedule = createApiRequestHandler({
 
   const cause = req.body.reason?.trim();
   const reason = cause ? `Manual: ${cause}` : "Manual";
-  const updated = await rollbackSchedule(req.context, schedule, reason);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (["completed", "rolled-back"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot rollback: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return rollbackSchedule(req.context, fresh, reason);
+    },
+  );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
@@ -329,7 +408,18 @@ export const restartRampSchedule = createApiRequestHandler({
     );
   }
 
-  const updated = await restartSchedule(req.context, schedule);
+  const updated = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (!["rolled-back", "completed"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return restartSchedule(req.context, fresh);
+    },
+  );
   return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
@@ -556,7 +646,18 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     });
   }
 
-  let current = await advanceScheduleManually(req.context, schedule);
+  let current = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => {
+      if (!["running", "paused"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      return advanceScheduleManually(req.context, fresh);
+    },
+  );
   current =
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? current;
 
@@ -1013,10 +1114,11 @@ export const setMonitoringModeRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await setRampMonitoringMode(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body.monitoringMode,
+    schedule.id,
+    (fresh) =>
+      setRampMonitoringMode(req.context, fresh, req.body.monitoringMode),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1043,10 +1145,15 @@ export const setAutoUpdateRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await setRampMonitoringMode(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body.enabled ? "auto" : "manual",
+    schedule.id,
+    (fresh) =>
+      setRampMonitoringMode(
+        req.context,
+        fresh,
+        req.body.enabled ? "auto" : "manual",
+      ),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1069,10 +1176,10 @@ export const updateMonitoringConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await updateRampMonitoringConfig(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body,
+    schedule.id,
+    (fresh) => updateRampMonitoringConfig(req.context, fresh, req.body),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1093,10 +1200,10 @@ export const updateLockdownConfigRampSchedule = createApiRequestHandler({
     req.params.id,
   );
   if (!schedule) throw new Error("Ramp schedule not found");
-  const updated = await updateRampLockdownConfig(
+  const updated = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    req.body,
+    schedule.id,
+    (fresh) => updateRampLockdownConfig(req.context, fresh, req.body),
   );
   return rampScheduleToApiInterface(updated);
 });
@@ -1153,22 +1260,25 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
 
-  // Normalize incoming steps to the internal shape, preserving existing step
-  // actions (coverage patches) since the PUT body intentionally omits them.
-  const incomingSteps: (typeof schedule)["steps"] = req.body.steps.map(
-    (s, idx) => ({
-      interval: s.interval,
-      monitored: s.monitored ?? false,
-      holdConditions: s.holdConditions,
-      approvalNotes: s.approvalNotes ?? undefined,
-      actions: schedule.steps[idx]?.actions ?? [],
-    }),
-  );
-
-  const { schedule: updated } = await updateRampSteps(
+  const { schedule: updated } = await runLockedRampScheduleAction(
     req.context,
-    schedule,
-    incomingSteps,
+    schedule.id,
+    (fresh) => {
+      // Normalize incoming steps to the internal shape, preserving existing
+      // step actions (coverage patches) since the PUT body intentionally
+      // omits them. Read them from the in-lock doc so a concurrent advance's
+      // state isn't clobbered with stale actions.
+      const incomingSteps: (typeof fresh)["steps"] = req.body.steps.map(
+        (s, idx) => ({
+          interval: s.interval,
+          monitored: s.monitored ?? false,
+          holdConditions: s.holdConditions,
+          approvalNotes: s.approvalNotes ?? undefined,
+          actions: fresh.steps[idx]?.actions ?? [],
+        }),
+      );
+      return updateRampSteps(req.context, fresh, incomingSteps);
+    },
   );
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };
