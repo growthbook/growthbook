@@ -115,9 +115,8 @@ export const advanceSingleRampSchedule = async (
   const context = await getContextForAgendaJobByOrgId(organization);
   const now = new Date();
 
-  // Screen the common no-op cases before taking the lock: the pending poll
-  // clause is time-unbounded (a schedule can await its draft publish for
-  // weeks), and those ticks shouldn't pay two lock writes per minute.
+  // Pre-lock screen: the pending poll is time-unbounded (a schedule can await
+  // its draft publish for weeks) and shouldn't pay two lock writes per minute.
   const screened = await context.models.rampSchedules.getById(rampScheduleId);
   if (!screened) return;
   if (screened.status === "pending") {
@@ -129,10 +128,8 @@ export const advanceSingleRampSchedule = async (
     if ((feature?.version ?? -1) < activatingVersion) return;
   }
 
-  // Serialize against every other advance path: only one advance runs per
-  // schedule at a time, so they can't replay/publish concurrently and clobber
-  // coverage. If another advance holds the lock, skip this tick — the
-  // schedule's nextProcessAt keeps it queued for a retry.
+  // If another advance holds the lock, skip this tick — the schedule's
+  // nextProcessAt keeps it queued for a retry.
   try {
     await withRampScheduleAdvanceLock(
       context,
@@ -160,8 +157,6 @@ async function runRampScheduleTick(
   heartbeat: () => Promise<void>,
 ) {
   try {
-    // Re-read inside the lock so we act on fresh state, not a snapshot taken
-    // before a concurrent advance completed.
     const schedule = await context.models.rampSchedules.getById(rampScheduleId);
     if (!schedule) return;
 
@@ -232,8 +227,7 @@ async function runRampScheduleTick(
     current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
     const decision = await evaluateCurrentStep(context, current, now);
-    // The evaluation above can involve slow snapshot reads; refresh the
-    // lock's liveness before the (potentially slow) publish phase.
+    // Refresh the lease between the slow evaluation and slow publish phases.
     await heartbeat();
     await applyRampEvaluationDecision(context, current, decision, now);
   } catch (e) {

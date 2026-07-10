@@ -212,9 +212,8 @@ export const jumpRampSchedule = createApiRequestHandler({
           `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      // Re-validate bounds against the in-lock steps — a concurrent steps
-      // edit can shrink the array, and an out-of-range playhead reads as
-      // past-end (unintended completion) downstream.
+      // A concurrent steps edit can shrink the array, turning the playhead
+      // past-end (unintended completion).
       if (targetStepIndex >= fresh.steps.length) {
         throw new ConflictError(
           `Cannot jump: step ${targetStepIndex} no longer exists (the schedule's steps changed while the request was in flight)`,
@@ -307,8 +306,8 @@ export const approveStepRampSchedule = createApiRequestHandler({
     req.context,
     schedule.id,
     (fresh) => {
-      // Pin to the step the reviewer saw — with consecutive approval gates, a
-      // queued approval must not land on a step that was never reviewed.
+      // Pin to the step the reviewer saw — a queued approval must not land
+      // on a step that was never reviewed.
       if (fresh.currentStepIndex !== schedule.currentStepIndex) {
         throw new ConflictError(
           "Cannot approve step: the schedule advanced while the request was in flight",
@@ -503,9 +502,8 @@ export const addTargetRampSchedule = createApiRequestHandler({
     status: "active" as const,
   };
 
-  // Locked read-modify-write: concurrent add/eject calls would drop a target,
-  // and the pending→ready flip from a stale read could rewind a schedule the
-  // scheduler concurrently activated.
+  // Locked: concurrent add/eject calls would drop a target, and a stale
+  // pending→ready flip could rewind a scheduler-activated schedule.
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
@@ -679,9 +677,8 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
           `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      // Pin the playhead: the approval/force gates above were screened
-      // against this step; if a concurrent advance moved it, this request
-      // would silently skip an extra step (or an unscreened approval gate).
+      // Pin the playhead: a concurrent advance would make this skip an
+      // extra (unscreened) step.
       if (fresh.currentStepIndex !== schedule.currentStepIndex) {
         throw new ConflictError(
           "Cannot advance: the schedule advanced while the request was in flight",
@@ -1308,10 +1305,9 @@ export const updateStepsRampSchedule = createApiRequestHandler({
     req.context,
     schedule.id,
     (fresh) => {
-      // Normalize incoming steps to the internal shape, preserving existing
-      // step actions (coverage patches) since the PUT body intentionally
-      // omits them. Read them from the in-lock doc so a concurrent advance's
-      // state isn't clobbered with stale actions.
+      // The PUT body intentionally omits step actions (coverage patches) —
+      // preserve them from the in-lock doc so a concurrent advance's state
+      // isn't clobbered.
       const incomingSteps: (typeof fresh)["steps"] = req.body.steps.map(
         (s, idx) => ({
           interval: s.interval,

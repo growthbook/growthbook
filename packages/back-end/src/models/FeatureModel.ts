@@ -2067,9 +2067,8 @@ async function createRampSchedulesForRevision(
     // enabled immediately when this revision publishes rather than waiting
     // for the next poller tick.
     //
-    // The "config-edited" audit event is passed so startReadyScheduleNow
-    // appends "started" on top of it, preserving full audit history parity
-    // with the direct-edit path.
+    // The "config-edited" audit event rides along so startReadyScheduleNow
+    // appends "started" on top of it, matching the direct-edit path.
     let currentSchedule = existingSchedule;
     let startDeferredToScheduler = false;
     if (
@@ -2084,10 +2083,9 @@ async function createRampSchedulesForRevision(
         ...(configEditedEvent ? { auditEvent: configEditedEvent } : {}),
       });
       if (started) continue;
-      // The start didn't run: either the scheduler started it first (now
-      // running — the merge branch below applies the edits safely) or the
-      // lock stayed busy (still ready, start deferred to the scheduler via
-      // startDate=now — apply the edits without clobbering that deferral).
+      // Start didn't run: either the scheduler started it first (the merge
+      // branch below applies the edits) or the lock stayed busy and the start
+      // was deferred via startDate=now — don't clobber that deferral.
       currentSchedule =
         (await context.models.rampSchedules.getById(
           updateAction.rampScheduleId,

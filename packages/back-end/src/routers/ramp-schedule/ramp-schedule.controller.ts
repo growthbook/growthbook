@@ -417,9 +417,8 @@ export const postRampScheduleAction = async (
               `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          // Pin the playhead: the approval/force gates above were screened
-          // against this step; if a concurrent advance moved it, this click
-          // would silently skip an extra step (or an unscreened approval gate).
+          // Pin the playhead: a concurrent advance would make this skip an
+          // extra (unscreened) step.
           if (fresh.currentStepIndex !== schedule.currentStepIndex) {
             throw new ConflictError(
               "Cannot advance: the schedule advanced while the request was in flight",
@@ -536,9 +535,8 @@ export const postRampScheduleAction = async (
               `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          // Re-validate bounds against the in-lock steps — a concurrent steps
-          // edit can shrink the array, and an out-of-range playhead reads as
-          // past-end (unintended completion) downstream.
+          // A concurrent steps edit can shrink the array, turning the
+          // playhead past-end (unintended completion).
           if (jumpTarget >= fresh.steps.length) {
             throw new ConflictError(
               `Cannot jump: step ${jumpTarget} no longer exists (the schedule's steps changed while the request was in flight)`,
@@ -567,16 +565,14 @@ export const postRampScheduleAction = async (
         context,
         schedule.id,
         (fresh) => {
-          // Pin to the step the reviewer saw — with consecutive approval
-          // gates, a queued approval must not land on a step that was never
-          // reviewed.
+          // Pin to the step the reviewer saw — a queued approval must not
+          // land on a step that was never reviewed.
           if (fresh.currentStepIndex !== schedule.currentStepIndex) {
             throw new ConflictError(
               "Cannot approve step: the schedule advanced while the request was in flight",
             );
           }
-          // Duplicate approval of the same step (double-click / racing
-          // reviewers) is idempotent success, matching approveAndPublishStep.
+          // Duplicate approval of the same step is idempotent success.
           if (fresh.stepApproval?.stepIndex === fresh.currentStepIndex) {
             return Promise.resolve(null);
           }
@@ -691,9 +687,8 @@ export const postRampScheduleAction = async (
         : null;
 
       if (!safeRollout && currentStep?.monitored) {
-        // ensureSafeRolloutForMonitoredRamp mutates the schedule (SR creation
-        // + link write) — serialize against the tick, which runs the same
-        // ensure, or both create a SafeRollout and one becomes an orphan.
+        // Serialize against the tick, which runs the same ensure — otherwise
+        // both create a SafeRollout and one becomes an orphan.
         const updatedSchedule = await runLockedRampScheduleAction(
           context,
           schedule.id,

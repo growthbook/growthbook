@@ -56,10 +56,8 @@ async function assertScheduleExistsAfterFailedAcquire(
   }
 }
 
-// Runs `fn` with the already-acquired lock, releasing on the way out. The
-// heartbeat passed to `fn` refreshes the lock's liveness timestamp between
-// slow phases; it throws RampAdvanceLockBusyError if the lease was stale-
-// reclaimed, so a robbed holder aborts instead of writing concurrently.
+// The heartbeat passed to `fn` throws RampAdvanceLockBusyError when the lease
+// was stale-reclaimed, so a robbed holder aborts instead of writing concurrently.
 async function runWithAcquiredAdvanceLock<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -80,8 +78,7 @@ async function runWithAcquiredAdvanceLock<T>(
       }
     });
   } finally {
-    // Never let a release failure mask the error `fn` threw; a leaked lock
-    // self-heals via the stale threshold.
+    // Never mask fn's error with a release failure; a leaked lock self-heals.
     try {
       await ctx.models.rampSchedules.releaseAdvanceLock(scheduleId, token);
     } catch (releaseErr) {
@@ -93,9 +90,7 @@ async function runWithAcquiredAdvanceLock<T>(
   }
 }
 
-// Serialize schedule mutation across every entry point (scheduler tick,
-// snapshot hook, HTTP/API actions). Throws RampAdvanceLockBusyError when held.
-// Non-reentrant: never call from code already inside the lock. Callers must
+// Non-reentrant; throws RampAdvanceLockBusyError when held. Callers must
 // re-read the schedule *inside* `fn` — acting on a pre-lock snapshot would
 // replay steps another advance already applied.
 export async function withRampScheduleAdvanceLock<T>(
@@ -117,11 +112,9 @@ export async function withRampScheduleAdvanceLock<T>(
   return runWithAcquiredAdvanceLock(ctx, scheduleId, token, fn);
 }
 
-// For user-initiated actions (resume, manual advance, jump) whose intent the
-// scheduler cannot replay: contention windows are seconds long, so retry the
-// ACQUISITION a few times before surfacing the busy error. Only the acquire is
-// retried — `fn` runs exactly once, so side effects (revision publishes) can
-// never be re-executed by a busy error escaping from inside `fn`.
+// For user-initiated actions whose intent the scheduler cannot replay. Only
+// the acquisition is retried — `fn` runs exactly once, so publishes can never
+// be re-executed by a busy error escaping from inside `fn`.
 export async function withRampScheduleAdvanceLockRetry<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -147,9 +140,8 @@ export async function withRampScheduleAdvanceLockRetry<T>(
   return runWithAcquiredAdvanceLock(ctx, scheduleId, token, fn);
 }
 
-// Boundary wrapper for controller/API schedule actions. `fn` must re-validate
-// any status preconditions screened on the caller's pre-lock read — the
-// schedule may have changed while waiting for the lock.
+// `fn` must re-validate any status preconditions screened on the caller's
+// pre-lock read — the schedule may have changed while waiting for the lock.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
@@ -685,28 +677,17 @@ export function computeNextStepAt(
   return new Date(phaseStart.getTime() + total * 1000);
 }
 
-// A step may be folded past (skipped as an individual landing) in a catch-up
-// jump only if its effects are idempotent feature-rule patches. Tautologically
-// true today (the schema only allows targetType "feature-rule"); exists so a
-// future non-idempotent action type gets an individual landing instead of
-// being silently folded. NOTE: adding such an action type also requires
-// extending computeEffectivePatch/executeStepActions, which currently drop
-// non-feature-rule actions even at landings.
+// Tautological today (the schema only allows targetType "feature-rule").
+// A future non-feature-rule action type must land individually AND extend
+// computeEffectivePatch/executeStepActions, which currently drop it.
 export function stepIsCollapsible(step: RampStep): boolean {
   return step.actions.every((a) => a.targetType === "feature-rule");
 }
 
-// Furthest step index the auto-advancer can reach: chains through purely
-// time-gated, collapsible steps whose timer has elapsed and stops *at* (never
-// past) any monitored / approval / sample-size hold. Returns currentStepIndex
-// when nothing is due, or steps.length to signal completion. Jumping straight
-// to this target in one publish equals stepping (computeEffectivePatch is
-// cumulative).
-//
-// `currentStepCleared`: the caller (evaluator) has already verified the
-// current step's holds and dueness with real data — skip our gate for the
-// first hop so the cleared advance and any due backlog behind it fold into a
-// single publish.
+// Returns currentStepIndex when nothing is due, or steps.length to signal
+// completion. Jumping straight to the target in one publish equals stepping
+// (computeEffectivePatch is cumulative). `currentStepCleared`: the evaluator
+// already verified the current step with real data — skip the first-hop gates.
 export function computeAutoAdvanceTarget(
   schedule: RampScheduleInterface,
   now: Date,
@@ -731,17 +712,15 @@ export function computeAutoAdvanceTarget(
       if (!purelyTimeGated) break;
     }
 
-    // Never fold past an unvisited non-collapsible step; land on it instead so
-    // its effects fire. The current step (target === startIndex) is exempt —
-    // its landing already happened, and collapsibility is a static property
-    // with no release mechanism, so gating exit on it would wedge the schedule.
+    // Never fold past an unvisited non-collapsible step — land on it so its
+    // effects fire. The current step is exempt: its landing already happened,
+    // and gating exit on a static property would wedge the schedule.
     if (target > startIndex && !stepIsCollapsible(schedule.steps[target])) {
       break;
     }
 
-    // Time gate to leave `target`. The stored nextStepAt is authoritative for
-    // the current position and has no recomputable equivalent at index -1
-    // (computeNextStepAt(schedule, -1, now) is null); later hops recompute
+    // The stored nextStepAt is authoritative for the current position (it has
+    // no recomputable equivalent at index -1); later hops recompute
     // deterministically from the fixed phaseStartedAt.
     const gate = firstHopCleared
       ? now
@@ -879,9 +858,8 @@ async function executeStepActions(
   schedule: RampScheduleInterface,
   stepIndex: number,
   actions: RampStepAction[],
-  // fromStepIndex: the position before a multi-step catch-up jump, so the
-  // published revision's label shows the folded range instead of reading like
-  // a normal single advance.
+  // fromStepIndex: position before a catch-up jump, so the published
+  // revision's label shows the folded range instead of a normal single advance.
   opts: { fromStepIndex?: number } = {},
 ): Promise<void> {
   const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
@@ -1087,9 +1065,8 @@ export async function advanceStep(
 ): Promise<RampScheduleInterface> {
   const nextStepIndex = targetStepIndex ?? schedule.currentStepIndex + 1;
 
-  // A backwards/no-op target means the caller computed it from a stale
-  // snapshot (another advance already moved the playhead). Publishing it would
-  // silently rewind live coverage while recording a forward advance — refuse.
+  // A backwards/no-op target means the caller's snapshot is stale (another
+  // advance moved the playhead); publishing would silently rewind live coverage.
   if (nextStepIndex <= schedule.currentStepIndex) {
     logger.warn(
       {
@@ -1111,9 +1088,8 @@ export async function advanceStep(
         autoCatchUp: true,
       });
     }
-    // Reaching here with a cutoffDate means it already lapsed (the future case
-    // returned above), so honor the cutoff's disable semantics — otherwise the
-    // rule would complete permanently enabled at end-state coverage.
+    // A cutoffDate here has already lapsed, so honor its disable semantics —
+    // otherwise the rule would complete permanently enabled.
     return completeRollout(ctx, schedule, {
       disableActiveTargets: !!schedule.cutoffDate,
     });
@@ -1385,10 +1361,9 @@ export async function resumeSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
-  // Must be called with the advance lock held and `schedule` read inside the
-  // lock (the controller/API boundary handles both) — writing the resume from
-  // a pre-lock snapshot would clobber or resurrect state a concurrent tick is
-  // producing (e.g. flipping a just-completed schedule back to running).
+  // Must be called with the advance lock held and `schedule` read inside it —
+  // a pre-lock snapshot could resurrect state a concurrent tick produced
+  // (e.g. flipping a just-completed schedule back to running).
   const now = new Date();
   const pauseDurationMs = schedule.pausedAt
     ? now.getTime() - schedule.pausedAt.getTime()
@@ -1868,10 +1843,9 @@ async function applyEndActionsAndAwaitCutoff(
   const now = new Date();
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
 
-  // Mirror advanceStep/completeRollout: a never-started schedule (a catch-up
-  // jump from -1 straight past the end) has its rule still disabled, so fold
-  // enabled:true into this publish or the rule would sit at end-state coverage
-  // without ever serving traffic.
+  // A never-started schedule (catch-up jump from -1 past the end) has its rule
+  // still disabled — fold enabled:true into this publish or the rule would sit
+  // at end-state coverage without ever serving traffic.
   if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
     for (const target of schedule.targets) {
       if (target.status !== "active" || target.entityType !== "feature") {
@@ -2112,9 +2086,8 @@ export async function startReadyScheduleNow(
   if (schedule.status !== "ready") return false;
 
   try {
-    // Serialize against the scheduler tick; re-verify "ready" inside the lock
-    // and start from the in-lock read so an edit that landed while waiting
-    // isn't overwritten with the caller's stale snapshot.
+    // Re-verify "ready" and start from the in-lock read so an edit that landed
+    // while waiting isn't overwritten with the caller's stale snapshot.
     return await withRampScheduleAdvanceLockRetry(
       ctx,
       schedule.id,
@@ -2127,10 +2100,9 @@ export async function startReadyScheduleNow(
     );
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) throw e;
-    // Lock stayed busy: hand the start to the scheduler instead of silently
-    // losing the user's "start now" — its ready branch starts any ready
-    // schedule whose startDate has arrived. Scheduling fields only; content
-    // edits are the caller's responsibility on the false return.
+    // Lock stayed busy: startDate=now defers the start to the scheduler
+    // instead of losing the user's "start now". Scheduling fields only;
+    // content edits are the caller's responsibility on the false return.
     const now = new Date();
     await ctx.models.rampSchedules.updateById(schedule.id, {
       startDate: now,
@@ -2156,9 +2128,8 @@ type StartNowContentUpdates = Partial<
     | "lockdownConfig"
   >
 > & {
-  // A pre-built audit event (e.g. "config-edited") recorded beneath the
-  // "started" event — appended onto the in-lock history so concurrently
-  // appended events aren't clobbered by a caller-built array.
+  // Recorded beneath the "started" event; appended onto the in-lock history
+  // so concurrently appended events aren't clobbered by a caller-built array.
   auditEvent?: RampEvent;
 };
 
@@ -2231,9 +2202,8 @@ export async function onRevisionPublished(
     );
   for (const schedule of activatingRamps) {
     try {
-      // Serialize against the scheduler's pending branch, which runs the same
-      // activation under its own lock — without this, both can observe
-      // "pending" and double-start the ramp.
+      // Without the lock, this hook and the scheduler's pending branch can
+      // both observe "pending" and double-start the ramp.
       await withRampScheduleAdvanceLock(ctx, schedule.id, async () => {
         const fresh = await ctx.models.rampSchedules.getById(schedule.id);
         if (!fresh || fresh.status !== "pending") return;

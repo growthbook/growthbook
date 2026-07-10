@@ -27,13 +27,9 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
 
-// An advance lock is stale once its heartbeat is older than this, so a holder
-// that crashed mid-advance can't wedge the schedule. The scheduler holds the
-// lock across its whole tick (evaluator + publish + syncs) and heartbeats
-// between phases, so this only needs to cover a single slow phase. Matches
-// INCREMENTAL_LOCK_STALE_MS — under the load conditions where publishes get
-// slow, a short threshold would let a live holder be stale-reclaimed and
-// reintroduce the concurrent double-publish this lock exists to prevent.
+// Stale = crashed-holder reclaim. 10min plus between-phase heartbeats: a
+// shorter threshold let live holders be stale-reclaimed under slow publishes,
+// reintroducing the double-publish this lock exists to prevent.
 const ADVANCE_LOCK_STALE_MS = 10 * 60 * 1000;
 
 export function migrateRampScheduleEndCondition<
@@ -447,8 +443,7 @@ export class RampScheduleModel extends BaseClass {
       );
     }
 
-    // Locked so the read-modify-write (steps/eventHistory/nextProcessAt)
-    // can't clobber a concurrent advance.
+    // Locked so the read-modify-write can't clobber a concurrent advance.
     return runLockedRampScheduleAction(
       this.context,
       req.params.id,
@@ -722,9 +717,7 @@ export class RampScheduleModel extends BaseClass {
     return map;
   }
 
-  // Atomically claim the per-schedule advance lock. Returns false if another
-  // holder has it and its claim isn't stale. Modeled on
-  // IncrementalRefreshModel.acquireLock.
+  // Modeled on IncrementalRefreshModel.acquireLock.
   public async acquireAdvanceLock(id: string, token: string): Promise<boolean> {
     const staleThreshold = new Date(Date.now() - ADVANCE_LOCK_STALE_MS);
     const result = await this._dangerousGetCollection().updateOne(
@@ -764,10 +757,8 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
-  // Refresh the lock's liveness timestamp so a long multi-phase advance isn't
-  // stale-reclaimed mid-flight. Returns false when the token no longer holds
-  // the lock (stale-reclaimed) so the holder can abort instead of writing
-  // concurrently with the reclaimer.
+  // Returns false when the token no longer holds the lock (stale-reclaimed)
+  // so the holder can abort instead of writing concurrently with the reclaimer.
   public async touchAdvanceLockHeartbeat(
     id: string,
     token: string,

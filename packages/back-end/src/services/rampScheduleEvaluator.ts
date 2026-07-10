@@ -520,15 +520,10 @@ export async function applyRampEvaluationDecision(
     });
   }
 
-  // The evaluator has verified the current step's holds/dueness with real
-  // data, so fold this advance and any purely-time-gated backlog behind it
-  // into a single jump publish (rather than one publish here plus a second
-  // catch-up publish from the caller's advanceUntilBlocked). An "advance"
-  // decision always moves at least one step — for a past-end schedule the
-  // walk returns startIndex, but +1 routes advanceStep into its completion
-  // branch, and for a pre-start (-1) schedule the unconditional first hop
-  // doubles as the unstick mechanism for broken nextStepAt states (both match
-  // the pre-collapse behavior).
+  // Fold the verified advance and any due backlog into a single jump publish.
+  // The +1 forces past-end schedules into advanceStep's completion branch; the
+  // unconditional first hop doubles as the unstick mechanism for broken
+  // nextStepAt states.
   const target = Math.max(
     computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
     schedule.currentStepIndex + 1,
@@ -544,20 +539,15 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
   if (!safeRollout.rampScheduleId) return;
   const rampScheduleId = safeRollout.rampScheduleId;
 
-  // Cheap pre-lock screen: many snapshot completions land after the ramp is no
-  // longer running/monitored (paused mid-query, manual refreshes on stopped
-  // ramps) — don't pay lock writes for those. Re-screened inside the lock.
+  // Pre-lock screen: don't pay lock writes for no-op snapshot completions.
+  // Re-screened inside the lock.
   const screened = await ctx.models.rampSchedules.getById(rampScheduleId);
   if (!screened || screened.status !== "running") return;
   if (!screened.steps[screened.currentStepIndex]?.monitored) return;
 
   try {
-    // Serialize against the scheduler tick — both run this same
-    // evaluate-and-advance pipeline and would otherwise double-publish.
-    // Retry rather than skip: a busy holder may be a user action (which
-    // evaluates nothing) or a tick that read PRE-snapshot data — dropping the
-    // evaluation would discard fresh analysis, including rollback decisions,
-    // until the next scheduled evaluation.
+    // Retry rather than skip: the busy holder may have read pre-snapshot data,
+    // and dropping the evaluation would discard rollback decisions.
     await withRampScheduleAdvanceLockRetry(ctx, rampScheduleId, async () => {
       const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
       if (!schedule || schedule.status !== "running") return;

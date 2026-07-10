@@ -251,8 +251,8 @@ export async function putAutoSnapshots(
   });
 
   if (safeRollout.rampScheduleId) {
-    // Locked read-modify-write against the ramp engine — an unlocked write
-    // here can clobber a concurrent advance's eventHistory/nextProcessAt.
+    // An unlocked write here can clobber a concurrent advance's
+    // eventHistory/nextProcessAt.
     try {
       await runLockedRampScheduleAction(
         context,
