@@ -27037,6 +27037,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -27167,6 +27169,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -27297,6 +27301,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -28426,6 +28432,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -28565,6 +28573,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -28704,6 +28714,8 @@ paths:
                                 type: array
                                 items:
                                   type: string
+                              experimentSearchString:
+                                type: string
                               comparison:
                                 type: object
                                 properties:
@@ -30734,6 +30746,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          experimentSearchString:
+                            type: string
                           comparison:
                             type: object
                             properties:
@@ -30864,6 +30878,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          experimentSearchString:
+                            type: string
                           comparison:
                             type: object
                             properties:
@@ -30994,6 +31010,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          experimentSearchString:
+                            type: string
                           comparison:
                             type: object
                             properties:
@@ -47116,6 +47134,8 @@ components:
                     type: array
                     items:
                       type: string
+                  experimentSearchString:
+                    type: string
                   comparison:
                     type: object
                     properties:
@@ -47255,6 +47275,8 @@ components:
                     type: array
                     items:
                       type: string
+                  experimentSearchString:
+                    type: string
                   comparison:
                     type: object
                     properties:
@@ -47394,6 +47416,8 @@ components:
                     type: array
                     items:
                       type: string
+                  experimentSearchString:
+                    type: string
                   comparison:
                     type: object
                     properties:

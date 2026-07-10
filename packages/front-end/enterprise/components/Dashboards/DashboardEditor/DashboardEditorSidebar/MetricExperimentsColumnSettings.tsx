@@ -14,8 +14,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { RiDraggable } from "react-icons/ri";
-import { PiEye, PiEyeSlash } from "react-icons/pi";
+import { PiDotsSixVertical, PiEye, PiEyeSlash } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
@@ -64,7 +63,7 @@ function SortableColumnRow({
         aria-label="Drag to reorder"
         style={{ cursor: "grab", display: "flex", color: "var(--gray-8)" }}
       >
-        <RiDraggable />
+        <PiDotsSixVertical />
       </span>
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text

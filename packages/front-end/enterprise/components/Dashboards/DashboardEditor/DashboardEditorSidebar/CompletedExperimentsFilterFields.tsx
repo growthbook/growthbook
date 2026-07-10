@@ -4,11 +4,16 @@ import { ExplorationDateRange } from "shared/validators";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useExperiments } from "@/hooks/useExperiments";
+import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
 import BlockDateRangePicker from "./BlockDateRangePicker";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
   projects: string[];
+  // Raw ExperimentSearchFilters query string; applied client-side on top of the
+  // date/project scope.
+  experimentSearchString?: string;
 }
 
 interface Props {
@@ -39,6 +44,7 @@ export default function CompletedExperimentsFilterFields({
   onPreviousTimeFrameChange,
 }: Props) {
   const { projects } = useDefinitions();
+  const { experiments } = useExperiments();
 
   const projectOptions = (
     availableProjects && availableProjects.length > 0
@@ -71,6 +77,23 @@ export default function CompletedExperimentsFilterFields({
           options={projectOptions}
           onChange={(v) => onChange({ projects: v })}
           placeholder="All projects"
+        />
+      </Box>
+
+      <Box>
+        <Box mb="2">
+          <Text weight="semibold">Filter Experiments</Text>
+        </Box>
+        <SidebarExperimentFilters
+          searchValue={value.experimentSearchString ?? ""}
+          setSearchValue={(experimentSearchString) =>
+            onChange({ experimentSearchString })
+          }
+          experiments={experiments}
+          // These blocks only ever include completed (stopped) experiments, so
+          // the status filter would be misleading.
+          allowDrafts={false}
+          showStatusFilter={false}
         />
       </Box>
     </>

@@ -266,6 +266,10 @@ const completedExperimentsBlockCommon = {
   dateRange: explorationDateRangeValidator,
   // Project ids to scope to; empty array means all projects.
   projects: z.array(z.string()),
+  // Raw ExperimentSearchFilters query (e.g. "status:stopped tag:checkout"),
+  // shared with the Metric Experiments block. Optional so pre-existing blocks
+  // read as "no filter"; applied client-side on top of the date/project scope.
+  experimentSearchString: z.string().optional(),
   // Compare-to-previous-period. Optional so pre-existing blocks read as "no
   // comparison". The previous window is derived from the current one on each
   // refresh (span-shift), so we don't persist `previousTimeFrame` here.
@@ -313,6 +317,9 @@ export type ExperimentsStatusBlockInterface = z.infer<
 export type CompletedExperimentsBlockFilters = {
   dateRange: ExplorationDateRange;
   projects: string[];
+  // Raw ExperimentSearchFilters query applied client-side on top of the
+  // date/project scope. Undefined/empty means no additional filtering.
+  experimentSearchString?: string;
 };
 
 /**

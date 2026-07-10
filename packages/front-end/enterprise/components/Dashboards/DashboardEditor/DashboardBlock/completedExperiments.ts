@@ -8,11 +8,16 @@ import {
   resolveCompletedExperimentsFilters,
 } from "shared/enterprise";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useExperimentSearch } from "@/services/experiments";
 import {
   filterCompletedExperiments,
   getPreviousWindow,
   Window,
 } from "./completedExperimentsData";
+
+// localStorage key for the search hook's sort state. Sort output is unused here
+// (we consume the pre-sort filtered list), so a single shared key is fine.
+const SEARCH_STORAGE_KEY = "dashboard-completed-experiments";
 
 /**
  * Shared data source for the "Completed Experiments" block family (Scaled
@@ -35,10 +40,23 @@ export function useCompletedExperiments(
   const { startDate, endDate, projects } = filters;
   const { experiments, loading } = useExperiments("", true, "standard");
 
+  // Apply the block's saved "Filter Experiments" query (tags, owners, result,
+  // etc.) using the same syntax filters as the experiment list. Empty string is
+  // a no-op, so blocks without a saved filter behave as before.
+  const { filteredItems } = useExperimentSearch({
+    allExperiments: experiments,
+    controlledSearchValue: block.experimentSearchString ?? "",
+    localStorageKey: SEARCH_STORAGE_KEY,
+  });
+
   const filtered = useMemo(
     () =>
-      filterCompletedExperiments(experiments, { startDate, endDate, projects }),
-    [experiments, projects, startDate, endDate],
+      filterCompletedExperiments(filteredItems, {
+        startDate,
+        endDate,
+        projects,
+      }),
+    [filteredItems, projects, startDate, endDate],
   );
 
   return { experiments: filtered, loading, filters };
@@ -83,19 +101,27 @@ export function useCompletedExperimentsComparison(
 
   const { experiments, loading } = useExperiments("", true, "standard");
 
+  // Apply the block's saved "Filter Experiments" query once; both the current
+  // and previous windows are then sliced from the same search-filtered list.
+  const { filteredItems } = useExperimentSearch({
+    allExperiments: experiments,
+    controlledSearchValue: block.experimentSearchString ?? "",
+    localStorageKey: SEARCH_STORAGE_KEY,
+  });
+
   const current = useMemo(
-    () => filterCompletedExperiments(experiments, window),
-    [experiments, window],
+    () => filterCompletedExperiments(filteredItems, window),
+    [filteredItems, window],
   );
   const previous = useMemo(
     () =>
       comparisonEnabled
-        ? filterCompletedExperiments(experiments, {
+        ? filterCompletedExperiments(filteredItems, {
             ...previousWindow,
             projects: window.projects,
           })
         : [],
-    [experiments, previousWindow, window.projects, comparisonEnabled],
+    [filteredItems, previousWindow, window.projects, comparisonEnabled],
   );
 
   return {

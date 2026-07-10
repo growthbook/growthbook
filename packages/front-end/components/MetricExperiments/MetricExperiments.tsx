@@ -22,6 +22,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import Link from "@/ui/Link";
+import VariationLabel from "@/ui/VariationLabel";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
@@ -268,26 +269,19 @@ function MetricExperimentResultTab({
       case "variationId":
         return (
           <td>
-            <div
-              className={`variation variation${e.variationId} with-variation-label d-flex my-1`}
+            <Flex
+              align="center"
+              gap="1"
+              className="my-1"
+              style={{ maxWidth: 220 }}
             >
-              <span className="label" style={{ width: 20, height: 20 }}>
-                {e.variationId}
-              </span>
-              <span
-                className="d-inline-block text-ellipsis hover"
-                style={{
-                  maxWidth: 200,
-                }}
-              >
-                {e.variationName}
-                {e.shipped ? (
-                  <Tooltip body={"Variation marked as the winner"}>
-                    <PiTrophyDuotone className="ml-1" />{" "}
-                  </Tooltip>
-                ) : null}
-              </span>
-            </div>
+              <VariationLabel number={e.variationId} name={e.variationName} />
+              {e.shipped ? (
+                <Tooltip body={"Variation marked as the winner"}>
+                  <PiTrophyDuotone />
+                </Tooltip>
+              ) : null}
+            </Flex>
           </td>
         );
       case "date":
