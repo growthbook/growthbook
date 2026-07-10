@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import { ManagedBy } from "shared/validators";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   findVercelInstallationByInstallationId,
@@ -460,6 +461,26 @@ export async function provisionResource(req: Request, res: Response) {
   const billingPlan = allBillingPlans.find(({ id }) => id === billingPlanId);
 
   if (!billingPlan) return res.status(400).send("Invalid billing plan!");
+
+  // Each resource creates a project, so check the plan's project limit before
+  // any writes and fail with a message that's actionable inside Vercel's UI.
+  const maxProjects = context.limits.getMaxProjects();
+  if (maxProjects !== null) {
+    const projects = await context.getProjects();
+    const projectCount = projects.filter(
+      (p) =>
+        !isDemoDatasourceProject({ projectId: p.id, organizationId: org.id }),
+    ).length;
+    if (projectCount >= maxProjects) {
+      return res
+        .status(400)
+        .send(
+          `Your GrowthBook plan supports ${maxProjects} project${
+            maxProjects === 1 ? "" : "s"
+          }. Upgrade your GrowthBook billing plan in Vercel to add more resources.`,
+        );
+    }
+  }
 
   if (!integration.billingPlanId) {
     // The installation doesn't have a billing plan yet, so we need to create a new one
