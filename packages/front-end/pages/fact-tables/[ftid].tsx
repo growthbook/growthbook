@@ -91,8 +91,8 @@ export default function FactTablePage() {
     _factMetricsIncludingArchived: factMetrics,
     getDatasourceById,
   } = useDefinitions();
-  // Definitions only contain a slimmed fact table (no sql or filter values),
-  // so fetch the full version for this page
+  // Definitions only contain a slimmed fact table (no sql or per-column
+  // jsonFields), so fetch the full version for this page
   const factTableDefinition = getFactTableById(ftid as string);
   const {
     data,

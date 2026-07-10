@@ -182,7 +182,7 @@ export type UpdateFactMetricProps = UpdateProps<FactMetricInterface>;
 export type FactTableMap = Map<string, FactTableInterface>;
 
 // Accepts both full fact tables and slimmed definitions. Use for utils that
-// don't read `sql`.
+// don't read `sql` or per-column `jsonFields`.
 export type FactTableDefinitionMap = Map<string, FactTableDefinition>;
 
 export type FactFilterTestResults = {
