@@ -100,7 +100,7 @@ export default function ExperimentSettings({
                 <Flex direction="column">
                   <Text size="3" className="font-weight-semibold">
                     <label htmlFor="toggle-requireExperimentTemplates">
-                      Require experiment templates
+                      Require Experiment Templates
                     </label>
                   </Text>
                   <Text>

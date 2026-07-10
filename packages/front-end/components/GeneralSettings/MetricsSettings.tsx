@@ -23,7 +23,7 @@ export default function MetricsSettings() {
   const maxMetricSliceLevels = form.watch("maxMetricSliceLevels");
   const maxMetricSliceLevelsWarningMsg =
     maxMetricSliceLevels && maxMetricSliceLevels > 20
-      ? "Using too many slice levels may increase query costs substantially. All auto slice levels are analyzed every time an experiment refreshes."
+      ? "Using too many slice levels may increase query costs substantially. All Auto Slice levels are analyzed every time an experiment refreshes."
       : "";
   const currencyOptions = Object.entries(supportedCurrencies).map(
     ([value, label]) => ({ value, label }),
@@ -239,7 +239,7 @@ export default function MetricsSettings() {
               Metric Slices
             </Heading>
             <Text as="label" className="font-weight-semibold" size="3">
-              Max auto slice levels
+              Max Auto Slice levels
               <PaidFeatureBadge
                 commercialFeature="metric-slices"
                 premiumText="This is an Enterprise feature"
@@ -249,7 +249,7 @@ export default function MetricsSettings() {
             </Text>
             <Box mb="3">
               {hasCommercialFeature("metric-slices")
-                ? `Maximum number of slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
+                ? `Maximum number of Auto Slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
                 : "This feature requires an Enterprise license."}
             </Box>
             <Box width="200px">

@@ -52,7 +52,7 @@ export default function FeatureSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Feature Settings
+            Feature Flag Settings
           </Heading>
         </Box>
 
@@ -198,7 +198,7 @@ export default function FeatureSettings() {
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox
               id="toggle-maxConcurrentDrafts"
-              label="Cap number of drafts allowed per feature"
+              label="Cap number of drafts allowed per Feature Flag"
               description="A soft limit to reduce clutter. Users are warned and asked to confirm before creating drafts past the cap; REST API calls can override it. Automated processes are exempt."
               value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
               setValue={(value) =>

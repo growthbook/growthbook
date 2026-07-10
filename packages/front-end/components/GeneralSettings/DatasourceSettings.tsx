@@ -75,7 +75,7 @@ export default function DatasourceSettings() {
           >
             <Text as="label" className="font-weight-semibold" size="3">
               Top values lookback window
-              <Tooltip content="GrowthBook queries the fact table with this lookback window to power auto-slices values and suggestions when you filter metrics. A longer window finds more values but costs more to scan.">
+              <Tooltip content="GrowthBook queries the fact table with this lookback window to power Auto Slice values and suggestions when you filter metrics. A longer window finds more values but costs more to scan.">
                 <Flex
                   ml="2"
                   display="inline-flex"

@@ -145,7 +145,7 @@ const DecisionFrameworkSettings = () => {
               htmlFor="toggle-decisionFrameworkEnabled"
               className="font-weight-semibold mb-0"
             >
-              Enable experiment decision framework
+              Enable Experiment Decision Framework
             </label>
           </Box>
         </Flex>
