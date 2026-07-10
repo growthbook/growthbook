@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "shared/types/organization";
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -13,7 +13,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import Badge from "@/ui/Badge";
+import PremiumCallout from "@/ui/PremiumCallout";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { DocLink } from "@/components/DocLink";
@@ -64,7 +64,6 @@ export default function EnvironmentModal({
 
   const { isEnvironmentIdAllowed, supportsCustomEnvironments } = useOrgLimits();
   const customEnvironmentsAllowed = supportsCustomEnvironments();
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const { projects } = useDefinitions();
 
@@ -84,16 +83,6 @@ export default function EnvironmentModal({
     return (
       <UpgradeModal
         close={close}
-        source="environment limit"
-        commercialFeature={null}
-      />
-    );
-  }
-
-  if (upgradeModalOpen) {
-    return (
-      <UpgradeModal
-        close={() => setUpgradeModalOpen(false)}
         source="environment limit"
         commercialFeature={null}
       />
@@ -202,30 +191,18 @@ export default function EnvironmentModal({
                   <code>john_dev</code>
                 </div>
               </>
-            ) : (
-              <div>
-                <Badge
-                  label="Pro"
-                  color="gold"
-                  variant="outline"
-                  radius="full"
-                  mr="2"
-                />
-                Your plan only supports the default environments.{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setUpgradeModalOpen(true);
-                  }}
-                >
-                  Upgrade your plan
-                </a>{" "}
-                to create custom environments.
-              </div>
-            )
+            ) : undefined
           }
         />
+      )}
+      {!existing.id && !customEnvironmentsAllowed && (
+        <PremiumCallout
+          commercialFeature="advanced-permissions"
+          id="environment-plan-limit"
+          mb="3"
+        >
+          Your plan only supports the default environments.
+        </PremiumCallout>
       )}
       <Field
         label="Description"
