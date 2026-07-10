@@ -299,31 +299,33 @@ export default function SqlQuerySection({
                   Unsaved query changes
                 </Text>
               ) : null}
-              <Tooltip
-                style={{ display: "flex", alignItems: "center" }}
-                body={
-                  isFullscreen
-                    ? "Close full screen (ESC)"
-                    : "Open in full screen"
-                }
-              >
-                <IconButton
-                  size="2"
-                  variant="ghost"
-                  color="gray"
-                  aria-label={
-                    isFullscreen ? "Close full screen" : "Open in full screen"
+              {open ? (
+                <Tooltip
+                  style={{ display: "flex", alignItems: "center" }}
+                  body={
+                    isFullscreen
+                      ? "Close full screen (ESC)"
+                      : "Open in full screen"
                   }
-                  onClick={() => {
-                    if (!isFullscreen) {
-                      setOpen(true);
-                    }
-                    setIsFullscreen(!isFullscreen);
-                  }}
                 >
-                  {isFullscreen ? <PiX /> : <PiArrowsOut />}
-                </IconButton>
-              </Tooltip>
+                  <IconButton
+                    size="2"
+                    variant="ghost"
+                    color="gray"
+                    aria-label={
+                      isFullscreen ? "Close full screen" : "Open in full screen"
+                    }
+                    onClick={() => {
+                      if (!isFullscreen) {
+                        setOpen(true);
+                      }
+                      setIsFullscreen(!isFullscreen);
+                    }}
+                  >
+                    {isFullscreen ? <PiX /> : <PiArrowsOut />}
+                  </IconButton>
+                </Tooltip>
+              ) : null}
             </Flex>
           </Flex>
           {open && (
