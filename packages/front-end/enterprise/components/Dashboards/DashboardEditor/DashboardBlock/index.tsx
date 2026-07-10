@@ -19,7 +19,7 @@ import {
 import { SavedQuery } from "shared/validators";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -64,14 +64,14 @@ import ProductAnalyticsExplorerBlock from "./ProductAnalyticsExplorerBlock";
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
   experimentId: ExperimentInterfaceStringDates;
-  metricIds: ExperimentMetricInterface[];
+  metricIds: ExperimentMetricDefinition[];
   factMetricId: FactMetricInterface;
   savedQueryId: SavedQuery;
   metricAnalysisId: MetricAnalysisInterface;
 }
 type ObjectProps<Block> = {
   [K in keyof BlockIdFieldToObjectMap as K extends keyof Block
-    ? // Formatting to strip the trailing Id or Ids so metricId: string becomes metric: ExperimentMetricInterface
+    ? // Formatting to strip the trailing Id or Ids so metricId: string becomes metric: ExperimentMetricDefinition
       K extends `${infer Base}Id`
       ? Base
       : K extends `${infer Base}Ids`

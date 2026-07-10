@@ -149,7 +149,7 @@ export default function MakeChangesFlow({
       secondaryCTA={
         step === lastStepNumber ? (
           <Box style={{ minWidth: 520 }}>
-            <Callout status="warning" contentsAs="div">
+            <Callout status="warning">
               <Flex align="center" justify="between" gap="3">
                 <Text>
                   <Text weight="semibold">Warning:</Text> Changes made will

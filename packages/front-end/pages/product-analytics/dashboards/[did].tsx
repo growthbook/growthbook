@@ -134,7 +134,7 @@ function SingleDashboardPage() {
     return (
       <PremiumCallout
         id="product-analytics-single-dashboard"
-        dismissable={false}
+        dismissible={false}
         commercialFeature="product-analytics-dashboards"
       >
         Use of Product Analytics Dashboards requires a paid plan

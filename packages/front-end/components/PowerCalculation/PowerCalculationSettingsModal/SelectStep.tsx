@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   isBinomialMetric,
   isFactMetric,
@@ -137,7 +137,7 @@ export const SelectStep = ({
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
-  const availableMetrics: ExperimentMetricInterface[] = useMemo(
+  const availableMetrics: ExperimentMetricDefinition[] = useMemo(
     () =>
       [...appMetrics, ...appFactMetrics].filter((m) => {
         // drop quantile metrics
@@ -273,7 +273,7 @@ export const SelectStep = ({
 
   const field = (
     key: keyof typeof config,
-    metric: ExperimentMetricInterface,
+    metric: ExperimentMetricDefinition,
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
