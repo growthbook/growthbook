@@ -153,7 +153,7 @@ export default function FeatureSettings() {
             <Box mb="6" width="100%">
               <Checkbox
                 id="toggle-requireProjectForFeatures"
-                label="Require project for all new features"
+                label="Require project for all new Feature Flags"
                 description="If enabled, users will be required to select a project when creating a Feature Flag."
                 value={!!form.watch("requireProjectForFeatures")}
                 setValue={(value) =>
@@ -225,7 +225,7 @@ export default function FeatureSettings() {
           <Box mb="5">
             <SelectField
               id="preferredEnvironment"
-              label="Preferred environment for feature pages"
+              label="Preferred environment for Feature Flag pages"
               labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
