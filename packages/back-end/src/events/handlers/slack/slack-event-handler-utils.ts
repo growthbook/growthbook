@@ -338,24 +338,33 @@ export const getSlackMessageForNotificationEvent = async (
 // its hero layout). Returns undefined for events that don't map cleanly — the
 // compact card then derives an event from the experiment's state.
 const compactEventForNotification = (
-  eventName: string,
+  event: NotificationEvent,
 ): CompactEvent | undefined => {
-  switch (eventName) {
+  switch (event.event) {
     case "experiment.started":
       return "started";
     case "experiment.info.significance":
       return "significance";
     case "experiment.decision.ship":
-    case "experiment.stopped.shipped":
       return "won";
     case "experiment.decision.rollback":
-    case "experiment.stopped.rolledback":
       return "lost";
     case "experiment.warning":
     case "experiment.health.guardrailFailed":
     case "experiment.health.noData":
     case "experiment.health.queryFailed":
       return "warning";
+    // A stop is emitted as shipped/rolledback, but the actual outcome is in
+    // `results` — a non-ship stop can still be inconclusive/dnf, which is a
+    // neutral "stopped", not a "rolled back / no lift" loss.
+    case "experiment.stopped.shipped":
+    case "experiment.stopped.rolledback": {
+      const results = (event.data?.object as { results?: string } | undefined)
+        ?.results;
+      if (results === "won") return "won";
+      if (results === "lost") return "lost";
+      return "stopped";
+    }
     default:
       return undefined;
   }
@@ -371,7 +380,7 @@ export const renderExperimentCardForEvent = async (
   format: "none" | "compact" | "detailed" = "compact",
 ): Promise<{ png: Buffer; altText: string } | null> => {
   if (format === "none") return null;
-  const compactEvent = compactEventForNotification(event.event);
+  const compactEvent = compactEventForNotification(event);
   if (!compactEvent) return null; // not a card-worthy event
 
   const object = event.data?.object as
