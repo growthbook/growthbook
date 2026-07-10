@@ -79,13 +79,7 @@ function UsageBadge({
         </button>
       }
       content={
-        <Box
-          style={{
-            width: "max-content",
-            maxWidth: "min(90vw, 760px)",
-            overflowX: "auto",
-          }}
-        >
+        <Box style={{ width: "min(88vw, 720px)", overflowX: "auto" }}>
           {content}
         </Box>
       }

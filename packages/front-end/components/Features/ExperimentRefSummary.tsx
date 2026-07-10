@@ -4,6 +4,8 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   includeExperimentInPayload,
   calculateNamespaceCoverage,
+  getConfigBackingKey,
+  getFeatureBaseConfigKey,
 } from "shared/util";
 import {
   getLatestPhaseVariations,
@@ -21,6 +23,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import ValueDisplay from "./ValueDisplay";
+import ConfigBackedSummary from "./ConfigBackedSummary";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
@@ -284,16 +287,39 @@ export default function ExperimentRefSummary({
                             Define missing values
                           </HelperText>
                         ) : (
-                          <>
-                            <ValueDisplay
-                              value={value}
-                              type={type}
-                              showFullscreenButton={true}
-                              sparse={rule.sparse}
-                              defaultValue={feature.defaultValue}
-                            />
-                            <ValidateValue value={value} feature={feature} />
-                          </>
+                          (() => {
+                            // Config-backed arms render "SERVE ConfigName with
+                            // overrides" like force rules — never the raw
+                            // `@config:` directive.
+                            const configKey =
+                              getConfigBackingKey(value) ??
+                              getFeatureBaseConfigKey(feature);
+                            if (configKey !== null) {
+                              return (
+                                <ConfigBackedSummary
+                                  value={value}
+                                  configKey={configKey}
+                                  feature={feature}
+                                  sparse={rule.sparse}
+                                />
+                              );
+                            }
+                            return (
+                              <>
+                                <ValueDisplay
+                                  value={value}
+                                  type={type}
+                                  showFullscreenButton={true}
+                                  sparse={rule.sparse}
+                                  defaultValue={feature.defaultValue}
+                                />
+                                <ValidateValue
+                                  value={value}
+                                  feature={feature}
+                                />
+                              </>
+                            );
+                          })()
                         )}
                       </TableCell>
                       {!isBandit && (

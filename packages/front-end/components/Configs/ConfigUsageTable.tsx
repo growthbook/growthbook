@@ -8,12 +8,20 @@ import {
 } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 
 // Shared row formats for config-key usage, rendered both in the per-key hover
-// popover and (later) in grouped tables below the config editor.
+// popover and in grouped tables below the config editor.
 
 const RULE_TYPE_LABELS: Record<string, string> = {
   force: "Force",
@@ -72,12 +80,13 @@ export function stateDots(impls: ConfigKeyImplementation[]): string[] {
 }
 
 // Collapse a rule's variation arms (each arm is its own implementation) into one
-// row per reference.
+// row per reference, unioning the keys each arm overrides — otherwise a rule
+// whose control arm overrides nothing would show no overrides.
 export function dedupeImplementations(
   impls: ConfigKeyImplementation[],
 ): ConfigKeyImplementation[] {
-  const seen = new Set<string>();
-  return impls.filter((i) => {
+  const bySignature = new Map<string, ConfigKeyImplementation>();
+  for (const i of impls) {
     const k = [
       i.featureId,
       i.location,
@@ -85,10 +94,14 @@ export function dedupeImplementations(
       i.experimentId ?? "",
       i.state,
     ].join("|");
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+    const existing = bySignature.get(k);
+    if (existing) {
+      existing.keys = [...new Set([...existing.keys, ...i.keys])];
+    } else {
+      bySignature.set(k, { ...i, keys: [...i.keys] });
+    }
+  }
+  return [...bySignature.values()];
 }
 
 function FlagRevisionBadge({
@@ -165,102 +178,139 @@ function ConfigSourceCell({
   );
 }
 
-const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "4px 20px 4px 0",
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: 0.3,
-  textTransform: "uppercase",
-  color: "var(--slate-11)",
-  whiteSpace: "nowrap",
-};
-const tdStyle: React.CSSProperties = {
-  padding: "6px 20px 6px 0",
-  borderTop: "1px solid var(--slate-a3)",
-  verticalAlign: "top",
-  whiteSpace: "nowrap",
-};
-
 function FeatureLink({ featureId }: { featureId: string }): React.ReactElement {
   return (
     <Link href={`/features/${featureId}`} className="hover-underline">
-      <OverflowText maxWidth={170}>{featureId}</OverflowText>
+      {featureId}
     </Link>
   );
 }
 
+// The config keys a row overrides — shown only in the flat "by reference" view,
+// where a single reference can touch several keys.
+function KeyCell({ keys }: { keys: string[] }): React.ReactElement {
+  if (!keys.length)
+    return (
+      <Text size="small" color="text-low">
+        —
+      </Text>
+    );
+  return (
+    <Text size="small">
+      <code>{keys.join(", ")}</code>
+    </Text>
+  );
+}
+
+const LOCATION_WIDTH = 120;
+const STATUS_WIDTH = 100;
+const CONFIG_SOURCE_WIDTH = 190;
+const FLAG_REVISION_WIDTH = 120;
+const KEY_WIDTH = 200;
+const FEATURE_WIDTH = 200;
+
 export function FeatureUsageTable({
   implementations,
+  showKeys = false,
 }: {
   implementations: ConfigKeyImplementation[];
+  showKeys?: boolean;
 }): React.ReactElement {
   return (
-    <table style={{ borderCollapse: "collapse", fontSize: 13 }}>
-      <thead>
-        <tr>
-          <th style={thStyle}>Feature</th>
-          <th style={thStyle}>Location</th>
-          <th style={thStyle}>Config source</th>
-          <th style={thStyle}>Flag revision</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="ghost" style={{ width: "max-content", maxWidth: "100%" }}>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Feature</TableColumnHeader>
+          <TableColumnHeader style={{ width: LOCATION_WIDTH }}>
+            Location
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: CONFIG_SOURCE_WIDTH }}>
+            Config source
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: FLAG_REVISION_WIDTH }}>
+            Flag revision
+          </TableColumnHeader>
+          {showKeys && (
+            <TableColumnHeader style={{ width: KEY_WIDTH }}>
+              Overrides
+            </TableColumnHeader>
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {implementations.map((impl, i) => (
-          <tr key={i}>
-            <td style={tdStyle}>
+          <TableRow key={i}>
+            <TableCell>
               <FeatureLink featureId={impl.featureId} />
-            </td>
-            <td style={tdStyle}>{locationLabel(impl)}</td>
-            <td style={tdStyle}>
+            </TableCell>
+            <TableCell>{locationLabel(impl)}</TableCell>
+            <TableCell>
               <ConfigSourceCell impl={impl} />
-            </td>
-            <td style={tdStyle}>
+            </TableCell>
+            <TableCell>
               <FlagRevisionBadge impl={impl} />
-            </td>
-          </tr>
+            </TableCell>
+            {showKeys && (
+              <TableCell>
+                <KeyCell keys={impl.keys} />
+              </TableCell>
+            )}
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
 export function ExperimentUsageTable({
   implementations,
+  showKeys = false,
 }: {
   implementations: ConfigKeyImplementation[];
+  showKeys?: boolean;
 }): React.ReactElement {
   return (
-    <table style={{ borderCollapse: "collapse", fontSize: 13 }}>
-      <thead>
-        <tr>
-          <th style={thStyle}>Experiment</th>
-          <th style={thStyle}>Status</th>
-          <th style={thStyle}>Feature</th>
-          <th style={thStyle}>Config source</th>
-          <th style={thStyle}>Flag revision</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table variant="ghost" style={{ width: "max-content", maxWidth: "100%" }}>
+      <TableHeader>
+        <TableRow>
+          <TableColumnHeader>Experiment</TableColumnHeader>
+          <TableColumnHeader style={{ width: STATUS_WIDTH }}>
+            Status
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: FEATURE_WIDTH }}>
+            Feature
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: CONFIG_SOURCE_WIDTH }}>
+            Config source
+          </TableColumnHeader>
+          <TableColumnHeader style={{ width: FLAG_REVISION_WIDTH }}>
+            Flag revision
+          </TableColumnHeader>
+          {showKeys && (
+            <TableColumnHeader style={{ width: KEY_WIDTH }}>
+              Overrides
+            </TableColumnHeader>
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {implementations.map((impl, i) => {
           const status = impl.experimentStatus;
           return (
-            <tr key={i}>
-              <td style={tdStyle}>
+            <TableRow key={i}>
+              <TableCell>
                 {impl.experimentId ? (
                   <Link
                     href={`/experiment/${impl.experimentId}`}
                     className="hover-underline"
                   >
-                    <OverflowText maxWidth={160}>
-                      {impl.experimentName ?? impl.experimentId}
-                    </OverflowText>
+                    {impl.experimentName ?? impl.experimentId}
                   </Link>
                 ) : (
                   (impl.experimentName ?? "—")
                 )}
-              </td>
-              <td style={tdStyle}>
+              </TableCell>
+              <TableCell>
                 {status ? (
                   <Badge
                     color={EXPERIMENT_STATUS_COLORS[status] ?? "gray"}
@@ -271,20 +321,25 @@ export function ExperimentUsageTable({
                 ) : (
                   "—"
                 )}
-              </td>
-              <td style={tdStyle}>
+              </TableCell>
+              <TableCell>
                 <FeatureLink featureId={impl.featureId} />
-              </td>
-              <td style={tdStyle}>
+              </TableCell>
+              <TableCell>
                 <ConfigSourceCell impl={impl} />
-              </td>
-              <td style={tdStyle}>
+              </TableCell>
+              <TableCell>
                 <FlagRevisionBadge impl={impl} />
-              </td>
-            </tr>
+              </TableCell>
+              {showKeys && (
+                <TableCell>
+                  <KeyCell keys={impl.keys} />
+                </TableCell>
+              )}
+            </TableRow>
           );
         })}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

@@ -107,6 +107,7 @@ import FieldDefForm from "@/components/Configs/FieldDefForm";
 import ConfigFieldRow from "@/components/Configs/ConfigFieldRow";
 import ConfigInvariantsEditor from "@/components/Configs/ConfigInvariantsEditor";
 import ConfigCustomHooksSection from "@/components/Configs/ConfigCustomHooksSection";
+import ConfigUsageSection from "@/components/Configs/ConfigUsageSection";
 import {
   FIELD_GRID_TEMPLATE,
   ResolvedField,
@@ -1917,6 +1918,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                       />
                     )}
                   </Tabs>
+
+                  <ConfigUsageSection
+                    implementations={keyUsage?.implementations ?? []}
+                    fieldKeys={resolved.fields.map((f) => f.key)}
+                  />
                 </Box>
               </>
             )}
