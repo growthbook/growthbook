@@ -197,24 +197,32 @@ export async function unfurlSlackLinks({
 }
 
 /**
- * Upload a PNG to Slack as a private, Slack-hosted file (requires the
- * `files:write` scope) and return its file id, or null on failure. The file is
- * NOT shared to a channel here — reference the returned id from an `image`
- * block's `slack_file: { id }` field in a chat.postMessage call to embed it.
+ * Upload a PNG to Slack as a private, Slack-hosted file (requires `files:write`)
+ * and share it into a channel — Slack posts it as a native (private) image
+ * message, optionally as a threaded reply with a leading comment. Returns the
+ * file id, or null on failure.
  *
- * Uses the current external-upload flow (getUploadURLExternal → PUT bytes →
- * completeUploadExternal); the older files.upload is deprecated.
+ * We share via completeUploadExternal's `channel_id` rather than referencing
+ * the file from an `image` block's `slack_file` — the latter is rejected with
+ * `invalid_blocks` (a known Slack limitation), and we never host at a public
+ * URL. Uses the current external-upload flow (the older files.upload is gone).
  */
 export async function uploadSlackImageFile({
   token,
   png,
   filename,
   title,
+  channelId,
+  threadTs,
+  initialComment,
 }: {
   token: string;
   png: Buffer;
   filename: string;
   title?: string;
+  channelId: string;
+  threadTs?: string;
+  initialComment?: string;
 }): Promise<string | null> {
   const getRes = await slackApiGet<
     SlackApiResponse & { upload_url?: string; file_id?: string }
@@ -242,7 +250,12 @@ export async function uploadSlackImageFile({
   const completeRes = await slackApiCall<SlackApiResponse>(
     token,
     "files.completeUploadExternal",
-    { files: [{ id: getRes.file_id, title: title || filename }] },
+    {
+      files: [{ id: getRes.file_id, title: title || filename }],
+      channel_id: channelId,
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+      ...(initialComment ? { initial_comment: initialComment } : {}),
+    },
   );
   return completeRes?.ok ? getRes.file_id : null;
 }

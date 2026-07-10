@@ -9,15 +9,15 @@ import {
   ScorecardData,
 } from "back-end/src/services/slack/chartImage";
 import { buildWeeklyScorecardData } from "back-end/src/services/slack/scorecardData";
-import { postSlackMessage } from "back-end/src/services/slack/slackWebApi";
-import { uploadCardImageBlock } from "back-end/src/services/slack/cardDelivery";
+import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 
 const WEEKLY_DIGEST_JOB = "eventWebhookWeeklyDigest";
 
-// Deliver the scorecard as a private, Slack-hosted image (files.upload) via
-// chat.postMessage. The scorecard is image-only, so it requires a bot token +
-// channel + files:write; we never host it at a public URL.
+// Deliver the scorecard as a private, Slack-hosted image shared into the
+// channel (files.upload + completeUploadExternal with channel_id). The
+// scorecard is image-only, so it requires a bot token + channel + files:write;
+// we never host it at a public URL.
 async function deliverScorecard(
   webhook: EventWebHookInterface,
   data: ScorecardData,
@@ -39,20 +39,19 @@ async function deliverScorecard(
   }
 
   const png = await renderWeeklyScorecard(data);
-  const block = await uploadCardImageBlock({ token: botToken, png, altText });
-  if (!block) {
-    logger.warn(
-      `Weekly scorecard: files.upload failed for webhook ${webhook.id} (files:write granted?); skipping`,
-    );
-    return;
-  }
-
-  await postSlackMessage({
+  const fileId = await uploadSlackImageFile({
     token: botToken,
-    channel: channelId,
-    text,
-    blocks: [block],
+    png,
+    filename: "scorecard.png",
+    title: altText,
+    channelId,
+    initialComment: text,
   });
+  if (!fileId) {
+    logger.warn(
+      `Weekly scorecard: files.upload failed for webhook ${webhook.id} (files:write granted? bot in channel?); skipping`,
+    );
+  }
 }
 
 export default function addWeeklyScorecardJob(agenda: Agenda) {

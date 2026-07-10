@@ -11,16 +11,13 @@
 // eslint-disable-next-line no-restricted-imports
 import "../init/aliases";
 import { init } from "back-end/src/init";
-import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
-import { getSlackBotAccessTokenForWebhook } from "back-end/src/models/EventWebhookModel";
 import {
-  renderExperimentCard,
-} from "back-end/src/services/slack/cards";
+  EventWebHookModel,
+  getSlackBotAccessTokenForWebhook,
+} from "back-end/src/models/EventWebhookModel";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { sampleCard } from "back-end/src/services/slack/chartImage";
-import {
-  postSlackMessage,
-  uploadSlackImageFile,
-} from "back-end/src/services/slack/slackWebApi";
+import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -47,40 +44,32 @@ async function main() {
   });
   if (!token) throw new Error("No bot token stored for this webhook");
 
-  // eslint-disable-next-line no-console
   console.log("Rendering sample compact card…");
   const png = await renderExperimentCard(sampleCard("winner"), "compact");
 
-  // eslint-disable-next-line no-console
-  console.log(`Uploading PNG (${png.length} bytes) via files.upload…`);
+  console.log(
+    `Uploading PNG (${png.length} bytes) and sharing to ${channel} via files.upload…`,
+  );
   const fileId = await uploadSlackImageFile({
     token,
     png,
     filename: "test-card.png",
     title: "Test card",
+    channelId: channel,
+    initialComment: "files.upload test card",
   });
-  // eslint-disable-next-line no-console
-  console.log("file_id:", fileId);
-  if (!fileId) throw new Error("files.upload failed (see warnings above)");
 
-  // eslint-disable-next-line no-console
-  console.log(`Posting to ${channel} with a slack_file image block…`);
-  const ts = await postSlackMessage({
-    token,
-    channel,
-    text: "files.upload test card",
-    blocks: [
-      { type: "image", slack_file: { id: fileId }, alt_text: "Test card" },
-    ],
-  });
-  // eslint-disable-next-line no-console
-  console.log(ts ? `Posted (ts=${ts}). Check Slack.` : "chat.postMessage failed");
+  console.log(
+    fileId
+      ? `Uploaded + shared (file_id=${fileId}). Check Slack.`
+      : "files.upload failed (see warnings above)",
+  );
+  if (!fileId) throw new Error("files.upload failed");
 }
 
 main().then(
   () => process.exit(0),
   (e) => {
-    // eslint-disable-next-line no-console
     console.error(e);
     process.exit(1);
   },

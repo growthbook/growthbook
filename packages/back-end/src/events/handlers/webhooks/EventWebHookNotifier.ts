@@ -332,41 +332,37 @@ export class EventWebHookNotifier implements Notifier {
     );
     if (!message) return true; // nothing to send; still skip the generic path
 
-    const blocks: Record<string, unknown>[] = [
-      ...(message.blocks as unknown as Record<string, unknown>[]),
-    ];
-
-    // Embed the results card (format per the webhook's Slack options; default
-    // compact): prefer a private uploaded file, fall back to a hosted URL.
-    const card = await renderExperimentCardForEvent(
-      event.data,
-      organizationId,
-      eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
-    );
-    if (card) {
-      const fileId = await uploadSlackImageFile({
-        token: botToken,
-        png: card.png,
-        filename: "experiment-card.png",
-        title: card.altText,
-      });
-      // Private upload only — if it fails we send text without a card rather
-      // than fall back to a public image URL.
-      if (fileId) {
-        blocks.push({
-          type: "image",
-          slack_file: { id: fileId },
-          alt_text: card.altText,
-        });
-      }
-    }
-
+    // Post the rich text/buttons message first (no image — Slack rejects
+    // slack_file image blocks). Then attach the results card as a private
+    // threaded file under it. Delivery success is judged on the text message.
     const result = await postSlackMessageResult({
       token: botToken,
       channel: channelId,
       text: message.text,
-      blocks,
+      blocks: message.blocks as unknown as Record<string, unknown>[],
     });
+
+    if (result.ok && result.ts) {
+      const card = await renderExperimentCardForEvent(
+        event.data,
+        organizationId,
+        eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
+      );
+      if (card) {
+        // Best-effort — a card upload failure never fails the notification.
+        await uploadSlackImageFile({
+          token: botToken,
+          png: card.png,
+          filename: "experiment-card.png",
+          title: card.altText,
+          channelId,
+          threadTs: result.ts,
+          initialComment: card.altText,
+        }).catch((e) =>
+          logger.error(e, "Slack notification: card upload failed"),
+        );
+      }
+    }
 
     const method = eventWebHook.method || "POST";
     const payload = message as unknown as Record<string, unknown>;

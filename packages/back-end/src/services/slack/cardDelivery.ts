@@ -4,39 +4,18 @@ import {
 } from "back-end/src/services/slack/slackWebApi";
 
 // Experiment-card image delivery. We upload the PNG to Slack as a private,
-// Slack-hosted file (files.upload, needs files:write) and reference it from an
-// image block via `slack_file`. We deliberately never host the image at a
-// public URL — experiment results must not be exposed on a public bucket.
+// Slack-hosted file (files.upload, needs files:write) and share it into the
+// channel via completeUploadExternal. We deliberately never host the image at
+// a public URL — experiment results must not be exposed on a public bucket.
+//
+// Note: we share the file to the channel (optionally threaded) rather than
+// embedding a `slack_file` image block — Slack rejects those with
+// `invalid_blocks`.
 
 /**
- * Upload a rendered card PNG to Slack and return an `image` block referencing
- * the private file, or null if the upload failed (e.g. missing files:write).
- */
-export async function uploadCardImageBlock({
-  token,
-  png,
-  altText,
-  filename = "experiment-card.png",
-}: {
-  token: string;
-  png: Buffer;
-  altText: string;
-  filename?: string;
-}): Promise<Record<string, unknown> | null> {
-  const fileId = await uploadSlackImageFile({
-    token,
-    png,
-    filename,
-    title: altText,
-  });
-  if (!fileId) return null;
-  return { type: "image", slack_file: { id: fileId }, alt_text: altText };
-}
-
-/**
- * Upload a card PNG (privately) and post it to a channel/thread as an image
- * block. If the upload fails, posts `fallbackText` instead (never a public
- * URL). Returns true if an image block was posted.
+ * Upload a rendered card PNG and post it privately to a channel (optionally
+ * threaded, with a leading comment). If the upload fails, posts `fallbackText`
+ * instead (never a public URL). Returns true if the image was posted.
  */
 export async function postExperimentCardImage({
   token,
@@ -53,20 +32,20 @@ export async function postExperimentCardImage({
   fallbackText?: string;
   threadTs?: string;
 }): Promise<boolean> {
-  const block = await uploadCardImageBlock({ token, png, altText });
-  if (!block) {
+  const fileId = await uploadSlackImageFile({
+    token,
+    png,
+    filename: "experiment-card.png",
+    title: altText,
+    channelId: channel,
+    threadTs,
+    initialComment: altText,
+  });
+  if (!fileId) {
     if (fallbackText) {
       await postSlackMessage({ token, channel, text: fallbackText, threadTs });
     }
     return false;
   }
-
-  const ts = await postSlackMessage({
-    token,
-    channel,
-    text: altText,
-    blocks: [block],
-    threadTs,
-  });
-  return ts !== null;
+  return true;
 }

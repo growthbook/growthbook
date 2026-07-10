@@ -1,12 +1,12 @@
 import { logger } from "back-end/src/util/logger";
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
-import { renderExperimentCard } from "back-end/src/services/slack/cards";
-import { uploadCardImageBlock } from "back-end/src/services/slack/cardDelivery";
 import { unfurlSlackLinks } from "back-end/src/services/slack/slackWebApi";
 
-// Unfurl GrowthBook experiment links shared in Slack into a rich results card,
-// reusing the same render + upload pipeline as the assistant's attachments.
+// Unfurl GrowthBook experiment links shared in Slack into a concise text
+// summary. (Unfurls can't carry a private uploaded image — a slack_file block
+// is rejected — and we never host experiment results at a public URL, so the
+// unfurl is text-only.)
 
 const EXPERIMENT_URL_RE = /\/experiment\/([a-zA-Z0-9_-]+)/;
 
@@ -69,21 +69,30 @@ export async function handleSlackLinkShared(
         );
         continue;
       }
-      const png = await renderExperimentCard(card);
-      // Private, Slack-hosted image (files.upload) — never a public URL.
-      const block = await uploadCardImageBlock({
-        token: target.botToken,
-        png,
-        altText: `${card.name} — experiment results`,
-      });
-      if (!block) {
-        logger.warn(
-          { experimentId },
-          "Slack unfurl: files.upload failed (files:write granted?); skipping image",
-        );
-        continue;
-      }
-      unfurls[url] = { blocks: [block] };
+      const row = card.rows[0];
+      const summary = [
+        card.goal ? `*Goal:* ${card.goal}` : null,
+        row?.chg
+          ? `${row.dir === "up" ? "▲" : "▼"} ${row.chg}${
+              row.ctw ? ` · ${row.ctw} chance to win` : ""
+            }`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("  ·  ");
+      unfurls[url] = {
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*${card.name}*  \`${card.key}\`${
+                summary ? `\n${summary}` : ""
+              }`,
+            },
+          },
+        ],
+      };
     } catch (e) {
       logger.error(e, `Slack unfurl failed for ${experimentId}`);
     }
