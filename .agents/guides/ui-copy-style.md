@@ -1,6 +1,8 @@
-# UI Copy & Casing
+# Copy & Casing
 
-How to capitalize user-facing strings in the front-end. Read this before writing or editing any label, heading, button, placeholder, or body copy.
+How to capitalize and phrase user-facing strings across GrowthBook. Read this before writing or editing any user-facing copy — front-end (labels, headings, buttons, placeholders, body copy) or back-end (API error messages, validation messages, and any string returned to a user or an API caller).
+
+The rules are the same everywhere; only the surfaces differ. The front-end has UI elements (headings vs. everything else); the back-end has no headings, so its messages follow the sentence-case rule below. The named-resource glossary applies identically in both.
 
 ## The two-tier casing rule
 
@@ -10,6 +12,17 @@ Two cases, chosen by element type.
 - **Sentence case** for everything else. Field labels, checkbox and switch labels, select labels, buttons, placeholders, tooltips, helper text, and body copy. Capitalize only the first word. Example "Require unique experiment keys", "Add custom", "New template".
 
 Sentence case is the default for actions and labels. This matches modern product convention (Google Material, Shopify Polaris, Atlassian). Buttons are sentence case, not Title Case. "Save", "Regenerate all", "Import from another service".
+
+## Back-end and API messages
+
+Error messages, validation messages, and any other string the back-end returns to a user or API caller are body copy: use **sentence case**, with named resources kept Title Case per the glossary below. There are no headings in this context, so the Title-Case-for-headings tier does not apply.
+
+- Right: `throw new Error("Feature key must be unique within the project");`
+- Right: `context.permissions.throwPermissionError("You do not have permission to modify this Saved Group");`
+- Wrong: `throw new Error("Feature Key Must Be Unique");` (not a heading — use sentence case)
+- Wrong: `throw new Error("could not find data source");` (Data Source is a named resource → Title Case, and start with a capital)
+
+Write full, punctuated sentences where the message is a sentence. Keep interpolated identifiers (ids, keys, field names) verbatim — they are data, not prose.
 
 ## Named resources are always Title Case
 
@@ -49,4 +62,7 @@ Button:       "New Template"                         wrong, buttons are sentence
 Button:       "New template"                         right
 Body:         "These are organizational defaults"    sentence case
 Body:         "...move between growthbook accounts"  wrong, it is GrowthBook
+API error:    "Metric not found"                     right, sentence case
+API error:    "This Saved Group is in use"           right, named resource stays Title Case
+API error:    "Invalid Data source ID"               wrong, it is Data Source
 ```
