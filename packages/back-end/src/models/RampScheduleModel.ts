@@ -18,6 +18,7 @@ import {
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
+  runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
@@ -440,17 +441,25 @@ export class RampScheduleModel extends BaseClass {
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
-    const schedule = await this.getById(req.params.id);
-    if (!schedule) {
-      throw new Error("Ramp schedule not found");
-    }
-
     if (!this.context.hasPremiumFeature("ramp-schedules")) {
       this.context.throwPlanDoesNotAllowError(
         "Ramp schedules require an Enterprise plan.",
       );
     }
 
+    // Locked so the read-modify-write (steps/eventHistory/nextProcessAt)
+    // can't clobber a concurrent advance.
+    return runLockedRampScheduleAction(
+      this.context,
+      req.params.id,
+      (schedule) => this.applyApiUpdateLocked(req, schedule),
+    );
+  }
+
+  private async applyApiUpdateLocked(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+    schedule: RampScheduleInterface,
+  ) {
     if (!["pending", "ready", "paused"].includes(schedule.status)) {
       throw new Error(
         `Cannot update ramp schedule in status "${schedule.status}". Only pending, ready, or paused schedules can be modified.`,
@@ -756,12 +765,14 @@ export class RampScheduleModel extends BaseClass {
   }
 
   // Refresh the lock's liveness timestamp so a long multi-phase advance isn't
-  // stale-reclaimed mid-flight. No-op if the token no longer holds the lock.
+  // stale-reclaimed mid-flight. Returns false when the token no longer holds
+  // the lock (stale-reclaimed) so the holder can abort instead of writing
+  // concurrently with the reclaimer.
   public async touchAdvanceLockHeartbeat(
     id: string,
     token: string,
-  ): Promise<void> {
-    await this._dangerousGetCollection().updateOne(
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
       {
         organization: this.context.org.id,
         id,
@@ -769,6 +780,7 @@ export class RampScheduleModel extends BaseClass {
       },
       { $set: { advanceLockAt: new Date() } },
     );
+    return result.matchedCount > 0;
   }
 
   /**

@@ -2,7 +2,6 @@ import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
-  advanceUntilBlocked,
   appendRampEvent,
   applyRampStartActions,
   completeRollout,
@@ -16,10 +15,7 @@ import {
   applyRampEvaluationDecision,
   evaluateCurrentStep,
 } from "back-end/src/services/rampScheduleEvaluator";
-import {
-  ConcurrentIncrementalRefreshError,
-  RampAdvanceLockBusyError,
-} from "back-end/src/util/errors";
+import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 
@@ -29,7 +25,6 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
  * in the UI.
  */
 function isTransientRampError(e: unknown): boolean {
-  if (e instanceof ConcurrentIncrementalRefreshError) return true;
   if (e instanceof RampAdvanceLockBusyError) return true;
   // Mongo network / topology errors surface as generic Errors whose name or
   // message contains well-known driver strings.
@@ -179,6 +174,9 @@ async function runRampScheduleTick(
           ? await getFeature(context, current.entityId)
           : undefined;
         if ((feature?.version ?? -1) >= activatingVersion) {
+          // Activation runs start actions + a catch-up publish — refresh the
+          // lease before this potentially slow multi-publish phase.
+          await heartbeat();
           await onActivatingRevisionPublished(context, current);
           current =
             (await context.models.rampSchedules.getById(current.id)) ?? current;
@@ -229,21 +227,18 @@ async function runRampScheduleTick(
       return;
     }
 
-    if (current.status === "running") {
-      current = await ensureSafeRolloutForMonitoredRamp(context, current);
+    if (current.status !== "running") return;
 
-      const decision = await evaluateCurrentStep(context, current, now);
-      // The evaluation above can involve slow snapshot reads; refresh the
-      // lock's liveness before the (potentially slow) publish phase.
-      await heartbeat();
-      await applyRampEvaluationDecision(context, current, decision);
-      return;
-    }
+    current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
-    await advanceUntilBlocked(context, current, now);
+    const decision = await evaluateCurrentStep(context, current, now);
+    // The evaluation above can involve slow snapshot reads; refresh the
+    // lock's liveness before the (potentially slow) publish phase.
+    await heartbeat();
+    await applyRampEvaluationDecision(context, current, decision, now);
   } catch (e) {
-    // Transient errors (network blips, cross-domain lock contention) — log
-    // and let the next scheduler tick retry.
+    // Transient errors (network blips, lock contention) — log and let the
+    // next scheduler tick retry.
     if (isTransientRampError(e)) {
       logger.info(
         { rampScheduleId },

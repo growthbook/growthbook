@@ -16,8 +16,10 @@ import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-ro
 import {
   appendRampEvent,
   computeNextProcessAt,
+  runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
+import { NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 // region GET /safe-rollout/:id/snapshot
@@ -249,37 +251,49 @@ export async function putAutoSnapshots(
   });
 
   if (safeRollout.rampScheduleId) {
-    const schedule = await context.models.rampSchedules.getById(
-      safeRollout.rampScheduleId,
-    );
-    if (schedule?.monitoringConfig) {
-      const nextSnapshotAt = enabled
-        ? (safeRollout.nextSnapshotAttempt ?? new Date())
-        : null;
-      const updated = await context.models.rampSchedules.updateById(
-        schedule.id,
-        {
-          monitoringConfig: {
-            ...schedule.monitoringConfig,
-            monitoringMode: enabled ? "auto" : "manual",
-            autoUpdate: enabled,
-          },
-          nextSnapshotAt,
-          nextProcessAt: computeNextProcessAt({
-            status: schedule.status,
-            nextStepAt: schedule.nextStepAt,
-            nextSnapshotAt,
-            cutoffDate: schedule.cutoffDate,
-            startDate: schedule.startDate,
-          }),
-          eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
-            stepIndex: schedule.currentStepIndex,
-            status: schedule.status,
-            reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
-          }),
+    // Locked read-modify-write against the ramp engine — an unlocked write
+    // here can clobber a concurrent advance's eventHistory/nextProcessAt.
+    try {
+      await runLockedRampScheduleAction(
+        context,
+        safeRollout.rampScheduleId,
+        async (fresh) => {
+          if (!fresh.monitoringConfig) return;
+          const nextSnapshotAt = enabled
+            ? (safeRollout.nextSnapshotAttempt ?? new Date())
+            : null;
+          const updated = await context.models.rampSchedules.updateById(
+            fresh.id,
+            {
+              monitoringConfig: {
+                ...fresh.monitoringConfig,
+                monitoringMode: enabled ? "auto" : "manual",
+                autoUpdate: enabled,
+              },
+              nextSnapshotAt,
+              nextProcessAt: computeNextProcessAt({
+                status: fresh.status,
+                nextStepAt: fresh.nextStepAt,
+                nextSnapshotAt,
+                cutoffDate: fresh.cutoffDate,
+                startDate: fresh.startDate,
+              }),
+              eventHistory: appendRampEvent(fresh, "auto-update-toggled", {
+                stepIndex: fresh.currentStepIndex,
+                status: fresh.status,
+                reason: enabled
+                  ? "Auto-update enabled"
+                  : "Auto-update disabled",
+              }),
+            },
+          );
+          await syncLinkedSafeRolloutForRampState(context, updated);
         },
       );
-      await syncLinkedSafeRolloutForRampState(context, updated);
+    } catch (e) {
+      // The SafeRollout's own toggle already applied; a deleted ramp schedule
+      // just means there is nothing to mirror.
+      if (!(e instanceof NotFoundError)) throw e;
     }
   }
 

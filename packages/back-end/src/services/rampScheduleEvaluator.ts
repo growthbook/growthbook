@@ -19,9 +19,12 @@ import {
   computeNextProcessAt,
   pauseSchedule,
   rollbackSchedule,
-  withRampScheduleAdvanceLock,
+  withRampScheduleAdvanceLockRetry,
 } from "back-end/src/services/rampSchedule";
-import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
+import {
+  NotFoundError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 export type EvalDecision =
@@ -495,14 +498,15 @@ export async function applyRampEvaluationDecision(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   decision: EvalDecision,
-): Promise<{ handled: boolean; schedule: RampScheduleInterface }> {
+  // The clock the decision was evaluated against — reused for the fold so the
+  // advance is internally consistent with the caller's cutoff/dueness checks.
+  now: Date = new Date(),
+): Promise<RampScheduleInterface> {
   if (decision.action === "rollback") {
-    const updated = await rollbackSchedule(ctx, schedule, decision.reason);
-    return { handled: true, schedule: updated };
+    return rollbackSchedule(ctx, schedule, decision.reason);
   }
   if (decision.action === "pause") {
-    const updated = await pauseSchedule(ctx, schedule, decision.reason);
-    return { handled: true, schedule: updated };
+    return pauseSchedule(ctx, schedule, decision.reason);
   }
   if (decision.action === "hold") {
     const nextProcessAt = computeNextProcessAt({
@@ -511,10 +515,9 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
-    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    return ctx.models.rampSchedules.updateById(schedule.id, {
       nextProcessAt,
     });
-    return { handled: true, schedule: updated };
   }
 
   // The evaluator has verified the current step's holds/dueness with real
@@ -523,15 +526,14 @@ export async function applyRampEvaluationDecision(
   // catch-up publish from the caller's advanceUntilBlocked). An "advance"
   // decision always moves at least one step — for a past-end schedule the
   // walk returns startIndex, but +1 routes advanceStep into its completion
-  // branch (the pre-collapse behavior).
+  // branch, and for a pre-start (-1) schedule the unconditional first hop
+  // doubles as the unstick mechanism for broken nextStepAt states (both match
+  // the pre-collapse behavior).
   const target = Math.max(
-    computeAutoAdvanceTarget(schedule, new Date(), {
-      currentStepCleared: true,
-    }),
+    computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
     schedule.currentStepIndex + 1,
   );
-  const updated = await advanceStep(ctx, schedule, target);
-  return { handled: true, schedule: updated };
+  return advanceStep(ctx, schedule, target);
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
@@ -542,24 +544,35 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
   if (!safeRollout.rampScheduleId) return;
   const rampScheduleId = safeRollout.rampScheduleId;
 
+  // Cheap pre-lock screen: many snapshot completions land after the ramp is no
+  // longer running/monitored (paused mid-query, manual refreshes on stopped
+  // ramps) — don't pay lock writes for those. Re-screened inside the lock.
+  const screened = await ctx.models.rampSchedules.getById(rampScheduleId);
+  if (!screened || screened.status !== "running") return;
+  if (!screened.steps[screened.currentStepIndex]?.monitored) return;
+
   try {
     // Serialize against the scheduler tick — both run this same
     // evaluate-and-advance pipeline and would otherwise double-publish.
-    await withRampScheduleAdvanceLock(ctx, rampScheduleId, async () => {
+    // Retry rather than skip: a busy holder may be a user action (which
+    // evaluates nothing) or a tick that read PRE-snapshot data — dropping the
+    // evaluation would discard fresh analysis, including rollback decisions,
+    // until the next scheduled evaluation.
+    await withRampScheduleAdvanceLockRetry(ctx, rampScheduleId, async () => {
       const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
       if (!schedule || schedule.status !== "running") return;
       const step = schedule.steps[schedule.currentStepIndex];
       if (!step?.monitored) return;
 
       const decision = await evaluateCurrentStep(ctx, schedule, now);
-      await applyRampEvaluationDecision(ctx, schedule, decision);
+      await applyRampEvaluationDecision(ctx, schedule, decision, now);
     });
   } catch (e) {
+    if (e instanceof NotFoundError) return;
     if (!(e instanceof RampAdvanceLockBusyError)) throw e;
-    // The tick is already evaluating this schedule with the same data.
     logger.info(
       { rampScheduleId },
-      "Skipping post-snapshot ramp evaluation — advance already in progress",
+      "Skipping post-snapshot ramp evaluation — advance lock still held after retries",
     );
   }
 }

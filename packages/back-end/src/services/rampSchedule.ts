@@ -44,33 +44,41 @@ import {
 
 const LOCKDOWN_ACTIVE_STATUSES = ["running"] as const;
 
-// Serialize schedule mutation across every entry point (scheduler tick,
-// snapshot hook, HTTP/API actions). Throws RampAdvanceLockBusyError when held.
-// Non-reentrant: never call from code already inside the lock. Callers must
-// re-read the schedule *inside* `fn` — acting on a pre-lock snapshot would
-// replay steps another advance already applied.
-export async function withRampScheduleAdvanceLock<T>(
+// A failed acquire means either contention or a deleted document — check so
+// callers don't burn retries and report "in progress" for a missing doc.
+async function assertScheduleExistsAfterFailedAcquire(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
-  // `heartbeat` refreshes the lock's liveness timestamp; long multi-phase
-  // holders (the scheduler tick) should call it between phases so a slow
-  // phase isn't stale-reclaimed mid-flight.
+): Promise<void> {
+  const exists = await ctx.models.rampSchedules.getById(scheduleId);
+  if (!exists) {
+    throw new NotFoundError("Ramp schedule no longer exists");
+  }
+}
+
+// Runs `fn` with the already-acquired lock, releasing on the way out. The
+// heartbeat passed to `fn` refreshes the lock's liveness timestamp between
+// slow phases; it throws RampAdvanceLockBusyError if the lease was stale-
+// reclaimed, so a robbed holder aborts instead of writing concurrently.
+async function runWithAcquiredAdvanceLock<T>(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  token: string,
   fn: (heartbeat: () => Promise<void>) => Promise<T>,
 ): Promise<T> {
-  const token = uniqid("ral_");
-  const acquired = await ctx.models.rampSchedules.acquireAdvanceLock(
-    scheduleId,
-    token,
-  );
-  if (!acquired) {
-    throw new RampAdvanceLockBusyError(
-      `Ramp schedule ${scheduleId} advance already in progress`,
-    );
-  }
   try {
-    return await fn(() =>
-      ctx.models.rampSchedules.touchAdvanceLockHeartbeat(scheduleId, token),
-    );
+    return await fn(async () => {
+      const stillHeld =
+        await ctx.models.rampSchedules.touchAdvanceLockHeartbeat(
+          scheduleId,
+          token,
+        );
+      if (!stillHeld) {
+        throw new RampAdvanceLockBusyError(
+          `Ramp schedule ${scheduleId} advance lock was reclaimed mid-flight`,
+        );
+      }
+    });
   } finally {
     // Never let a release failure mask the error `fn` threw; a leaked lock
     // self-heals via the stale threshold.
@@ -85,43 +93,82 @@ export async function withRampScheduleAdvanceLock<T>(
   }
 }
 
+// Serialize schedule mutation across every entry point (scheduler tick,
+// snapshot hook, HTTP/API actions). Throws RampAdvanceLockBusyError when held.
+// Non-reentrant: never call from code already inside the lock. Callers must
+// re-read the schedule *inside* `fn` — acting on a pre-lock snapshot would
+// replay steps another advance already applied.
+export async function withRampScheduleAdvanceLock<T>(
+  ctx: ReqContext | ApiReqContext,
+  scheduleId: string,
+  fn: (heartbeat: () => Promise<void>) => Promise<T>,
+): Promise<T> {
+  const token = uniqid("ral_");
+  const acquired = await ctx.models.rampSchedules.acquireAdvanceLock(
+    scheduleId,
+    token,
+  );
+  if (!acquired) {
+    await assertScheduleExistsAfterFailedAcquire(ctx, scheduleId);
+    throw new RampAdvanceLockBusyError(
+      `Ramp schedule ${scheduleId} advance already in progress`,
+    );
+  }
+  return runWithAcquiredAdvanceLock(ctx, scheduleId, token, fn);
+}
+
 // For user-initiated actions (resume, manual advance, jump) whose intent the
-// scheduler cannot replay: contention windows are seconds long, so retry a few
-// times before surfacing the busy error to the user.
+// scheduler cannot replay: contention windows are seconds long, so retry the
+// ACQUISITION a few times before surfacing the busy error. Only the acquire is
+// retried — `fn` runs exactly once, so side effects (revision publishes) can
+// never be re-executed by a busy error escaping from inside `fn`.
 export async function withRampScheduleAdvanceLockRetry<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
-  fn: () => Promise<T>,
+  fn: (heartbeat: () => Promise<void>) => Promise<T>,
   attempts = 4,
 ): Promise<T> {
+  const token = uniqid("ral_");
   for (let attempt = 1; ; attempt++) {
-    try {
-      return await withRampScheduleAdvanceLock(ctx, scheduleId, fn);
-    } catch (e) {
-      if (!(e instanceof RampAdvanceLockBusyError) || attempt >= attempts) {
-        throw e;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    const acquired = await ctx.models.rampSchedules.acquireAdvanceLock(
+      scheduleId,
+      token,
+    );
+    if (acquired) break;
+    // Fail fast on a deleted doc rather than sleeping through the ladder.
+    await assertScheduleExistsAfterFailedAcquire(ctx, scheduleId);
+    if (attempt >= attempts) {
+      throw new RampAdvanceLockBusyError(
+        `Ramp schedule ${scheduleId} advance already in progress`,
+      );
     }
+    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
   }
+  return runWithAcquiredAdvanceLock(ctx, scheduleId, token, fn);
 }
 
-// Boundary wrapper for controller/API schedule actions: lock (with retry), a
-// fresh in-lock read, then the action. `fn` must re-validate any status
-// preconditions screened on the caller's pre-lock read — the schedule may have
-// changed while waiting for the lock (e.g. a tick completed it).
+// Boundary wrapper for controller/API schedule actions. `fn` must re-validate
+// any status preconditions screened on the caller's pre-lock read — the
+// schedule may have changed while waiting for the lock.
 export async function runLockedRampScheduleAction<T>(
   ctx: ReqContext | ApiReqContext,
   scheduleId: string,
-  fn: (fresh: RampScheduleInterface) => Promise<T>,
+  fn: (
+    fresh: RampScheduleInterface,
+    heartbeat: () => Promise<void>,
+  ) => Promise<T>,
 ): Promise<T> {
-  return withRampScheduleAdvanceLockRetry(ctx, scheduleId, async () => {
-    const fresh = await ctx.models.rampSchedules.getById(scheduleId);
-    if (!fresh) {
-      throw new NotFoundError("Ramp schedule no longer exists");
-    }
-    return fn(fresh);
-  });
+  return withRampScheduleAdvanceLockRetry(
+    ctx,
+    scheduleId,
+    async (heartbeat) => {
+      const fresh = await ctx.models.rampSchedules.getById(scheduleId);
+      if (!fresh) {
+        throw new NotFoundError("Ramp schedule no longer exists");
+      }
+      return fn(fresh, heartbeat);
+    },
+  );
 }
 
 const MAX_EVENT_HISTORY = 500;
@@ -1060,9 +1107,16 @@ export async function advanceStep(
 
   if (!step) {
     if (schedule.cutoffDate && schedule.cutoffDate > new Date()) {
-      return applyEndActionsAndAwaitCutoff(ctx, schedule);
+      return applyEndActionsAndAwaitCutoff(ctx, schedule, {
+        autoCatchUp: true,
+      });
     }
-    return completeRollout(ctx, schedule);
+    // Reaching here with a cutoffDate means it already lapsed (the future case
+    // returned above), so honor the cutoff's disable semantics — otherwise the
+    // rule would complete permanently enabled at end-state coverage.
+    return completeRollout(ctx, schedule, {
+      disableActiveTargets: !!schedule.cutoffDate,
+    });
   }
 
   const now = new Date();
@@ -1807,6 +1861,9 @@ export async function jumpAheadToStep(
 async function applyEndActionsAndAwaitCutoff(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  // Only the advanceStep route sets this — a manual completeRampKeepCutoff
+  // spanning multiple steps must not be recorded as an automatic catch-up.
+  opts: { autoCatchUp?: boolean } = {},
 ): Promise<RampScheduleInterface> {
   const now = new Date();
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
@@ -1840,12 +1897,13 @@ async function applyEndActionsAndAwaitCutoff(
       schedule,
       schedule.steps.length,
       actionsToApply,
-      { fromStepIndex: schedule.currentStepIndex },
+      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
     );
   }
 
   const pastEndIndex = schedule.steps.length;
-  const isJump = pastEndIndex > schedule.currentStepIndex + 1;
+  const isJump =
+    !!opts.autoCatchUp && pastEndIndex > schedule.currentStepIndex + 1;
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
     status: "running",
     currentStepIndex: pastEndIndex,
@@ -2041,24 +2099,49 @@ export async function onActivatingRevisionPublished(
  * Content-level fields (name, steps, cutoffDate, etc.) should already be
  * applied to `schedule` before this is called, or passed in via
  * `contentUpdates` so they land atomically in a single write.
+ *
+ * Returns false when the start did NOT run (schedule no longer ready, or the
+ * lock stayed busy) so the caller can apply its content edits through the
+ * normal update path instead of silently dropping them.
  */
 export async function startReadyScheduleNow(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   contentUpdates: StartNowContentUpdates = {},
-): Promise<void> {
-  if (schedule.status !== "ready") return;
+): Promise<boolean> {
+  if (schedule.status !== "ready") return false;
 
-  // Serialize against the scheduler tick; re-verify "ready" inside the lock
-  // and start from the in-lock read so an edit that landed while waiting
-  // isn't overwritten with the caller's stale snapshot. Retry rather than
-  // defer: with startDate about to be cleared, the scheduler has no path
-  // that would replay this start.
-  await withRampScheduleAdvanceLockRetry(ctx, schedule.id, async () => {
-    const fresh = await ctx.models.rampSchedules.getById(schedule.id);
-    if (!fresh || fresh.status !== "ready") return;
-    await startReadyScheduleNowLocked(ctx, fresh, contentUpdates);
-  });
+  try {
+    // Serialize against the scheduler tick; re-verify "ready" inside the lock
+    // and start from the in-lock read so an edit that landed while waiting
+    // isn't overwritten with the caller's stale snapshot.
+    return await withRampScheduleAdvanceLockRetry(
+      ctx,
+      schedule.id,
+      async () => {
+        const fresh = await ctx.models.rampSchedules.getById(schedule.id);
+        if (!fresh || fresh.status !== "ready") return false;
+        await startReadyScheduleNowLocked(ctx, fresh, contentUpdates);
+        return true;
+      },
+    );
+  } catch (e) {
+    if (!(e instanceof RampAdvanceLockBusyError)) throw e;
+    // Lock stayed busy: hand the start to the scheduler instead of silently
+    // losing the user's "start now" — its ready branch starts any ready
+    // schedule whose startDate has arrived. Scheduling fields only; content
+    // edits are the caller's responsibility on the false return.
+    const now = new Date();
+    await ctx.models.rampSchedules.updateById(schedule.id, {
+      startDate: now,
+      nextProcessAt: now,
+    });
+    logger.warn(
+      { rampScheduleId: schedule.id },
+      "Start-now lock stayed busy; deferred the start to the scheduler via startDate",
+    );
+    return false;
+  }
 }
 
 type StartNowContentUpdates = Partial<
@@ -2071,11 +2154,13 @@ type StartNowContentUpdates = Partial<
     | "cutoffDate"
     | "monitoringConfig"
     | "lockdownConfig"
-    // Pre-built history (e.g. a "config-edited" audit event) for the
-    // "started" event to append on top of, instead of the stored history.
-    | "eventHistory"
   >
->;
+> & {
+  // A pre-built audit event (e.g. "config-edited") recorded beneath the
+  // "started" event — appended onto the in-lock history so concurrently
+  // appended events aren't clobbered by a caller-built array.
+  auditEvent?: RampEvent;
+};
 
 async function startReadyScheduleNowLocked(
   ctx: ReqContext | ApiReqContext,
@@ -2083,19 +2168,23 @@ async function startReadyScheduleNowLocked(
   contentUpdates: StartNowContentUpdates = {},
 ): Promise<void> {
   const now = new Date();
-  const steps = contentUpdates.steps ?? schedule.steps;
+  const { auditEvent, ...contentFields } = contentUpdates;
+  const steps = contentFields.steps ?? schedule.steps;
   const cutoffDate =
-    "cutoffDate" in contentUpdates
-      ? contentUpdates.cutoffDate
+    "cutoffDate" in contentFields
+      ? contentFields.cutoffDate
       : schedule.cutoffDate;
   const initialNextStepAt = steps.length > 0 ? now : null;
 
-  const eventBase = contentUpdates.eventHistory
-    ? { ...schedule, eventHistory: contentUpdates.eventHistory }
+  const eventBase = auditEvent
+    ? {
+        ...schedule,
+        eventHistory: [...(schedule.eventHistory ?? []), auditEvent],
+      }
     : schedule;
 
   let current = await ctx.models.rampSchedules.updateById(schedule.id, {
-    ...contentUpdates,
+    ...contentFields,
     startDate: null,
     status: "running",
     startedAt: now,

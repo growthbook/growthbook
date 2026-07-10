@@ -1173,7 +1173,40 @@ describe("computeAutoAdvanceTarget", () => {
   });
 });
 
+describe("advanceStep past-end with a lapsed cutoff", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(undefined);
+  });
+
+  it("completes WITH disableActiveTargets so the rule doesn't stay enabled past its end date", async () => {
+    // Regression: a catch-up fold can land past the end after the cutoff
+    // lapsed (hook race, or the cutoff lapsing during a slow evaluate); the
+    // completion must honor the cutoff's disable semantics.
+    const schedule = makeSchedule({
+      currentStepIndex: 2, // last step done
+      status: "running",
+      cutoffDate: new Date(Date.now() - 60_000), // lapsed
+    });
+    const { ctx } = makeContext();
+
+    await advanceStep(ctx as never, schedule, schedule.steps.length);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(false);
+  });
+});
+
 describe("advanceStep target clamp", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("refuses a non-forward target from a stale caller instead of rewinding coverage", async () => {
     const schedule = makeSchedule({ currentStepIndex: 2, status: "running" });
     const updateById = jest.fn();
@@ -1197,10 +1230,14 @@ describe("withRampScheduleAdvanceLock", () => {
   const makeLockCtx = (acquired: boolean) => {
     const acquireAdvanceLock = jest.fn().mockResolvedValue(acquired);
     const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    // The doc exists — a failed acquire is diagnosed as contention, not 404.
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
     const ctx = {
-      models: { rampSchedules: { acquireAdvanceLock, releaseAdvanceLock } },
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
     };
-    return { ctx, acquireAdvanceLock, releaseAdvanceLock };
+    return { ctx, acquireAdvanceLock, releaseAdvanceLock, getById };
   };
 
   it("runs fn and releases the lock when acquired", async () => {
@@ -1254,14 +1291,17 @@ describe("withRampScheduleAdvanceLock", () => {
 });
 
 describe("withRampScheduleAdvanceLockRetry", () => {
-  it("retries contention and succeeds once the lock frees up", async () => {
+  it("retries contention and succeeds once the lock frees up (fn runs once)", async () => {
     const acquireAdvanceLock = jest
       .fn()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
     const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
     const ctx = {
-      models: { rampSchedules: { acquireAdvanceLock, releaseAdvanceLock } },
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
     };
     const fn = jest.fn().mockResolvedValue("done");
 
@@ -1282,6 +1322,7 @@ describe("withRampScheduleAdvanceLockRetry", () => {
         rampSchedules: {
           acquireAdvanceLock,
           releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue({ id: "rs_1" }),
         },
       },
     };
@@ -1291,6 +1332,25 @@ describe("withRampScheduleAdvanceLockRetry", () => {
     ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
     expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
   }, 15_000);
+
+  it("fails fast with 404 semantics when the schedule was deleted", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+      },
+    };
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toThrow("no longer exists");
+    // No retry ladder for a missing doc.
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
+  });
 
   it("does not retry non-contention errors from fn", async () => {
     const acquireAdvanceLock = jest.fn().mockResolvedValue(true);
@@ -1326,7 +1386,7 @@ describe("runLockedRampScheduleAction", () => {
     const fn = jest.fn().mockResolvedValue("ok");
 
     await runLockedRampScheduleAction(ctx as never, "rs_1", fn);
-    expect(fn).toHaveBeenCalledWith(freshDoc);
+    expect(fn).toHaveBeenCalledWith(freshDoc, expect.any(Function));
   });
 
   it("throws when the schedule was deleted while waiting for the lock", async () => {

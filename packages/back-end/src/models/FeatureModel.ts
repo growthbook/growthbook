@@ -2067,21 +2067,32 @@ async function createRampSchedulesForRevision(
     // enabled immediately when this revision publishes rather than waiting
     // for the next poller tick.
     //
-    // The pre-built auditEvent ("config-edited") is passed via contentUpdates
-    // so startReadyScheduleNow appends "started" on top of it, preserving
-    // full audit history parity with the direct-edit path.
+    // The "config-edited" audit event is passed so startReadyScheduleNow
+    // appends "started" on top of it, preserving full audit history parity
+    // with the direct-edit path.
+    let currentSchedule = existingSchedule;
+    let startDeferredToScheduler = false;
     if (
       updateAction.startDate === null &&
       existingSchedule?.status === "ready"
     ) {
-      await startReadyScheduleNow(context, existingSchedule, {
+      const configEditedEvent =
+        auditEvent.eventHistory?.[auditEvent.eventHistory.length - 1];
+      const started = await startReadyScheduleNow(context, existingSchedule, {
         ...contentUpdates,
         cutoffDate: nextCutoffDate,
-        ...(auditEvent.eventHistory
-          ? { eventHistory: auditEvent.eventHistory }
-          : {}),
+        ...(configEditedEvent ? { auditEvent: configEditedEvent } : {}),
       });
-      continue;
+      if (started) continue;
+      // The start didn't run: either the scheduler started it first (now
+      // running — the merge branch below applies the edits safely) or the
+      // lock stayed busy (still ready, start deferred to the scheduler via
+      // startDate=now — apply the edits without clobbering that deferral).
+      currentSchedule =
+        (await context.models.rampSchedules.getById(
+          updateAction.rampScheduleId,
+        )) ?? existingSchedule;
+      startDeferredToScheduler = currentSchedule.status === "ready";
     }
 
     // Running schedule TOCTOU guard: the schedule may have transitioned from
@@ -2093,11 +2104,11 @@ async function createRampSchedulesForRevision(
     // current step only accepts holdConditions/approvalNotes, and future steps
     // are fully applied — keeping publish from failing while avoiding
     // mid-run structural desyncs.
-    if (existingSchedule?.status === "running") {
+    if (currentSchedule?.status === "running") {
       const safeUpdates: Record<string, unknown> = {};
       if (stepsExplicit) {
         const { steps: mergedSteps } = mergeStepsForRunningSchedule(
-          existingSchedule,
+          currentSchedule,
           steps,
         );
         safeUpdates.steps = mergedSteps;
@@ -2116,7 +2127,7 @@ async function createRampSchedulesForRevision(
           ...auditEvent,
           nextProcessAt: computeNextProcessAt({
             status: "running",
-            nextStepAt: existingSchedule.nextStepAt,
+            nextStepAt: currentSchedule.nextStepAt,
             cutoffDate: nextCutoffDate,
             nextSnapshotAt: nextSnapshotAt,
           }),
@@ -2136,14 +2147,16 @@ async function createRampSchedulesForRevision(
     await context.models.rampSchedules.updateById(updateAction.rampScheduleId, {
       ...contentUpdates,
       ...auditEvent,
-      ...(updateAction.startDate !== undefined
+      ...(updateAction.startDate !== undefined && !startDeferredToScheduler
         ? { startDate: nextStartDate }
         : {}),
       nextProcessAt: computeNextProcessAt({
-        status: existingSchedule?.status ?? "paused",
-        nextStepAt: existingSchedule?.nextStepAt ?? null,
+        status: currentSchedule?.status ?? "paused",
+        nextStepAt: currentSchedule?.nextStepAt ?? null,
         cutoffDate: nextCutoffDate,
-        startDate: nextStartDate,
+        startDate: startDeferredToScheduler
+          ? (currentSchedule?.startDate ?? null)
+          : nextStartDate,
         nextSnapshotAt: nextSnapshotAt,
       }),
     });
