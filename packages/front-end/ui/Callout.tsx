@@ -3,6 +3,7 @@ import {
   Box,
   Flex,
   IconButton,
+  Text,
   Tooltip,
 } from "@radix-ui/themes";
 import React, { forwardRef, ReactNode } from "react";
@@ -39,25 +40,23 @@ export default forwardRef<
   {
     children: ReactNode;
     status: Status;
-    color?: RadixCallout.RootProps["color"]; // Use status instead of color whenever possible
     size?: "sm" | "md";
     icon?: ReactNode | null;
-    contentsAs?: "text" | "div";
-    variant?: "soft" | "surface" | "outline";
+    action?: ReactNode;
+    role?: string;
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
 >(function Callout(
   {
     children,
     status,
-    color,
     size = "md",
     icon,
-    contentsAs = "text",
+    action,
     dismissible = false,
     id,
     renderWhenDismissed,
-    variant = "soft",
+    role,
     ...containerProps
   },
   ref,
@@ -81,33 +80,43 @@ export default forwardRef<
     return <RadixStatusIcon status={status} size={size} />;
   })();
 
+  const lineHeight =
+    size === "sm" ? "var(--line-height-1)" : "var(--line-height-2)";
+
   return (
     <RadixCallout.Root
       ref={ref}
       className={styles.callout}
-      color={color || getRadixColor(status)}
-      role={status === "error" ? "alert" : undefined}
+      color={getRadixColor(status)}
+      role={
+        role ??
+        (status === "error" || status === "attention" ? "alert" : undefined)
+      }
       size={getRadixSize(size)}
       {...containerProps}
-      style={{
-        display: "flex",
-        position: "relative",
-      }}
-      variant={variant}
+      style={
+        {
+          display: "flex",
+          position: "relative",
+          "--callout-line-height": lineHeight,
+        } as React.CSSProperties
+      }
+      variant="soft"
     >
       {renderedIcon ? (
-        <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
+        <RadixCallout.Icon style={{ height: lineHeight }}>
+          {renderedIcon}
+        </RadixCallout.Icon>
       ) : null}
-      {contentsAs === "div" ? (
-        <Box width="100%">
-          <div>{children}</div>
-        </Box>
-      ) : (
-        <Flex align="start" gap="1" flexGrow="1">
-          <RadixCallout.Text size={getRadixSize(size)} style={{ flex: 1 }}>
-            {children}
-          </RadixCallout.Text>
-          {dismissible && id ? (
+      <Flex align="start" gap={action ? "3" : "1"} flexGrow="1">
+        {/* Rendered as a div (not the default <p>) so block-level children
+            and nested layout don't produce invalid <div>-inside-<p> nesting. */}
+        <Text as="div" size={getRadixSize(size)} style={{ flex: 1 }}>
+          {children}
+        </Text>
+        {action ? <Box className={styles.firstLineSlot}>{action}</Box> : null}
+        {dismissible && id ? (
+          <Box className={styles.firstLineSlot}>
             <Tooltip content="Dismiss">
               <IconButton
                 variant="ghost"
@@ -115,14 +124,13 @@ export default forwardRef<
                 size="1"
                 onClick={() => setDismissed(true)}
                 aria-label="Dismiss"
-                style={{ flexShrink: 0, marginTop: 0 }}
               >
                 <PiX />
               </IconButton>
             </Tooltip>
-          ) : null}
-        </Flex>
-      )}
+          </Box>
+        ) : null}
+      </Flex>
     </RadixCallout.Root>
   );
 });

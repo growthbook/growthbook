@@ -1635,7 +1635,6 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType}
         header="New Rule"
-        useRadixButton={true}
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
@@ -1711,6 +1710,7 @@ export default function RuleModal({
               </Box>
               {hasCommercialFeature("safe-rollout") ? (
                 <Button
+                  color="inherit"
                   variant="soft"
                   size="xs"
                   onClick={() => {
@@ -1736,7 +1736,7 @@ export default function RuleModal({
                   commercialFeature="safe-rollout"
                   usePortal={true}
                 >
-                  <Button variant="soft" size="xs" disabled>
+                  <Button color="inherit" variant="soft" size="xs" disabled>
                     Show me
                   </Button>
                 </PremiumTooltip>
@@ -1850,7 +1850,6 @@ export default function RuleModal({
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
-        useRadixButton={true}
         bodyPrefix={
           <DraftSelectorForChanges
             feature={feature}

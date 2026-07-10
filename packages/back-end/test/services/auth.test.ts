@@ -33,4 +33,19 @@ describe("getInitialDataFromJWT", () => {
       verified: true,
     });
   });
+
+  it("treats unverified or missing email_verified as not verified", () => {
+    expect(
+      getInitialDataFromJWT({
+        email: "alice@example.com",
+        email_verified: false,
+      }).verified,
+    ).toBe(false);
+
+    expect(
+      getInitialDataFromJWT({
+        email: "alice@example.com",
+      }).verified,
+    ).toBe(false);
+  });
 });

@@ -13,7 +13,7 @@ export default function MetricAnalysisMoreMenu({
   canRunMetricQuery?: boolean;
 }) {
   return (
-    <MoreMenu autoCloseOnClick={false}>
+    <MoreMenu useRadix={false} autoCloseOnClick={false}>
       {(metricAnalysis?.queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={metricAnalysis?.queries.map((q) => q.query) ?? []}

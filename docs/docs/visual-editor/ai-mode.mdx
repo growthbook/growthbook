@@ -10,7 +10,7 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="ai-suggestions" />
 
-AI mode is the fastest way to draft an A/B test variation in the [Visual Editor](/app/visual). You describe what you want in plain English ("make the hero headline more urgent and the primary button green"), and the AI proposes specific DOM-level changes — element selectors, new content, new styles — that you can preview, accept, edit, or reject one at a time.
+AI mode is the fastest way to draft an A/B test variation in the [Visual Editor](/app/visual). You describe what you want in plain language ("make the hero headline more urgent and the primary button green"), and the AI proposes specific DOM-level changes — element selectors, new content, new styles — that you can preview, accept, edit, or reject one at a time.
 
 <MaxWidthImage maxWidth={300}>
   ![The GrowthBook Visual Editor AI Editor](/images/visual-editor/ve-ai-chat.png)
@@ -69,72 +69,26 @@ A few tips that consistently improve results:
 - **Ask for variants.** "Give me three options" or "draft a few alternatives" produces multiple suggestions in one turn.
 - **Chain prompts.** A second prompt can refine the first ("the green is too neon — make it more muted").
 
+When naming an element in text isn't enough, use **Select element** to pin it — see [Adding element context](#adding-element-context-to-a-prompt).
+
 :::tip "Set the title" targets the H1
 
 If you say something like "set the title to X," the AI targets the visible `<h1>` (or the most prominent heading) — not `document.title`. To change the browser tab title, say so explicitly: "change the page's browser tab title to X."
 
 :::
 
-## Suggested prompts and quick actions
-
-When the chat log is empty, the panel shows two helpers:
-
-- **Suggested prompts** — short example prompts you can click to send as-is. These are tuned to common A/B test ideas.
-- **Quick actions** — one-click shortcuts for the most common patterns (e.g., "Generate a new image," "Suggest three headlines").
-
-Both are designed to help less technical users get past the blank prompt box.
-
 ## Adding element context to a prompt
 
-Below the prompt box is a **Select element** button (with an `@` icon). Click it and then click any element on the page — that element gets pinned to your prompt as **context**. A small chip appears above the prompt box showing what you picked. You can pin multiple elements, and remove individual chips with the **×** on each chip.
+Click **Select element** (`@`) below the prompt box, then click an element on the page. It appears as a chip above the prompt — you describe _what_ to change; the chip tells the AI _where_. Pin multiple elements for batch edits; remove a chip with **×**.
 
-When you send a prompt with elements pinned, the AI treats those elements as the **authoritative target** for the change. Your prompt describes _what to do_; the chips tell the AI _where to do it_.
+<video autoPlay loop muted playsInline aria-label="Adding element context to a prompt" style={{width: '100%', height: "auto", aspectRatio: 1420/1080, border: "1px solid var(--color-border)"}} width={1420} height={1080}>
+  <source src="/videos/ve-select-el-ai-mode.mp4" type="video/mp4" />
+  Adding element context to a prompt.
+</video>
 
-This is one of the most powerful features of AI mode, and it's worth using whenever:
+Use this when the page has repeated or ambiguous targets (two headlines, identical cards, several "Submit" buttons). **Example:** pin the hero headline, then prompt _"Make it more urgent and benefit-led"_ instead of _"make the headline more urgent"_.
 
-- **The page has ambiguous elements.** Multiple headlines, multiple "Submit" buttons, repeated card components. Saying "change the headline" is ambiguous; picking the specific headline first removes the guesswork.
-- **You want to isolate a change.** Without context, the AI looks across the whole page and may propose changes to elements you didn't intend to touch. Pinning the element you care about scopes the change to just that element.
-- **The AI keeps targeting the wrong element.** If a previous turn picked the wrong target, pin the right one and re-prompt — the chip overrides whatever the AI inferred from the prompt text alone.
-- **You're working on a specific component.** Pin the card, ask for "three alternative layouts for this card," and every proposal will be scoped to the card you picked.
-
-### Example: ambiguous headlines
-
-A pricing page has two headlines — a hero headline at the top and a feature-section headline lower down. A prompt like _"make the headline more urgent"_ is ambiguous; the AI will pick one based on heuristics and may pick the wrong one.
-
-Instead:
-
-1. Click **Select element**, then click the hero headline. A chip appears.
-2. Type the prompt: _"Make it more urgent and benefit-led."_
-3. Send.
-
-The AI now operates only on the element you pinned. No guessing.
-
-### Example: scope a change to a single card
-
-A product grid has nine identical cards. You want to test a "featured" treatment on just one of them:
-
-1. Click **Select element**, then click the card you want to feature. A chip appears.
-2. Type the prompt: _"Make this card stand out — bold border, slightly larger, a 'Featured' badge in the top-right corner."_
-3. Send.
-
-Without context, the AI might apply the change to all nine cards (or worse, propose CSS that targets the parent grid). With the card pinned, the change is surgical.
-
-### Picking multiple elements
-
-You can pin more than one element. Useful when:
-
-- You want the same change applied to several specific elements ("make these three buttons match the primary style").
-- You're describing a relationship ("move this image so it sits next to this paragraph").
-
-Each picked element gets its own chip. Remove any chip with the **×** to drop it from the prompt's context without re-picking from scratch.
-
-### Combining with the chat history
-
-Element context is sticky within a turn but not across turns — once you send a prompt, the chips clear and the AI's understanding of "this element" carries forward through the chat history. So a typical flow is:
-
-1. Pin the hero headline → prompt: "make it more urgent." Send.
-2. (No need to re-pin.) Prompt: "now also make it slightly larger." Send. The AI still knows you mean the hero headline.
-3. To switch targets, click **Select element** again and pick a different one.
+For follow-up prompts on the same element without re-pinning, see [Multi-turn conversations](#multi-turn-conversations).
 
 ## Reviewing proposed changes
 
@@ -162,7 +116,7 @@ This matters for two reasons:
 - **Reliability** — the AI can't propose changes against elements that don't exist or that match nothing.
 - **Stability** — the AI prefers stable selectors (semantic tags, stable classes, `data-*` attributes) over brittle ones (positional `nth-child` chains, random hash-suffix classes). The variation is more likely to keep working as your site evolves.
 
-If a proposal looks wrong, you can usually fix it by either (a) saying so in the next prompt ("you targeted the footer headline — I meant the hero"), or (b) picking the right element manually first and re-asking — the editor uses the selected element as additional context.
+If a proposal targets the wrong element, say so in the next prompt or pin the correct element and re-ask.
 
 ## Multi-turn conversations
 
@@ -205,7 +159,5 @@ Your GrowthBook experiment metadata, metric values, user data, and SDK payloads 
 
 ## Next steps
 
-- **[Manual mode](/app/visual/manual-mode)** — fine-tune AI-proposed changes with structured controls.
-- **[Images](/app/visual/images)** — full guide to uploading, generating, and reusing images.
-- **[Preview and QA](/app/visual/preview-and-qa)** — QA the variation before publishing.
-- **[AI Integrations](/integrations/ai)** — overall AI features across GrowthBook (summaries, SQL gen, hypothesis checking, etc.).
+- **[Manual mode](/app/visual/manual-mode)** — fine-tune accepted changes.
+- **[Preview and QA](/app/visual/preview-and-qa)** — preview before publishing.

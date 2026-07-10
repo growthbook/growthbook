@@ -57,7 +57,10 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   protected canDelete(doc: EventForwarderConfigInterface): boolean {
-    return this.context.permissions.canDeleteEventForwarderConfig(doc);
+    return (
+      this.context.superAdmin ||
+      this.context.permissions.canDeleteEventForwarderConfig(doc)
+    );
   }
 
   /** User-facing lookup; respects `canRead` (requires `readData` on the row's projects). */

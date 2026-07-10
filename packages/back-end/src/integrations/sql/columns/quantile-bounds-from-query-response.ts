@@ -49,6 +49,7 @@ export function getQuantileBoundsFromQueryResponse(
       ? (k: number) => gridArray[2 * k + 1]
       : (k: number) => row[`${prefix}quantile_upper_${N_STAR_VALUES[k]}`];
 
+    let selectedK: number | undefined;
     N_STAR_VALUES.forEach((n, k) => {
       const lowerVal = getLower(k);
       const upperVal = getUpper(k);
@@ -66,8 +67,42 @@ export function getQuantileBoundsFromQueryResponse(
         quantileData[`${prefix}quantile_lower`] = parseFloat(lowerVal) || 0;
         quantileData[`${prefix}quantile_upper`] = parseFloat(upperVal) || 0;
         quantileData[`${prefix}quantile_nstar`] = n;
+        selectedK = k;
       }
     });
+
+    // At very high nstar the percentile bounds are so close together that the
+    // sketch resolves them to the same point (quantile_lower == quantile_upper),
+    // which collapses variance_init to zero downstream. Fall back to the
+    // tightest nstar grid pair (largest nstar, i.e. walking DOWN toward smaller
+    // nstar / wider offsets) that still resolves to distinct bounds, and use
+    // that nstar since statistics.py scales variance_init by n_star/n.
+    if (
+      selectedK !== undefined &&
+      quantileData[`${prefix}quantile_lower`] ===
+        quantileData[`${prefix}quantile_upper`]
+    ) {
+      for (let k = selectedK - 1; k >= 0; k--) {
+        const lowerVal = getLower(k);
+        const upperVal = getUpper(k);
+        if ((lowerVal ?? null) === null || (upperVal ?? null) === null)
+          continue;
+        const lower = parseFloat(lowerVal) || 0;
+        const upper = parseFloat(upperVal) || 0;
+        if (lower !== upper) {
+          quantileData[`${prefix}quantile_lower`] = lower;
+          quantileData[`${prefix}quantile_upper`] = upper;
+          quantileData[`${prefix}quantile_nstar`] = N_STAR_VALUES[k];
+          // Keep selectedK pointing at the pair actually in use so it stays
+          // consistent with the bounds if referenced later.
+          selectedK = k;
+          break;
+        }
+      }
+      // If no grid pair resolves to distinct bounds, leave the originally
+      // selected (collapsed) pair so the downstream zero-variance guard catches
+      // it rather than inventing bounds.
+    }
 
     // Sparse slices can have quantile columns present but no usable grid bounds.
     // Chunked query storage unions column names across rows, so omitting these

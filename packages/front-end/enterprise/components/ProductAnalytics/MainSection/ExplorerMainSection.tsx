@@ -1,7 +1,7 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiArrowsClockwise, PiDotsSix, PiInfo } from "react-icons/pi";
+import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -158,35 +158,41 @@ export default function ExplorerMainSection() {
               borderRadius: "var(--radius-3)",
             }}
           >
-            <Callout status="info" size="sm" icon={null} contentsAs="div">
-              <Flex align="center" gap="2">
-                {loading ? (
-                  <Flex align="center" gap="2">
-                    <LoadingSpinner style={{ width: "12px", height: "12px" }} />
-                    <Text>Loading...</Text>
-                  </Flex>
-                ) : (
-                  <>
-                    <Text title="Some configuration changes require running a new SQL query against your data source">
-                      <PiInfo /> Latest changes not applied
-                    </Text>
-                    <Button
-                      size="sm"
-                      variant="solid"
-                      disabled={
-                        !draftExploreState?.dataset?.values?.length ||
-                        !isSubmittable
-                      }
-                      onClick={() => handleSubmit({ force: true })}
-                    >
-                      <Flex align="center" gap="2">
-                        <PiArrowsClockwise />
-                        Refresh
-                      </Flex>
-                    </Button>
-                  </>
-                )}
-              </Flex>
+            <Callout
+              status="info"
+              size="sm"
+              icon={
+                loading ? (
+                  <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+                ) : undefined
+              }
+              action={
+                loading ? undefined : (
+                  <Button
+                    color="inherit"
+                    size="sm"
+                    variant="solid"
+                    disabled={
+                      !draftExploreState?.dataset?.values?.length ||
+                      !isSubmittable
+                    }
+                    onClick={() => handleSubmit({ force: true })}
+                  >
+                    <Flex align="center" gap="2">
+                      <PiArrowsClockwise />
+                      Refresh
+                    </Flex>
+                  </Button>
+                )
+              }
+            >
+              {loading ? (
+                "Loading..."
+              ) : (
+                <Text title="Some configuration changes require running a new SQL query against your data source">
+                  Latest changes not applied
+                </Text>
+              )}
             </Callout>
           </Box>
         )}

@@ -4,7 +4,7 @@ import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import {
   formatPercent,
@@ -20,7 +20,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   pValueThreshold: number;
   stats: SnapshotMetric;
   rowResults: Pick<

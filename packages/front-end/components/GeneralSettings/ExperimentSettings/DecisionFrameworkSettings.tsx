@@ -65,6 +65,7 @@ const DecisionFrameworkSettings = () => {
 
       {criteriaToDelete && (
         <Modal
+          useRadixButton={false}
           header="Delete Decision Criteria"
           trackingEventModalType="delete-decision-criteria"
           open={true}
@@ -106,7 +107,10 @@ const DecisionFrameworkSettings = () => {
           </Heading>
           <Box>
             <Text wrap="nowrap">
-              <DocLink docSection={"experimentDecisionFramework"}>
+              <DocLink
+                useRadix={false}
+                docSection={"experimentDecisionFramework"}
+              >
                 View docs
               </DocLink>
             </Text>

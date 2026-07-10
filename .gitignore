@@ -52,3 +52,4 @@ next-env.d.ts
 
 # Private claude folders
 .claude/worktrees/
+.claude/projects/
