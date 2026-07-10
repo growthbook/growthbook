@@ -36,6 +36,7 @@ import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
+import { runValidateSavedGroupHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 // region POST /saved-groups
 
@@ -761,6 +762,17 @@ export const putSavedGroup = async (
       status: 200,
     });
   }
+
+  // Best-effort early gate: run custom-hook validation against the projected
+  // saved group so formatting errors surface interactively at authoring time
+  // (mirrors features' prevalidatePublishRevision). The authoritative gate is
+  // the model write in SavedGroupModel.beforeUpdate, which also covers draft
+  // publishes that never reach this handler.
+  await runValidateSavedGroupHooks({
+    context,
+    savedGroup: { ...comparisonBase, ...fieldsToUpdate } as SavedGroupInterface,
+    original: savedGroup,
+  });
 
   await ensureLiveRevisionExists(
     context,

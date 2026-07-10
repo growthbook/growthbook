@@ -17,13 +17,15 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 :::
 
-You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which features it runs for:
+Custom Hooks can validate different types of resources. Today they support **features** (and feature revisions) and **saved groups**.
 
-- **Global** — runs for every feature.
-- **Project** — runs only for features in the selected projects.
-- **Feature** — runs only for a single feature.
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which resources it runs for:
 
-Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
+- **Global** — runs for every resource of that type.
+- **Project** — runs only for resources in the selected projects.
+- **Feature** / **Saved Group** — runs only for a single feature or saved group.
+
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Resource-scoped hooks are created and managed from the resource's **Validation** tab (on the feature or saved group detail page) by anyone who can edit that resource; that tab also lists any global and project hooks that apply to it.
 
 ### Limits
 
@@ -156,6 +158,40 @@ for (const env in revision.rules) {
             }
         }
     }
+}
+```
+
+### validateSavedGroup
+
+Called whenever a saved group is about to be created or updated (including when a saved group revision is published). Receives the full saved group object as input.
+
+Example: Require every saved group to have a description.
+
+```js
+if (!savedGroup.description) {
+  throw new Error(
+    "Saved groups must have a description."
+  );
+}
+```
+
+Example: Warn if a saved group isn't scoped to any project.
+
+```js
+if (!savedGroup.projects || savedGroup.projects.length === 0) {
+  addWarning(
+    "Consider scoping this saved group to at least one project."
+  );
+}
+```
+
+Example: Enforce a naming convention for saved groups.
+
+```js
+if (!/^[a-z0-9-]+$/.test(savedGroup.groupName)) {
+  throw new Error(
+    "Saved group names must be lowercase, using only letters, numbers, and dashes."
+  );
 }
 ```
 

@@ -17,6 +17,7 @@ import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { UserInterface } from "shared/types/user";
 import { stringToBoolean } from "shared/util";
 import {
@@ -93,6 +94,7 @@ export type ForeignRefTypes = {
   datasource: DataSourceInterface;
   metric: ExperimentMetricInterface;
   feature: FeatureInterface;
+  savedGroup: SavedGroupInterface;
 };
 
 export type ModelName =
@@ -446,12 +448,14 @@ export class ReqContextClass {
     datasource: new Map(),
     metric: new Map(),
     feature: new Map(),
+    savedGroup: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
     metric,
     feature,
+    savedGroup,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
@@ -465,6 +469,9 @@ export class ReqContextClass {
     );
     await this.addMissingForeignRefs("feature", feature, (ids) =>
       getFeaturesByIds(this, ids),
+    );
+    await this.addMissingForeignRefs("savedGroup", savedGroup, (ids) =>
+      this.models.savedGroups.getByIds(ids),
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

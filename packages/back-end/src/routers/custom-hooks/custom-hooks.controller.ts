@@ -140,6 +140,15 @@ export const testCustomHook = async (
     if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
       context.permissions.throwPermissionError();
     }
+  } else if (entityType === "savedGroup" && entityId) {
+    // Saved-group-scoped test: authorize against the target saved group
+    const savedGroup = await context.models.savedGroups.getById(entityId);
+    if (
+      !savedGroup ||
+      !context.permissions.canManageSavedGroupCustomHooks(savedGroup)
+    ) {
+      context.permissions.throwPermissionError();
+    }
   } else if (!context.permissions.canCreateCustomHook({ projects: [] })) {
     context.permissions.throwPermissionError();
   }

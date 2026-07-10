@@ -14,6 +14,7 @@ import {
   logSavedGroupUpdatedEvent,
   logSavedGroupDeletedEvent,
 } from "back-end/src/services/savedGroupEvents";
+import { runValidateSavedGroupHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { MakeModelClass } from "./BaseModel";
 
 // `skipAttributeValidation` lets revert flows write a previously-published
@@ -109,6 +110,30 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   protected async beforeCreate(doc: SavedGroupInterface) {
     doc.useEmptyListGroup = true;
+
+    // Authoritative custom-hook validation, run against the projected saved
+    // group before it is persisted. Can throw to reject the write.
+    await runValidateSavedGroupHooks({
+      context: this.context,
+      savedGroup: doc,
+      original: null,
+    });
+  }
+
+  protected async beforeUpdate(
+    existing: SavedGroupInterface,
+    _updates: UpdateProps<SavedGroupInterface>,
+    newDoc: SavedGroupInterface,
+  ) {
+    // Authoritative custom-hook validation, run against the projected
+    // post-change saved group before it is persisted. This single gate covers
+    // direct updates AND revision publishes (publish -> adapter applyChanges ->
+    // savedGroups.update), including background scheduled/auto publishes.
+    await runValidateSavedGroupHooks({
+      context: this.context,
+      savedGroup: newDoc,
+      original: existing,
+    });
   }
 
   protected async afterCreate(doc: SavedGroupInterface) {

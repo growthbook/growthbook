@@ -84,6 +84,8 @@ import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
 import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
+import SavedGroupValidationTab from "@/components/SavedGroups/SavedGroupValidationTab";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupDraftSelectorForChanges, {
@@ -92,7 +94,7 @@ import SavedGroupDraftSelectorForChanges, {
 
 const NUM_PER_PAGE = 10;
 
-const savedGroupTabs = ["overview", "review"] as const;
+const savedGroupTabs = ["overview", "review", "validation"] as const;
 type SavedGroupTab = (typeof savedGroupTabs)[number];
 
 export default function EditSavedGroupPage() {
@@ -1025,9 +1027,16 @@ export default function EditSavedGroupPage() {
                   </Tooltip>
                 )}
               </TabsTrigger>
+              {/* Custom Hooks (saved-group validation) are self-hosted only */}
+              {!isCloud() && (
+                <TabsTrigger value="validation">Validation</TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
         </Box>
+        {tab === "validation" && !isCloud() && (
+          <SavedGroupValidationTab savedGroup={savedGroup} />
+        )}
         {tab === "review" && (
           <ReviewAndPublishTab<SavedGroupInterface>
             // When viewing "live" (no explicit selection) fall back to the

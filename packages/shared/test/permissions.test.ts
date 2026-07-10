@@ -1016,6 +1016,50 @@ describe("canManageFeatureCustomHooks", () => {
   });
 });
 
+describe("canManageSavedGroupCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const savedGroupResource = { projects: [] };
+
+  it("lets admins manage saved group hooks (they have manageSavedGroups)", () => {
+    expect(
+      getPermissions("admin").canManageSavedGroupCustomHooks(
+        savedGroupResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not let users without saved group edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageSavedGroupCustomHooks(
+        savedGroupResource,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("getEffectiveRolesForProject", () => {
   const team = (
     id: string,
