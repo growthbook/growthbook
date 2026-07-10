@@ -19,7 +19,6 @@ import {
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -78,16 +77,34 @@ export default function SqlQuerySection({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
-  const [previewSuccess, setPreviewSuccess] = useState(false);
   const [previewResult, setPreviewResult] =
     useState<QueryExecutionResult | null>(null);
   const [schemaCollapsed, setSchemaCollapsed] = useState(false);
   const schemaPanelRef = useRef<ImperativePanelHandle>(null);
+  const editorPanelRef = useRef<ImperativePanelHandle>(null);
+  const lastPreviewedSqlRef = useRef<string | null>(null);
+  const collapseAfterSuccessfulRunRef = useRef(false);
 
   useEffect(() => {
     setLocalSql(dataset?.sql ?? "");
-    setPreviewResult(null);
+    if ((dataset?.sql ?? "") !== lastPreviewedSqlRef.current) {
+      setPreviewResult(null);
+    }
   }, [dataset?.sql]);
+
+  useEffect(() => {
+    lastPreviewedSqlRef.current = null;
+    setPreviewResult(null);
+  }, [draftExploreState.datasource]);
+
+  useEffect(() => {
+    if (!previewResult || error || !collapseAfterSuccessfulRunRef.current) {
+      return;
+    }
+    collapseAfterSuccessfulRunRef.current = false;
+    schemaPanelRef.current?.collapse();
+    editorPanelRef.current?.resize(30);
+  }, [error, previewResult]);
 
   if (!dataset) return null;
 
@@ -127,7 +144,7 @@ export default function SqlQuerySection({
     if (!sql.trim() || !draftExploreState.datasource) return false;
     setLoading(true);
     setError(null);
-    setPreviewSuccess(false);
+    collapseAfterSuccessfulRunRef.current = false;
     try {
       const response = await apiCall<QueryExecutionResult>("/query/run", {
         method: "POST",
@@ -159,6 +176,7 @@ export default function SqlQuerySection({
           ? inferredTimestamp
           : (dateColumns[0] ?? "");
 
+      lastPreviewedSqlRef.current = sql;
       applyColumnMetadata(sql, columnTypes, timestampColumn);
 
       if (dateColumns.length === 0) {
@@ -168,7 +186,7 @@ export default function SqlQuerySection({
         return false;
       }
 
-      setPreviewSuccess(true);
+      collapseAfterSuccessfulRunRef.current = true;
       return true;
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
@@ -213,7 +231,6 @@ export default function SqlQuerySection({
         setLocalSql(sql);
         setError(null);
         setPreviewResult(null);
-        setPreviewSuccess(false);
       }}
     >
       {({ prompt, trigger }) => (
@@ -259,12 +276,6 @@ export default function SqlQuerySection({
                 minHeight: fullHeight ? 0 : undefined,
               }}
             >
-              {error && <Callout status="error">{error}</Callout>}
-              {previewSuccess && !error && (
-                <Callout status="success">
-                  Query columns were detected successfully.
-                </Callout>
-              )}
               <PanelGroup
                 direction="horizontal"
                 style={{
@@ -338,7 +349,6 @@ export default function SqlQuerySection({
                                 setLocalSql(sql);
                                 setError(null);
                                 setPreviewResult(null);
-                                setPreviewSuccess(false);
                               }}
                             />
                           </Box>
@@ -348,8 +358,9 @@ export default function SqlQuerySection({
                     {!schemaCollapsed && (
                       <PanelResizeHandle
                         style={{
+                          alignSelf: "stretch",
+                          height: "auto",
                           display: "flex",
-                          flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
                         }}
@@ -369,6 +380,7 @@ export default function SqlQuerySection({
                 >
                   <PanelGroup direction="vertical">
                     <Panel
+                      ref={editorPanelRef}
                       order={1}
                       defaultSize={previewResult ? 60 : 100}
                       minSize={30}
@@ -442,7 +454,6 @@ export default function SqlQuerySection({
                             setError(null);
                             setFormatError(null);
                             setPreviewResult(null);
-                            setPreviewSuccess(false);
                           }}
                           setCursorData={setCursorData}
                           onCtrlEnter={() => previewQuery(localSql)}
@@ -465,9 +476,14 @@ export default function SqlQuerySection({
                             duration={previewResult.duration ?? 0}
                             results={previewResult.results ?? []}
                             sql={previewResult.sql ?? localSql}
-                            error={previewResult.error ?? ""}
-                            close={() => setPreviewResult(null)}
+                            error={error ?? previewResult.error ?? ""}
                             allowDownload
+                            rowsLabel={
+                              previewResult.results?.length ===
+                              PREVIEW_ROW_LIMIT
+                                ? `Showing the first ${PREVIEW_ROW_LIMIT} rows`
+                                : undefined
+                            }
                           />
                         </Panel>
                       </>

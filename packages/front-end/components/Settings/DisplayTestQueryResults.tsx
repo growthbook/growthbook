@@ -28,6 +28,7 @@ export type Props = {
   expandable?: boolean;
   allowDownload?: boolean;
   showSampleHeader?: boolean;
+  rowsLabel?: string;
   renderedSQLLabel?: string;
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
@@ -67,6 +68,7 @@ export default function DisplayTestQueryResults({
   expandable,
   allowDownload,
   showSampleHeader = true,
+  rowsLabel,
   renderedSQLLabel = "Rendered SQL",
   showDuration = true,
   headerStructure,
@@ -273,8 +275,8 @@ export default function DisplayTestQueryResults({
                 ) : (
                   <Flex align="center">
                     <strong className="pr-1">
-                      {showSampleHeader ? "Sample " : ""}
-                      {results?.length} Rows
+                      {rowsLabel ??
+                        `${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
                     </strong>
                   </Flex>
                 )}
