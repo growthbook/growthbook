@@ -4,7 +4,6 @@ import {
   DashboardBlockInterfaceOrData,
   ExperimentsWinRateBlockInterface,
 } from "shared/enterprise";
-import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
 
@@ -53,10 +52,10 @@ export default function ExperimentsWinRateSettings({
         }
       />
 
-      <Checkbox
+      <Switch
         label="Show per-project breakdown"
         value={block.showProjectBreakdown}
-        setValue={(showProjectBreakdown) =>
+        onChange={(showProjectBreakdown) =>
           setBlock({ ...block, showProjectBreakdown })
         }
       />
