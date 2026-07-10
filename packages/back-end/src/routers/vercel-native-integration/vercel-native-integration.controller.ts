@@ -46,6 +46,7 @@ import {
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
@@ -723,11 +724,14 @@ export async function postVercelIntegrationSSO(req: Request, res: Response) {
 
   const user = await findOrCreateUser(userEmail);
 
-  // This is idempotent.
+  // This is idempotent. Vercel orgs are stamped free at creation (all-admin);
+  // experimenter only applies once the plan supports roles.
   await addMemberToOrg({
     organization: org,
     userId: user.id,
-    role: "experimenter",
+    role: getEffectiveOrgLimits(org).orgSupportsRoles()
+      ? "experimenter"
+      : "admin",
     projectRoles: [],
     managedByIdp: false,
     environments: [],
