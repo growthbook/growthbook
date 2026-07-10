@@ -3,11 +3,13 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
 import {
+  PiArrowsOut,
   PiCaretDoubleLeft,
   PiCaretDown,
   PiCaretRight,
   PiDotsSix,
   PiPlay,
+  PiX,
 } from "react-icons/pi";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
@@ -80,6 +82,7 @@ export default function SqlQuerySection({
   const [previewResult, setPreviewResult] =
     useState<QueryExecutionResult | null>(null);
   const [schemaCollapsed, setSchemaCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const schemaPanelRef = useRef<ImperativePanelHandle>(null);
   const editorPanelRef = useRef<ImperativePanelHandle>(null);
   const lastPreviewedSqlRef = useRef<string | null>(null);
@@ -102,9 +105,27 @@ export default function SqlQuerySection({
       return;
     }
     collapseAfterSuccessfulRunRef.current = false;
-    schemaPanelRef.current?.collapse();
+    if (!isFullscreen) {
+      schemaPanelRef.current?.collapse();
+    }
     editorPanelRef.current?.resize(30);
-  }, [error, previewResult]);
+  }, [error, isFullscreen, previewResult]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   if (!dataset) return null;
 
@@ -223,6 +244,7 @@ export default function SqlQuerySection({
   const sqlChanged = localSql !== dataset.sql;
   const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
+  const useFullHeight = fullHeight || isFullscreen;
 
   return (
     <AiSqlGenerator
@@ -237,13 +259,18 @@ export default function SqlQuerySection({
         <Box
           style={{
             border: "1px solid var(--gray-a3)",
-            borderRadius: "var(--radius-4)",
-            backgroundColor: "var(--color-panel-translucent)",
+            borderRadius: isFullscreen ? 0 : "var(--radius-4)",
+            backgroundColor: isFullscreen
+              ? "var(--color-surface-solid)"
+              : "var(--color-panel-translucent)",
             overflow: "hidden",
-            flex: fullHeight ? 1 : undefined,
-            minHeight: fullHeight ? 0 : undefined,
-            display: fullHeight ? "flex" : undefined,
-            flexDirection: fullHeight ? "column" : undefined,
+            flex: useFullHeight ? 1 : undefined,
+            minHeight: useFullHeight ? 0 : undefined,
+            display: useFullHeight ? "flex" : undefined,
+            flexDirection: useFullHeight ? "column" : undefined,
+            position: isFullscreen ? "fixed" : undefined,
+            inset: isFullscreen ? 0 : undefined,
+            zIndex: isFullscreen ? 1050 : undefined,
           }}
         >
           <Flex
@@ -254,17 +281,50 @@ export default function SqlQuerySection({
               borderBottom: open ? "1px solid var(--gray-a3)" : undefined,
             }}
           >
-            <Button variant="ghost" onClick={() => setOpen(!open)}>
+            {isFullscreen ? (
               <Flex align="center" gap="2">
-                {open ? <PiCaretDown /> : <PiCaretRight />}
                 <Text weight="medium">Query</Text>
               </Flex>
-            </Button>
-            {sqlChanged ? (
-              <Text size="small" color="text-low">
-                Unsaved query changes
-              </Text>
-            ) : null}
+            ) : (
+              <Button variant="ghost" onClick={() => setOpen(!open)}>
+                <Flex align="center" gap="2">
+                  {open ? <PiCaretDown /> : <PiCaretRight />}
+                  <Text weight="medium">Query</Text>
+                </Flex>
+              </Button>
+            )}
+            <Flex align="center" justify="between" gap="3" mr="1">
+              {sqlChanged ? (
+                <Text size="small" color="text-low">
+                  Unsaved query changes
+                </Text>
+              ) : null}
+              <Tooltip
+                style={{ display: "flex", alignItems: "center" }}
+                body={
+                  isFullscreen
+                    ? "Close full screen (ESC)"
+                    : "Open in full screen"
+                }
+              >
+                <IconButton
+                  size="2"
+                  variant="ghost"
+                  color="gray"
+                  aria-label={
+                    isFullscreen ? "Close full screen" : "Open in full screen"
+                  }
+                  onClick={() => {
+                    if (!isFullscreen) {
+                      setOpen(true);
+                    }
+                    setIsFullscreen(!isFullscreen);
+                  }}
+                >
+                  {isFullscreen ? <PiX /> : <PiArrowsOut />}
+                </IconButton>
+              </Tooltip>
+            </Flex>
           </Flex>
           {open && (
             <Flex
@@ -272,15 +332,15 @@ export default function SqlQuerySection({
               gap="3"
               p="3"
               style={{
-                flex: fullHeight ? 1 : undefined,
-                minHeight: fullHeight ? 0 : undefined,
+                flex: useFullHeight ? 1 : undefined,
+                minHeight: useFullHeight ? 0 : undefined,
               }}
             >
               <PanelGroup
                 direction="horizontal"
                 style={{
-                  minHeight: fullHeight ? 0 : 360,
-                  flex: fullHeight ? 1 : undefined,
+                  minHeight: useFullHeight ? 0 : 360,
+                  flex: useFullHeight ? 1 : undefined,
                 }}
               >
                 {datasource && (
@@ -298,10 +358,15 @@ export default function SqlQuerySection({
                       <Flex direction="column" height="100%" width="100%">
                         <AreaWithHeader
                           header={
-                            <Flex align="center" gap="2">
-                              <Button
-                                variant="outline"
-                                size="xs"
+                            <Flex
+                              align="center"
+                              justify={schemaCollapsed ? "center" : "start"}
+                              gap="2"
+                              width="100%"
+                            >
+                              <IconButton
+                                variant="ghost"
+                                size="1"
                                 aria-label={
                                   schemaCollapsed
                                     ? "Show schema browser"
@@ -322,7 +387,7 @@ export default function SqlQuerySection({
                                     transition: "transform 0.5s ease",
                                   }}
                                 />
-                              </Button>
+                              </IconButton>
                               {!schemaCollapsed ? (
                                 <Text weight="medium">Schema Browser</Text>
                               ) : null}
@@ -331,7 +396,7 @@ export default function SqlQuerySection({
                           headerStyles={
                             schemaCollapsed
                               ? {
-                                  padding: "8px",
+                                  padding: "12px 4px 8px",
                                 }
                               : undefined
                           }
@@ -355,22 +420,20 @@ export default function SqlQuerySection({
                         </AreaWithHeader>
                       </Flex>
                     </Panel>
-                    {!schemaCollapsed && (
-                      <PanelResizeHandle
-                        style={{
-                          alignSelf: "stretch",
-                          height: "auto",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <PiDotsSix
-                          size={16}
-                          style={{ transform: "rotate(90deg)" }}
-                        />
-                      </PanelResizeHandle>
-                    )}
+                    <PanelResizeHandle
+                      style={{
+                        alignSelf: "stretch",
+                        height: "auto",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <PiDotsSix
+                        size={16}
+                        style={{ transform: "rotate(90deg)" }}
+                      />
+                    </PanelResizeHandle>
                   </>
                 )}
                 <Panel
