@@ -1,0 +1,10 @@
+---
+description: "Backend data model patterns using BaseModel/MakeModelClass"
+globs: ["packages/back-end/src/models/**/*.ts"]
+alwaysApply: false
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/backend/model-patterns.md

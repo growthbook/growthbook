@@ -1,0 +1,9 @@
+---
+description: "Critical package import restrictions enforced by ESLint - must be strictly followed"
+alwaysApply: true
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/package-boundaries.md

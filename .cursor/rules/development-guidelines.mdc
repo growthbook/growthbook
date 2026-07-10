@@ -1,0 +1,9 @@
+---
+description: "General development guidelines, code quality standards, and common patterns"
+alwaysApply: true
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/development-guidelines.md

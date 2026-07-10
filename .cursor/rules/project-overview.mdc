@@ -1,0 +1,9 @@
+---
+description: "GrowthBook project architecture, monorepo structure, and package organization"
+alwaysApply: true
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/project-overview.md

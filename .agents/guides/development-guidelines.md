@@ -1,7 +1,3 @@
----
-description: "General development guidelines, code quality standards, and common patterns"
-alwaysApply: true
----
 
 # Development Guidelines
 

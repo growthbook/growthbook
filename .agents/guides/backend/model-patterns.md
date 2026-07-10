@@ -1,8 +1,3 @@
----
-description: "Backend data model patterns using BaseModel/MakeModelClass"
-globs: ["packages/back-end/src/models/**/*.ts"]
-alwaysApply: false
----
 
 # Backend Model Patterns
 

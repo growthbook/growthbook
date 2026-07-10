@@ -1,0 +1,10 @@
+---
+description: "Backend API patterns for both internal and external APIs"
+globs: ["packages/back-end/src/**/*.ts"]
+alwaysApply: false
+---
+# Shared Agent Guidance
+
+Follow the canonical guide for this task:
+
+@.agents/guides/backend/api-patterns.md

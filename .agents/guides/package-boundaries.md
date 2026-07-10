@@ -1,7 +1,3 @@
----
-description: "Critical package import restrictions enforced by ESLint - must be strictly followed"
-alwaysApply: true
----
 
 # Package Import Boundaries
 

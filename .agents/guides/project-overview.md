@@ -1,7 +1,3 @@
----
-description: "GrowthBook project architecture, monorepo structure, and package organization"
-alwaysApply: true
----
 
 # GrowthBook Project Overview
 
