@@ -605,6 +605,7 @@ Triggered when a feature ramp schedule completes all steps
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {

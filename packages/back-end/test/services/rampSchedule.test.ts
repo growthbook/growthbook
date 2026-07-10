@@ -3444,7 +3444,7 @@ describe("startReadyScheduleNow", () => {
           deleteById,
           acquireAdvanceLock: jest.fn().mockResolvedValue(true),
           releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
         },
         safeRollout: {
           getById: safeRolloutGetById,
@@ -3730,7 +3730,7 @@ describe("startReadyScheduleNow", () => {
           deleteById: jest.fn().mockResolvedValue(undefined),
           acquireAdvanceLock: jest.fn().mockResolvedValue(true),
           releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
         },
         safeRollout: {
           getById: jest.fn().mockResolvedValue(null),

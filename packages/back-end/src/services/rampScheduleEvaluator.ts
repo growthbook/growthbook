@@ -15,6 +15,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,
+  completeRollout,
   computeAutoAdvanceTarget,
   computeNextProcessAt,
   pauseSchedule,
@@ -551,6 +552,14 @@ export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
     await withRampScheduleAdvanceLockRetry(ctx, rampScheduleId, async () => {
       const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
       if (!schedule || schedule.status !== "running") return;
+
+      // Mirror the tick's cutoff branch: a lapsed cutoff must complete-with-
+      // disable, never raise coverage further.
+      if (schedule.cutoffDate && schedule.cutoffDate <= now) {
+        await completeRollout(ctx, schedule, { disableActiveTargets: true });
+        return;
+      }
+
       const step = schedule.steps[schedule.currentStepIndex];
       if (!step?.monitored) return;
 

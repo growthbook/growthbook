@@ -14,10 +14,8 @@ import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRol
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
-  appendRampEvent,
-  computeNextProcessAt,
   runLockedRampScheduleAction,
-  syncLinkedSafeRolloutForRampState,
+  setRampMonitoringMode,
 } from "back-end/src/services/rampSchedule";
 import { NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
@@ -246,55 +244,38 @@ export async function putAutoSnapshots(
     throw new Error("Could not find safe rollout");
   }
 
-  await context.models.safeRollout.update(safeRollout, {
-    autoSnapshots: enabled,
-  });
-
   if (safeRollout.rampScheduleId) {
-    // An unlocked write here can clobber a concurrent advance's
-    // eventHistory/nextProcessAt.
+    // Both writes run under the lock: contention 409s BEFORE anything applies,
+    // so the SafeRollout toggle can never half-apply without its schedule
+    // mirror. Delegates to setRampMonitoringMode rather than re-deriving it.
     try {
       await runLockedRampScheduleAction(
         context,
         safeRollout.rampScheduleId,
         async (fresh) => {
+          await context.models.safeRollout.update(safeRollout, {
+            autoSnapshots: enabled,
+          });
           if (!fresh.monitoringConfig) return;
-          const nextSnapshotAt = enabled
-            ? (safeRollout.nextSnapshotAttempt ?? new Date())
-            : null;
-          const updated = await context.models.rampSchedules.updateById(
-            fresh.id,
-            {
-              monitoringConfig: {
-                ...fresh.monitoringConfig,
-                monitoringMode: enabled ? "auto" : "manual",
-                autoUpdate: enabled,
-              },
-              nextSnapshotAt,
-              nextProcessAt: computeNextProcessAt({
-                status: fresh.status,
-                nextStepAt: fresh.nextStepAt,
-                nextSnapshotAt,
-                cutoffDate: fresh.cutoffDate,
-                startDate: fresh.startDate,
-              }),
-              eventHistory: appendRampEvent(fresh, "auto-update-toggled", {
-                stepIndex: fresh.currentStepIndex,
-                status: fresh.status,
-                reason: enabled
-                  ? "Auto-update enabled"
-                  : "Auto-update disabled",
-              }),
-            },
+          await setRampMonitoringMode(
+            context,
+            fresh,
+            enabled ? "auto" : "manual",
           );
-          await syncLinkedSafeRolloutForRampState(context, updated);
         },
       );
     } catch (e) {
-      // The SafeRollout's own toggle already applied; a deleted ramp schedule
-      // just means there is nothing to mirror.
+      // A deleted ramp schedule means there is nothing to mirror — apply the
+      // SafeRollout's own toggle and move on.
       if (!(e instanceof NotFoundError)) throw e;
+      await context.models.safeRollout.update(safeRollout, {
+        autoSnapshots: enabled,
+      });
     }
+  } else {
+    await context.models.safeRollout.update(safeRollout, {
+      autoSnapshots: enabled,
+    });
   }
 
   res.status(200).json({ status: 200 });

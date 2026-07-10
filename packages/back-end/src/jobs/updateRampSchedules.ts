@@ -117,15 +117,25 @@ export const advanceSingleRampSchedule = async (
 
   // Pre-lock screen: the pending poll is time-unbounded (a schedule can await
   // its draft publish for weeks) and shouldn't pay two lock writes per minute.
-  const screened = await context.models.rampSchedules.getById(rampScheduleId);
-  if (!screened) return;
-  if (screened.status === "pending") {
-    const activatingVersion = getActivatingVersion(screened);
-    if (activatingVersion === null) return;
-    const feature = screened.entityId
-      ? await getFeature(context, screened.entityId)
-      : undefined;
-    if ((feature?.version ?? -1) < activatingVersion) return;
+  // Screening errors skip the tick rather than failing the agenda job — the
+  // in-lock body re-reads everything and owns the error-pause semantics.
+  try {
+    const screened = await context.models.rampSchedules.getById(rampScheduleId);
+    if (!screened) return;
+    if (screened.status === "pending") {
+      const activatingVersion = getActivatingVersion(screened);
+      if (activatingVersion === null) return;
+      const feature = screened.entityId
+        ? await getFeature(context, screened.entityId)
+        : undefined;
+      if ((feature?.version ?? -1) < activatingVersion) return;
+    }
+  } catch (e) {
+    logger.warn(
+      { rampScheduleId, error: e instanceof Error ? e.message : String(e) },
+      "Error screening ramp schedule — skipping tick; will retry next poll",
+    );
+    return;
   }
 
   // If another advance holds the lock, skip this tick — the schedule's

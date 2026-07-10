@@ -138,7 +138,7 @@ function makeContext({
           ),
         acquireAdvanceLock: jest.fn().mockResolvedValue(true),
         releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
-        touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(undefined),
+        touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
       },
       safeRollout: {
         getById: jest.fn().mockResolvedValue(safeRollout),

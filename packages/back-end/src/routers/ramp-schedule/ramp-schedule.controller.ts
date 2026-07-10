@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { RampScheduleInterface } from "shared/validators";
+import { PermissionError } from "shared/util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -321,13 +322,13 @@ export const postRampScheduleAction = async (
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
-        (fresh) => {
+        (fresh, heartbeat) => {
           if (fresh.status !== "ready") {
             throw new ConflictError(
               `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          return startSchedule(context, fresh);
+          return startSchedule(context, fresh, heartbeat);
         },
       );
       break;
@@ -364,13 +365,13 @@ export const postRampScheduleAction = async (
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
-        (fresh) => {
+        (fresh, heartbeat) => {
           if (fresh.status !== "paused") {
             throw new ConflictError(
               `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          return resumeSchedule(context, fresh);
+          return resumeSchedule(context, fresh, heartbeat);
         },
       );
       break;
@@ -411,7 +412,7 @@ export const postRampScheduleAction = async (
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
-        (fresh) => {
+        async (fresh) => {
           if (!["running", "paused"].includes(fresh.status)) {
             throw new ConflictError(
               `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
@@ -423,6 +424,28 @@ export const postRampScheduleAction = async (
             throw new ConflictError(
               "Cannot advance: the schedule advanced while the request was in flight",
             );
+          }
+          // Re-derive the approval gate — holdConditions can change in place
+          // (steps editors allow it on the current step) while we waited.
+          const freshStep = fresh.steps[fresh.currentStepIndex];
+          const freshApprovalPending =
+            freshStep?.holdConditions?.requiresApproval &&
+            fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+          if (freshApprovalPending && !forceAdvance) {
+            throw new ConflictError(
+              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+            );
+          }
+          if (freshApprovalPending && forceAdvance) {
+            const linkedFeature = await getFeature(context, fresh.entityId);
+            if (
+              !linkedFeature ||
+              !context.permissions.canBypassApprovalChecks(linkedFeature)
+            ) {
+              throw new PermissionError(
+                "Permission denied: canBypassApprovalChecks required on the linked feature",
+              );
+            }
           }
           return advanceScheduleManually(context, fresh);
         },
@@ -495,13 +518,13 @@ export const postRampScheduleAction = async (
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
-        (fresh) => {
+        (fresh, heartbeat) => {
           if (!["rolled-back", "completed"].includes(fresh.status)) {
             throw new ConflictError(
               `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          return restartSchedule(context, fresh);
+          return restartSchedule(context, fresh, heartbeat);
         },
       );
       break;
@@ -535,13 +558,6 @@ export const postRampScheduleAction = async (
               `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
             );
           }
-          // A concurrent steps edit can shrink the array, turning the
-          // playhead past-end (unintended completion).
-          if (jumpTarget >= fresh.steps.length) {
-            throw new ConflictError(
-              `Cannot jump: step ${jumpTarget} no longer exists (the schedule's steps changed while the request was in flight)`,
-            );
-          }
           return jumpSchedule(context, fresh, jumpTarget);
         },
       );
@@ -572,19 +588,9 @@ export const postRampScheduleAction = async (
               "Cannot approve step: the schedule advanced while the request was in flight",
             );
           }
-          // Duplicate approval of the same step is idempotent success.
-          if (fresh.stepApproval?.stepIndex === fresh.currentStepIndex) {
-            return Promise.resolve(null);
-          }
-          const freshStep = fresh.steps[fresh.currentStepIndex];
-          const stillAwaiting =
-            fresh.status === "running" &&
-            freshStep?.holdConditions?.requiresApproval;
-          if (!stillAwaiting) {
-            throw new ConflictError(
-              "Cannot approve step: schedule changed while the request was in flight",
-            );
-          }
+          // Idempotency and awaiting-approval validation live in
+          // approveAndPublishStep, AFTER its permission checks — duplicating
+          // them here would return success to unchecked callers.
           return approveAndPublishStep(context, fresh, "ui");
         },
       );

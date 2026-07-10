@@ -82,13 +82,13 @@ export const startRampSchedule = createApiRequestHandler({
   const current = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    (fresh, heartbeat) => {
       if (fresh.status !== "ready") {
         throw new ConflictError(
           `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      return startSchedule(req.context, fresh);
+      return startSchedule(req.context, fresh, heartbeat);
     },
   );
   return { rampSchedule: rampScheduleToApiInterface(current) };
@@ -157,13 +157,13 @@ export const resumeRampSchedule = createApiRequestHandler({
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    (fresh, heartbeat) => {
       if (fresh.status !== "paused") {
         throw new ConflictError(
           `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      return resumeSchedule(req.context, fresh);
+      return resumeSchedule(req.context, fresh, heartbeat);
     },
   );
 
@@ -210,13 +210,6 @@ export const jumpRampSchedule = createApiRequestHandler({
       if (["completed", "rolled-back"].includes(fresh.status)) {
         throw new ConflictError(
           `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
-        );
-      }
-      // A concurrent steps edit can shrink the array, turning the playhead
-      // past-end (unintended completion).
-      if (targetStepIndex >= fresh.steps.length) {
-        throw new ConflictError(
-          `Cannot jump: step ${targetStepIndex} no longer exists (the schedule's steps changed while the request was in flight)`,
         );
       }
       return jumpSchedule(req.context, fresh, targetStepIndex);
@@ -313,19 +306,9 @@ export const approveStepRampSchedule = createApiRequestHandler({
           "Cannot approve step: the schedule advanced while the request was in flight",
         );
       }
-      // Duplicate approval of the same step is idempotent success.
-      if (fresh.stepApproval?.stepIndex === fresh.currentStepIndex) {
-        return Promise.resolve(null);
-      }
-      const freshStep = fresh.steps[fresh.currentStepIndex];
-      const stillAwaiting =
-        fresh.status === "running" &&
-        freshStep?.holdConditions?.requiresApproval;
-      if (!stillAwaiting) {
-        throw new ConflictError(
-          "Cannot approve step: schedule changed while the request was in flight",
-        );
-      }
+      // Idempotency and awaiting-approval validation live in
+      // approveAndPublishStep, AFTER its permission checks — duplicating them
+      // here would return success to callers that were never permission-checked.
       return approveAndPublishStep(req.context, fresh, "api");
     },
   );
@@ -428,13 +411,13 @@ export const restartRampSchedule = createApiRequestHandler({
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    (fresh, heartbeat) => {
       if (!["rolled-back", "completed"].includes(fresh.status)) {
         throw new ConflictError(
           `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
         );
       }
-      return restartSchedule(req.context, fresh);
+      return restartSchedule(req.context, fresh, heartbeat);
     },
   );
   return { rampSchedule: rampScheduleToApiInterface(updated) };
@@ -507,7 +490,31 @@ export const addTargetRampSchedule = createApiRequestHandler({
   const updated = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    async (fresh) => {
+      // Re-check exclusivity in-lock: a racing add could otherwise put the
+      // rule under two schedules whose advances publish competing coverage.
+      const freshConflicts =
+        await req.context.models.rampSchedules.findByTargetRule(
+          ruleId,
+          environment ?? undefined,
+        );
+      if (freshConflicts.some((c) => c.id !== fresh.id)) {
+        throw new ConflictError(
+          `Another schedule attached rule '${ruleId}'${envSuffix} while the request was in flight.`,
+        );
+      }
+      if (
+        fresh.targets.some((t) =>
+          rampTargetsEquivalent(t, {
+            ruleId,
+            environment: environment ?? null,
+          }),
+        )
+      ) {
+        throw new ConflictError(
+          `Rule '${ruleId}'${envSuffix} is already a target of this schedule.`,
+        );
+      }
       const isFirstTarget = fresh.targets.length === 0;
       const entityUpdate = fresh.entityId === "" ? { entityId: featureId } : {};
       const statusUpdate =
@@ -668,10 +675,11 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     }
   }
 
+  let bypassedApproval = false;
   let current = await runLockedRampScheduleAction(
     req.context,
     schedule.id,
-    (fresh) => {
+    async (fresh) => {
       if (!["running", "paused"].includes(fresh.status)) {
         throw new ConflictError(
           `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
@@ -684,12 +692,35 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
           "Cannot advance: the schedule advanced while the request was in flight",
         );
       }
+      // Re-derive the approval gate — holdConditions can change in place
+      // (steps editors allow it on the current step) while we waited.
+      const freshStep = fresh.steps[fresh.currentStepIndex];
+      const freshApprovalPending =
+        freshStep?.holdConditions?.requiresApproval &&
+        fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+      if (freshApprovalPending && !force) {
+        throw new ConflictError(
+          "This step requires approval before advancing. Call `/actions/approve-step` first, or pass `force: true` to bypass (requires canBypassApprovalChecks permission).",
+        );
+      }
+      if (freshApprovalPending && force) {
+        const linkedFeature = await getFeature(req.context, fresh.entityId);
+        if (
+          !linkedFeature ||
+          !req.context.permissions.canBypassApprovalChecks(linkedFeature)
+        ) {
+          throw new PermissionError(
+            "force: true requires canBypassApprovalChecks permission on the linked feature",
+          );
+        }
+        bypassedApproval = true;
+      }
       return advanceScheduleManually(req.context, fresh);
     },
   );
   // Audit after the advance succeeds so the trail never records a bypass that
   // was rejected by the in-lock validation.
-  if (approvalPending && force) {
+  if (bypassedApproval) {
     await req.audit({
       event: "rampSchedule.approval-bypassed",
       entity: { object: "rampSchedule", id: schedule.id },

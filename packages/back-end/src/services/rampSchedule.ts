@@ -38,6 +38,7 @@ import {
 } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import {
+  ConflictError,
   NotFoundError,
   RampAdvanceLockBusyError,
 } from "back-end/src/util/errors";
@@ -72,6 +73,12 @@ async function runWithAcquiredAdvanceLock<T>(
           token,
         );
       if (!stillHeld) {
+        // Distinct from benign contention: a live holder exceeded the stale
+        // threshold and lost its lease — the signal the threshold is mis-sized.
+        logger.warn(
+          { rampScheduleId: scheduleId },
+          "Ramp advance lock lease lost mid-flight; aborting the holder",
+        );
         throw new RampAdvanceLockBusyError(
           `Ramp schedule ${scheduleId} advance lock was reclaimed mid-flight`,
         );
@@ -98,18 +105,7 @@ export async function withRampScheduleAdvanceLock<T>(
   scheduleId: string,
   fn: (heartbeat: () => Promise<void>) => Promise<T>,
 ): Promise<T> {
-  const token = uniqid("ral_");
-  const acquired = await ctx.models.rampSchedules.acquireAdvanceLock(
-    scheduleId,
-    token,
-  );
-  if (!acquired) {
-    await assertScheduleExistsAfterFailedAcquire(ctx, scheduleId);
-    throw new RampAdvanceLockBusyError(
-      `Ramp schedule ${scheduleId} advance already in progress`,
-    );
-  }
-  return runWithAcquiredAdvanceLock(ctx, scheduleId, token, fn);
+  return withRampScheduleAdvanceLockRetry(ctx, scheduleId, fn, 1);
 }
 
 // For user-initiated actions whose intent the scheduler cannot replay. Only
@@ -1092,6 +1088,7 @@ export async function advanceStep(
     // otherwise the rule would complete permanently enabled.
     return completeRollout(ctx, schedule, {
       disableActiveTargets: !!schedule.cutoffDate,
+      autoCatchUp: isJump,
     });
   }
 
@@ -1360,6 +1357,7 @@ export async function pauseSchedule(
 export async function resumeSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  heartbeat?: () => Promise<void>,
 ): Promise<RampScheduleInterface> {
   // Must be called with the advance lock held and `schedule` read inside it —
   // a pre-lock snapshot could resurrect state a concurrent tick produced
@@ -1467,6 +1465,7 @@ export async function resumeSchedule(
   // Chain through any time-due steps (nextStepAt <= now). Steps with no
   // interval (approval gates, instant steps) have nextStepAt=null and are not
   // traversed here — the agenda re-picks them via nextProcessAt.
+  await heartbeat?.();
   await advanceUntilBlocked(ctx, updated, now);
   updated = (await ctx.models.rampSchedules.getById(schedule.id)) ?? updated;
 
@@ -1478,6 +1477,7 @@ export async function resumeSchedule(
 export async function restartSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  heartbeat?: () => Promise<void>,
 ): Promise<RampScheduleInterface> {
   if (schedule.currentStepIndex >= 0) {
     // Suppress the rolledBack webhook — this is a user-initiated restart, not
@@ -1527,7 +1527,8 @@ export async function restartSchedule(
     }
   }
 
-  return startSchedule(ctx, readied);
+  await heartbeat?.();
+  return startSchedule(ctx, readied, heartbeat);
 }
 
 /**
@@ -1541,6 +1542,14 @@ export async function jumpSchedule(
   schedule: RampScheduleInterface,
   targetStepIndex: number,
 ): Promise<RampScheduleInterface> {
+  // Owns its bounds precondition: an out-of-range playhead reads as past-end
+  // (unintended completion) downstream, and callers' pre-lock checks can be
+  // stale against a concurrent steps edit.
+  if (targetStepIndex < -1 || targetStepIndex >= schedule.steps.length) {
+    throw new ConflictError(
+      `Cannot jump: step ${targetStepIndex} does not exist on this schedule`,
+    );
+  }
   const now = new Date();
   const freshPhaseStartedAt = (() => {
     if (targetStepIndex <= 0) return now;
@@ -1695,10 +1704,16 @@ export async function advanceScheduleManually(
     );
 
     const now = new Date();
-    const advanced = await advanceStep(ctx, scheduleToAdvance);
-    // Chain through any subsequent instant-clearable steps in the same pass
-    // so the caller sees the schedule at its first blocking point immediately.
-    await advanceUntilBlocked(ctx, advanced, now);
+    // Fold the user-cleared advance and any due backlog behind it into one
+    // publish, like the scheduler paths — advanceStep(+1) followed by a
+    // catch-up would publish twice.
+    const target = Math.max(
+      computeAutoAdvanceTarget(scheduleToAdvance, now, {
+        currentStepCleared: true,
+      }),
+      scheduleToAdvance.currentStepIndex + 1,
+    );
+    const advanced = await advanceStep(ctx, scheduleToAdvance, target);
     return (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced;
   } catch (e) {
     // If we transitioned from paused→running and then failed, revert to paused
@@ -1726,6 +1741,7 @@ export async function advanceScheduleManually(
 export async function startSchedule(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
+  heartbeat?: () => Promise<void>,
 ): Promise<RampScheduleInterface> {
   const now = new Date();
   const initialNextStepAt = schedule.steps.length > 0 ? now : null;
@@ -1750,6 +1766,7 @@ export async function startSchedule(
 
   await applyRampStartActions(ctx, current);
   current = await ensureSafeRolloutForMonitoredRamp(ctx, current);
+  await heartbeat?.();
   await advanceUntilBlocked(ctx, current, now);
   current = (await ctx.models.rampSchedules.getById(schedule.id)) ?? current;
   await syncLinkedSafeRolloutForRampState(ctx, current);
@@ -1902,6 +1919,18 @@ async function applyEndActionsAndAwaitCutoff(
   });
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
+
+  await dispatchRampEvent(ctx, updated, "rampSchedule.actions.step.advanced", {
+    object: {
+      rampScheduleId: updated.id,
+      rampName: updated.name,
+      orgId: ctx.org.id,
+      currentStepIndex: updated.currentStepIndex,
+      previousStepIndex: schedule.currentStepIndex,
+      status: updated.status,
+    },
+  });
+
   return updated;
 }
 
@@ -1923,7 +1952,7 @@ export async function completeRollout(
   // `disableActiveTargets` folds `enabled: false` into the same publish as
   // `endActions` so callers (e.g. cutoffDate-driven completion) don't have
   // to fire a second revision publish for the disable.
-  opts: { disableActiveTargets?: boolean } = {},
+  opts: { disableActiveTargets?: boolean; autoCatchUp?: boolean } = {},
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
 
@@ -1972,6 +2001,7 @@ export async function completeRollout(
       schedule,
       schedule.steps.length,
       actionsToApply,
+      opts.autoCatchUp ? { fromStepIndex: schedule.currentStepIndex } : {},
     );
   }
 
@@ -2002,6 +2032,7 @@ export async function completeRollout(
       rampName: updated.name,
       orgId: ctx.org.id,
       currentStepIndex: updated.currentStepIndex,
+      previousStepIndex: schedule.currentStepIndex,
       status: updated.status,
     },
   });
@@ -2101,15 +2132,14 @@ export async function startReadyScheduleNow(
   } catch (e) {
     if (!(e instanceof RampAdvanceLockBusyError)) throw e;
     // Lock stayed busy: startDate=now defers the start to the scheduler
-    // instead of losing the user's "start now". Scheduling fields only;
-    // content edits are the caller's responsibility on the false return.
-    const now = new Date();
-    await ctx.models.rampSchedules.updateById(schedule.id, {
-      startDate: now,
-      nextProcessAt: now,
-    });
+    // instead of losing the user's "start now". Status-guarded so it can't
+    // re-arm a schedule that left "ready" while waiting; content edits are
+    // the caller's responsibility on the false return.
+    const deferred = await ctx.models.rampSchedules.deferReadyScheduleStart(
+      schedule.id,
+    );
     logger.warn(
-      { rampScheduleId: schedule.id },
+      { rampScheduleId: schedule.id, deferred },
       "Start-now lock stayed busy; deferred the start to the scheduler via startDate",
     );
     return false;
@@ -2210,6 +2240,8 @@ export async function onRevisionPublished(
         await onActivatingRevisionPublished(ctx, fresh);
       });
     } catch (e) {
+      // Deleted mid-loop: nothing to activate; don't abort the sibling ramps.
+      if (e instanceof NotFoundError) continue;
       if (!(e instanceof RampAdvanceLockBusyError)) throw e;
       // The scheduler is already processing this schedule; its pending branch
       // re-checks activation every tick, so the start is not lost.

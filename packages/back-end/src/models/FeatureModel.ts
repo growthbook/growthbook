@@ -56,6 +56,7 @@ import {
   getStartActionsFromRules,
   mergeStepsForRunningSchedule,
   remapTemplateActions,
+  runLockedRampScheduleAction,
   startReadyScheduleNow,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
@@ -80,6 +81,7 @@ import {
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import { NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
   getContextForAgendaJobByOrgId,
@@ -2000,9 +2002,6 @@ async function createRampSchedulesForRevision(
       updateAction.monitoringConfig !== undefined
         ? updateAction.monitoringConfig
         : existingSchedule?.monitoringConfig;
-    const nextSnapshotAt =
-      existingSchedule?.nextSnapshotAt ?? existingSchedule?.nextStepAt ?? null;
-
     // Build the content-level updates that apply regardless of start-now vs normal.
     const contentUpdates = {
       ...(updateAction.name !== undefined ? { name: updateAction.name } : {}),
@@ -2069,7 +2068,6 @@ async function createRampSchedulesForRevision(
     //
     // The "config-edited" audit event rides along so startReadyScheduleNow
     // appends "started" on top of it, matching the direct-edit path.
-    let currentSchedule = existingSchedule;
     let startDeferredToScheduler = false;
     if (
       updateAction.startDate === null &&
@@ -2083,81 +2081,173 @@ async function createRampSchedulesForRevision(
         ...(configEditedEvent ? { auditEvent: configEditedEvent } : {}),
       });
       if (started) continue;
-      // Start didn't run: either the scheduler started it first (the merge
-      // branch below applies the edits) or the lock stayed busy and the start
+      // Start didn't run: either the scheduler started it first (the locked
+      // update below applies the edits) or the lock stayed busy and the start
       // was deferred via startDate=now — don't clobber that deferral.
-      currentSchedule =
-        (await context.models.rampSchedules.getById(
-          updateAction.rampScheduleId,
-        )) ?? existingSchedule;
-      startDeferredToScheduler = currentSchedule.status === "ready";
+      const reread = await context.models.rampSchedules.getById(
+        updateAction.rampScheduleId,
+      );
+      if (!reread) {
+        logger.warn(
+          { rampScheduleId: updateAction.rampScheduleId },
+          "Ramp schedule removed while applying start-now update — skipping",
+        );
+        continue;
+      }
+      startDeferredToScheduler = reread.status === "ready";
     }
 
-    // Running schedule TOCTOU guard: the schedule may have transitioned from
-    // ready → running between when the user opened the modal and when this
-    // revision was published. Since the UI prevents editing a running
-    // schedule's steps/startDate, a stale draft update here is almost always
-    // an accidental race. We apply metadata updates normally and use
-    // mergeStepsForRunningSchedule for steps: past steps are frozen, the
-    // current step only accepts holdConditions/approvalNotes, and future steps
-    // are fully applied — keeping publish from failing while avoiding
-    // mid-run structural desyncs.
-    if (currentSchedule?.status === "running") {
-      const safeUpdates: Record<string, unknown> = {};
-      if (stepsExplicit) {
-        const { steps: mergedSteps } = mergeStepsForRunningSchedule(
-          currentSchedule,
-          steps,
-        );
-        safeUpdates.steps = mergedSteps;
-      }
-      if (updateAction.name !== undefined) safeUpdates.name = updateAction.name;
-      if (updateAction.cutoffDate !== undefined)
-        safeUpdates.cutoffDate = nextCutoffDate;
-      if (updateAction.monitoringConfig !== undefined)
-        safeUpdates.monitoringConfig = nextMonitoringConfig;
-      if (updateAction.lockdownConfig !== undefined)
-        safeUpdates.lockdownConfig = updateAction.lockdownConfig;
-      const updatedRunning = await context.models.rampSchedules.updateById(
+    // Apply the edits under the advance lock, deriving state-dependent pieces
+    // (running merge, paused clamp, audit history, nextProcessAt inputs) from
+    // the in-lock fresh doc — the schedule may have started, advanced, or been
+    // edited since the pre-publish read.
+    try {
+      await runLockedRampScheduleAction(
+        context,
         updateAction.rampScheduleId,
-        {
-          ...safeUpdates,
-          ...auditEvent,
-          nextProcessAt: computeNextProcessAt({
-            status: "running",
-            nextStepAt: currentSchedule.nextStepAt,
-            cutoffDate: nextCutoffDate,
-            nextSnapshotAt: nextSnapshotAt,
-          }),
+        async (fresh) => {
+          const effectiveCutoff =
+            updateAction.cutoffDate !== undefined
+              ? nextCutoffDate
+              : (fresh.cutoffDate ?? null);
+          const withAudit = (updates: Record<string, unknown>) => {
+            const edited = Object.keys(updates).filter(
+              (k) =>
+                !["eventHistory", "currentStepIndex", "nextStepAt"].includes(k),
+            );
+            if (updateAction.startDate !== undefined) edited.push("startDate");
+            if (edited.length === 0) return updates;
+            return {
+              ...updates,
+              eventHistory: appendRampEvent(fresh, "config-edited", {
+                stepIndex: fresh.currentStepIndex,
+                status: fresh.status,
+                reason: `Edited via draft: ${edited.join(", ")}`,
+              }),
+            };
+          };
+
+          // Running schedule TOCTOU guard: a stale draft update racing a
+          // started schedule applies metadata normally and merges steps (past
+          // steps frozen, current step limited to holds/notes, future steps
+          // fully applied) so publish neither fails nor desyncs the run.
+          if (fresh.status === "running") {
+            const safeUpdates: Record<string, unknown> = {};
+            if (stepsExplicit) {
+              const { steps: mergedSteps } = mergeStepsForRunningSchedule(
+                fresh,
+                steps,
+              );
+              safeUpdates.steps = mergedSteps;
+            }
+            if (updateAction.name !== undefined)
+              safeUpdates.name = updateAction.name;
+            if (updateAction.cutoffDate !== undefined)
+              safeUpdates.cutoffDate = nextCutoffDate;
+            if (updateAction.monitoringConfig !== undefined)
+              safeUpdates.monitoringConfig = nextMonitoringConfig;
+            if (updateAction.lockdownConfig !== undefined)
+              safeUpdates.lockdownConfig = updateAction.lockdownConfig;
+            // endActions apply at completion, so they're safe to update
+            // mid-run (startActions stay frozen — they're the rollback
+            // restore point).
+            if (updateAction.endActions !== undefined)
+              safeUpdates.endActions =
+                endActions.length > 0 ? endActions : undefined;
+            const updatedRunning =
+              await context.models.rampSchedules.updateById(
+                fresh.id,
+                withAudit({
+                  ...safeUpdates,
+                  nextProcessAt: computeNextProcessAt({
+                    status: "running",
+                    nextStepAt: fresh.nextStepAt,
+                    cutoffDate: effectiveCutoff,
+                    nextSnapshotAt: fresh.nextSnapshotAt,
+                  }),
+                }),
+              );
+            // Sync SafeRollout state in case monitored-step membership changed.
+            if (safeUpdates.steps) {
+              const ensured = await ensureSafeRolloutForMonitoredRamp(
+                context,
+                updatedRunning,
+              );
+              await syncLinkedSafeRolloutForRampState(context, ensured);
+            }
+            return;
+          }
+
+          const freshContentUpdates = {
+            ...(updateAction.name !== undefined
+              ? { name: updateAction.name }
+              : {}),
+            // startActions are the rollback restore point — only editable
+            // before the ramp has fired.
+            ...(updateAction.startActions !== undefined &&
+            (fresh.status === "pending" || fresh.status === "ready")
+              ? {
+                  startActions:
+                    startActions.length > 0 ? startActions : undefined,
+                }
+              : {}),
+            ...(stepsExplicit ? { steps } : {}),
+            ...(updateAction.endActions !== undefined
+              ? { endActions: endActions.length > 0 ? endActions : undefined }
+              : {}),
+            ...(updateAction.cutoffDate !== undefined
+              ? { cutoffDate: nextCutoffDate }
+              : {}),
+            ...(updateAction.monitoringConfig !== undefined
+              ? { monitoringConfig: nextMonitoringConfig }
+              : {}),
+            ...(updateAction.lockdownConfig !== undefined
+              ? { lockdownConfig: updateAction.lockdownConfig }
+              : {}),
+            // Steps edited on a paused schedule: clamp the playhead and clear
+            // nextStepAt so resume recalculates timing from scratch.
+            ...(fresh.status === "paused" &&
+            fresh.currentStepIndex >= steps.length
+              ? {
+                  currentStepIndex: Math.max(steps.length - 1, -1),
+                  nextStepAt: null,
+                }
+              : {}),
+          };
+
+          await context.models.rampSchedules.updateById(
+            fresh.id,
+            withAudit({
+              ...freshContentUpdates,
+              ...(updateAction.startDate !== undefined &&
+              !startDeferredToScheduler
+                ? { startDate: nextStartDate }
+                : {}),
+              nextProcessAt: computeNextProcessAt({
+                status: fresh.status,
+                nextStepAt: fresh.nextStepAt,
+                cutoffDate: effectiveCutoff,
+                startDate: startDeferredToScheduler
+                  ? (fresh.startDate ?? null)
+                  : updateAction.startDate !== undefined
+                    ? nextStartDate
+                    : (fresh.startDate ?? null),
+                nextSnapshotAt: fresh.nextSnapshotAt,
+              }),
+            }),
+          );
         },
       );
-      // Sync SafeRollout state in case monitored-step membership changed.
-      if (safeUpdates.steps) {
-        const ensured = await ensureSafeRolloutForMonitoredRamp(
-          context,
-          updatedRunning,
+    } catch (e) {
+      if (e instanceof NotFoundError) {
+        logger.warn(
+          { rampScheduleId: updateAction.rampScheduleId },
+          "Ramp schedule removed while applying update action — skipping",
         );
-        await syncLinkedSafeRolloutForRampState(context, ensured);
+        continue;
       }
-      continue;
+      throw e;
     }
-
-    await context.models.rampSchedules.updateById(updateAction.rampScheduleId, {
-      ...contentUpdates,
-      ...auditEvent,
-      ...(updateAction.startDate !== undefined && !startDeferredToScheduler
-        ? { startDate: nextStartDate }
-        : {}),
-      nextProcessAt: computeNextProcessAt({
-        status: currentSchedule?.status ?? "paused",
-        nextStepAt: currentSchedule?.nextStepAt ?? null,
-        cutoffDate: nextCutoffDate,
-        startDate: startDeferredToScheduler
-          ? (currentSchedule?.startDate ?? null)
-          : nextStartDate,
-        nextSnapshotAt: nextSnapshotAt,
-      }),
-    });
   }
 
   return createdIds;

@@ -22,6 +22,7 @@ import {
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
+import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
@@ -437,6 +438,12 @@ export class RampScheduleModel extends BaseClass {
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ) {
+    // Neutral not-found for unknown ids; the lock helper's "no longer exists"
+    // message is reserved for the deleted-while-locked race.
+    if (!(await this.getById(req.params.id))) {
+      throw new NotFoundError("Ramp schedule not found");
+    }
+
     if (!this.context.hasPremiumFeature("ramp-schedules")) {
       this.context.throwPlanDoesNotAllowError(
         "Ramp schedules require an Enterprise plan.",
@@ -612,7 +619,19 @@ export class RampScheduleModel extends BaseClass {
       );
     }
 
-    await this.deleteById(schedule.id);
+    // Locked so the doc can't be deleted out from under an in-flight advance.
+    await runLockedRampScheduleAction(
+      this.context,
+      schedule.id,
+      async (fresh) => {
+        if (fresh.status === "running") {
+          throw new ConflictError(
+            "Cannot delete: the schedule started running while the request was in flight",
+          );
+        }
+        await this.deleteById(fresh.id);
+      },
+    );
 
     await dispatchRampEvent(this.context, schedule, "rampSchedule.deleted", {
       object: {
@@ -729,6 +748,9 @@ export class RampScheduleModel extends BaseClass {
           { advanceLockToken: null },
           // Holder crashed/stalled — reclaim.
           { advanceLockAt: { $lt: staleThreshold, $ne: null } },
+          // Self-token idempotency: a retried acquire whose first write applied
+          // but whose response was lost must not orphan its own lock.
+          { advanceLockToken: token },
         ],
       },
       {
@@ -739,6 +761,23 @@ export class RampScheduleModel extends BaseClass {
       },
     );
     return (result.modifiedCount ?? 0) > 0;
+  }
+
+  // Status-guarded write for the start-now busy fallback: arms the scheduler
+  // to perform a deferred start, but only while the schedule is still ready —
+  // a blind write could re-arm the poller on a terminal doc or override a
+  // concurrent edit.
+  public async deferReadyScheduleStart(id: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        id,
+        status: "ready",
+      },
+      { $set: { startDate: now, nextProcessAt: now, dateUpdated: now } },
+    );
+    return result.matchedCount > 0;
   }
 
   public async releaseAdvanceLock(id: string, token: string): Promise<void> {
@@ -791,6 +830,9 @@ export class RampScheduleModel extends BaseClass {
               status: "pending",
               "targets.activatingRevisionVersion": { $exists: true, $ne: null },
             },
+            // Ready schedules whose start is due are matched by startDate too,
+            // so a deferred "start now" survives a clobbered nextProcessAt.
+            { status: "ready", startDate: { $ne: null, $lte: now } },
           ],
         },
         { projection: { id: 1, organization: 1, _id: 0 } },

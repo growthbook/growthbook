@@ -34,8 +34,13 @@ export type RampScheduleStepApprovalRequiredPayload = z.infer<
   typeof rampScheduleStepApprovalRequiredPayload
 >;
 
-export const rampScheduleCompletedPayload =
-  rampScheduleBaseNotificationPayload.strict();
+export const rampScheduleCompletedPayload = rampScheduleBaseNotificationPayload
+  .extend({
+    // Where the schedule was before completion; a gap > 1 means overdue steps
+    // were folded into the completing advance.
+    previousStepIndex: z.number().int().optional(),
+  })
+  .strict();
 export type RampScheduleCompletedPayload = z.infer<
   typeof rampScheduleCompletedPayload
 >;
