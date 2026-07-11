@@ -11,7 +11,9 @@ import {
   isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { ConfigInterface } from "shared/types/config";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -24,12 +26,35 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 // Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
+import { captureConfigExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import {
   approveRevision,
   publishRevision as publishRevisionAction,
   maybeAutoPublishRevision,
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
+
+// Compute the experiment-guard acknowledgment fingerprint when arming a deferred
+// publish (scheduled or auto-publish-on-approval) on a config revision. Throws a
+// SoftWarningError when live experiment conflicts exist and the armer hasn't
+// acknowledged them; returns the snapshot keys (or undefined) to store on arm.
+async function captureConfigGuardAckForArm(
+  context: ReqContext,
+  revision: Pick<Revision, "target">,
+  // Optional already-loaded entity, so a caller that fetched it (e.g. for
+  // assertSchedulable) doesn't re-read it.
+  prefetchedEntity?: Record<string, unknown> | null,
+): Promise<string[] | undefined> {
+  if (revision.target.type !== "config") return undefined;
+  const config =
+    prefetchedEntity ??
+    (await context.models.configs.getById(revision.target.id));
+  if (!config) return undefined;
+  return captureConfigExperimentGuardAcknowledgment(
+    context,
+    config as unknown as ConfigInterface,
+  );
+}
 
 // region GET /revision
 
@@ -449,8 +474,15 @@ export const postSubmit = async (
       existingRevision.target.snapshot as Record<string, unknown>,
     );
 
+  // Snapshot the experiment-guard fingerprint when arming auto-publish on a
+  // guarded config (throws if live conflicts aren't acknowledged).
+  const experimentGuardAcknowledgedKeys = enableAutoPublish
+    ? await captureConfigGuardAckForArm(context, existingRevision)
+    : undefined;
+
   const revision = await revisionModel.submitForReview(id, userId, {
     autoPublishOnApproval: enableAutoPublish,
+    experimentGuardAcknowledgedKeys,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -1222,10 +1254,17 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
+  // Snapshot the experiment-guard fingerprint when arming auto-publish on a
+  // guarded config (throws if live conflicts aren't acknowledged).
+  const experimentGuardAcknowledgedKeys = enabled
+    ? await captureConfigGuardAckForArm(context, existing)
+    : undefined;
+
   const revision = await revisionModel.setAutoPublishOnApproval(
     id,
     userId,
     !!enabled,
+    { experimentGuardAcknowledgedKeys },
   );
 
   // Arming an already-approved revision must publish now — otherwise it waits
@@ -1744,21 +1783,33 @@ export const postSchedulePublish = async (
 
   // Arming against an entity that can't accept a future publish (e.g. a locked
   // config) would just fail at every poller tick — reject up front. Canceling
-  // is never gated.
-  if (!isCancel && adapter.assertSchedulable) {
-    const entity = await adapter
-      .getModel(context)
-      ?.getById(existingRevision.target.id);
-    if (entity) {
-      await adapter.assertSchedulable(context, entity);
-    }
+  // is never gated. Reused below for the config experiment-guard acknowledgment.
+  const scheduleEntity = isCancel
+    ? null
+    : ((await adapter.getModel(context)?.getById(existingRevision.target.id)) ??
+      null);
+  if (adapter.assertSchedulable && scheduleEntity) {
+    await adapter.assertSchedulable(context, scheduleEntity);
   }
+
+  // Experiment guard: arming a deferred publish on a guarded config with live
+  // experiment conflicts requires acknowledgment (ignoreWarnings / bypass) and
+  // snapshots the acknowledged conflict keys so the merge-time recheck compares
+  // against them. Reuses the already-fetched entity.
+  const experimentGuardAcknowledgedKeys = isCancel
+    ? undefined
+    : await captureConfigGuardAckForArm(
+        context,
+        existingRevision,
+        scheduleEntity,
+      );
 
   const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
     scheduledPublishAt: parsedDate,
     lockEdits,
     lockOthers,
     bypassApproval: wantsBypass,
+    experimentGuardAcknowledgedKeys,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(

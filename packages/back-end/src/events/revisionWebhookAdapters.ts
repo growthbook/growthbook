@@ -54,6 +54,14 @@ export type RevisionLifecycleAction =
     }
   | { type: "rebased" }
   | { type: "published" }
+  // A deferred publish (scheduled / auto-on-approval) was given up on after
+  // failing. Carries the failure context for the `revision.publishFailed` event.
+  | {
+      type: "publishFailed";
+      reason: string;
+      terminal: boolean;
+      attempts: number;
+    }
   | { type: "discarded" }
   | { type: "reopened" }
   // Fires whenever a revert lands on the live entity — both the direct-publish

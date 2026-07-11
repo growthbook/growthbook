@@ -126,7 +126,11 @@ export interface EntityRevisionAdapter<
     entity: TSnapshot,
     desiredState: Record<string, unknown>,
     revision: Revision,
-    options?: { isRevert?: boolean },
+    // `deferred` = this is a background/armed merge (scheduled publish or
+    // auto-publish-on-approval), whose overrides are the arm-time snapshot on the
+    // revision — NOT a synchronous manual publish (where a live ignoreWarnings/
+    // bypass applies).
+    options?: { isRevert?: boolean; deferred?: boolean },
   ): Promise<void>;
 
   /**

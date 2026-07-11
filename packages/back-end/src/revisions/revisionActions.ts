@@ -21,7 +21,11 @@ import {
   BadRequestError,
   ConflictError,
   MergeConflictError,
+  TerminalPublishError,
+  isTerminalPublishError,
+  getErrorMessage,
 } from "back-end/src/util/errors";
+import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { logger } from "back-end/src/util/logger";
 
 export async function approveRevision(
@@ -88,7 +92,7 @@ export async function publishRevision(
   context: Context,
   revision: Revision,
   entity: Record<string, unknown>,
-  { bypass }: { bypass?: boolean } = {},
+  { bypass, deferred }: { bypass?: boolean; deferred?: boolean } = {},
 ): Promise<Revision> {
   const adapter = getAdapter(revision.target.type);
 
@@ -190,6 +194,7 @@ export async function publishRevision(
   // config must not have its latest-merged pointer advanced past the pin.
   await adapter.assertPublishable?.(context, entity, desiredState, revision, {
     isRevert: !!revision.revertedFrom,
+    deferred: !!deferred,
   });
 
   // No net change vs the live entity: either a genuine no-op or a retry after a
@@ -318,36 +323,97 @@ export async function maybeAutoPublishRevision(
       return revision;
     }
 
-    return await publishRevision(enablerContext, revision, entity);
+    // Deferred: the guard override was acknowledged at arm time (fingerprint on
+    // the revision), not by whoever triggered this approval.
+    return await publishRevision(enablerContext, revision, entity, {
+      deferred: true,
+    });
   } catch (e) {
     logger.error(
       e,
       `auto-publish-on-approval failed for revision ${revision.id}; left approved for manual publish`,
     );
+    // A terminal failure won't self-heal on a manual retry, so notify a human
+    // (this path has no poller retry loop). Transient failures are left approved
+    // for a manual publish and don't fire the "gave up" webhook.
+    if (isTerminalPublishError(e)) {
+      // Disarm auto-publish so a later trigger (re-approval, undo/redo, rebase)
+      // doesn't re-run this doomed publish and re-fire the webhook. Also clears
+      // the stale experiment-guard fingerprint so a re-arm re-contends. The human
+      // must re-arm after resolving the cause.
+      let disarmed = revision;
+      try {
+        disarmed = await context.models.revisions.setAutoPublishOnApproval(
+          revision.id,
+          context.userId,
+          false,
+        );
+      } catch {
+        // best-effort — still fire the webhook below
+      }
+      await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+        context,
+        disarmed,
+        {
+          type: "publishFailed",
+          reason: getErrorMessage(e),
+          terminal: true,
+          attempts: 1,
+        },
+      );
+      return disarmed;
+    }
     return revision;
   }
 }
 
-// After this many failed poller attempts, escalate logging so a stuck schedule
-// surfaces in monitoring instead of retrying silently forever.
-const SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS = 10;
-
-async function recordAndLogScheduledPublishFailure(
+// Record a failed scheduled-publish attempt and decide what happens next: retry
+// after a backoff, or give up (park the draft + fire `revision.publishFailed`).
+// Terminal failures give up on the first attempt; transient ones retry up to the
+// cap. See publishFailurePolicy for the decision logic.
+async function handleScheduledPublishFailure(
   context: Context,
   revision: Revision,
-  message: string,
+  error: unknown,
 ): Promise<void> {
+  const message = getErrorMessage(error);
   const attempts = await context.models.revisions.recordScheduledPublishFailure(
     revision.id,
     message,
   );
-  const logFn =
-    attempts >= SCHEDULED_PUBLISH_STUCK_AFTER_ATTEMPTS
-      ? logger.error
-      : logger.info;
-  logFn(
-    { revisionId: revision.id, attempts },
-    `Scheduled publish not completed yet: ${message}`,
+  const outcome = decideScheduledPublishOutcome({
+    error,
+    attempts,
+    now: new Date(),
+  });
+
+  if (outcome.action === "retry") {
+    await context.models.revisions.setScheduledPublishNextAttempt(
+      revision.id,
+      outcome.nextAttemptAt,
+    );
+    logger.info(
+      {
+        revisionId: revision.id,
+        attempts,
+        nextAttemptAt: outcome.nextAttemptAt,
+      },
+      `Scheduled publish held (retry after backoff): ${message}`,
+    );
+    return;
+  }
+
+  // Give up: stop the poller retrying and notify a human.
+  const terminal = outcome.classification === "terminal";
+  await context.models.revisions.parkScheduledPublish(revision.id);
+  logger.error(
+    { revisionId: revision.id, attempts, terminal },
+    `Scheduled publish gave up (${terminal ? "terminal failure" : "max attempts reached"}): ${message}`,
+  );
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "publishFailed", reason: message, terminal, attempts },
   );
 }
 
@@ -364,12 +430,21 @@ export async function maybePublishScheduledRevision(
 ): Promise<Revision> {
   if (!isScheduledPublishDue(revision)) return revision;
 
+  // Respect the backoff window between transient retries.
+  if (
+    revision.scheduledPublishNextAttemptAt &&
+    revision.scheduledPublishNextAttemptAt > new Date()
+  ) {
+    return revision;
+  }
+
   const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
   if (!enablerId) {
-    await recordAndLogScheduledPublishFailure(
+    // No user to ever publish as — terminal, don't retry.
+    await handleScheduledPublishFailure(
       context,
       revision,
-      "No arming user or author to publish with",
+      new TerminalPublishError("No arming user or author to publish with"),
     );
     return revision;
   }
@@ -380,10 +455,11 @@ export async function maybePublishScheduledRevision(
       enablerId,
     );
     if (!enablerContext) {
-      await recordAndLogScheduledPublishFailure(
+      // Transient: the user may resolve on a later tick.
+      await handleScheduledPublishFailure(
         context,
         revision,
-        "Arming user could not be resolved",
+        new Error("Arming user could not be resolved"),
       );
       return revision;
     }
@@ -395,13 +471,12 @@ export async function maybePublishScheduledRevision(
       !!revision.scheduledPublishBypassApproval &&
       adapter.canBypassApproval(enablerContext, entity);
 
-    return await publishRevision(enablerContext, revision, entity, { bypass });
+    return await publishRevision(enablerContext, revision, entity, {
+      bypass,
+      deferred: true,
+    });
   } catch (e) {
-    await recordAndLogScheduledPublishFailure(
-      context,
-      revision,
-      e instanceof Error ? e.message : String(e),
-    );
+    await handleScheduledPublishFailure(context, revision, e);
     return revision;
   }
 }

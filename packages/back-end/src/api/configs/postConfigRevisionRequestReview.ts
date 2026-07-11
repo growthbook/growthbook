@@ -4,6 +4,7 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { captureConfigExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -45,10 +46,20 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
       config as unknown as Record<string, unknown>,
     );
 
+  // Experiment guard: arming auto-publish on a guarded config with live
+  // experiment conflicts requires acknowledgment (throws if not) and snapshots
+  // the acknowledged keys for the merge-time recheck.
+  const experimentGuardAcknowledgedKeys = enableAutoPublish
+    ? await captureConfigExperimentGuardAcknowledgment(req.context, config)
+    : undefined;
+
   const updated = await req.context.models.revisions.submitForReview(
     revision.id,
     req.context.userId,
-    { autoPublishOnApproval: enableAutoPublish },
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      experimentGuardAcknowledgedKeys,
+    },
   );
 
   await dispatchConfigRevisionEvent(req.context, updated, {

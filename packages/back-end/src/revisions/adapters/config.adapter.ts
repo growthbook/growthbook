@@ -27,6 +27,7 @@ import {
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -275,6 +276,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     desiredState: Record<string, unknown>,
     revision: Revision,
+    options?: { isRevert?: boolean; deferred?: boolean },
   ): Promise<void> {
     // Pre-merge lock gate for the shared publishRevision action (auto-publish on
     // approval, scheduled-publish poller). Throwing here — before the merge is
@@ -291,6 +293,17 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       }
     }
     if (Object.keys(filteredChanges).length === 0) return;
+
+    // Experiment guard (opt-in, per config): block a publish that would rewrite
+    // the live value served to a running experiment. A deferred (armed) merge —
+    // scheduled publish or auto-publish-on-approval — compares the live conflict
+    // set against the arm-time fingerprint on the revision; a synchronous manual
+    // publish (including "publish now" of an armed revision) instead honors a
+    // live override (ignoreWarnings / bypassApprovalChecks). `deferred` reflects
+    // THIS invocation, not whether the revision merely has auto-publish armed.
+    await assertConfigExperimentGuard(context, entity, revision, {
+      armed: !!options?.deferred,
+    });
 
     // Normalize BEFORE the descendant dry-run (otherwise it sees an
     // un-normalized root that still declares an ancestor-owned key and reports

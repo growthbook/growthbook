@@ -271,6 +271,12 @@ export interface OrganizationSettings {
   // base configs allow child configs / feature rules to add extra keys unless
   // a config explicitly opts out via its own `extensible` flag.
   configsExtensibleByDefault?: boolean;
+  // Default value of the per-config "experiment guard" for newly created configs.
+  // The guard soft-blocks publishing a config whose value is served to a running
+  // experiment. Seeded onto each config at creation (a concrete per-config flag),
+  // so changing this default doesn't retroactively affect existing configs.
+  // Absent = off.
+  configExperimentGuardDefault?: boolean;
   // Whether publishing a revision is BLOCKED when its values don't match the
   // JSON schema (features and configs). Per-write validation always runs (opt
   // out per request with ?skipSchemaValidation=true); this governs the re-check

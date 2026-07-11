@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { apiConfigRevisionValidator } from "./config-revisions";
+import { revisionPublishFailedExtension } from "./revision-publish-failed";
 
 const reviewer = z
   .object({
@@ -104,4 +105,11 @@ export const configRevisionRevertedPayload = configRevisionWebhookPayload
   .strict();
 export type ConfigRevisionRevertedPayload = z.infer<
   typeof configRevisionRevertedPayload
+>;
+
+export const configRevisionPublishFailedPayload = configRevisionWebhookPayload
+  .extend(revisionPublishFailedExtension)
+  .strict();
+export type ConfigRevisionPublishFailedPayload = z.infer<
+  typeof configRevisionPublishFailedPayload
 >;

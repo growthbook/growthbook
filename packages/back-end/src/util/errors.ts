@@ -158,6 +158,32 @@ export class SoftWarningError extends Error {
   }
 }
 
+// A publish failure that will not self-heal on retry (pre-launch checklist with
+// no bypass, a stale experiment-guard fingerprint, a hard schema/invariant
+// violation). Thrown from a publish path so the scheduled-publish poller gives
+// up on the FIRST occurrence — parks the draft and fires `revision.publishFailed`
+// — instead of retrying to the attempt cap. The `terminalPublishFailure` flag
+// lets the classifier recognize it even across module/re-throw boundaries where
+// `instanceof` can be unreliable. Still a 400 for synchronous (manual) callers.
+export class TerminalPublishError extends Error {
+  status = 400;
+  readonly terminalPublishFailure = true;
+  constructor(message: string) {
+    super(message);
+    this.name = "TerminalPublishError";
+  }
+}
+
+export function isTerminalPublishError(error: unknown): boolean {
+  if (error instanceof TerminalPublishError) return true;
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as { terminalPublishFailure?: unknown }).terminalPublishFailure ===
+      true
+  );
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {

@@ -39,6 +39,8 @@ const PUBLISH_LOCK_CONFLICT_MESSAGE =
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
 } as const;
 
 // Schedule fields cleared together on cancel.
@@ -47,6 +49,9 @@ const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
   scheduledPublishBypassApproval: 1,
+  // The experiment-guard acknowledgment is a per-arm snapshot — a re-arm/cancel
+  // must not leave a stale fingerprint that a later publish would compare against.
+  experimentGuardAcknowledgedKeys: 1,
   ...SCHEDULED_PUBLISH_FAILURE_UNSET,
 } as const;
 
@@ -88,11 +93,17 @@ const BaseClass = MakeModelClass({
     "scheduledPublishBypassApproval",
     "scheduledPublishAttempts",
     "scheduledPublishLastError",
+    "scheduledPublishNextAttemptAt",
+    "scheduledPublishGaveUpAt",
+    "experimentGuardAcknowledgedKeys",
   ],
   // Poller bookkeeping must not bump the user-facing "last update" time.
   skipDateUpdatedFields: [
     "scheduledPublishAttempts",
     "scheduledPublishLastError",
+    "scheduledPublishNextAttemptAt",
+    "scheduledPublishGaveUpAt",
+    "experimentGuardAcknowledgedKeys",
   ],
   additionalIndexes: [
     {
@@ -718,7 +729,13 @@ export class RevisionModel extends BaseClass {
   async submitForReview(
     id: string,
     userId: string,
-    { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
+    {
+      autoPublishOnApproval,
+      experimentGuardAcknowledgedKeys,
+    }: {
+      autoPublishOnApproval?: boolean;
+      experimentGuardAcknowledgedKeys?: string[];
+    } = {},
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -748,6 +765,18 @@ export class RevisionModel extends BaseClass {
       // publish falls back to `authorId`.
       ...(autoPublishOnApproval && userId
         ? { autoPublishEnabledBy: userId }
+        : {}),
+      // Arm-time experiment-guard fingerprint (config revisions). Set the new
+      // acknowledgment, or clear a stale one from a prior arm (to []) so a re-arm
+      // with no current conflicts can't be covered by an outdated fingerprint.
+      // Fully cleared on disarm via disarmScheduledPublish/SCHEDULED_PUBLISH_UNSET.
+      ...(autoPublishOnApproval &&
+      (experimentGuardAcknowledgedKeys?.length ||
+        existing.experimentGuardAcknowledgedKeys?.length)
+        ? {
+            experimentGuardAcknowledgedKeys:
+              experimentGuardAcknowledgedKeys ?? [],
+          }
         : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
@@ -782,7 +811,14 @@ export class RevisionModel extends BaseClass {
 
   // Arm/disarm auto-publish-on-approval after a draft has already been
   // submitted for review (the submit-for-review path handles the draft case).
-  async setAutoPublishOnApproval(id: string, userId: string, enabled: boolean) {
+  async setAutoPublishOnApproval(
+    id: string,
+    userId: string,
+    enabled: boolean,
+    {
+      experimentGuardAcknowledgedKeys,
+    }: { experimentGuardAcknowledgedKeys?: string[] } = {},
+  ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
@@ -802,6 +838,18 @@ export class RevisionModel extends BaseClass {
     const updated = await this.update(existing, {
       autoPublishOnApproval: enabled,
       ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
+      // Arm-time experiment-guard fingerprint (config revisions). Set the new
+      // acknowledgment, or clear a stale one from a prior arm (to []) so a re-arm
+      // with no current conflicts can't be covered by an outdated fingerprint.
+      // Fully cleared on disarm below via disarmScheduledPublish/SCHEDULED_PUBLISH_UNSET.
+      ...(enabled &&
+      (experimentGuardAcknowledgedKeys?.length ||
+        existing.experimentGuardAcknowledgedKeys?.length)
+        ? {
+            experimentGuardAcknowledgedKeys:
+              experimentGuardAcknowledgedKeys ?? [],
+          }
+        : {}),
     } as UpdateProps<Revision>);
 
     // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
@@ -1456,6 +1504,7 @@ export class RevisionModel extends BaseClass {
       lockEdits,
       lockOthers,
       bypassApproval,
+      experimentGuardAcknowledgedKeys,
     }: ScheduledPublishInput,
   ): Promise<Revision> {
     const existing = await this.getById(id);
@@ -1519,13 +1568,20 @@ export class RevisionModel extends BaseClass {
             dateUpdated: now,
             ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
             ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+            ...(experimentGuardAcknowledgedKeys?.length
+              ? { experimentGuardAcknowledgedKeys }
+              : {}),
           },
           // Clear prior poller-failure state so a reschedule doesn't keep the
-          // "stuck" UI or prematurely escalate logging on the next fire.
+          // "stuck" UI or prematurely escalate logging on the next fire. Also
+          // clear a stale guard fingerprint when this (re-)arm has none.
           $unset: {
             ...SCHEDULED_PUBLISH_FAILURE_UNSET,
             ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
             ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
+            ...(experimentGuardAcknowledgedKeys?.length
+              ? {}
+              : { experimentGuardAcknowledgedKeys: 1 }),
           },
           $push: { activityLog: armEntry },
         },
@@ -1625,6 +1681,49 @@ export class RevisionModel extends BaseClass {
     return (
       (doc as { scheduledPublishAttempts?: number } | null)
         ?.scheduledPublishAttempts ?? 0
+    );
+  }
+
+  /**
+   * Delay the next poller retry of a failing scheduled publish (backoff). The
+   * due-but-failing revision is skipped until this time so doomed retries space
+   * out instead of firing every tick. Raw write, like the failure recorder.
+   */
+  async setScheduledPublishNextAttempt(
+    id: string,
+    nextAttemptAt: Date,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+    );
+  }
+
+  /**
+   * Give up on a failing scheduled publish: clear the schedule (so the poller
+   * stops selecting it), disarm auto-publish, and stamp `scheduledPublishGaveUpAt`
+   * so the UI can flag the abandoned schedule. The draft is left open (status
+   * unchanged) with `scheduledPublishLastError` preserved for context. Raw write
+   * (no audit / dateUpdated bump), like the failure recorder — the
+   * `revision.publishFailed` webhook is the user-facing signal.
+   */
+  async parkScheduledPublish(id: string): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id },
+      {
+        $set: {
+          scheduledPublishGaveUpAt: new Date(),
+          autoPublishOnApproval: false,
+        },
+        $unset: {
+          scheduledPublishAt: 1,
+          scheduledPublishLockEdits: 1,
+          scheduledPublishLockOthers: 1,
+          scheduledPublishBypassApproval: 1,
+          scheduledPublishNextAttemptAt: 1,
+          experimentGuardAcknowledgedKeys: 1,
+        },
+      },
     );
   }
 

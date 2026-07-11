@@ -34,6 +34,7 @@ import {
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
+  featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
@@ -53,6 +54,7 @@ import {
   savedGroupRevisionPublishedPayload,
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
+  savedGroupRevisionPublishFailedPayload,
 } from "./saved-group-revision-notifications";
 import { apiConstantValidator } from "./constant";
 import {
@@ -67,6 +69,7 @@ import {
   constantRevisionPublishedPayload,
   constantRevisionRevertedPayload,
   constantRevisionReopenedPayload,
+  constantRevisionPublishFailedPayload,
 } from "./constant-revision-notifications";
 import { apiConfigValidator } from "./config";
 import {
@@ -81,6 +84,7 @@ import {
   configRevisionPublishedPayload,
   configRevisionRevertedPayload,
   configRevisionReopenedPayload,
+  configRevisionPublishFailedPayload,
 } from "./config-revision-notifications";
 
 // Re-export for consumers of shared/validators
@@ -227,6 +231,11 @@ export const notificationEvents = {
       description:
         "Triggered when a feature is reverted to a previous published revision",
     },
+    "revision.publishFailed": {
+      schema: featureRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
   },
   experiment: {
     created: {
@@ -328,6 +337,11 @@ export const notificationEvents = {
       schema: savedGroupRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.publishFailed": {
+      schema: savedGroupRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
   },
   constant: {
     created: {
@@ -393,6 +407,11 @@ export const notificationEvents = {
       schema: constantRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.publishFailed": {
+      schema: constantRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
   },
   config: {
     created: {
@@ -457,6 +476,11 @@ export const notificationEvents = {
     "revision.reopened": {
       schema: configRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: configRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
     },
   },
   user: {

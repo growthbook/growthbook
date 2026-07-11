@@ -68,6 +68,12 @@ export const configValidator = z
       .optional(),
     // Edit-protection / reproducibility pin (see configLockSchema). `null` = unlocked.
     lock: configLockSchema.nullable().optional(),
+    // Opt-in "experiment guard": when true, publishing this config soft-blocks
+    // (computed live) if a changed key is served to a running experiment. Seeded
+    // from the org default at creation; turning it OFF requires bypassApprovalChecks
+    // (asymmetric, mirrors unlock). Kept out of configUpdatableFieldsSchema — a
+    // config-level setting toggled via the config controller, not a revision field.
+    experimentGuard: z.boolean().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
@@ -107,6 +113,8 @@ export const postConfigBodyValidator = z.object({
   project: z.string().optional(),
   schema: simpleSchemaValidator.optional(),
   extensible: z.boolean().optional(),
+  // Omit to inherit the org default for new configs.
+  experimentGuard: z.boolean().optional(),
 });
 
 export const putConfigBodyValidator = z.object({
@@ -121,6 +129,9 @@ export const putConfigBodyValidator = z.object({
   schema: simpleSchemaValidator.optional(),
   extensible: z.boolean().optional(),
   renderProjections: z.record(z.string(), schemaProjectionValidator).optional(),
+  // Toggle the experiment guard. Turning it OFF requires bypassApprovalChecks
+  // (enforced in the controller).
+  experimentGuard: z.boolean().optional(),
 });
 
 // Configs are addressed by their org-unique `key` (the `@config:` reference handle).
@@ -337,6 +348,12 @@ export const apiConfigValidator = namedSchema(
           "Whether this config is locked: frozen at a published revision. While locked no change can be published past that revision until it is unlocked (which requires the `bypassApprovalChecks` permission). Drafts may still be created and edited.",
         )
         .optional(),
+      experimentGuard: z
+        .boolean()
+        .describe(
+          "Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`.",
+        )
+        .optional(),
       lockedRevision: z
         .object({ id: z.string(), version: z.number() })
         .strict()
@@ -415,6 +432,12 @@ const postConfigApiBody = z
       )
       .optional(),
     extensible: z.boolean().optional(),
+    experimentGuard: z
+      .boolean()
+      .describe(
+        "Enable the experiment guard on this config: publishing a change served to a running experiment soft-blocks unless overridden. Omit to inherit the org default.",
+      )
+      .optional(),
     invariants: z
       .array(apiConfigInvariantInputValidator)
       .describe(
@@ -460,6 +483,12 @@ const updateConfigApiBody = z
       )
       .optional(),
     extensible: z.boolean().optional(),
+    experimentGuard: z
+      .boolean()
+      .describe(
+        "Enable or disable the experiment guard on this config. Turning it OFF requires the `bypassApprovalChecks` permission.",
+      )
+      .optional(),
     invariants: z
       .array(apiConfigInvariantInputValidator)
       .describe(

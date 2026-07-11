@@ -32,6 +32,7 @@ import {
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -67,6 +68,33 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     ) {
       req.context.permissions.throwPermissionError();
     }
+
+    // Experiment-guard toggle: a config-level setting (not a revision field).
+    // Asymmetric like lock/unlock — turning it OFF requires bypassApprovalChecks.
+    // Check the permission up front (fail fast) but DEFER the write until after
+    // the value publish succeeds, so a soft-blocked/failed publish can't leave
+    // the toggle partially applied (removing a protection the value change never
+    // landed behind). `commitGuardToggle` applies it at each success return.
+    const guardToggle =
+      req.body.experimentGuard !== undefined &&
+      req.body.experimentGuard !== !!config.experimentGuard
+        ? req.body.experimentGuard
+        : undefined;
+    if (
+      guardToggle === false &&
+      !req.context.permissions.canBypassApprovalChecks({
+        project: config.project || "",
+      })
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
+    const commitGuardToggle = async (): Promise<Partial<ConfigInterface>> => {
+      if (guardToggle === undefined) return {};
+      await req.context.models.configs.dangerousUpdateBypassPermission(config, {
+        experimentGuard: guardToggle,
+      });
+      return { experimentGuard: guardToggle };
+    };
 
     // Strip any stray `$extends` from the value; lineage lives on `parent`/`extends`.
     const normalizedValue =
@@ -235,9 +263,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // Cycle rejection is enforced in ConfigModel (covers every write path).
 
     if (Object.keys(fieldsToUpdate).length === 0) {
+      // No value change to fail, so the toggle is atomic on its own.
+      const guardFields = await commitGuardToggle();
       return {
         config: await resolveOwnerEmail(
-          req.context.models.configs.toApiInterface(config),
+          req.context.models.configs.toApiInterface({
+            ...config,
+            ...guardFields,
+          }),
           req.context,
         ),
         ...(warnings.length ? { warnings } : {}),
@@ -285,6 +318,16 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
+      // Experiment guard: a direct publish rewriting the live value served to a
+      // running experiment soft-blocks unless overridden (?ignoreWarnings=true /
+      // bypassApprovalChecks). Direct path (no review cycle) → armed=false, so no
+      // arm-time fingerprint applies.
+      await assertConfigExperimentGuard(
+        req.context,
+        config,
+        { experimentGuardAcknowledgedKeys: undefined },
+        { armed: false },
+      );
       // Direct REST update publishes live, so run the full publish gate
       // (schema + required fields + cross-field invariants + custom hooks),
       // matching every other config publish path. No `revision` arg: this is a
@@ -395,9 +438,15 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       await dispatchConfigRevisionEvent(req.context, merged, {
         type: "published",
       });
+      // Publish committed — now apply the guard toggle (atomic ordering).
+      const guardFields = await commitGuardToggle();
       return {
         config: await resolveOwnerEmail(
-          req.context.models.configs.toApiInterface({ ...config, ...updated }),
+          req.context.models.configs.toApiInterface({
+            ...config,
+            ...updated,
+            ...guardFields,
+          }),
           req.context,
         ),
         ...(warnings.length ? { warnings } : {}),
@@ -411,9 +460,15 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     if (needsDescendantReconcile) {
       await reconcileConfigDescendants(req.context, config.key);
     }
+    // Publish committed — now apply the guard toggle (atomic ordering).
+    const guardFields = await commitGuardToggle();
     return {
       config: await resolveOwnerEmail(
-        req.context.models.configs.toApiInterface({ ...config, ...updated }),
+        req.context.models.configs.toApiInterface({
+          ...config,
+          ...updated,
+          ...guardFields,
+        }),
         req.context,
       ),
       ...(warnings.length ? { warnings } : {}),

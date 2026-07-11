@@ -127,6 +127,14 @@ export async function dispatchConfigRevisionEvent(
       case "published":
         await emit("revision.published", apiRevision);
         break;
+      case "publishFailed":
+        await emit("revision.publishFailed", {
+          ...apiRevision,
+          failureReason: action.reason,
+          terminal: action.terminal,
+          attempts: action.attempts,
+        });
+        break;
       case "discarded":
         await emit("revision.discarded", apiRevision);
         break;

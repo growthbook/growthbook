@@ -33,6 +33,9 @@ export interface ScheduleControlRevision {
   scheduledPublishLockOthers?: boolean;
   scheduledPublishBypassApproval?: boolean;
   scheduledPublishLastError?: string;
+  // Set when the poller gave up on a failing scheduled publish; the schedule was
+  // cleared and the draft left open.
+  scheduledPublishGaveUpAt?: Date | string | null;
 }
 
 // Shared "arm auto-publish / schedule a publish" control. Lifted line-for-line
@@ -461,6 +464,16 @@ export default function ScheduledPublishControl({
   // "on a specific date" are mutually exclusive), matching the feature flow.
   return (
     <Box mb="5">
+      {revision.scheduledPublishGaveUpAt && (
+        // The poller gave up on the previous schedule; the draft is still open,
+        // so re-arm below to try again. Clears once re-armed.
+        <HelperText status="error" size="sm" mb="2">
+          Could not publish
+          {revision.scheduledPublishLastError
+            ? `: ${revision.scheduledPublishLastError}`
+            : "."}
+        </HelperText>
+      )}
       <Flex align="center" gap="1">
         <Checkbox
           label="Automatically publish"

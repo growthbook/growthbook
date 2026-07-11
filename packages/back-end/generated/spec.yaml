@@ -19813,6 +19813,12 @@ paths:
                   type: string
                 extensible:
                   type: boolean
+                experimentGuard:
+                  description: >-
+                    Enable the experiment guard on this config: publishing a
+                    change served to a running experiment soft-blocks unless
+                    overridden. Omit to inherit the org default.
+                  type: boolean
                 invariants:
                   description: >-
                     Cross-field validation rules. Each rule's expression is a
@@ -20395,6 +20401,12 @@ paths:
                     reproduction on export.
                   type: string
                 extensible:
+                  type: boolean
+                experimentGuard:
+                  description: >-
+                    Enable or disable the experiment guard on this config.
+                    Turning it OFF requires the `bypassApprovalChecks`
+                    permission.
                   type: boolean
                 invariants:
                   description: >-
@@ -45466,6 +45478,13 @@ components:
             locked no change can be published past that revision until it is
             unlocked (which requires the `bypassApprovalChecks` permission).
             Drafts may still be created and edited.
+          type: boolean
+        experimentGuard:
+          description: >-
+            Whether the experiment guard is enabled: publishing a change served
+            to a running experiment soft-blocks (unless overridden with
+            `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off
+            requires `bypassApprovalChecks`.
           type: boolean
         lockedRevision:
           description: >-

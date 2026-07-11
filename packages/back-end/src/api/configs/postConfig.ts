@@ -187,6 +187,12 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     project: project || "",
     schema: normalizedSchema,
     extensible,
+    // Seed the experiment guard from the org default (concrete per-config flag);
+    // an explicit body value wins.
+    experimentGuard:
+      req.body.experimentGuard ??
+      req.context.org.settings?.configExperimentGuardDefault ??
+      false,
     ...(req.body.source && projection
       ? { renderProjections: { [req.body.source]: projection } }
       : {}),

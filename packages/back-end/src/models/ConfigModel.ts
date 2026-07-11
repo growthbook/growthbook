@@ -409,6 +409,7 @@ export class ConfigModel extends BaseClass {
         : undefined,
       lockedBy: config.lock?.lockedBy,
       dateLocked: config.lock?.dateLocked?.toISOString(),
+      experimentGuard: config.experimentGuard,
       dateCreated: config.dateCreated.toISOString(),
       dateUpdated: config.dateUpdated.toISOString(),
     };

@@ -813,6 +813,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     mutateDefinitions();
   };
 
+  const handleExperimentGuard = async (enabled: boolean) => {
+    await apiCall(`/configs/${config.id}/experiment-guard`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    });
+    await mutate();
+    mutateDefinitions();
+  };
+
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
   const canDeleteNow =
     permissionsUtil.canDeleteConfig(config) && !!config.archived;
@@ -1514,6 +1523,42 @@ export default function ConfigDetailPage(): React.ReactElement {
                             }}
                           >
                             Unlock…
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuGroup>
+                    </>
+                  )}
+                  {((!config.experimentGuard && canUpdate) ||
+                    !!config.experimentGuard) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        {!config.experimentGuard ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setMenuOpen(false);
+                              handleExperimentGuard(true);
+                            }}
+                          >
+                            Enable experiment guard
+                          </DropdownMenuItem>
+                        ) : (
+                          // Disabling a protection is gated on bypass-approval
+                          // (matches unlock); shown-but-disabled so it stays
+                          // discoverable.
+                          <DropdownMenuItem
+                            disabled={!canBypassApproval}
+                            tooltip={
+                              !canBypassApproval
+                                ? "You don't have permission to disable the experiment guard."
+                                : undefined
+                            }
+                            onClick={() => {
+                              setMenuOpen(false);
+                              handleExperimentGuard(false);
+                            }}
+                          >
+                            Disable experiment guard
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuGroup>

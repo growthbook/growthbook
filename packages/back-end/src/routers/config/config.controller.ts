@@ -64,6 +64,7 @@ import {
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
 import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
@@ -484,6 +485,14 @@ export const postConfig = async (
     original: null,
   });
 
+  // Seed the per-config experiment guard from the org default (a concrete
+  // per-config flag, so later changing the org default doesn't retroactively
+  // affect existing configs). An explicit body value wins.
+  const experimentGuard =
+    body.experimentGuard ??
+    context.org.settings?.configExperimentGuardDefault ??
+    false;
+
   // Permission is enforced by the model's canCreate.
   const config = await context.models.configs.create({
     key: body.key,
@@ -496,6 +505,7 @@ export const postConfig = async (
     project: body.project,
     schema: normalizedSchema,
     extensible: body.extensible,
+    experimentGuard,
   });
 
   // Backfill an initial "live" revision so the history view has a baseline.
@@ -848,6 +858,13 @@ export const putConfig = async (
         await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
+      // Experiment guard: a direct publish that rewrites the live value served
+      // to a running experiment soft-blocks unless overridden (?ignoreWarnings=1
+      // / bypassApprovalChecks). Direct path → armed=false.
+      await assertConfigExperimentGuard(context, existing, revision, {
+        armed: false,
+      });
+
       // Publish-time safety net (adds required-field enforcement on top of the
       // per-write conformance check): block publishing a value that doesn't
       // match the effective schema. Runs before the merge claim so nothing is
@@ -1007,6 +1024,44 @@ export const unlockConfig = async (
     result = await context.models.configs.dangerousUpdateBypassPermission(
       config,
       { lock: null },
+    );
+  }
+  return res.status(200).json({ status: 200, config: result });
+};
+
+// Toggle the per-config experiment guard. Asymmetric like lock/unlock: turning it
+// ON needs only edit authority, turning it OFF (removing a protection) needs the
+// elevated bypassApprovalChecks. The flag lives outside the revision merge
+// allowlist, so it's written directly after the auth check.
+export const setConfigExperimentGuard = async (
+  req: AuthRequest<{ enabled: boolean }, { id: string }>,
+  res: Response<{ status: 200; config: ConfigInterface }>,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
+  const enabled = !!req.body?.enabled;
+
+  if (enabled) {
+    if (!context.permissions.canUpdateConfig(config, config)) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (
+    !context.permissions.canBypassApprovalChecks({
+      project: config.project || "",
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Idempotent; the BaseModel update emits the audit-log entry.
+  let result = config;
+  if (!!config.experimentGuard !== enabled) {
+    result = await context.models.configs.dangerousUpdateBypassPermission(
+      config,
+      { experimentGuard: enabled },
     );
   }
   return res.status(200).json({ status: 200, config: result });

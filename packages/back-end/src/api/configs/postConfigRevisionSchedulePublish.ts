@@ -7,6 +7,7 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { captureConfigExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -95,6 +96,13 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
     }
   }
 
+  // Experiment guard: arming a deferred publish on a guarded config with live
+  // experiment conflicts requires acknowledgment (?ignoreWarnings=true / bypass)
+  // and snapshots the acknowledged keys for the merge-time recheck.
+  const experimentGuardAcknowledgedKeys = isCancel
+    ? undefined
+    : await captureConfigExperimentGuardAcknowledgment(req.context, config);
+
   const updated = await req.context.models.revisions.setScheduledPublish(
     revision.id,
     enabledBy,
@@ -103,6 +111,7 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
       lockEdits,
       lockOthers,
       bypassApproval: wantsBypass,
+      experimentGuardAcknowledgedKeys,
     },
   );
 

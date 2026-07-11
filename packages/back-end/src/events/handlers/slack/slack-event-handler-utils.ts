@@ -150,6 +150,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.revision.rebased":
     case "feature.revision.published":
     case "feature.revision.reverted":
+    case "feature.revision.publishFailed":
       return buildSlackMessageForRevisionEvent(
         event.event,
         event.data.object,
@@ -185,6 +186,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "savedGroup.revision.published":
     case "savedGroup.revision.reverted":
     case "savedGroup.revision.reopened":
+    case "savedGroup.revision.publishFailed":
       return buildSlackMessageForSavedGroupRevisionEvent(
         event.event,
         event.data.object,
@@ -220,6 +222,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "constant.revision.published":
     case "constant.revision.reverted":
     case "constant.revision.reopened":
+    case "constant.revision.publishFailed":
       return buildSlackMessageForConstantRevisionEvent(
         event.event,
         event.data.object,
@@ -246,6 +249,7 @@ export const getSlackMessageForNotificationEvent = async (
     case "config.revision.published":
     case "config.revision.reverted":
     case "config.revision.reopened":
+    case "config.revision.publishFailed":
       return buildSlackMessageForConfigRevisionEvent(
         event.event,
         event.data.object,
@@ -652,6 +656,23 @@ type RevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+};
+
+// Shared suffix for a `*.revision.publishFailed` Slack message: the reason plus
+// whether it was terminal or gave up after N retries.
+const formatPublishFailedSuffix = (data: {
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
+}): string => {
+  const cause = data.terminal
+    ? "won't retry"
+    : `gave up after ${data.attempts ?? 0} attempts`;
+  const reason = data.failureReason ? ` — _${data.failureReason}_` : "";
+  return ` (${cause})${reason}`;
 };
 
 const buildSlackMessageForRevisionEvent = (
@@ -698,6 +719,9 @@ const buildSlackMessageForRevisionEvent = (
       break;
     case "feature.revision.reverted":
       text = `Feature ${feature} was reverted to revision v${data.revertedToVersion ?? "?"}`;
+      break;
+    case "feature.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for feature ${feature} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Feature ${feature} revision ${version}: ${eventType}`;
@@ -835,6 +859,9 @@ type SavedGroupRevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
 };
 
 const buildSlackMessageForSavedGroupRevisionEvent = (
@@ -881,6 +908,9 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
       break;
     case "savedGroup.revision.reopened":
       text = `Draft revision ${version} of saved group ${group} was reopened`;
+      break;
+    case "savedGroup.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for saved group ${group} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Saved group ${group} revision ${version}: ${eventType}`;
@@ -1018,6 +1048,9 @@ type ConstantRevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
 };
 
 const buildSlackMessageForConstantRevisionEvent = (
@@ -1064,6 +1097,9 @@ const buildSlackMessageForConstantRevisionEvent = (
       break;
     case "constant.revision.reopened":
       text = `Draft revision ${version} of constant ${name} was reopened`;
+      break;
+    case "constant.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for constant ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Constant ${name} revision ${version}: ${eventType}`;
@@ -1201,6 +1237,9 @@ type ConfigRevisionSlackData = {
   reviewComment?: string | null;
   reviewer?: { id?: string; name?: string; email?: string };
   revertedToVersion?: number;
+  failureReason?: string;
+  terminal?: boolean;
+  attempts?: number;
 };
 
 const buildSlackMessageForConfigRevisionEvent = (
@@ -1247,6 +1286,9 @@ const buildSlackMessageForConfigRevisionEvent = (
       break;
     case "config.revision.reopened":
       text = `Draft revision ${version} of config ${name} was reopened`;
+      break;
+    case "config.revision.publishFailed":
+      text = `Scheduled publish of revision ${version} for config ${name} failed${formatPublishFailedSuffix(data)}`;
       break;
     default:
       text = `Config ${name} revision ${version}: ${eventType}`;

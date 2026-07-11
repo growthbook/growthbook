@@ -669,6 +669,14 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // successful publish or when the schedule is canceled.
     scheduledPublishAttempts: z.number().optional(),
     scheduledPublishLastError: z.string().optional(),
+    // Backoff gate: the poller skips a due-but-failing revision until this time,
+    // so doomed retries space out exponentially instead of firing every tick.
+    scheduledPublishNextAttemptAt: z.union([z.null(), z.date()]).optional(),
+    // Set when the poller gives up on a failing scheduled publish (terminal
+    // failure, or transient failures exhausted the attempt cap). The schedule is
+    // cleared and the draft left open; this timestamp marks it abandoned so the
+    // UI can flag it. Cleared when the schedule is re-armed or canceled.
+    scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review

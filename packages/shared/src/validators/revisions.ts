@@ -183,6 +183,21 @@ export const revisionValidator = z.object({
   // retrying. Cleared on a successful publish or when the schedule is canceled.
   scheduledPublishAttempts: z.number().optional(),
   scheduledPublishLastError: z.string().optional(),
+  // Backoff gate: the poller skips a due-but-failing revision until this time,
+  // so doomed retries space out exponentially instead of firing every tick.
+  scheduledPublishNextAttemptAt: z.union([z.null(), z.date()]).optional(),
+  // Set when the poller gives up on a failing scheduled publish (terminal
+  // failure, or transient failures exhausted the attempt cap). The schedule is
+  // cleared and the draft left open; this timestamp marks it as abandoned so the
+  // UI can flag it. Cleared when the schedule is re-armed or canceled.
+  scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
+  // Config experiment-guard fingerprint: the set of conflicting config keys the
+  // armer acknowledged (bypassed) when arming this deferred publish. At merge
+  // time the live conflict set is recomputed and compared key-for-key; a
+  // divergence fails the publish so a human re-contends. Keys only (not values),
+  // so re-editing the shipped values doesn't change conflict identity. Config
+  // revisions only; cleared on re-arm/cancel.
+  experimentGuardAcknowledgedKeys: z.array(z.string()).optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
@@ -206,6 +221,10 @@ export type ScheduledPublishInput = {
   lockEdits?: boolean;
   lockOthers?: boolean;
   bypassApproval?: boolean;
+  // Config experiment-guard fingerprint acknowledged at arm time (the conflicting
+  // config keys the armer bypassed). Stored on the revision for the merge-time
+  // recheck. Absent/empty clears any prior fingerprint on (re-)arm.
+  experimentGuardAcknowledgedKeys?: string[];
 };
 
 export const revisionCreateValidator = z.object({

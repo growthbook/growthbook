@@ -81,6 +81,15 @@ router.post(
   configController.unlockConfig,
 );
 
+router.post(
+  "/:id/experiment-guard",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z.object({ enabled: z.boolean() }).strict(),
+  }),
+  configController.setConfigExperimentGuard,
+);
+
 router.delete(
   "/:id",
   validateRequestMiddleware({ params: idParams }),

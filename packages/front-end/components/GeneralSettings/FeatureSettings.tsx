@@ -209,6 +209,20 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
+              id="toggle-configExperimentGuardDefault"
+              label="Guard configs used by running experiments by default"
+              description="New configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each config can override this from its own settings."
+              value={!!form.watch("configExperimentGuardDefault")}
+              setValue={(value) =>
+                form.setValue("configExperimentGuardDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
               id="toggle-blockPublishOnSchemaError"
               label="Block publishing on JSON schema errors"
               description="When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless ?skipSchemaValidation=true is passed."
