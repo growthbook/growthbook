@@ -622,6 +622,11 @@ export async function getConfigKeyImplementations(
   ]);
   if (!resolved) return null;
   const { config, allConfigs, byKey, familyKeys } = resolved;
+
+  // The family spans the whole lineage (including `extends`), so a config that
+  // mixes this one in still surfaces when it overrides one of this config's
+  // keys. The front-end scopes the displayed keys to this config's own fieldset
+  // so unrelated keys from those consumers aren't pulled in.
   const familySet = new Set(familyKeys);
 
   // Classify each backing config relative to the config being viewed, for the

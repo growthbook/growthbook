@@ -1918,12 +1918,16 @@ export default function ConfigDetailPage(): React.ReactElement {
                       />
                     )}
                   </Tabs>
-
-                  <ConfigUsageSection
-                    implementations={keyUsage?.implementations ?? []}
-                    fieldKeys={resolved.fields.map((f) => f.key)}
-                  />
                 </Box>
+
+                {(keyUsage?.implementations?.length ?? 0) > 0 && (
+                  <Box mt="5" mb="4" py="4" px="6" className="appbox">
+                    <ConfigUsageSection
+                      implementations={keyUsage?.implementations ?? []}
+                      fieldKeys={resolved.fields.map((f) => f.key)}
+                    />
+                  </Box>
+                )}
               </>
             )}
 

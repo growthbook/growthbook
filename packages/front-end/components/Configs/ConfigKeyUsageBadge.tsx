@@ -42,12 +42,12 @@ function UsageBadge({
             flexShrink: 0,
             border: "none",
             cursor: "pointer",
-            padding: "0 6px",
-            height: 18,
-            borderRadius: 9,
+            padding: "0 7px",
+            height: 22,
+            borderRadius: 11,
             background: `var(--${color}-a3)`,
             color: `var(--${color}-11)`,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
           }}
         >
@@ -104,7 +104,7 @@ export default function ConfigKeyUsageBadge({
     <Flex align="center" gap="2" wrap="wrap">
       {featureImpls.length > 0 && (
         <UsageBadge
-          icon={<PiFlagBold size={10} />}
+          icon={<PiFlagBold size={13} />}
           count={featureImpls.length}
           color="slate"
           dots={stateDots(featureImpls)}
@@ -113,7 +113,7 @@ export default function ConfigKeyUsageBadge({
       )}
       {experimentImpls.length > 0 && (
         <UsageBadge
-          icon={<PiFlaskBold size={10} />}
+          icon={<PiFlaskBold size={13} />}
           count={experimentImpls.length}
           color={experimentStatusColor(experimentImpls)}
           dots={stateDots(experimentImpls)}
