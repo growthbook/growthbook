@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import { ConfigInterface } from "shared/types/config";
 import {
   Revision,
@@ -16,7 +15,10 @@ import {
   configUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  EntityRevisionAdapter,
+  filterUpdatableChanges,
+} from "back-end/src/revisions/EntityRevisionAdapter";
 import {
   reconcileConfigDescendants,
   assertConfigDescendantsReconcilable,
@@ -158,15 +160,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     options?: { isRevert?: boolean },
   ): Promise<void> {
     void options;
-    const filteredChanges: Record<string, unknown> = {};
-    for (const key of Object.keys(changes)) {
-      if (!UPDATABLE_FIELDS.has(key)) continue;
-      const newVal = changes[key];
-      const currentVal = (entity as Record<string, unknown>)[key];
-      if (newVal !== undefined && !isEqual(newVal, currentVal)) {
-        filteredChanges[key] = newVal;
-      }
-    }
+    const filteredChanges = filterUpdatableChanges(
+      changes,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
 
     if (Object.keys(filteredChanges).length === 0) return;
 
@@ -295,15 +293,11 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // claimed — leaves the draft open instead of stranding it "merged".
     assertConfigNotLocked(entity);
 
-    const filteredChanges: Record<string, unknown> = {};
-    for (const key of Object.keys(desiredState)) {
-      if (!UPDATABLE_FIELDS.has(key)) continue;
-      const newVal = desiredState[key];
-      const currentVal = (entity as Record<string, unknown>)[key];
-      if (newVal !== undefined && !isEqual(newVal, currentVal)) {
-        filteredChanges[key] = newVal;
-      }
-    }
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
     if (Object.keys(filteredChanges).length === 0) return;
 
     // Experiment guard. `deferred` reflects THIS invocation (poller /

@@ -1385,7 +1385,10 @@ export class RevisionModel extends BaseClass {
    * failed. Unlike `reopen`, restores the prior status (so an approval isn't
    * lost) and re-arms any schedule `merge` scrubbed — otherwise a fire-time
    * failure would permanently kill the schedule (the poller only sees
-   * autoPublishOnApproval:true) instead of retrying next tick.
+   * autoPublishOnApproval:true) instead of retrying next tick. The
+   * experiment-guard acknowledgment is restored too, so the retry re-evaluates
+   * the guard against the keys the armer already accepted rather than treating a
+   * transient apply failure as a fresh (unacknowledged) conflict and parking.
    *
    * Status-guarded raw write: only applies while the doc is still "merged" from
    * the failed publish; returns null if something else moved it concurrently.
@@ -1402,6 +1405,12 @@ export class RevisionModel extends BaseClass {
       autoPublishOnApproval: !!prior.autoPublishOnApproval,
       ...(prior.autoPublishEnabledBy
         ? { autoPublishEnabledBy: prior.autoPublishEnabledBy }
+        : {}),
+      ...(prior.experimentGuardAcknowledgedKeys?.length
+        ? {
+            experimentGuardAcknowledgedKeys:
+              prior.experimentGuardAcknowledgedKeys,
+          }
         : {}),
       ...((prior.scheduledPublishAt ?? null) !== null
         ? {
