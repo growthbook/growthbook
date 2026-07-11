@@ -106,6 +106,8 @@ export function nodeStatusToken(
   // Approval is the top-priority active hold, mirroring the rule badge.
   if (isReadyForApproval(rs)) return "awaiting-approval";
   switch (rs.status) {
+    case "running":
+      return monitored ? "monitoring" : "running";
     case "paused":
       return "paused";
     case "pending":
@@ -113,8 +115,10 @@ export function nodeStatusToken(
       return "scheduled";
     case "rolled-back":
       return "rolled-back";
+    // Unknown/stale status: fall back to a neutral, non-live state rather than
+    // a pulsing green/blue that implies healthy progress.
     default:
-      return monitored ? "monitoring" : "running";
+      return "scheduled";
   }
 }
 

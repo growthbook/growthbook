@@ -74,6 +74,16 @@ describe("rampTimelineStatus", () => {
     ).toBe("rolled-back");
   });
 
+  it("falls back to a neutral, non-live state for an unknown status", () => {
+    const v = resolveNodeStatus(
+      "active",
+      { ...running, status: "some-future-status" },
+      false,
+    );
+    expect(v.token).toBe("scheduled");
+    expect(v.pulse).toBe(false);
+  });
+
   it("gives approval priority over monitoring on the same step", () => {
     expect(nodeStatusToken("active", approvalReady, true)).toBe(
       "awaiting-approval",
