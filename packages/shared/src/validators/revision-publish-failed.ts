@@ -8,10 +8,11 @@ import { z } from "zod";
 export const revisionPublishFailedExtension = {
   // The caught error's message — why the publish could not complete.
   failureReason: z.string(),
-  // Terminal failures (pre-launch checklist with no bypass, a stale
-  // experiment-guard fingerprint, a hard schema/invariant violation) are given
-  // up on immediately. Transient failures (merge conflict, sibling publish lock)
-  // were retried up to the attempt cap before giving up.
+  // `terminal` = the failure can't clear on a later tick, so the poller gave up
+  // on the first attempt (a stale experiment-guard fingerprint, or no resolvable
+  // arming user). Non-terminal failures — merge conflicts, an incomplete
+  // pre-launch checklist, or a schema/invariant violation the config's schema or
+  // value may yet be edited to satisfy — were retried up to the attempt cap.
   terminal: z.boolean(),
   // How many poller attempts were made before giving up (1 for a terminal
   // failure caught on the first attempt).

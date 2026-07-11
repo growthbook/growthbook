@@ -158,13 +158,17 @@ export class SoftWarningError extends Error {
   }
 }
 
-// A publish failure that will not self-heal on retry (pre-launch checklist with
-// no bypass, a stale experiment-guard fingerprint, a hard schema/invariant
-// violation). Thrown from a publish path so the scheduled-publish poller gives
-// up on the FIRST occurrence — parks the draft and fires `revision.publishFailed`
-// — instead of retrying to the attempt cap. The `terminalPublishFailure` flag
-// lets the classifier recognize it even across module/re-throw boundaries where
-// `instanceof` can be unreliable. Still a 400 for synchronous (manual) callers.
+// A publish failure that cannot become publishable on a later tick — a stale
+// experiment-guard fingerprint (the acknowledged conflict set no longer matches)
+// or a missing arming user. Thrown from a publish path so the scheduled-publish
+// poller gives up on the FIRST occurrence — parks the draft and fires
+// `revision.publishFailed` — instead of retrying to the attempt cap. Failures a
+// later tick could still resolve (merge conflicts, an incomplete pre-launch
+// checklist, a schema/invariant violation the config's schema or value may yet
+// be edited to satisfy) stay ordinary errors and retry to the cap. The
+// `terminalPublishFailure` flag lets the classifier recognize it even across
+// module/re-throw boundaries where `instanceof` can be unreliable. Still a 400
+// for synchronous (manual) callers.
 export class TerminalPublishError extends Error {
   status = 400;
   readonly terminalPublishFailure = true;

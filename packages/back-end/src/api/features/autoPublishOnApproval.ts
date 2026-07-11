@@ -21,6 +21,7 @@ import {
   recordScheduledPublishFailure,
   parkScheduledPublish,
   setScheduledPublishNextAttempt,
+  setAutoPublishOnApproval,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
@@ -265,8 +266,15 @@ export async function maybeAutoPublishFeatureRevision(
     );
     // Notify on terminal failure (no poller retry loop here); transient failures
     // stay approved for a manual publish. Features currently have no terminal
-    // publish error, so this branch is defensive.
+    // publish error, so this branch is defensive — kept consistent with the
+    // generic twin, which disarms before notifying so a later trigger
+    // (re-approval, undo, rebase) can't re-run the doomed publish.
     if (isTerminalPublishError(e)) {
+      try {
+        await setAutoPublishOnApproval(revision, false, null);
+      } catch {
+        // best-effort — still fire the webhook below
+      }
       await dispatchFeatureRevisionEvent(
         context,
         feature,
