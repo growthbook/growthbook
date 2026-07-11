@@ -5,6 +5,7 @@ import {
   SLACK_EVENT_OPTIONS,
   SlackEventCategory,
   selectedSlackOptionIds,
+  defaultSlackOptionIds,
   isEventWebhookWildcard,
   slackDigestFrequencies,
   resolveSlackDigest,
@@ -24,6 +25,8 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import { Select, SelectItem } from "@/ui/Select";
@@ -186,6 +189,17 @@ const SlackIntegrationDetailPage = () => {
       (o) => o.category === category && selected.has(o.id),
     );
 
+  // Whether the current selection deviates from the recommended defaults.
+  const defaultIds = defaultSlackOptionIds();
+  const customized =
+    selected.size !== defaultIds.size ||
+    [...defaultIds].some((id) => !selected.has(id));
+
+  const resetToRecommended = () => {
+    setSelected(defaultSlackOptionIds());
+    setSaved(false);
+  };
+
   const toggleAdvanced = (category: SlackEventCategory) =>
     setShowAdvanced((prev) => {
       const next = new Set(prev);
@@ -346,9 +360,31 @@ const SlackIntegrationDetailPage = () => {
 
         {/* Notifications */}
         <Frame>
-          <Heading as="h2" size="small" mb="1">
-            Notifications
-          </Heading>
+          <Flex justify="between" align="center" gap="3" mb="1">
+            <Flex align="center" gap="2">
+              <Heading as="h2" size="small" mb="0">
+                Notifications
+              </Heading>
+              {customized && (
+                <Badge
+                  label="Customized"
+                  color="gray"
+                  variant="soft"
+                  title="Event list differs from the recommended defaults"
+                />
+              )}
+            </Flex>
+            {customized && (
+              <Button
+                variant="ghost"
+                color="gray"
+                size="xs"
+                onClick={resetToRecommended}
+              >
+                Reset to recommended
+              </Button>
+            )}
+          </Flex>
           <Text as="p" color="text-mid" mb="4">
             Choose what this channel is notified about. Turn a category on for
             the recommended set, or expand it to pick individual events.
@@ -578,18 +614,31 @@ const SlackIntegrationDetailPage = () => {
           </Flex>
         </Frame>
 
-        {saveError && <Callout status="error">{saveError}</Callout>}
-
-        <Flex gap="3" align="center">
-          <Button onClick={save} loading={saving}>
-            Save settings
-          </Button>
-          {saved && (
-            <Text color="text-mid" size="small">
-              Saved.
-            </Text>
-          )}
-        </Flex>
+        {/* Sticky action bar so Save stays reachable while scrolling. */}
+        <Box
+          style={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 1,
+            marginTop: "var(--space-2)",
+            paddingTop: "var(--space-3)",
+            paddingBottom: "var(--space-3)",
+            borderTop: "1px solid var(--gray-a5)",
+            background: "var(--color-background)",
+          }}
+        >
+          <Flex gap="3" align="center">
+            <Button onClick={save} loading={saving}>
+              Save settings
+            </Button>
+            {saved && (
+              <Text color="text-mid" size="small">
+                Saved.
+              </Text>
+            )}
+            {saveError && <HelperText status="error">{saveError}</HelperText>}
+          </Flex>
+        </Box>
       </Flex>
     </div>
   );
