@@ -7,10 +7,10 @@ import {
   selectedSlackOptionIds,
   isEventWebhookWildcard,
   slackDigestFrequencies,
-  SLACK_DIGEST_LIVE_FREQUENCIES,
   resolveSlackDigest,
   experimentCardFormats,
   DEFAULT_SLACK_DIGEST_HOUR_UTC,
+  DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
   type SlackDigestFrequency,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -78,6 +78,10 @@ const CATEGORY_META: Record<
 
 const CATALOG_EVENTS = new Set(SLACK_EVENT_OPTIONS.flatMap((o) => o.events));
 
+// Scopes added after the earliest installs; if a connection is missing any of
+// these we prompt the user to reconnect. Keep in sync with SLACK_OAUTH_SCOPE.
+const REQUIRED_SCOPES = ["channels:read", "groups:read"];
+
 const getChannelLabel = (i: SlackOAuthIntegrationInterface) =>
   i.slack?.channelName || i.slack?.channelId || i.name;
 
@@ -127,12 +131,16 @@ const SlackIntegrationDetailPage = () => {
   const [hourUtc, setHourUtc] = useState(DEFAULT_SLACK_DIGEST_HOUR_UTC);
   const [dayOfWeekUtc, setDayOfWeekUtc] = useState(1);
   const [dayOfMonth, setDayOfMonth] = useState(1);
+  const [intervalDays, setIntervalDays] = useState(
+    DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
+  );
   const [showAdvanced, setShowAdvanced] = useState<Set<SlackEventCategory>>(
     new Set(),
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   // Hydrate form when the integration loads.
   useEffect(() => {
@@ -146,6 +154,7 @@ const SlackIntegrationDetailPage = () => {
     setHourUtc(digest.hourUtc);
     setDayOfWeekUtc(digest.dayOfWeekUtc);
     setDayOfMonth(digest.dayOfMonth);
+    setIntervalDays(digest.intervalDays);
   }, [integration]);
 
   const setOptionSelected = (optionId: string, on: boolean) => {
@@ -217,6 +226,7 @@ const SlackIntegrationDetailPage = () => {
               ...(frequency === "monthly" || frequency === "quarterly"
                 ? { dayOfMonth }
                 : {}),
+              ...(frequency === "custom" ? { intervalDays } : {}),
             };
 
       await apiCall(`/event-webhooks/${integration.eventWebHookId}`, {
@@ -235,6 +245,22 @@ const SlackIntegrationDetailPage = () => {
       setSaveError(e instanceof Error ? e.message : "Failed to save settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reconnect = async () => {
+    setReconnecting(true);
+    try {
+      const res = await apiCall<{ url: string }>(
+        "/integrations/slack/connect",
+        { method: "POST" },
+      );
+      window.location.href = res.url;
+    } catch (e) {
+      setSaveError(
+        e instanceof Error ? e.message : "Failed to start reconnect.",
+      );
+      setReconnecting(false);
     }
   };
 
@@ -277,6 +303,14 @@ const SlackIntegrationDetailPage = () => {
   }
 
   const noneSelected = selected.size === 0;
+  // Installs connected before the channels:read/groups:read scopes were added
+  // can't resolve live channel names (or use future scope-gated features).
+  const grantedScopes = (integration.slack?.scope || "")
+    .split(",")
+    .map((s) => s.trim());
+  const needsReconnect = REQUIRED_SCOPES.some(
+    (s) => !grantedScopes.includes(s),
+  );
 
   return (
     <div className="container-fluid pagecontents">
@@ -294,6 +328,21 @@ const SlackIntegrationDetailPage = () => {
           </Heading>
           <Text color="text-mid">{getWorkspaceLabel(integration)}</Text>
         </Box>
+
+        {needsReconnect && (
+          <Callout status="warning">
+            <Flex justify="between" align="center" gap="3" wrap="wrap">
+              <Text>
+                This channel was connected before newer Slack permissions were
+                added. Reconnect to enable live channel names and other recent
+                features.
+              </Text>
+              <Button onClick={reconnect} loading={reconnecting}>
+                Reconnect
+              </Button>
+            </Flex>
+          </Callout>
+        )}
 
         {/* Notifications */}
         <Frame>
@@ -424,8 +473,8 @@ const SlackIntegrationDetailPage = () => {
             Digest
           </Heading>
           <Text as="p" color="text-mid" mb="4">
-            A rolled-up summary on a schedule. Daily is a text recap; weekly is
-            the experimentation scorecard.
+            A rolled-up summary on a schedule. Daily is a text recap; weekly and
+            longer are the experimentation scorecard over that period.
           </Text>
 
           <Flex direction="column" gap="4" style={{ maxWidth: 420 }}>
@@ -437,16 +486,11 @@ const SlackIntegrationDetailPage = () => {
                 setSaved(false);
               }}
             >
-              {slackDigestFrequencies.map((f) => {
-                const live =
-                  f === "off" || SLACK_DIGEST_LIVE_FREQUENCIES.has(f);
-                return (
-                  <SelectItem key={f} value={f}>
-                    {FREQUENCY_LABELS[f]}
-                    {live ? "" : " (coming soon)"}
-                  </SelectItem>
-                );
-              })}
+              {slackDigestFrequencies.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {FREQUENCY_LABELS[f]}
+                </SelectItem>
+              ))}
             </Select>
 
             {frequency !== "off" && (
@@ -485,6 +529,23 @@ const SlackIntegrationDetailPage = () => {
                   </Select>
                 )}
 
+                {frequency === "custom" && (
+                  <Select
+                    label="Every"
+                    value={`${intervalDays}`}
+                    setValue={(v) => {
+                      setIntervalDays(Number(v));
+                      setSaved(false);
+                    }}
+                  >
+                    {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+                      <SelectItem key={d} value={`${d}`}>
+                        {`${d} days`}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                )}
+
                 <Select
                   label="Time (UTC)"
                   value={`${hourUtc}`}
@@ -500,11 +561,10 @@ const SlackIntegrationDetailPage = () => {
                   ))}
                 </Select>
 
-                {!SLACK_DIGEST_LIVE_FREQUENCIES.has(frequency) && (
+                {frequency === "quarterly" && (
                   <Callout status="info" mb="0">
-                    {FREQUENCY_LABELS[frequency]} digests are coming soon — your
-                    choice is saved and will start delivering once it&rsquo;s
-                    available.
+                    Delivered on your chosen day in January, April, July, and
+                    October.
                   </Callout>
                 )}
               </>

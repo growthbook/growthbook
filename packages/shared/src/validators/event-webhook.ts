@@ -51,22 +51,29 @@ export type SlackDigestFrequency = (typeof slackDigestFrequencies)[number];
 
 // Frequencies whose delivery job is wired up today (in addition to "off",
 // which is always available). The UI marks the rest — monthly, quarterly,
-// custom — as "coming soon" so we never show a selectable-but-dead option.
+// custom — all deliver now. (Kept as a set so the UI can flag any future
+// not-yet-wired cadence without shipping a dead option.)
 export const SLACK_DIGEST_LIVE_FREQUENCIES = new Set<SlackDigestFrequency>([
   "daily",
   "weekly",
+  "monthly",
+  "quarterly",
+  "custom",
 ]);
 
 export const DEFAULT_SLACK_DIGEST_HOUR_UTC = 14; // ~9am ET
+export const DEFAULT_SLACK_DIGEST_INTERVAL_DAYS = 14;
 
 // Unified digest config — supersedes the split weekly* / dailyDigestHourUtc
-// fields. `dayOfWeekUtc` applies to weekly, `dayOfMonth` to monthly/quarterly.
+// fields. `dayOfWeekUtc` applies to weekly, `dayOfMonth` to monthly/quarterly,
+// `intervalDays` to custom ("every N days").
 export const slackDigestConfig = z
   .object({
     frequency: z.enum(slackDigestFrequencies),
     hourUtc: z.number().int().min(0).max(23).optional(),
     dayOfWeekUtc: z.number().int().min(0).max(6).optional(), // 0=Sun
     dayOfMonth: z.number().int().min(1).max(28).optional(),
+    intervalDays: z.number().int().min(1).max(90).optional(),
   })
   .strict();
 export type SlackDigestConfig = z.infer<typeof slackDigestConfig>;
@@ -94,6 +101,7 @@ export interface ResolvedSlackDigest {
   hourUtc: number;
   dayOfWeekUtc: number; // weekly (0=Sun)
   dayOfMonth: number; // monthly / quarterly
+  intervalDays: number; // custom ("every N days")
 }
 
 // Collapse the new `digest` object and the legacy weekly*/dailyDigestHourUtc
@@ -110,6 +118,7 @@ export const resolveSlackDigest = (
       hourUtc: d.hourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
       dayOfWeekUtc: d.dayOfWeekUtc ?? 1,
       dayOfMonth: d.dayOfMonth ?? 1,
+      intervalDays: d.intervalDays ?? DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
     };
   }
   if (options?.weeklyDigestEnabled) {
@@ -118,6 +127,7 @@ export const resolveSlackDigest = (
       hourUtc: options.weeklyDigestHourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
       dayOfWeekUtc: options.weeklyDigestDayOfWeekUtc ?? 1,
       dayOfMonth: 1,
+      intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
     };
   }
   if ((legacy?.dailyDigestHourUtc ?? null) !== null) {
@@ -126,6 +136,7 @@ export const resolveSlackDigest = (
       hourUtc: legacy?.dailyDigestHourUtc as number,
       dayOfWeekUtc: 1,
       dayOfMonth: 1,
+      intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
     };
   }
   return {
@@ -133,20 +144,64 @@ export const resolveSlackDigest = (
     hourUtc: DEFAULT_SLACK_DIGEST_HOUR_UTC,
     dayOfWeekUtc: 1,
     dayOfMonth: 1,
+    intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
   };
 };
 
-// Whether a resolved digest should fire at `now` (the digest jobs run hourly).
-// Only the live frequencies (daily, weekly) return true today; monthly/
-// quarterly/custom are accepted by the schema but not yet delivered.
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+// Quarters begin in these UTC months (Jan, Apr, Jul, Oct).
+const QUARTER_START_MONTHS = new Set([0, 3, 6, 9]);
+
+// Whether a resolved digest should fire at `now` (the digest jobs run hourly,
+// so we match on the hour plus the frequency's day rule):
+//   daily     — every day
+//   weekly    — on dayOfWeekUtc
+//   monthly   — on dayOfMonth
+//   quarterly — on dayOfMonth in a quarter-start month
+//   custom    — every intervalDays, anchored to the Unix epoch (deterministic)
 export const isSlackDigestDue = (
   r: ResolvedSlackDigest,
   now: Date,
 ): boolean => {
   if (!SLACK_DIGEST_LIVE_FREQUENCIES.has(r.frequency)) return false;
   if (now.getUTCHours() !== r.hourUtc) return false;
-  if (r.frequency === "weekly") return now.getUTCDay() === r.dayOfWeekUtc;
-  return true; // daily
+  switch (r.frequency) {
+    case "daily":
+      return true;
+    case "weekly":
+      return now.getUTCDay() === r.dayOfWeekUtc;
+    case "monthly":
+      return now.getUTCDate() === r.dayOfMonth;
+    case "quarterly":
+      return (
+        now.getUTCDate() === r.dayOfMonth &&
+        QUARTER_START_MONTHS.has(now.getUTCMonth())
+      );
+    case "custom": {
+      const dayIndex = Math.floor(now.getTime() / MS_PER_DAY);
+      return dayIndex % Math.max(1, r.intervalDays) === 0;
+    }
+    default:
+      return false;
+  }
+};
+
+// The trailing aggregation window (in ms) a scorecard digest should cover for a
+// given frequency. Daily uses its own text-summary job, so this covers the
+// scorecard cadences (weekly and longer).
+export const slackDigestWindowMs = (r: ResolvedSlackDigest): number => {
+  switch (r.frequency) {
+    case "weekly":
+      return 7 * MS_PER_DAY;
+    case "monthly":
+      return 30 * MS_PER_DAY;
+    case "quarterly":
+      return 91 * MS_PER_DAY;
+    case "custom":
+      return Math.max(1, r.intervalDays) * MS_PER_DAY;
+    default:
+      return 7 * MS_PER_DAY;
+  }
 };
 
 // Low-signal experiment events suppressed from live delivery by default (unless

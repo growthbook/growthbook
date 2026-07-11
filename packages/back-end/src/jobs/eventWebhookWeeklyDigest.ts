@@ -1,6 +1,10 @@
 import Agenda from "agenda";
 import { EventWebHookInterface } from "shared/types/event-webhook";
-import { resolveSlackDigest, isSlackDigestDue } from "shared/validators";
+import {
+  resolveSlackDigest,
+  isSlackDigestDue,
+  slackDigestWindowMs,
+} from "shared/validators";
 import {
   EventWebHookModel,
   getSlackBotAccessTokenForWebhook,
@@ -9,11 +13,28 @@ import {
   renderWeeklyScorecard,
   ScorecardData,
 } from "back-end/src/services/slack/chartImage";
-import { buildWeeklyScorecardData } from "back-end/src/services/slack/scorecardData";
+import {
+  buildScorecardData,
+  rangeLabel,
+} from "back-end/src/services/slack/scorecardData";
 import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 
 const WEEKLY_DIGEST_JOB = "eventWebhookWeeklyDigest";
+
+// Scorecard cadences handled by this job (daily is a separate text-summary job).
+const SCORECARD_FREQUENCIES = new Set([
+  "weekly",
+  "monthly",
+  "quarterly",
+  "custom",
+]);
+const PERIOD_LABELS: Record<string, string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  custom: "Recurring",
+};
 
 // Deliver the scorecard as a private, Slack-hosted image shared into the
 // channel (files.upload + completeUploadExternal with channel_id). The
@@ -22,9 +43,10 @@ const WEEKLY_DIGEST_JOB = "eventWebhookWeeklyDigest";
 async function deliverScorecard(
   webhook: EventWebHookInterface,
   data: ScorecardData,
+  periodLabel: string,
 ): Promise<void> {
-  const altText = "Weekly experimentation scorecard";
-  const text = `Weekly experimentation scorecard · ${data.week}`;
+  const altText = `${periodLabel} experimentation scorecard`;
+  const text = `${periodLabel} experimentation scorecard · ${data.week}`;
 
   const botToken = await getSlackBotAccessTokenForWebhook({
     eventWebHookId: webhook.id,
@@ -61,28 +83,39 @@ export default function addWeeklyScorecardJob(agenda: Agenda) {
 
     // Scan enabled Slack installs and resolve each one's effective schedule
     // (new `digest` object or legacy weekly fields), then keep the ones whose
-    // weekly digest is due this hour. Slack installs are few, so an hourly
-    // scan is cheap and keeps one source of truth for the schedule.
+    // scorecard digest (weekly / monthly / quarterly / custom — daily is a
+    // separate text summary) is due this hour. Slack installs are few, so an
+    // hourly scan is cheap and keeps one source of truth for the schedule.
     const candidates = await EventWebHookModel.find({
       enabled: true,
       payloadType: "slack",
     }).lean<EventWebHookInterface[]>();
 
-    const webhooks = candidates.filter((w) => {
-      const digest = resolveSlackDigest(w.slackOptions);
-      return digest.frequency === "weekly" && isSlackDigestDue(digest, now);
-    });
+    const due = candidates
+      .map((webhook) => ({
+        webhook,
+        digest: resolveSlackDigest(webhook.slackOptions),
+      }))
+      .filter(
+        ({ digest }) =>
+          SCORECARD_FREQUENCIES.has(digest.frequency) &&
+          isSlackDigestDue(digest, now),
+      );
 
-    for (const webhook of webhooks) {
+    for (const { webhook, digest } of due) {
       try {
-        const data = await buildWeeklyScorecardData(
+        const windowMs = slackDigestWindowMs(digest);
+        const label = rangeLabel(new Date(now.getTime() - windowMs), now);
+        const data = await buildScorecardData(
           webhook.organizationId,
           now,
+          windowMs,
+          label,
         );
         if (!data) continue;
-        await deliverScorecard(webhook, data);
+        await deliverScorecard(webhook, data, PERIOD_LABELS[digest.frequency]);
       } catch (e) {
-        logger.error(e, `Weekly scorecard failed for webhook ${webhook.id}`);
+        logger.error(e, `Scorecard digest failed for webhook ${webhook.id}`);
       }
     }
   });

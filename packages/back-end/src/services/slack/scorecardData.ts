@@ -9,11 +9,11 @@ import type {
 } from "back-end/src/services/slack/chartImage";
 import { logger } from "back-end/src/util/logger";
 
-// Aggregates a week of experiment activity into the ScorecardData the weekly
-// program digest renders. First-pass heuristics (documented inline) — the
-// numbers are meant as an at-a-glance program pulse, not an exact audit.
+// Aggregates a trailing window of experiment activity into the ScorecardData
+// the program digest renders. First-pass heuristics (documented inline) — the
+// numbers are meant as an at-a-glance program pulse, not an exact audit. The
+// window length (weekly / monthly / quarterly / custom) is passed in.
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_NOTABLE = 8;
 
 // The notable "category" an experiment lands in this week, most significant
@@ -72,23 +72,25 @@ function fmtDateShort(d: Date): string {
   }).format(d);
 }
 
-/** Human-readable label for the trailing 7-day window ending now. */
-export function weekLabel(now: Date): string {
-  const start = new Date(now.getTime() - WEEK_MS);
+/** Human-readable label for a trailing window ending now, e.g. "Jun 8 – Jul 8, 2026". */
+export function rangeLabel(start: Date, now: Date): string {
   return `${fmtDateShort(start)} – ${fmtDateShort(now)}, ${now.getUTCFullYear()}`;
 }
 
 /**
- * Build the weekly scorecard model for an organization from the last 7 days of
- * experiment events (+ current running count). Returns null when there's
- * nothing worth reporting (no events and nothing running).
+ * Build the scorecard model for an organization from the trailing `windowMs` of
+ * experiment events (+ current running count). `label` is the human-readable
+ * period shown in the card header. Returns null when there's nothing worth
+ * reporting (no events and nothing running).
  */
-export async function buildWeeklyScorecardData(
+export async function buildScorecardData(
   organizationId: string,
   now: Date,
+  windowMs: number,
+  label: string,
 ): Promise<ScorecardData | null> {
   const context = await getContextForAgendaJobByOrgId(organizationId);
-  const since = new Date(now.getTime() - WEEK_MS);
+  const since = new Date(now.getTime() - windowMs);
 
   const events = await EventModel.find({
     organizationId,
@@ -196,7 +198,7 @@ export async function buildWeeklyScorecardData(
   }
 
   return {
-    week: weekLabel(now),
+    week: label,
     stats: {
       running,
       significant: significant.size,
