@@ -170,7 +170,6 @@ function OverrideValues({
                     <ValueDisplay
                       value={valueToDisplayString(patch[k], "json")}
                       type="json"
-                      showFullscreenButton
                     />
                   </React.Fragment>
                 ))}
