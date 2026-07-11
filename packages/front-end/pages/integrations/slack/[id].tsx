@@ -5,7 +5,6 @@ import {
   SLACK_EVENT_OPTIONS,
   SlackEventCategory,
   selectedSlackOptionIds,
-  defaultSlackOptionIds,
   isEventWebhookWildcard,
   slackDigestFrequencies,
   resolveSlackDigest,
@@ -189,14 +188,24 @@ const SlackIntegrationDetailPage = () => {
       (o) => o.category === category && selected.has(o.id),
     );
 
-  // Whether the current selection deviates from the recommended defaults.
-  const defaultIds = defaultSlackOptionIds();
-  const customized =
-    selected.size !== defaultIds.size ||
-    [...defaultIds].some((id) => !selected.has(id));
+  // Whether a category's selection deviates from its recommended defaults —
+  // only meaningful when the category is on (an off category reads as off, not
+  // "customized").
+  const categoryCustomized = (category: SlackEventCategory) => {
+    const opts = SLACK_EVENT_OPTIONS.filter((o) => o.category === category);
+    return opts.some((o) => selected.has(o.id) !== o.defaultOn);
+  };
 
-  const resetToRecommended = () => {
-    setSelected(defaultSlackOptionIds());
+  const resetCategory = (category: SlackEventCategory) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      SLACK_EVENT_OPTIONS.forEach((o) => {
+        if (o.category !== category) return;
+        if (o.defaultOn) next.add(o.id);
+        else next.delete(o.id);
+      });
+      return next;
+    });
     setSaved(false);
   };
 
@@ -360,31 +369,9 @@ const SlackIntegrationDetailPage = () => {
 
         {/* Notifications */}
         <Frame>
-          <Flex justify="between" align="center" gap="3" mb="1">
-            <Flex align="center" gap="2">
-              <Heading as="h2" size="small" mb="0">
-                Notifications
-              </Heading>
-              {customized && (
-                <Badge
-                  label="Customized"
-                  color="gray"
-                  variant="soft"
-                  title="Event list differs from the recommended defaults"
-                />
-              )}
-            </Flex>
-            {customized && (
-              <Button
-                variant="ghost"
-                color="gray"
-                size="xs"
-                onClick={resetToRecommended}
-              >
-                Reset to recommended
-              </Button>
-            )}
-          </Flex>
+          <Heading as="h2" size="small" mb="1">
+            Notifications
+          </Heading>
           <Text as="p" color="text-mid" mb="4">
             Choose what this channel is notified about. Turn a category on for
             the recommended set, or expand it to pick individual events.
@@ -395,6 +382,7 @@ const SlackIntegrationDetailPage = () => {
               (category) => {
                 const enabled = categoryEnabled(category);
                 const advancedOpen = showAdvanced.has(category);
+                const isCustom = enabled && categoryCustomized(category);
                 return (
                   <Box
                     key={category}
@@ -405,20 +393,42 @@ const SlackIntegrationDetailPage = () => {
                     }}
                   >
                     <Flex justify="between" align="start" gap="3">
-                      <Switch
-                        label={CATEGORY_META[category].label}
-                        description={CATEGORY_META[category].description}
-                        value={enabled}
-                        onChange={(v) => setCategoryEnabled(category, v)}
-                      />
-                      <Button
-                        variant="ghost"
-                        color="gray"
-                        size="xs"
-                        onClick={() => toggleAdvanced(category)}
-                      >
-                        {advancedOpen ? "Hide events" : "Customize events"}
-                      </Button>
+                      <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                        <Switch
+                          label={CATEGORY_META[category].label}
+                          description={CATEGORY_META[category].description}
+                          value={enabled}
+                          onChange={(v) => setCategoryEnabled(category, v)}
+                        />
+                        {isCustom && (
+                          <Badge
+                            label="Customized"
+                            color="gray"
+                            variant="soft"
+                            title="Events differ from the recommended defaults"
+                          />
+                        )}
+                      </Flex>
+                      <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                        {isCustom && (
+                          <Button
+                            variant="ghost"
+                            color="gray"
+                            size="xs"
+                            onClick={() => resetCategory(category)}
+                          >
+                            Reset
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          color="gray"
+                          size="xs"
+                          onClick={() => toggleAdvanced(category)}
+                        >
+                          {advancedOpen ? "Hide events" : "Customize events"}
+                        </Button>
+                      </Flex>
                     </Flex>
 
                     {advancedOpen && (
@@ -514,104 +524,113 @@ const SlackIntegrationDetailPage = () => {
             longer are the experimentation scorecard over that period.
           </Text>
 
-          <Flex direction="column" gap="4" style={{ maxWidth: 420 }}>
-            <Select
-              size="2"
-              label="Frequency"
-              value={frequency}
-              setValue={(v) => {
-                setFrequency(v as SlackDigestFrequency);
-                setSaved(false);
-              }}
-            >
-              {slackDigestFrequencies.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {FREQUENCY_LABELS[f]}
-                </SelectItem>
-              ))}
-            </Select>
+          <Switch
+            label="Send a scheduled digest"
+            value={frequency !== "off"}
+            onChange={(v) => {
+              setFrequency(v ? "weekly" : "off");
+              setSaved(false);
+            }}
+          />
 
-            {frequency !== "off" && (
-              <>
-                {frequency === "weekly" && (
-                  <Select
-                    size="2"
-                    label="Day of week"
-                    value={`${dayOfWeekUtc}`}
-                    setValue={(v) => {
-                      setDayOfWeekUtc(Number(v));
-                      setSaved(false);
-                    }}
-                  >
-                    {DAY_OF_WEEK_LABELS.map((label, i) => (
-                      <SelectItem key={i} value={`${i}`}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                )}
+          {frequency !== "off" && (
+            <Flex direction="column" gap="4" mt="4" style={{ maxWidth: 420 }}>
+              <Select
+                size="2"
+                label="Frequency"
+                value={frequency}
+                setValue={(v) => {
+                  setFrequency(v as SlackDigestFrequency);
+                  setSaved(false);
+                }}
+              >
+                {slackDigestFrequencies
+                  .filter((f) => f !== "off")
+                  .map((f) => (
+                    <SelectItem key={f} value={f}>
+                      {FREQUENCY_LABELS[f]}
+                    </SelectItem>
+                  ))}
+              </Select>
 
-                {(frequency === "monthly" || frequency === "quarterly") && (
-                  <Select
-                    size="2"
-                    label="Day of month"
-                    value={`${dayOfMonth}`}
-                    setValue={(v) => {
-                      setDayOfMonth(Number(v));
-                      setSaved(false);
-                    }}
-                  >
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                      <SelectItem key={d} value={`${d}`}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                )}
-
-                {frequency === "custom" && (
-                  <Select
-                    size="2"
-                    label="Every"
-                    value={`${intervalDays}`}
-                    setValue={(v) => {
-                      setIntervalDays(Number(v));
-                      setSaved(false);
-                    }}
-                  >
-                    {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
-                      <SelectItem key={d} value={`${d}`}>
-                        {`${d} days`}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                )}
-
+              {frequency === "weekly" && (
                 <Select
                   size="2"
-                  label="Time (UTC)"
-                  value={`${hourUtc}`}
+                  label="Day of week"
+                  value={`${dayOfWeekUtc}`}
                   setValue={(v) => {
-                    setHourUtc(Number(v));
+                    setDayOfWeekUtc(Number(v));
                     setSaved(false);
                   }}
                 >
-                  {HOURS.map((h) => (
-                    <SelectItem key={h} value={`${h}`}>
-                      {`${h.toString().padStart(2, "0")}:00`}
+                  {DAY_OF_WEEK_LABELS.map((label, i) => (
+                    <SelectItem key={i} value={`${i}`}>
+                      {label}
                     </SelectItem>
                   ))}
                 </Select>
+              )}
 
-                {frequency === "quarterly" && (
-                  <Callout status="info" mb="0">
-                    Delivered on your chosen day in January, April, July, and
-                    October.
-                  </Callout>
-                )}
-              </>
-            )}
-          </Flex>
+              {(frequency === "monthly" || frequency === "quarterly") && (
+                <Select
+                  size="2"
+                  label="Day of month"
+                  value={`${dayOfMonth}`}
+                  setValue={(v) => {
+                    setDayOfMonth(Number(v));
+                    setSaved(false);
+                  }}
+                >
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                    <SelectItem key={d} value={`${d}`}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
+
+              {frequency === "custom" && (
+                <Select
+                  size="2"
+                  label="Every"
+                  value={`${intervalDays}`}
+                  setValue={(v) => {
+                    setIntervalDays(Number(v));
+                    setSaved(false);
+                  }}
+                >
+                  {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+                    <SelectItem key={d} value={`${d}`}>
+                      {`${d} days`}
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
+
+              <Select
+                size="2"
+                label="Time (UTC)"
+                value={`${hourUtc}`}
+                setValue={(v) => {
+                  setHourUtc(Number(v));
+                  setSaved(false);
+                }}
+              >
+                {HOURS.map((h) => (
+                  <SelectItem key={h} value={`${h}`}>
+                    {`${h.toString().padStart(2, "0")}:00`}
+                  </SelectItem>
+                ))}
+              </Select>
+
+              {frequency === "quarterly" && (
+                <Callout status="info" mb="0">
+                  Delivered on your chosen day in January, April, July, and
+                  October.
+                </Callout>
+              )}
+            </Flex>
+          )}
         </Frame>
 
         {/* Sticky action bar so Save stays reachable while scrolling. */}
