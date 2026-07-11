@@ -477,6 +477,10 @@ export type ConfigKeyImplementation = {
   // The backing config's relationship to the config being viewed.
   relation?: "self" | "ancestor" | "descendant" | "other";
   keys: string[];
+  // The raw override values this slot sets, keyed by config field (the value's
+  // patch, minus the `$extends` directive). One entry per variation for
+  // experiment/bandit refs. Used to show "what this overrides it to".
+  patch?: Record<string, unknown>;
   state: "live" | "draft";
   revisionVersion?: number;
 };
@@ -504,12 +508,15 @@ export type FeatureValueSource = {
   rules: ImplementingRule[];
 };
 
-// The config field keys a stored value overrides: its patch's own keys, minus
-// the `$extends` slot (which only carries reference tokens, not field data).
-function overriddenConfigKeys(value: string): string[] {
+// The config fields a stored value overrides, as raw key→value pairs: its patch
+// minus the `$extends` slot (which only carries reference tokens, not field
+// data). `keys` on the implementation are just `Object.keys` of this.
+function overriddenConfigPatch(value: string): Record<string, unknown> {
   const patch = parsePlainJSONObject(getConfigBackingPatch(value));
-  if (!patch) return [];
-  return Object.keys(patch).filter((k) => k !== CONSTANT_EXTENDS_KEY);
+  if (!patch) return {};
+  const rest = { ...patch };
+  delete rest[CONSTANT_EXTENDS_KEY];
+  return rest;
 }
 
 // Every config-backed value slot across the sources whose backing config is in
@@ -551,10 +558,12 @@ export function computeConfigKeyImplementations(
     if (source.state === "live") liveSignatures.add(signature);
     else if (liveSignatures.has(signature)) return;
 
-    const keys = overriddenConfigKeys(value);
+    const patch = overriddenConfigPatch(value);
+    const keys = Object.keys(patch);
     const existing = bySignature.get(signature);
     if (existing) {
       existing.keys = [...new Set([...existing.keys, ...keys])];
+      existing.patch = { ...existing.patch, ...patch };
       return;
     }
     bySignature.set(signature, {
@@ -563,6 +572,7 @@ export function computeConfigKeyImplementations(
       location,
       configKey,
       keys,
+      patch,
       state: source.state,
       revisionVersion: source.revisionVersion,
       ...meta,

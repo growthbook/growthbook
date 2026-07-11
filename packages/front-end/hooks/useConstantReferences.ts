@@ -81,6 +81,9 @@ export type ConfigKeyImplementation = {
   relation?: "self" | "ancestor" | "descendant" | "other";
   // The config field keys this value overrides.
   keys: string[];
+  // The raw override values (the value's patch, minus `$extends`), keyed by
+  // config field. One entry per variation for experiment/bandit refs.
+  patch?: Record<string, unknown>;
   // Whether the linkage is published or only in an open feature draft.
   state: "live" | "draft";
   revisionVersion?: number;

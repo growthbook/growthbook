@@ -8,6 +8,7 @@ import {
   dedupeImplementations,
   ByKeyUsageTable,
   ByReferenceUsageTable,
+  DedupedImplementation,
 } from "./ConfigUsageTable";
 
 // The feature-rule / default-value and experiment references that override keys
@@ -38,7 +39,7 @@ export default function ConfigUsageSection({
 
   // "By reference": group rows under their feature (the referencing flag).
   const featureGroups = useMemo(() => {
-    const map = new Map<string, ConfigKeyImplementation[]>();
+    const map = new Map<string, DedupedImplementation[]>();
     for (const i of deduped) {
       const arr = map.get(i.featureId);
       if (arr) arr.push(i);

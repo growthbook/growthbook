@@ -391,7 +391,10 @@ export async function assertConfigBackedFeatureValuesValid(
   for (const rule of values.rules ?? []) {
     if (rule.type === "force" || rule.type === "rollout") {
       add(rule.value, "Rule value");
-    } else if (rule.type === "experiment-ref") {
+    } else if (
+      rule.type === "experiment-ref" ||
+      rule.type === "contextual-bandit-ref"
+    ) {
       rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
     } else if (rule.type === "experiment") {
       rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));

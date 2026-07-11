@@ -1,6 +1,6 @@
-import React from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiRadioButton } from "react-icons/pi";
+import React, { useState } from "react";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiRadioButton, PiMagnifyingGlass } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -12,6 +12,9 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { Popover } from "@/ui/Popover";
+import ValueDisplay from "@/components/Features/ValueDisplay";
+import { valueToDisplayString } from "@/components/Configs/fieldSchema";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import styles from "./ConfigUsageTable.module.scss";
@@ -75,13 +78,20 @@ export function stateDots(impls: ConfigKeyImplementation[]): string[] {
   return dots;
 }
 
+// A deduped row plus the per-variation arms it collapsed (one entry for a plain
+// rule/default), so the override-value drilldown can show each arm's patch.
+export type DedupedImplementation = ConfigKeyImplementation & {
+  variations: ConfigKeyImplementation[];
+};
+
 // Collapse a rule's variation arms (each arm is its own implementation) into one
 // row per reference, unioning the keys each arm overrides — otherwise a rule
-// whose control arm overrides nothing would show no overrides.
+// whose control arm overrides nothing would show no overrides. The collapsed
+// arms are retained on `variations` (in discovery order) for the value drilldown.
 export function dedupeImplementations(
   impls: ConfigKeyImplementation[],
-): ConfigKeyImplementation[] {
-  const bySignature = new Map<string, ConfigKeyImplementation>();
+): DedupedImplementation[] {
+  const bySignature = new Map<string, DedupedImplementation>();
   for (const i of impls) {
     const k = [
       i.featureId,
@@ -93,11 +103,130 @@ export function dedupeImplementations(
     const existing = bySignature.get(k);
     if (existing) {
       existing.keys = [...new Set([...existing.keys, ...i.keys])];
+      existing.variations.push(i);
     } else {
-      bySignature.set(k, { ...i, keys: [...i.keys] });
+      bySignature.set(k, { ...i, keys: [...i.keys], variations: [i] });
     }
   }
   return [...bySignature.values()];
+}
+
+// Human label for a stacked variation section in the override drilldown.
+function variationLabel(impl: ConfigKeyImplementation, index: number): string {
+  if (impl.variationId === "control") return "Control";
+  if (impl.variationId === "variation") return "Variation";
+  return `Variation ${index}`;
+}
+
+// The raw override value(s) a reference sets, rendered like the config field
+// table (ValueDisplay). Experiment/bandit refs stack one section per variation.
+// `keys` scopes which fields to show (the row's own keys — already limited to
+// the viewed config's fieldset — so a mixin row can't leak unrelated overrides).
+function OverrideValues({
+  impl,
+  keys,
+}: {
+  impl: DedupedImplementation;
+  keys: string[];
+}): React.ReactElement {
+  const variations = impl.variations?.length ? impl.variations : [impl];
+  const multi = variations.length > 1;
+  return (
+    <Flex direction="column" gap="4" style={{ minWidth: 300 }}>
+      {variations.map((v, i) => {
+        const patch = v.patch ?? {};
+        const shownKeys = keys.filter((k) => k in patch);
+        return (
+          <Box key={`${v.variationId ?? ""}|${i}`}>
+            {multi && (
+              <Text
+                as="div"
+                size="medium"
+                weight="semibold"
+                color="text-high"
+                mb="2"
+              >
+                {variationLabel(v, i)}
+              </Text>
+            )}
+            {shownKeys.length === 0 ? (
+              <Text as="div" size="small" color="text-low">
+                No override
+              </Text>
+            ) : (
+              // Two-column key/value grid, mirroring the config field table.
+              <Box
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto minmax(0, 1fr)",
+                  columnGap: "var(--space-5)",
+                  rowGap: "var(--space-2)",
+                  alignItems: "start",
+                }}
+              >
+                {shownKeys.map((k) => (
+                  <React.Fragment key={k}>
+                    <code style={{ color: "var(--slate-12)" }}>{k}</code>
+                    <ValueDisplay
+                      value={valueToDisplayString(patch[k], "json")}
+                      type="json"
+                      showFullscreenButton
+                    />
+                  </React.Fragment>
+                ))}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Flex>
+  );
+}
+
+// Row trigger that opens the override-value drilldown.
+function OverridePopoverTrigger({
+  impl,
+  keys,
+}: {
+  impl: DedupedImplementation;
+  keys: string[];
+}): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    // While the popover is open, force the tooltip closed AND ignore hover so
+    // re-entering the trigger can't re-open it on top of the popover.
+    <Tooltip
+      body="View override values"
+      state={open ? false : undefined}
+      ignoreMouseEvents={open}
+    >
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        side="left"
+        align="start"
+        triggerAsChild
+        trigger={
+          <IconButton
+            variant="ghost"
+            color="violet"
+            size="2"
+            radius="full"
+            aria-label="View override values"
+            // Halve the ghost variant's -6px vertical margin (size-2 padding).
+            style={{ flexShrink: 0, marginTop: -3, marginBottom: -3 }}
+          >
+            <PiMagnifyingGlass />
+          </IconButton>
+        }
+        content={
+          <Box style={{ maxWidth: "min(92vw, 560px)" }}>
+            <OverrideValues impl={impl} keys={keys} />
+          </Box>
+        }
+      />
+    </Tooltip>
+  );
 }
 
 function FlagRevisionBadge({
@@ -194,7 +323,7 @@ function ConfigSourceCell({
       label={
         <TruncatedLink
           href={`/configs/${impl.configKey}`}
-          maxWidth={150}
+          maxWidth={110}
           color="var(--accent-11)"
         >
           {name}
@@ -343,12 +472,12 @@ const GROUP_BORDER = "1px solid var(--slate-a3)";
 // Grid column tracks for the section tables below the editor. Flexible so the
 // grid fits the container without a horizontal-scroll wrapper — that wrapper is
 // what stops a Radix table's header from sticking to the page.
-// Columns: Key | Feature | Revision status | Experiment | Exp status | Location | Config source
+// Columns: Key | Feature | Revision status | Experiment | Exp status | Location | Config source | (override)
 const BY_KEY_COLS =
-  "minmax(80px, 130px) minmax(120px, 1.2fr) 100px minmax(110px, 1fr) 90px 100px minmax(150px, 190px)";
-// Columns: Feature | Overrides | Revision status | Experiment | Exp status | Location | Config source
+  "minmax(80px, 130px) minmax(120px, 1.2fr) 100px minmax(110px, 1fr) 90px 100px 150px 32px";
+// Columns: Feature | Overrides | Revision status | Experiment | Exp status | Location | Config source | (override)
 const BY_REF_COLS =
-  "minmax(120px, 1.2fr) minmax(120px, 190px) 100px minmax(110px, 1fr) 90px 100px minmax(150px, 190px)";
+  "minmax(120px, 1.2fr) minmax(120px, 190px) 100px minmax(110px, 1fr) 90px 100px 150px 32px";
 
 function UsageGridHeader({
   columns,
@@ -507,7 +636,7 @@ export function ExperimentUsageTable({
 export function ByKeyUsageTable({
   groups,
 }: {
-  groups: { key: string; impls: ConfigKeyImplementation[] }[];
+  groups: { key: string; impls: DedupedImplementation[] }[];
 }): React.ReactElement {
   return (
     <div className={styles.gridTable} role="table">
@@ -521,6 +650,7 @@ export function ByKeyUsageTable({
           null,
           "Location",
           "Config source",
+          null,
         ]}
       />
       {groups.map(({ key, impls }) =>
@@ -559,6 +689,9 @@ export function ByKeyUsageTable({
               <div role="cell">
                 <ConfigSourceCell impl={impl} />
               </div>
+              <div role="cell">
+                <OverridePopoverTrigger impl={impl} keys={[key]} />
+              </div>
             </div>
           );
         }),
@@ -574,7 +707,7 @@ export function ByReferenceUsageTable({
   groups,
   keyOrder,
 }: {
-  groups: { featureId: string; impls: ConfigKeyImplementation[] }[];
+  groups: { featureId: string; impls: DedupedImplementation[] }[];
   keyOrder?: string[];
 }): React.ReactElement {
   return (
@@ -589,6 +722,7 @@ export function ByReferenceUsageTable({
           null,
           "Location",
           "Config source",
+          null,
         ]}
       />
       {groups.flatMap(({ impls }) =>
@@ -620,6 +754,9 @@ export function ByReferenceUsageTable({
             <div role="cell">{locationLabel(impl)}</div>
             <div role="cell">
               <ConfigSourceCell impl={impl} />
+            </div>
+            <div role="cell">
+              <OverridePopoverTrigger impl={impl} keys={impl.keys} />
             </div>
           </div>
         )),

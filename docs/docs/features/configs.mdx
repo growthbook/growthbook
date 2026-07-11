@@ -112,9 +112,19 @@ For the full hook API, examples, limits, and warning behavior, see [Custom Hooks
 
 ## Using a config as a feature flag's value
 
-This is where configs pay off: attach a config to a JSON feature flag — as the flag's **default value** or on a specific **rule** — and the config's shape is enforced on that flag. The flag serves the resolved config value, and edits to the flag are validated against the config's schema.
+This is where configs pay off: attach a config to a JSON feature flag — as the flag's **default value** or on a specific **rule** — and the config's shape is enforced on that flag. The flag serves the resolved config value, and edits to the flag are validated against the config's schema. Any rule type can serve a config-backed value, including **experiment** and **contextual-bandit** rules, where each variation carries its own override.
 
 Because the config's schema is authoritative, a flag can't also define its own JSON schema while its value is backed by a config — detach the config or remove the flag's schema. The flag's value is stored as a small **override patch** layered on top of the config, so changing the config updates every flag that uses it.
+
+## Seeing where a config is used
+
+Every config tracks where its keys are consumed. On the config's page — and over the [REST API](#rest-api) — GrowthBook lists each feature-flag default value, rule, experiment, and contextual bandit that overrides one of the config's keys (across live and draft revisions), with the exact value each reference sets. Per-key badges surface the count at a glance, and for experiment and bandit rules you can inspect the override each variation applies.
+
+## Protecting keys used by running experiments
+
+Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
+
+When you genuinely need to publish anyway, a user with the **bypass-approvals** permission can override the block (over the REST API, pass `?ignoreWarnings=true` on the publish request). Turning the guard off for a config also requires that permission.
 
 ## Import and export
 
@@ -163,7 +173,9 @@ Some guardrails:
 
 ## REST API
 
-Configs and their revisions are fully manageable over the [REST API](/api/#tag/configs) — create, update, archive, delete, list references, fetch the full lineage, import/export value and schema, and drive the revision/approval flow programmatically. Webhook events (`config.*`, including `config.revision.*`) fire on every change, modeled after the feature and constant events.
+Configs and their revisions are fully manageable over the [REST API](/api/#tag/configs) — create, update, archive, delete, list references, fetch the full lineage, see where each key is used, import/export value and schema, and drive the revision/approval flow programmatically. Webhook events (`config.*`, including `config.revision.*`) fire on every change, modeled after the feature and constant events.
+
+To get the override values behind a key's usage, follow each reference back to its feature (`GET /features/:id`) — the key-usage endpoint reports _where_ a key is used, and the feature is the source of truth for _what_ it's set to.
 
 ## Permissions
 
