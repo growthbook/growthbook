@@ -65,7 +65,7 @@ export default function RampScheduleBadge({
       ready: "Schedule scheduled",
       running: "Schedule active",
       paused: "Schedule paused",
-      completed: "Schedule complete",
+      completed: "Schedule completed",
       "rolled-back": "Rolled back",
     };
     const displayLabel = isReadyForApproval(rs)
@@ -142,14 +142,14 @@ export default function RampScheduleBadge({
     ready: "Ramp scheduled",
     running: "Ramp active",
     paused: "Ramp paused",
-    completed: "Ramp complete",
+    completed: "Ramp completed",
     "rolled-back": "Rolled back",
   };
   let featureContextLabel = isReadyForApproval(rs)
     ? "Ramp needs approval"
     : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
   if (allStepsDone && futureEnd) {
-    featureContextLabel = "Ramp complete";
+    featureContextLabel = "Ramp completed";
   }
   const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;
 

@@ -711,7 +711,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
     pending: "Schedule Start is Pending",
     running: "Running",
     paused: "Paused",
-    completed: "Complete",
+    completed: "Completed",
     "rolled-back": "Rolled back",
   };
   return labels[rs.status] ?? rs.status;
