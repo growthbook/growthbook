@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect } from "react";
 import { PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -11,11 +11,9 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
-  getFeatureBaseConfigKey,
-  getConfigSubtree,
   ensureConfigBacking,
 } from "shared/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -57,7 +55,6 @@ export default function ExperimentRefFields({
   const form = useFormContext();
 
   const { experiments, experimentsMap } = useExperiments();
-  const { configs } = useDefinitions();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
@@ -66,15 +63,8 @@ export default function ExperimentRefFields({
   // the arms use the config-backing editor, the sparse toggle is dropped, and
   // each arm is seeded with the config backing. Mirrors StandardRuleFields, and
   // corrects rules created via the v2 REST API that carry no `sparse` flag.
-  const defaultConfigKey = getFeatureBaseConfigKey(feature);
-  const isConfigBacked = defaultConfigKey !== null;
-  const configBackingOptionKeys = useMemo(
-    () =>
-      defaultConfigKey
-        ? getConfigSubtree(defaultConfigKey, configs)
-        : undefined,
-    [defaultConfigKey, configs],
-  );
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
 
   useEffect(() => {
     if (!isConfigBacked || !defaultConfigKey) return;

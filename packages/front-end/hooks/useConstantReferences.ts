@@ -69,6 +69,9 @@ export type ConfigKeyImplementation = {
   ruleType?: string;
   ruleId?: string;
   experimentId?: string;
+  // Set instead of `experimentId` for a contextual-bandit-ref rule; the bandit's
+  // name/status are resolved into experimentName/experimentStatus (shared vocab).
+  contextualBanditId?: string;
   experimentName?: string;
   experimentStatus?: string;
   variationId?: string;

@@ -223,7 +223,9 @@ function FeatureLink({
   );
 }
 
-// The linked experiment (empty for non-experiment rules).
+// The linked analysis unit: an experiment (experiment-ref) or a contextual
+// bandit (contextual-bandit-ref), each linking to its own detail page. Empty for
+// plain rules (force/rollout/etc).
 function ExperimentCell({
   impl,
   maxWidth = EXPERIMENT_WIDTH - 30,
@@ -231,21 +233,25 @@ function ExperimentCell({
   impl: ConfigKeyImplementation;
   maxWidth?: number | string;
 }): React.ReactElement | null {
-  if (!impl.experimentId)
+  const href = impl.experimentId
+    ? `/experiment/${impl.experimentId}`
+    : impl.contextualBanditId
+      ? `/contextual-bandit/${impl.contextualBanditId}`
+      : null;
+  if (!href)
     return impl.experimentName ? (
       <Text size="small">{impl.experimentName}</Text>
     ) : null;
+  const label =
+    impl.experimentName ?? impl.experimentId ?? impl.contextualBanditId ?? href;
   return (
-    <TruncatedLink
-      href={`/experiment/${impl.experimentId}`}
-      maxWidth={maxWidth}
-    >
-      {impl.experimentName ?? impl.experimentId}
+    <TruncatedLink href={href} maxWidth={maxWidth}>
+      {label}
     </TruncatedLink>
   );
 }
 
-// The experiment's lifecycle status (empty for non-experiment rules).
+// The linked experiment/bandit's lifecycle status (empty for plain rules).
 function StatusCell({
   impl,
 }: {

@@ -457,7 +457,9 @@ export async function loadConfigFamilyFeatureReferences(
 // extends; `keys` are the config fields the value overrides in its own patch.
 // `state` distinguishes a published linkage from one that only exists in an open
 // feature draft revision (`revisionVersion`). Experiment refs carry the linked
-// experiment's name and status.
+// experiment's name and status; contextual-bandit refs carry `contextualBanditId`
+// and reuse the same `experimentName`/`experimentStatus` fields (the bandit's
+// status shares the experiment vocabulary: draft | running | stopped).
 export type ConfigKeyImplementation = {
   featureId: string;
   project?: string;
@@ -465,6 +467,9 @@ export type ConfigKeyImplementation = {
   ruleType?: string;
   ruleId?: string;
   experimentId?: string;
+  // Set instead of `experimentId` for a `contextual-bandit-ref` rule; used to
+  // link to the contextual bandit and to resolve its name/status.
+  contextualBanditId?: string;
   experimentName?: string;
   experimentStatus?: string;
   variationId?: string;
@@ -480,6 +485,7 @@ type ImplementingRule = {
   type?: string;
   id?: string;
   experimentId?: string;
+  contextualBanditId?: string;
   value?: unknown;
   variations?: Array<{ variationId?: string; value?: unknown }>;
   values?: Array<{ variationId?: string; value?: unknown }>;
@@ -524,7 +530,11 @@ export function computeConfigKeyImplementations(
     location: ConfigKeyImplementation["location"],
     meta: Pick<
       ConfigKeyImplementation,
-      "ruleType" | "ruleId" | "experimentId" | "variationId"
+      | "ruleType"
+      | "ruleId"
+      | "experimentId"
+      | "contextualBanditId"
+      | "variationId"
     >,
   ) => {
     if (typeof value !== "string") return;
@@ -566,6 +576,7 @@ export function computeConfigKeyImplementations(
         ruleType: rule.type,
         ruleId: rule.id,
         experimentId: rule.experimentId,
+        contextualBanditId: rule.contextualBanditId,
       };
       addSlot(source, rule.value, "rule", base);
       for (const v of rule.variations ?? []) {
@@ -698,6 +709,39 @@ export async function getConfigKeyImplementations(
       if (exp) {
         impl.experimentName = exp.name;
         impl.experimentStatus = exp.status;
+      }
+    }
+  }
+
+  // Contextual-bandit refs point at a separate entity (its own collection), not
+  // an experiment. Resolve name/status into the same fields — the bandit's status
+  // shares the experiment vocabulary, so every downstream consumer (badges, the
+  // usage table, the experiment guard) treats it uniformly.
+  const contextualBanditIds = [
+    ...new Set(
+      implementations
+        .map((i) => i.contextualBanditId)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (contextualBanditIds.length) {
+    const cbs = await Promise.all(
+      contextualBanditIds.map((id) =>
+        context.models.contextualBandits.getById(id).catch(() => null),
+      ),
+    );
+    const cbById = new Map(
+      cbs
+        .filter((cb): cb is NonNullable<typeof cb> => cb !== null)
+        .map((cb) => [cb.id, cb]),
+    );
+    for (const impl of implementations) {
+      const cb = impl.contextualBanditId
+        ? cbById.get(impl.contextualBanditId)
+        : undefined;
+      if (cb) {
+        impl.experimentName = cb.name;
+        impl.experimentStatus = cb.status;
       }
     }
   }

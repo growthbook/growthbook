@@ -96,8 +96,12 @@ export default function ConfigKeyUsageBadge({
   implementations: ConfigKeyImplementation[];
 }): React.ReactElement | null {
   const deduped = dedupeImplementations(implementations);
-  const featureImpls = deduped.filter((i) => !i.experimentId);
-  const experimentImpls = deduped.filter((i) => i.experimentId);
+  // A contextual-bandit-ref carries contextualBanditId (not experimentId) but
+  // belongs with experiments, not plain feature rules.
+  const isExperimentLike = (i: ConfigKeyImplementation) =>
+    !!i.experimentId || !!i.contextualBanditId;
+  const featureImpls = deduped.filter((i) => !isExperimentLike(i));
+  const experimentImpls = deduped.filter(isExperimentLike);
   if (!featureImpls.length && !experimentImpls.length) return null;
 
   return (

@@ -7,10 +7,15 @@ import {
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ApiContextualBanditInterface } from "shared/validators";
-import { naiveFlattenV1Rules, validateFeatureValue } from "shared/util";
+import {
+  naiveFlattenV1Rules,
+  validateFeatureValue,
+  ensureConfigBacking,
+} from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -45,6 +50,8 @@ export default function EditContextualBanditFeatureValuesModal({
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
@@ -69,13 +76,21 @@ export default function EditContextualBanditFeatureValuesModal({
 
   const initialVariations = useMemo(
     () =>
-      cb.variations.map((v) => ({
-        variationId: v.id,
-        value:
+      cb.variations.map((v) => {
+        const raw =
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "",
-      })),
-    [cb.variations, linkedFeatureInfo.values],
+          "";
+        // Seed the config backing so a config-backed feature's bandit arms open
+        // in the config-backing editor (matches the experiment-ref editor).
+        return {
+          variationId: v.id,
+          value:
+            isConfigBacked && defaultConfigKey
+              ? ensureConfigBacking(raw, defaultConfigKey)
+              : raw,
+        };
+      }),
+    [cb.variations, linkedFeatureInfo.values, isConfigBacked, defaultConfigKey],
   );
 
   const form = useForm<FormValues>({
@@ -168,6 +183,11 @@ export default function EditContextualBanditFeatureValuesModal({
                 renderJSONInline={true}
                 useCodeInput={true}
                 showFullscreenButton={true}
+                sparse={isConfigBacked}
+                allowConfigBacking={isConfigBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={isConfigBacked}
+                lockConfigBacking={isConfigBacked}
               />
               {i < cb.variations.length - 1 && <Separator size="4" my="4" />}
             </Box>
