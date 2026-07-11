@@ -145,7 +145,11 @@ function OverrideValueInput({
           inlineConstantButton
           disabled={disabled}
         />
-        {jsonError && <HelperText status="error">{jsonError}</HelperText>}
+        {jsonError && (
+          <HelperText status="error" size="sm">
+            {jsonError}
+          </HelperText>
+        )}
       </Box>
     );
   }
@@ -171,7 +175,11 @@ function OverrideValueInput({
             }
           }}
         />
-        {numError && <HelperText status="error">{numError}</HelperText>}
+        {numError && (
+          <HelperText status="error" size="sm">
+            {numError}
+          </HelperText>
+        )}
       </Box>
     );
   }

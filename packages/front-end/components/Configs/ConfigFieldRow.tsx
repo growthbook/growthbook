@@ -16,6 +16,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import { Popover } from "@/ui/Popover";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -277,9 +278,9 @@ export default function ConfigFieldRow({
                   );
                 })()}
                 {editError && (
-                  <div style={{ color: "var(--red-11)", fontSize: 12 }}>
+                  <HelperText status="error" size="sm">
                     {editError}
-                  </div>
+                  </HelperText>
                 )}
               </>
             ) : (

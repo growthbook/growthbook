@@ -59,6 +59,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
 import SelectField from "@/components/Forms/SelectField";
@@ -1240,12 +1241,9 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Link>
         </Flex>
         {composeError && (
-          <Box
-            mt="1"
-            style={{ color: "var(--red-11)", fontSize: "var(--font-size-1)" }}
-          >
+          <HelperText status="error" size="sm" mt="1">
             {composeError}
-          </Box>
+          </HelperText>
         )}
       </Box>
     ) : (
@@ -1255,12 +1253,9 @@ export default function ConfigDetailPage(): React.ReactElement {
           Add config mixin
         </Link>
         {composeError && (
-          <Box
-            mt="1"
-            style={{ color: "var(--red-11)", fontSize: "var(--font-size-1)" }}
-          >
+          <HelperText status="error" size="sm" mt="1">
             {composeError}
-          </Box>
+          </HelperText>
         )}
       </Box>
     );

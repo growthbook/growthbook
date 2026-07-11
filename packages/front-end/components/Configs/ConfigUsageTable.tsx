@@ -343,7 +343,9 @@ function UsageGridHeader({
       role="row"
     >
       {labels.map((label, i) => (
-        <div key={i}>{label}</div>
+        <div key={i} role="columnheader">
+          {label}
+        </div>
       ))}
     </div>
   );
@@ -487,7 +489,7 @@ export function ByKeyUsageTable({
   groups: { key: string; impls: ConfigKeyImplementation[] }[];
 }): React.ReactElement {
   return (
-    <div className={styles.gridTable}>
+    <div className={styles.gridTable} role="table">
       <UsageGridHeader
         columns={BY_KEY_COLS}
         labels={[
@@ -513,27 +515,27 @@ export function ByKeyUsageTable({
               }}
               role="row"
             >
-              <div>
+              <div role="cell">
                 {idx === 0 && (
                   <code title={key} style={{ color: "var(--slate-12)" }}>
                     {key}
                   </code>
                 )}
               </div>
-              <div>
+              <div role="cell">
                 <FeatureLink impl={impl} maxWidth="100%" />
               </div>
-              <div>
+              <div role="cell">
                 <FlagRevisionBadge impl={impl} />
               </div>
-              <div>
+              <div role="cell">
                 <ExperimentCell impl={impl} maxWidth="100%" />
               </div>
-              <div>
+              <div role="cell">
                 <StatusCell impl={impl} />
               </div>
-              <div>{locationLabel(impl)}</div>
-              <div>
+              <div role="cell">{locationLabel(impl)}</div>
+              <div role="cell">
                 <ConfigSourceCell impl={impl} />
               </div>
             </div>
@@ -555,7 +557,7 @@ export function ByReferenceUsageTable({
   keyOrder?: string[];
 }): React.ReactElement {
   return (
-    <div className={styles.gridTable}>
+    <div className={styles.gridTable} role="table">
       <UsageGridHeader
         columns={BY_REF_COLS}
         labels={[
@@ -579,23 +581,23 @@ export function ByReferenceUsageTable({
             }}
             role="row"
           >
-            <div>
+            <div role="cell">
               <FeatureLink impl={impl} maxWidth="100%" />
             </div>
-            <div>
+            <div role="cell">
               <KeyCell keys={impl.keys} keyOrder={keyOrder} />
             </div>
-            <div>
+            <div role="cell">
               <FlagRevisionBadge impl={impl} />
             </div>
-            <div>
+            <div role="cell">
               <ExperimentCell impl={impl} maxWidth="100%" />
             </div>
-            <div>
+            <div role="cell">
               <StatusCell impl={impl} />
             </div>
-            <div>{locationLabel(impl)}</div>
-            <div>
+            <div role="cell">{locationLabel(impl)}</div>
+            <div role="cell">
               <ConfigSourceCell impl={impl} />
             </div>
           </div>

@@ -132,10 +132,10 @@ export default function JSONValidation({
         </div>
       </Flex>
       {!validationEnabled && (
-        <em className="text-muted">
+        <Text as="p" size="small" color="text-low" fontStyle="italic">
           Prevent typos and mistakes by specifying validation rules using JSON
           Schema or our Simple Validation Builder
-        </em>
+        </Text>
       )}
       {validationEnabled && (
         <Flex pt="2" align="center">
