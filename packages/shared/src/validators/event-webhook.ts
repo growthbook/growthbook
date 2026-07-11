@@ -595,6 +595,23 @@ export const selectedSlackOptionIds = (subscriptions: string[]): Set<string> =>
     ).map((o) => o.id),
   );
 
+// The catalog option ids that are on by default (the recommended set).
+export const defaultSlackOptionIds = (): Set<string> =>
+  new Set(SLACK_EVENT_OPTIONS.filter((o) => o.defaultOn).map((o) => o.id));
+
+// True if a subscription deviates in either direction from the recommended
+// defaults (opted into extras, or removed some) — i.e. the user has customized
+// the event list. Used to flag customized installs in the overview.
+export const isSlackSubscriptionCustomized = (
+  subscriptions: string[],
+): boolean => {
+  const selected = selectedSlackOptionIds(subscriptions);
+  const defaults = defaultSlackOptionIds();
+  if (selected.size !== defaults.size) return true;
+  for (const id of defaults) if (!selected.has(id)) return true;
+  return false;
+};
+
 // True if the webhook still uses wildcard subscriptions (a legacy install that
 // predates the curated per-event UI). Such installs keep the low-signal
 // suppression gate; explicit subscriptions do not.

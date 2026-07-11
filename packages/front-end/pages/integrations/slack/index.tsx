@@ -13,6 +13,7 @@ import {
   SLACK_EVENT_OPTIONS,
   SlackEventCategory,
   selectedSlackOptionIds,
+  isSlackSubscriptionCustomized,
   resolveSlackDigest,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
@@ -428,6 +429,9 @@ const SlackIntegrationsPage: NextPage = () => {
                 <TableBody>
                   {slackIntegrations.map((slackIntegration) => {
                     const categories = enabledCategories(slackIntegration);
+                    const customized = isSlackSubscriptionCustomized(
+                      slackIntegration.events,
+                    );
                     const digest = resolveSlackDigest(
                       slackIntegration.slackOptions,
                       {
@@ -462,6 +466,14 @@ const SlackIntegrationsPage: NextPage = () => {
                                   variant="soft"
                                 />
                               ))
+                            )}
+                            {customized && (
+                              <Badge
+                                label="Customized"
+                                color="gray"
+                                variant="soft"
+                                title="Event list differs from the recommended defaults"
+                              />
                             )}
                             {digest.frequency !== "off" && (
                               <Badge
