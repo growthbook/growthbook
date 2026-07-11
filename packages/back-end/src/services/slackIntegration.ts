@@ -2,7 +2,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { EventWebHookInterface } from "shared/types/event-webhook";
-import { EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS } from "shared/validators";
+import {
+  EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS,
+  defaultSlackEventSubscriptions,
+} from "shared/validators";
 import {
   APP_ORIGIN,
   JWT_SECRET,
@@ -30,7 +33,11 @@ const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 const SLACK_OAUTH_SCOPE =
   "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:history,groups:history,im:history,mpim:history,links:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
-const DEFAULT_SLACK_EVENTS = ["feature.*", "experiment.*"];
+// Fresh installs subscribe to the curated default set (explicit event names,
+// no wildcards) so the low-signal suppression gate is bypassed and users see
+// exactly the "important" events out of the box. Editable on the Slack
+// settings page afterward.
+const DEFAULT_SLACK_EVENTS = defaultSlackEventSubscriptions();
 
 const slackOAuthStateSchema = z
   .object({
@@ -304,6 +311,7 @@ export const slackEventWebhookToIntegration = (
   tags: eventWebHook.tags,
   coalesceWindowMs: eventWebHook.coalesceWindowMs,
   dailyDigestHourUtc: eventWebHook.dailyDigestHourUtc,
+  slackOptions: eventWebHook.slackOptions,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,
   slack: eventWebHook.slack,
@@ -384,6 +392,10 @@ const attachSlackOAuthCode = async ({
     headers: {},
     slack: getSlackMetadata(slackOAuthResponse),
     coalesceWindowMs: EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS,
+    slackOptions: {
+      experimentCardFormat: "compact",
+      digest: { frequency: "off" },
+    },
   });
   await persistSlackBotAccessToken({
     eventWebHookId: created.id,

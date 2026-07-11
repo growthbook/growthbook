@@ -1,7 +1,10 @@
 import { NotificationEventResource } from "shared/types/events/base-types";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventInterface } from "shared/types/events/event";
-import { isLowSignalExperimentEvent } from "shared/validators";
+import {
+  isLowSignalExperimentEvent,
+  hasWildcardSubscription,
+} from "shared/validators";
 import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
@@ -131,12 +134,15 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       continue;
     }
 
-    // By default, suppress low-signal experiment events from live Slack
-    // delivery (only important events post). Channels can opt into the full
-    // change log to receive them too. Suppressed events still exist in the
+    // Legacy wildcard installs (e.g. events: ["experiment.*"]) can't express
+    // per-event intent, so we suppress low-signal experiment events from live
+    // delivery unless the channel opts into the full change log. Installs with
+    // explicit (curated) subscriptions skip this gate entirely — a user who
+    // checks "Experiment edited" means it. Suppressed events still exist in the
     // store, so they appear in the daily/weekly digest.
     if (
       eventWebHook.payloadType === "slack" &&
+      hasWildcardSubscription(eventWebHook.events) &&
       !eventWebHook.slackOptions?.showFullChangeLog &&
       isLowSignalExperimentEvent(event.data.event)
     ) {

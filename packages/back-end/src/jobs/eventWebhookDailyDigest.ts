@@ -2,7 +2,11 @@ import Agenda from "agenda";
 import intersection from "lodash/intersection";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { EventInterface } from "shared/types/events/event";
-import { getWildcardPatternsForEvent } from "shared/validators";
+import {
+  getWildcardPatternsForEvent,
+  resolveSlackDigest,
+  isSlackDigestDue,
+} from "shared/validators";
 import { createEvent, EventModel } from "back-end/src/models/EventModel";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { FeatureModel } from "back-end/src/models/FeatureModel";
@@ -149,12 +153,21 @@ export default async function (agenda: Agenda) {
       await emitStaleFeatureCandidateEvents();
     }
 
-    const hour = new Date().getUTCHours();
-    const webhooks = await EventWebHookModel.find({
+    const now = new Date();
+    // Resolve each enabled Slack install's effective schedule (new `digest`
+    // object or the legacy root `dailyDigestHourUtc`) and keep the ones whose
+    // daily digest is due this hour.
+    const candidates = await EventWebHookModel.find({
       enabled: true,
       payloadType: "slack",
-      dailyDigestHourUtc: hour,
     }).lean<EventWebHookInterface[]>();
+
+    const webhooks = candidates.filter((w) => {
+      const digest = resolveSlackDigest(w.slackOptions, {
+        dailyDigestHourUtc: w.dailyDigestHourUtc,
+      });
+      return digest.frequency === "daily" && isSlackDigestDue(digest, now);
+    });
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 

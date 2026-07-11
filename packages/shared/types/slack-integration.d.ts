@@ -31,6 +31,7 @@ export interface SlackOAuthIntegrationInterface {
   tags: string[];
   coalesceWindowMs?: number;
   dailyDigestHourUtc?: number;
+  slackOptions?: import("../src/validators/event-webhook").SlackEventWebHookOptions;
   lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
   slack?: {

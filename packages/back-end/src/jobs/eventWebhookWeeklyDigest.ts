@@ -1,5 +1,6 @@
 import Agenda from "agenda";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { resolveSlackDigest, isSlackDigestDue } from "shared/validators";
 import {
   EventWebHookModel,
   getSlackBotAccessTokenForWebhook,
@@ -57,16 +58,20 @@ async function deliverScorecard(
 export default function addWeeklyScorecardJob(agenda: Agenda) {
   agenda.define(WEEKLY_DIGEST_JOB, async () => {
     const now = new Date();
-    const day = now.getUTCDay();
-    const hour = now.getUTCHours();
 
-    const webhooks = await EventWebHookModel.find({
+    // Scan enabled Slack installs and resolve each one's effective schedule
+    // (new `digest` object or legacy weekly fields), then keep the ones whose
+    // weekly digest is due this hour. Slack installs are few, so an hourly
+    // scan is cheap and keeps one source of truth for the schedule.
+    const candidates = await EventWebHookModel.find({
       enabled: true,
       payloadType: "slack",
-      "slackOptions.weeklyDigestEnabled": true,
-      "slackOptions.weeklyDigestDayOfWeekUtc": day,
-      "slackOptions.weeklyDigestHourUtc": hour,
     }).lean<EventWebHookInterface[]>();
+
+    const webhooks = candidates.filter((w) => {
+      const digest = resolveSlackDigest(w.slackOptions);
+      return digest.frequency === "weekly" && isSlackDigestDue(digest, now);
+    });
 
     for (const webhook of webhooks) {
       try {
