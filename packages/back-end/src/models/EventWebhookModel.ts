@@ -509,6 +509,24 @@ export const getSlackBotAccessTokenForWebhook = async ({
   return slack?.botAccessToken || null;
 };
 
+// Cache a freshly-resolved Slack channel name onto the install. Uses a dotted
+// $set so only slack.channelName is touched (the bot token and other metadata
+// are left intact).
+export const updateSlackChannelName = async ({
+  eventWebHookId,
+  organizationId,
+  channelName,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  channelName: string;
+}): Promise<void> => {
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: { "slack.channelName": channelName } },
+  );
+};
+
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
   if (!want.length) return true;
   return !!intersection(want, has).length;

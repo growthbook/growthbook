@@ -285,3 +285,22 @@ export async function getSlackUserEmail({
   const email = res?.ok ? res.user?.profile?.email : undefined;
   return email || null;
 }
+
+// Resolve a channel's current name via conversations.info. Requires a read
+// scope (channels:read / groups:read) — installs granted before those scopes
+// were requested return `missing_scope`, in which case this returns null and
+// callers fall back to the name captured at install time. Best-effort: never
+// throws.
+export async function getSlackConversationName({
+  token,
+  channelId,
+}: {
+  token: string;
+  channelId: string;
+}): Promise<string | null> {
+  const res = await slackApiGet<
+    SlackApiResponse & { channel?: { name?: string } }
+  >(token, "conversations.info", { channel: channelId });
+  const name = res?.ok ? res.channel?.name : undefined;
+  return name || null;
+}

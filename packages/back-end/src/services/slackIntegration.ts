@@ -19,19 +19,25 @@ import {
   EventWebHookModel,
   getAllEventWebHooks,
   getEventWebHookById,
+  getSlackBotAccessTokenForWebhook,
   updateEventWebHook,
+  updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
+import { getSlackConversationName } from "back-end/src/services/slack/slackWebApi";
+import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 // `app_mentions:read` lets the assistant receive @-mentions; the `*:history`
 // scopes let it receive plain messages in threads it's already in (thread
-// follow-up without a mention); the rest cover incoming-webhook notifications,
-// slash commands, posting replies (chat:write), and user lookups (users:read*).
+// follow-up without a mention); `channels:read`/`groups:read` let us resolve a
+// channel's current name (conversations.info) so the UI shows the live name
+// even after a rename; the rest cover incoming-webhook notifications, slash
+// commands, posting replies (chat:write), and user lookups (users:read*).
 const SLACK_OAUTH_SCOPE =
-  "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:history,groups:history,im:history,mpim:history,links:read";
+  "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:history,groups:history,im:history,mpim:history,links:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 // Fresh installs subscribe to the curated default set (explicit event names,
 // no wildcards) so the low-signal suppression gate is bypassed and users see
@@ -322,9 +328,43 @@ export const getSlackOAuthIntegrations = async (
 ): Promise<SlackOAuthIntegrationInterface[]> => {
   const eventWebHooks = await getAllEventWebHooks(context.org.id);
 
-  return eventWebHooks
+  const integrations = eventWebHooks
     .filter((eventWebHook) => eventWebHook.payloadType === "slack")
     .map(slackEventWebhookToIntegration);
+
+  // Resolve each channel's live name (handles renames and installs where Slack
+  // didn't return a name). Best-effort and in parallel: failures (e.g. a legacy
+  // install without the channels:read scope) fall back to the stored name/id.
+  // When the live name differs, cache it back so digests and future loads use
+  // it without another API round-trip.
+  await Promise.all(
+    integrations.map(async (integration) => {
+      const channelId = integration.slack?.channelId;
+      if (!channelId) return;
+      const token = await getSlackBotAccessTokenForWebhook({
+        eventWebHookId: integration.eventWebHookId,
+        organizationId: context.org.id,
+      });
+      if (!token) return;
+      try {
+        const name = await getSlackConversationName({ token, channelId });
+        if (!name || name === integration.slack?.channelName) return;
+        if (integration.slack) integration.slack.channelName = name;
+        await updateSlackChannelName({
+          eventWebHookId: integration.eventWebHookId,
+          organizationId: context.org.id,
+          channelName: name,
+        });
+      } catch (e) {
+        logger.warn(
+          e,
+          `Failed resolving Slack channel name for webhook ${integration.eventWebHookId}`,
+        );
+      }
+    }),
+  );
+
+  return integrations;
 };
 
 /**
