@@ -1,11 +1,6 @@
 import React from "react";
 import { Flex } from "@radix-ui/themes";
-import {
-  PiRadioButton,
-  PiArrowBendLeftUp,
-  PiArrowBendRightDown,
-  PiArrowsLeftRight,
-} from "react-icons/pi";
+import { PiRadioButton } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -16,6 +11,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ConfigKeyImplementation } from "@/hooks/useConstantReferences";
 import styles from "./ConfigUsageTable.module.scss";
@@ -126,12 +122,6 @@ function FlagRevisionBadge({
   return <Badge color="green" variant="soft" radius="full" label="Live" />;
 }
 
-const RELATION_ICON: Record<string, React.ReactNode> = {
-  ancestor: <PiArrowBendLeftUp />,
-  descendant: <PiArrowBendRightDown />,
-  other: <PiArrowsLeftRight />,
-};
-
 // A @/ui/Link that truncates on the anchor itself (not a nested inline-block),
 // so its hover underline actually reaches the text. Title carries the full value.
 function TruncatedLink({
@@ -202,16 +192,13 @@ function ConfigSourceCell({
       radius="full"
       title={name}
       label={
-        <Flex align="center" gap="1" style={{ minWidth: 0 }}>
-          {RELATION_ICON[relation]}
-          <TruncatedLink
-            href={`/configs/${impl.configKey}`}
-            maxWidth={130}
-            color="var(--accent-11)"
-          >
-            {name}
-          </TruncatedLink>
-        </Flex>
+        <TruncatedLink
+          href={`/configs/${impl.configKey}`}
+          maxWidth={150}
+          color="var(--accent-11)"
+        >
+          {name}
+        </TruncatedLink>
       }
     />
   );
@@ -276,9 +263,21 @@ function StatusCell({
   );
 }
 
+function KeyCode({ k }: { k: string }): React.ReactElement {
+  return (
+    <code title={k} style={{ color: "var(--slate-12)" }}>
+      {k}
+    </code>
+  );
+}
+
+// A reference can touch many keys; cap the visible list so a row stays compact.
+const MAX_VISIBLE_KEYS = 3;
+
 // The config keys a row overrides — shown only in the flat "by reference" view,
 // where a single reference can touch several keys. Ordered to match the field
-// list in the config table above; one key per line.
+// list in the config table above; one key per line, with the overflow collapsed
+// into a hover "+N more" (matching the environment-select overflow pattern).
 function KeyCell({
   keys,
   keyOrder,
@@ -298,13 +297,29 @@ function KeyCell({
         ...keys.filter((k) => !keyOrder.includes(k)),
       ]
     : keys;
+  const visible = ordered.slice(0, MAX_VISIBLE_KEYS);
+  const overflow = ordered.slice(MAX_VISIBLE_KEYS);
   return (
-    <Flex direction="column" gap="1">
-      {ordered.map((k) => (
-        <code key={k} title={k} style={{ color: "var(--slate-12)" }}>
-          {k}
-        </code>
+    <Flex direction="column" gap="1" align="start">
+      {visible.map((k) => (
+        <KeyCode key={k} k={k} />
       ))}
+      {overflow.length > 0 && (
+        <Tooltip
+          flipTheme={false}
+          body={
+            <Flex direction="column" gap="1" align="start">
+              {overflow.map((k) => (
+                <KeyCode key={k} k={k} />
+              ))}
+            </Flex>
+          }
+        >
+          <Text as="span" size="small" color="text-low">
+            +{overflow.length} more
+          </Text>
+        </Tooltip>
+      )}
     </Flex>
   );
 }

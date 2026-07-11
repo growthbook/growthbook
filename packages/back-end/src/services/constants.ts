@@ -629,8 +629,14 @@ export async function getConfigKeyImplementations(
   // so unrelated keys from those consumers aren't pulled in.
   const familySet = new Set(familyKeys);
 
-  // Classify each backing config relative to the config being viewed, for the
-  // "Config source" column.
+  // Classify each backing config relative to the config being viewed. This feeds
+  // the API `relation` field (REST consumers); the UI's "Config source" column
+  // just shows the config name, since the direction is ambiguous for mixins.
+  // Configs inherit via `$extends` (base-wins, children override the base's
+  // values), so anything reachable DOWN any base edge — a `parent`-spine child OR
+  // a config that mixes this one in — is a specialization of it, i.e. a
+  // descendant. "other" is reserved for genuinely lateral configs (e.g. a sibling
+  // mixin co-applied alongside this one), which are neither upstream nor down.
   const ancestorKeys = getConfigAncestorKeys(config, byKey);
   const descendantKeys = new Set(
     getConfigSubtree(config.key, allConfigs).filter((k) => k !== config.key),
