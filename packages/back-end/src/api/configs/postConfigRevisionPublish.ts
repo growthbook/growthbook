@@ -159,10 +159,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
 
-  // Experiment guard (opt-in, per config): a direct publish that rewrites the
-  // live value served to a running experiment soft-blocks (422) unless the caller
-  // overrides with ?ignoreWarnings=true or holds bypassApprovalChecks. Direct
-  // path, so armed=false — the synchronous override applies, not a fingerprint.
+  // Experiment guard (direct publish → armed:false).
   await assertConfigExperimentGuard(req.context, config, revision, {
     armed: false,
   });

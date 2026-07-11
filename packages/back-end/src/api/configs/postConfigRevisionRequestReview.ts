@@ -46,9 +46,8 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
       config as unknown as Record<string, unknown>,
     );
 
-  // Experiment guard: arming auto-publish on a guarded config with live
-  // experiment conflicts requires acknowledgment (throws if not) and snapshots
-  // the acknowledged keys for the merge-time recheck.
+  // Experiment guard: snapshot the acknowledged conflict keys (throws if arming
+  // over live conflicts without ignoreWarnings/bypass).
   const experimentGuardAcknowledgedKeys = enableAutoPublish
     ? await captureConfigExperimentGuardAcknowledgment(req.context, config)
     : undefined;

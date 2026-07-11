@@ -858,9 +858,7 @@ export const putConfig = async (
         await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
-      // Experiment guard: a direct publish that rewrites the live value served
-      // to a running experiment soft-blocks unless overridden (?ignoreWarnings=1
-      // / bypassApprovalChecks). Direct path → armed=false.
+      // Experiment guard (direct publish → armed:false).
       await assertConfigExperimentGuard(context, existing, revision, {
         armed: false,
       });

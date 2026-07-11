@@ -27,7 +27,10 @@ import {
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  assertConfigExperimentGuard,
+  captureConfigExperimentGuardAcknowledgment,
+} from "back-end/src/services/experimentGuard";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -265,6 +268,15 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     assertConfigNotLocked(entity);
   },
 
+  // Snapshot the experiment-guard fingerprint when arming a deferred publish;
+  // throws if live conflicts aren't acknowledged.
+  captureArmAcknowledgment(
+    context: Context,
+    entity: ConfigInterface,
+  ): Promise<string[] | undefined> {
+    return captureConfigExperimentGuardAcknowledgment(context, entity);
+  },
+
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full
   // publish-time validation against the proposed state BEFORE the revision is
   // marked merged, so a failing publish errors and leaves the draft open instead
@@ -294,13 +306,9 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     }
     if (Object.keys(filteredChanges).length === 0) return;
 
-    // Experiment guard (opt-in, per config): block a publish that would rewrite
-    // the live value served to a running experiment. A deferred (armed) merge —
-    // scheduled publish or auto-publish-on-approval — compares the live conflict
-    // set against the arm-time fingerprint on the revision; a synchronous manual
-    // publish (including "publish now" of an armed revision) instead honors a
-    // live override (ignoreWarnings / bypassApprovalChecks). `deferred` reflects
-    // THIS invocation, not whether the revision merely has auto-publish armed.
+    // Experiment guard. `deferred` reflects THIS invocation (poller /
+    // auto-publish-on-approval), not whether the revision has auto-publish armed —
+    // so a manual "publish now" of an armed revision still gets the live override.
     await assertConfigExperimentGuard(context, entity, revision, {
       armed: !!options?.deferred,
     });

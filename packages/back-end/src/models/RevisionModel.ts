@@ -766,10 +766,9 @@ export class RevisionModel extends BaseClass {
       ...(autoPublishOnApproval && userId
         ? { autoPublishEnabledBy: userId }
         : {}),
-      // Arm-time experiment-guard fingerprint (config revisions). Set the new
-      // acknowledgment, or clear a stale one from a prior arm (to []) so a re-arm
-      // with no current conflicts can't be covered by an outdated fingerprint.
-      // Fully cleared on disarm via disarmScheduledPublish/SCHEDULED_PUBLISH_UNSET.
+      // Arm-time experiment-guard fingerprint: set the new acknowledgment, or
+      // clear a stale one from a prior arm (to []) so a re-arm with no current
+      // conflicts can't be covered by an outdated fingerprint.
       ...(autoPublishOnApproval &&
       (experimentGuardAcknowledgedKeys?.length ||
         existing.experimentGuardAcknowledgedKeys?.length)
@@ -838,10 +837,9 @@ export class RevisionModel extends BaseClass {
     const updated = await this.update(existing, {
       autoPublishOnApproval: enabled,
       ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
-      // Arm-time experiment-guard fingerprint (config revisions). Set the new
-      // acknowledgment, or clear a stale one from a prior arm (to []) so a re-arm
-      // with no current conflicts can't be covered by an outdated fingerprint.
-      // Fully cleared on disarm below via disarmScheduledPublish/SCHEDULED_PUBLISH_UNSET.
+      // Arm-time experiment-guard fingerprint: set the new acknowledgment, or
+      // clear a stale one from a prior arm (to []) so a re-arm with no current
+      // conflicts can't be covered by an outdated fingerprint.
       ...(enabled &&
       (experimentGuardAcknowledgedKeys?.length ||
         existing.experimentGuardAcknowledgedKeys?.length)

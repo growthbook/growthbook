@@ -175,16 +175,10 @@ async function publishArmedRevision(
   mergeNow: boolean,
 ): Promise<FeatureRevisionInterface> {
   // Use the armer's context, not the caller's: a reviewer scoped out of a linked
-  // experiment's project would see no experiments and skip the checklist.
-  // An admin bypass-approval schedule (mergeNow) force-merges past governance,
-  // and the pre-launch checklist is part of that governance — so it's skipped
-  // for a bypass, matching how publishFeatureRevision handles approval/rebase.
-  // A plain (transient) error, NOT terminal: an incomplete checklist is
-  // human-recoverable (it clears once the checklist is completed), so the
-  // scheduled path should hold and retry up to the cap (a grace window) rather
-  // than parking on the first tick, and the on-approval path should quietly
-  // leave the revision approved for a manual publish instead of firing a
-  // "gave up" webhook.
+  // experiment's project would see no experiments and skip the checklist. An
+  // admin bypass schedule (mergeNow) force-merges past this governance gate.
+  // Plain (transient) error, not terminal — an incomplete checklist is
+  // recoverable, so the poller holds and retries rather than parking at once.
   if (
     !mergeNow &&
     (await revisionRequiresPreLaunchChecklist(
@@ -269,9 +263,9 @@ export async function maybeAutoPublishFeatureRevision(
       e,
       `auto-publish-on-approval failed for feature ${feature.id} revision ${revision.version}; left approved for manual publish`,
     );
-    // A terminal failure won't self-heal on a manual retry, so notify a human
-    // (this path has no poller retry loop). Transient failures are left approved
-    // for a manual publish and don't fire the "gave up" webhook.
+    // Notify on terminal failure (no poller retry loop here); transient failures
+    // stay approved for a manual publish. Features currently have no terminal
+    // publish error, so this branch is defensive.
     if (isTerminalPublishError(e)) {
       await dispatchFeatureRevisionEvent(
         context,

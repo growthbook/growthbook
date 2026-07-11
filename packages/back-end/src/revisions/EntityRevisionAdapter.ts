@@ -171,4 +171,16 @@ export interface EntityRevisionAdapter<
    * of failing at every poller tick. Canceling is never gated.
    */
   assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
+
+  /**
+   * Capture an arm-time acknowledgment when a deferred publish is armed
+   * (scheduled or auto-publish-on-approval). Returns keys to snapshot on the
+   * revision and re-check at merge time; throws (e.g. SoftWarningError) when the
+   * armer must acknowledge a condition first. The config adapter uses this for
+   * the experiment guard; adapters without an arm-time precondition omit it.
+   */
+  captureArmAcknowledgment?(
+    context: Context,
+    entity: TSnapshot,
+  ): Promise<string[] | undefined>;
 }

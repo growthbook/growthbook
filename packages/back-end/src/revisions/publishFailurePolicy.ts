@@ -56,15 +56,9 @@ export type ScheduledPublishOutcome =
     };
 
 // Decide what to do after a failed scheduled-publish attempt. `attempts` is the
-// running failure count INCLUDING the attempt that just failed. `now` is
-// injected so this stays pure and testable.
-//
-//  - terminal failure                     → give up immediately (attempt 1)
-//  - transient, attempts >= cap           → give up (stop retrying forever)
-//  - transient, still under the cap        → retry after a backoff delay
-//
-// "Give up" is the signal for the poller to park the draft (clear the schedule
-// so it stops being due) and fire `revision.publishFailed`.
+// running failure count INCLUDING the one that just failed; `now` is injected to
+// keep this pure. "Give up" signals the poller to park the draft and fire
+// `revision.publishFailed`.
 export function decideScheduledPublishOutcome({
   error,
   attempts,

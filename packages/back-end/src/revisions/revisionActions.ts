@@ -333,14 +333,11 @@ export async function maybeAutoPublishRevision(
       e,
       `auto-publish-on-approval failed for revision ${revision.id}; left approved for manual publish`,
     );
-    // A terminal failure won't self-heal on a manual retry, so notify a human
-    // (this path has no poller retry loop). Transient failures are left approved
-    // for a manual publish and don't fire the "gave up" webhook.
+    // Terminal failures notify a human and disarm (this path has no poller retry
+    // loop); transient failures stay approved for a manual publish, no webhook.
     if (isTerminalPublishError(e)) {
-      // Disarm auto-publish so a later trigger (re-approval, undo/redo, rebase)
-      // doesn't re-run this doomed publish and re-fire the webhook. Also clears
-      // the stale experiment-guard fingerprint so a re-arm re-contends. The human
-      // must re-arm after resolving the cause.
+      // Disarm so a later trigger (re-approval, undo, rebase) doesn't re-run the
+      // doomed publish and re-fire the webhook; also clears the stale fingerprint.
       let disarmed = revision;
       try {
         disarmed = await context.models.revisions.setAutoPublishOnApproval(

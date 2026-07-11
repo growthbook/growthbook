@@ -96,9 +96,8 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
     }
   }
 
-  // Experiment guard: arming a deferred publish on a guarded config with live
-  // experiment conflicts requires acknowledgment (?ignoreWarnings=true / bypass)
-  // and snapshots the acknowledged keys for the merge-time recheck.
+  // Experiment guard: snapshot the acknowledged conflict keys (throws if arming
+  // over live conflicts without ignoreWarnings/bypass).
   const experimentGuardAcknowledgedKeys = isCancel
     ? undefined
     : await captureConfigExperimentGuardAcknowledgment(req.context, config);

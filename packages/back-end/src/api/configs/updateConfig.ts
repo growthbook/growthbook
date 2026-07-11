@@ -69,12 +69,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    // Experiment-guard toggle: a config-level setting (not a revision field).
-    // Asymmetric like lock/unlock — turning it OFF requires bypassApprovalChecks.
-    // Check the permission up front (fail fast) but DEFER the write until after
-    // the value publish succeeds, so a soft-blocked/failed publish can't leave
-    // the toggle partially applied (removing a protection the value change never
-    // landed behind). `commitGuardToggle` applies it at each success return.
+    // Experiment-guard toggle: a config-level setting (not a revision field),
+    // asymmetric like lock/unlock (OFF needs bypassApprovalChecks). Check the
+    // permission now but DEFER the write (commitGuardToggle) until after the
+    // value publish succeeds, so a failed publish can't leave it half-applied.
     const guardToggle =
       req.body.experimentGuard !== undefined &&
       req.body.experimentGuard !== !!config.experimentGuard
@@ -318,10 +316,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
-      // Experiment guard: a direct publish rewriting the live value served to a
-      // running experiment soft-blocks unless overridden (?ignoreWarnings=true /
-      // bypassApprovalChecks). Direct path (no review cycle) → armed=false, so no
-      // arm-time fingerprint applies.
+      // Experiment guard (direct publish → armed:false).
       await assertConfigExperimentGuard(
         req.context,
         config,

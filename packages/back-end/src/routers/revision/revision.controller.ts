@@ -11,7 +11,6 @@ import {
   isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
-import { ConfigInterface } from "shared/types/config";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -26,7 +25,6 @@ import { isRevisionDiverged } from "back-end/src/revisions/util";
 // Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
-import { captureConfigExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import {
   approveRevision,
   publishRevision as publishRevisionAction,
@@ -34,26 +32,22 @@ import {
   canEnableAutoPublishOnApproval,
 } from "back-end/src/revisions/revisionActions";
 
-// Compute the experiment-guard acknowledgment fingerprint when arming a deferred
-// publish (scheduled or auto-publish-on-approval) on a config revision. Throws a
-// SoftWarningError when live experiment conflicts exist and the armer hasn't
-// acknowledged them; returns the snapshot keys (or undefined) to store on arm.
-async function captureConfigGuardAckForArm(
+// Arm-time acknowledgment for a deferred publish, via the entity's adapter hook
+// (config uses it for the experiment guard; others have none). Throws when the
+// armer must acknowledge a condition first; returns keys to snapshot on the arm.
+async function captureArmAcknowledgment(
   context: ReqContext,
   revision: Pick<Revision, "target">,
-  // Optional already-loaded entity, so a caller that fetched it (e.g. for
-  // assertSchedulable) doesn't re-read it.
+  // Reuse an already-loaded entity when the caller has one.
   prefetchedEntity?: Record<string, unknown> | null,
 ): Promise<string[] | undefined> {
-  if (revision.target.type !== "config") return undefined;
-  const config =
+  const adapter = getAdapter(revision.target.type);
+  if (!adapter.captureArmAcknowledgment) return undefined;
+  const entity =
     prefetchedEntity ??
-    (await context.models.configs.getById(revision.target.id));
-  if (!config) return undefined;
-  return captureConfigExperimentGuardAcknowledgment(
-    context,
-    config as unknown as ConfigInterface,
-  );
+    (await adapter.getModel(context)?.getById(revision.target.id));
+  if (!entity) return undefined;
+  return adapter.captureArmAcknowledgment(context, entity);
 }
 
 // region GET /revision
@@ -474,10 +468,8 @@ export const postSubmit = async (
       existingRevision.target.snapshot as Record<string, unknown>,
     );
 
-  // Snapshot the experiment-guard fingerprint when arming auto-publish on a
-  // guarded config (throws if live conflicts aren't acknowledged).
   const experimentGuardAcknowledgedKeys = enableAutoPublish
-    ? await captureConfigGuardAckForArm(context, existingRevision)
+    ? await captureArmAcknowledgment(context, existingRevision)
     : undefined;
 
   const revision = await revisionModel.submitForReview(id, userId, {
@@ -1254,10 +1246,8 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
-  // Snapshot the experiment-guard fingerprint when arming auto-publish on a
-  // guarded config (throws if live conflicts aren't acknowledged).
   const experimentGuardAcknowledgedKeys = enabled
-    ? await captureConfigGuardAckForArm(context, existing)
+    ? await captureArmAcknowledgment(context, existing)
     : undefined;
 
   const revision = await revisionModel.setAutoPublishOnApproval(
@@ -1792,17 +1782,10 @@ export const postSchedulePublish = async (
     await adapter.assertSchedulable(context, scheduleEntity);
   }
 
-  // Experiment guard: arming a deferred publish on a guarded config with live
-  // experiment conflicts requires acknowledgment (ignoreWarnings / bypass) and
-  // snapshots the acknowledged conflict keys so the merge-time recheck compares
-  // against them. Reuses the already-fetched entity.
+  // Reuses the already-fetched entity.
   const experimentGuardAcknowledgedKeys = isCancel
     ? undefined
-    : await captureConfigGuardAckForArm(
-        context,
-        existingRevision,
-        scheduleEntity,
-      );
+    : await captureArmAcknowledgment(context, existingRevision, scheduleEntity);
 
   const revision = await revisionModel.setScheduledPublish(id, enabledBy, {
     scheduledPublishAt: parsedDate,
