@@ -392,6 +392,17 @@ export default function ConfigInvariantsEditor({
     ? undeclaredIn(JSON.stringify(currentRule))
     : [];
 
+  // Precompute each existing invariant's undeclared fields once — the list
+  // render reads this three times per row.
+  const undeclaredByIndex = useMemo(() => {
+    const declared = declaredKeys ? new Set(declaredKeys) : null;
+    return invariants.map((iv) =>
+      declared
+        ? invariantRuleFields(iv.rule).filter((k) => !declared.has(k))
+        : [],
+    );
+  }, [invariants, declaredKeys]);
+
   const fieldOptions = fieldKeys.map((k) => ({ label: k, value: k }));
 
   // One AND-joined group rendered as ConditionRows (field · operator · value),
@@ -719,14 +730,12 @@ export default function ConfigInvariantsEditor({
           >
             {describeInvariantRule(iv.rule)}
           </Box>
-          {undeclaredIn(iv.rule).length > 0 && (
+          {undeclaredByIndex[i].length > 0 && (
             <Text as="div" size="small" color="text-low" mt="1">
               References undeclared field
-              {undeclaredIn(iv.rule).length === 1 ? "" : "s"}{" "}
-              {undeclaredIn(iv.rule)
-                .map((k) => `"${k}"`)
-                .join(", ")}{" "}
-              — undeclared fields evaluate as null.
+              {undeclaredByIndex[i].length === 1 ? "" : "s"}{" "}
+              {undeclaredByIndex[i].map((k) => `"${k}"`).join(", ")} —
+              undeclared fields evaluate as null.
             </Text>
           )}
           <Text as="div" size="small" color="text-low" mt="1">

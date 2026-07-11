@@ -1412,6 +1412,24 @@ export class RevisionModel extends BaseClass {
               prior.experimentGuardAcknowledgedKeys,
           }
         : {}),
+      // Restore the retry bookkeeping `merge()` scrubbed. Otherwise a persistent
+      // apply-time failure (e.g. a cycle/composition conflict that only surfaces
+      // inside applyChanges) resets the attempt counter every tick and never
+      // reaches the give-up cap — it would retry forever instead of parking.
+      ...(prior.scheduledPublishAttempts
+        ? {
+            scheduledPublishAttempts: prior.scheduledPublishAttempts,
+            ...(prior.scheduledPublishLastError
+              ? { scheduledPublishLastError: prior.scheduledPublishLastError }
+              : {}),
+            ...(prior.scheduledPublishNextAttemptAt
+              ? {
+                  scheduledPublishNextAttemptAt:
+                    prior.scheduledPublishNextAttemptAt,
+                }
+              : {}),
+          }
+        : {}),
       ...((prior.scheduledPublishAt ?? null) !== null
         ? {
             scheduledPublishAt: prior.scheduledPublishAt,
@@ -1842,18 +1860,6 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
-   * Create a revision that is already in `merged` status in a single write.
-   *
-   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
-   * create a draft and then `merge` it as two separate, non-transactional DB
-   * writes — if the merge failed after the entity was already updated, the
-   * draft would be stranded and could never be published ("no changes
-   * detected" against the now-updated live entity). Recording the merged
-   * revision in one write removes that window. Callers must persist the live
-   * entity change *before* calling this so the merged revision is a faithful
-   * record of a change that has actually landed.
-   */
-  /**
    * Returns active draft status counts per entity ID for a given revision
    * target type (e.g. "saved-group", "constant"). Mirrors `getActiveDraftStates`
    * in FeatureRevisionModel but operates on the shared Revision collection.
@@ -1890,6 +1896,18 @@ export class RevisionModel extends BaseClass {
     return result;
   }
 
+  /**
+   * Create a revision that is already in `merged` status in a single write.
+   *
+   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
+   * create a draft and then `merge` it as two separate, non-transactional DB
+   * writes — if the merge failed after the entity was already updated, the draft
+   * would be stranded and could never be published ("no changes detected"
+   * against the now-updated live entity). Recording the merged revision in one
+   * write removes that window. Callers must persist the live entity change
+   * *before* calling this so the merged revision is a faithful record of a
+   * change that has actually landed.
+   */
   async createMerged(params: {
     type: RevisionTargetType;
     id: string;

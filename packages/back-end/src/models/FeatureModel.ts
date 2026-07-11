@@ -2715,10 +2715,11 @@ export async function getFeatureMetaInfoById(
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
     environmentSettings: 1,
-    // `baseConfig` drives the list's "Config · <name>" type display. The full
-    // default value is only returned to the client when explicitly requested.
-    defaultValue: 1,
+    // `baseConfig` drives the list's "Config · <name>" type display; the full
+    // (potentially large) default value is fetched only when the caller asks for
+    // it — the list itself never parses it.
     baseConfig: 1,
+    ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
   const features = await FeatureModel.find(query, projection);

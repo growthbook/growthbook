@@ -42,12 +42,13 @@ export function useConfigFamilyReferences(
 ): {
   references: ConfigFamilyReferences | null;
   loading: boolean;
+  error: Error | null;
 } {
   const { apiCall, orgId } = useAuth();
   const path = configId ? `/configs/${configId}/family-references` : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
-  const { data, isLoading } = useSWR<
+  const { data, isLoading, error } = useSWR<
     ConfigFamilyReferences & { status: 200 },
     Error
   >(key, () => apiCall(path!, { method: "GET" }), {
@@ -59,6 +60,7 @@ export function useConfigFamilyReferences(
   return {
     references: data ?? null,
     loading: isLoading,
+    error: error ?? null,
   };
 }
 

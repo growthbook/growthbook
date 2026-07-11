@@ -231,7 +231,7 @@ export default function ConfigsPage(): React.ReactElement {
             description="Define a base config with a field schema, then create override configs that inherit and override specific fields."
             leftButton={
               <LinkButton
-                href="https://docs.growthbook.io/features/constants"
+                href="https://docs.growthbook.io/features/configs"
                 variant="outline"
                 external={true}
               >

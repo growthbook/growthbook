@@ -309,8 +309,6 @@ export async function loadConstantReferences(
   // `@const:`) and vice versa. Matching is namespaced: a reference to the target
   // only counts when its `@const:`/`@config:` prefix matches the target's own
   // namespace, so a same-keyed constant/config pair isn't conflated.
-  const configs = await context.models.configs.getAll();
-  const configIds = new Set(configs.map((c) => c.id));
   const allConstants = await getResolvableValues(context);
   const target = allConstants.find((c) => c.id === constantId);
   if (!target) return null;
@@ -350,7 +348,7 @@ export async function loadConstantReferences(
     key: c.key,
     name: c.name,
     project: c.project || undefined,
-    isConfig: configIds.has(c.id) || undefined,
+    isConfig: c.source === "config" || undefined,
   }));
 
   return { features, constants };

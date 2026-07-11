@@ -38,12 +38,11 @@ type ResolvedResponse = {
   extensible?: boolean;
 };
 
-// Key / Value / Type / action. Key, Type, and action are fixed so the Value
-// column (1fr) absorbs the remaining width; its min is generous so JSON editing
-// stays usable in narrower layouts.
-// Action column is `auto` so it fits the "+ Override" CTA (a fixed 64px clipped
-// it); value min is modest so the grid fits narrower containers (e.g. an
-// experiment variation arm) without overflowing.
+// Key (150px) / Value (minmax(180px, 1fr)) / Type (110px) / action (auto). Key
+// and Type are fixed and the action column is `auto` so it fits the "+ Override"
+// CTA (a fixed width clipped it); the Value column absorbs the remaining width,
+// with a modest min so the grid still fits narrow containers (e.g. an experiment
+// variation arm) without overflowing.
 const GRID_TEMPLATE = "150px minmax(180px, 1fr) 110px auto";
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

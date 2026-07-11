@@ -21,6 +21,10 @@ export const schemaProjectionValidator = z
     language: z.string(),
     rootName: z.string().optional(),
     typeNames: z.record(z.string(), z.string()),
+    // Protobuf wire numbers captured on import (the proto converter always emits
+    // these); must be accepted here or a captured protobuf projection can't be
+    // persisted through this `.strict()` schema.
+    fieldNumbers: z.record(z.string(), z.number().int()).optional(),
   })
   .strict();
 

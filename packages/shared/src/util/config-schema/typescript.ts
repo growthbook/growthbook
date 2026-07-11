@@ -857,14 +857,14 @@ function jsonSchemaNodeToTsExpr(
         if (existing !== undefined && existing !== body) {
           // Two pointers captured the same name but their schemas have since
           // diverged — disambiguate like the other converters' `emitted` sets.
-          let n = 2;
+          let suffix = 2;
           while (
-            ctx.named.has(`${name}${n}`) &&
-            ctx.named.get(`${name}${n}`) !== body
+            ctx.named.has(`${name}${suffix}`) &&
+            ctx.named.get(`${name}${suffix}`) !== body
           ) {
-            n++;
+            suffix++;
           }
-          name = `${name}${n}`;
+          name = `${name}${suffix}`;
         }
         ctx.named.set(name, body);
         return withNull(name);

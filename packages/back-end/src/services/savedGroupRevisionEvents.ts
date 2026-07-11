@@ -158,7 +158,7 @@ export async function dispatchSavedGroupRevisionEvent(
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
-          ...(source?.version != null
+          ...(source && source.version !== undefined
             ? { revertedToVersion: source.version }
             : {}),
         });

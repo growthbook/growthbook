@@ -1,16 +1,12 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
-import {
-  getFeatureBaseConfigKey,
-  getConfigSubtree,
-  ensureConfigBacking,
-} from "shared/util";
+import { ensureConfigBacking } from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -101,20 +97,12 @@ export default function StandardRuleFields({
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
-  const { configs } = useDefinitions();
 
   // A config-backed feature default makes every rule an implicit sparse patch on
   // that config. The rule may override with the default's config or a descendant,
   // and the sparse toggle is dropped (rules are always sparse here).
-  const defaultConfigKey = getFeatureBaseConfigKey(feature);
-  const isConfigBacked = defaultConfigKey !== null;
-  const configBackingOptionKeys = useMemo(
-    () =>
-      defaultConfigKey
-        ? getConfigSubtree(defaultConfigKey, configs)
-        : undefined,
-    [defaultConfigKey, configs],
-  );
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
 
   // Config-backed rules are always sparse and always serve a config. Seed the
   // value with the default's config (the user can switch to a compatible child)

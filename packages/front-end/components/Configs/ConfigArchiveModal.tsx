@@ -28,7 +28,7 @@ export default function ConfigArchiveModal({
     revisionCtx;
 
   const isArchived = !!config.archived;
-  const { references, loading } = useConfigFamilyReferences(
+  const { references, loading, error } = useConfigFamilyReferences(
     isArchived ? null : config.id,
   );
   const features = references?.features ?? [];
@@ -44,6 +44,7 @@ export default function ConfigArchiveModal({
       canBypassApproval={canBypassApproval}
       referenceCount={features.length}
       referencesLoading={loading}
+      referencesError={(error ?? null) !== null}
       referencesList={
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {features.map((f) => (

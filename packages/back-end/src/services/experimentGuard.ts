@@ -9,6 +9,7 @@ import {
   SoftWarningError,
   TerminalPublishError,
 } from "back-end/src/util/errors";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
 // Experiment guard: an opt-in, per-config, computed-live soft-block on publishing
@@ -114,7 +115,13 @@ export async function evaluateConfigExperimentGuardConflicts(
   config: ConfigInterface,
 ): Promise<Set<string>> {
   if (!config.experimentGuard) return new Set();
-  const impl = await getConfigKeyImplementations(context, config.id);
+  // Scan usage with an org-wide (unfiltered) context: the guard must see a
+  // running experiment served by a config-backed feature in ANY project — even
+  // one the acting user can't read — or it silently finds no conflict and the
+  // publish rewrites that experiment's live arm. (The UI usage table keeps the
+  // request context; only this guard path needs global coverage.)
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const impl = await getConfigKeyImplementations(scanContext, config.id);
   return computeExperimentGuardConflictKeys(impl?.implementations ?? []);
 }
 

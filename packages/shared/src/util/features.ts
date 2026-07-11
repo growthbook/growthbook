@@ -3179,11 +3179,11 @@ export function getDisallowedProjects(
 }
 
 // Codify a single SimpleSchema field into its JSON Schema subschema (type +
-// description + default + enum + min/max constraints). This is the per-field
-// half of `simpleToJSONSchema`, exported so editors can faithfully seed a raw
-// JSON Schema from simple-mode preferences. Note: `required`/`nullable` are
-// composition concerns (presence in the parent object / `| null` unions) and
-// are NOT part of a property's own subschema — callers handle those separately.
+// description + default + enum + min/max constraints + nullability). This is the
+// per-field half of `simpleToJSONSchema`, exported so editors can faithfully
+// seed a raw JSON Schema from simple-mode preferences. `nullable` is baked into
+// the subschema here (widening the type to include `"null"`); `required` is a
+// composition concern the parent object handles.
 export function simpleSchemaFieldToJSONSchema(
   field: SchemaField,
 ): Record<string, unknown> {
@@ -3201,6 +3201,17 @@ export function simpleSchemaFieldToJSONSchema(
         }
         if (field.default && merged.default === undefined) {
           merged.default = field.default;
+        }
+        // A bare nullable preset (e.g. {"type":["object","null"]}) is reduced by
+        // normalizeField to a raw schema + the `nullable` flag, so re-apply the
+        // flag here — otherwise the compiled schema drops `null` and rejects a
+        // legitimate null value (and every export re-emits it non-nullable).
+        if (
+          field.nullable &&
+          typeof merged.type === "string" &&
+          merged.type !== "null"
+        ) {
+          merged.type = [merged.type, "null"];
         }
         return merged;
       }

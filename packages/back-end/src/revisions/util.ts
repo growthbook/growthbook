@@ -99,11 +99,6 @@ export function isRevisionRequired(
 }
 
 /**
- * Apply a JSON Patch (RFC 6902) operations array to a snapshot object and return
- * the patched document. The original snapshot is never mutated.
- */
-
-/**
  * Compute the desired final state for a merge by layering the revision's
  * proposed changes on top of the LIVE entity (not the baseline snapshot).
  *

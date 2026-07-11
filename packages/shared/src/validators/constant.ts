@@ -433,6 +433,15 @@ const bypassApprovalField = z
   )
   .optional();
 
+// No-op on create (constants publish immediately); retained deprecated for compatibility.
+const bypassApprovalCreateField = z
+  .boolean()
+  .describe(
+    "Deprecated and ignored on create: a brand-new constant publishes immediately and never enters the approval flow, so this flag has no effect. Approvals apply only to later changes via the update endpoint.",
+  )
+  .optional()
+  .meta({ deprecated: true });
+
 const postConstantApiBody = z
   .object({
     key: keyField.describe(
@@ -447,7 +456,7 @@ const postConstantApiBody = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
-    bypassApproval: bypassApprovalField,
+    bypassApproval: bypassApprovalCreateField,
   })
   .strict();
 

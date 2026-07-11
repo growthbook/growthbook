@@ -167,7 +167,13 @@ export default function BanditRefFields({
       )}
 
       {selectedExperiment && (
-        <Box px="5" pt="5" pb="1" mb="4" className="bg-highlight rounded">
+        <Box
+          px="5"
+          pt="5"
+          pb="1"
+          mb="4"
+          className={isConfigBacked ? undefined : "bg-highlight rounded"}
+        >
           <Flex align="center" gap="3" mb="3">
             <label className="mb-0">Variation Values</label>
             {feature.valueType === "json" &&

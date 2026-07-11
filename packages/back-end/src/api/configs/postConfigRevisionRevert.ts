@@ -8,6 +8,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
@@ -170,6 +171,14 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     });
     return { revision: await toApiConfigRevision(draft, req.context) };
   }
+
+  // Experiment guard (direct publish → armed:false): a revert-to-publish
+  // rewrites the config's live value like any other publish, so it must clear
+  // the guard too. Other publish paths enforce it via assertPublishable, but
+  // this path calls applyChanges directly (which doesn't), so enforce it here.
+  await assertConfigExperimentGuard(req.context, config, targetRevision, {
+    armed: false,
+  });
 
   // Record the merged revision FIRST, then apply; roll it back if the apply
   // fails, so a "reverted" record never lacks a live change.

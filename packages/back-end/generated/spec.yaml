@@ -18484,12 +18484,12 @@ paths:
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
                 bypassApproval:
+                  deprecated: true
                   description: >-
-                    Set to true to skip the approval flow when the org requires
-                    approvals for this constant's project. Requires the
-                    `bypassApprovalChecks` permission (or the org-level REST
-                    bypass setting). When approvals aren't required, this flag
-                    has no effect.
+                    Deprecated and ignored on create: a brand-new constant
+                    publishes immediately and never enters the approval flow, so
+                    this flag has no effect. Approvals apply only to later
+                    changes via the update endpoint.
                   type: boolean
               required:
                 - key
