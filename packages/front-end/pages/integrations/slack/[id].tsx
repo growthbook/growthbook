@@ -452,6 +452,7 @@ const SlackIntegrationDetailPage = () => {
           </Text>
           <Box style={{ maxWidth: 320 }}>
             <Select
+              size="2"
               label="Card style"
               value={cardFormat}
               setValue={(v) =>
@@ -479,6 +480,7 @@ const SlackIntegrationDetailPage = () => {
 
           <Flex direction="column" gap="4" style={{ maxWidth: 420 }}>
             <Select
+              size="2"
               label="Frequency"
               value={frequency}
               setValue={(v) => {
@@ -497,6 +499,7 @@ const SlackIntegrationDetailPage = () => {
               <>
                 {frequency === "weekly" && (
                   <Select
+                    size="2"
                     label="Day of week"
                     value={`${dayOfWeekUtc}`}
                     setValue={(v) => {
@@ -514,6 +517,7 @@ const SlackIntegrationDetailPage = () => {
 
                 {(frequency === "monthly" || frequency === "quarterly") && (
                   <Select
+                    size="2"
                     label="Day of month"
                     value={`${dayOfMonth}`}
                     setValue={(v) => {
@@ -531,6 +535,7 @@ const SlackIntegrationDetailPage = () => {
 
                 {frequency === "custom" && (
                   <Select
+                    size="2"
                     label="Every"
                     value={`${intervalDays}`}
                     setValue={(v) => {
@@ -547,6 +552,7 @@ const SlackIntegrationDetailPage = () => {
                 )}
 
                 <Select
+                  size="2"
                   label="Time (UTC)"
                   value={`${hourUtc}`}
                   setValue={(v) => {
