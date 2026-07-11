@@ -173,6 +173,16 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+// Another advance holds a ramp schedule's advance lock. Transient: callers
+// either retry briefly (user-initiated actions) or defer to the scheduler.
+export class RampAdvanceLockBusyError extends Error {
+  status = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = "RampAdvanceLockBusyError";
+  }
+}
+
 export class ExperimentIncrementalPipelineRequiresFullRefreshError extends Error {
   readonly status = 409;
   readonly code = "requires_full_refresh";

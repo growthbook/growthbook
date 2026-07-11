@@ -583,7 +583,7 @@ export async function getAllExperimentsForStaleGraph(
       if (exp.status === "stopped" && exp.results === "lost") {
         exp.releasedVariationId = exp.variations?.[0]?.id || "";
       } else if (exp.status === "stopped" && exp.results === "won") {
-        exp.releasedVariationId = exp.variations?.[exp.winner || 1]?.id || "";
+        exp.releasedVariationId = exp.variations?.[exp.winner ?? 1]?.id || "";
       } else {
         exp.releasedVariationId = "";
       }

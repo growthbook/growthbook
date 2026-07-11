@@ -163,7 +163,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       variations: initialExpVariations,
-      coverage: initialValue?.coverage || 1,
+      coverage: initialValue?.coverage ?? 1,
       condition: initialValue?.condition,
       savedGroups: initialValue?.savedGroups,
       prerequisites: initialValue?.prerequisites,

@@ -93,7 +93,7 @@ function AIVisualEditorCallout(): React.ReactElement | null {
       underline="none"
       style={{ display: "block" }}
     >
-      <Callout status="info" icon={null} contentsAs="div">
+      <Callout status="info" icon={null}>
         <Flex justify="start" mb="2">
           <Badge
             label="Early access"

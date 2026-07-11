@@ -24,6 +24,7 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -276,13 +277,13 @@ export default function DataSourceMetrics({
               })}
             </Box>
           ) : (
-            <div className="alert alert-info">
+            <Callout status="info">
               No metrics have been defined yet from this data source. Click the{" "}
               <strong>
                 {showCreateFactTableButton ? "Create Fact Table" : "Add"}
               </strong>{" "}
               button to create your first one.
-            </div>
+            </Callout>
           )}
         </Box>
       ) : null}

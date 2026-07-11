@@ -17,7 +17,9 @@ import { formatAIRateLimitRetryMessage } from "shared/ai";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { isBinomialMetric } from "shared/experiments";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -65,7 +67,6 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
-import { AppFeatures } from "@/types/app-features";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -131,7 +132,7 @@ const MetricPage: FC = () => {
   }, [data]);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -292,9 +293,9 @@ const MetricPage: FC = () => {
       } catch (e) {
         console.error(e);
         return (
-          <div className="alert alert-danger">
+          <Callout status="error">
             An error occurred getting the metric usage
-          </div>
+          </Callout>
         );
       }
       return null;
@@ -420,11 +421,11 @@ const MetricPage: FC = () => {
       />
 
       {metric.status === "archived" && (
-        <div className="alert alert-secondary mb-2">
+        <Callout status="info" mb="2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
-        </div>
+        </Callout>
       )}
 
       <Flex align="start" justify="between" gap="2" mb="2">
@@ -701,38 +702,32 @@ const MetricPage: FC = () => {
                       )}
                     </div>
                     {hasQueries && status === "failed" && (
-                      <div className="alert alert-danger my-3">
+                      <Callout status="error" my="3">
                         Error running the analysis.{" "}
                         <ViewAsyncQueriesButton
                           queries={metric.queries.map((q) => q.query)}
                           error={metric.analysisError}
                           ctaComponent={(onClick) => (
-                            <a
-                              className="alert-link"
-                              href="#"
-                              onClick={onClick}
-                            >
-                              View Queries
-                            </a>
+                            <Link onClick={onClick}>View Queries</Link>
                           )}
                         />{" "}
                         for more info
-                      </div>
+                      </Callout>
                     )}
                     {hasQueries && status === "running" && (
-                      <div className="alert alert-info">
+                      <Callout status="info">
                         Your analysis is currently running.{" "}
                         {analysis && "The data below is from the previous run."}
-                      </div>
+                      </Callout>
                     )}
                     {analysis &&
                       status === "succeeded" &&
                       (metric.segment || analysis.segment) &&
                       metric.segment !== analysis.segment && (
-                        <div className="alert alert-info">
+                        <Callout status="info">
                           The graphs below are using an old Segment. Update them
                           to see the latest numbers.
-                        </div>
+                        </Callout>
                       )}
                     {analysis && (
                       <div className="mb-4">

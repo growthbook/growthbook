@@ -68,7 +68,7 @@ export default function MultipleExposuresCard({
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">
           {health.status === "healthy" ? (
-            <Callout status="success" contentsAs="div">
+            <Callout status="success">
               {multipleExposures === 0 ? (
                 <b>Multiple exposures were not detected.</b>
               ) : (
@@ -80,7 +80,7 @@ export default function MultipleExposuresCard({
               )}
             </Callout>
           ) : (
-            <Callout status="warning" contentsAs="div">
+            <Callout status="warning">
               <strong>Multiple Exposures Warning</strong>.{" "}
               {numberFormatter.format(multipleExposures)} users (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
