@@ -3,7 +3,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import React, { useEffect } from "react";
+import React from "react";
 import { PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -11,9 +11,11 @@ import {
   parsePlainJSONObject,
   stripDefaultsForSparse,
   expandSparseToFull,
-  ensureConfigBacking,
 } from "shared/util";
-import { useConfigBacking } from "@/hooks/useConfigBacking";
+import {
+  useConfigBacking,
+  useSeedConfigBackedVariations,
+} from "@/hooks/useConfigBacking";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -65,20 +67,7 @@ export default function ExperimentRefFields({
   // corrects rules created via the v2 REST API that carry no `sparse` flag.
   const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
     useConfigBacking(feature);
-
-  useEffect(() => {
-    if (!isConfigBacked || !defaultConfigKey) return;
-    if (!form.watch("sparse")) form.setValue("sparse", true);
-    const vars = (form.getValues("variations") as { value: string }[]) || [];
-    vars.forEach((v, i) => {
-      const normalized = ensureConfigBacking(v.value, defaultConfigKey);
-      if (normalized !== v.value) {
-        form.setValue(`variations.${i}.value`, normalized);
-      }
-    });
-    // Re-run if the default re-points to a different config; `form` is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConfigBacked, defaultConfigKey]);
+  useSeedConfigBackedVariations(form, { isConfigBacked, defaultConfigKey });
 
   const experimentOptions = experiments
     .filter(

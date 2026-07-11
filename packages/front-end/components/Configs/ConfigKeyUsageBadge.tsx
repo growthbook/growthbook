@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiFlagBold, PiFlaskBold } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
@@ -95,7 +95,10 @@ export default function ConfigKeyUsageBadge({
 }: {
   implementations: ConfigKeyImplementation[];
 }): React.ReactElement | null {
-  const deduped = dedupeImplementations(implementations);
+  const deduped = useMemo(
+    () => dedupeImplementations(implementations),
+    [implementations],
+  );
   // A contextual-bandit-ref carries contextualBanditId (not experimentId) but
   // belongs with experiments, not plain feature rules.
   const isExperimentLike = (i: ConfigKeyImplementation) =>

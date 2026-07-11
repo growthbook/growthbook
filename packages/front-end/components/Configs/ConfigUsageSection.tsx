@@ -57,6 +57,16 @@ export default function ConfigUsageSection({
     return fieldKeys.filter((k) => set.has(k));
   }, [deduped, fieldKeys]);
 
+  // "By key": one group per used key, with the references that touch it.
+  const keyGroups = useMemo(
+    () =>
+      usedKeys.map((key) => ({
+        key,
+        impls: deduped.filter((i) => i.keys.includes(key)),
+      })),
+    [usedKeys, deduped],
+  );
+
   if (!deduped.length) return null;
 
   return (
@@ -85,12 +95,7 @@ export default function ConfigUsageSection({
 
         <TabsContent value="key">
           <Box pt="4">
-            <ByKeyUsageTable
-              groups={usedKeys.map((key) => ({
-                key,
-                impls: deduped.filter((i) => i.keys.includes(key)),
-              }))}
-            />
+            <ByKeyUsageTable groups={keyGroups} />
           </Box>
         </TabsContent>
       </Tabs>

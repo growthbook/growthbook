@@ -414,6 +414,11 @@ export async function assertConfigBackedFeatureValuesValid(
 
   const errors: string[] = [];
   for (const { config, patch, label } of backed) {
+    // The backing config no longer exists (deleted/renamed, or a stale
+    // `@config:` token). There's no schema to check against — skip rather than
+    // treat an empty schema as "closed" and reject every field.
+    if (!byKey.has(config)) continue;
+
     const patchObj = parsePlainJSONObject(patch);
     // Non-object patches (arrays/scalars) replace rather than merge onto the
     // config's object shape, so there's nothing to schema-check.

@@ -9,7 +9,6 @@ import {
   getConfigSubtree,
   getConfigAncestorKeys,
   getConfigBackingKey,
-  getConfigBackingPatch,
   getFeatureBaseConfigKey,
   parsePlainJSONObject,
 } from "shared/util";
@@ -372,13 +371,10 @@ export type ConfigFamilyFeatureRef = {
   ruleConfigKeys: string[];
 };
 
-// Features that reference any config in the lineage family of `configId` — the
-// config, its ancestors, and all descendants. Each result splits the default
-// config from the (differing) rule configs so the UI can render an inverted
-// tree: feature → default config, then rules → rule configs.
-// The lineage family of a config: its root ancestor's whole subtree (the config,
-// its ancestors, and all descendants). Null if the config doesn't exist. Returns
-// the loaded configs so callers can reason about lineage without re-querying.
+// The lineage family of a config: the parent-spine root's whole subtree — the
+// config, its parent-spine ancestors, and all descendants (following parent +
+// extends). Null if the config doesn't exist. Returns the loaded configs so
+// callers can reason about lineage without re-querying.
 async function resolveConfigFamily(
   context: ReqContext | ApiReqContext,
   configId: string,
@@ -388,9 +384,10 @@ async function resolveConfigFamily(
   byKey: Map<string, ConfigInterface>;
   familyKeys: string[];
 } | null> {
-  // The target config is already in `getAll`, so find it there rather than
-  // paying for a separate `getById`.
-  const allConfigs = await context.models.configs.getAll();
+  // Lineage is global and can span projects the caller can't read, so load the
+  // unfiltered set (matching getConfigResolved / getDependentConfigs) — a
+  // read-filtered list would truncate the family and drop usage rows.
+  const allConfigs = await context.models.configs.getAllForReconcile();
   const config = allConfigs.find((c) => c.id === configId);
   if (!config) return null;
 
@@ -413,6 +410,9 @@ async function resolveConfigFamily(
   };
 }
 
+// Features that reference any config in the lineage family of `configId`. Each
+// result splits the default config from the (differing) rule configs so the UI
+// can render an inverted tree: feature → default config, then rules → rule configs.
 export async function loadConfigFamilyFeatureReferences(
   context: ReqContext | ApiReqContext,
   configId: string,
@@ -508,13 +508,13 @@ export type FeatureValueSource = {
   rules: ImplementingRule[];
 };
 
-// The config fields a stored value overrides, as raw key→value pairs: its patch
+// The config fields a stored value overrides, as raw key→value pairs: the value
 // minus the `$extends` slot (which only carries reference tokens, not field
 // data). `keys` on the implementation are just `Object.keys` of this.
 function overriddenConfigPatch(value: string): Record<string, unknown> {
-  const patch = parsePlainJSONObject(getConfigBackingPatch(value));
-  if (!patch) return {};
-  const rest = { ...patch };
+  const obj = parsePlainJSONObject(value);
+  if (!obj) return {};
+  const rest = { ...obj };
   delete rest[CONSTANT_EXTENDS_KEY];
   return rest;
 }
@@ -589,16 +589,19 @@ export function computeConfigKeyImplementations(
         contextualBanditId: rule.contextualBanditId,
       };
       addSlot(source, rule.value, "rule", base);
-      for (const v of rule.variations ?? []) {
+      // Fall back to the arm index for the signature: inline `experiment` rule
+      // values carry no `variationId`, so without this each arm collapses into a
+      // single slot (last value wins) instead of one slot per variation.
+      for (const [i, v] of (rule.variations ?? []).entries()) {
         addSlot(source, v.value, "rule", {
           ...base,
-          variationId: v.variationId,
+          variationId: v.variationId ?? `v${i}`,
         });
       }
-      for (const v of rule.values ?? []) {
+      for (const [i, v] of (rule.values ?? []).entries()) {
         addSlot(source, v.value, "rule", {
           ...base,
-          variationId: v.variationId,
+          variationId: v.variationId ?? `v${i}`,
         });
       }
       addSlot(source, rule.controlValue, "rule", {
@@ -704,57 +707,39 @@ export async function getConfigKeyImplementations(
     impl.relation = relationOf(impl.configKey);
   }
 
-  const experimentIds = [
-    ...new Set(
-      implementations
-        .map((i) => i.experimentId)
-        .filter((id): id is string => !!id),
-    ),
-  ];
-  if (experimentIds.length) {
-    const experiments = await getExperimentsByIds(context, experimentIds);
-    const byId = new Map(experiments.map((e) => [e.id, e]));
+  // Resolve the linked analysis unit's name + status onto each implementation.
+  // Experiment refs and contextual-bandit refs point at different collections but
+  // share the same status vocabulary, so both fill the same experimentName/
+  // experimentStatus fields and downstream consumers (badges, usage table,
+  // experiment guard) treat them uniformly.
+  const enrichRefs = async (
+    pick: (i: ConfigKeyImplementation) => string | undefined,
+    load: (
+      ids: string[],
+    ) => Promise<Array<{ id: string; name: string; status: string }>>,
+  ) => {
+    const ids = [
+      ...new Set(implementations.map(pick).filter((id): id is string => !!id)),
+    ];
+    if (!ids.length) return;
+    const byId = new Map((await load(ids)).map((e) => [e.id, e]));
     for (const impl of implementations) {
-      const exp = impl.experimentId ? byId.get(impl.experimentId) : undefined;
-      if (exp) {
-        impl.experimentName = exp.name;
-        impl.experimentStatus = exp.status;
+      const id = pick(impl);
+      const ref = id ? byId.get(id) : undefined;
+      if (ref) {
+        impl.experimentName = ref.name;
+        impl.experimentStatus = ref.status;
       }
     }
-  }
-
-  // Contextual-bandit refs point at a separate entity (its own collection), not
-  // an experiment. Resolve name/status into the same fields — the bandit's status
-  // shares the experiment vocabulary, so every downstream consumer (badges, the
-  // usage table, the experiment guard) treats it uniformly.
-  const contextualBanditIds = [
-    ...new Set(
-      implementations
-        .map((i) => i.contextualBanditId)
-        .filter((id): id is string => !!id),
-    ),
-  ];
-  if (contextualBanditIds.length) {
-    const cbs = await Promise.all(
-      contextualBanditIds.map((id) =>
-        context.models.contextualBandits.getById(id).catch(() => null),
-      ),
-    );
-    const cbById = new Map(
-      cbs
-        .filter((cb): cb is NonNullable<typeof cb> => cb !== null)
-        .map((cb) => [cb.id, cb]),
-    );
-    for (const impl of implementations) {
-      const cb = impl.contextualBanditId
-        ? cbById.get(impl.contextualBanditId)
-        : undefined;
-      if (cb) {
-        impl.experimentName = cb.name;
-        impl.experimentStatus = cb.status;
-      }
-    }
-  }
+  };
+  await enrichRefs(
+    (i) => i.experimentId,
+    (ids) => getExperimentsByIds(context, ids),
+  );
+  await enrichRefs(
+    (i) => i.contextualBanditId,
+    (ids) => context.models.contextualBandits.getByIds(ids),
+  );
 
   return { familyKeys, implementations };
 }

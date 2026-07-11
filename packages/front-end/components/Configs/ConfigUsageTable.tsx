@@ -98,6 +98,8 @@ export function dedupeImplementations(
       i.location,
       i.ruleId ?? "",
       i.experimentId ?? "",
+      // Arms of one rule can back different configs; keep those as separate rows.
+      i.configKey,
       i.state,
     ].join("|");
     const existing = bySignature.get(k);
@@ -129,7 +131,7 @@ function OverrideValues({
   impl: DedupedImplementation;
   keys: string[];
 }): React.ReactElement {
-  const variations = impl.variations?.length ? impl.variations : [impl];
+  const variations = impl.variations;
   const multi = variations.length > 1;
   return (
     <Flex direction="column" gap="4" style={{ minWidth: 300 }}>
