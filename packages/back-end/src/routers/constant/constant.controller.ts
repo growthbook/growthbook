@@ -33,7 +33,10 @@ import {
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
+import {
+  isValidRevertBypass,
+  revertRestoresTargetSnapshot,
+} from "back-end/src/services/configRevertBypass";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -424,9 +427,11 @@ export const putConstant = async (
             patchOps,
           ),
         ) as Record<string, unknown>;
-        genuineRevert = Object.keys(fieldsToUpdate).every((f) =>
-          isEqual(proposedSnap[f], targetSnap[f]),
-        );
+        genuineRevert = revertRestoresTargetSnapshot({
+          changedFields: Object.keys(fieldsToUpdate),
+          proposedSnapshot: proposedSnap,
+          targetSnapshot: targetSnap,
+        });
       }
       if (!genuineRevert) {
         context.permissions.throwPermissionError();

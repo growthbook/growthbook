@@ -1,5 +1,8 @@
 import { Revision } from "shared/enterprise";
-import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
+import {
+  isValidRevertBypass,
+  revertRestoresTargetSnapshot,
+} from "back-end/src/services/configRevertBypass";
 
 const mergedRevision = (overrides: Partial<Revision> = {}): Revision =>
   ({
@@ -121,5 +124,68 @@ describe("isValidRevertBypass", () => {
         revertsBypassApproval: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("revertRestoresTargetSnapshot", () => {
+  it("accepts when every changed field lands on the target's value", () => {
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["value", "name"],
+        proposedSnapshot: { value: '{"a":1}', name: "Old", extra: "ignored" },
+        targetSnapshot: { value: '{"a":1}', name: "Old" },
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts an unarchive revert (archived:false vs a target that omits it)", () => {
+    // Regression guard: false (falsy default) must equal absent (undefined).
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["archived", "value"],
+        proposedSnapshot: { archived: false, value: '{"a":1}' },
+        targetSnapshot: { value: '{"a":1}' }, // predates archival → no `archived`
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects an arbitrary value fronted alongside a valid revert id", () => {
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["value"],
+        proposedSnapshot: { value: '{"evil":true}' },
+        targetSnapshot: { value: '{"a":1}' },
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects laundering an archive (archived:true) against an unarchived target", () => {
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["archived"],
+        proposedSnapshot: { archived: true },
+        targetSnapshot: {}, // target not archived
+      }),
+    ).toBe(false);
+  });
+
+  it("does not let an empty value impersonate a non-empty target", () => {
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["parent"],
+        proposedSnapshot: { parent: "" },
+        targetSnapshot: { parent: "base_cfg" },
+      }),
+    ).toBe(false);
+  });
+
+  it("supports a partial revert (only the listed fields are checked)", () => {
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["value"],
+        proposedSnapshot: { value: '{"a":1}', name: "Diverged" },
+        targetSnapshot: { value: '{"a":1}', name: "Original" },
+      }),
+    ).toBe(true);
   });
 });

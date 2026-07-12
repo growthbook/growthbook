@@ -64,7 +64,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
-import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
+import {
+  isValidRevertBypass,
+  revertRestoresTargetSnapshot,
+} from "back-end/src/services/configRevertBypass";
 import {
   assertConfigExperimentGuard,
   configChangeAffectsServedValue,
@@ -875,9 +878,11 @@ export const putConfig = async (
             patchOps,
           ),
         ) as Record<string, unknown>;
-        genuineRevert = Object.keys(fieldsToUpdate).every((f) =>
-          isEqual(proposedSnap[f], targetSnap[f]),
-        );
+        genuineRevert = revertRestoresTargetSnapshot({
+          changedFields: Object.keys(fieldsToUpdate),
+          proposedSnapshot: proposedSnap,
+          targetSnapshot: targetSnap,
+        });
       }
       if (!genuineRevert) {
         context.permissions.throwPermissionError();
