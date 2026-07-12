@@ -1,11 +1,14 @@
 import { ConfigInterface } from "shared/types/config";
+import { ConstantInterface } from "shared/types/constant";
 import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { getConfigSubtree } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ConfigKeyImplementation,
   getConfigKeyImplementations,
+  resolvableDependencyClosure,
 } from "back-end/src/services/constants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   SoftWarningError,
   TerminalPublishError,
@@ -305,4 +308,107 @@ export async function captureConfigExperimentGuardAcknowledgment(
     );
   }
   return sortedKeys;
+}
+
+// Config keys whose live value would shift because publishing `constant` changes
+// what they resolve to, AND that a running experiment serves through a GUARDED
+// config. Publishing a constant is otherwise unguarded (the guard is config-
+// scoped), so this extends the same protection to the transitive constant path.
+// Every config that (transitively) references the constant is "affected" — the
+// resolvable graph unifies constant `@const:` chains and config lineage, so the
+// closure already includes descendant configs.
+export async function evaluateConstantExperimentGuardConflicts(
+  context: Context,
+  constant: Pick<ConstantInterface, "key" | "project">,
+): Promise<Set<string>> {
+  // Org-wide (unfiltered) scan, mirroring the config guard: a running experiment
+  // in any project must be seen or the warning silently misses it.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const resolvables = await getResolvableValues(scanContext);
+  const affected = resolvableDependencyClosure(
+    resolvables,
+    "constant",
+    constant.key,
+  );
+  const CONFIG_PREFIX = "config:";
+  const affectedConfigKeys = [...affected]
+    .filter((t) => t.startsWith(CONFIG_PREFIX))
+    .map((t) => t.slice(CONFIG_PREFIX.length));
+  if (!affectedConfigKeys.length) return new Set<string>();
+
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+  const guardedKeys = new Set(
+    affectedConfigKeys.filter((k) => byKey.get(k)?.experimentGuard),
+  );
+  if (!guardedKeys.size) return new Set<string>();
+
+  const conflicts = new Set<string>();
+  for (const key of guardedKeys) {
+    const cfg = byKey.get(key);
+    if (!cfg) continue;
+    const impl = await getConfigKeyImplementations(scanContext, cfg.id);
+    for (const k of computeExperimentGuardConflictKeys(
+      impl?.implementations ?? [],
+      guardedKeys,
+    )) {
+      conflicts.add(k);
+    }
+  }
+  return conflicts;
+}
+
+// Warn (never hard-block) when publishing a constant would rewrite the live
+// value served to a running experiment via a guarded config. Mirrors
+// assertConfigExperimentGuard: a bypassable soft-warning on a direct publish, a
+// re-confirm gate on a deferred (scheduled / auto-publish-on-approval) fire.
+export async function assertConstantExperimentGuard(
+  context: Context,
+  constant: Pick<ConstantInterface, "key" | "project">,
+  revision: Pick<Revision, "experimentGuardAcknowledgedKeys">,
+  { armed }: { armed: boolean },
+): Promise<void> {
+  const conflictKeys = await evaluateConstantExperimentGuardConflicts(
+    context,
+    constant,
+  );
+
+  const synchronousOverride =
+    context.ignoreWarnings ||
+    context.permissions.canBypassApprovalChecks({
+      project: constant.project || "",
+    });
+
+  const decision = decideExperimentGuard({
+    guardEnabled: true,
+    conflictKeys,
+    armed,
+    ignoreWarnings: synchronousOverride,
+    acknowledgedKeys: getExperimentGuardAcknowledgedKeys(revision),
+  });
+
+  if (decision.action === "allow") {
+    if (!armed && conflictKeys.size > 0) {
+      logger.info(
+        {
+          constantKey: constant.key,
+          userId: context.userId,
+          conflictKeys: [...conflictKeys].sort(),
+        },
+        "Constant experiment guard overridden on a direct publish",
+      );
+    }
+    return;
+  }
+
+  const keyList = decision.conflictKeys.join(", ");
+  if (decision.action === "block-immediate") {
+    throw new SoftWarningError(
+      `Publishing this constant rewrites the live value served to a running experiment through a guarded config (config keys: ${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      decision.conflictKeys,
+    );
+  }
+  throw new TerminalPublishError(
+    `Constant publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (config keys now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+  );
 }

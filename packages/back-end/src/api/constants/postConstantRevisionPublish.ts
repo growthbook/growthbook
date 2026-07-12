@@ -1,6 +1,7 @@
 import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
+  getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConstantRevisionPublishValidator } from "shared/validators";
@@ -18,6 +19,7 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantExperimentGuard } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -124,6 +126,24 @@ export const postConstantRevisionPublish = createApiRequestHandler(
         );
       }
     }
+  }
+
+  // Experiment guard (direct publish → armed:false). A constant change is not
+  // config-scoped, but it rewrites the resolved value of every config that
+  // references it — so warn (bypassably) when a running experiment reads one of
+  // those configs. Only for value-affecting changes; a metadata-only edit can't
+  // shift a served value.
+  const constantChange = getConstantRevisionChange(
+    constant,
+    revision.target.proposedChanges,
+  );
+  if (
+    constantChange.valueChanged ||
+    constantChange.changedEnvironments.length
+  ) {
+    await assertConstantExperimentGuard(req.context, constant, revision, {
+      armed: false,
+    });
   }
 
   const hasChanges = Object.keys(desiredState).some((key) => {

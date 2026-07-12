@@ -33,6 +33,7 @@ import {
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantExperimentGuard } from "back-end/src/services/experimentGuard";
 import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
@@ -444,6 +445,16 @@ export const putConstant = async (
     if (canImmediatelyMerge) {
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
+
+      // Experiment guard (direct publish → armed:false): warn (bypassably) when
+      // this value change would rewrite the live value served to a running
+      // experiment through a guarded config. Metadata-only edits can't shift a
+      // served value, so they skip the check.
+      if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+        await assertConstantExperimentGuard(context, existing, revision, {
+          armed: false,
+        });
+      }
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
