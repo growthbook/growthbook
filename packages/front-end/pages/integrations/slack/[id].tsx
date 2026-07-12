@@ -275,6 +275,80 @@ function DigestSubSection({
   );
 }
 
+// Live preview of the actual posted results card for the chosen style. Renders
+// a real sample via the card renderer (no hardcoded mock). "none" posts text
+// only, so there's nothing to preview.
+function CardPreview({
+  style,
+}: {
+  style: (typeof experimentCardFormats)[number];
+}) {
+  const { apiCall } = useAuth();
+  const [url, setUrl] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (style === "none") {
+      setUrl(null);
+      setErr(null);
+      return;
+    }
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setUrl(null);
+    setErr(null);
+    (async () => {
+      try {
+        const blob = await apiCall<Blob>(
+          `/admin/slack-test/chart-preview?style=${
+            style === "compact" ? "compact" : "detailed"
+          }&state=winner`,
+        );
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      } catch (e) {
+        if (!cancelled) {
+          setErr(e instanceof Error ? e.message : "Couldn't render preview.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [style, apiCall]);
+
+  if (style === "none") {
+    return (
+      <Text as="p" color="text-mid" size="small" mb="0">
+        No card — a text-only message is posted.
+      </Text>
+    );
+  }
+  if (err) return <HelperText status="error">{err}</HelperText>;
+  if (!url) {
+    return (
+      <Text as="p" color="text-mid" size="small" mb="0">
+        Rendering preview…
+      </Text>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt="Results card preview"
+      style={{
+        display: "block",
+        width: "100%",
+        maxWidth: style === "compact" ? 460 : 520,
+        borderRadius: 10,
+        boxShadow: "0 6px 20px -6px rgba(0,0,0,.35)",
+      }}
+    />
+  );
+}
+
 const parseCsvList = (value: string): string[] =>
   value
     .split(",")
@@ -814,6 +888,13 @@ const SlackIntegrationDetailPage = () => {
                 </SelectItem>
               ))}
             </Select>
+          </Box>
+
+          <Box mt="4">
+            <Text size="small" weight="medium" color="text-mid" as="div" mb="2">
+              Preview
+            </Text>
+            <CardPreview style={cardFormat} />
           </Box>
         </Frame>
 
