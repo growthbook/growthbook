@@ -1,9 +1,15 @@
 import { EventModel } from "back-end/src/models/EventModel";
+import type {
+  FeatureDigestData,
+  FeatureDigestReason,
+} from "back-end/src/services/slack/chartImage";
 
-// Feature-flag digest: a text summary of flag activity over a trailing window
-// (published, reverted, safe-rollout outcomes, stale candidates, review
-// activity). Aggregated org-wide, like the experiment scorecard — the per-
-// install filters apply to live notifications, not the digest roll-up.
+export type { FeatureDigestData } from "back-end/src/services/slack/chartImage";
+
+// Feature-flag digest: flag activity over a trailing window (published,
+// reverted, safe-rollout outcomes, stale candidates, review activity).
+// Aggregated org-wide, like the experiment scorecard — the per-install filters
+// apply to live notifications, not the digest roll-up.
 
 // Digest-worthy feature events and the bucket each lands in.
 const PUBLISHED = "feature.revision.published";
@@ -30,24 +36,14 @@ const DIGEST_EVENTS = [
 
 const MAX_NOTABLE = 6;
 
-export interface FeatureDigestData {
-  period: string;
-  counts: {
-    published: number;
-    reverted: number;
-    safeRolloutShipped: number;
-    safeRolloutRolledBack: number;
-    safeRolloutUnhealthy: number;
-    stale: number;
-    reviewRequested: number;
-    reviewApproved: number;
-    changesRequested: number;
-  };
-  publishedFlags: string[];
-  revertedFlags: string[];
-  needsAttentionFlags: string[]; // rollback / unhealthy / changes-requested
-  total: number;
-}
+// Most-severe-first, so a flag with several issues shows its worst reason.
+const REASON_SEVERITY: Record<FeatureDigestReason, number> = {
+  unhealthy: 0,
+  rollback: 1,
+  changes: 2,
+  review: 3,
+  stale: 4,
+};
 
 // Build the feature-flag digest model for an org over the trailing `windowMs`.
 // Returns null when there's no activity worth reporting.
@@ -84,7 +80,23 @@ export async function buildFeatureDigestData(
   };
   const published = new Set<string>();
   const reverted = new Set<string>();
-  const needsAttention = new Set<string>();
+  // Needs-attention flags carry a reason; keep first-seen (most-recent) order
+  // but upgrade to the most severe reason if a flag has several issues.
+  const attentionReason = new Map<string, FeatureDigestReason>();
+  const attentionOrder: string[] = [];
+  const addAttention = (
+    flag: string | undefined,
+    reason: FeatureDigestReason,
+  ) => {
+    if (!flag) return;
+    const existing = attentionReason.get(flag);
+    if (existing === undefined) {
+      attentionReason.set(flag, reason);
+      attentionOrder.push(flag);
+    } else if (REASON_SEVERITY[reason] < REASON_SEVERITY[existing]) {
+      attentionReason.set(flag, reason);
+    }
+  };
 
   for (const ev of events) {
     const flag = ev.objectId;
@@ -102,24 +114,26 @@ export async function buildFeatureDigestData(
         break;
       case SR_ROLLBACK:
         counts.safeRolloutRolledBack++;
-        if (flag) needsAttention.add(flag);
+        addAttention(flag, "rollback");
         break;
       case SR_UNHEALTHY:
         counts.safeRolloutUnhealthy++;
-        if (flag) needsAttention.add(flag);
+        addAttention(flag, "unhealthy");
         break;
       case STALE:
         counts.stale++;
+        addAttention(flag, "stale");
         break;
       case REVIEW_REQUESTED:
         counts.reviewRequested++;
+        addAttention(flag, "review");
         break;
       case REVIEW_APPROVED:
         counts.reviewApproved++;
         break;
       case CHANGES_REQUESTED:
         counts.changesRequested++;
-        if (flag) needsAttention.add(flag);
+        addAttention(flag, "changes");
         break;
     }
   }
@@ -129,7 +143,9 @@ export async function buildFeatureDigestData(
     counts,
     publishedFlags: [...published].slice(0, MAX_NOTABLE),
     revertedFlags: [...reverted].slice(0, MAX_NOTABLE),
-    needsAttentionFlags: [...needsAttention].slice(0, MAX_NOTABLE),
+    needsAttentionFlags: attentionOrder
+      .slice(0, MAX_NOTABLE)
+      .map((key) => ({ key, reason: attentionReason.get(key) })),
     total: events.length,
   };
 }
@@ -167,7 +183,9 @@ export function buildFeatureDigestMessage(
   }
   if (data.needsAttentionFlags.length) {
     lines.push(
-      `:warning: *Needs attention:* ${flagList(data.needsAttentionFlags)}`,
+      `:warning: *Needs attention:* ${flagList(
+        data.needsAttentionFlags.map((f) => f.key),
+      )}`,
     );
   }
   if (c.reviewRequested || c.reviewApproved || c.changesRequested) {

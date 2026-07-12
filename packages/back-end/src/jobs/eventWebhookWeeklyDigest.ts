@@ -13,6 +13,7 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import {
   renderWeeklyScorecard,
+  renderFeatureDigest,
   ScorecardData,
 } from "back-end/src/services/slack/chartImage";
 import {
@@ -99,8 +100,9 @@ async function deliverExperimentDigest(
   await deliverScorecard(webhook, data, PERIOD_LABELS[digest.frequency]);
 }
 
-// The feature-flag digest is a plain text/blocks message (a change-log), posted
-// to the channel's incoming webhook URL — no image, so no bot token required.
+// The feature-flag digest renders the same scorecard-style image as the
+// experiment digest (private files.upload). If the install has no bot token /
+// channel, fall back to a plain text/blocks message on the incoming webhook.
 async function deliverFeatureDigest(
   webhook: EventWebHookInterface,
   digest: ResolvedSlackDigest,
@@ -115,6 +117,31 @@ async function deliverFeatureDigest(
     label,
   );
   if (!data) return;
+
+  const botToken = await getSlackBotAccessTokenForWebhook({
+    eventWebHookId: webhook.id,
+    organizationId: webhook.organizationId,
+  });
+  const channelId = (webhook.slack as { channelId?: string } | undefined)
+    ?.channelId;
+
+  if (botToken && channelId) {
+    const png = await renderFeatureDigest(data);
+    const fileId = await uploadSlackImageFile({
+      token: botToken,
+      png,
+      filename: "feature-digest.png",
+      title: "Feature flag digest",
+      channelId,
+      initialComment: `Feature flag digest · ${data.period}`,
+    });
+    if (fileId) return;
+    logger.warn(
+      `Feature digest: files.upload failed for webhook ${webhook.id}; falling back to text`,
+    );
+  }
+
+  // Fallback: text message via the incoming webhook URL.
   const message = buildFeatureDigestMessage(data);
   await cancellableFetch(
     webhook.url,
