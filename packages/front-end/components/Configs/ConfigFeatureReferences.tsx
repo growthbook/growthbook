@@ -58,11 +58,13 @@ export default function ConfigFeatureReferences({
   currentKey,
   references,
   loading,
+  error = false,
 }: {
   lineage: LineageNode[];
   currentKey: string;
   references: ConfigFamilyReferences | null;
   loading: boolean;
+  error?: boolean;
 }): React.ReactElement {
   const nodeOf = (key: string) => lineage.find((n) => n.key === key);
 
@@ -72,6 +74,16 @@ export default function ConfigFeatureReferences({
         <LoadingSpinner />
         <span style={{ fontSize: "var(--font-size-1)" }}>Loading…</span>
       </Flex>
+    );
+  }
+
+  // Distinguish a failed lookup from a genuine no-references result — otherwise
+  // an errored fetch reads as "nothing references this," which is misleading.
+  if (error && !references) {
+    return (
+      <span style={{ fontSize: "var(--font-size-1)", color: "var(--red-11)" }}>
+        Couldn&apos;t load references. Try refreshing.
+      </span>
     );
   }
 

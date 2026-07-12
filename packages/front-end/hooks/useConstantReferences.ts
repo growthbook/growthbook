@@ -102,24 +102,25 @@ export type ConfigKeyUsage = {
 export function useConfigKeyUsage(configId: string | null | undefined): {
   usage: ConfigKeyUsage | null;
   loading: boolean;
+  error: Error | null;
 } {
   const { apiCall, orgId } = useAuth();
   const path = configId ? `/configs/${configId}/key-usage` : null;
   const key = path && orgId ? `${orgId}::${path}` : null;
 
-  const { data, isLoading } = useSWR<ConfigKeyUsage & { status: 200 }, Error>(
-    key,
-    () => apiCall(path!, { method: "GET" }),
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 5 * 60_000,
-    },
-  );
+  const { data, isLoading, error } = useSWR<
+    ConfigKeyUsage & { status: 200 },
+    Error
+  >(key, () => apiCall(path!, { method: "GET" }), {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 5 * 60_000,
+  });
 
   return {
     usage: data ?? null,
     loading: isLoading,
+    error: error ?? null,
   };
 }
 

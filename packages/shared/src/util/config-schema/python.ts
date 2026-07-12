@@ -232,7 +232,15 @@ function annotationToNode(
       type: literals.type,
       enum: literals.values,
     };
-    return nullable ? { ...node, type: [literals.type, "null"] } : node;
+    // A nullable enum must list null explicitly — `enum` constrains all
+    // instances including null, so widening the type alone isn't enough.
+    return nullable
+      ? {
+          ...node,
+          type: [literals.type, "null"],
+          enum: [...literals.values, null],
+        }
+      : node;
   }
 
   const listMatch = annotation.match(/^(?:List|list)\s*\[(.+)\]$/);

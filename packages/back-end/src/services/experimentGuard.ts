@@ -45,18 +45,44 @@ export function computeExperimentGuardConflictKeys(
   return keys;
 }
 
-// Key-identity comparison of the current conflict set against an acknowledged
-// fingerprint. Order-independent, value-independent (keys only) — so re-opening a
-// stale-failed publish and editing the values shipped for those keys doesn't
-// change the conflict identity.
-export function experimentGuardKeySetsEqual(
-  a: Set<string>,
-  b: Iterable<string> | null | undefined,
+// Whether every current conflict key was already acknowledged at arm time.
+// Key-identity only (order- and value-independent) — so re-opening a stale-failed
+// publish and editing the values shipped for those keys doesn't change the
+// identity. A SUBSET counts as acknowledged: if an acknowledged experiment
+// stopped between arm and fire, the live set shrinks, which is strictly less
+// disruption than was acknowledged. Only a conflict key that was NOT in the
+// fingerprint is a new, unacknowledged risk.
+export function experimentGuardConflictsAcknowledged(
+  conflictKeys: Set<string>,
+  acknowledgedKeys: Iterable<string> | null | undefined,
 ): boolean {
-  const bSet = b instanceof Set ? b : new Set(b ?? []);
-  if (a.size !== bSet.size) return false;
-  for (const k of a) if (!bSet.has(k)) return false;
+  const acknowledged =
+    acknowledgedKeys instanceof Set
+      ? acknowledgedKeys
+      : new Set(acknowledgedKeys ?? []);
+  for (const k of conflictKeys) if (!acknowledged.has(k)) return false;
   return true;
+}
+
+// Config fields whose change can alter a served (resolved) value — the only
+// publishes that can disrupt a running experiment. A metadata-only publish
+// (name/description/owner) can't, so the guard must be skipped for it (else a
+// rename soft-blocks with a false "rewrites the live value" warning).
+export const VALUE_AFFECTING_CONFIG_FIELDS = [
+  "value",
+  "schema",
+  "parent",
+  "extends",
+  "extensible",
+] as const;
+
+// Whether a set of changed config field names includes any value-affecting one.
+export function configChangeAffectsServedValue(
+  changedFields: Iterable<string>,
+): boolean {
+  const affecting = new Set<string>(VALUE_AFFECTING_CONFIG_FIELDS);
+  for (const f of changedFields) if (affecting.has(f)) return true;
+  return false;
 }
 
 export type ExperimentGuardDecision =
@@ -67,7 +93,7 @@ export type ExperimentGuardDecision =
   // ignoreWarnings — surface a soft-block (422) naming the keys so the user can
   // acknowledge and re-submit.
   | { action: "block-immediate"; conflictKeys: string[] }
-  // A deferred (armed) merge whose live conflict set no longer matches what was
+  // A deferred (armed) merge whose live conflict set contains a key that was NOT
   // acknowledged at arm time — terminal, so the publish is rejected and the draft
   // left open for a human to re-contend.
   | { action: "block-deferred"; conflictKeys: string[] };
@@ -96,7 +122,7 @@ export function decideExperimentGuard({
   if (conflictKeys.size === 0) return { action: "allow" };
 
   if (armed) {
-    if (experimentGuardKeySetsEqual(conflictKeys, acknowledgedKeys)) {
+    if (experimentGuardConflictsAcknowledged(conflictKeys, acknowledgedKeys)) {
       return { action: "allow" };
     }
     return { action: "block-deferred", conflictKeys: [...conflictKeys].sort() };

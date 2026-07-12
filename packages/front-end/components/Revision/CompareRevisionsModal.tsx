@@ -929,32 +929,21 @@ export default function CompareRevisionsModal<
 
   const stepDiffSnapshots = useMemo(() => {
     if (!stepRevB) return null;
-    // Left side (base) = the state after revA, so each step shows what revB
-    // introduced on top of revA.
+    // Both sides must share one baseline or the step shows spurious diffs.
+    // A merged revision carries its own pre-merge snapshot (base = snapshot,
+    // proposed = snapshot + its changes → revB's own before→after). A draft's
+    // proposedChanges are relative to LIVE, so both sides use liveEntity
+    // (base = live, proposed = live + changes) — matching previewDraftSnapshots.
     const baseSnapshot =
       stepRevB.status === "merged"
         ? (stepRevB.target.snapshot as unknown as T)
-        : stepRevA
-          ? (applyTopLevelPatchOps(
-              stepRevA.target.snapshot as unknown as T,
-              stepRevA.target.proposedChanges,
-            ) as T)
-          : liveEntity;
-    // Right side (proposed) = revB's resulting state. Merged revisions carry
-    // their own pre-merge snapshot; a draft's proposedChanges are relative to
-    // live, so they must be applied onto liveEntity — not the after-revA base.
-    const proposedSnapshot =
-      stepRevB.status === "merged"
-        ? (applyTopLevelPatchOps(
-            stepRevB.target.snapshot as unknown as T,
-            stepRevB.target.proposedChanges,
-          ) as T)
-        : (applyTopLevelPatchOps(
-            liveEntity,
-            stepRevB.target.proposedChanges,
-          ) as T);
+        : liveEntity;
+    const proposedSnapshot = applyTopLevelPatchOps(
+      baseSnapshot,
+      stepRevB.target.proposedChanges,
+    ) as T;
     return { baseSnapshot, proposedSnapshot };
-  }, [stepRevA, stepRevB, liveEntity]);
+  }, [stepRevB, liveEntity]);
 
   const singleDiffSnapshots = useMemo(() => {
     if (!singleRevLast) return null;

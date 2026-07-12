@@ -242,7 +242,7 @@ function FlagRevisionBadge({
         variant="soft"
         radius="full"
         label={
-          impl.revisionVersion != null
+          (impl.revisionVersion ?? null) !== null
             ? `Draft v${impl.revisionVersion}`
             : "Draft"
         }
@@ -343,7 +343,7 @@ function FeatureLink({
 }): React.ReactElement {
   // A draft-only linkage links to that specific feature draft revision.
   const href =
-    impl.state === "draft" && impl.revisionVersion != null
+    impl.state === "draft" && (impl.revisionVersion ?? null) !== null
       ? `/features/${impl.featureId}?v=${impl.revisionVersion}`
       : `/features/${impl.featureId}`;
   return (

@@ -64,7 +64,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
-import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  assertConfigExperimentGuard,
+  configChangeAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
@@ -858,10 +861,13 @@ export const putConfig = async (
         await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
       }
 
-      // Experiment guard (direct publish → armed:false).
-      await assertConfigExperimentGuard(context, existing, revision, {
-        armed: false,
-      });
+      // Experiment guard (direct publish → armed:false). Skipped for a
+      // metadata-only publish, which can't rewrite any served value.
+      if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
+        await assertConfigExperimentGuard(context, existing, revision, {
+          armed: false,
+        });
+      }
 
       // Publish-time safety net (adds required-field enforcement on top of the
       // per-write conformance check): block publishing a value that doesn't

@@ -60,6 +60,11 @@ function parseOverrides(value: string): Record<string, unknown> | null {
   }
 }
 
+// Internal composition directive carried in a config-backed value's patch (its
+// `@const:`/`@config:` refs). Not a user-editable override field, so it's hidden
+// from the override rows while preserved verbatim on write-back.
+const DIRECTIVE_KEY = "$extends";
+
 function textForValue(value: unknown, vt: string): string {
   if (value === undefined || value === null) return "";
   if (vt === "json") return JSON.stringify(value, null, 2);
@@ -438,7 +443,9 @@ export default function ConfigOverrideEditor({
       (f) => ({ key: f.key, field: f }),
     );
     Object.keys(overrides ?? {}).forEach((k) => {
-      if (!schemaKeys.has(k)) out.push({ key: k, field: null });
+      if (k !== DIRECTIVE_KEY && !schemaKeys.has(k)) {
+        out.push({ key: k, field: null });
+      }
     });
     return out;
   }, [data, overrides]);
@@ -456,7 +463,9 @@ export default function ConfigOverrideEditor({
   const sparse = !showAll;
   // Extensible families tolerate override keys beyond the declared schema.
   const extensible = data?.extensible ?? true;
-  const overrideKeys = new Set(Object.keys(overrides ?? {}));
+  const overrideKeys = new Set(
+    Object.keys(overrides ?? {}).filter((k) => k !== DIRECTIVE_KEY),
+  );
   const visibleRows = sparse
     ? rows.filter((r) => overrideKeys.has(r.key))
     : rows;

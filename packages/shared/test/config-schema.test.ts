@@ -463,6 +463,20 @@ describe("tsTypesToFields", () => {
     expect(fields[0].enum).toEqual(["a", "b", "c"]);
   });
 
+  it("keeps null in a nested nullable literal union's enum", () => {
+    // A nullable enum must list null explicitly, else JSON Schema rejects the
+    // null its widened type permits. Nested here because a top-level nullable
+    // literal reduces to a simple field and recompiles correctly on its own.
+    const { fields } = parse(
+      `interface T { status: { code: "a" | "b" | null } }`,
+    );
+    const status = JSON.parse(fields[0].jsonSchema as string) as {
+      properties: { code: { type: unknown; enum: unknown } };
+    };
+    expect(status.properties.code.type).toEqual(["string", "null"]);
+    expect(status.properties.code.enum).toEqual(["a", "b", null]);
+  });
+
   it("lifts `| null` to nullable", () => {
     const { fields } = parse(`interface T { x: string | null }`);
     expect(fields[0].nullable).toBe(true);

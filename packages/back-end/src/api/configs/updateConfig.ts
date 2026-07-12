@@ -417,6 +417,14 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
             typeof req.context.models.configs.update
           >[1],
         );
+        // A schema/parent change can introduce a field a descendant already
+        // declares; cascade "base wins" down the subtree. Kept inside the
+        // rollback try (matching postConfigRevisionRevert) so a failed cascade
+        // rolls back the merged revision too — else a "published" revision and
+        // the root write persist with stale descendants and no webhook.
+        if (needsDescendantReconcile) {
+          await reconcileConfigDescendants(req.context, config.key);
+        }
       } catch (e) {
         try {
           await req.context.models.revisions.deleteById(merged.id);
@@ -424,11 +432,6 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
           // ignore — surface the original update error
         }
         throw e;
-      }
-      // A schema/parent change can introduce a field a descendant already
-      // declares; cascade "base wins" down the subtree.
-      if (needsDescendantReconcile) {
-        await reconcileConfigDescendants(req.context, config.key);
       }
       await dispatchConfigRevisionEvent(req.context, merged, {
         type: "published",

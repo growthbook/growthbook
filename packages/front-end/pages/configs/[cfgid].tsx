@@ -406,8 +406,11 @@ export default function ConfigDetailPage(): React.ReactElement {
     draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
   }
 
-  const { references: familyReferences, loading: familyReferencesLoading } =
-    useConfigFamilyReferences(config?.id);
+  const {
+    references: familyReferences,
+    loading: familyReferencesLoading,
+    error: familyReferencesError,
+  } = useConfigFamilyReferences(config?.id);
 
   const { usage: keyUsage } = useConfigKeyUsage(config?.id);
   const implementationsByKey = useMemo(() => {
@@ -1405,6 +1408,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                     currentKey={config.key}
                     references={familyReferences}
                     loading={familyReferencesLoading}
+                    error={(familyReferencesError ?? null) !== null}
                   />
                 </Box>
               </TabsContent>

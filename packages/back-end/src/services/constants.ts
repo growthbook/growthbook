@@ -690,9 +690,16 @@ export async function getConfigKeyImplementations(
   });
 
   for (const rev of drafts) {
+    // Drafts come from an unfiltered revision query, so scope them to features
+    // the caller can read (live features already are, via getAllFeatures) — else
+    // the UI usage path leaks other-project draft override values. The
+    // experiment-guard path passes an admin context that reads every feature, so
+    // it still sees all drafts (and ignores non-live rows regardless).
+    const feature = featureById.get(rev.featureId);
+    if (!feature) continue;
     sources.push({
       featureId: rev.featureId,
-      project: featureById.get(rev.featureId)?.project || undefined,
+      project: feature.project || undefined,
       state: "draft",
       revisionVersion: rev.version,
       defaultValue: rev.defaultValue,
@@ -748,7 +755,13 @@ export async function assertConstantArchivable(
   constantId: string,
   noun: "constant" | "config" = "constant",
 ): Promise<void> {
-  const refs = await loadConstantReferences(context, constantId);
+  // Resolve references over the whole org, not just readable projects: a
+  // referencing feature/config in a project the actor can't read still breaks if
+  // we archive its target (the resolver would silently scrub the now-archived
+  // ref). Mirrors the unfiltered lineage check in getDependentConfigs. Only a
+  // count is surfaced below, so this doesn't leak unreadable resource names.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const refs = await loadConstantReferences(scanContext, constantId);
   if (!refs || totalConstantReferences(refs) === 0) return;
   const parts: string[] = [];
   if (refs.features.length) parts.push(`${refs.features.length} feature(s)`);

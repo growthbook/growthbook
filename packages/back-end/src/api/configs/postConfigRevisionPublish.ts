@@ -20,7 +20,10 @@ import {
 } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  assertConfigExperimentGuard,
+  configChangeAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -131,13 +134,15 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     }
   }
 
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (config as unknown as Record<string, unknown>)[key],
-    );
-  });
+  const changedFields = Object.keys(desiredState).filter(
+    (key) =>
+      updatableFields.has(key) &&
+      !isEqual(
+        desiredState[key],
+        (config as unknown as Record<string, unknown>)[key],
+      ),
+  );
+  const hasChanges = changedFields.length > 0;
 
   // No diff vs live (no-op publish or recovery retry): replay the descendant
   // reconcile (idempotent; only acts on schema/parent/extends changes) so a
@@ -159,10 +164,13 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
 
-  // Experiment guard (direct publish → armed:false).
-  await assertConfigExperimentGuard(req.context, config, revision, {
-    armed: false,
-  });
+  // Experiment guard (direct publish → armed:false). Skipped for a metadata-only
+  // publish, which can't rewrite any served value.
+  if (configChangeAffectsServedValue(changedFields)) {
+    await assertConfigExperimentGuard(req.context, config, revision, {
+      armed: false,
+    });
+  }
 
   // Publish-time safety net: the post-publish value must still conform to its
   // effective schema (catches ancestor-schema changes and skip-flag stages).

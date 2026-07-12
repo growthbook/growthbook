@@ -1,6 +1,6 @@
 import {
   computeExperimentGuardConflictKeys,
-  experimentGuardKeySetsEqual,
+  experimentGuardConflictsAcknowledged,
   decideExperimentGuard,
 } from "back-end/src/services/experimentGuard";
 
@@ -50,20 +50,31 @@ describe("computeExperimentGuardConflictKeys", () => {
   });
 });
 
-describe("experimentGuardKeySetsEqual", () => {
-  it("is order-independent", () => {
-    expect(experimentGuardKeySetsEqual(new Set(["a", "b"]), ["b", "a"])).toBe(
-      true,
+describe("experimentGuardConflictsAcknowledged", () => {
+  it("is order-independent for an exact match", () => {
+    expect(
+      experimentGuardConflictsAcknowledged(new Set(["a", "b"]), ["b", "a"]),
+    ).toBe(true);
+  });
+  it("treats a subset as acknowledged (an experiment stopped)", () => {
+    // Fewer live conflicts than acknowledged = strictly less disruption.
+    expect(
+      experimentGuardConflictsAcknowledged(new Set(["a"]), ["a", "b"]),
+    ).toBe(true);
+  });
+  it("blocks when a conflict key was not acknowledged", () => {
+    expect(
+      experimentGuardConflictsAcknowledged(new Set(["a", "b"]), ["a"]),
+    ).toBe(false);
+    expect(experimentGuardConflictsAcknowledged(new Set(["a"]), ["b"])).toBe(
+      false,
     );
   });
-  it("detects divergence and size mismatch", () => {
-    expect(experimentGuardKeySetsEqual(new Set(["a", "b"]), ["a"])).toBe(false);
-    expect(experimentGuardKeySetsEqual(new Set(["a"]), ["a", "b"])).toBe(false);
-    expect(experimentGuardKeySetsEqual(new Set(["a"]), ["b"])).toBe(false);
-  });
   it("treats null/undefined acknowledgment as empty", () => {
-    expect(experimentGuardKeySetsEqual(new Set(), null)).toBe(true);
-    expect(experimentGuardKeySetsEqual(new Set(["a"]), null)).toBe(false);
+    expect(experimentGuardConflictsAcknowledged(new Set(), null)).toBe(true);
+    expect(experimentGuardConflictsAcknowledged(new Set(["a"]), null)).toBe(
+      false,
+    );
   });
 });
 
@@ -131,7 +142,21 @@ describe("decideExperimentGuard", () => {
       ).toBe("allow");
     });
 
-    it("blocks (terminal) when the fingerprint diverged", () => {
+    it("allows when the live conflicts are a subset of the acknowledged set", () => {
+      // An acknowledged experiment stopped before the deferred publish fired —
+      // fewer conflicts than acknowledged, so nothing new is at risk.
+      expect(
+        decideExperimentGuard({
+          guardEnabled: true,
+          conflictKeys: new Set(["base"]),
+          armed: true,
+          ignoreWarnings: true,
+          acknowledgedKeys: ["base", "mobile"],
+        }).action,
+      ).toBe("allow");
+    });
+
+    it("blocks (terminal) when a new unacknowledged key appears", () => {
       const d = decideExperimentGuard({
         guardEnabled: true,
         conflictKeys: conflicts,

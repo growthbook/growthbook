@@ -198,6 +198,18 @@ function canonicalField(f: SchemaField): SchemaField {
   if (typeof out.min !== "number") delete out.min;
   if (typeof out.max !== "number") delete out.max;
   if (out.jsonSchema === undefined) delete out.jsonSchema;
+  else {
+    // A non-reducible advanced field keeps its raw schema as a string, which
+    // canonicalJSON treats opaquely — so two semantically identical fields
+    // differing only in nested property order would compare unequal (spurious
+    // draft churn / false contract-change). Re-serialize the parsed schema so
+    // nested keys are sorted too.
+    try {
+      out.jsonSchema = canonicalJSON(JSON.parse(out.jsonSchema));
+    } catch {
+      // Malformed raw schema — leave as-is; equality falls back to byte compare.
+    }
+  }
   return out;
 }
 

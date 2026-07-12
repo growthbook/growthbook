@@ -397,7 +397,14 @@ function tsTypeToSchemaNode(
   if (nonNull.length === 0) return null;
   const withNull = (node: Record<string, unknown>): Record<string, unknown> =>
     nullable && typeof node.type === "string"
-      ? { ...node, type: [node.type, "null"] }
+      ? {
+          ...node,
+          type: [node.type, "null"],
+          // `enum` constrains ALL instances including null, so a nullable enum
+          // must list null explicitly or it rejects the very null the widened
+          // type permits.
+          ...(Array.isArray(node.enum) ? { enum: [...node.enum, null] } : {}),
+        }
       : node;
 
   // Leaves (string-literal unions, scalars, literals) resolve at ANY depth — the

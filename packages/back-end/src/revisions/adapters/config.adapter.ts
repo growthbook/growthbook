@@ -32,6 +32,7 @@ import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import {
   assertConfigExperimentGuard,
   captureConfigExperimentGuardAcknowledgment,
+  configChangeAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -303,9 +304,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // Experiment guard. `deferred` reflects THIS invocation (poller /
     // auto-publish-on-approval), not whether the revision has auto-publish armed —
     // so a manual "publish now" of an armed revision still gets the live override.
-    await assertConfigExperimentGuard(context, entity, revision, {
-      armed: !!options?.deferred,
-    });
+    // Skipped for a metadata-only publish (no served value changes → can't
+    // disrupt an experiment), matching the direct-update path.
+    if (configChangeAffectsServedValue(Object.keys(filteredChanges))) {
+      await assertConfigExperimentGuard(context, entity, revision, {
+        armed: !!options?.deferred,
+      });
+    }
 
     // Normalize BEFORE the descendant dry-run (otherwise it sees an
     // un-normalized root that still declares an ancestor-owned key and reports
