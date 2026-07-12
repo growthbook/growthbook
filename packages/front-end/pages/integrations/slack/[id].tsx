@@ -17,6 +17,7 @@ import {
   type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { PiTrash } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -37,6 +38,7 @@ import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import { Select, SelectItem } from "@/ui/Select";
 
 type SlackIntegrationsResponse = {
@@ -393,6 +395,7 @@ const SlackIntegrationDetailPage = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Optional delivery filters (empty array = no filter = all).
   const [filterProjects, setFilterProjects] = useState<string[]>([]);
   const [filterEnvironments, setFilterEnvironments] = useState<string[]>([]);
@@ -662,6 +665,14 @@ const SlackIntegrationDetailPage = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!integration) return;
+    await apiCall(`/integrations/slack/${integration.id}`, {
+      method: "DELETE",
+    });
+    await router.push("/integrations/slack");
+  };
+
   if (!permissionsUtils.canManageIntegrations()) {
     return (
       <div className="container pagecontents">
@@ -719,13 +730,39 @@ const SlackIntegrationDetailPage = () => {
         ]}
       />
 
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete Slack channel connection?"
+          content={
+            <>
+              {getChannelLabel(integration)} will stop receiving GrowthBook
+              notifications and its digests. This can&rsquo;t be undone — you
+              can reconnect the channel later.
+            </>
+          }
+          yesText="Delete"
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
+
       <Flex direction="column" gap="4">
-        <Box>
-          <Heading as="h1" size="large" mb="1">
-            {getChannelLabel(integration)}
-          </Heading>
-          <Text color="text-mid">{getWorkspaceLabel(integration)}</Text>
-        </Box>
+        <Flex justify="between" align="start" gap="3">
+          <Box>
+            <Heading as="h1" size="large" mb="1">
+              {getChannelLabel(integration)}
+            </Heading>
+            <Text color="text-mid">{getWorkspaceLabel(integration)}</Text>
+          </Box>
+          <Button
+            variant="outline"
+            color="red"
+            icon={<PiTrash />}
+            onClick={() => setConfirmingDelete(true)}
+          >
+            Delete
+          </Button>
+        </Flex>
 
         {needsReconnect && (
           <Callout status="warning">
