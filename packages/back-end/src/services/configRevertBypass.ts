@@ -25,17 +25,25 @@ export function isValidRevertBypass({
   return true;
 }
 
+// Fields whose absent form genuinely equals the falsy default `false` (so an
+// explicit `false` must be treated as equivalent to absent when comparing). ONLY
+// `archived` qualifies: a config/constant with no `archived` is simply not
+// archived. `extensible` does NOT — an absent `extensible` means "inherit the org
+// default" (permissive/true), so explicit `false` is a distinct state and must be
+// compared raw, or a `false` could launder past review against a target that
+// omits the field.
+const FALSY_DEFAULT_FIELDS = new Set(["archived"]);
+
 // Validating the `revertedFrom` id isn't enough: the applied change set comes
 // from the caller's body, so a valid revision id could otherwise front arbitrary
 // values past review. This confirms the changes genuinely RESTORE the target
 // revision — every changed field's post-change snapshot value must equal the
 // target snapshot's value for that field. Checked per changed field (not the
-// whole snapshot) so a partial revert still qualifies. An optional field's falsy
-// default (`false`/`null`) is treated as equivalent to absent (`undefined`) so a
-// legit unarchive revert (body sends `archived:false` against a target snapshot
-// that omits `archived`) isn't rejected. This can only make an EMPTY value match
-// an absent one — a non-empty arbitrary value still can't impersonate a
-// different target value, so no laundering is opened.
+// whole snapshot) so a partial revert still qualifies. For a `FALSY_DEFAULT_FIELDS`
+// field, an explicit falsy value is treated as equivalent to absent so a legit
+// unarchive revert (body sends `archived:false` against a target that omits it)
+// isn't rejected — a scope narrow enough that no non-empty arbitrary value can
+// impersonate a different target value, so no laundering is opened.
 export function revertRestoresTargetSnapshot({
   changedFields,
   proposedSnapshot,
@@ -45,9 +53,12 @@ export function revertRestoresTargetSnapshot({
   proposedSnapshot: Record<string, unknown>;
   targetSnapshot: Record<string, unknown>;
 }): boolean {
-  const norm = (v: unknown): unknown =>
-    v === false || v === null || v === undefined ? undefined : v;
+  const norm = (field: string, v: unknown): unknown =>
+    FALSY_DEFAULT_FIELDS.has(field) &&
+    (v === false || v === null || v === undefined)
+      ? undefined
+      : v;
   return changedFields.every((f) =>
-    isEqual(norm(proposedSnapshot[f]), norm(targetSnapshot[f])),
+    isEqual(norm(f, proposedSnapshot[f]), norm(f, targetSnapshot[f])),
   );
 }

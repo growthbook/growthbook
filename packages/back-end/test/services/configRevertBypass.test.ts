@@ -169,6 +169,19 @@ describe("revertRestoresTargetSnapshot", () => {
     ).toBe(false);
   });
 
+  it("rejects extensible:false against a target that omits extensible", () => {
+    // Only `archived` gets the false↔absent collapse. `extensible` absent means
+    // "inherit the org default" (permissive), so explicit false is distinct and
+    // must NOT launder past review as a fake revert.
+    expect(
+      revertRestoresTargetSnapshot({
+        changedFields: ["extensible"],
+        proposedSnapshot: { extensible: false },
+        targetSnapshot: {},
+      }),
+    ).toBe(false);
+  });
+
   it("does not let an empty value impersonate a non-empty target", () => {
     expect(
       revertRestoresTargetSnapshot({
