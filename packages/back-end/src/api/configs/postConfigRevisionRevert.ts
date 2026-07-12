@@ -20,6 +20,7 @@ import {
   assertConfigValueValidForPublish,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { assertConfigArchivable } from "back-end/src/services/constants";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -93,6 +94,12 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // (before any merge). A draft-strategy revert only stages a draft, so it's fine.
   if (isPublish) {
     assertConfigNotLocked(config);
+    // Reverting to a historically-archived state re-archives the config; enforce
+    // the same dependent-safety guard as the archive endpoint (an archived-only
+    // change doesn't touch lineage, so the descendant checks are otherwise skipped).
+    if (fieldsToUpdate.archived === true) {
+      await assertConfigArchivable(req.context, config);
+    }
   }
 
   // A historical value may predate the current schema; ensure the post-revert

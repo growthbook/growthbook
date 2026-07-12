@@ -64,6 +64,7 @@ import {
 } from "back-end/src/services/configValidation";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
+import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
 import {
   assertConfigExperimentGuard,
   configChangeAffectsServedValue,
@@ -842,8 +843,19 @@ export const putConfig = async (
     }
 
     if (autoPublish && approvalRequired && !canBypass) {
-      const isRevertBypass =
-        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      // A revert may auto-publish past review only when `revertedFrom` names a
+      // genuine merged revision of THIS config — otherwise the caller could pass
+      // an arbitrary id alongside arbitrary body changes to launder them past
+      // required review.
+      const revertSource = revertedFrom
+        ? await context.models.revisions.getById(revertedFrom)
+        : null;
+      const isRevertBypass = isValidRevertBypass({
+        revision: revertSource,
+        entityType: "config",
+        entityId: existing.id,
+        revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+      });
       if (!isRevertBypass) {
         context.permissions.throwPermissionError();
       }

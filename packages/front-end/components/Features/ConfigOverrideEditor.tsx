@@ -117,7 +117,16 @@ function OverrideValueInput({
     return (
       <SelectField
         value={value === null || value === undefined ? "" : String(value)}
-        onChange={(v) => onChange(v)}
+        // enum options are strings; coerce back to a number for numeric fields
+        // so a numeric enum override isn't persisted as a string (config-backed
+        // values skip the flag's own JSON-schema validation).
+        onChange={(v) =>
+          onChange(
+            vt === "number" && v !== "" && Number.isFinite(Number(v))
+              ? Number(v)
+              : v,
+          )
+        }
         options={enumValues.map((v) => ({ value: v, label: v }))}
         initialOption="value…"
         sort={false}

@@ -139,17 +139,24 @@ export default function ConfigBackedSummary({
     }
 
     // Diff against the resolved feature default so a rule shows only what it
-    // changes (bold) over the inherited base (muted).
+    // changes (bold) over the inherited base (muted). The default is itself
+    // config-backed and stored as a bare patch (base config) or a layer, so
+    // resolve its PATCH onto the SAME config base as `merged` — diffing against
+    // the raw default value would omit the base and flag every inherited field
+    // as changed.
     let defaultObj: Record<string, unknown> = {};
     try {
-      const resolvedDefault = resolveConstantRefs(
-        JSON.parse(feature.defaultValue),
-        map,
-        undefined,
-        undefined,
-        project,
-      );
-      defaultObj = toObject(resolvedDefault) ?? {};
+      const defaultPatch = (JSON.parse(
+        getConfigBackingPatch(feature.defaultValue),
+      ) ?? {}) as Record<string, unknown>;
+      const resolvedDefaultPatch =
+        toObject(
+          resolveConstantRefs(defaultPatch, map, undefined, undefined, project),
+        ) ?? defaultPatch;
+      defaultObj = deepMergePatch(baseObj, resolvedDefaultPatch) as Record<
+        string,
+        unknown
+      >;
     } catch {
       defaultObj = {};
     }

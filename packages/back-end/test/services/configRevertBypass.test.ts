@@ -1,7 +1,7 @@
 import { Revision } from "shared/enterprise";
 import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
 
-const mergedConfigRevision = (overrides: Partial<Revision> = {}): Revision =>
+const mergedRevision = (overrides: Partial<Revision> = {}): Revision =>
   ({
     id: "rev_1",
     authorId: "u_1",
@@ -22,11 +22,30 @@ const mergedConfigRevision = (overrides: Partial<Revision> = {}): Revision =>
   }) as unknown as Revision;
 
 describe("isValidRevertBypass", () => {
-  it("grants the exemption for a merged config revision of the same config with the setting on", () => {
+  it("grants the exemption for a merged revision of the same entity with the setting on", () => {
     expect(
       isValidRevertBypass({
-        revision: mergedConfigRevision(),
-        configId: "cfg_1",
+        revision: mergedRevision(),
+        entityType: "config",
+        entityId: "cfg_1",
+        revertsBypassApproval: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("works for constants too (generalized over entity type)", () => {
+    expect(
+      isValidRevertBypass({
+        revision: mergedRevision({
+          target: {
+            type: "constant",
+            id: "const_1",
+            snapshot: {} as never,
+            proposedChanges: [],
+          } as unknown as Revision["target"],
+        }),
+        entityType: "constant",
+        entityId: "const_1",
         revertsBypassApproval: true,
       }),
     ).toBe(true);
@@ -35,8 +54,9 @@ describe("isValidRevertBypass", () => {
   it("denies when the org setting is off", () => {
     expect(
       isValidRevertBypass({
-        revision: mergedConfigRevision(),
-        configId: "cfg_1",
+        revision: mergedRevision(),
+        entityType: "config",
+        entityId: "cfg_1",
         revertsBypassApproval: false,
       }),
     ).toBe(false);
@@ -46,7 +66,8 @@ describe("isValidRevertBypass", () => {
     expect(
       isValidRevertBypass({
         revision: null,
-        configId: "cfg_1",
+        entityType: "config",
+        entityId: "cfg_1",
         revertsBypassApproval: true,
       }),
     ).toBe(false);
@@ -56,18 +77,19 @@ describe("isValidRevertBypass", () => {
     for (const status of ["draft", "approved", "discarded"] as const) {
       expect(
         isValidRevertBypass({
-          revision: mergedConfigRevision({ status }),
-          configId: "cfg_1",
+          revision: mergedRevision({ status }),
+          entityType: "config",
+          entityId: "cfg_1",
           revertsBypassApproval: true,
         }),
       ).toBe(false);
     }
   });
 
-  it("denies when the revision targets a different config", () => {
+  it("denies when the revision targets a different entity id", () => {
     expect(
       isValidRevertBypass({
-        revision: mergedConfigRevision({
+        revision: mergedRevision({
           target: {
             type: "config",
             id: "cfg_OTHER",
@@ -75,16 +97,18 @@ describe("isValidRevertBypass", () => {
             proposedChanges: [],
           } as Revision["target"],
         }),
-        configId: "cfg_1",
+        entityType: "config",
+        entityId: "cfg_1",
         revertsBypassApproval: true,
       }),
     ).toBe(false);
   });
 
-  it("denies when the revision targets a non-config entity", () => {
+  it("denies when the revision targets a different entity type", () => {
+    // A constant revision can't launder a config bypass, even with a matching id.
     expect(
       isValidRevertBypass({
-        revision: mergedConfigRevision({
+        revision: mergedRevision({
           target: {
             type: "constant",
             id: "cfg_1",
@@ -92,7 +116,8 @@ describe("isValidRevertBypass", () => {
             proposedChanges: [],
           } as unknown as Revision["target"],
         }),
-        configId: "cfg_1",
+        entityType: "config",
+        entityId: "cfg_1",
         revertsBypassApproval: true,
       }),
     ).toBe(false);

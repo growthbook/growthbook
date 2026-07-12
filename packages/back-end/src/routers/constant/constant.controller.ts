@@ -33,6 +33,7 @@ import {
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { isValidRevertBypass } from "back-end/src/services/configRevertBypass";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -392,8 +393,17 @@ export const putConstant = async (
     // means real review is needed: only an admin bypass (or revert bypass) may
     // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
-      const isRevertBypass =
-        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      // A revert may auto-publish past review only when `revertedFrom` names a
+      // genuine merged revision of THIS constant (see isValidRevertBypass).
+      const revertSource = revertedFrom
+        ? await context.models.revisions.getById(revertedFrom)
+        : null;
+      const isRevertBypass = isValidRevertBypass({
+        revision: revertSource,
+        entityType: "constant",
+        entityId: existing.id,
+        revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+      });
       if (!isRevertBypass) {
         context.permissions.throwPermissionError();
       }

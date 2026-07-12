@@ -3,7 +3,10 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { assertConfigDeletable } from "back-end/src/services/constants";
+import {
+  assertConfigDeletable,
+  assertConstantArchivable,
+} from "back-end/src/services/constants";
 
 export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
   async (req) => {
@@ -32,6 +35,12 @@ export const deleteConfig = createApiRequestHandler(deleteConfigValidator)(
     // Deleting a config that others inherit from would dangle their parent
     // pointer; require those children be removed or re-parented first.
     await assertConfigDeletable(req.context, config);
+
+    // Deleting a config still referenced by features/other values breaks their
+    // resolution. The "archive first" gate normally enforces this (archive runs
+    // the same check), but the REST bypass skips that gate — so check here too,
+    // unconditionally, so a bypassed live delete can't orphan referencers.
+    await assertConstantArchivable(req.context, config.id, "config");
 
     await req.context.models.configs.delete(config);
 
