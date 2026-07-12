@@ -274,6 +274,7 @@ export interface ExperimentCardData {
   event?: CompactEvent;
   daysToPower?: number; // "started" compact hero: est. days to reach power
   compactLine?: string; // one-line conclusion fallback for outcome events
+  winningVariation?: string; // "won" state: the variation that was shipped
 }
 
 // A compact notification announces an EVENT (distinct from the experiment's
@@ -1780,15 +1781,27 @@ function compactHero(
     : exp.compactLine
       ? plainClamp(exp.compactLine, 200)
       : "";
+  // For a won test (esp. 3+ way) show the variation that shipped and use its
+  // numbers, not just the first treatment row.
+  const outcomeRow =
+    (event === "won" && exp.winningVariation
+      ? exp.rows.find((row) => row.v === exp.winningVariation)
+      : undefined) || r;
   const word =
-    event === "won" ? "Winner" : event === "lost" ? "No lift" : "Inconclusive";
-  const dirColor = r?.dir === "up" ? P.st.green : P.st.red;
+    event === "won"
+      ? exp.winningVariation
+        ? `${exp.winningVariation} won`
+        : "Winner"
+      : event === "lost"
+        ? "No lift"
+        : "Inconclusive";
+  const dirColor = outcomeRow?.dir === "up" ? P.st.green : P.st.red;
   // Big-number layout, mirroring the significance hero so everything sits on
   // the same baseline: metric eyebrow, then the change with the direction arrow
   // (sign dropped — the arrow carries it), then the outcome word.
   const heroChildren: (El | null)[] = [
     capLabel(exp.goal, 6, P.text),
-    r?.chg && r.dir
+    outcomeRow?.chg && outcomeRow.dir
       ? el(
           "div",
           {
@@ -1796,10 +1809,11 @@ function compactHero(
             flexDirection: "row",
             alignItems: "flex-start",
             gap: 6,
+            flexWrap: "wrap",
           },
           [
-            arrowImg(r.dir, dirColor, 20),
-            txt((r.chg ?? "").replace(/^[+-]/, ""), {
+            arrowImg(outcomeRow.dir, dirColor, 20),
+            txt((outcomeRow.chg ?? "").replace(/^[+-]/, ""), {
               fontSize: 44,
               fontWeight: 700,
               color: dirColor,
@@ -2585,6 +2599,7 @@ export function sampleCard(state: CardState = "winner"): ExperimentCardData {
         key: "homepage-hero-test",
         goal: "Signup conversion",
         variants: ["Control", "Hero B", "Hero C"],
+        winningVariation: "Hero B",
         tags: ["acquisition"],
         users: "162,400",
         days: "Day 26 · stopped",
