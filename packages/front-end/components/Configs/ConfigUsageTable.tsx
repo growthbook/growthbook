@@ -4,6 +4,7 @@ import { PiRadioButton, PiMagnifyingGlass } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import Table, {
   TableHeader,
   TableBody,
@@ -141,15 +142,13 @@ function OverrideValues({
         return (
           <Box key={`${v.variationId ?? ""}|${i}`}>
             {multi && (
-              <Text
-                as="div"
-                size="medium"
-                weight="semibold"
-                color="text-high"
-                mb="2"
-              >
-                {variationLabel(v, i)}
-              </Text>
+              <Box mb="2">
+                <VariationLabel
+                  number={i}
+                  name={variationLabel(v, i)}
+                  size="small"
+                />
+              </Box>
             )}
             {shownKeys.length === 0 ? (
               <Text as="div" size="small" color="text-low">

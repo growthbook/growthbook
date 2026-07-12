@@ -1,5 +1,5 @@
 import { FeatureValueType, SchemaField } from "shared/types/feature";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -54,9 +54,9 @@ export default function EditSchemaField({
   return (
     <div>
       {(showKey || !hideTypeSelector) && (
-        <div className="row">
+        <Flex gap="3">
           {showKey && (
-            <div className="col">
+            <Box flexGrow="1" flexBasis="0">
               <Field
                 label="Property Key"
                 value={value.key}
@@ -64,10 +64,10 @@ export default function EditSchemaField({
                 required
                 maxLength={64}
               />
-            </div>
+            </Box>
           )}
           {!hideTypeSelector && (
-            <div className="col">
+            <Box flexGrow="1" flexBasis="0">
               <SelectField
                 label="Type"
                 value={value.type}
@@ -78,9 +78,9 @@ export default function EditSchemaField({
                 options={typeOptions}
                 required
               />
-            </div>
+            </Box>
           )}
-        </div>
+        </Flex>
       )}
       <Field
         label="Description"
@@ -129,46 +129,42 @@ export default function EditSchemaField({
             noMenu
           />
           {value.enum.length === 0 && (
-            <div className="row">
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Min Length" : "Minimum"}
-                  value={value.min}
-                  max={value.max ?? undefined}
-                  min={value.type === "string" ? 0 : undefined}
-                  type="number"
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({
-                      ...value,
-                      min:
-                        value.type === "float"
-                          ? parseFloat(e.target.value)
-                          : parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-              <div className="col">
-                <Field
-                  label={value.type === "string" ? "Max Length" : "Maximum"}
-                  value={value.max}
-                  type="number"
-                  min={value.min ?? undefined}
-                  max={value.type === "string" ? 256 : undefined}
-                  step={value.type !== "float" ? 1 : "any"}
-                  onChange={(e) =>
-                    onChange({
-                      ...value,
-                      max:
-                        value.type === "float"
-                          ? parseFloat(e.target.value)
-                          : parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-            </div>
+            <Grid columns="2" gap="3">
+              <Field
+                label={value.type === "string" ? "Min Length" : "Minimum"}
+                value={value.min}
+                max={value.max ?? undefined}
+                min={value.type === "string" ? 0 : undefined}
+                type="number"
+                step={value.type !== "float" ? 1 : "any"}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    min:
+                      value.type === "float"
+                        ? parseFloat(e.target.value)
+                        : parseInt(e.target.value),
+                  })
+                }
+              />
+              <Field
+                label={value.type === "string" ? "Max Length" : "Maximum"}
+                value={value.max}
+                type="number"
+                min={value.min ?? undefined}
+                max={value.type === "string" ? 256 : undefined}
+                step={value.type !== "float" ? 1 : "any"}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    max:
+                      value.type === "float"
+                        ? parseFloat(e.target.value)
+                        : parseInt(e.target.value),
+                  })
+                }
+              />
+            </Grid>
           )}
         </>
       )}

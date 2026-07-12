@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPlusBold, PiXBold } from "react-icons/pi";
+import { PiXBold } from "react-icons/pi";
 import {
   evaluateInvariants,
   describeInvariantRule,
@@ -19,6 +19,7 @@ import type {
   Condition,
 } from "@/components/Configs/invariantConditions";
 import {
+  AddConditionButton,
   ConditionRow,
   ConditionRowLabel,
 } from "@/components/Features/TargetingConditionsCard";
@@ -508,14 +509,9 @@ export default function ConfigInvariantsEditor({
           </Box>
         ))}
         <Box mt="2" py="1">
-          <Link
-            size="2"
-            weight="medium"
+          <AddConditionButton
             onClick={() => setG([...g, newCondition(fieldKeys[0] ?? "")])}
-          >
-            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
-            Add condition
-          </Link>
+          />
         </Box>
       </Box>
     );
