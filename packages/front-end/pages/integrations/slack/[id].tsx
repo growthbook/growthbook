@@ -297,6 +297,9 @@ const SlackIntegrationDetailPage = () => {
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [filterExperiments, setFilterExperiments] = useState<string[]>([]);
   const [filterMetrics, setFilterMetrics] = useState<string[]>([]);
+  // Tag / experiment / metric filters live behind a "more" toggle; auto-open
+  // when any are already set.
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   // Hydrate form when the integration loads.
   useEffect(() => {
@@ -324,6 +327,12 @@ const SlackIntegrationDetailPage = () => {
     setFilterTags(integration.tags || []);
     setFilterExperiments(integration.experiments || []);
     setFilterMetrics(integration.metrics || []);
+    setShowMoreFilters(
+      (integration.tags?.length || 0) +
+        (integration.experiments?.length || 0) +
+        (integration.metrics?.length || 0) >
+        0,
+    );
   }, [integration]);
 
   const setOptionSelected = (optionId: string, on: boolean) => {
@@ -641,68 +650,87 @@ const SlackIntegrationDetailPage = () => {
             everything; non-empty filters combine.
           </Text>
 
-          <Flex direction="column" gap="4" style={{ maxWidth: 560 }}>
-            <MultiSelectField
-              label="Projects"
-              placeholder="All projects"
-              value={filterProjects}
-              options={projects.map(({ id: pid, name }) => ({
-                label: name,
-                value: pid,
-              }))}
-              onChange={(v) => {
-                setFilterProjects(v);
-                setSaved(false);
-              }}
-            />
-
-            <MultiSelectField
-              label="Environments"
-              placeholder="All environments"
-              value={filterEnvironments}
-              options={environments.map((env) => ({ label: env, value: env }))}
-              onChange={(v) => {
-                setFilterEnvironments(v);
-                setSaved(false);
-              }}
-            />
-
-            <Box>
-              <Text as="label" size="medium" weight="medium">
-                Tags
-              </Text>
-              <TagsInput
-                tagOptions={tags}
-                value={filterTags}
+          <Box style={{ maxWidth: 560 }}>
+            <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="4">
+              <MultiSelectField
+                label="Projects"
+                placeholder="All projects"
+                value={filterProjects}
+                options={projects.map(({ id: pid, name }) => ({
+                  label: name,
+                  value: pid,
+                }))}
                 onChange={(v) => {
-                  setFilterTags(v);
+                  setFilterProjects(v);
                   setSaved(false);
                 }}
               />
-            </Box>
 
-            <Field
-              label="Experiments"
-              placeholder="exp_123, exp_456"
-              helpText="Comma-separated experiment IDs. Empty = all."
-              value={filterExperiments.join(", ")}
-              onChange={(e) => {
-                setFilterExperiments(parseCsvList(e.target.value));
-                setSaved(false);
-              }}
-            />
+              <MultiSelectField
+                label="Environments"
+                placeholder="All environments"
+                value={filterEnvironments}
+                options={environments.map((env) => ({
+                  label: env,
+                  value: env,
+                }))}
+                onChange={(v) => {
+                  setFilterEnvironments(v);
+                  setSaved(false);
+                }}
+              />
+            </Grid>
 
-            <Field
-              label="Metrics"
-              placeholder="met_123, met_456"
-              helpText="Comma-separated metric IDs. Empty = all."
-              value={filterMetrics.join(", ")}
-              onChange={(e) => {
-                setFilterMetrics(parseCsvList(e.target.value));
-                setSaved(false);
-              }}
-            />
-          </Flex>
+            {!showMoreFilters ? (
+              <Box mt="3">
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setShowMoreFilters(true)}
+                >
+                  + Add tag, experiment or metric filter
+                </Button>
+              </Box>
+            ) : (
+              <Flex direction="column" gap="4" mt="4">
+                <Box>
+                  <Text as="label" size="medium" weight="medium">
+                    Tags
+                  </Text>
+                  <TagsInput
+                    tagOptions={tags}
+                    value={filterTags}
+                    onChange={(v) => {
+                      setFilterTags(v);
+                      setSaved(false);
+                    }}
+                  />
+                </Box>
+
+                <Field
+                  label="Experiments"
+                  placeholder="exp_123, exp_456"
+                  helpText="Comma-separated experiment IDs. Empty = all."
+                  value={filterExperiments.join(", ")}
+                  onChange={(e) => {
+                    setFilterExperiments(parseCsvList(e.target.value));
+                    setSaved(false);
+                  }}
+                />
+
+                <Field
+                  label="Metrics"
+                  placeholder="met_123, met_456"
+                  helpText="Comma-separated metric IDs. Empty = all."
+                  value={filterMetrics.join(", ")}
+                  onChange={(e) => {
+                    setFilterMetrics(parseCsvList(e.target.value));
+                    setSaved(false);
+                  }}
+                />
+              </Flex>
+            )}
+          </Box>
         </Frame>
 
         {/* Subject sections — each owns its event notifications + digest. */}
