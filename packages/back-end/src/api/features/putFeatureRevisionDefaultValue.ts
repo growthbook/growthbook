@@ -11,6 +11,7 @@ import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { assertConfigBackedDefaultHasNoOverrides } from "back-end/src/services/configValidation";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -67,6 +68,8 @@ export async function setRevisionDefaultValue(
       jsonSchemaEnabled: feature.jsonSchema?.enabled,
       baseConfig: feature.baseConfig,
     });
+    // A config-backed default is exactly a config — no inline overrides.
+    assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
 
     const currentDefaultValue =
       revision.defaultValue ?? feature.defaultValue ?? "";

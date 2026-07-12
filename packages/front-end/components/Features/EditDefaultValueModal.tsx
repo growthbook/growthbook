@@ -148,7 +148,9 @@ export default function EditDefaultValueModal({
         showFullscreenButton={true}
         allowConfigBacking={isConfigBacked}
         configBackingOptionKeys={configBackingOptionKeys}
-        configBackingShowPatch={isConfigBacked}
+        // A config-backed default is exactly a config (base or a descendant) —
+        // no inline overrides. So the picker only selects the config; there's no
+        // patch editor (configBackingShowPatch stays false).
         lockConfigBacking={isConfigBacked}
         isDefaultValueEditor={true}
       />

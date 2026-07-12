@@ -372,11 +372,37 @@ export async function assertConfigInvariantsValid(
 // config's resolved value must satisfy the config's invariants. Blocking follows
 // the org's `blockPublishOnSchemaError` (bypassable soft warning when false);
 // opt out with ?skipSchemaValidation=true.
+// A config-backed feature's default value must be EXACTLY a config — config
+// selection lives in `defaultValueConfig` (the base or a descendant), and inline
+// overrides/extensions on the default aren't allowed. Shared values belong in the
+// config; feature-specific ones in a descendant config. (Rules may still extend
+// their config — this applies to the default only.) Structural + cheap, so it's
+// enforced on every default-setting path (draft edits + create/update + publish)
+// and NOT gated by skipSchemaValidation.
+export function assertConfigBackedDefaultHasNoOverrides(
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig">,
+  defaultValue: string | undefined,
+): void {
+  if (feature.valueType !== "json" || defaultValue === undefined) return;
+  const defaultConfig =
+    getConfigBackingKey(defaultValue) ?? feature.baseConfig ?? null;
+  if (!defaultConfig) return;
+  const patch = parsePlainJSONObject(getConfigBackingPatch(defaultValue));
+  if (patch && Object.keys(patch).length > 0) {
+    throw new BadRequestError(
+      "A config-backed feature's default value can't carry its own overrides — it must be exactly a config. " +
+        "Put shared values in the config, or point the default at a descendant config (defaultValueConfig) for feature-specific values.",
+    );
+  }
+}
+
 export async function assertConfigBackedFeatureValuesValid(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): Promise<void> {
+  assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
+
   if (context.skipSchemaValidation) return;
   if (feature.valueType !== "json") return;
 

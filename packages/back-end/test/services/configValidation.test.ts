@@ -3,6 +3,7 @@ import { FeatureRule } from "shared/types/feature";
 import {
   assertConfigInvariantsValid,
   assertConfigBackedFeatureValuesValid,
+  assertConfigBackedDefaultHasNoOverrides,
 } from "back-end/src/services/configValidation";
 import { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -148,6 +149,59 @@ describe("assertConfigInvariantsValid (descendants)", () => {
   });
 });
 
+describe("assertConfigBackedDefaultHasNoOverrides", () => {
+  const jsonBacked = { valueType: "json" as const, baseConfig: "base" };
+  const run =
+    (feature: typeof jsonBacked, defaultValue: string | undefined) => () =>
+      assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
+
+  it("allows a bare pure config default (empty patch on the base)", () => {
+    expect(run(jsonBacked, "{}")).not.toThrow();
+  });
+
+  it("allows a descendant-config default with no patch", () => {
+    expect(
+      run(jsonBacked, JSON.stringify({ $extends: ["@config:child"] })),
+    ).not.toThrow();
+  });
+
+  it("rejects inline overrides on the base config", () => {
+    expect(run(jsonBacked, JSON.stringify({ retries: 5 }))).toThrow(
+      BadRequestError,
+    );
+  });
+
+  it("rejects inline overrides layered on a descendant config", () => {
+    expect(
+      run(
+        jsonBacked,
+        JSON.stringify({ $extends: ["@config:child"], retries: 5 }),
+      ),
+    ).toThrow(BadRequestError);
+  });
+
+  it("ignores non-config-backed features (no baseConfig, no @config)", () => {
+    expect(
+      run(
+        { valueType: "json", baseConfig: undefined } as typeof jsonBacked,
+        JSON.stringify({ anything: 1 }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("ignores non-JSON features", () => {
+    expect(
+      run(
+        {
+          valueType: "string",
+          baseConfig: "base",
+        } as unknown as typeof jsonBacked,
+        "whatever",
+      ),
+    ).not.toThrow();
+  });
+});
+
 describe("assertConfigBackedFeatureValuesValid", () => {
   const field = (
     key: string,
@@ -183,13 +237,13 @@ describe("assertConfigBackedFeatureValuesValid", () => {
       allEnvironments: true,
     }) as unknown as FeatureRule;
 
-  it("blocks a default-value patch whose field type violates the config schema", async () => {
+  it("blocks a rule patch whose field type violates the config schema", async () => {
     const context = makeContext({ configs: [pricing] });
     await expect(
       assertConfigBackedFeatureValuesValid(
         context,
         { valueType: "json", baseConfig: "pricing" },
-        { defaultValue: '{"context_window":"banana"}' },
+        { rules: [forceRule('{"context_window":"banana"}')] },
       ),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
@@ -212,8 +266,9 @@ describe("assertConfigBackedFeatureValuesValid", () => {
         context,
         { valueType: "json", baseConfig: "pricing" },
         {
-          defaultValue: '{"context_window":16000}',
-          rules: [forceRule('{"log_level":"warn"}')],
+          // Default is a pure config (no patch); the valid patch rides a rule.
+          defaultValue: "{}",
+          rules: [forceRule('{"context_window":16000,"log_level":"warn"}')],
         },
       ),
     ).resolves.toBeUndefined();
@@ -239,7 +294,7 @@ describe("assertConfigBackedFeatureValuesValid", () => {
       assertConfigBackedFeatureValuesValid(
         context,
         { valueType: "json", baseConfig: "pricing" },
-        { defaultValue: '{"context_window":"banana"}' },
+        { rules: [forceRule('{"context_window":"banana"}')] },
       ),
     ).resolves.toBeUndefined();
   });
@@ -253,7 +308,7 @@ describe("assertConfigBackedFeatureValuesValid", () => {
       assertConfigBackedFeatureValuesValid(
         context,
         { valueType: "json", baseConfig: "pricing" },
-        { defaultValue: '{"context_window":"banana"}' },
+        { rules: [forceRule('{"context_window":"banana"}')] },
       ),
     ).rejects.toBeInstanceOf(SoftWarningError);
   });

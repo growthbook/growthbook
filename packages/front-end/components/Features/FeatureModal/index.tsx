@@ -328,10 +328,10 @@ export default function FeatureModal({
         }
 
         // "config" flags are stored first-class: the mainline picker's choice is
-        // the authoritative `baseConfig`. The default value is the override patch;
-        // the compiler injects the base underneath. When the default's own picker
-        // matches the base (the common case) we dedupe to a pure patch, otherwise
-        // it kept a descendant config as an extra layer, which we preserve.
+        // the authoritative `baseConfig`. The default is exactly a config (no
+        // overrides): when it matches the base (the common case) we store an empty
+        // patch, otherwise it kept a descendant config as its `$extends` layer,
+        // which we preserve.
         const configKey = configType ? baseConfigKey : null;
         const defaultOwnConfig = getConfigBackingKey(defaultValue);
         const parsedDefault = parseDefaultValue(defaultValue, valueType);
@@ -511,7 +511,7 @@ export default function FeatureModal({
         {!featureToDuplicate && valueType && !showDefaultValue && (
           <Box mb="5">
             <Link onClick={() => setShowDefaultValue(true)}>
-              {configType ? "+ Override default value" : "+ Set default value"}
+              {configType ? "+ Choose default config" : "+ Set default value"}
             </Link>
           </Box>
         )}
@@ -549,16 +549,15 @@ export default function FeatureModal({
             // plain JSON flag can't extend a config (any manual `@config:` in its
             // value is stripped on submit).
             allowConfigBacking={configType}
-            // "config" type: the mainline picker chose the base; here the value
-            // is locked to that config's family (default = the base itself) and
-            // edited as an override patch. Picking a descendant layers an extra
-            // config on top.
+            // "config" type: the mainline picker chose the base; the default is
+            // exactly a config in that family — the base itself, or a descendant
+            // picked here. No inline overrides (config selection only), so no
+            // patch editor (configBackingShowPatch stays false).
             configBackingOptionKeys={
               configType && baseConfigKey
                 ? getConfigSubtree(baseConfigKey, configs)
                 : undefined
             }
-            configBackingShowPatch={configType}
             lockConfigBacking={configType}
           />
         )}
