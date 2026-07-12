@@ -201,7 +201,7 @@ const CARD_WIDTH = 1000;
 // min-height keeps short cards from being wide-and-short (the hero centers in
 // the leftover space); taller ones (e.g. significance + violin) just grow.
 const COMPACT_WIDTH = 560;
-const COMPACT_MIN_HEIGHT = 300;
+const COMPACT_MIN_HEIGHT = 240;
 const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
@@ -1779,43 +1779,45 @@ function compactHero(
   const word =
     event === "won" ? "Winner" : event === "lost" ? "No lift" : "Inconclusive";
   const dirColor = r?.dir === "up" ? P.st.green : P.st.red;
+  // Big-number layout, mirroring the significance hero so everything sits on
+  // the same baseline: metric eyebrow, then the change with the direction arrow
+  // (sign dropped — the arrow carries it), then the outcome word.
   const heroChildren: (El | null)[] = [
-    el(
-      "div",
-      {
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "baseline",
-        gap: 10,
-        flexWrap: "wrap",
-      },
-      [
-        txt(word, {
+    capLabel(exp.goal),
+    r?.chg && r.dir
+      ? el(
+          "div",
+          {
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 6,
+          },
+          [
+            arrowImg(r.dir, dirColor, 20),
+            txt((r.chg ?? "").replace(/^[+-]/, ""), {
+              fontSize: 44,
+              fontWeight: 700,
+              color: dirColor,
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+            }),
+            txt(word, {
+              fontSize: 15,
+              fontWeight: 600,
+              color: accentText,
+              marginLeft: 8,
+              alignSelf: "flex-end",
+              marginBottom: 6,
+            }),
+          ],
+        )
+      : txt(word, {
           fontSize: 26,
           fontWeight: 700,
           color: accentText,
           letterSpacing: "-0.02em",
         }),
-        // Goal metric first, then the change value.
-        txt(exp.goal, { fontSize: 13, fontWeight: 500, color: P.subtle }),
-        r?.chg && r.dir
-          ? el(
-              "div",
-              {
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "baseline",
-                gap: 4,
-              },
-              [
-                arrowImg(r.dir, dirColor, 12),
-                // Non-mono so the digits/decimal don't read spaced out.
-                txt(r.chg, { fontSize: 18, fontWeight: 600, color: dirColor }),
-              ],
-            )
-          : null,
-      ].filter(Boolean) as El[],
-    ),
   ];
   if (line) {
     heroChildren.push(
@@ -1824,7 +1826,6 @@ function compactHero(
         {
           display: "flex",
           flexDirection: "column",
-          marginTop: 12,
           paddingTop: 12,
           borderTop: `1px solid ${P.borderSub}`,
         },
@@ -1842,7 +1843,7 @@ function compactHero(
   }
   return el(
     "div",
-    { display: "flex", flexDirection: "column", width: "100%" },
+    { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
     heroChildren.filter(Boolean) as El[],
   );
 }
