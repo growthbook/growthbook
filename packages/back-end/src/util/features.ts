@@ -1072,8 +1072,13 @@ export function getFeatureDefinition({
         if (r.type === "force") {
           rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
+          // Inline experiment values have no `sparse` flag; config-backed arms are
+          // authored as sparse patches through the same editor as the
+          // experiment-ref / contextual-bandit-ref twins, so resolve them the same
+          // way (sparse when config-backed, full value otherwise) — a bare resolve
+          // would drop the base config for a config-backed variation.
           rule.variations = r.values.map((v) =>
-            resolveRefs(getJSONValue(feature.valueType, v.value)),
+            valueForSDK(v.value, !!defaultConfigKey),
           );
 
           rule.coverage = r.coverage;
@@ -1129,7 +1134,11 @@ export function getFeatureDefinition({
 
             rule.variations = [
               valueForSDK(r.value, r.sparse),
-              resolveRefs(getJSONValue(feature.valueType, defaultValue)),
+              // Route through valueForSDK (not a bare resolve) so a config-backed
+              // default injects its config — the default is now a pure config
+              // (`{}` for the base), so a bare resolve would serve an empty object
+              // to the control arm. Matches def.defaultValue + the holdout arm.
+              valueForSDK(defaultValue),
             ];
             rule.weights = [0.5, 0.5];
             // Set coverage = 2 * step.coverage so getBucketRanges naturally

@@ -48,6 +48,7 @@ import {
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
+import { assertConfigBackedDefaultHasNoOverrides } from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
@@ -694,6 +695,14 @@ export async function createFeature(
       featureToCreate.rules = dedupedRules;
     }
   }
+
+  // Structural lock: a config-backed default must be exactly a config. Enforced
+  // at this shared create choke point so every entry point (REST v1/v2, internal
+  // app, demo, generated-hypothesis) is covered, not just the REST handlers.
+  assertConfigBackedDefaultHasNoOverrides(
+    featureToCreate,
+    featureToCreate.defaultValue,
+  );
 
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
@@ -1455,6 +1464,10 @@ export async function setDefaultValue(
   user: EventUser,
   requireReview: boolean,
 ) {
+  // Fail early on the internal draft-edit path (the REST default-value endpoint
+  // enforces the same lock at its handler); publish re-checks regardless.
+  assertConfigBackedDefaultHasNoOverrides(feature, defaultValue);
+
   return updateRevision(
     context,
     feature,
@@ -2363,6 +2376,15 @@ export async function prevalidatePublishRevision({
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  // Structural lock on the value that WILL be live post-publish: a config-backed
+  // default must be exactly a config. Enforced at this shared publish choke point
+  // (reached by every publish — REST v1/v2, internal app, scheduled, ramp,
+  // auto-publish-on-approval, revert) so the lock can't be circumvented by
+  // publishing a stale/crafted draft outside the REST layer.
+  assertConfigBackedDefaultHasNoOverrides(
+    proposedFeature,
+    proposedFeature.defaultValue,
+  );
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,

@@ -180,6 +180,17 @@ describe("assertConfigBackedDefaultHasNoOverrides", () => {
     ).toThrow(BadRequestError);
   });
 
+  it("rejects a non-object (array) default that would drop the config entirely", () => {
+    // The SDK serves a non-object default verbatim, ignoring the config — an
+    // even more extreme override than an object patch, so it must be blocked.
+    expect(run(jsonBacked, "[1, 2, 3]")).toThrow(BadRequestError);
+  });
+
+  it("rejects a non-object (scalar) default", () => {
+    expect(run(jsonBacked, "42")).toThrow(BadRequestError);
+    expect(run(jsonBacked, '"hardcoded"')).toThrow(BadRequestError);
+  });
+
   it("ignores non-config-backed features (no baseConfig, no @config)", () => {
     expect(
       run(
