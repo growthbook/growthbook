@@ -135,6 +135,10 @@ const groupsForCategory = (category: SlackEventCategory): string[] => {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
+// Left indent that aligns content under a Switch's label — the switch track
+// (~28px) plus the Switch's gapX ("space-2", 8px).
+const SWITCH_LABEL_INDENT = "calc(28px + var(--space-2))";
+
 const OFF_DIGEST_STATE: ResolvedSlackDigest = {
   frequency: "off",
   hourUtc: DEFAULT_SLACK_DIGEST_HOUR_UTC,
@@ -168,7 +172,7 @@ function DigestSubSection({
       />
 
       {enabled && (
-        <Box mt="4" style={{ maxWidth: 560 }}>
+        <Box mt="4" style={{ maxWidth: 560, paddingLeft: SWITCH_LABEL_INDENT }}>
           {/* Frequency + (day/interval) + time laid out in columns: 3 when a
               day/interval select is present, 2 for daily. */}
           <Grid
@@ -465,7 +469,7 @@ const SlackIntegrationDetailPage = () => {
         </Flex>
 
         {advancedOpen && (
-          <Box mt="4">
+          <Box mt="4" style={{ paddingLeft: SWITCH_LABEL_INDENT }}>
             <Flex direction="column" gap="4">
               {groupsForCategory(category).map((group) => (
                 <Box key={group}>
