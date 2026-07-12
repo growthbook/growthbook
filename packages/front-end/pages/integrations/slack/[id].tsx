@@ -27,6 +27,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
+import SlackMessagePreview from "@/components/SlackIntegrations/SlackMessagePreview";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
@@ -321,9 +322,12 @@ function CardPreview({
 
   if (style === "none") {
     return (
-      <Text as="p" color="text-mid" size="small" mb="0">
-        No card — a text-only message is posted.
-      </Text>
+      <>
+        <Text as="p" color="text-mid" size="small" mb="2">
+          No card — a text-only message is posted. Example:
+        </Text>
+        <SlackMessagePreview />
+      </>
     );
   }
   if (err) return <HelperText status="error">{err}</HelperText>;
