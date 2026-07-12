@@ -220,6 +220,23 @@ describe("getConstantRevisionChange", () => {
       expect(change.metadataOnly).toBe(false);
     },
   );
+
+  // Configs reuse this helper with an OBJECT value; compare deep, not by
+  // reference — a restated-but-equal object must NOT read as changed (a `!==`
+  // regression would flag it and spuriously force review).
+  it("deep-compares an object value (restated but equal → no change)", () => {
+    const change = getConstantRevisionChange({ value: { a: 1, b: 2 } }, [
+      { op: "replace", path: "/value", value: { b: 2, a: 1 } },
+    ]);
+    expect(change.valueChanged).toBe(false);
+  });
+
+  it("detects a genuine object value change", () => {
+    const change = getConstantRevisionChange({ value: { a: 1 } }, [
+      { op: "replace", path: "/value", value: { a: 2 } },
+    ]);
+    expect(change.valueChanged).toBe(true);
+  });
 });
 
 describe("constantRequiresReview", () => {

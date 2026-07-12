@@ -6,6 +6,7 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   setConfigBacking,
+  valueHasConfigExtends,
   getConfigSubtree,
   orderConfigsByLineage,
   getConfigSpineSubtree,
@@ -477,6 +478,24 @@ describe("config-backed feature values", () => {
     expect(
       getConfigBackingKey('{"$extends":["@const:c","@config:base"]}'),
     ).toBeNull();
+  });
+});
+
+describe("valueHasConfigExtends", () => {
+  it("detects a @config: ref anywhere in $extends (unlike getConfigBackingKey)", () => {
+    expect(valueHasConfigExtends('{"$extends":["@config:base"]}')).toBe(true);
+    // Not first — the REST guard still rejects it, whereas getConfigBackingKey
+    // returns null for this same value.
+    expect(
+      valueHasConfigExtends('{"$extends":["@const:c","@config:base"]}'),
+    ).toBe(true);
+  });
+
+  it("returns false without a @config: ref", () => {
+    expect(valueHasConfigExtends('{"$extends":["@const:c"]}')).toBe(false);
+    expect(valueHasConfigExtends('{"a":1}')).toBe(false);
+    expect(valueHasConfigExtends("[1,2,3]")).toBe(false);
+    expect(valueHasConfigExtends(undefined)).toBe(false);
   });
 });
 
@@ -1111,6 +1130,44 @@ describe("collectConfigInvariantViolations", () => {
       },
     ]);
     expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
+  });
+
+  it("exempts the chain when a node supplies fields via a @const/@config $extends layer", () => {
+    // The invariant's field is supplied only by a reference layer (unresolvable
+    // at gate time), so it must not produce a false violation (regression guard).
+    const base = {
+      key: "base",
+      schema: {
+        ...objSchema("region"),
+        invariants: [inv("must-us", { region: "us" }, "must be us")],
+      },
+      value: "{}",
+    };
+    const constLayer = dagMap([
+      base,
+      {
+        key: "leaf",
+        parent: "base",
+        value: '{"$extends":["@const:regional"]}',
+      },
+    ]);
+    expect(collectConfigInvariantViolations("leaf", constLayer)).toEqual([]);
+
+    const configLayer = dagMap([
+      base,
+      { key: "leaf", parent: "base", value: '{"$extends":["@config:other"]}' },
+    ]);
+    expect(collectConfigInvariantViolations("leaf", configLayer)).toEqual([]);
+
+    // Control: the same leaf with a concrete (non-layer) value resolves the
+    // field and DOES fail — proving the exemption above is load-bearing.
+    const noLayer = dagMap([
+      base,
+      { key: "leaf", parent: "base", value: '{"region":"eu"}' },
+    ]);
+    expect(collectConfigInvariantViolations("leaf", noLayer)).toEqual([
+      { name: "must-us", message: "must be us" },
+    ]);
   });
 });
 

@@ -262,7 +262,6 @@ export const canUserReviewEntity = ({
   entityType,
   revision,
   entity,
-  approvalFlowSettings: _approvalFlowSettings,
   userId,
   teams,
   userPermissions,

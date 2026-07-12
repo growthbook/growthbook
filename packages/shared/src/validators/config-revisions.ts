@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
@@ -27,7 +28,7 @@ import { namedSchema } from "./openapi-helpers";
 const configKeyParams = z.object({ key: z.string() });
 
 /** Version param that also accepts the literal string "new" to auto-create a draft. */
-export const configRevisionVersionParam = z.union([
+const configRevisionVersionParam = z.union([
   z.coerce.number().int(),
   z.literal("new"),
 ]);
@@ -47,16 +48,6 @@ const newDraftMetadataFields = {
 };
 
 // ---- Shared response schemas ----
-
-const booleanQueryField = z
-  .union([
-    z.literal("true"),
-    z.literal("false"),
-    z.literal("0"),
-    z.literal("1"),
-    z.boolean(),
-  ])
-  .optional();
 
 const revisionStatusSchema = z.enum(revisionStatus);
 

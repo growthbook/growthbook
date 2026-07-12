@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import { Revision } from "shared/enterprise";
 import {
   updateConfigValidator,
@@ -168,8 +168,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       if (storedInvariants.length) {
         nextSchema = { ...base, invariants: storedInvariants };
       } else {
-        const { invariants: _drop, ...rest } = base;
-        nextSchema = rest;
+        nextSchema = omit(base, "invariants");
       }
     } else if (
       resolvedSchema !== undefined &&

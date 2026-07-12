@@ -4,6 +4,7 @@ import {
   assertConfigInvariantsValid,
   assertConfigBackedFeatureValuesValid,
   assertConfigBackedDefaultHasNoOverrides,
+  assertConfigValueValidForCreate,
 } from "back-end/src/services/configValidation";
 import { Context } from "back-end/src/models/BaseModel";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -322,5 +323,72 @@ describe("assertConfigBackedFeatureValuesValid", () => {
         { rules: [forceRule('{"context_window":"banana"}')] },
       ),
     ).rejects.toBeInstanceOf(SoftWarningError);
+  });
+});
+
+describe("assertConfigValueValidForCreate", () => {
+  // A config whose schema declares a required `region` (no default).
+  const leaf = {
+    key: "cfg",
+    name: "Cfg",
+    schema: {
+      type: "object" as const,
+      fields: [
+        {
+          key: "region",
+          type: "string" as const,
+          required: true,
+          default: "",
+          description: "",
+          enum: [],
+        },
+      ],
+    },
+  };
+
+  it("rejects a value missing a required field", async () => {
+    const context = makeContext({ configs: [] });
+    await expect(
+      assertConfigValueValidForCreate(context, leaf, { value: "{}" }),
+    ).rejects.toThrow(/missing required field.*region/);
+  });
+
+  it("accepts a value that sets the required field", async () => {
+    const context = makeContext({ configs: [] });
+    await expect(
+      assertConfigValueValidForCreate(context, leaf, {
+        value: '{"region":"us"}',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("exempts a value whose fields come from a @const $extends layer", async () => {
+    const context = makeContext({ configs: [] });
+    await expect(
+      assertConfigValueValidForCreate(context, leaf, {
+        value: '{"$extends":["@const:defaults"]}',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("soft-warns instead of blocking when the org disables hard blocking", async () => {
+    const context = makeContext({
+      configs: [],
+      settings: { blockPublishOnSchemaError: false },
+    });
+    await expect(
+      assertConfigValueValidForCreate(context, leaf, { value: "{}" }),
+    ).rejects.toBeInstanceOf(SoftWarningError);
+  });
+
+  it("proceeds in soft-warn mode when warnings are ignored", async () => {
+    const context = makeContext({
+      configs: [],
+      settings: { blockPublishOnSchemaError: false },
+      ignoreWarnings: true,
+    });
+    await expect(
+      assertConfigValueValidForCreate(context, leaf, { value: "{}" }),
+    ).resolves.toBeUndefined();
   });
 });

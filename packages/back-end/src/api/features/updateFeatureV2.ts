@@ -81,7 +81,7 @@ export const updateFeatureV2 = createApiRequestHandler(
   if (
     req.context.org.settings?.requireProjectForFeatures &&
     feature.project &&
-    (effectiveProject == null || effectiveProject === "")
+    (effectiveProject ?? "") === ""
   ) {
     throw new Error("Must specify a project");
   }

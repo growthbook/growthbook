@@ -5,16 +5,14 @@ import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   validateFeatureValue,
   getReviewSetting,
-  getFeatureBaseConfigKey,
-  getConfigSubtree,
   getConfigBackingKey,
   getConfigBackingPatch,
   stripConfigExtends,
 } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -42,20 +40,12 @@ export default function EditDefaultValueModal({
     },
   });
   const { apiCall } = useAuth();
-  const { configs } = useDefinitions();
   const settings = useOrgSettings();
 
-  // A config-backed default is a pure patch on `feature.baseConfig`; lock the
-  // picker to that config's family (default = the base) and show the patch editor.
-  const defaultConfigKey = getFeatureBaseConfigKey(feature);
-  const isConfigBacked = defaultConfigKey !== null;
-  const configBackingOptionKeys = useMemo(
-    () =>
-      defaultConfigKey
-        ? getConfigSubtree(defaultConfigKey, configs)
-        : undefined,
-    [defaultConfigKey, configs],
-  );
+  // A config-backed default resolves to exactly a config in `baseConfig`'s
+  // family; the picker is locked to that family (no inline patch editor).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
   // Rules/values gating: env filtering without kill-switch-specific checks.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;

@@ -118,7 +118,7 @@ const ConfigReviews: FC = () => {
     rows,
     (item) => ({
       ...item,
-      authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
+      authorDisplay: getUserDisplay(item.authorId) || "",
     }),
     [getUserDisplay],
   );

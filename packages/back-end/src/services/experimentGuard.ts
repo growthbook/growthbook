@@ -81,13 +81,16 @@ export const VALUE_AFFECTING_CONFIG_FIELDS = [
   "extends",
   "extensible",
 ] as const;
+const VALUE_AFFECTING_CONFIG_FIELD_SET = new Set<string>(
+  VALUE_AFFECTING_CONFIG_FIELDS,
+);
 
 // Whether a set of changed config field names includes any value-affecting one.
 export function configChangeAffectsServedValue(
   changedFields: Iterable<string>,
 ): boolean {
-  const affecting = new Set<string>(VALUE_AFFECTING_CONFIG_FIELDS);
-  for (const f of changedFields) if (affecting.has(f)) return true;
+  for (const f of changedFields)
+    if (VALUE_AFFECTING_CONFIG_FIELD_SET.has(f)) return true;
   return false;
 }
 
@@ -287,6 +290,7 @@ export async function captureConfigExperimentGuardAcknowledgment(
   );
   if (conflictKeys.size === 0) return undefined;
 
+  const sortedKeys = [...conflictKeys].sort();
   const override =
     context.ignoreWarnings ||
     context.permissions.canBypassApprovalChecks({
@@ -294,15 +298,11 @@ export async function captureConfigExperimentGuardAcknowledgment(
     });
   if (!override) {
     throw new SoftWarningError(
-      `Scheduling this publish will rewrite the live value served to a running experiment (config keys: ${[
-        ...conflictKeys,
-      ]
-        .sort()
-        .join(
-          ", ",
-        )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
-      [...conflictKeys].sort(),
+      `Scheduling this publish will rewrite the live value served to a running experiment (config keys: ${sortedKeys.join(
+        ", ",
+      )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
+      sortedKeys,
     );
   }
-  return [...conflictKeys].sort();
+  return sortedKeys;
 }

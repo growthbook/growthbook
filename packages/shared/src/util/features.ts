@@ -1094,7 +1094,7 @@ const revisionFieldFillers: Partial<{
   // so a legacy draft doesn't false-diff against the live baseline.
   metadata: (feature, current) => {
     let next = current;
-    if (next?.valueType == null)
+    if (next?.valueType === undefined)
       next = { ...next, valueType: feature.valueType };
     if (next?.baseConfig === undefined)
       next = { ...next, baseConfig: feature.baseConfig ?? null };
