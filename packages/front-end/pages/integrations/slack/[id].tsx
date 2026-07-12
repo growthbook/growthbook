@@ -106,8 +106,13 @@ const CATALOG_EVENTS = new Set(SLACK_EVENT_OPTIONS.flatMap((o) => o.events));
 // these we prompt the user to reconnect. Keep in sync with SLACK_OAUTH_SCOPE.
 const REQUIRED_SCOPES = ["channels:read", "groups:read"];
 
-const getChannelLabel = (i: SlackOAuthIntegrationInterface) =>
-  i.slack?.channelName || i.slack?.channelId || i.name;
+const getChannelLabel = (i: SlackOAuthIntegrationInterface) => {
+  const name = i.slack?.channelName;
+  // Prefix the resolved channel name with "#" (once) so it reads like Slack.
+  // The channel-id / webhook-name fallbacks are left as-is.
+  if (name) return name.startsWith("#") ? name : `#${name}`;
+  return i.slack?.channelId || i.name;
+};
 
 const getWorkspaceLabel = (i: SlackOAuthIntegrationInterface) =>
   i.slack?.teamName ||

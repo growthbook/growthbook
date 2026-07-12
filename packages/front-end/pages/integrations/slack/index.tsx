@@ -46,8 +46,13 @@ type SlackIntegrationsResponse = {
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
-const getSlackChannelLabel = (i: SlackOAuthIntegrationInterface) =>
-  i.slack?.channelName || i.slack?.channelId || i.name;
+const getSlackChannelLabel = (i: SlackOAuthIntegrationInterface) => {
+  const name = i.slack?.channelName;
+  // Prefix the resolved channel name with "#" (once) so it reads like Slack.
+  // The channel-id / webhook-name fallbacks are left as-is.
+  if (name) return name.startsWith("#") ? name : `#${name}`;
+  return i.slack?.channelId || i.name;
+};
 
 const getSlackWorkspaceLabel = (i: SlackOAuthIntegrationInterface) =>
   i.slack?.teamName ||
