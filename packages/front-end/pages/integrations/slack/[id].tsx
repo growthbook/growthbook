@@ -393,22 +393,26 @@ const SlackIntegrationDetailPage = () => {
                     }}
                   >
                     <Flex justify="between" align="start" gap="3">
-                      <Flex align="center" gap="2" style={{ minWidth: 0 }}>
-                        <Switch
-                          label={CATEGORY_META[category].label}
-                          description={CATEGORY_META[category].description}
-                          value={enabled}
-                          onChange={(v) => setCategoryEnabled(category, v)}
-                        />
-                        {isCustom && (
-                          <Badge
-                            label="Customized"
-                            color="gray"
-                            variant="soft"
-                            title="Events differ from the recommended defaults"
-                          />
-                        )}
-                      </Flex>
+                      <Switch
+                        label={
+                          <Flex asChild align="center" gap="2">
+                            <span>
+                              {CATEGORY_META[category].label}
+                              {isCustom && (
+                                <Badge
+                                  label="Customized"
+                                  color="gray"
+                                  variant="soft"
+                                  title="Events differ from the recommended defaults"
+                                />
+                              )}
+                            </span>
+                          </Flex>
+                        }
+                        description={CATEGORY_META[category].description}
+                        value={enabled}
+                        onChange={(v) => setCategoryEnabled(category, v)}
+                      />
                       <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
                         {isCustom && (
                           <Button
