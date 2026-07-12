@@ -21,8 +21,6 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   setConfigBacking,
-  getConfigParentKey,
-  getFeatureBaseConfigKey,
   orderConfigsByLineage,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
@@ -37,7 +35,6 @@ import {
   PiCaretDownFill,
 } from "react-icons/pi";
 import Link from "@/ui/Link";
-import Callout from "@/ui/Callout";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -115,10 +112,6 @@ export interface Props {
   // Rule mode: require a config (no "None" option) — a rule on a config-backed
   // feature always serves the default's config or a compatible child.
   lockConfigBacking?: boolean;
-  // The default-value editor (not a rule). Only the default value carries the
-  // notion of an "original" backing config, so drift warnings (switching away
-  // from or clearing that config) are shown only here.
-  isDefaultValueEditor?: boolean;
 }
 
 export default function FeatureValueField({
@@ -147,7 +140,6 @@ export default function FeatureValueField({
   configBackingOptionKeys,
   configBackingShowPatch = false,
   lockConfigBacking = false,
-  isDefaultValueEditor = false,
 }: Props) {
   // Inline mode also suppresses the copy button.
   const copyHidden = hideCopyButton || inlineConstantButton;
@@ -422,57 +414,6 @@ export default function FeatureValueField({
       const selectedConfig =
         eligibleConfigs.find((c) => c.key === configKey) ?? null;
 
-      // Once a default value is linked to a config, warn/error when the choice
-      // drifts: removing it or switching to an unrelated lineage is an error;
-      // switching within the same lineage is a (non-blocking) warning. Only the
-      // default-value editor carries this notion of an "original" config (rules
-      // are locked to the default's subtree), so it's gated on that, not on
-      // whether the patch editor is shown.
-      const configByKey = new Map(configs.map((c) => [c.key, c]));
-      const rootOf = (key: string): string => {
-        let cur = key;
-        const seen = new Set<string>();
-        while (!seen.has(cur)) {
-          seen.add(cur);
-          const parent = getConfigParentKey(configByKey.get(cur) ?? {});
-          if (!parent) break;
-          cur = parent;
-        }
-        return cur;
-      };
-      const originalConfigKey = feature
-        ? getFeatureBaseConfigKey(feature)
-        : null;
-      const originalName =
-        (originalConfigKey && configByKey.get(originalConfigKey)?.name) ||
-        originalConfigKey;
-      let configChangeNotice: {
-        status: "error" | "warning";
-        message: string;
-      } | null = null;
-      if (
-        originalConfigKey &&
-        isDefaultValueEditor &&
-        configKey !== originalConfigKey
-      ) {
-        if (configKey === null) {
-          configChangeNotice = {
-            status: "error",
-            message: `This value is linked to config "${originalName}". Removing it drops that config's values and schema.`,
-          };
-        } else if (rootOf(configKey) === rootOf(originalConfigKey)) {
-          configChangeNotice = {
-            status: "warning",
-            message: `Switching from "${originalName}" to another config in the same lineage — overrides may resolve differently.`,
-          };
-        } else {
-          configChangeNotice = {
-            status: "error",
-            message: `"${selectedConfig?.name ?? configKey}" isn't in the same lineage as "${originalName}". Its schema and fields may differ.`,
-          };
-        }
-      }
-
       return (
         <Box mb="4">
           {label !== undefined && (
@@ -549,13 +490,6 @@ export default function FeatureValueField({
                 </DropdownMenu>
               )}
             </Flex>
-            {configChangeNotice && (
-              <Box mt="2">
-                <Callout status={configChangeNotice.status}>
-                  {configChangeNotice.message}
-                </Callout>
-              </Box>
-            )}
             {showPatchEditor && (
               <Box mt="3">
                 {isBacked && configKey && valueType === "json" ? (

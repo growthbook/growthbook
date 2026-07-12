@@ -74,12 +74,16 @@ export default function ConfigBackedSummary({
   feature,
   maxHeight,
   sparse = false,
+  isDefault = false,
 }: {
   value: string;
   configKey: string;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
+  // A config-backed default is a pure config (no overrides), so never tag it
+  // "with overrides" — that suffix is for rules that layer their own patch.
+  isDefault?: boolean;
 }) {
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -205,7 +209,9 @@ export default function ConfigBackedSummary({
       <ServeConfigHeader
         configKey={configKey}
         name={config?.name ?? configKey}
-        suffix={resolved?.hasOverrides ? "with overrides" : undefined}
+        suffix={
+          !isDefault && resolved?.hasOverrides ? "with overrides" : undefined
+        }
       />
       {resolved !== null && (
         <Box width="100%" mt="2">

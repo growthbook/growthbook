@@ -1539,6 +1539,7 @@ export default function FeaturesOverview({
                     <ForceSummary
                       value={getFeatureDefaultValue(feature)}
                       feature={feature}
+                      isDefault={true}
                     />
                   </Box>
                 </Flex>

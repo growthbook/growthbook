@@ -152,7 +152,6 @@ export default function EditDefaultValueModal({
         // no inline overrides. So the picker only selects the config; there's no
         // patch editor (configBackingShowPatch stays false).
         lockConfigBacking={isConfigBacked}
-        isDefaultValueEditor={true}
       />
     </ModalStandard>
   );
