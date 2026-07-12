@@ -602,9 +602,14 @@ export const defaultSlackOptionIds = (): Set<string> =>
 // True if a subscription deviates in either direction from the recommended
 // defaults (opted into extras, or removed some) — i.e. the user has customized
 // the event list. Used to flag customized installs in the overview.
+//
+// A legacy wildcard install ("feature.*" etc.) is treated as unconfigured, not
+// customized: its wildcard matches every event, which isn't a deliberate
+// choice. It reads as the recommended baseline until saved as an explicit list.
 export const isSlackSubscriptionCustomized = (
   subscriptions: string[],
 ): boolean => {
+  if (hasWildcardSubscription(subscriptions)) return false;
   const selected = selectedSlackOptionIds(subscriptions);
   const defaults = defaultSlackOptionIds();
   if (selected.size !== defaults.size) return true;

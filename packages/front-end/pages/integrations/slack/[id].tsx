@@ -5,6 +5,7 @@ import {
   SLACK_EVENT_OPTIONS,
   SlackEventCategory,
   selectedSlackOptionIds,
+  defaultSlackOptionIds,
   isEventWebhookWildcard,
   slackDigestFrequencies,
   resolveSlackDigest,
@@ -147,7 +148,17 @@ const SlackIntegrationDetailPage = () => {
   // Hydrate form when the integration loads.
   useEffect(() => {
     if (!integration) return;
-    setSelected(selectedSlackOptionIds(integration.events));
+    // A legacy install still carrying wildcard subscriptions (e.g. "feature.*")
+    // is effectively unconfigured — its wildcard matches every event in the
+    // resource, which would read as "everything selected" and falsely flag the
+    // category as Customized. Present it as the recommended defaults instead;
+    // saving then migrates it to an explicit curated list.
+    const hasWildcards = integration.events.some(isEventWebhookWildcard);
+    setSelected(
+      hasWildcards
+        ? defaultSlackOptionIds()
+        : selectedSlackOptionIds(integration.events),
+    );
     setCardFormat(integration.slackOptions?.experimentCardFormat ?? "compact");
     const digest = resolveSlackDigest(integration.slackOptions, {
       dailyDigestHourUtc: integration.dailyDigestHourUtc,
