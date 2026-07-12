@@ -877,10 +877,15 @@ const SlackIntegrationDetailPage = () => {
             The image posted for experiment results (started, significance,
             won/lost, stopped, health).
           </Text>
-          {/* Card style on the left, live preview on the right; wraps to
-              stacked only when the container is too narrow. */}
-          <Flex gap="5" align="start" wrap="wrap">
-            <Box style={{ flex: "0 1 260px", minWidth: 220 }}>
+          {/* Card style and live preview split the row evenly; stacks to one
+              column only when the container is too narrow. */}
+          <Grid
+            columns={{ initial: "1", sm: "2" }}
+            gapX="6"
+            gapY="4"
+            align="start"
+          >
+            <Box>
               <Select
                 size="2"
                 label="Card style"
@@ -897,7 +902,7 @@ const SlackIntegrationDetailPage = () => {
               </Select>
             </Box>
 
-            <Box style={{ flex: "1 1 360px", minWidth: 0 }}>
+            <Box style={{ minWidth: 0 }}>
               <Text
                 size="small"
                 weight="medium"
@@ -909,7 +914,7 @@ const SlackIntegrationDetailPage = () => {
               </Text>
               <CardPreview style={cardFormat} />
             </Box>
-          </Flex>
+          </Grid>
         </Frame>
 
         {/* Sticky action bar so Save stays reachable while scrolling. */}
