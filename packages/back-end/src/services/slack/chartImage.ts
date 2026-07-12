@@ -1489,13 +1489,17 @@ function compactEventFor(exp: ExperimentCardData): CompactEvent {
   }
 }
 
-function capLabel(text: string, marginBottom = 6): El {
+function capLabel(
+  text: string,
+  marginBottom = 6,
+  color: string = P.subtle,
+): El {
   return txt(text, {
     fontSize: 9.5,
     fontWeight: 600,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: P.subtle,
+    color,
     marginBottom,
   });
 }
@@ -1716,7 +1720,7 @@ function compactHero(
       "div",
       { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
       [
-        capLabel(exp.goal),
+        capLabel(exp.goal, 6, P.text),
         el(
           "div",
           {
@@ -1783,7 +1787,7 @@ function compactHero(
   // the same baseline: metric eyebrow, then the change with the direction arrow
   // (sign dropped — the arrow carries it), then the outcome word.
   const heroChildren: (El | null)[] = [
-    capLabel(exp.goal),
+    capLabel(exp.goal, 6, P.text),
     r?.chg && r.dir
       ? el(
           "div",
