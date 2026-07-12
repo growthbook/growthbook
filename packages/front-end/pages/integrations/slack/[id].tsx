@@ -71,18 +71,32 @@ const DAY_OF_WEEK_LABELS = [
   "Saturday",
 ];
 
-const CATEGORY_META: Record<
+// Per-subject copy. Each subject section owns its event notifications and its
+// scheduled digest.
+const SUBJECT_META: Record<
   SlackEventCategory,
-  { label: string; description: string }
+  {
+    heading: string;
+    description: string;
+    events: string;
+    digest: string;
+  }
 > = {
   experiment: {
-    label: "Experiment notifications",
+    heading: "Experiments",
     description:
-      "Launches, results, decisions, and health warnings for experiments.",
+      "What this channel hears about experiments, plus an optional rolled-up digest.",
+    events: "Launches, results, decisions, and health warnings.",
+    digest:
+      "A rolled-up summary of experiment activity. Weekly and longer post the experimentation scorecard.",
   },
   feature: {
-    label: "Feature flag notifications",
-    description: "Published versions, safe rollouts, drafts, and reviews.",
+    heading: "Feature flags",
+    description:
+      "What this channel hears about feature flags, plus an optional rolled-up digest.",
+    events: "Published versions, safe rollouts, drafts, and reviews.",
+    digest:
+      "A recap of feature-flag activity — versions published/reverted, safe-rollout outcomes, stale candidates, and reviews.",
   },
 };
 
@@ -124,31 +138,24 @@ const OFF_DIGEST_STATE: ResolvedSlackDigest = {
   intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
 };
 
-// One digest's enable toggle + cadence/time controls. Reused for the experiment
-// scorecard and the feature-flag summary.
-function DigestSection({
-  title,
+// A subject's scheduled-digest sub-section: an enable toggle + cadence/time
+// controls, separated from the events row above by a divider. Embedded inside
+// the Experiments / Feature flags subject card.
+function DigestSubSection({
   description,
   value,
   onChange,
 }: {
-  title: string;
   description: string;
   value: ResolvedSlackDigest;
   onChange: (next: ResolvedSlackDigest) => void;
 }) {
   const enabled = value.frequency !== "off";
   return (
-    <Frame>
-      <Heading as="h2" size="small" mb="1">
-        {title}
-      </Heading>
-      <Text as="p" color="text-mid" mb="4">
-        {description}
-      </Text>
-
+    <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--gray-a4)" }}>
       <Switch
-        label="Send this digest"
+        label="Scheduled digest"
+        description={description}
         value={enabled}
         onChange={(v) =>
           onChange({ ...value, frequency: v ? "weekly" : "off" })
@@ -240,7 +247,7 @@ function DigestSection({
           )}
         </Flex>
       )}
-    </Frame>
+    </Box>
   );
 }
 
@@ -377,6 +384,93 @@ const SlackIntegrationDetailPage = () => {
       return next;
     });
 
+  // The "Event notifications" row (toggle + customized/reset/customize) and its
+  // expandable per-event grid, for one subject.
+  const categoryEventsBlock = (category: SlackEventCategory) => {
+    const enabled = categoryEnabled(category);
+    const advancedOpen = showAdvanced.has(category);
+    const isCustom = enabled && categoryCustomized(category);
+    return (
+      <Box>
+        <Flex justify="between" align="start" gap="3">
+          <Switch
+            label={
+              <Flex asChild align="center" gap="2">
+                <span>
+                  Event notifications
+                  {isCustom && (
+                    <Badge
+                      label="Customized"
+                      color="gray"
+                      variant="soft"
+                      title="Events differ from the recommended defaults"
+                    />
+                  )}
+                </span>
+              </Flex>
+            }
+            description={SUBJECT_META[category].events}
+            value={enabled}
+            onChange={(v) => setCategoryEnabled(category, v)}
+          />
+          <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+            {isCustom && (
+              <Button
+                variant="ghost"
+                color="gray"
+                size="xs"
+                onClick={() => resetCategory(category)}
+              >
+                Reset
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              color="gray"
+              size="xs"
+              onClick={() => toggleAdvanced(category)}
+            >
+              {advancedOpen ? "Hide events" : "Customize events"}
+            </Button>
+          </Flex>
+        </Flex>
+
+        {advancedOpen && (
+          <Box mt="4">
+            <Flex direction="column" gap="4">
+              {groupsForCategory(category).map((group) => (
+                <Box key={group}>
+                  <Text
+                    size="small"
+                    weight="medium"
+                    color="text-mid"
+                    as="div"
+                    mb="2"
+                  >
+                    {group}
+                  </Text>
+                  <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="3">
+                    {SLACK_EVENT_OPTIONS.filter(
+                      (o) => o.category === category && o.group === group,
+                    ).map((o) => (
+                      <Checkbox
+                        key={o.id}
+                        label={o.label}
+                        description={o.description}
+                        value={selected.has(o.id)}
+                        setValue={(v) => setOptionSelected(o.id, v)}
+                      />
+                    ))}
+                  </Grid>
+                </Box>
+              ))}
+            </Flex>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   const save = async () => {
     if (!integration) return;
     setSaving(true);
@@ -459,7 +553,7 @@ const SlackIntegrationDetailPage = () => {
 
   if (!permissionsUtils.canManageIntegrations()) {
     return (
-      <div className="container-fluid pagecontents">
+      <div className="container pagecontents">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
@@ -469,7 +563,7 @@ const SlackIntegrationDetailPage = () => {
 
   if (error) {
     return (
-      <div className="container-fluid pagecontents">
+      <div className="container pagecontents">
         <Callout status="error">
           Failed to load Slack integrations: {error.message}
         </Callout>
@@ -481,7 +575,7 @@ const SlackIntegrationDetailPage = () => {
 
   if (!integration) {
     return (
-      <div className="container-fluid pagecontents">
+      <div className="container pagecontents">
         <PageHead
           breadcrumb={[
             { display: "Slack", href: "/integrations/slack" },
@@ -506,7 +600,7 @@ const SlackIntegrationDetailPage = () => {
   );
 
   return (
-    <div className="container-fluid pagecontents">
+    <div className="container pagecontents">
       <PageHead
         breadcrumb={[
           { display: "Slack", href: "/integrations/slack" },
@@ -514,7 +608,7 @@ const SlackIntegrationDetailPage = () => {
         ]}
       />
 
-      <Flex direction="column" gap="4" style={{ maxWidth: 820 }}>
+      <Flex direction="column" gap="4">
         <Box>
           <Heading as="h1" size="large" mb="1">
             {getChannelLabel(integration)}
@@ -537,187 +631,14 @@ const SlackIntegrationDetailPage = () => {
           </Callout>
         )}
 
-        {/* Notifications */}
+        {/* Scope */}
         <Frame>
           <Heading as="h2" size="small" mb="1">
-            Notifications
+            Scope
           </Heading>
           <Text as="p" color="text-mid" mb="4">
-            Choose what this channel is notified about. Turn a category on for
-            the recommended set, or expand it to pick individual events.
-          </Text>
-
-          <Flex direction="column" gap="4">
-            {(["experiment", "feature"] as SlackEventCategory[]).map(
-              (category) => {
-                const enabled = categoryEnabled(category);
-                const advancedOpen = showAdvanced.has(category);
-                const isCustom = enabled && categoryCustomized(category);
-                return (
-                  <Box
-                    key={category}
-                    style={{
-                      border: "1px solid var(--gray-a5)",
-                      borderRadius: "var(--radius-4)",
-                      padding: "var(--space-4)",
-                    }}
-                  >
-                    <Flex justify="between" align="start" gap="3">
-                      <Switch
-                        label={
-                          <Flex asChild align="center" gap="2">
-                            <span>
-                              {CATEGORY_META[category].label}
-                              {isCustom && (
-                                <Badge
-                                  label="Customized"
-                                  color="gray"
-                                  variant="soft"
-                                  title="Events differ from the recommended defaults"
-                                />
-                              )}
-                            </span>
-                          </Flex>
-                        }
-                        description={CATEGORY_META[category].description}
-                        value={enabled}
-                        onChange={(v) => setCategoryEnabled(category, v)}
-                      />
-                      <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
-                        {isCustom && (
-                          <Button
-                            variant="ghost"
-                            color="gray"
-                            size="xs"
-                            onClick={() => resetCategory(category)}
-                          >
-                            Reset
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          color="gray"
-                          size="xs"
-                          onClick={() => toggleAdvanced(category)}
-                        >
-                          {advancedOpen ? "Hide events" : "Customize events"}
-                        </Button>
-                      </Flex>
-                    </Flex>
-
-                    {advancedOpen && (
-                      <Box
-                        mt="4"
-                        pt="4"
-                        style={{ borderTop: "1px solid var(--gray-a4)" }}
-                      >
-                        <Flex direction="column" gap="4">
-                          {groupsForCategory(category).map((group) => (
-                            <Box key={group}>
-                              <Text
-                                size="small"
-                                weight="medium"
-                                color="text-mid"
-                                as="div"
-                                mb="2"
-                              >
-                                {group}
-                              </Text>
-                              <Grid
-                                columns={{ initial: "1", sm: "2" }}
-                                gapX="4"
-                                gapY="3"
-                              >
-                                {SLACK_EVENT_OPTIONS.filter(
-                                  (o) =>
-                                    o.category === category &&
-                                    o.group === group,
-                                ).map((o) => (
-                                  <Checkbox
-                                    key={o.id}
-                                    label={o.label}
-                                    description={o.description}
-                                    value={selected.has(o.id)}
-                                    setValue={(v) => setOptionSelected(o.id, v)}
-                                  />
-                                ))}
-                              </Grid>
-                            </Box>
-                          ))}
-                        </Flex>
-                      </Box>
-                    )}
-                  </Box>
-                );
-              },
-            )}
-          </Flex>
-
-          {noneSelected && (
-            <Callout status="warning" mt="4">
-              No events selected — this channel won&rsquo;t receive live
-              notifications.
-            </Callout>
-          )}
-        </Frame>
-
-        {/* Results card */}
-        <Frame>
-          <Heading as="h2" size="small" mb="1">
-            Results card
-          </Heading>
-          <Text as="p" color="text-mid" mb="4">
-            The image posted for experiment results (started, significance,
-            won/lost, stopped, health).
-          </Text>
-          <Box style={{ maxWidth: 320 }}>
-            <Select
-              size="2"
-              label="Card style"
-              value={cardFormat}
-              setValue={(v) =>
-                setCardFormat(v as (typeof experimentCardFormats)[number])
-              }
-            >
-              {experimentCardFormats.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {CARD_FORMAT_LABELS[f]}
-                </SelectItem>
-              ))}
-            </Select>
-          </Box>
-        </Frame>
-
-        {/* Digests */}
-        <DigestSection
-          title="Experiment scorecard digest"
-          description="A rendered scorecard image summarizing experiment activity over the period (running, significant, shipped, rolled back, biggest win)."
-          value={experimentDigest}
-          onChange={(next) => {
-            setExperimentDigest(next);
-            setSaved(false);
-          }}
-        />
-
-        <DigestSection
-          title="Feature-flag digest"
-          description="A text summary of flag activity over the period — versions published/reverted, safe-rollout outcomes, stale candidates, and review activity."
-          value={featureDigest}
-          onChange={(next) => {
-            setFeatureDigest(next);
-            setSaved(false);
-          }}
-        />
-
-        {/* Filters */}
-        <Frame>
-          <Heading as="h2" size="small" mb="1">
-            Filters
-          </Heading>
-          <Text as="p" color="text-mid" mb="4">
-            Optionally limit notifications to specific resources. Leave a filter
-            empty to include everything. Filters combine — an event must match
-            all of the non-empty ones.
+            Limit what this channel hears. Leave a filter empty to include
+            everything; non-empty filters combine.
           </Text>
 
           <Flex direction="column" gap="4" style={{ maxWidth: 560 }}>
@@ -782,6 +703,66 @@ const SlackIntegrationDetailPage = () => {
               }}
             />
           </Flex>
+        </Frame>
+
+        {/* Subject sections — each owns its event notifications + digest. */}
+        {(["experiment", "feature"] as SlackEventCategory[]).map((category) => (
+          <Frame key={category}>
+            <Heading as="h2" size="small" mb="1">
+              {SUBJECT_META[category].heading}
+            </Heading>
+            <Text as="p" color="text-mid" mb="4">
+              {SUBJECT_META[category].description}
+            </Text>
+
+            {categoryEventsBlock(category)}
+
+            <DigestSubSection
+              description={SUBJECT_META[category].digest}
+              value={
+                category === "experiment" ? experimentDigest : featureDigest
+              }
+              onChange={(next) => {
+                if (category === "experiment") setExperimentDigest(next);
+                else setFeatureDigest(next);
+                setSaved(false);
+              }}
+            />
+          </Frame>
+        ))}
+
+        {noneSelected && (
+          <Callout status="warning">
+            No events selected — this channel won&rsquo;t receive live
+            notifications.
+          </Callout>
+        )}
+
+        {/* Results card */}
+        <Frame>
+          <Heading as="h2" size="small" mb="1">
+            Results card
+          </Heading>
+          <Text as="p" color="text-mid" mb="4">
+            The image posted for experiment results (started, significance,
+            won/lost, stopped, health).
+          </Text>
+          <Box style={{ maxWidth: 320 }}>
+            <Select
+              size="2"
+              label="Card style"
+              value={cardFormat}
+              setValue={(v) =>
+                setCardFormat(v as (typeof experimentCardFormats)[number])
+              }
+            >
+              {experimentCardFormats.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {CARD_FORMAT_LABELS[f]}
+                </SelectItem>
+              ))}
+            </Select>
+          </Box>
         </Frame>
 
         {/* Sticky action bar so Save stays reachable while scrolling. */}
