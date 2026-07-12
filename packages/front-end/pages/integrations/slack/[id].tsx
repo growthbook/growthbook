@@ -829,7 +829,7 @@ const SlackIntegrationDetailPage = () => {
         )}
 
         {/* Scope */}
-        <Frame>
+        <Frame mb="0">
           <Heading as="h2" size="small" mb="1">
             Scope
           </Heading>
@@ -923,7 +923,7 @@ const SlackIntegrationDetailPage = () => {
 
         {/* Subject sections — each owns its event notifications + digest. */}
         {(["experiment", "feature"] as SlackEventCategory[]).map((category) => (
-          <Frame key={category}>
+          <Frame key={category} mb="0">
             <Heading as="h2" size="small" mb="1">
               {SUBJECT_META[category].heading}
             </Heading>
@@ -955,7 +955,7 @@ const SlackIntegrationDetailPage = () => {
         )}
 
         {/* Results card */}
-        <Frame>
+        <Frame mb="0">
           <Heading as="h2" size="small" mb="1">
             Results card
           </Heading>
@@ -1009,7 +1009,6 @@ const SlackIntegrationDetailPage = () => {
             position: "sticky",
             bottom: 0,
             zIndex: 1,
-            marginTop: "var(--space-2)",
             paddingTop: "var(--space-3)",
             paddingBottom: "var(--space-3)",
             borderTop: "1px solid var(--gray-a5)",
