@@ -18,8 +18,13 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Field from "@/components/Forms/Field";
+import TagsInput from "@/components/Tags/TagsInput";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
@@ -109,10 +114,18 @@ const groupsForCategory = (category: SlackEventCategory): string[] => {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
+const parseCsvList = (value: string): string[] =>
+  value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 const SlackIntegrationDetailPage = () => {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtils = usePermissionsUtil();
+  const environments = useEnvironments().map((env) => env.id);
+  const { projects, tags } = useDefinitions();
   const id = Array.isArray(router.query.id)
     ? router.query.id[0]
     : router.query.id;
@@ -144,6 +157,12 @@ const SlackIntegrationDetailPage = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  // Optional delivery filters (empty array = no filter = all).
+  const [filterProjects, setFilterProjects] = useState<string[]>([]);
+  const [filterEnvironments, setFilterEnvironments] = useState<string[]>([]);
+  const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [filterExperiments, setFilterExperiments] = useState<string[]>([]);
+  const [filterMetrics, setFilterMetrics] = useState<string[]>([]);
 
   // Hydrate form when the integration loads.
   useEffect(() => {
@@ -168,6 +187,11 @@ const SlackIntegrationDetailPage = () => {
     setDayOfWeekUtc(digest.dayOfWeekUtc);
     setDayOfMonth(digest.dayOfMonth);
     setIntervalDays(digest.intervalDays);
+    setFilterProjects(integration.projects || []);
+    setFilterEnvironments(integration.environments || []);
+    setFilterTags(integration.tags || []);
+    setFilterExperiments(integration.experiments || []);
+    setFilterMetrics(integration.metrics || []);
   }, [integration]);
 
   const setOptionSelected = (optionId: string, on: boolean) => {
@@ -267,6 +291,11 @@ const SlackIntegrationDetailPage = () => {
         method: "PUT",
         body: JSON.stringify({
           events,
+          projects: filterProjects,
+          environments: filterEnvironments,
+          tags: filterTags,
+          experiments: filterExperiments,
+          metrics: filterMetrics,
           slackOptions: {
             experimentCardFormat: cardFormat,
             digest,
@@ -646,6 +675,81 @@ const SlackIntegrationDetailPage = () => {
               )}
             </Flex>
           )}
+        </Frame>
+
+        {/* Filters */}
+        <Frame>
+          <Heading as="h2" size="small" mb="1">
+            Filters
+          </Heading>
+          <Text as="p" color="text-mid" mb="4">
+            Optionally limit notifications to specific resources. Leave a filter
+            empty to include everything. Filters combine — an event must match
+            all of the non-empty ones.
+          </Text>
+
+          <Flex direction="column" gap="4" style={{ maxWidth: 560 }}>
+            <MultiSelectField
+              label="Projects"
+              placeholder="All projects"
+              value={filterProjects}
+              options={projects.map(({ id: pid, name }) => ({
+                label: name,
+                value: pid,
+              }))}
+              onChange={(v) => {
+                setFilterProjects(v);
+                setSaved(false);
+              }}
+            />
+
+            <MultiSelectField
+              label="Environments"
+              placeholder="All environments"
+              value={filterEnvironments}
+              options={environments.map((env) => ({ label: env, value: env }))}
+              onChange={(v) => {
+                setFilterEnvironments(v);
+                setSaved(false);
+              }}
+            />
+
+            <Box>
+              <Text as="label" size="medium" weight="medium">
+                Tags
+              </Text>
+              <TagsInput
+                tagOptions={tags}
+                value={filterTags}
+                onChange={(v) => {
+                  setFilterTags(v);
+                  setSaved(false);
+                }}
+              />
+            </Box>
+
+            <Field
+              label="Experiments"
+              placeholder="exp_123, exp_456"
+              helpText="Comma-separated experiment IDs. Empty = all."
+              value={filterExperiments.join(", ")}
+              onChange={(e) => {
+                setFilterExperiments(parseCsvList(e.target.value));
+                setSaved(false);
+              }}
+            />
+
+            <Field
+              label="Metrics"
+              placeholder="met_123, met_456"
+              helpText="Comma-separated metric IDs. Empty = all."
+              value={filterMetrics.join(", ")}
+              onChange={(e) => {
+                setFilterMetrics(parseCsvList(e.target.value));
+                setSaved(false);
+              }}
+            />
+          </Flex>
         </Frame>
 
         {/* Sticky action bar so Save stays reachable while scrolling. */}
