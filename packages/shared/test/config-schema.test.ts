@@ -1863,6 +1863,23 @@ type Cfg struct {
     expect(meta?.jsonSchema).toContain('"inner"');
   });
 
+  it("golang: keeps single-line fields whose type contains braces", () => {
+    // Regression: `interface{}` / `map[string]interface{}` are complete fields,
+    // not multi-line embedded blocks, so they must survive import — the
+    // brace-balanced splitter previously dropped them silently.
+    const src =
+      "type Cfg struct {\n" +
+      '  Name string `json:"name"`\n' +
+      '  Meta interface{} `json:"meta"`\n' +
+      '  Extra map[string]interface{} `json:"extra"`\n' +
+      "}";
+    const { fields } = golangToFields(src);
+    expect(fields.map((f) => f.key)).toEqual(["name", "meta", "extra"]);
+    // The free-form map degrades to an object node, not dropped.
+    const extra = fields.find((f) => f.key === "extra");
+    expect(JSON.parse(extra?.jsonSchema as string).type).toBe("object");
+  });
+
   it("python: imports a numeric Literal as a numeric enum that round-trips", () => {
     const src = "class Cfg(BaseModel):\n    level: Literal[1, 2, 3]\n";
     const { fields, warnings } = pythonToFields(src);

@@ -27,7 +27,7 @@ Global and project-scoped hooks are managed under **Settings → Custom Hooks**.
 
 The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
 
-A config-scoped hook can additionally check **Include descendant configs** (`includeDescendants` in the REST API) to cover the whole family: the hook then runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
+A config-scoped hook always covers the whole family: it runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
 
 A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
 

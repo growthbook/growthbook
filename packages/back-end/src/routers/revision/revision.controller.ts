@@ -47,7 +47,11 @@ async function captureArmAcknowledgment(
     prefetchedEntity ??
     (await adapter.getModel(context)?.getById(revision.target.id));
   if (!entity) return undefined;
-  return adapter.captureArmAcknowledgment(context, entity);
+  return adapter.captureArmAcknowledgment(
+    context,
+    entity,
+    revision.target.proposedChanges,
+  );
 }
 
 // region GET /revision

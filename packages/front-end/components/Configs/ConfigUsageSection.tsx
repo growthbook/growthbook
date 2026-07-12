@@ -54,6 +54,10 @@ export default function ConfigUsageSection({
   const usedKeys = useMemo(() => {
     const set = new Set<string>();
     for (const i of deduped) for (const k of i.keys) set.add(k);
+    // A schemaless/extensible config declares no fieldKeys — fall back to the
+    // keys actually used (first-seen order) so the "By key" tab isn't empty
+    // despite real usage (mirrors the `deduped` fallback above).
+    if (!fieldKeys.length) return [...set];
     return fieldKeys.filter((k) => set.has(k));
   }, [deduped, fieldKeys]);
 

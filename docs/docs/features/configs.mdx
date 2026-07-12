@@ -102,7 +102,7 @@ Violations share the enforcement gate with schema errors — the **Block publish
 
 Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message, or raise a soft warning that the user can review and bypass.
 
-Hooks are scoped Global, Project, or Config, and a config-scoped hook can opt to cover the whole family via **Include descendant configs**. Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
+Hooks are scoped Global, Project, or Config; a config-scoped hook automatically covers the whole family (the scoped config and everything that inherits from it). Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
 
 :::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
@@ -124,14 +124,14 @@ Every config tracks where its keys are consumed. On the config's page — and ov
 
 Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
 
-When you genuinely need to publish anyway, a user with the **bypass-approvals** permission can override the block (over the REST API, pass `?ignoreWarnings=true` on the publish request). Turning the guard off for a config also requires that permission.
+When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `?ignoreWarnings=true` on the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
 
 ## Import and export
 
 A config's value and its type definition can move in and out of GrowthBook:
 
 - **Value** — import or export the config's JSON value.
-- **Schema** — import or export the type definition as **JSON Schema** or **TypeScript**, or infer a schema from an existing value. JSON Schema is the canonical interchange format.
+- **Schema** — import or export the type definition as **JSON Schema**, **TypeScript**, or another supported typed-code format (Protobuf, Python, Go, Rust), or infer a schema from an existing value. JSON Schema is the canonical interchange format.
 
 :::note The TypeScript option is a feature-limited convenience
 

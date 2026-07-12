@@ -1,5 +1,5 @@
 import { ConfigInterface } from "shared/types/config";
-import { Revision } from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ConfigKeyImplementation,
@@ -83,6 +83,19 @@ export function configChangeAffectsServedValue(
   const affecting = new Set<string>(VALUE_AFFECTING_CONFIG_FIELDS);
   for (const f of changedFields) if (affecting.has(f)) return true;
   return false;
+}
+
+// Same check from a revision's proposed JSON-Patch ops (top-level field per op) —
+// used at arm time, where callers hold the revision's proposedChanges rather than
+// a merged desired-state diff.
+export function configRevisionAffectsServedValue(
+  proposedChanges: unknown,
+): boolean {
+  return configChangeAffectsServedValue(
+    normalizeProposedChanges(proposedChanges)
+      .map((op) => op.path.split("/")[1])
+      .filter(Boolean),
+  );
 }
 
 export type ExperimentGuardDecision =
@@ -223,14 +236,24 @@ export async function assertConfigExperimentGuard(
 // Capture the arm-time acknowledgment fingerprint when scheduling / auto-arming a
 // deferred publish on a guarded config. Returns the sorted conflict keys to store
 // on the revision (compared at merge time), or undefined when there is nothing to
-// acknowledge (guard off / no live conflict). Throws SoftWarningError when live
-// conflicts exist and the armer did not acknowledge them (?ignoreWarnings=true or
-// bypassApprovalChecks) — arming must be an explicit, recorded override.
+// acknowledge (guard off / no live conflict / metadata-only revision). Throws
+// SoftWarningError when live conflicts exist and the armer did not acknowledge
+// them (?ignoreWarnings=true or bypassApprovalChecks) — arming must be an
+// explicit, recorded override. `proposedChanges` (the revision's staged ops, when
+// known) lets a metadata-only revision skip the guard, matching the merge-time
+// gate so a rename doesn't need acknowledgment to be scheduled.
 export async function captureConfigExperimentGuardAcknowledgment(
   context: Context,
   config: ConfigInterface,
+  proposedChanges?: unknown,
 ): Promise<string[] | undefined> {
   if (!config.experimentGuard) return undefined;
+  if (
+    proposedChanges !== undefined &&
+    !configRevisionAffectsServedValue(proposedChanges)
+  ) {
+    return undefined;
+  }
 
   const conflictKeys = await evaluateConfigExperimentGuardConflicts(
     context,

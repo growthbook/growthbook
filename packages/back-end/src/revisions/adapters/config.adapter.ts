@@ -272,8 +272,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   captureArmAcknowledgment(
     context: Context,
     entity: ConfigInterface,
+    proposedChanges: unknown,
   ): Promise<string[] | undefined> {
-    return captureConfigExperimentGuardAcknowledgment(context, entity);
+    return captureConfigExperimentGuardAcknowledgment(
+      context,
+      entity,
+      proposedChanges,
+    );
   },
 
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full

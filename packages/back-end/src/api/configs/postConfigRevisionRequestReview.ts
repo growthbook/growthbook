@@ -49,7 +49,11 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
   // Experiment guard: snapshot the acknowledged conflict keys (throws if arming
   // over live conflicts without ignoreWarnings/bypass).
   const experimentGuardAcknowledgedKeys = enableAutoPublish
-    ? await captureConfigExperimentGuardAcknowledgment(req.context, config)
+    ? await captureConfigExperimentGuardAcknowledgment(
+        req.context,
+        config,
+        revision.target.proposedChanges,
+      )
     : undefined;
 
   const updated = await req.context.models.revisions.submitForReview(

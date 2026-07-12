@@ -100,7 +100,11 @@ export const postConfigRevisionSchedulePublish = createApiRequestHandler(
   // over live conflicts without ignoreWarnings/bypass).
   const experimentGuardAcknowledgedKeys = isCancel
     ? undefined
-    : await captureConfigExperimentGuardAcknowledgment(req.context, config);
+    : await captureConfigExperimentGuardAcknowledgment(
+        req.context,
+        config,
+        revision.target.proposedChanges,
+      );
 
   const updated = await req.context.models.revisions.setScheduledPublish(
     revision.id,

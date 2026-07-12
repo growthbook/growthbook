@@ -178,9 +178,14 @@ export interface EntityRevisionAdapter<
    * revision and re-check at merge time; throws (e.g. SoftWarningError) when the
    * armer must acknowledge a condition first. The config adapter uses this for
    * the experiment guard; adapters without an arm-time precondition omit it.
+   *
+   * `proposedChanges` are the revision's staged ops, so an adapter can skip the
+   * precondition for a change that can't trigger it (e.g. a metadata-only config
+   * revision that rewrites no served value).
    */
   captureArmAcknowledgment?(
     context: Context,
     entity: TSnapshot,
+    proposedChanges: unknown,
   ): Promise<string[] | undefined>;
 }

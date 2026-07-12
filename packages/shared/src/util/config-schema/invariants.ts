@@ -374,10 +374,14 @@ export function invariantRuleFields(ruleJson: string): string[] {
     return [];
   }
   const fields = new Set<string>();
-  const walk = (n: unknown): void => {
+  // `inValue` = walking a field's comparison RHS, where plain object keys are
+  // literal data — e.g. `{status: {active: true}}` matches the object value, so
+  // `active` is NOT a referenced field. In that context we still collect `$ref`
+  // targets and descend `$`-operator args, but never treat a bare key as a field.
+  const walk = (n: unknown, inValue: boolean): void => {
     if (!n || typeof n !== "object") return;
     if (Array.isArray(n)) {
-      n.forEach(walk);
+      n.forEach((x) => walk(x, inValue));
       return;
     }
     for (const [k, v] of Object.entries(n as Record<string, unknown>)) {
@@ -385,16 +389,23 @@ export function invariantRuleFields(ruleJson: string): string[] {
         const top = v.split(".")[0];
         if (top) fields.add(top);
       } else if (BOOLEAN_MONGO_OPS.has(k) || k === "$not") {
-        walk(v);
+        // Sub-condition(s) — their keys are fields again.
+        walk(v, false);
       } else if (k.startsWith("$")) {
-        walk(v);
+        // Operator argument — a literal value context.
+        walk(v, true);
+      } else if (inValue) {
+        // Literal object key inside an RHS value — data, not a field. Descend
+        // only to catch a nested `$ref` marker.
+        walk(v, true);
       } else {
+        // Field position: k names a field; its value is the comparison RHS.
         const top = k.split(".")[0];
         if (top) fields.add(top);
-        walk(v);
+        walk(v, true);
       }
     }
   };
-  walk(parsed);
+  walk(parsed, false);
   return [...fields];
 }

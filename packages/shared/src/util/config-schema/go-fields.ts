@@ -45,8 +45,13 @@ export function splitGoFieldStatements(body: string): GoFieldStatement[] {
       });
       continue;
     }
-    // Embedded structs and other brace-bearing shapes we can't model.
-    if (line.includes("{") || line.includes("}")) continue;
+    // A line that leaves a brace OPEN starts a multi-line embedded block we
+    // can't model as a single field — skip it. But a line with balanced braces
+    // is a complete field whose TYPE happens to contain braces (e.g.
+    // `Meta interface{}`, `Extra map[string]interface{}`); pass it through as a
+    // scalar so parseGoField/typeTokenToNode handle it (map → object,
+    // interface{} → any + warning) instead of silently dropping it.
+    if (countChar(line, "{") !== countChar(line, "}")) continue;
     stmts.push({ kind: "scalar", line });
   }
   return stmts;

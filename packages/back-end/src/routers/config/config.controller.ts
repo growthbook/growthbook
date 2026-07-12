@@ -161,6 +161,13 @@ export const getConfigFamilyReferences = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
+  // Read-permission gate: resolveConfigFamily reads the unfiltered reconcile set,
+  // so gate on the entry config here (getById is canRead-scoped) — else usage in a
+  // project the caller can't read is disclosed. Mirrors getConfigCyclicKeys.
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
   const result = await loadConfigFamilyFeatureReferences(
     context,
     req.params.id,
@@ -182,6 +189,12 @@ export const getConfigKeyUsage = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
+  // Read-permission gate before the unfiltered family scan (see
+  // getConfigFamilyReferences).
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
   const result = await getConfigKeyImplementations(context, req.params.id);
   if (!result) {
     return context.throwNotFoundError("Config not found");

@@ -257,6 +257,17 @@ describe("invariantRuleFields — mongrule engine", () => {
     ).toEqual(["max_replicas", "min_replicas"]);
   });
 
+  it("ignores literal-object keys on the value side", () => {
+    // `status` equals the literal object {active:true} — `active` is data, not a
+    // referenced field. Same for object members inside a `$in` list.
+    expect(fields({ status: { active: true } })).toEqual(["status"]);
+    expect(fields({ tier: { $in: [{ a: 1 }, { b: 2 }] } })).toEqual(["tier"]);
+  });
+
+  it("still collects a $ref nested inside a value", () => {
+    expect(fields({ x: { $in: [{ $ref: "y" }] } })).toEqual(["x", "y"]);
+  });
+
   it("recurses through $or / $and / $not", () => {
     expect(
       fields({
