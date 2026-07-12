@@ -7,6 +7,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   getApiFeatureObj,
   getApiFeatureObjV2,
+  scrubConfigExtends,
 } from "back-end/src/services/features";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
@@ -1111,5 +1112,51 @@ describe("getApiFeatureObj: revision author summary", () => {
     });
     expect(apiV2NullUsers.revision.createdBy).toBeUndefined();
     expect(apiV2NullUsers.revision.publishedBy).toBeUndefined();
+  });
+});
+
+describe("scrubConfigExtends", () => {
+  it("drops @config: from $extends but keeps @const: (round-trippable)", () => {
+    expect(
+      scrubConfigExtends({ $extends: ["@config:base", "@const:x"], p: 1 }),
+    ).toEqual({ $extends: ["@const:x"], p: 1 });
+  });
+
+  it("removes an $extends left empty after dropping @config:", () => {
+    expect(scrubConfigExtends({ $extends: ["@config:base"], p: 1 })).toEqual({
+      p: 1,
+    });
+  });
+
+  it("recurses into a compiled definition's rules and variations", () => {
+    const def = {
+      defaultValue: { $extends: ["@config:base"] },
+      rules: [
+        { force: { $extends: ["@config:base"], p: 1 } },
+        {
+          variations: [
+            { $extends: ["@config:child"], v: 1 },
+            { $extends: ["@const:c"], v: 2 },
+          ],
+        },
+      ],
+    };
+    expect(scrubConfigExtends(def)).toEqual({
+      defaultValue: {},
+      rules: [
+        { force: { p: 1 } },
+        { variations: [{ v: 1 }, { $extends: ["@const:c"], v: 2 }] },
+      ],
+    });
+  });
+
+  it("leaves non-config values untouched", () => {
+    expect(scrubConfigExtends({ a: 1, b: [1, 2], c: "x" })).toEqual({
+      a: 1,
+      b: [1, 2],
+      c: "x",
+    });
+    expect(scrubConfigExtends(true)).toBe(true);
+    expect(scrubConfigExtends("plain")).toBe("plain");
   });
 });

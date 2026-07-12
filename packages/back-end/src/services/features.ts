@@ -2080,6 +2080,33 @@ function decomposeConfigValue(stored: string | undefined): {
   return { value: getConfigBackingPatch(stored), config };
 }
 
+// Recursively drop the internal `@config:` `$extends` directive from a compiled
+// SDK `definition` so the REST representation never exposes it — config backing
+// is conveyed via the standalone `baseConfig`/`config` fields instead. `@const:`
+// refs are left intact so the values stay round-trippable/upsertable (the REST
+// list mirrors what you'd send back, not the fully-resolved SDK payload).
+export function scrubConfigExtends<T>(node: T): T {
+  if (Array.isArray(node)) {
+    return node.map((n) => scrubConfigExtends(n)) as unknown as T;
+  }
+  if (node !== null && typeof node === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(node as Record<string, unknown>)) {
+      if (key === "$extends" && Array.isArray(val)) {
+        const kept = val.filter(
+          (r) => !(typeof r === "string" && r.startsWith("@config:")),
+        );
+        // Drop an emptied `$extends` entirely; keep any surviving `@const:` refs.
+        if (kept.length) out[key] = kept;
+      } else {
+        out[key] = scrubConfigExtends(val);
+      }
+    }
+    return out as unknown as T;
+  }
+  return node;
+}
+
 export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
   const base = normalizeRuleForApi(rule);
   const scoped = {
@@ -2304,7 +2331,12 @@ export function getApiFeatureObjV2({
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
-      featureEnvironments[env].definition = JSON.stringify(definition);
+      // Scrub the internal `@config:` directive so the `definition` matches the
+      // upsertable representation used by the top-level fields (config backing
+      // lives in `baseConfig`/`config`); `@const:` refs are left as-is.
+      featureEnvironments[env].definition = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     }
   });
 
