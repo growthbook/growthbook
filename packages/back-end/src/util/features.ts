@@ -23,7 +23,6 @@ import {
   getFeatureBaseConfigKey,
   ensureConfigBacking,
   stripConfigExtends,
-  getConfigBackingPatch,
   deepMergePatch,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -659,20 +658,15 @@ export function getFeatureDefinition({
         // config (keeps `@const:` refs).
         (stripConfigExtends(valueStr) ?? valueStr);
     if (sparse && jsonDefaultObj) {
-      const fullPatch = parsePlainJSONObject(normalized);
-      if (fullPatch !== null) {
-        // Config-backed: patch with the rule's OWN fields only (strip the config
-        // backing). Re-resolving the full `$extends`-backed value would
-        // re-materialize the config base and, via the merge below, clobber the
-        // feature default's overrides of base keys — jsonDefaultObj already
-        // carries the resolved config layer. A plain JSON feature has no backing.
-        const patch = defaultConfigKey
-          ? (parsePlainJSONObject(getConfigBackingPatch(normalized)) ?? {})
-          : fullPatch;
+      const patch = parsePlainJSONObject(normalized);
+      if (patch !== null) {
         // Resolve the patch's constants BEFORE merging so the rule's fields are
         // spread last and win over the (already-resolved) default — i.e. sparse
-        // fields are "further down". Non-object resolutions (e.g. a whole-value
-        // JSON constant that resolves to an array) replace the value outright.
+        // fields are "further down". A config-backed rule keeps its own
+        // `$extends` here so it resolves against the config it references (which
+        // may be a descendant it was re-pointed to) — this matches the value the
+        // config-backing editor previews. Non-object resolutions (e.g. a
+        // whole-value JSON constant that resolves to an array) replace outright.
         const resolvedPatch = resolveRefs(patch);
         if (
           resolvedPatch !== null &&
@@ -985,12 +979,15 @@ export function getFeatureDefinition({
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
-            // Resolve like every other value emitter (the experiment-ref twin
-            // above). A bare getJSONValue would ship `$extends`/`@const:`/
-            // `@config:` refs to the SDK unresolved. Contextual-bandit-ref rules
-            // have no `sparse` flag — arms are full config-backed values — so this
-            // is a non-sparse resolve.
-            return variation ? valueForSDK(variation.value) : null;
+            // Resolve like every other value emitter — a bare getJSONValue would
+            // ship `$extends`/`@const:`/`@config:` refs to the SDK unresolved.
+            // Contextual-bandit-ref has no `sparse` flag, but its config-backed
+            // arms are authored as sparse patches through the same hooks/editor as
+            // the experiment-ref (MAB) twin above, so they must resolve the same
+            // way: sparse when config-backed, a full value otherwise.
+            return variation
+              ? valueForSDK(variation.value, !!defaultConfigKey)
+              : null;
           });
           rule.weights = cb.variationWeights
             ? pairedWeightsToPositional(cb.variationWeights, cb.variations)

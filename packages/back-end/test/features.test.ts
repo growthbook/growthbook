@@ -1322,11 +1322,10 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([{ force: { cfg: 1, extra: { x: 1, y: 2 } } }]);
   });
 
-  it("keeps the default's override of a config key when a sparse rule doesn't restate it", () => {
+  it("resolves a config-backed sparse rule against the config it re-points to", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";
     feature.baseConfig = "base";
-    // Default OVERRIDES the config's `cfg` (base 1 → 999).
     feature.defaultValue = JSON.stringify({
       $extends: ["@config:base"],
       cfg: 999,
@@ -1334,12 +1333,12 @@ describe("SDK Payloads", () => {
     feature.environmentSettings["production"].rules = [
       {
         type: "force",
-        id: "sparse-other",
+        id: "sparse-repoint",
         description: "",
         enabled: true,
-        // Changes only `other` — must NOT reset `cfg` back to the config base
-        // (re-injecting the base would clobber the default's 999).
-        value: JSON.stringify({ other: 5 }),
+        // Re-points to a DESCENDANT config; its fields must be delivered
+        // (matches the config-backing editor preview), not dropped.
+        value: JSON.stringify({ $extends: ["@config:child"], p: 1 }),
         sparse: true,
       },
     ];
@@ -1351,6 +1350,14 @@ describe("SDK Payloads", () => {
           type: "json" as const,
           source: "config" as const,
           value: '{"cfg":1}',
+        },
+      ],
+      [
+        "config:child",
+        {
+          type: "json" as const,
+          source: "config" as const,
+          value: '{"cfg":2,"childOnly":"c"}',
         },
       ],
     ]);
@@ -1365,7 +1372,8 @@ describe("SDK Payloads", () => {
       constantMap,
     });
 
-    expect(def?.rules).toEqual([{ force: { cfg: 999, other: 5 } }]);
+    // Serves the re-pointed child config's values + the rule's own field.
+    expect(def?.rules).toEqual([{ force: { cfg: 2, childOnly: "c", p: 1 } }]);
   });
 
   it("injects baseConfig under a pure-patch default and rules (no $extends stored)", () => {
