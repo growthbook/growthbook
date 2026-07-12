@@ -17,7 +17,7 @@ import {
   type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash } from "react-icons/pi";
+import { PiTrash, PiPaperPlaneTilt } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -396,6 +396,11 @@ const SlackIntegrationDetailPage = () => {
   const [saved, setSaved] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
   // Optional delivery filters (empty array = no filter = all).
   const [filterProjects, setFilterProjects] = useState<string[]>([]);
   const [filterEnvironments, setFilterEnvironments] = useState<string[]>([]);
@@ -673,6 +678,37 @@ const SlackIntegrationDetailPage = () => {
     await router.push("/integrations/slack");
   };
 
+  const sendTest = async () => {
+    if (!integration) return;
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await apiCall<{ ok: boolean; error?: string }>(
+        "/admin/slack-test/event-webhook",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            eventWebHookId: integration.eventWebHookId,
+            eventName: "experiment.info.significance",
+          }),
+        },
+      );
+      if (!res.ok) throw new Error(res.error || "Failed to send test message.");
+      setTestResult({
+        ok: true,
+        message: `Test message sent to ${getChannelLabel(integration)}.`,
+      });
+    } catch (e) {
+      setTestResult({
+        ok: false,
+        message:
+          e instanceof Error ? e.message : "Failed to send test message.",
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   if (!permissionsUtils.canManageIntegrations()) {
     return (
       <div className="container pagecontents">
@@ -733,13 +769,9 @@ const SlackIntegrationDetailPage = () => {
       {confirmingDelete && (
         <ConfirmDialog
           title="Delete Slack channel connection?"
-          content={
-            <>
-              {getChannelLabel(integration)} will stop receiving GrowthBook
-              notifications and its digests. This can&rsquo;t be undone — you
-              can reconnect the channel later.
-            </>
-          }
+          content={`${getChannelLabel(
+            integration,
+          )} will stop receiving GrowthBook notifications and its digests. This can't be undone, though you can create another connection.`}
           yesText="Delete"
           onConfirm={handleDelete}
           onCancel={() => setConfirmingDelete(false)}
@@ -754,15 +786,32 @@ const SlackIntegrationDetailPage = () => {
             </Heading>
             <Text color="text-mid">{getWorkspaceLabel(integration)}</Text>
           </Box>
-          <Button
-            variant="outline"
-            color="red"
-            icon={<PiTrash />}
-            onClick={() => setConfirmingDelete(true)}
-          >
-            Delete
-          </Button>
+          <Flex gap="2" align="center" style={{ flexShrink: 0 }}>
+            <Button
+              variant="outline"
+              color="gray"
+              icon={<PiPaperPlaneTilt />}
+              loading={sendingTest}
+              onClick={sendTest}
+            >
+              Send test message
+            </Button>
+            <Button
+              variant="outline"
+              color="red"
+              icon={<PiTrash />}
+              onClick={() => setConfirmingDelete(true)}
+            >
+              Delete
+            </Button>
+          </Flex>
         </Flex>
+
+        {testResult && (
+          <Callout status={testResult.ok ? "success" : "error"}>
+            {testResult.message}
+          </Callout>
+        )}
 
         {needsReconnect && (
           <Callout status="warning">
