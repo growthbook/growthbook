@@ -118,7 +118,7 @@ export class ConfigModel extends BaseClass {
 
   protected async beforeCreate(doc: ConfigInterface) {
     await this.assertNoCycle(doc);
-    await this.assertValidComposition(doc);
+    await this.assertValidComposition(doc, { lineageChanged: true });
   }
 
   protected async beforeUpdate(
@@ -146,7 +146,10 @@ export class ConfigModel extends BaseClass {
       updates.extends !== undefined ||
       updates.schema !== undefined
     ) {
-      await this.assertValidComposition(newDoc);
+      await this.assertValidComposition(newDoc, {
+        lineageChanged:
+          updates.parent !== undefined || updates.extends !== undefined,
+      });
     }
   }
 
@@ -158,26 +161,40 @@ export class ConfigModel extends BaseClass {
   //    among siblings, so it's a hard error.
   // Structural (not gated by skipSchemaValidation; it's lineage integrity, not
   // value-vs-schema conformance).
-  private async assertValidComposition(doc: ConfigInterface): Promise<void> {
+  // `lineageChanged` = this write actually changes `parent`/`extends`. The
+  // lineage-integrity checks (structural, missing/precedence, archived-base)
+  // depend only on lineage, so they're skipped on a schema-only write — notably
+  // the "base wins" descendant cascade, which rewrites a descendant's schema
+  // without touching its lineage. Re-running them there would spuriously reject a
+  // config whose base was archived out-of-band and abort an unrelated ancestor
+  // publish mid-cascade ("base became archived" is already handled by
+  // assertConfigArchivable on the base's own archive). The sibling-conflict
+  // schema check below always runs (a schema change can newly create one).
+  private async assertValidComposition(
+    doc: ConfigInterface,
+    { lineageChanged }: { lineageChanged: boolean },
+  ): Promise<void> {
     const baseKeys = getConfigBaseKeys(doc);
     if (!baseKeys.length) return;
 
-    // Structural checks against the raw fields (getConfigBaseKeys already dedups
-    // for resolution, so inspect the raw `extends` for duplicates/overlap).
     const extendsList = doc.extends ?? [];
-    if (extendsList.includes(doc.key) || doc.parent === doc.key) {
-      throw new BadRequestError("A config cannot extend itself.");
-    }
-    if (doc.parent && extendsList.includes(doc.parent)) {
-      throw new BadRequestError(
-        `"${doc.parent}" is already the parent; remove it from "extends".`,
-      );
-    }
-    const dupes = extendsList.filter((k, i) => extendsList.indexOf(k) !== i);
-    if (dupes.length) {
-      throw new BadRequestError(
-        `Duplicate "extends" entries: ${[...new Set(dupes)].join(", ")}.`,
-      );
+    if (lineageChanged) {
+      // Structural checks against the raw fields (getConfigBaseKeys already dedups
+      // for resolution, so inspect the raw `extends` for duplicates/overlap).
+      if (extendsList.includes(doc.key) || doc.parent === doc.key) {
+        throw new BadRequestError("A config cannot extend itself.");
+      }
+      if (doc.parent && extendsList.includes(doc.parent)) {
+        throw new BadRequestError(
+          `"${doc.parent}" is already the parent; remove it from "extends".`,
+        );
+      }
+      const dupes = extendsList.filter((k, i) => extendsList.indexOf(k) !== i);
+      if (dupes.length) {
+        throw new BadRequestError(
+          `Duplicate "extends" entries: ${[...new Set(dupes)].join(", ")}.`,
+        );
+      }
     }
 
     const all = await this.getAllForReconcile();
@@ -185,47 +202,49 @@ export class ConfigModel extends BaseClass {
     // Use the proposed doc (its own bases), not the stored copy.
     byKey.set(doc.key, doc);
 
-    const missing = baseKeys.filter((k) => !byKey.has(k));
-    if (missing.length) {
-      throw new BadRequestError(
-        `Unknown config(s) in lineage: ${missing.join(", ")}.`,
-      );
-    }
+    if (lineageChanged) {
+      const missing = baseKeys.filter((k) => !byKey.has(k));
+      if (missing.length) {
+        throw new BadRequestError(
+          `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+        );
+      }
 
-    // A base listed after one of its own descendants would resolve with
-    // opposite precedence in the lineage chain vs. the SDK payload.
-    const inversions = findBasePrecedenceInversions(doc, byKey);
-    if (inversions.length) {
-      const detail = inversions
-        .map(
-          (c) =>
-            `"${c.ancestor}" is an ancestor of "${c.earlier}" but is listed after it`,
-        )
-        .join("; ");
-      throw new BadRequestError(
-        `Conflicting base order: ${detail}. A base's ancestor cannot appear ` +
-          `later in the lineage — remove the redundant entry (it is already ` +
-          `inherited) or reorder "extends".`,
-      );
-    }
+      // A base listed after one of its own descendants would resolve with
+      // opposite precedence in the lineage chain vs. the SDK payload.
+      const inversions = findBasePrecedenceInversions(doc, byKey);
+      if (inversions.length) {
+        const detail = inversions
+          .map(
+            (c) =>
+              `"${c.ancestor}" is an ancestor of "${c.earlier}" but is listed after it`,
+          )
+          .join("; ");
+        throw new BadRequestError(
+          `Conflicting base order: ${detail}. A base's ancestor cannot appear ` +
+            `later in the lineage — remove the redundant entry (it is already ` +
+            `inherited) or reorder "extends".`,
+        );
+      }
 
-    // Don't let a config inherit from an archived base — neither the `parent`
-    // spine nor an `extends` mixin. An archived base is scrubbed from the SDK
-    // payload (the child would resolve as if it were absent) while still
-    // governing lineage/extensibility here, so block it on every write path
-    // (the UI also hides archived configs as candidates).
-    if (doc.parent && byKey.get(doc.parent)?.archived) {
-      throw new BadRequestError(
-        `Cannot inherit from archived parent "${doc.parent}". ` +
-          `Unarchive it or choose a different parent.`,
-      );
-    }
-    const archivedMixins = extendsList.filter((k) => byKey.get(k)?.archived);
-    if (archivedMixins.length) {
-      throw new BadRequestError(
-        `Cannot extend archived config(s): ${archivedMixins.join(", ")}. ` +
-          `Unarchive them or remove them from "extends".`,
-      );
+      // Don't let a config inherit from an archived base — neither the `parent`
+      // spine nor an `extends` mixin. An archived base is scrubbed from the SDK
+      // payload (the child would resolve as if it were absent) while still
+      // governing lineage/extensibility here, so block it on every lineage write
+      // (the UI also hides archived configs as candidates).
+      if (doc.parent && byKey.get(doc.parent)?.archived) {
+        throw new BadRequestError(
+          `Cannot inherit from archived parent "${doc.parent}". ` +
+            `Unarchive it or choose a different parent.`,
+        );
+      }
+      const archivedMixins = extendsList.filter((k) => byKey.get(k)?.archived);
+      if (archivedMixins.length) {
+        throw new BadRequestError(
+          `Cannot extend archived config(s): ${archivedMixins.join(", ")}. ` +
+            `Unarchive them or remove them from "extends".`,
+        );
+      }
     }
 
     const conflicts = findSiblingSchemaConflicts(doc, byKey);

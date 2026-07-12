@@ -23,6 +23,7 @@ import {
   getFeatureBaseConfigKey,
   ensureConfigBacking,
   stripConfigExtends,
+  getConfigBackingPatch,
   deepMergePatch,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -658,8 +659,16 @@ export function getFeatureDefinition({
         // config (keeps `@const:` refs).
         (stripConfigExtends(valueStr) ?? valueStr);
     if (sparse && jsonDefaultObj) {
-      const patch = parsePlainJSONObject(normalized);
-      if (patch !== null) {
+      const fullPatch = parsePlainJSONObject(normalized);
+      if (fullPatch !== null) {
+        // Config-backed: patch with the rule's OWN fields only (strip the config
+        // backing). Re-resolving the full `$extends`-backed value would
+        // re-materialize the config base and, via the merge below, clobber the
+        // feature default's overrides of base keys — jsonDefaultObj already
+        // carries the resolved config layer. A plain JSON feature has no backing.
+        const patch = defaultConfigKey
+          ? (parsePlainJSONObject(getConfigBackingPatch(normalized)) ?? {})
+          : fullPatch;
         // Resolve the patch's constants BEFORE merging so the rule's fields are
         // spread last and win over the (already-resolved) default — i.e. sparse
         // fields are "further down". Non-object resolutions (e.g. a whole-value
@@ -976,9 +985,12 @@ export function getFeatureDefinition({
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );
-            return variation
-              ? getJSONValue(feature.valueType, variation.value)
-              : null;
+            // Resolve like every other value emitter (the experiment-ref twin
+            // above). A bare getJSONValue would ship `$extends`/`@const:`/
+            // `@config:` refs to the SDK unresolved. Contextual-bandit-ref rules
+            // have no `sparse` flag — arms are full config-backed values — so this
+            // is a non-sparse resolve.
+            return variation ? valueForSDK(variation.value) : null;
           });
           rule.weights = cb.variationWeights
             ? pairedWeightsToPositional(cb.variationWeights, cb.variations)

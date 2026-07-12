@@ -8,7 +8,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
+import {
+  assertConfigExperimentGuard,
+  configChangeAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
@@ -183,9 +186,13 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // rewrites the config's live value like any other publish, so it must clear
   // the guard too. Other publish paths enforce it via assertPublishable, but
   // this path calls applyChanges directly (which doesn't), so enforce it here.
-  await assertConfigExperimentGuard(req.context, config, targetRevision, {
-    armed: false,
-  });
+  // Skipped for a metadata-only revert (can't rewrite a served value), matching
+  // the other publish paths.
+  if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
+    await assertConfigExperimentGuard(req.context, config, targetRevision, {
+      armed: false,
+    });
+  }
 
   // Record the merged revision FIRST, then apply; roll it back if the apply
   // fails, so a "reverted" record never lacks a live change.
