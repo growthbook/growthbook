@@ -168,89 +168,104 @@ function DigestSubSection({
       />
 
       {enabled && (
-        <Flex direction="column" gap="4" mt="4" style={{ maxWidth: 420 }}>
-          <Select
-            size="2"
-            label="Frequency"
-            value={value.frequency}
-            setValue={(v) =>
-              onChange({ ...value, frequency: v as SlackDigestFrequency })
-            }
+        <Box mt="4" style={{ maxWidth: 560 }}>
+          {/* Frequency + (day/interval) + time laid out in columns: 3 when a
+              day/interval select is present, 2 for daily. */}
+          <Grid
+            columns={{
+              initial: "1",
+              sm: value.frequency === "daily" ? "2" : "3",
+            }}
+            gapX="4"
+            gapY="4"
           >
-            {slackDigestFrequencies
-              .filter((f) => f !== "off")
-              .map((f) => (
-                <SelectItem key={f} value={f}>
-                  {FREQUENCY_LABELS[f]}
-                </SelectItem>
-              ))}
-          </Select>
-
-          {value.frequency === "weekly" && (
             <Select
               size="2"
-              label="Day of week"
-              value={`${value.dayOfWeekUtc}`}
-              setValue={(v) => onChange({ ...value, dayOfWeekUtc: Number(v) })}
+              label="Frequency"
+              value={value.frequency}
+              setValue={(v) =>
+                onChange({ ...value, frequency: v as SlackDigestFrequency })
+              }
             >
-              {DAY_OF_WEEK_LABELS.map((label, i) => (
-                <SelectItem key={i} value={`${i}`}>
-                  {label}
+              {slackDigestFrequencies
+                .filter((f) => f !== "off")
+                .map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {FREQUENCY_LABELS[f]}
+                  </SelectItem>
+                ))}
+            </Select>
+
+            {value.frequency === "weekly" && (
+              <Select
+                size="2"
+                label="Day of week"
+                value={`${value.dayOfWeekUtc}`}
+                setValue={(v) =>
+                  onChange({ ...value, dayOfWeekUtc: Number(v) })
+                }
+              >
+                {DAY_OF_WEEK_LABELS.map((label, i) => (
+                  <SelectItem key={i} value={`${i}`}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+
+            {(value.frequency === "monthly" ||
+              value.frequency === "quarterly") && (
+              <Select
+                size="2"
+                label="Day of month"
+                value={`${value.dayOfMonth}`}
+                setValue={(v) => onChange({ ...value, dayOfMonth: Number(v) })}
+              >
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <SelectItem key={d} value={`${d}`}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+
+            {value.frequency === "custom" && (
+              <Select
+                size="2"
+                label="Every"
+                value={`${value.intervalDays}`}
+                setValue={(v) =>
+                  onChange({ ...value, intervalDays: Number(v) })
+                }
+              >
+                {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+                  <SelectItem key={d} value={`${d}`}>
+                    {`${d} days`}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+
+            <Select
+              size="2"
+              label="Time (UTC)"
+              value={`${value.hourUtc}`}
+              setValue={(v) => onChange({ ...value, hourUtc: Number(v) })}
+            >
+              {HOURS.map((h) => (
+                <SelectItem key={h} value={`${h}`}>
+                  {`${h.toString().padStart(2, "0")}:00`}
                 </SelectItem>
               ))}
             </Select>
-          )}
-
-          {(value.frequency === "monthly" ||
-            value.frequency === "quarterly") && (
-            <Select
-              size="2"
-              label="Day of month"
-              value={`${value.dayOfMonth}`}
-              setValue={(v) => onChange({ ...value, dayOfMonth: Number(v) })}
-            >
-              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                <SelectItem key={d} value={`${d}`}>
-                  {d}
-                </SelectItem>
-              ))}
-            </Select>
-          )}
-
-          {value.frequency === "custom" && (
-            <Select
-              size="2"
-              label="Every"
-              value={`${value.intervalDays}`}
-              setValue={(v) => onChange({ ...value, intervalDays: Number(v) })}
-            >
-              {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
-                <SelectItem key={d} value={`${d}`}>
-                  {`${d} days`}
-                </SelectItem>
-              ))}
-            </Select>
-          )}
-
-          <Select
-            size="2"
-            label="Time (UTC)"
-            value={`${value.hourUtc}`}
-            setValue={(v) => onChange({ ...value, hourUtc: Number(v) })}
-          >
-            {HOURS.map((h) => (
-              <SelectItem key={h} value={`${h}`}>
-                {`${h.toString().padStart(2, "0")}:00`}
-              </SelectItem>
-            ))}
-          </Select>
+          </Grid>
 
           {value.frequency === "quarterly" && (
-            <Callout status="info" mb="0">
+            <Callout status="info" mb="0" mt="4">
               Delivered on your chosen day in January, April, July, and October.
             </Callout>
           )}
-        </Flex>
+        </Box>
       )}
     </Box>
   );
