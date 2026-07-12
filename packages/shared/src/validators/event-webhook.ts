@@ -49,10 +49,9 @@ export const slackDigestFrequencies = [
 ] as const;
 export type SlackDigestFrequency = (typeof slackDigestFrequencies)[number];
 
-// Frequencies whose delivery job is wired up today (in addition to "off",
-// which is always available). The UI marks the rest — monthly, quarterly,
-// custom — all deliver now. (Kept as a set so the UI can flag any future
-// not-yet-wired cadence without shipping a dead option.)
+// Frequencies whose delivery is wired up (all of them, now). Kept as a set so
+// the UI can flag any future not-yet-wired cadence without shipping a dead
+// option.
 export const SLACK_DIGEST_LIVE_FREQUENCIES = new Set<SlackDigestFrequency>([
   "daily",
   "weekly",
@@ -82,10 +81,14 @@ export const slackEventWebHookOptions = z
   .object({
     // Which results card (if any) to attach to per-event notifications.
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
-    // Unified digest schedule. Preferred over the legacy fields below.
+    // Two independent digest schedules: an experiment scorecard and a
+    // feature-flag summary. Each is off unless configured.
+    experimentDigest: slackDigestConfig.optional(),
+    featureDigest: slackDigestConfig.optional(),
+    // ---- Legacy digest fields ----
+    // `digest` was the single (experiment) digest before the split; it now maps
+    // to experimentDigest. The weekly* fields predate `digest`.
     digest: slackDigestConfig.optional(),
-    // ---- Legacy digest fields (pre-unification; still read for back-compat
-    // on installs saved before the `digest` object existed). ----
     weeklyDigestEnabled: z.boolean().optional(),
     weeklyDigestDayOfWeekUtc: z.number().int().min(0).max(6).optional(), // 0=Sun
     weeklyDigestHourUtc: z.number().int().min(0).max(23).optional(),
@@ -104,49 +107,62 @@ export interface ResolvedSlackDigest {
   intervalDays: number; // custom ("every N days")
 }
 
-// Collapse the new `digest` object and the legacy weekly*/dailyDigestHourUtc
-// fields into one effective schedule. The new object wins; otherwise we map
-// the old fields (weeklyDigestEnabled → weekly, dailyDigestHourUtc → daily).
-export const resolveSlackDigest = (
+const OFF_DIGEST: ResolvedSlackDigest = {
+  frequency: "off",
+  hourUtc: DEFAULT_SLACK_DIGEST_HOUR_UTC,
+  dayOfWeekUtc: 1,
+  dayOfMonth: 1,
+  intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
+};
+
+// Fill a stored digest config with defaults for any missing fields.
+const resolveDigestConfig = (
+  config: SlackDigestConfig | undefined,
+): ResolvedSlackDigest | null =>
+  config
+    ? {
+        frequency: config.frequency,
+        hourUtc: config.hourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
+        dayOfWeekUtc: config.dayOfWeekUtc ?? 1,
+        dayOfMonth: config.dayOfMonth ?? 1,
+        intervalDays: config.intervalDays ?? DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
+      }
+    : null;
+
+// The effective experiment scorecard schedule. Prefers the new
+// `experimentDigest`, then the legacy single `digest`, then the older
+// weeklyDigest*/dailyDigestHourUtc fields.
+export const resolveExperimentDigest = (
   options: SlackEventWebHookOptions | undefined,
   legacy?: { dailyDigestHourUtc?: number | null },
 ): ResolvedSlackDigest => {
-  const d = options?.digest;
-  if (d) {
-    return {
-      frequency: d.frequency,
-      hourUtc: d.hourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
-      dayOfWeekUtc: d.dayOfWeekUtc ?? 1,
-      dayOfMonth: d.dayOfMonth ?? 1,
-      intervalDays: d.intervalDays ?? DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
-    };
-  }
+  const fromNew =
+    resolveDigestConfig(options?.experimentDigest) ??
+    resolveDigestConfig(options?.digest);
+  if (fromNew) return fromNew;
   if (options?.weeklyDigestEnabled) {
     return {
+      ...OFF_DIGEST,
       frequency: "weekly",
       hourUtc: options.weeklyDigestHourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
       dayOfWeekUtc: options.weeklyDigestDayOfWeekUtc ?? 1,
-      dayOfMonth: 1,
-      intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
     };
   }
   if ((legacy?.dailyDigestHourUtc ?? null) !== null) {
     return {
+      ...OFF_DIGEST,
       frequency: "daily",
       hourUtc: legacy?.dailyDigestHourUtc as number,
-      dayOfWeekUtc: 1,
-      dayOfMonth: 1,
-      intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
     };
   }
-  return {
-    frequency: "off",
-    hourUtc: DEFAULT_SLACK_DIGEST_HOUR_UTC,
-    dayOfWeekUtc: 1,
-    dayOfMonth: 1,
-    intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
-  };
+  return OFF_DIGEST;
 };
+
+// The effective feature-flag summary schedule (no legacy fallbacks — it's new).
+export const resolveFeatureDigest = (
+  options: SlackEventWebHookOptions | undefined,
+): ResolvedSlackDigest =>
+  resolveDigestConfig(options?.featureDigest) ?? OFF_DIGEST;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Quarters begin in these UTC months (Jan, Apr, Jul, Oct).

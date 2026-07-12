@@ -1,0 +1,200 @@
+import { EventModel } from "back-end/src/models/EventModel";
+
+// Feature-flag digest: a text summary of flag activity over a trailing window
+// (published, reverted, safe-rollout outcomes, stale candidates, review
+// activity). Aggregated org-wide, like the experiment scorecard — the per-
+// install filters apply to live notifications, not the digest roll-up.
+
+// Digest-worthy feature events and the bucket each lands in.
+const PUBLISHED = "feature.revision.published";
+const REVERTED = "feature.revision.reverted";
+const SR_SHIP = "feature.saferollout.ship";
+const SR_ROLLBACK = "feature.saferollout.rollback";
+const SR_UNHEALTHY = "feature.saferollout.unhealthy";
+const STALE = "feature.stale.candidate";
+const REVIEW_REQUESTED = "feature.revision.reviewRequested";
+const REVIEW_APPROVED = "feature.revision.approved";
+const CHANGES_REQUESTED = "feature.revision.changesRequested";
+
+const DIGEST_EVENTS = [
+  PUBLISHED,
+  REVERTED,
+  SR_SHIP,
+  SR_ROLLBACK,
+  SR_UNHEALTHY,
+  STALE,
+  REVIEW_REQUESTED,
+  REVIEW_APPROVED,
+  CHANGES_REQUESTED,
+];
+
+const MAX_NOTABLE = 6;
+
+export interface FeatureDigestData {
+  period: string;
+  counts: {
+    published: number;
+    reverted: number;
+    safeRolloutShipped: number;
+    safeRolloutRolledBack: number;
+    safeRolloutUnhealthy: number;
+    stale: number;
+    reviewRequested: number;
+    reviewApproved: number;
+    changesRequested: number;
+  };
+  publishedFlags: string[];
+  revertedFlags: string[];
+  needsAttentionFlags: string[]; // rollback / unhealthy / changes-requested
+  total: number;
+}
+
+// Build the feature-flag digest model for an org over the trailing `windowMs`.
+// Returns null when there's no activity worth reporting.
+export async function buildFeatureDigestData(
+  organizationId: string,
+  now: Date,
+  windowMs: number,
+  period: string,
+): Promise<FeatureDigestData | null> {
+  const since = new Date(now.getTime() - windowMs);
+
+  const events = await EventModel.find({
+    organizationId,
+    object: "feature",
+    event: { $in: DIGEST_EVENTS },
+    dateCreated: { $gte: since },
+  })
+    .sort({ dateCreated: -1 })
+    .limit(1000)
+    .lean<{ event: string; objectId?: string }[]>();
+
+  if (!events.length) return null;
+
+  const counts = {
+    published: 0,
+    reverted: 0,
+    safeRolloutShipped: 0,
+    safeRolloutRolledBack: 0,
+    safeRolloutUnhealthy: 0,
+    stale: 0,
+    reviewRequested: 0,
+    reviewApproved: 0,
+    changesRequested: 0,
+  };
+  const published = new Set<string>();
+  const reverted = new Set<string>();
+  const needsAttention = new Set<string>();
+
+  for (const ev of events) {
+    const flag = ev.objectId;
+    switch (ev.event) {
+      case PUBLISHED:
+        counts.published++;
+        if (flag) published.add(flag);
+        break;
+      case REVERTED:
+        counts.reverted++;
+        if (flag) reverted.add(flag);
+        break;
+      case SR_SHIP:
+        counts.safeRolloutShipped++;
+        break;
+      case SR_ROLLBACK:
+        counts.safeRolloutRolledBack++;
+        if (flag) needsAttention.add(flag);
+        break;
+      case SR_UNHEALTHY:
+        counts.safeRolloutUnhealthy++;
+        if (flag) needsAttention.add(flag);
+        break;
+      case STALE:
+        counts.stale++;
+        break;
+      case REVIEW_REQUESTED:
+        counts.reviewRequested++;
+        break;
+      case REVIEW_APPROVED:
+        counts.reviewApproved++;
+        break;
+      case CHANGES_REQUESTED:
+        counts.changesRequested++;
+        if (flag) needsAttention.add(flag);
+        break;
+    }
+  }
+
+  return {
+    period,
+    counts,
+    publishedFlags: [...published].slice(0, MAX_NOTABLE),
+    revertedFlags: [...reverted].slice(0, MAX_NOTABLE),
+    needsAttentionFlags: [...needsAttention].slice(0, MAX_NOTABLE),
+    total: events.length,
+  };
+}
+
+type SlackBlock = Record<string, unknown>;
+export interface SlackDigestMessage {
+  text: string;
+  blocks: SlackBlock[];
+}
+
+const flagList = (flags: string[]): string =>
+  flags.map((f) => `\`${f}\``).join(", ");
+
+// Render the feature digest as a plain Slack message (mrkdwn blocks) — a
+// change-log, distinct from the experiment scorecard image.
+export function buildFeatureDigestMessage(
+  data: FeatureDigestData,
+): SlackDigestMessage {
+  const c = data.counts;
+  const summaryParts: string[] = [];
+  if (c.published) summaryParts.push(`*${c.published}* published`);
+  if (c.reverted) summaryParts.push(`*${c.reverted}* reverted`);
+  const srTotal =
+    c.safeRolloutShipped + c.safeRolloutRolledBack + c.safeRolloutUnhealthy;
+  if (srTotal) summaryParts.push(`*${srTotal}* safe-rollout updates`);
+  if (c.reviewRequested) summaryParts.push(`*${c.reviewRequested}* to review`);
+  if (c.stale) summaryParts.push(`*${c.stale}* stale`);
+
+  const lines: string[] = [];
+  if (data.publishedFlags.length) {
+    lines.push(`:rocket: *Published:* ${flagList(data.publishedFlags)}`);
+  }
+  if (data.revertedFlags.length) {
+    lines.push(`:rewind: *Reverted:* ${flagList(data.revertedFlags)}`);
+  }
+  if (data.needsAttentionFlags.length) {
+    lines.push(
+      `:warning: *Needs attention:* ${flagList(data.needsAttentionFlags)}`,
+    );
+  }
+  if (c.reviewRequested || c.reviewApproved || c.changesRequested) {
+    lines.push(
+      `:eyes: *Reviews:* ${c.reviewRequested} requested · ${c.reviewApproved} approved · ${c.changesRequested} changes requested`,
+    );
+  }
+
+  const headerText = `Feature flag digest · ${data.period}`;
+  const blocks: SlackBlock[] = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: headerText, emoji: true },
+    },
+  ];
+  if (summaryParts.length) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: summaryParts.join("  ·  ") },
+    });
+  }
+  if (lines.length) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: lines.join("\n") },
+    });
+  }
+
+  return { text: headerText, blocks };
+}

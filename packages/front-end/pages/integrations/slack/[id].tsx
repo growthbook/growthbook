@@ -8,11 +8,13 @@ import {
   defaultSlackOptionIds,
   isEventWebhookWildcard,
   slackDigestFrequencies,
-  resolveSlackDigest,
+  resolveExperimentDigest,
+  resolveFeatureDigest,
   experimentCardFormats,
   DEFAULT_SLACK_DIGEST_HOUR_UTC,
   DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
   type SlackDigestFrequency,
+  type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
@@ -114,6 +116,134 @@ const groupsForCategory = (category: SlackEventCategory): string[] => {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
+const OFF_DIGEST_STATE: ResolvedSlackDigest = {
+  frequency: "off",
+  hourUtc: DEFAULT_SLACK_DIGEST_HOUR_UTC,
+  dayOfWeekUtc: 1,
+  dayOfMonth: 1,
+  intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
+};
+
+// One digest's enable toggle + cadence/time controls. Reused for the experiment
+// scorecard and the feature-flag summary.
+function DigestSection({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: ResolvedSlackDigest;
+  onChange: (next: ResolvedSlackDigest) => void;
+}) {
+  const enabled = value.frequency !== "off";
+  return (
+    <Frame>
+      <Heading as="h2" size="small" mb="1">
+        {title}
+      </Heading>
+      <Text as="p" color="text-mid" mb="4">
+        {description}
+      </Text>
+
+      <Switch
+        label="Send this digest"
+        value={enabled}
+        onChange={(v) =>
+          onChange({ ...value, frequency: v ? "weekly" : "off" })
+        }
+      />
+
+      {enabled && (
+        <Flex direction="column" gap="4" mt="4" style={{ maxWidth: 420 }}>
+          <Select
+            size="2"
+            label="Frequency"
+            value={value.frequency}
+            setValue={(v) =>
+              onChange({ ...value, frequency: v as SlackDigestFrequency })
+            }
+          >
+            {slackDigestFrequencies
+              .filter((f) => f !== "off")
+              .map((f) => (
+                <SelectItem key={f} value={f}>
+                  {FREQUENCY_LABELS[f]}
+                </SelectItem>
+              ))}
+          </Select>
+
+          {value.frequency === "weekly" && (
+            <Select
+              size="2"
+              label="Day of week"
+              value={`${value.dayOfWeekUtc}`}
+              setValue={(v) => onChange({ ...value, dayOfWeekUtc: Number(v) })}
+            >
+              {DAY_OF_WEEK_LABELS.map((label, i) => (
+                <SelectItem key={i} value={`${i}`}>
+                  {label}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+
+          {(value.frequency === "monthly" ||
+            value.frequency === "quarterly") && (
+            <Select
+              size="2"
+              label="Day of month"
+              value={`${value.dayOfMonth}`}
+              setValue={(v) => onChange({ ...value, dayOfMonth: Number(v) })}
+            >
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                <SelectItem key={d} value={`${d}`}>
+                  {d}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+
+          {value.frequency === "custom" && (
+            <Select
+              size="2"
+              label="Every"
+              value={`${value.intervalDays}`}
+              setValue={(v) => onChange({ ...value, intervalDays: Number(v) })}
+            >
+              {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
+                <SelectItem key={d} value={`${d}`}>
+                  {`${d} days`}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+
+          <Select
+            size="2"
+            label="Time (UTC)"
+            value={`${value.hourUtc}`}
+            setValue={(v) => onChange({ ...value, hourUtc: Number(v) })}
+          >
+            {HOURS.map((h) => (
+              <SelectItem key={h} value={`${h}`}>
+                {`${h.toString().padStart(2, "0")}:00`}
+              </SelectItem>
+            ))}
+          </Select>
+
+          {value.frequency === "quarterly" && (
+            <Callout status="info" mb="0">
+              Delivered on your chosen day in January, April, July, and October.
+            </Callout>
+          )}
+        </Flex>
+      )}
+    </Frame>
+  );
+}
+
 const parseCsvList = (value: string): string[] =>
   value
     .split(",")
@@ -143,13 +273,10 @@ const SlackIntegrationDetailPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cardFormat, setCardFormat] =
     useState<(typeof experimentCardFormats)[number]>("compact");
-  const [frequency, setFrequency] = useState<SlackDigestFrequency>("off");
-  const [hourUtc, setHourUtc] = useState(DEFAULT_SLACK_DIGEST_HOUR_UTC);
-  const [dayOfWeekUtc, setDayOfWeekUtc] = useState(1);
-  const [dayOfMonth, setDayOfMonth] = useState(1);
-  const [intervalDays, setIntervalDays] = useState(
-    DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
-  );
+  const [experimentDigest, setExperimentDigest] =
+    useState<ResolvedSlackDigest>(OFF_DIGEST_STATE);
+  const [featureDigest, setFeatureDigest] =
+    useState<ResolvedSlackDigest>(OFF_DIGEST_STATE);
   const [showAdvanced, setShowAdvanced] = useState<Set<SlackEventCategory>>(
     new Set(),
   );
@@ -179,14 +306,12 @@ const SlackIntegrationDetailPage = () => {
         : selectedSlackOptionIds(integration.events),
     );
     setCardFormat(integration.slackOptions?.experimentCardFormat ?? "compact");
-    const digest = resolveSlackDigest(integration.slackOptions, {
-      dailyDigestHourUtc: integration.dailyDigestHourUtc,
-    });
-    setFrequency(digest.frequency);
-    setHourUtc(digest.hourUtc);
-    setDayOfWeekUtc(digest.dayOfWeekUtc);
-    setDayOfMonth(digest.dayOfMonth);
-    setIntervalDays(digest.intervalDays);
+    setExperimentDigest(
+      resolveExperimentDigest(integration.slackOptions, {
+        dailyDigestHourUtc: integration.dailyDigestHourUtc,
+      }),
+    );
+    setFeatureDigest(resolveFeatureDigest(integration.slackOptions));
     setFilterProjects(integration.projects || []);
     setFilterEnvironments(integration.environments || []);
     setFilterTags(integration.tags || []);
@@ -274,17 +399,21 @@ const SlackIntegrationDetailPage = () => {
         return;
       }
 
-      const digest =
-        frequency === "off"
-          ? { frequency }
+      const digestConfig = (d: ResolvedSlackDigest) =>
+        d.frequency === "off"
+          ? { frequency: d.frequency }
           : {
-              frequency,
-              hourUtc,
-              ...(frequency === "weekly" ? { dayOfWeekUtc } : {}),
-              ...(frequency === "monthly" || frequency === "quarterly"
-                ? { dayOfMonth }
+              frequency: d.frequency,
+              hourUtc: d.hourUtc,
+              ...(d.frequency === "weekly"
+                ? { dayOfWeekUtc: d.dayOfWeekUtc }
                 : {}),
-              ...(frequency === "custom" ? { intervalDays } : {}),
+              ...(d.frequency === "monthly" || d.frequency === "quarterly"
+                ? { dayOfMonth: d.dayOfMonth }
+                : {}),
+              ...(d.frequency === "custom"
+                ? { intervalDays: d.intervalDays }
+                : {}),
             };
 
       await apiCall(`/event-webhooks/${integration.eventWebHookId}`, {
@@ -298,7 +427,8 @@ const SlackIntegrationDetailPage = () => {
           metrics: filterMetrics,
           slackOptions: {
             experimentCardFormat: cardFormat,
-            digest,
+            experimentDigest: digestConfig(experimentDigest),
+            featureDigest: digestConfig(featureDigest),
           },
         }),
       });
@@ -558,124 +688,26 @@ const SlackIntegrationDetailPage = () => {
           </Box>
         </Frame>
 
-        {/* Digest */}
-        <Frame>
-          <Heading as="h2" size="small" mb="1">
-            Digest
-          </Heading>
-          <Text as="p" color="text-mid" mb="4">
-            A rolled-up summary on a schedule. Daily is a text recap; weekly and
-            longer are the experimentation scorecard over that period.
-          </Text>
+        {/* Digests */}
+        <DigestSection
+          title="Experiment scorecard digest"
+          description="A rendered scorecard image summarizing experiment activity over the period (running, significant, shipped, rolled back, biggest win)."
+          value={experimentDigest}
+          onChange={(next) => {
+            setExperimentDigest(next);
+            setSaved(false);
+          }}
+        />
 
-          <Switch
-            label="Send a scheduled digest"
-            value={frequency !== "off"}
-            onChange={(v) => {
-              setFrequency(v ? "weekly" : "off");
-              setSaved(false);
-            }}
-          />
-
-          {frequency !== "off" && (
-            <Flex direction="column" gap="4" mt="4" style={{ maxWidth: 420 }}>
-              <Select
-                size="2"
-                label="Frequency"
-                value={frequency}
-                setValue={(v) => {
-                  setFrequency(v as SlackDigestFrequency);
-                  setSaved(false);
-                }}
-              >
-                {slackDigestFrequencies
-                  .filter((f) => f !== "off")
-                  .map((f) => (
-                    <SelectItem key={f} value={f}>
-                      {FREQUENCY_LABELS[f]}
-                    </SelectItem>
-                  ))}
-              </Select>
-
-              {frequency === "weekly" && (
-                <Select
-                  size="2"
-                  label="Day of week"
-                  value={`${dayOfWeekUtc}`}
-                  setValue={(v) => {
-                    setDayOfWeekUtc(Number(v));
-                    setSaved(false);
-                  }}
-                >
-                  {DAY_OF_WEEK_LABELS.map((label, i) => (
-                    <SelectItem key={i} value={`${i}`}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-
-              {(frequency === "monthly" || frequency === "quarterly") && (
-                <Select
-                  size="2"
-                  label="Day of month"
-                  value={`${dayOfMonth}`}
-                  setValue={(v) => {
-                    setDayOfMonth(Number(v));
-                    setSaved(false);
-                  }}
-                >
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                    <SelectItem key={d} value={`${d}`}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-
-              {frequency === "custom" && (
-                <Select
-                  size="2"
-                  label="Every"
-                  value={`${intervalDays}`}
-                  setValue={(v) => {
-                    setIntervalDays(Number(v));
-                    setSaved(false);
-                  }}
-                >
-                  {[2, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90].map((d) => (
-                    <SelectItem key={d} value={`${d}`}>
-                      {`${d} days`}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-
-              <Select
-                size="2"
-                label="Time (UTC)"
-                value={`${hourUtc}`}
-                setValue={(v) => {
-                  setHourUtc(Number(v));
-                  setSaved(false);
-                }}
-              >
-                {HOURS.map((h) => (
-                  <SelectItem key={h} value={`${h}`}>
-                    {`${h.toString().padStart(2, "0")}:00`}
-                  </SelectItem>
-                ))}
-              </Select>
-
-              {frequency === "quarterly" && (
-                <Callout status="info" mb="0">
-                  Delivered on your chosen day in January, April, July, and
-                  October.
-                </Callout>
-              )}
-            </Flex>
-          )}
-        </Frame>
+        <DigestSection
+          title="Feature-flag digest"
+          description="A text summary of flag activity over the period — versions published/reverted, safe-rollout outcomes, stale candidates, and review activity."
+          value={featureDigest}
+          onChange={(next) => {
+            setFeatureDigest(next);
+            setSaved(false);
+          }}
+        />
 
         {/* Filters */}
         <Frame>

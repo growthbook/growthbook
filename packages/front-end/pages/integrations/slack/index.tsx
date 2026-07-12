@@ -14,7 +14,8 @@ import {
   SlackEventCategory,
   selectedSlackOptionIds,
   isSlackSubscriptionCustomized,
-  resolveSlackDigest,
+  resolveExperimentDigest,
+  resolveFeatureDigest,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
@@ -58,14 +59,6 @@ const getSlackWorkspaceLabel = (i: SlackOAuthIntegrationInterface) =>
 const CATEGORY_LABELS: Record<SlackEventCategory, string> = {
   experiment: "Experiments",
   feature: "Feature flags",
-};
-
-const DIGEST_BADGE_LABELS: Record<string, string> = {
-  daily: "Daily digest",
-  weekly: "Weekly digest",
-  monthly: "Monthly digest",
-  quarterly: "Quarterly digest",
-  custom: "Custom digest",
 };
 
 // Which notification categories are on, for the compact list summary.
@@ -432,12 +425,13 @@ const SlackIntegrationsPage: NextPage = () => {
                     const customized = isSlackSubscriptionCustomized(
                       slackIntegration.events,
                     );
-                    const digest = resolveSlackDigest(
-                      slackIntegration.slackOptions,
-                      {
+                    const experimentDigestOn =
+                      resolveExperimentDigest(slackIntegration.slackOptions, {
                         dailyDigestHourUtc: slackIntegration.dailyDigestHourUtc,
-                      },
-                    );
+                      }).frequency !== "off";
+                    const featureDigestOn =
+                      resolveFeatureDigest(slackIntegration.slackOptions)
+                        .frequency !== "off";
                     return (
                       <TableRow key={slackIntegration.id}>
                         <TableCell>
@@ -475,12 +469,16 @@ const SlackIntegrationsPage: NextPage = () => {
                                 title="Event list differs from the recommended defaults"
                               />
                             )}
-                            {digest.frequency !== "off" && (
+                            {experimentDigestOn && (
                               <Badge
-                                label={
-                                  DIGEST_BADGE_LABELS[digest.frequency] ||
-                                  "Digest"
-                                }
+                                label="Experiment digest"
+                                color="violet"
+                                variant="soft"
+                              />
+                            )}
+                            {featureDigestOn && (
+                              <Badge
+                                label="Feature digest"
                                 color="violet"
                                 variant="soft"
                               />
