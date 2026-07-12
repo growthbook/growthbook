@@ -1837,6 +1837,32 @@ function compactHero(
           letterSpacing: "-0.02em",
         }),
   ];
+  // Confidence for the winning/decided variation (chance to beat control).
+  if (outcomeRow?.ctw) {
+    heroChildren.push(
+      el(
+        "div",
+        {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "baseline",
+          gap: 7,
+        },
+        [
+          txt(
+            outcomeRow.ctw,
+            { fontSize: 16, fontWeight: 600, color: ctwColor(outcomeRow.ctw) },
+            true,
+          ),
+          txt("chance to beat control", {
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: P.subtle,
+          }),
+        ],
+      ),
+    );
+  }
   if (line) {
     heroChildren.push(
       el(
