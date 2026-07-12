@@ -1,5 +1,6 @@
 import { ConfigInterface } from "shared/types/config";
 import { Revision, normalizeProposedChanges } from "shared/enterprise";
+import { getConfigSubtree } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ConfigKeyImplementation,
@@ -24,13 +25,17 @@ import { logger } from "back-end/src/util/logger";
 
 // The config keys in the conflict set: configs affected by publishing this config
 // (itself or a descendant, via base-wins inheritance) whose LIVE value backs a
-// running experiment's variation arm. Ancestors and lateral mixins are excluded —
-// publishing this config doesn't change their value.
+// running experiment's variation arm AND that have the guard enabled. Guarding is
+// a property of the SERVED config, not the edited one — so publishing an unguarded
+// ancestor still conflicts when a guarded descendant it feeds serves a running
+// experiment. Ancestors and lateral mixins are excluded — publishing this config
+// doesn't change their value.
 export function computeExperimentGuardConflictKeys(
   implementations: Pick<
     ConfigKeyImplementation,
     "configKey" | "relation" | "experimentStatus" | "state"
   >[],
+  guardedConfigKeys: Set<string>,
 ): Set<string> {
   const keys = new Set<string>();
   for (const impl of implementations) {
@@ -38,9 +43,10 @@ export function computeExperimentGuardConflictKeys(
     // referencing the config isn't serving anything yet.
     if (impl.experimentStatus !== "running") continue;
     if (impl.state !== "live") continue;
-    if (impl.relation === "self" || impl.relation === "descendant") {
-      keys.add(impl.configKey);
-    }
+    if (impl.relation !== "self" && impl.relation !== "descendant") continue;
+    // Only when the config actually serving the value opted into the guard.
+    if (!guardedConfigKeys.has(impl.configKey)) continue;
+    keys.add(impl.configKey);
   }
   return keys;
 }
@@ -147,21 +153,38 @@ export function decideExperimentGuard({
 
 // ── Service layer (I/O) ─────────────────────────────────────────────────────
 
-// The live conflict set for publishing this config. Empty when the guard is off
-// or no running experiment is currently served by an affected config key.
+// The live conflict set for publishing this config. Empty when no guarded config
+// in this config's subtree is currently serving a running experiment.
 export async function evaluateConfigExperimentGuardConflicts(
   context: Context,
   config: ConfigInterface,
 ): Promise<Set<string>> {
-  if (!config.experimentGuard) return new Set();
   // Scan usage with an org-wide (unfiltered) context: the guard must see a
   // running experiment served by a config-backed feature in ANY project — even
   // one the acting user can't read — or it silently finds no conflict and the
   // publish rewrites that experiment's live arm. (The UI usage table keeps the
   // request context; only this guard path needs global coverage.)
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
+
+  // Publishing this config rewrites the resolved value of every config in its
+  // subtree (itself + descendants, base-wins), so the relevant guard flags are
+  // the subtree's — NOT just this config's. A guarded descendant fed by an
+  // unguarded ancestor must still be protected. Nothing guarded in the subtree →
+  // nothing to enforce (cheap out before the heavier usage scan).
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+  const guardedConfigKeys = new Set(
+    getConfigSubtree(config.key, allConfigs).filter(
+      (k) => byKey.get(k)?.experimentGuard,
+    ),
+  );
+  if (guardedConfigKeys.size === 0) return new Set<string>();
+
   const impl = await getConfigKeyImplementations(scanContext, config.id);
-  return computeExperimentGuardConflictKeys(impl?.implementations ?? []);
+  return computeExperimentGuardConflictKeys(
+    impl?.implementations ?? [],
+    guardedConfigKeys,
+  );
 }
 
 // The acknowledged fingerprint captured on this revision at arm time, if any.
@@ -183,8 +206,9 @@ export async function assertConfigExperimentGuard(
   revision: Pick<Revision, "experimentGuardAcknowledgedKeys">,
   { armed }: { armed: boolean },
 ): Promise<void> {
-  if (!config.experimentGuard) return;
-
+  // No early-out on `config.experimentGuard`: the conflict evaluation gates on
+  // the whole subtree's guard flags, so publishing an unguarded config that
+  // feeds a guarded descendant is still enforced.
   const conflictKeys = await evaluateConfigExperimentGuardConflicts(
     context,
     config,
@@ -247,7 +271,9 @@ export async function captureConfigExperimentGuardAcknowledgment(
   config: ConfigInterface,
   proposedChanges?: unknown,
 ): Promise<string[] | undefined> {
-  if (!config.experimentGuard) return undefined;
+  // A metadata-only revision can't rewrite a served value (matches the merge
+  // gate). Otherwise fall through — the conflict evaluation gates on the whole
+  // subtree's guard flags, not this config's own.
   if (
     proposedChanges !== undefined &&
     !configRevisionAffectsServedValue(proposedChanges)

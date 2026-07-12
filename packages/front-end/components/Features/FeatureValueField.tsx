@@ -115,6 +115,10 @@ export interface Props {
   // Rule mode: require a config (no "None" option) — a rule on a config-backed
   // feature always serves the default's config or a compatible child.
   lockConfigBacking?: boolean;
+  // The default-value editor (not a rule). Only the default value carries the
+  // notion of an "original" backing config, so drift warnings (switching away
+  // from or clearing that config) are shown only here.
+  isDefaultValueEditor?: boolean;
 }
 
 export default function FeatureValueField({
@@ -143,6 +147,7 @@ export default function FeatureValueField({
   configBackingOptionKeys,
   configBackingShowPatch = false,
   lockConfigBacking = false,
+  isDefaultValueEditor = false,
 }: Props) {
   // Inline mode also suppresses the copy button.
   const copyHidden = hideCopyButton || inlineConstantButton;
@@ -420,8 +425,9 @@ export default function FeatureValueField({
       // Once a default value is linked to a config, warn/error when the choice
       // drifts: removing it or switching to an unrelated lineage is an error;
       // switching within the same lineage is a (non-blocking) warning. Only the
-      // default value carries this notion of an "original" config (rules are
-      // locked to the default's subtree).
+      // default-value editor carries this notion of an "original" config (rules
+      // are locked to the default's subtree), so it's gated on that, not on
+      // whether the patch editor is shown.
       const configByKey = new Map(configs.map((c) => [c.key, c]));
       const rootOf = (key: string): string => {
         let cur = key;
@@ -446,7 +452,7 @@ export default function FeatureValueField({
       } | null = null;
       if (
         originalConfigKey &&
-        !configBackingShowPatch &&
+        isDefaultValueEditor &&
         configKey !== originalConfigKey
       ) {
         if (configKey === null) {

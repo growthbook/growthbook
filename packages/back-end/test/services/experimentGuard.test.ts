@@ -16,36 +16,60 @@ const impl = (over: Partial<Impl>): Impl => ({
 
 describe("computeExperimentGuardConflictKeys", () => {
   it("collects self + descendant configs backing a running live arm", () => {
-    const keys = computeExperimentGuardConflictKeys([
-      impl({ configKey: "base", relation: "self" }),
-      impl({ configKey: "mobile", relation: "descendant" }),
-    ]);
+    const keys = computeExperimentGuardConflictKeys(
+      [
+        impl({ configKey: "base", relation: "self" }),
+        impl({ configKey: "mobile", relation: "descendant" }),
+      ],
+      new Set(["base", "mobile"]),
+    );
     expect([...keys].sort()).toEqual(["base", "mobile"]);
   });
 
+  it("only counts a served config that itself opts into the guard", () => {
+    // Publishing an unguarded config still conflicts with a guarded descendant
+    // it feeds (mobile), but not an unguarded one (web) — guarding is a property
+    // of the served config, not the published one.
+    const keys = computeExperimentGuardConflictKeys(
+      [
+        impl({ configKey: "base", relation: "self" }),
+        impl({ configKey: "mobile", relation: "descendant" }),
+        impl({ configKey: "web", relation: "descendant" }),
+      ],
+      new Set(["mobile"]),
+    );
+    expect([...keys]).toEqual(["mobile"]);
+  });
+
   it("excludes ancestors and lateral mixins (publish doesn't change them)", () => {
-    const keys = computeExperimentGuardConflictKeys([
-      impl({ configKey: "parent", relation: "ancestor" }),
-      impl({ configKey: "sibling", relation: "other" }),
-    ]);
+    const keys = computeExperimentGuardConflictKeys(
+      [
+        impl({ configKey: "parent", relation: "ancestor" }),
+        impl({ configKey: "sibling", relation: "other" }),
+      ],
+      new Set(["parent", "sibling"]),
+    );
     expect(keys.size).toBe(0);
   });
 
   it("ignores non-running experiments and non-live (draft) arms", () => {
-    const keys = computeExperimentGuardConflictKeys([
-      impl({ configKey: "a", experimentStatus: "stopped" }),
-      impl({ configKey: "b", experimentStatus: "draft" }),
-      impl({ configKey: "c", experimentStatus: undefined }),
-      impl({ configKey: "d", state: "draft" }),
-    ]);
+    const keys = computeExperimentGuardConflictKeys(
+      [
+        impl({ configKey: "a", experimentStatus: "stopped" }),
+        impl({ configKey: "b", experimentStatus: "draft" }),
+        impl({ configKey: "c", experimentStatus: undefined }),
+        impl({ configKey: "d", state: "draft" }),
+      ],
+      new Set(["a", "b", "c", "d"]),
+    );
     expect(keys.size).toBe(0);
   });
 
   it("dedupes a config referenced by multiple running arms", () => {
-    const keys = computeExperimentGuardConflictKeys([
-      impl({ configKey: "base" }),
-      impl({ configKey: "base" }),
-    ]);
+    const keys = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base" }), impl({ configKey: "base" })],
+      new Set(["base"]),
+    );
     expect([...keys]).toEqual(["base"]);
   });
 });

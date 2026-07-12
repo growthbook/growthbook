@@ -150,6 +150,7 @@ export default function EditDefaultValueModal({
         configBackingOptionKeys={configBackingOptionKeys}
         configBackingShowPatch={isConfigBacked}
         lockConfigBacking={isConfigBacked}
+        isDefaultValueEditor={true}
       />
     </ModalStandard>
   );
