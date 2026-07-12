@@ -877,29 +877,39 @@ const SlackIntegrationDetailPage = () => {
             The image posted for experiment results (started, significance,
             won/lost, stopped, health).
           </Text>
-          <Box style={{ maxWidth: 320 }}>
-            <Select
-              size="2"
-              label="Card style"
-              value={cardFormat}
-              setValue={(v) =>
-                setCardFormat(v as (typeof experimentCardFormats)[number])
-              }
-            >
-              {experimentCardFormats.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {CARD_FORMAT_LABELS[f]}
-                </SelectItem>
-              ))}
-            </Select>
-          </Box>
+          {/* Card style on the left, live preview on the right; wraps to
+              stacked only when the container is too narrow. */}
+          <Flex gap="5" align="start" wrap="wrap">
+            <Box style={{ flex: "0 1 260px", minWidth: 220 }}>
+              <Select
+                size="2"
+                label="Card style"
+                value={cardFormat}
+                setValue={(v) =>
+                  setCardFormat(v as (typeof experimentCardFormats)[number])
+                }
+              >
+                {experimentCardFormats.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {CARD_FORMAT_LABELS[f]}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Box>
 
-          <Box mt="4">
-            <Text size="small" weight="medium" color="text-mid" as="div" mb="2">
-              Preview
-            </Text>
-            <CardPreview style={cardFormat} />
-          </Box>
+            <Box style={{ flex: "1 1 360px", minWidth: 0 }}>
+              <Text
+                size="small"
+                weight="medium"
+                color="text-mid"
+                as="div"
+                mb="2"
+              >
+                Preview
+              </Text>
+              <CardPreview style={cardFormat} />
+            </Box>
+          </Flex>
         </Frame>
 
         {/* Sticky action bar so Save stays reachable while scrolling. */}

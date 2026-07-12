@@ -1786,7 +1786,8 @@ function compactHero(
         display: "flex",
         flexDirection: "row",
         alignItems: "baseline",
-        gap: 12,
+        gap: 10,
+        flexWrap: "wrap",
       },
       [
         txt(word, {
@@ -1795,26 +1796,24 @@ function compactHero(
           color: accentText,
           letterSpacing: "-0.02em",
         }),
+        // Goal metric first, then the change value.
+        txt(exp.goal, { fontSize: 13, fontWeight: 500, color: P.subtle }),
         r?.chg && r.dir
           ? el(
               "div",
               {
                 display: "flex",
                 flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
+                alignItems: "baseline",
+                gap: 4,
               },
               [
-                arrowImg(r.dir, dirColor, 11),
-                txt(
-                  r.chg,
-                  { fontSize: 16, fontWeight: 600, color: dirColor },
-                  true,
-                ),
+                arrowImg(r.dir, dirColor, 12),
+                // Non-mono so the digits/decimal don't read spaced out.
+                txt(r.chg, { fontSize: 18, fontWeight: 600, color: dirColor }),
               ],
             )
           : null,
-        txt(exp.goal, { fontSize: 12.5, fontWeight: 500, color: P.subtle }),
       ].filter(Boolean) as El[],
     ),
   ];
