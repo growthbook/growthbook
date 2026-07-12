@@ -21,10 +21,15 @@ export default function ForceSummary({
   // config with no overrides, so the "with overrides" tag never applies to it.
   isDefault?: boolean;
 }) {
-  // A config-backed feature's values always serve a config: an explicit ref on
-  // this value, else the feature default's config (the base it overrides).
+  // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
+  // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
+  // flag's value is stripped at serve time, so it must not be previewed as
+  // backed. When backed, honor this value's own config ref, else the base.
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
-    getConfigBackingKey(value) ?? getFeatureBaseConfigKey(feature);
+    baseConfigKey !== null
+      ? (getConfigBackingKey(value) ?? baseConfigKey)
+      : null;
   if (configKey !== null) {
     return (
       <ConfigBackedSummary

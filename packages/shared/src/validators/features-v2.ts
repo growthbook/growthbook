@@ -80,15 +80,14 @@ const apiBaseConfigField = z
   )
   .optional();
 
-// Optional per-default extension: a config within `baseConfig`'s family that the
-// DEFAULT value patches instead of `baseConfig` directly. Omit/null = the default
-// patches `baseConfig`. Rules/variations carry their own `config` for the same
-// purpose.
+// Selects which config the DEFAULT value resolves to: a config within
+// `baseConfig`'s family, else `baseConfig` itself. The default is exactly that
+// config with no overrides of its own (unlike rules, which patch their config).
 const apiDefaultValueConfigField = z
   .string()
   .nullable()
   .describe(
-    "Optional. A config within `baseConfig`'s family that the default value patches instead of `baseConfig` itself. null or omitted means the default patches `baseConfig` directly.",
+    "Optional. A config within `baseConfig`'s family that the default value resolves to instead of `baseConfig` itself. null or omitted means the default is `baseConfig`. The default is exactly this config and carries no overrides of its own.",
   )
   .optional();
 
@@ -578,7 +577,7 @@ export const postFeatureBodyV2 = z
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) this is the JSON override patch merged on top of the config.",
+        'Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
       ),
     baseConfig: apiBaseConfigField,
     defaultValueConfig: apiDefaultValueConfigField,
@@ -713,9 +712,9 @@ export const postFeatureV2Validator = {
   description:
     "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
     "### Config-backed features (Config mode)\n\n" +
-    'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
+    'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
     '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
-    "- **Default value:** `defaultValue` is the override patch on `baseConfig`. To make the default patch a *descendant* of `baseConfig` instead, set `defaultValueConfig` to that descendant's key (it must be within `baseConfig`'s family); omit/null to patch `baseConfig` directly.\n" +
+    "- **Default value:** unlike rules, the default is exactly a config with no overrides of its own — send `defaultValue: \"{}\"` to use `baseConfig`. To resolve the default to a *descendant* of `baseConfig` instead, set `defaultValueConfig` to that descendant's key (it must be within `baseConfig`'s family); omit/null to use `baseConfig` directly.\n" +
     "- **Rules & experiment variations:** each carries its own `config` field naming the family config that value patches (omit/null to patch the base). `value` is the override patch.\n\n" +
     "Example:\n\n" +
     "```json\n" +
@@ -723,7 +722,7 @@ export const postFeatureV2Validator = {
     '  "id": "checkout-config",\n' +
     '  "valueType": "json",\n' +
     '  "baseConfig": "purchase-flow",\n' +
-    '  "defaultValue": "{\\"maxItems\\": 5}",\n' +
+    '  "defaultValue": "{}",\n' +
     '  "rules": [\n' +
     '    { "type": "force", "config": "purchase-flow-vip", "value": "{\\"maxItems\\": 20}", "allEnvironments": true }\n' +
     "  ]\n" +

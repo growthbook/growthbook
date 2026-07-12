@@ -6039,21 +6039,24 @@ paths:
 
 
         A JSON feature can be backed by a shared **config** — the config
-        supplies the base JSON value and schema, and the feature's values become
-        override *patches* merged on top (nested objects deep-merge; arrays and
-        scalars replace). Config backing is set exclusively through dedicated
-        fields — never a raw `$extends: ["@config:…"]` inside a value string
-        (that is rejected). `@const:` references inside values still work.
+        supplies the base JSON value and schema, and the feature's *rule* values
+        become override *patches* merged on top (nested objects deep-merge;
+        arrays and scalars replace). The default value is exactly a config with
+        no overrides (see below). Config backing is set exclusively through
+        dedicated fields — never a raw `$extends: ["@config:…"]` inside a value
+        string (that is rejected). `@const:` references inside values still
+        work.
 
 
         - **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig:
         "<configKey>"` to put the flag in Config mode. The config must be live.
         This is the family root and the base the default value patches.
 
-        - **Default value:** `defaultValue` is the override patch on
-        `baseConfig`. To make the default patch a *descendant* of `baseConfig`
-        instead, set `defaultValueConfig` to that descendant's key (it must be
-        within `baseConfig`'s family); omit/null to patch `baseConfig` directly.
+        - **Default value:** unlike rules, the default is exactly a config with
+        no overrides of its own — send `defaultValue: "{}"` to use `baseConfig`.
+        To resolve the default to a *descendant* of `baseConfig` instead, set
+        `defaultValueConfig` to that descendant's key (it must be within
+        `baseConfig`'s family); omit/null to use `baseConfig` directly.
 
         - **Rules & experiment variations:** each carries its own `config` field
         naming the family config that value patches (omit/null to patch the
@@ -6069,7 +6072,7 @@ paths:
           "id": "checkout-config",
           "valueType": "json",
           "baseConfig": "purchase-flow",
-          "defaultValue": "{\"maxItems\": 5}",
+          "defaultValue": "{}",
           "rules": [
             { "type": "force", "config": "purchase-flow-vip", "value": "{\"maxItems\": 20}", "allEnvironments": true }
           ]
@@ -6126,8 +6129,10 @@ paths:
                 defaultValue:
                   description: >-
                     Default value when feature is enabled. Type must match
-                    `valueType`. In Config mode (`baseConfig` set) this is the
-                    JSON override patch merged on top of the config.
+                    `valueType`. In Config mode (`baseConfig` set) the default
+                    must be exactly a config with no overrides: send `"{}"` to
+                    use `baseConfig`, or set `defaultValueConfig` to point at a
+                    descendant.
                   type: string
                 baseConfig:
                   description: >-
@@ -6142,8 +6147,10 @@ paths:
                 defaultValueConfig:
                   description: >-
                     Optional. A config within `baseConfig`'s family that the
-                    default value patches instead of `baseConfig` itself. null
-                    or omitted means the default patches `baseConfig` directly.
+                    default value resolves to instead of `baseConfig` itself.
+                    null or omitted means the default is `baseConfig`. The
+                    default is exactly this config and carries no overrides of
+                    its own.
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -6727,8 +6734,10 @@ paths:
                 defaultValueConfig:
                   description: >-
                     Optional. A config within `baseConfig`'s family that the
-                    default value patches instead of `baseConfig` itself. null
-                    or omitted means the default patches `baseConfig` directly.
+                    default value resolves to instead of `baseConfig` itself.
+                    null or omitted means the default is `baseConfig`. The
+                    default is exactly this config and carries no overrides of
+                    its own.
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -8196,15 +8205,19 @@ paths:
               type: object
               properties:
                 defaultValue:
+                  description: >-
+                    New default value. In Config mode (feature has
+                    `baseConfig`), the default must be exactly a config with no
+                    overrides: send `"{}"` to use `baseConfig`, or set
+                    `defaultValueConfig` to point at a descendant.
                   type: string
                 defaultValueConfig:
                   description: >-
                     Key of a config within the feature's `baseConfig` family
-                    that the default value patches (the base itself or a
-                    descendant). When set, `defaultValue` is a JSON override
-                    patch merged on top; pass `null` to patch `baseConfig`
-                    directly. Do not embed `@config:` in `defaultValue` — use
-                    this field.
+                    that the default value resolves to (the base itself or a
+                    descendant). The default is exactly that config with no
+                    overrides; pass `null` to use `baseConfig`. Do not embed
+                    `@config:` in `defaultValue` — use this field.
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -40800,8 +40813,9 @@ components:
         defaultValueConfig:
           description: >-
             Optional. A config within `baseConfig`'s family that the default
-            value patches instead of `baseConfig` itself. null or omitted means
-            the default patches `baseConfig` directly.
+            value resolves to instead of `baseConfig` itself. null or omitted
+            means the default is `baseConfig`. The default is exactly this
+            config and carries no overrides of its own.
           anyOf:
             - type: string
             - type: 'null'
@@ -41175,8 +41189,9 @@ components:
         defaultValueConfig:
           description: >-
             Optional. A config within `baseConfig`'s family that the default
-            value patches instead of `baseConfig` itself. null or omitted means
-            the default patches `baseConfig` directly.
+            value resolves to instead of `baseConfig` itself. null or omitted
+            means the default is `baseConfig`. The default is exactly this
+            config and carries no overrides of its own.
           anyOf:
             - type: string
             - type: 'null'

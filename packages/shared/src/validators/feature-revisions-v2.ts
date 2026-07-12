@@ -895,12 +895,16 @@ export const putFeatureRevisionDefaultValueV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      defaultValue: z.string(),
+      defaultValue: z
+        .string()
+        .describe(
+          'New default value. In Config mode (feature has `baseConfig`), the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
+        ),
       defaultValueConfig: z
         .string()
         .nullable()
         .describe(
-          "Key of a config within the feature's `baseConfig` family that the default value patches (the base itself or a descendant). When set, `defaultValue` is a JSON override patch merged on top; pass `null` to patch `baseConfig` directly. Do not embed `@config:` in `defaultValue` — use this field.",
+          "Key of a config within the feature's `baseConfig` family that the default value resolves to (the base itself or a descendant). The default is exactly that config with no overrides; pass `null` to use `baseConfig`. Do not embed `@config:` in `defaultValue` — use this field.",
         )
         .optional(),
       ...newDraftMetadataFields,

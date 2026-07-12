@@ -783,6 +783,12 @@ export function collectConfigInvariantViolations(
   byKey: Map<string, ConfigDagNode>,
 ): InvariantViolation[] {
   const chain = linearizeConfigDag(leafKey, byKey);
+  // A `@const:`/`@config:` `$extends` layer can supply arbitrary fields that
+  // aren't resolvable at gate time, so a field it provides looks missing/null to
+  // an invariant here. Exempt the whole chain (same coarseness as the
+  // required-field gate) rather than falsely block a publish whose fields
+  // resolve fine at serve time.
+  if (configChainDeclaresReferenceLayer(chain)) return [];
   type Invariant = NonNullable<SimpleSchema["invariants"]>[number];
   const invByName = new Map<string, Invariant>();
   for (const node of chain) {

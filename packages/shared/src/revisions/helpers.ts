@@ -151,8 +151,11 @@ export const getConstantRevisionChange = (
   const contentChanged = ops.some((op) =>
     CONFIG_CONTENT_FIELDS.has(op.path.split("/")[1]),
   );
+  // Deep-equal, not `!==`: a constant's value is a string, but a config reuses
+  // this helper with an OBJECT value, where reference-inequality would flag a
+  // restated-but-unchanged value as a change (spuriously forcing review).
   const valueChanged =
-    (snapshot.value ?? "") !== (patched.value ?? "") || contentChanged;
+    !isEqual(snapshot.value ?? "", patched.value ?? "") || contentChanged;
 
   const oldEnvs = snapshot.environmentValues ?? {};
   const newEnvs = patched.environmentValues ?? {};

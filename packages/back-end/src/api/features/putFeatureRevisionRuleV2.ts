@@ -38,7 +38,11 @@ import {
   resolveOrCreateRevision,
 } from "./validations";
 import { applyPatch } from "./putFeatureRevisionRule";
-import { assertValidRuleConfigKeys, resolveScopeFromInput } from "./v2Shared";
+import {
+  assertNoRawConfigExtends,
+  assertValidRuleConfigKeys,
+  resolveScopeFromInput,
+} from "./v2Shared";
 
 export const putFeatureRevisionRuleV2 = createApiRequestHandler(
   putFeatureRevisionRuleV2Validator,
@@ -91,6 +95,17 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       req.context,
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
+      feature.baseConfig,
+    );
+
+    // Config backing comes only through the dedicated `config` field (recomposed
+    // below); a raw `@config:` embedded in an incoming value is rejected, matching
+    // the bulk paths (mapV2ApiRuleToFeatureRule).
+    if (patch.value !== undefined) {
+      assertNoRawConfigExtends(patch.value, "Rule value");
+    }
+    patch.variations?.forEach((v) =>
+      assertNoRawConfigExtends(v.value, "Variation value"),
     );
 
     if (oldRule.type === "safe-rollout") {

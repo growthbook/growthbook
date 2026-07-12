@@ -49,7 +49,11 @@ import {
   validateRuleReferences,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
-import { assertValidRuleConfigKeys, resolveScopeFromInput } from "./v2Shared";
+import {
+  assertNoRawConfigExtends,
+  assertValidRuleConfigKeys,
+  resolveScopeFromInput,
+} from "./v2Shared";
 
 export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   postFeatureRevisionRuleAddV2Validator,
@@ -110,6 +114,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       req.context,
       [ruleLevelConfig, ...variationConfigs],
       revision.defaultValue ?? feature.defaultValue,
+      feature.baseConfig,
     );
 
     if (ruleInput.type === "experiment-ref") {
@@ -188,6 +193,17 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         environments?: string[];
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
+
+    // Config backing comes only through the dedicated `config` field (recomposed
+    // below); a raw `@config:` embedded in a value is rejected. Runs on the built
+    // rule before recomposition, matching the bulk paths (mapV2ApiRuleToFeatureRule).
+    if (rule.type === "force" || rule.type === "rollout") {
+      assertNoRawConfigExtends(rule.value, "Rule value");
+    } else if (rule.type === "experiment-ref") {
+      rule.variations.forEach((v) =>
+        assertNoRawConfigExtends(v.value, "Variation value"),
+      );
+    }
 
     // Recompose config-backing into the stored value(s). null detaches.
     if (

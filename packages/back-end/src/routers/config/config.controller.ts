@@ -1005,6 +1005,10 @@ export const deleteConfig = async (
   if (!context.permissions.canDeleteConfig(existing)) {
     context.permissions.throwPermissionError();
   }
+  // A locked config is frozen at its published revision; deleting it would
+  // destroy that pinned revision. Refuse, matching the REST delete endpoint
+  // (lock removal is separately gated behind bypassApprovalChecks).
+  assertConfigNotLocked(existing);
   // Require the config to be archived first (mirrors constants): archive is
   // reversible and flows through approvals; delete isn't.
   if (!existing.archived) {

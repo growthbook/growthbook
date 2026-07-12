@@ -15,6 +15,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantArchivable } from "back-end/src/services/constants";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -77,6 +78,13 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   const strategy =
     req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
+
+  // Reverting to a historically-archived state re-archives the constant; enforce
+  // the same referenced-constant guard as the archive endpoint (an archived-only
+  // change doesn't otherwise trip a dependency check). Mirrors the config twin.
+  if (isPublish && fieldsToUpdate.archived === true) {
+    await assertConstantArchivable(req.context, constant.id);
+  }
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
