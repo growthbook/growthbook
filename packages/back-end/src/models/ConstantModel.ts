@@ -7,7 +7,10 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { BadRequestError } from "back-end/src/util/errors";
-import { resolvableValueChanged } from "back-end/src/services/constants";
+import {
+  resolvableValueChanged,
+  assertConstantArchivable,
+} from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   logConstantCreatedEvent,
@@ -94,10 +97,18 @@ export class ConstantModel extends BaseClass {
   }
 
   protected async beforeUpdate(
-    _existing: ConstantInterface,
+    existing: ConstantInterface,
     updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ) {
+    // Model-level backstop (handlers also check, for earlier/friendlier errors):
+    // block archiving a still-referenced constant on ANY write path, so a revert-
+    // to-publish or a publish-after-staging can't slip an archive past the
+    // handler-level guards and leave its `@const:` refs resolving verbatim.
+    // Mirrors ConfigModel.beforeUpdate.
+    if (updates.archived === true && !existing.archived) {
+      await assertConstantArchivable(this.context, existing.id);
+    }
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined

@@ -394,17 +394,41 @@ export const putConstant = async (
     // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
       // A revert may auto-publish past review only when `revertedFrom` names a
-      // genuine merged revision of THIS constant (see isValidRevertBypass).
+      // genuine merged revision of THIS constant AND the proposed changes restore
+      // that revision's state — validating the id alone would let a valid id front
+      // arbitrary body changes past review. Per changed field (partial reverts
+      // still work), normalized via the adapter snapshot. Mirrors config.
       const revertSource = revertedFrom
         ? await context.models.revisions.getById(revertedFrom)
         : null;
-      const isRevertBypass = isValidRevertBypass({
-        revision: revertSource,
-        entityType: "constant",
-        entityId: existing.id,
-        revertsBypassApproval: !!org.settings?.revertsBypassApproval,
-      });
-      if (!isRevertBypass) {
+      let genuineRevert = false;
+      if (
+        isValidRevertBypass({
+          revision: revertSource,
+          entityType: "constant",
+          entityId: existing.id,
+          revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+        }) &&
+        revertSource
+      ) {
+        const revertAdapter = getAdapter("constant");
+        const targetSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            revertSource.target.snapshot as Record<string, unknown>,
+            revertSource.target.proposedChanges,
+          ),
+        ) as Record<string, unknown>;
+        const proposedSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            existing as unknown as Record<string, unknown>,
+            patchOps,
+          ),
+        ) as Record<string, unknown>;
+        genuineRevert = Object.keys(fieldsToUpdate).every((f) =>
+          isEqual(proposedSnap[f], targetSnap[f]),
+        );
+      }
+      if (!genuineRevert) {
         context.permissions.throwPermissionError();
       }
     }

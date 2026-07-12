@@ -844,19 +844,42 @@ export const putConfig = async (
 
     if (autoPublish && approvalRequired && !canBypass) {
       // A revert may auto-publish past review only when `revertedFrom` names a
-      // genuine merged revision of THIS config — otherwise the caller could pass
-      // an arbitrary id alongside arbitrary body changes to launder them past
-      // required review.
+      // genuine merged revision of THIS config AND the proposed changes actually
+      // restore that revision's state. Validating the id alone isn't enough — the
+      // change set comes from the caller's body, so a valid id could otherwise
+      // front arbitrary values past review. Check per changed field (so a partial
+      // revert still works), normalizing both sides via the adapter snapshot.
       const revertSource = revertedFrom
         ? await context.models.revisions.getById(revertedFrom)
         : null;
-      const isRevertBypass = isValidRevertBypass({
-        revision: revertSource,
-        entityType: "config",
-        entityId: existing.id,
-        revertsBypassApproval: !!org.settings?.revertsBypassApproval,
-      });
-      if (!isRevertBypass) {
+      let genuineRevert = false;
+      if (
+        isValidRevertBypass({
+          revision: revertSource,
+          entityType: "config",
+          entityId: existing.id,
+          revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+        }) &&
+        revertSource
+      ) {
+        const revertAdapter = getAdapter("config");
+        const targetSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            revertSource.target.snapshot as Record<string, unknown>,
+            revertSource.target.proposedChanges,
+          ),
+        ) as Record<string, unknown>;
+        const proposedSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            existing as unknown as Record<string, unknown>,
+            patchOps,
+          ),
+        ) as Record<string, unknown>;
+        genuineRevert = Object.keys(fieldsToUpdate).every((f) =>
+          isEqual(proposedSnap[f], targetSnap[f]),
+        );
+      }
+      if (!genuineRevert) {
         context.permissions.throwPermissionError();
       }
     }
