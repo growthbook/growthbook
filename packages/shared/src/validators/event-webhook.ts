@@ -501,7 +501,7 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     category: "feature",
     group: "Drafts & review",
     events: ["feature.revision.reviewRequested"],
-    defaultOn: false,
+    defaultOn: true,
   },
   {
     id: "feat-review-approved",
@@ -517,7 +517,7 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     category: "feature",
     group: "Drafts & review",
     events: ["feature.revision.changesRequested"],
-    defaultOn: false,
+    defaultOn: true,
   },
   {
     id: "feat-revision-commented",
