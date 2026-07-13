@@ -527,6 +527,38 @@ export const updateSlackChannelName = async ({
   );
 };
 
+// Reconnect an existing Slack install: refresh the incoming-webhook url and all
+// slack metadata in a SINGLE write. Metadata fields are set via dotted $set so
+// slack.botAccessToken is left intact — a whole-object `$set: { slack }` would
+// drop the token (it's not part of the public metadata type). When Slack
+// returns a new bot token, it's set in this same write, so the token is never
+// missing mid-reconnect and never permanently lost when the OAuth response
+// omits one.
+export const reconnectSlackEventWebhook = async ({
+  eventWebHookId,
+  organizationId,
+  url,
+  slack,
+  botAccessToken,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  url: string;
+  slack: NonNullable<EventWebHookInterface["slack"]>;
+  botAccessToken?: string;
+}): Promise<void> => {
+  const set: Record<string, unknown> = { url, dateUpdated: new Date() };
+  for (const [key, value] of Object.entries(slack)) {
+    if (value !== undefined) set[`slack.${key}`] = value;
+  }
+  if (botAccessToken) set["slack.botAccessToken"] = botAccessToken;
+
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: set },
+  );
+};
+
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
   if (!want.length) return true;
   return !!intersection(want, has).length;

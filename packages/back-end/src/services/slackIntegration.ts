@@ -20,7 +20,7 @@ import {
   getAllEventWebHooks,
   getEventWebHookById,
   getSlackBotAccessTokenForWebhook,
-  updateEventWebHook,
+  reconnectSlackEventWebhook,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
@@ -404,20 +404,15 @@ const attachSlackOAuthCode = async ({
   });
 
   if (existing) {
-    await updateEventWebHook(
-      {
-        eventWebHookId: existing.id,
-        organizationId: context.org.id,
-      },
-      {
-        url: slackOAuthResponse.incoming_webhook.url,
-        slack: getSlackMetadata(slackOAuthResponse),
-      },
-    );
-    await persistSlackBotAccessToken({
+    // Single atomic write: refresh url + metadata without clobbering the stored
+    // bot token, and set a new token only if Slack returned one (otherwise the
+    // existing token is preserved).
+    await reconnectSlackEventWebhook({
       eventWebHookId: existing.id,
       organizationId: context.org.id,
-      accessToken: slackOAuthResponse.access_token,
+      url: slackOAuthResponse.incoming_webhook.url,
+      slack: getSlackMetadata(slackOAuthResponse),
+      botAccessToken: slackOAuthResponse.access_token,
     });
 
     const updated = await getEventWebHookById(existing.id, context.org.id);
