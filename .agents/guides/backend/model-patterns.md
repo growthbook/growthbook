@@ -73,20 +73,38 @@ const resource = req.context.myResources.getById("abc123");
 
 ### MakeModelClass Config
 
-| Option                      | Type       | Required | Description                                                                                                                                                                                      |
-| --------------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                                                                                                                                                               |
-| `collectionName`            | string     | Yes      | MongoDB collection name                                                                                                                                                                          |
-| `pKey`                      | string[]   | No       | Primary key fields. Defaults to `["id"]`. Use e.g. `["userId", "organization"] as const` for composite keys. Must use `as const` so TypeScript narrows the tuple for compile-time update safety. |
-| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_"). Only applies when schema has an `id` field.                                                                                                       |
-| `auditLog`                  | object     | No       | Audit event configuration                                                                                                                                                                        |
-| `globallyUniquePrimaryKeys` | boolean    | No       | Create an additional unique index on the primary key alone (without `organization`)                                                                                                              |
-| `defaultValues`             | object     | No       | Default values applied on creation                                                                                                                                                               |
-| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                                                                                                                     |
-| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                                                                                                             |
-| `skipAuditLogFields`        | string[]   | No       | Fields that don't trigger audit logs when they are the only fields being updated (for operational/scheduling fields)                                                                             |
-| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                                                                                                                  |
-| `apiConfig`                 | object     | No       | Exposes the model via the external REST API. Set `modelKey` and `openApiSpec`. Requires implementing `toApiInterface` in the model class. See `api-patterns.md` for the full spec-based pattern. |
+| Option                      | Type       | Required | Description                                                                                                                                                                                                                        |
+| --------------------------- | ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema`                    | Zod schema | Yes      | Validator from `shared/validators`                                                                                                                                                                                                 |
+| `collectionName`            | string     | Yes      | MongoDB collection name                                                                                                                                                                                                            |
+| `pKey`                      | string[]   | No       | Primary key fields. Defaults to `["id"]`. Use e.g. `["userId", "organization"] as const` for composite keys. Must use `as const` so TypeScript narrows the tuple for compile-time update safety.                                   |
+| `idPrefix`                  | string     | No       | Prefix for auto-generated IDs (e.g., "prj\_"). Only applies when schema has an `id` field.                                                                                                                                         |
+| `auditLog`                  | object     | No       | Audit event configuration                                                                                                                                                                                                          |
+| `globallyUniquePrimaryKeys` | boolean    | No       | Create an additional unique index on the primary key alone (without `organization`)                                                                                                                                                |
+| `defaultValues`             | object     | No       | Default values applied on creation                                                                                                                                                                                                 |
+| `readonlyFields`            | string[]   | No       | Fields that cannot be updated after creation                                                                                                                                                                                       |
+| `skipDateUpdatedFields`     | string[]   | No       | Fields that don't trigger `dateUpdated` when changed                                                                                                                                                                               |
+| `affectsDefinitionsVersion` | boolean    | No       | Set when the model's data appears (directly or embedded) in the `/organization/definitions` response. Bumps the org's definitions version on writes so the endpoint's ETag invalidates. See "Definitions version invariant" below. |
+| `skipAuditLogFields`        | string[]   | No       | Fields that don't trigger audit logs when they are the only fields being updated (for operational/scheduling fields)                                                                                                               |
+| `additionalIndexes`         | array      | No       | Extra MongoDB indexes to create                                                                                                                                                                                                    |
+| `apiConfig`                 | object     | No       | Exposes the model via the external REST API. Set `modelKey` and `openApiSpec`. Requires implementing `toApiInterface` in the model class. See `api-patterns.md` for the full spec-based pattern.                                   |
+
+### Definitions version invariant
+
+The `/organization/definitions` endpoint returns a 304 from a per-org version
+counter (`touchDefinitionsVersion` in `DefinitionsVersionModel.ts`) instead of
+recomputing the response. Every write that can change that response must bump
+the counter, or clients get stale 304s:
+
+- If the definitions endpoint becomes dependent on a **new model** (including
+  data embedded in another type's response, like `eventForwarderConfig` inside
+  datasources), set `affectsDefinitionsVersion: true` on that model — or, for
+  legacy non-BaseModel models, call `touchDefinitionsVersion` manually in every
+  write function.
+- If a model that affects definitions gains a **new write path** that bypasses
+  the BaseModel CRUD methods (raw `_dangerousGetCollection()` writes,
+  `updateMany`, etc.), call `touchDefinitionsVersion` after the DB write
+  commits.
 
 ### Audit Log Config
 
