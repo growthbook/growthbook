@@ -17,8 +17,7 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useFeatureValue } from "@growthbook/growthbook-react";
-import { FaChevronRight } from "react-icons/fa";
-import { PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -283,7 +282,7 @@ function EventForwarderConfirmButton({
         type="submit"
         disabled={!usEventForwarderFlowConsent}
         loading={loading}
-        icon={<FaChevronRight size={12} />}
+        icon={<PiCaretRight size={12} />}
         iconPosition="right"
       >
         Confirm
@@ -318,7 +317,6 @@ function EventForwarderModal({
   const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
-
   const setEventForwarderConfig = (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => {
@@ -366,7 +364,8 @@ function EventForwarderModal({
             const validationErrors =
               getEventForwarderValidationErrors(datasourceDraft);
             if (validationErrors.length) {
-              throw new Error(validationErrors.join(" "));
+              // ErrorDisplay renders with pre-wrap, so each error gets a line.
+              throw new Error(validationErrors.join("\n"));
             }
             // Unreachable once validation passes (a null config yields an
             // error above); the throw narrows the type for the request body.
