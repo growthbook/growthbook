@@ -85,16 +85,14 @@ export const snowflakeDialect: SqlDialect = {
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
     `MIN_BY(${valueCol}, ${tsCol})`,
   arrayMinInRange: (col, lowerBound, upperBound) => {
-    // Snowflake's array elements are VARIANT; cast each back to TIMESTAMP
-    // for the bounds comparison. `value` is the element column on the
-    // FLATTEN output table; aliasing it as `t` keeps the predicate prose
-    // identical to the other dialects.
-    const tExpr = `f.value::TIMESTAMP`;
+    const tExpr = `x::TIMESTAMP`;
     const conditions: string[] = [];
     if (lowerBound) conditions.push(`${tExpr} >= ${lowerBound}`);
     if (upperBound) conditions.push(`${tExpr} <= ${upperBound}`);
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-    return `(SELECT MIN(${tExpr}) FROM TABLE(FLATTEN(input => ${col})) f ${where})`;
+    const arrExpr = conditions.length
+      ? `FILTER(${col}, x -> ${conditions.join(" AND ")})`
+      : col;
+    return `GET(${arrExpr}, 0)::TIMESTAMP`;
   },
   addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
     `DATEADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,

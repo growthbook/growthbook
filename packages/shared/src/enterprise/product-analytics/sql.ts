@@ -1240,6 +1240,11 @@ export const FUNNEL_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] = [
   "postgres",
   "clickhouse",
   "growthbook_clickhouse",
+  "bigquery",
+  "snowflake",
+  "athena",
+  "presto",
+  "databricks",
 ];
 
 export function isFunnelSupportedDatasourceType(type: DataSourceType): boolean {
@@ -1486,12 +1491,19 @@ export function buildFunnelSql(
     );
     if (i > 0) {
       const prevExpr = buildPrevResolvedExpr(steps, i);
-      const diffExpr = dialect.dateDiffMs(prevExpr, `step${stepN}_resolved_ts`);
-      finalSelects.push(
-        `${dialect.castToFloat(`SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} END)`)} AS step${stepN}_tfp_sum_ms`,
+      // Cast the ms diff to float BEFORE squaring/summing so the whole
+      // aggregation runs in floating point. Casting only the outer SUM leaves
+      // the diff, the square, and the accumulator in the dialect's integer type
+      // — BigQuery INT64 overflows on the sum-of-squares for large windows
+      // ("Error in SUM aggregation: integer overflow").
+      const diffExpr = dialect.castToFloat(
+        dialect.dateDiffMs(prevExpr, `step${stepN}_resolved_ts`),
       );
       finalSelects.push(
-        `${dialect.castToFloat(`SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} * ${diffExpr} END)`)} AS step${stepN}_tfp_sum_sq_ms`,
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} END) AS step${stepN}_tfp_sum_ms`,
+      );
+      finalSelects.push(
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} * ${diffExpr} END) AS step${stepN}_tfp_sum_sq_ms`,
       );
     }
   });

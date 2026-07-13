@@ -232,4 +232,45 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).not.toContain("INTERVAL '");
     expect(sql).not.toContain("::float");
   });
+
+  it("Snowflake resolves steps without a correlated FLATTEN subquery", () => {
+    const { sql, stepCount } = buildFunnelSql(
+      config,
+      factTableMap,
+      snowflakeDialect,
+    );
+    expect(stepCount).toBe(3);
+    // Step resolution must use higher-order array functions, not a correlated
+    // scalar subquery over TABLE(FLATTEN(...)) — Snowflake errors on the latter
+    // with "Unsupported subquery type cannot be evaluated".
+    expect(sql).toMatch(/GET\s*\(\s*FILTER\(/);
+    expect(sql).not.toMatch(/FROM\s+TABLE\s*\(\s*FLATTEN/i);
+    // Native Snowflake helpers still present.
+    expect(sql).toMatch(/MIN_BY\s*\(/);
+    expect(sql).toMatch(/DATEDIFF\s*\(\s*millisecond/i);
+    expect(sql).toMatch(/DATEADD\s*\(\s*second/i);
+  });
+
+  it("BigQuery computes time-from-previous stats in FLOAT64 (no INT64 overflow)", () => {
+    const { sql, stepCount } = buildFunnelSql(
+      config,
+      factTableMap,
+      bigQueryDialect,
+    );
+    expect(stepCount).toBe(3);
+    // The ms diff must be cast to FLOAT64 before it's squared/summed, so the
+    // sum-of-squares aggregation doesn't overflow INT64.
+    expect(sql).toMatch(
+      /CAST\s*\(\s*DATETIME_DIFF\([^)]*MILLISECOND\s*\)\s*AS FLOAT64\s*\)/,
+    );
+    // The squared term multiplies two FLOAT64-cast diffs (float arithmetic).
+    expect(sql).toMatch(/AS FLOAT64\s*\)\s*\*\s*CAST\s*\(\s*DATETIME_DIFF/);
+    // First-touch dimension uses ANY_VALUE(... HAVING MIN ...). `IGNORE NULLS`
+    // is invalid in this form (it IS valid on ARRAY_AGG, so only guard the
+    // HAVING MIN clause).
+    expect(sql).toMatch(
+      /ANY_VALUE\s*\(\s*dimension_1\s+HAVING\s+MIN\s+step1_ts/i,
+    );
+    expect(sql).not.toMatch(/HAVING\s+MIN\s+step1_ts\s+IGNORE\s+NULLS/i);
+  });
 });

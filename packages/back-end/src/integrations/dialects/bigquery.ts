@@ -125,6 +125,7 @@ export const bigQueryDialect: SqlDialect = {
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
+  castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: bigQueryEscapeStringLiteral,
     emitEscapeClause: false,
@@ -178,11 +179,12 @@ export const bigQueryDialect: SqlDialect = {
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
   arrayAggSorted: (col: string) =>
     `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
-  // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value
-  // from the row that has the minimum `y`. Pair with `IGNORE NULLS` so
-  // rows where the timestamp is NULL don't dominate.
+  // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value from
+  // the row that has the minimum `y`. `IGNORE NULLS` is NOT valid in this form
+  // (syntax error) and is unnecessary: aggregate functions ignore NULL inputs,
+  // so rows with a NULL timestamp are already excluded from the MIN.
   argMinByTimestamp: (valueCol: string, tsCol: string) =>
-    `ANY_VALUE(${valueCol} HAVING MIN ${tsCol} IGNORE NULLS)`,
+    `ANY_VALUE(${valueCol} HAVING MIN ${tsCol})`,
   arrayMinInRange: (col, lowerBound, upperBound) => {
     const conditions: string[] = [];
     if (lowerBound) conditions.push(`t >= ${lowerBound}`);
