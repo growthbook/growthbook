@@ -273,4 +273,49 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     );
     expect(sql).not.toMatch(/HAVING\s+MIN\s+step1_ts\s+IGNORE\s+NULLS/i);
   });
+
+  it("multi-fact-table funnel with a breakdown types the dimension NULL for the UNION", () => {
+    // Two fact tables → UNION ALL of the per-table events CTEs. With a
+    // breakdown dimension, the non-initial fact table must emit a typed NULL
+    // (CAST(NULL AS STRING)) for dimension_1, not a bare NULL — otherwise
+    // BigQuery/Trino reject the UNION with "incompatible types: STRING, INT64".
+    const twoFactMap = new Map<string, FactTableInterface>([
+      ["orders", ordersFactTable],
+      ["visits", { ...ordersFactTable, id: "visits", name: "Visits" }],
+    ]);
+    const multiFactConfig = {
+      ...config,
+      dataset: {
+        type: "funnel",
+        unit: "user_id",
+        steps: [
+          {
+            name: "View",
+            factTable: "visits",
+            rowFilters: [],
+            optional: false,
+            conversionWindow: undefined,
+          },
+          {
+            name: "Purchase",
+            factTable: "orders",
+            rowFilters: [],
+            optional: false,
+            conversionWindow: undefined,
+          },
+        ],
+      },
+    } as unknown as ExplorationConfig;
+
+    const { sql } = buildFunnelSql(
+      multiFactConfig,
+      twoFactMap,
+      bigQueryDialect,
+    );
+    expect(sql).toMatch(/UNION ALL/i);
+    // No bare untyped NULL for the dimension on any fact table.
+    expect(sql).not.toMatch(/(?<!AS\s)\bNULL AS dimension_1/);
+    // The placeholder is a typed string NULL.
+    expect(sql).toMatch(/cast\(\s*NULL as string\s*\)\s*AS dimension_1/i);
+  });
 });

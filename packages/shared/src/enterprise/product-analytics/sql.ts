@@ -1351,10 +1351,15 @@ export function buildFunnelSql(
       `${unit} AS user_id`,
       `${timestampColumn} AS ts`,
       // Funnel dimensions are first-touch from the funnel's start, so only
-      // the initial fact table contributes a real dimension value.
+      // the initial fact table contributes a real dimension value. Cast to a
+      // string on every fact table (including the typed-NULL placeholder) so
+      // the multi-fact-table UNION column types line up — a bare `NULL` is
+      // inferred as INT64 on BigQuery / text on Postgres and clashes with the
+      // real (string) dimension value. Dimension values are consumed as string
+      // labels downstream (transformFunnelRowsToResult → parseStringValue).
       group.stepIndexes.includes(1) && dimensionExpr
-        ? `${dimensionExpr} AS dimension_1`
-        : `NULL AS dimension_1`,
+        ? `${dialect.castToString(dimensionExpr)} AS dimension_1`
+        : `${dialect.castToString("NULL")} AS dimension_1`,
     ];
     steps.forEach((step, idx) => {
       const stepN = idx + 1;
