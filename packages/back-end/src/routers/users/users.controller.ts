@@ -2,10 +2,7 @@ import { createHmac } from "node:crypto";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
 import { KnownBlock } from "@slack/types";
-import {
-  IS_CLOUD,
-  INTERNAL_NPS_SLACK_WEBHOOK,
-} from "back-end/src/util/secrets";
+import { IS_CLOUD, NPS_SLACK_WEBHOOK } from "back-end/src/util/secrets";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -207,7 +204,7 @@ async function sendNpsResponseToSlack({
 
   try {
     const { stringBody, responseWithoutBody } = await cancellableFetch(
-      INTERNAL_NPS_SLACK_WEBHOOK,
+      NPS_SLACK_WEBHOOK,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -263,7 +260,7 @@ export async function postNpsResponse(
       Number.isInteger(score) &&
       score >= 0 &&
       score <= 10 &&
-      INTERNAL_NPS_SLACK_WEBHOOK
+      NPS_SLACK_WEBHOOK
     ) {
       void sendNpsResponseToSlack({
         score,

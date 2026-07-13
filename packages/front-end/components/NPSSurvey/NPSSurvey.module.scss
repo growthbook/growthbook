@@ -28,52 +28,8 @@
   right: 12px;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 14px;
-}
-
-.logo,
-.logoDark {
-  height: 18px;
-  width: auto;
-  display: block;
-}
-
-.logoDark {
-  display: none;
-}
-
-:global(.dark-theme) .logo {
-  display: none;
-}
-
-:global(.dark-theme) .logoDark {
-  display: block;
-}
-
 .panel {
   animation: nps-panel 0.42s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gray-10);
-}
-
-.question {
-  margin: 0 0 18px;
-  padding-right: 12px;
-  font-size: 17px;
-  line-height: 1.35;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  color: var(--gray-12);
 }
 
 .scale {
@@ -152,21 +108,6 @@
   color: var(--gray-10);
 }
 
-.back {
-  margin-bottom: 12px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--gray-10);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.back:hover {
-  color: var(--gray-12);
-}
-
 .scoreline {
   display: flex;
   align-items: center;
@@ -204,33 +145,6 @@
   color: var(--gray-12);
 }
 
-.textarea {
-  width: 100%;
-  min-height: 78px;
-  padding: 10px 12px;
-  resize: none;
-  border: 1px solid var(--gray-a5);
-  border-radius: var(--radius-3);
-  background: var(--color-surface);
-  color: var(--gray-12);
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.5;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.textarea::placeholder {
-  color: var(--gray-9);
-}
-
-.textarea:focus {
-  outline: none;
-  border-color: var(--violet-8);
-  box-shadow: 0 0 0 3px var(--violet-a4);
-}
-
 .actions {
   display: flex;
   align-items: center;
@@ -239,7 +153,6 @@
 }
 
 .thanks {
-  text-align: center;
   padding: 14px 8px 10px;
 }
 
@@ -267,21 +180,6 @@
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: nps-draw 0.55s 0.18s cubic-bezier(0.65, 0, 0.35, 1) forwards;
-}
-
-.thanksTitle {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--gray-12);
-}
-
-.thanksSub {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--gray-11);
 }
 
 @keyframes nps-in {

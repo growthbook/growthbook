@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { IconButton } from "@radix-ui/themes";
-import { PiX } from "react-icons/pi";
+import { IconButton, TextArea } from "@radix-ui/themes";
+import { PiArrowLeft, PiX } from "react-icons/pi";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -301,11 +303,22 @@ export default function NPSSurvey() {
 
         {panel === "question" && (
           <div className={styles.panel}>
-            <p className={styles.eyebrow}>Quick question · ~15 sec</p>
-            <h2 className={styles.question}>
+            <Text
+              as="p"
+              size="small"
+              color="text-low"
+              textTransform="uppercase"
+              mb="2"
+            >
+              Quick question · ~15 sec
+            </Text>
+            <Heading as="h2" size="small" mb="4" mr="3">
               How likely are you to recommend GrowthBook to a friend or
               colleague?
-            </h2>
+            </Heading>
+            {/* Hand-rolled radiogroup: the 11-cell scale needs per-cell
+                detractor/passive/promoter color grading, which RadioGroup /
+                RadioCards from the design system can't express. */}
             <div
               className={styles.scale}
               role="radiogroup"
@@ -354,13 +367,16 @@ export default function NPSSurvey() {
 
         {panel === "feedback" && score !== null && cat && (
           <div className={styles.panel}>
-            <button
-              type="button"
-              className={styles.back}
+            <Button
+              variant="ghost"
+              color="gray"
+              size="xs"
+              icon={<PiArrowLeft />}
+              mb="3"
               onClick={() => setPanel("question")}
             >
-              ← Change score
-            </button>
+              Change score
+            </Button>
             <div className={styles.scoreline}>
               <span className={`${styles.scorebox} ${CAT_CLASS[cat]}`}>
                 {score}
@@ -372,9 +388,8 @@ export default function NPSSurvey() {
             <label className={styles.prompt} htmlFor="gb-nps-feedback">
               {PROMPTS[cat]}
             </label>
-            <textarea
+            <TextArea
               id="gb-nps-feedback"
-              className={styles.textarea}
               rows={3}
               placeholder="Optional — a sentence is plenty"
               value={feedback}
@@ -394,12 +409,12 @@ export default function NPSSurvey() {
             <span className={styles.check}>
               <CheckMark />
             </span>
-            <h2 className={styles.thanksTitle}>
+            <Heading as="h2" size="small" align="center" mb="2">
               Thanks — that&apos;s really helpful.
-            </h2>
-            <p className={styles.thanksSub}>
+            </Heading>
+            <Text as="p" size="medium" color="text-mid" align="center">
               Your feedback shapes what we build next.
-            </p>
+            </Text>
           </div>
         )}
       </div>
