@@ -37,6 +37,10 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  updateTemporaryDashboardResults?: (
+    globalControls?: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   setNeedsUpdate: (needsUpdate: boolean) => void;
 }
 
@@ -45,6 +49,7 @@ export default function DashboardGlobalControlsBar({
   globalControls,
   canEdit,
   onGlobalControlsChange,
+  updateTemporaryDashboardResults,
   setNeedsUpdate,
 }: Props) {
   const [saving, setSaving] = useState(false);
@@ -104,7 +109,14 @@ export default function DashboardGlobalControlsBar({
           datasourceMap,
         )
       ) {
-        await updateAllSnapshots();
+        if (updateTemporaryDashboardResults) {
+          await updateTemporaryDashboardResults(
+            nextGlobalControls,
+            blocksForRefresh,
+          );
+        } else {
+          await updateAllSnapshots();
+        }
         setNeedsUpdate(false);
       } else {
         setNeedsUpdate(true);

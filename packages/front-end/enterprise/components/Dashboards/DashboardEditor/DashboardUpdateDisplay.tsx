@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
@@ -118,6 +118,7 @@ interface Props {
   disabled: boolean;
   isEditing: boolean;
   needsUpdate?: boolean;
+  updateTemporaryDashboardResults?: () => Promise<void>;
   onUpdated?: () => void;
 }
 
@@ -129,8 +130,11 @@ export default function DashboardUpdateDisplay({
   disabled,
   isEditing,
   needsUpdate = false,
+  updateTemporaryDashboardResults,
   onUpdated,
 }: Props) {
+  const [updatingTemporaryDashboard, setUpdatingTemporaryDashboard] =
+    useState(false);
   const { datasources } = useDefinitions();
   const {
     projects,
@@ -140,7 +144,8 @@ export default function DashboardUpdateDisplay({
     savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
-  const refreshing = ["running", "queued"].includes(refreshStatus);
+  const refreshing =
+    updatingTemporaryDashboard || ["running", "queued"].includes(refreshStatus);
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
     const numFinished = allQueries.filter((q) =>
@@ -188,15 +193,25 @@ export default function DashboardUpdateDisplay({
             disabled={
               refreshing ||
               !dashboardId ||
-              dashboardId === "new" ||
+              (dashboardId === "new" && !updateTemporaryDashboardResults) ||
               (!needsUpdate && !allQueries.length && savedQueriesMap.size === 0)
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
             variant={!isEditing ? "ghost" : needsUpdate ? "solid" : "outline"}
             onClick={async () => {
-              await updateAllSnapshots();
-              onUpdated?.();
+              if (updateTemporaryDashboardResults) {
+                setUpdatingTemporaryDashboard(true);
+                try {
+                  await updateTemporaryDashboardResults();
+                  onUpdated?.();
+                } finally {
+                  setUpdatingTemporaryDashboard(false);
+                }
+              } else {
+                await updateAllSnapshots();
+                onUpdated?.();
+              }
             }}
           >
             {refreshing ? "Refreshing" : "Update"}

@@ -54,10 +54,16 @@ export default function ProductAnalyticsExplorerSettings({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
+  // Ignore retained SWR data from the previous analysis while the request key
+  // changes so stale submitted settings cannot invalidate the new analysis.
+  const exploration =
+    data?.exploration.id === block.explorerAnalysisId
+      ? data.exploration
+      : undefined;
   const baseInitialConfig =
-    data?.exploration?.config && block.config
-      ? { ...data.exploration.config, ...block.config }
-      : (data?.exploration?.config ?? block.config ?? null);
+    exploration?.config && block.config
+      ? { ...exploration.config, ...block.config }
+      : (exploration?.config ?? block.config ?? null);
   const blockForInitialConfig = baseInitialConfig
     ? ({
         ...block,
@@ -77,10 +83,10 @@ export default function ProductAnalyticsExplorerSettings({
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&
     effectiveInitialConfig !== null &&
-    data?.exploration !== undefined
+    exploration !== undefined
       ? !isEqual(
           getExplorationDateControlFingerprint(effectiveInitialConfig),
-          getExplorationDateControlFingerprint(data.exploration.config),
+          getExplorationDateControlFingerprint(exploration.config),
         )
       : false;
   if (!block.config || !effectiveInitialConfig) {
@@ -103,20 +109,18 @@ export default function ProductAnalyticsExplorerSettings({
           buildComparisonDateRange(effectiveInitialConfig.dateRange),
       }
     : effectiveInitialConfig;
-  const initialSubmittedConfig: ExplorerDraftConfig | undefined =
-    data?.exploration
-      ? block.comparison?.enabled
-        ? {
-            ...data.exploration.config,
-            previousTimeFrame:
-              block.comparison.previousTimeFrame ??
-              buildComparisonDateRange(data.exploration.config.dateRange),
-          }
-        : data.exploration.config
-      : undefined;
+  const initialSubmittedConfig: ExplorerDraftConfig | undefined = exploration
+    ? block.comparison?.enabled
+      ? {
+          ...exploration.config,
+          previousTimeFrame:
+            block.comparison.previousTimeFrame ??
+            buildComparisonDateRange(exploration.config.dateRange),
+        }
+      : exploration.config
+    : undefined;
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
-    block.explorerAnalysisId,
     block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
     hasStaleDashboardDateResults,

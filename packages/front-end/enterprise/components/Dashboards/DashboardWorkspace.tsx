@@ -12,6 +12,10 @@ import {
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
   autoEnrollDashboardBlocksInDateControl,
+  blockUsesDashboardDateControl,
+  getEffectiveExplorationConfig,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { LayoutItem } from "react-grid-layout";
 import { Container, Flex, IconButton, Text } from "@radix-ui/themes";
@@ -30,6 +34,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useExploreData } from "@/enterprise/components/ProductAnalytics/useExploreData";
 import DashboardEditor, {
   DASHBOARD_TOPBAR_HEIGHT,
   GENERAL_DASHBOARD_BLOCK_TYPES,
@@ -125,6 +130,41 @@ export default function DashboardWorkspace({
   const [globalControls, setGlobalControls] = useState<
     DashboardInterface["globalControls"]
   >(dashboard.globalControls);
+  const { fetchData: fetchExplorationData } = useExploreData();
+  const updateTemporaryDashboardResults = async (
+    controls: DashboardInterface["globalControls"] = globalControls,
+    blocksToRefresh: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] = blocks,
+  ) => {
+    const nextBlocks = await Promise.all(
+      blocksToRefresh.map(async (block) => {
+        if (!blockUsesDashboardDateControl(block)) return block;
+
+        const config = getEffectiveExplorationConfig(block, {
+          globalControls: controls,
+        });
+        const comparison = resolveBlockComparison(block, dashboard);
+        const result = await fetchExplorationData(config, {
+          cache: "never",
+          previousTimeFrame: comparison
+            ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
+            : null,
+        });
+        if (!result.data) {
+          throw new Error(result.error ?? "Failed to update dashboard block");
+        }
+
+        return {
+          ...block,
+          explorerAnalysisId: result.data.id,
+          comparisonExplorerAnalysisId:
+            result.comparison?.exploration?.id ?? undefined,
+        };
+      }),
+    );
+
+    setBlocks(nextBlocks);
+    updateTemporaryDashboard?.({ blocks: nextBlocks });
+  };
   const setBlocksAndSubmit = useMemo(() => {
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -581,6 +621,9 @@ export default function DashboardWorkspace({
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
+              updateTemporaryDashboardResults={
+                dashboardFirstSave ? updateTemporaryDashboardResults : undefined
+              }
             />
           </div>
           <Flex

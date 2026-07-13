@@ -349,6 +349,10 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  updateTemporaryDashboardResults?: (
+    globalControls?: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
@@ -376,6 +380,7 @@ function DashboardEditor({
   setBlock,
   mutate,
   onGlobalControlsChange,
+  updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
@@ -598,7 +603,8 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
-            needsUpdate={id === "new" ? false : needsUpdate}
+            needsUpdate={needsUpdate}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
             onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
@@ -751,6 +757,7 @@ function DashboardEditor({
             globalControls={globalControls}
             canEdit={canEdit}
             onGlobalControlsChange={onGlobalControlsChange}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
             setNeedsUpdate={setNeedsUpdate}
           />
         ) : null}
