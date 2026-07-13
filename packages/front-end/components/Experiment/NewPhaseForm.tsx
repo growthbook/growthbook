@@ -44,7 +44,7 @@ const NewPhaseForm: FC<{
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
-      coverage: prevPhase.coverage || 1,
+      coverage: prevPhase.coverage ?? 1,
       variationWeights:
         prevPhase.variationWeights ||
         getEqualWeights(lastPhaseVariations.length),
