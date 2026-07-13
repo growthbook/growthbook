@@ -52,8 +52,8 @@ describe("definitions ETag helpers", () => {
       expect(ifNoneMatchMatches(`W/${etag}`, etag)).toBe(true);
     });
 
-    it("matches the wildcard", () => {
-      expect(ifNoneMatchMatches("*", etag)).toBe(true);
+    it("does not treat the wildcard as a match (resource always exists here)", () => {
+      expect(ifNoneMatchMatches("*", etag)).toBe(false);
     });
   });
 });

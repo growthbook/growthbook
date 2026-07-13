@@ -1,30 +1,29 @@
-import mongoose from "mongoose";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { logger } from "back-end/src/util/logger";
 
 // One doc per org tracking a monotonic version counter that is bumped by every
 // write that can change the `/organization/definitions` response. Lets that
 // endpoint short-circuit its expensive reads with a cheap indexed point-read.
 // See `touchDefinitionsVersion` for the write side and `getDefinitions` for the
-// read side.
-const definitionsVersionSchema = new mongoose.Schema({
-  organization: {
-    type: String,
-    unique: true,
-  },
-  version: Number,
-  dateUpdated: Date,
-});
+// read side. Not a user-facing resource (no permissions/audit), and the bump
+// needs an atomic `$inc` upsert callable with just an orgId, so it's a plain
+// collection rather than a BaseModel.
+const COLLECTION = "definitionsversions";
 
-interface DefinitionsVersionDocument extends mongoose.Document {
+interface DefinitionsVersion {
   organization: string;
   version: number;
   dateUpdated: Date;
 }
 
-const DefinitionsVersionModel = mongoose.model<DefinitionsVersionDocument>(
-  "DefinitionsVersion",
-  definitionsVersionSchema,
-);
+// Ensure a single doc per org so concurrent first-touch upserts can't create
+// duplicates (which would make the version non-monotonic). Called at startup.
+export async function ensureDefinitionsVersionIndex(): Promise<void> {
+  await getCollection<DefinitionsVersion>(COLLECTION).createIndex(
+    { organization: 1 },
+    { unique: true },
+  );
+}
 
 /**
  * Bump an org's definitions version. Call this AFTER the DB write it reflects
@@ -41,7 +40,7 @@ export async function touchDefinitionsVersion(
   organization: string,
 ): Promise<void> {
   try {
-    await DefinitionsVersionModel.updateOne(
+    await getCollection<DefinitionsVersion>(COLLECTION).updateOne(
       { organization },
       { $inc: { version: 1 }, $set: { dateUpdated: new Date() } },
       { upsert: true },
@@ -62,6 +61,8 @@ export async function touchDefinitionsVersion(
 export async function getDefinitionsVersion(
   organization: string,
 ): Promise<number> {
-  const doc = await DefinitionsVersionModel.findOne({ organization });
+  const doc = await getCollection<DefinitionsVersion>(COLLECTION).findOne({
+    organization,
+  });
   return doc?.version ?? 0;
 }

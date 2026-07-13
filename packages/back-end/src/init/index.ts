@@ -1,4 +1,5 @@
 import { logger } from "back-end/src/util/logger";
+import { ensureDefinitionsVersionIndex } from "back-end/src/models/DefinitionsVersionModel";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
 
@@ -8,6 +9,7 @@ export async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
+      await ensureDefinitionsVersionIndex();
     })();
   }
   try {

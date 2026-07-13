@@ -26,5 +26,5 @@ export function ifNoneMatchMatches(
   return header
     .split(",")
     .map((t) => t.trim().replace(/^W\//, ""))
-    .some((t) => t === etag || t === "*");
+    .some((t) => t === etag);
 }
