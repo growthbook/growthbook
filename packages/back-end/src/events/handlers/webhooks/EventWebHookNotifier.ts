@@ -106,11 +106,10 @@ export class EventWebHookNotifier implements Notifier {
   }
 
   /**
-   * Schedule a coalesce-window flush for (org, webhook, object). Uniqued
-   * by that tuple so concurrent events within the window do not create
-   * additional jobs — the first scheduling wins, and subsequent events
-   * just `$push` into the existing bucket which the pending job will
-   * pick up at `flushAt`.
+   * Schedule a coalesce-window flush for (org, webhook, object). Uniqued by
+   * that tuple so concurrent events within the window don't create extra jobs:
+   * the first scheduling wins, later events just extend the existing bucket
+   * which the pending job picks up at `flushAt`.
    */
   static async scheduleFlush({
     organizationId,
@@ -183,10 +182,10 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    // Slack webhooks that have a bot token deliver via chat.postMessage so we
-    // can embed a privately-uploaded (files.upload) results card, rather than
-    // the incoming-webhook URL. Handled here and short-circuited; every other
-    // case falls through to the generic URL delivery below.
+    // Slack webhooks with a bot token deliver via chat.postMessage (not the
+    // incoming-webhook URL) so a privately-uploaded (files.upload) results card
+    // can be embedded. Short-circuits here; every other case falls through to
+    // the generic URL delivery below.
     if ((eventWebHook.payloadType || "raw") === "slack" && event.version) {
       const handled = await EventWebHookNotifier.deliverSlackViaBotToken({
         job,
@@ -332,11 +331,10 @@ export class EventWebHookNotifier implements Notifier {
     );
     if (!message) return true; // nothing to send; still skip the generic path
 
-    // For card-worthy events, the results card IS the message: upload+share it
-    // to the channel with a short caption (the event's headline). Slack rejects
-    // slack_file image blocks, so we can't combine the card with rich blocks in
-    // one message — and the card carries the detail, so buttons are dropped
-    // here. Non-card events fall back to the rich text/buttons message.
+    // For card-worthy events the results card IS the message. Slack rejects
+    // slack_file image blocks, so the card can't be combined with rich blocks in
+    // one message; the card carries the detail, so buttons are dropped here.
+    // Non-card events fall back to the rich text/buttons message.
     const card = await renderExperimentCardForEvent(
       event.data,
       organizationId,
@@ -347,14 +345,13 @@ export class EventWebHookNotifier implements Notifier {
     let error: string | null = null;
     let responseBody = "ok";
     if (card) {
-      // No caption: the card image is self-describing (state, name, metrics),
-      // and the accompanying status/text notification carries the words +
-      // action buttons. A caption here would just duplicate the card.
+      // No caption: the card image is self-describing, so a caption would just
+      // duplicate it.
       const fileId = await uploadSlackImageFile({
         token: botToken,
         png: card.png,
-        // Title the file by the event (e.g. "Experiment stopped"), not the
-        // experiment name — the card image already shows the name.
+        // Title by the event (e.g. "Experiment stopped"), not the experiment
+        // name — the card already shows the name.
         title: card.caption,
         filename: "experiment-card.png",
         channelId,
@@ -368,8 +365,7 @@ export class EventWebHookNotifier implements Notifier {
         channel: channelId,
         text: message.text,
         blocks: message.blocks as unknown as Record<string, unknown>[],
-        // Don't preview links that happen to appear in the text (e.g. an
-        // experiment name that contains a URL).
+        // Don't preview links that appear in the text (e.g. a URL in a name).
         unfurl: false,
       });
       ok = result.ok;
@@ -409,11 +405,11 @@ export class EventWebHookNotifier implements Notifier {
   }
 
   /**
-   * Coalesce-flush job: claim the bucket (or reuse retry-captured event
-   * ids), render a digest, deliver as a single Slack/Discord message,
-   * and log it as one webhook delivery. On error, the captured event ids
-   * are preserved in the job's data so the retry cycle replays the same
-   * payload instead of re-claiming a now-empty bucket.
+   * Coalesce-flush job: claim the bucket (or reuse retry-captured event ids),
+   * render a digest, deliver it as one Slack/Discord message, and log it as one
+   * webhook delivery. On error the captured event ids are preserved in the job
+   * data so retries replay the same payload instead of re-claiming an empty
+   * bucket.
    */
   private static async handleCoalesceFlushJob(
     job: Job<EventWebHookCoalesceFlushJobData>,
@@ -535,9 +531,8 @@ export class EventWebHookNotifier implements Notifier {
   }
 
   /**
-   * Render an array of events into a single Slack/Discord payload. Raw
-   * and JSON payload types do not support coalescing — they must remain
-   * 1:1 with events for API consumers — so we return null for those.
+   * Render an array of events into a single Slack/Discord payload. Returns null
+   * for raw/JSON types, which must stay 1:1 with events for API consumers.
    */
   private static async buildCoalescedPayload({
     events,
@@ -555,7 +550,6 @@ export class EventWebHookNotifier implements Notifier {
       return { body: slackMessage as unknown as Record<string, unknown> };
     }
 
-    // discord
     return { body: { content: (slackMessage as SlackMessage).text } };
   }
 

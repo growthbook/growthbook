@@ -123,10 +123,9 @@ export const postSlackOAuthCallback = async (
 
 // region POST /integrations/slack/oauth-install
 
-// Slack-initiated install (App Directory "Add to Slack"): Slack returns a
-// `code` with no GrowthBook `state`, so the attach is authorized by the
-// logged-in session + this permission check + the org the user confirmed in
-// the UI (sent via the X-Organization header), rather than a signed state.
+// Slack-initiated install (App Directory "Add to Slack"): `code` with no signed
+// `state`. Authorized by the logged-in session + this permission check + the
+// org confirmed in the UI (X-Organization header).
 type PostSlackOAuthInstallRequest = AuthRequest<{
   code: string;
 }>;
@@ -161,8 +160,8 @@ export const postSlackOAuthInstall = async (
 
 // Complete the Slack account-link flow: the signed `state` proves the request
 // came from the bot for a specific Slack user; the session proves the acting
-// GrowthBook identity. We record the mapping so the assistant acts as this
-// user going forward (replacing the untrusted Slack profile email).
+// GrowthBook identity. Records the mapping so the assistant acts as this user
+// (replacing the untrusted Slack profile email).
 type PostSlackLinkRequest = AuthRequest<{ state: string }>;
 
 export const postSlackLink = async (

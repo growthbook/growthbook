@@ -70,7 +70,6 @@ describe("composeCoalescedSlackMessage", () => {
     expect(result).not.toBeNull();
     if (!result) return;
 
-    // Header context block names the object and the count.
     expect(result.blocks[0]).toEqual({
       type: "context",
       elements: [
@@ -87,7 +86,6 @@ describe("composeCoalescedSlackMessage", () => {
       .filter((i) => i >= 0);
     expect(dividerIndices).toHaveLength(1);
 
-    // Each event's body is preserved.
     const bodyTexts = result.blocks
       .filter(
         (b): b is Extract<typeof b, { type: "section" }> =>
@@ -134,7 +132,6 @@ describe("composeCoalescedSlackMessage", () => {
       "body 4",
     ]);
 
-    // Last block is the "+2 more changes not shown" footer.
     const footer = result.blocks[result.blocks.length - 1];
     expect(footer.type).toBe("context");
     if (footer.type === "context") {

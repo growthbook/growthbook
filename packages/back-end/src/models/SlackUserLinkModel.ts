@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 
-// Maps a Slack user (per workspace) to the GrowthBook user account they proved
-// ownership of via the account-link flow. This replaces trusting the Slack
-// profile email (which is user-settable / spoofable in non-SSO workspaces) as
-// the basis for who the assistant acts as.
+// Maps a Slack user (per workspace) to the GrowthBook account they proved
+// ownership of via the account-link flow. Basis for who the assistant acts as,
+// replacing the spoofable Slack profile email (user-settable in non-SSO
+// workspaces).
 
 export type SlackUserLinkInterface = {
   slackTeamId: string;
   slackUserId: string;
-  // The org the link was created from (context), for reference/audit. The
-  // acting org is still resolved per-mention by channel/team routing, and the
-  // linked user's membership in that org is re-checked at use time.
+  // The org the link was created from, for reference/audit only. The acting org
+  // is resolved per-mention by channel/team routing, and membership re-checked
+  // at use time.
   organizationId: string;
   growthbookUserId: string;
   dateCreated: Date;

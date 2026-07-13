@@ -5,10 +5,9 @@ import { getSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
 
-// Minimal shape we read off the (lean) Slack Event Webhook docs.
-// `botAccessToken` is intentionally absent from the public
-// EventWebHookInterface, so we read it through a narrow cast — the same way
-// getSlackBotAccessTokenForWebhook does.
+// Minimal shape we read off the lean Slack Event Webhook docs. `botAccessToken`
+// is intentionally absent from the public EventWebHookInterface, so we read it
+// through a narrow cast (like getSlackBotAccessTokenForWebhook does).
 interface SlackWebhookDoc {
   id: string;
   organizationId: string;

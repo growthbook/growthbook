@@ -20,9 +20,8 @@ import { logger } from "back-end/src/util/logger";
 import { maybeSendSlackDirectMessageForEvent } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
-// Coalescing only makes sense for chat-style payloads where one bundled
-// message is strictly better UX than a burst of individual ones. Raw/JSON
-// webhook consumers expect a 1:1 mapping with events.
+// Coalescing only applies to chat-style payloads; raw/JSON consumers expect a
+// 1:1 mapping with events.
 const COALESCE_SUPPORTED_PAYLOAD_TYPES = new Set<
   EventWebHookInterface["payloadType"]
 >(["slack", "discord"]);
@@ -33,8 +32,8 @@ export const shouldCoalesceWebhook = (
 ): boolean => {
   if (!COALESCE_SUPPORTED_PAYLOAD_TYPES.has(webhook.payloadType)) return false;
   if (!event.objectId) return false;
-  // The synthetic webhook.test event needs to deliver immediately so admins
-  // can verify their integration without waiting for a coalescing window.
+  // webhook.test must deliver immediately so admins can verify the integration
+  // without waiting out the coalescing window.
   if (event.event === "webhook.test") return false;
   const window = webhook.coalesceWindowMs ?? 0;
   return window > 0;
@@ -134,12 +133,10 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       continue;
     }
 
-    // Legacy wildcard installs (e.g. events: ["experiment.*"]) can't express
-    // per-event intent, so we suppress low-signal experiment events from live
-    // delivery unless the channel opts into the full change log. Installs with
-    // explicit (curated) subscriptions skip this gate entirely — a user who
-    // checks "Experiment edited" means it. Suppressed events still exist in the
-    // store, so they appear in the daily/weekly digest.
+    // Legacy wildcard installs (e.g. ["experiment.*"]) can't express per-event
+    // intent, so suppress low-signal experiment events from live delivery unless
+    // the channel opts into the full change log. Explicit (curated)
+    // subscriptions skip this gate. Suppressed events still land in the digest.
     if (
       eventWebHook.payloadType === "slack" &&
       hasWildcardSubscription(eventWebHook.events) &&

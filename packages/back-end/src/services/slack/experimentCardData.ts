@@ -18,10 +18,10 @@ import type {
   ExperimentCardData,
 } from "back-end/src/services/slack/chartImage";
 
-// Maps a GrowthBook experiment + its latest results snapshot into the compact
-// card model consumed by the Slack image renderer. Numbers come straight off
-// the snapshot's default analysis; `expected`/`ci` are fractional relative
-// uplift (matching the front-end results graph), so we scale to % for the card.
+// Maps a GrowthBook experiment + its latest snapshot into the card model the
+// Slack renderer consumes. Numbers come off the snapshot's default analysis;
+// `expected`/`ci` are fractional relative uplift (matching the front-end graph),
+// so we scale to % for the card.
 
 const SRM_P_THRESHOLD = 0.001; // matches the default health-check threshold
 const SIG_THRESHOLD = 0.05;
@@ -55,9 +55,9 @@ function daysBetween(start: Date, end: Date): number {
   return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000));
 }
 
-// Best-effort value formatting from the metric type. Not as exhaustive as the
-// front-end's getExperimentMetricFormatter (which lives in the front-end), but
-// covers the common proportion / currency / count cases.
+// Best-effort value formatting from the metric type. Less exhaustive than the
+// front-end's getExperimentMetricFormatter, but covers the common
+// proportion / currency / count cases.
 function formatMetricValue(
   metric: ExperimentMetricInterface | null,
   m: SnapshotMetric | undefined,
@@ -119,7 +119,6 @@ function deriveState(
     return "warning";
   }
   if (experiment.status === "running") return "running";
-  // stopped
   if (experiment.results === "won") return "winner";
   if (experiment.results === "lost") return "loser";
   return "stopped";
@@ -299,10 +298,10 @@ export async function buildExperimentCardData(
       ? `Observed split deviates from configuration`
       : undefined;
 
-  // Health is orthogonal to status. SRM is already surfaced by the dedicated
-  // "warning" card, so only add it here when the card isn't already a warning
-  // (e.g. an SRM on a stopped experiment). Multiple exposures and unknown
-  // variations are always health issues regardless of state.
+  // Health is orthogonal to status. SRM is already surfaced by the "warning"
+  // card, so only add it here when the card isn't already a warning (e.g. SRM on
+  // a stopped experiment). Multiple exposures / unknown variations are always
+  // health issues regardless of state.
   const healthIssues: [string, string][] = [];
   if (
     state !== "warning" &&
@@ -327,17 +326,16 @@ export async function buildExperimentCardData(
     ]);
   }
 
-  // Conclusion (the written analysis) is only meaningful for completed
-  // experiments — show it for stopped experiments that have one.
+  // The written analysis is only meaningful for completed experiments — show it
+  // for stopped experiments that have one.
   const conclusion =
     experiment.status === "stopped" && experiment.analysis?.trim()
       ? { text: experiment.analysis.trim() }
       : undefined;
 
-  // The winning variation (for "won" experiments) — its 0-based index (control
-  // = 0), from the recorded winner index, falling back to the released
-  // variation id. The compact card matches the goal row by this index (not by
-  // name, which can collide) and names the winner (matters for 3+ way tests).
+  // The winning variation's 0-based index (control = 0), from the recorded
+  // winner index, falling back to the released variation id. The compact card
+  // matches the goal row by this index (names can collide) and names the winner.
   const winningVariationIndex =
     state === "winner"
       ? typeof experiment.winner === "number"

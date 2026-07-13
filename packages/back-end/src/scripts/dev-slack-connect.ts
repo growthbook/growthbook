@@ -7,10 +7,9 @@
 //   pnpm --filter back-end tsx src/scripts/dev-slack-connect.ts \
 //     --token xoxb-... [--channel C0123ABCD] [--org org_abc]
 //
-// It validates the token via Slack auth.test (to get the team id), then
-// creates/updates the Slack Event Webhook record the assistant relies on
-// (team → org mapping + stored bot token). If --org is omitted and there's
-// exactly one org, it uses that one.
+// Validates the token via auth.test (for the team id), then creates/updates
+// the Slack Event Webhook the assistant relies on (team → org mapping + stored
+// bot token). Defaults to the only org if --org is omitted.
 //
 // eslint-disable-next-line no-restricted-imports
 import "../init/aliases";
@@ -74,7 +73,6 @@ async function run() {
 
   await init();
 
-  // Resolve the org.
   let organizationId = args.org;
   if (!organizationId) {
     const { organizations, total } = await findAllOrganizations(1, "", 50);
@@ -89,7 +87,6 @@ async function run() {
     }
   }
 
-  // Validate the token + get the team id.
   const auth = await slackAuthTest(token);
   if (!auth.ok || !auth.team_id) {
     console.error(`Slack auth.test failed: ${auth.error || "unknown error"}`);
@@ -107,7 +104,6 @@ async function run() {
     ...(channelId ? { channelId } : {}),
   };
 
-  // Reuse an existing slack webhook for this team if present, else create one.
   const existing = await EventWebHookModel.findOne({
     organizationId,
     payloadType: "slack",
@@ -125,8 +121,8 @@ async function run() {
   } else {
     const created = await createEventWebHook({
       name: `Slack dev (${auth.team || auth.team_id})`,
-      // Unused by the assistant; a valid https placeholder for the notification
-      // webhook (auth.test returns the workspace URL).
+      // Unused by the assistant; just a valid https placeholder for the
+      // notification webhook (auth.test returns the workspace URL).
       url: auth.url || "https://slack.com",
       organizationId,
       enabled: true,
@@ -143,7 +139,7 @@ async function run() {
     console.log(`Created Slack webhook ${eventWebHookId}`);
   }
 
-  // Store the bot token (stripped from the public interface, set directly).
+  // Set the bot token directly (it's stripped from the public create interface).
   await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     { $set: { "slack.botAccessToken": token } },

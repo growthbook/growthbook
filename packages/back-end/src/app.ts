@@ -290,10 +290,9 @@ app.use(async (req, res, next) => {
 app.get("/js/:key.js", getExperimentsScript);
 
 // Slack inbound (events / slash commands / interactivity). Mounted BEFORE the
-// global JSON body parser below because Slack request signatures are verified
-// against the raw request body — this router captures the raw body in its own
-// body parsers, which only works if no earlier parser has already consumed the
-// stream. It's public (Slack authenticates via signature, not our JWT).
+// global JSON body parser: Slack signatures are verified against the raw body,
+// which this router captures in its own parsers — only possible if no earlier
+// parser has consumed the stream. Public (Slack authenticates via signature).
 app.use("/integrations/slack", slackActionsRouter);
 
 // 2mb default; 10mb for screenshot upload and visual-editor AI image
@@ -1122,7 +1121,7 @@ app.use(eventWebHooksRouter);
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
 
-// Slack bot test trigger (admin-only Hello World)
+// Slack card/webhook test endpoints (admin-only)
 app.use("/admin/slack-test", slackTestRouter);
 
 // Data Export

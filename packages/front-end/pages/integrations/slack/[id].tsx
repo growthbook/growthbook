@@ -74,8 +74,7 @@ const DAY_OF_WEEK_LABELS = [
   "Saturday",
 ];
 
-// Per-subject copy. Each subject section owns its event notifications and its
-// scheduled digest.
+// Per-subject UI copy (each subject owns its event notifications + digest).
 const SUBJECT_META: Record<
   SlackEventCategory,
   {
@@ -111,8 +110,8 @@ const REQUIRED_SCOPES = ["channels:read", "groups:read"];
 
 const getChannelLabel = (i: SlackOAuthIntegrationInterface) => {
   const name = i.slack?.channelName;
-  // Prefix the resolved channel name with "#" (once) so it reads like Slack.
-  // The channel-id / webhook-name fallbacks are left as-is.
+  // Prefix the resolved name with "#" (once) so it reads like Slack; leave the
+  // channel-id / webhook-name fallbacks as-is.
   if (name) return name.startsWith("#") ? name : `#${name}`;
   return i.slack?.channelId || i.name;
 };
@@ -150,9 +149,8 @@ const OFF_DIGEST_STATE: ResolvedSlackDigest = {
   intervalDays: DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
 };
 
-// A subject's scheduled-digest sub-section: an enable toggle + cadence/time
-// controls, separated from the events row above by a divider. Embedded inside
-// the Experiments / Feature flags subject card.
+// A subject's scheduled-digest sub-section (enable toggle + cadence/time),
+// embedded in the Experiments / Feature flags subject card.
 function DigestSubSection({
   description,
   value,
@@ -282,9 +280,8 @@ function DigestSubSection({
   );
 }
 
-// Live preview of the actual posted results card for the chosen style. Renders
-// a real sample via the card renderer (no hardcoded mock). "none" posts text
-// only, so there's nothing to preview.
+// Live preview of the posted results card, rendered via the real card renderer
+// (no mock). "none" posts text only, so there's nothing to preview.
 function CardPreview({
   style,
 }: {
@@ -384,7 +381,6 @@ const SlackIntegrationDetailPage = () => {
     [data?.slackIntegrations, id],
   );
 
-  // ---- Form state ----
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cardFormat, setCardFormat] =
     useState<(typeof experimentCardFormats)[number]>("compact");
@@ -418,11 +414,10 @@ const SlackIntegrationDetailPage = () => {
   // Hydrate form when the integration loads.
   useEffect(() => {
     if (!integration) return;
-    // A legacy install still carrying wildcard subscriptions (e.g. "feature.*")
-    // is effectively unconfigured — its wildcard matches every event in the
-    // resource, which would read as "everything selected" and falsely flag the
-    // category as Customized. Present it as the recommended defaults instead;
-    // saving then migrates it to an explicit curated list.
+    // A legacy install carrying wildcard subscriptions (e.g. "feature.*") is
+    // effectively unconfigured — the wildcard matches everything and would
+    // falsely read as "Customized". Show the recommended defaults instead;
+    // saving migrates it to an explicit curated list.
     const hasWildcards = integration.events.some(isEventWebhookWildcard);
     setSelected(
       hasWildcards
@@ -474,9 +469,8 @@ const SlackIntegrationDetailPage = () => {
       (o) => o.category === category && selected.has(o.id),
     );
 
-  // Whether a category's selection deviates from its recommended defaults —
-  // only meaningful when the category is on (an off category reads as off, not
-  // "customized").
+  // Whether a category's selection deviates from its defaults. Only meaningful
+  // when the category is on (an off category reads as off, not "customized").
   const categoryCustomized = (category: SlackEventCategory) => {
     const opts = SLACK_EVENT_OPTIONS.filter((o) => o.category === category);
     return opts.some((o) => selected.has(o.id) !== o.defaultOn);
@@ -503,8 +497,7 @@ const SlackIntegrationDetailPage = () => {
       return next;
     });
 
-  // The "Event notifications" row (toggle + customized/reset/customize) and its
-  // expandable per-event grid, for one subject.
+  // The "Event notifications" row and its expandable per-event grid, for one subject.
   const categoryEventsBlock = (category: SlackEventCategory) => {
     const enabled = categoryEnabled(category);
     const advancedOpen = showAdvanced.has(category);
@@ -598,9 +591,8 @@ const SlackIntegrationDetailPage = () => {
       const selectedEvents = SLACK_EVENT_OPTIONS.filter((o) =>
         selected.has(o.id),
       ).flatMap((o) => o.events);
-      // Preserve any explicit (non-wildcard) subscriptions that aren't
-      // represented in the Slack catalog; drop wildcards (converted to
-      // explicit selections above).
+      // Preserve explicit (non-wildcard) subscriptions not in the Slack catalog;
+      // wildcards are dropped (already converted to explicit selections above).
       const preserved = integration.events.filter(
         (e) => !isEventWebhookWildcard(e) && !CATALOG_EVENTS.has(e),
       );

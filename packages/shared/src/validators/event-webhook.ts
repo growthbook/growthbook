@@ -32,13 +32,10 @@ export const slackEventWebHookMetadata = z
   })
   .strict();
 
-// User-facing Slack bot options (the "simple list of options"). Flat keys in
-// one object so adding a toggle later only touches this schema.
 export const experimentCardFormats = ["none", "compact", "detailed"] as const;
 
-// Digest cadence. `custom` is the same delivery as the other frequencies but
-// signals the UI to expose the full day/time editor. `monthly`/`quarterly` are
-// selectable now but their delivery job lands in a follow-up.
+// Digest cadence. `custom` delivers like the others but signals the UI to
+// expose the full day/time editor.
 export const slackDigestFrequencies = [
   "off",
   "daily",
@@ -49,9 +46,8 @@ export const slackDigestFrequencies = [
 ] as const;
 export type SlackDigestFrequency = (typeof slackDigestFrequencies)[number];
 
-// Frequencies whose delivery is wired up (all of them, now). Kept as a set so
-// the UI can flag any future not-yet-wired cadence without shipping a dead
-// option.
+// Frequencies whose delivery is wired up (a set so the UI can flag any future
+// not-yet-wired cadence without shipping a dead option).
 export const SLACK_DIGEST_LIVE_FREQUENCIES = new Set<SlackDigestFrequency>([
   "daily",
   "weekly",
@@ -63,8 +59,8 @@ export const SLACK_DIGEST_LIVE_FREQUENCIES = new Set<SlackDigestFrequency>([
 export const DEFAULT_SLACK_DIGEST_HOUR_UTC = 14; // ~9am ET
 export const DEFAULT_SLACK_DIGEST_INTERVAL_DAYS = 14;
 
-// Unified digest config — supersedes the split weekly* / dailyDigestHourUtc
-// fields. `dayOfWeekUtc` applies to weekly, `dayOfMonth` to monthly/quarterly,
+// Unified digest config (supersedes the legacy weekly* / dailyDigestHourUtc
+// fields). `dayOfWeekUtc` applies to weekly, `dayOfMonth` to monthly/quarterly,
 // `intervalDays` to custom ("every N days").
 export const slackDigestConfig = z
   .object({
@@ -81,13 +77,11 @@ export const slackEventWebHookOptions = z
   .object({
     // Which results card (if any) to attach to per-event notifications.
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
-    // Two independent digest schedules: an experiment scorecard and a
-    // feature-flag summary. Each is off unless configured.
+    // Two independent digest schedules, each off unless configured.
     experimentDigest: slackDigestConfig.optional(),
     featureDigest: slackDigestConfig.optional(),
-    // ---- Legacy digest fields ----
-    // `digest` was the single (experiment) digest before the split; it now maps
-    // to experimentDigest. The weekly* fields predate `digest`.
+    // Legacy: `digest` was the single experiment digest before the split (now
+    // maps to experimentDigest); the weekly* fields predate `digest`.
     digest: slackDigestConfig.optional(),
     weeklyDigestEnabled: z.boolean().optional(),
     weeklyDigestDayOfWeekUtc: z.number().int().min(0).max(6).optional(), // 0=Sun
@@ -129,14 +123,13 @@ const resolveDigestConfig = (
       }
     : null;
 
-// The effective experiment scorecard schedule. Prefers the new
-// `experimentDigest`, then the legacy single `digest`, then the legacy
-// weeklyDigest* opt-in.
+// The effective experiment scorecard schedule: prefers `experimentDigest`,
+// then the legacy single `digest`, then the legacy weeklyDigest* opt-in.
 //
-// The legacy root `dailyDigestHourUtc` is intentionally NOT mapped here: it
-// configured the old daily *text* recap (a different feature), so honoring it
-// would silently start posting the new daily scorecard image to installs that
-// never opted into it. Those installs stay "off" until reconfigured in the UI.
+// The legacy root `dailyDigestHourUtc` is intentionally NOT mapped: it drove
+// the old daily *text* recap (a different feature), so honoring it would
+// silently start posting the new daily scorecard image to installs that never
+// opted in. Those installs stay "off" until reconfigured in the UI.
 export const resolveExperimentDigest = (
   options: SlackEventWebHookOptions | undefined,
 ): ResolvedSlackDigest => {
@@ -165,13 +158,9 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Quarters begin in these UTC months (Jan, Apr, Jul, Oct).
 const QUARTER_START_MONTHS = new Set([0, 3, 6, 9]);
 
-// Whether a resolved digest should fire at `now` (the digest jobs run hourly,
-// so we match on the hour plus the frequency's day rule):
-//   daily     — every day
-//   weekly    — on dayOfWeekUtc
-//   monthly   — on dayOfMonth
-//   quarterly — on dayOfMonth in a quarter-start month
-//   custom    — every intervalDays, anchored to the Unix epoch (deterministic)
+// Whether a resolved digest should fire at `now`. Jobs run hourly, so we match
+// on the hour plus the frequency's day rule. `custom` is anchored to the Unix
+// epoch so "every N days" is deterministic across runs.
 export const isSlackDigestDue = (
   r: ResolvedSlackDigest,
   now: Date,
@@ -199,9 +188,8 @@ export const isSlackDigestDue = (
   }
 };
 
-// The trailing aggregation window (in ms) a digest should cover for a given
-// frequency — so a daily digest summarizes the last day, weekly the last week,
-// etc. (rather than every daily post re-reporting a full week).
+// The trailing window (ms) a digest should aggregate, so each post covers only
+// since the last one (daily = last day, weekly = last week, etc.).
 export const slackDigestWindowMs = (r: ResolvedSlackDigest): number => {
   switch (r.frequency) {
     case "daily":
@@ -220,10 +208,8 @@ export const slackDigestWindowMs = (r: ResolvedSlackDigest): number => {
 };
 
 // Low-signal experiment events suppressed from live delivery by default (unless
-// the channel opts into the full change log). They still land in the
-// daily/weekly digest (which reads events directly). Everything else —
-// started, significance, decisions, stopped, SRM/guardrail warnings — is
-// always announced.
+// the channel opts into the full change log). They still land in the digest,
+// which reads events directly.
 export const LOW_SIGNAL_EXPERIMENT_EVENTS = new Set<string>([
   "experiment.updated",
   "experiment.status.changed",
@@ -259,36 +245,26 @@ export const getWildcardPatternsForEvent = (eventName: string): string[] => {
   return wildcards;
 };
 
-// ---------------------------------------------------------------------------
-// Slack event catalog — the user-facing simplification of the raw event names.
-//
-// The Slack settings UI presents these grouped options (not the ~54 raw event
-// names). Each option maps to one or more concrete events; toggling it on/off
-// adds/removes those events from the webhook's `events` array, which is the
-// single source of truth for what gets delivered live. `defaultOn` options
-// make up the curated default subscription for a fresh install and the
-// "on" state of the simple per-category toggle.
-// ---------------------------------------------------------------------------
+// Slack event catalog: the grouped options the settings UI shows instead of
+// the raw event names. Toggling an option adds/removes its concrete events from
+// the webhook's `events` array (the source of truth for live delivery);
+// `defaultOn` options form the curated default subscription for a fresh install.
 
 export type SlackEventCategory = "experiment" | "feature";
 
 export interface SlackEventOption {
-  // Stable id for React keys and selection state.
   id: string;
   label: string;
   description?: string;
   category: SlackEventCategory;
-  // Group heading within the advanced section.
   group: string;
-  // Concrete event names this option controls (all must be subscribed for the
-  // option to read as "on").
+  // Concrete events this option controls; all must be subscribed to read as "on".
   events: string[];
   // Part of the curated default subscription / simple-toggle preset.
   defaultOn: boolean;
 }
 
 export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
-  // ---- Experiment · Lifecycle ----
   {
     id: "exp-started",
     label: "Experiment started",
@@ -356,7 +332,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["experiment.stale"],
     defaultOn: false,
   },
-  // ---- Experiment · Results & decisions ----
   {
     id: "exp-significance",
     label: "Reached significance",
@@ -386,7 +361,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["experiment.metric.regression"],
     defaultOn: true,
   },
-  // ---- Experiment · Health & warnings ----
   {
     id: "exp-warning",
     label: "Warnings",
@@ -420,7 +394,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["experiment.health.queryFailed"],
     defaultOn: false,
   },
-  // ---- Experiment · Advanced ----
   {
     id: "exp-bandit",
     label: "Bandit weights changed",
@@ -437,7 +410,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["experiment.holdout.created", "experiment.holdout.updated"],
     defaultOn: false,
   },
-  // ---- Feature · Changes ----
   {
     id: "feat-published",
     label: "New version published",
@@ -479,7 +451,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["feature.deleted"],
     defaultOn: false,
   },
-  // ---- Feature · Safe rollouts ----
   {
     id: "feat-saferollout",
     label: "Safe rollout outcomes",
@@ -493,7 +464,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     ],
     defaultOn: true,
   },
-  // ---- Feature · Drafts & review ----
   {
     id: "feat-revision-created",
     label: "New draft revision",
@@ -550,7 +520,6 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
     events: ["feature.revision.discarded"],
     defaultOn: false,
   },
-  // ---- Feature · Advanced ----
   {
     id: "feat-ramp",
     label: "Ramp schedule activity",
@@ -583,8 +552,8 @@ export const SLACK_EVENT_OPTIONS: SlackEventOption[] = [
 export const defaultSlackEventSubscriptions = (): string[] =>
   SLACK_EVENT_OPTIONS.filter((o) => o.defaultOn).flatMap((o) => o.events);
 
-// All concrete events in a category (used by the simple on/off toggle to
-// enable everything, and to detect/strip a category wholesale).
+// All concrete events in a category (for the simple on/off toggle and for
+// detecting/stripping a category wholesale).
 export const slackCategoryEvents = (
   category: SlackEventCategory,
   { onlyDefault = false }: { onlyDefault?: boolean } = {},
@@ -614,13 +583,11 @@ export const selectedSlackOptionIds = (subscriptions: string[]): Set<string> =>
 export const defaultSlackOptionIds = (): Set<string> =>
   new Set(SLACK_EVENT_OPTIONS.filter((o) => o.defaultOn).map((o) => o.id));
 
-// True if a subscription deviates in either direction from the recommended
-// defaults (opted into extras, or removed some) — i.e. the user has customized
-// the event list. Used to flag customized installs in the overview.
+// True if a subscription deviates from the recommended defaults (extras added
+// or defaults removed) — used to flag customized installs in the overview.
 //
-// A legacy wildcard install ("feature.*" etc.) is treated as unconfigured, not
-// customized: its wildcard matches every event, which isn't a deliberate
-// choice. It reads as the recommended baseline until saved as an explicit list.
+// A legacy wildcard install ("feature.*") reads as unconfigured, not
+// customized: its wildcard matches everything, which isn't a deliberate choice.
 export const isSlackSubscriptionCustomized = (
   subscriptions: string[],
 ): boolean => {
@@ -649,10 +616,9 @@ const eventNameOrWildcard = z
     },
   );
 
-// Coalescing window: when > 0, deliveries for chat-style payload types
-// (slack, discord) buffer events keyed by the touched object for this many
-// milliseconds, then send a single digest message. 0/undefined disables
-// (events deliver one-to-one as before).
+// Coalescing window (ms): when > 0, chat-style payloads (slack, discord) buffer
+// events keyed by the touched object, then send one digest message. 0/undefined
+// disables it (events deliver one-to-one).
 export const EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS = 15_000;
 export const EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS = 5 * 60_000;
 
@@ -686,8 +652,8 @@ export const eventWebHookInterface = z
       .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
       .optional(),
     dailyDigestHourUtc: z.number().int().min(0).max(23).optional(),
-    // Slack bot display/digest options. A single object (flat keys) so new
-    // toggles are just a new key here — no model/router/controller surgery.
+    // Slack bot display/digest options (flat keys so new toggles don't need
+    // model/router/controller changes).
     slackOptions: slackEventWebHookOptions.optional(),
   })
   .strict();

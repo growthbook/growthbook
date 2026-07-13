@@ -30,19 +30,16 @@ import { fetch } from "back-end/src/util/http.util";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
-// `app_mentions:read` lets the assistant receive @-mentions; the `*:history`
-// scopes let it receive plain messages in threads it's already in (thread
-// follow-up without a mention); `channels:read`/`groups:read` let us resolve a
-// channel's current name (conversations.info) so the UI shows the live name
-// even after a rename; the rest cover incoming-webhook notifications, slash
-// commands, posting replies (chat:write), and user lookups (users:read*).
+// app_mentions:read: receive @-mentions. *:history: receive plain thread
+// follow-ups without a mention. channels:read/groups:read: resolve a channel's
+// current name (conversations.info) so the UI shows renames. Rest cover
+// incoming-webhook notifications, slash commands, chat:write, and users:read*.
 const SLACK_OAUTH_SCOPE =
   "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:history,groups:history,im:history,mpim:history,links:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 // Fresh installs subscribe to the curated default set (explicit event names,
-// no wildcards) so the low-signal suppression gate is bypassed and users see
-// exactly the "important" events out of the box. Editable on the Slack
-// settings page afterward.
+// no wildcards) so the low-signal suppression gate is bypassed. Editable on the
+// Slack settings page afterward.
 const DEFAULT_SLACK_EVENTS = defaultSlackEventSubscriptions();
 
 const slackOAuthStateSchema = z
@@ -332,14 +329,10 @@ export const getSlackOAuthIntegrations = async (
     .filter((eventWebHook) => eventWebHook.payloadType === "slack")
     .map(slackEventWebhookToIntegration);
 
-  // Resolve each channel's live name (handles renames and installs where Slack
-  // didn't return a name). Best-effort; when the live name differs, cache it
-  // back so digests and future loads use it without another round-trip.
-  //
-  // Fully error-isolated — the entire per-item body (including the token DB
-  // lookup) is inside the try, so a single failure can never reject the batch
-  // and 500 the settings list. Bounded concurrency so a workspace with many
-  // channels doesn't burst conversations.info past Slack's rate limit.
+  // Resolve each channel's live name (handles renames / missing names),
+  // caching a changed name back for future loads. Best-effort and fully
+  // error-isolated so one failure can't reject the batch and 500 the list.
+  // Bounded concurrency below keeps conversations.info under Slack's rate limit.
   const resolveChannelName = async (
     integration: SlackOAuthIntegrationInterface,
   ) => {
@@ -380,15 +373,10 @@ export const getSlackOAuthIntegrations = async (
 };
 
 /**
- * Exchange a Slack OAuth `code` and attach (or update) the resulting Slack
- * connection to `context.org`. This is the shared core for both install paths;
- * it assumes the caller has already authorized the attach:
- *
- * - GrowthBook-initiated: {@link connectSlackOAuthIntegration} verifies a
- *   signed `state` that binds the install to the initiating user/org.
- * - Slack-initiated (App Directory): {@link connectSlackOAuthInstallFromSession}
- *   relies on the logged-in session + an explicit in-app org confirmation, the
- *   same way the visual-editor extension attaches to an org.
+ * Exchange a Slack OAuth `code` and attach (or update) the Slack connection on
+ * `context.org`. Shared core for both install paths; assumes the caller has
+ * already authorized the attach (see {@link connectSlackOAuthIntegration} and
+ * {@link connectSlackOAuthInstallFromSession}).
  */
 const attachSlackOAuthCode = async ({
   context,
@@ -404,9 +392,8 @@ const attachSlackOAuthCode = async ({
   });
 
   if (existing) {
-    // Single atomic write: refresh url + metadata without clobbering the stored
-    // bot token, and set a new token only if Slack returned one (otherwise the
-    // existing token is preserved).
+    // Refresh url + metadata in one write; only overwrite the stored bot token
+    // if Slack returned a new one (otherwise the existing token is preserved).
     await reconnectSlackEventWebhook({
       eventWebHookId: existing.id,
       organizationId: context.org.id,
@@ -455,9 +442,8 @@ const attachSlackOAuthCode = async ({
 };
 
 /**
- * GrowthBook-initiated install: the user clicked "Connect to Slack" inside the
- * app, so we verify the signed `state` that ties this callback to the same
- * user/org before attaching.
+ * GrowthBook-initiated install ("Connect to Slack" in-app): verify the signed
+ * `state` tying this callback to the same user/org before attaching.
  */
 export const connectSlackOAuthIntegration = async ({
   context,
@@ -473,13 +459,11 @@ export const connectSlackOAuthIntegration = async ({
 };
 
 /**
- * Slack-initiated install: the user added the app from the Slack App Directory,
- * so Slack returns a `code` with no GrowthBook `state`. There's no initiating
- * GrowthBook session to bind to, so authorization is established by the caller
- * instead — the user is logged in, has explicitly confirmed which org to attach
- * to in the UI, and the controller has checked `canManageIntegrations`. The
- * org comes from the confirmed session context. Mirrors how the visual-editor
- * extension attaches to an org.
+ * Slack-initiated install (App Directory): Slack returns a `code` with no
+ * GrowthBook `state`, so there's no signed state to verify. Authorization is
+ * instead established by the caller — logged-in user, explicit in-app org
+ * confirmation, and a `canManageIntegrations` check in the controller. Mirrors
+ * how the visual-editor extension attaches to an org.
  */
 export const connectSlackOAuthInstallFromSession = async ({
   context,
@@ -504,8 +488,8 @@ export const deleteSlackOAuthIntegration = async ({
     return false;
   }
 
-  // Drop any in-flight coalesce buckets so the next flush doesn't try to
-  // deliver to a now-deleted webhook.
+  // Drop in-flight coalesce buckets so the next flush doesn't deliver to a
+  // now-deleted webhook.
   await deleteCoalesceBucketsForWebhook({
     organizationId: context.org.id,
     eventWebHookId: eventWebHook.id,

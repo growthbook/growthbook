@@ -772,11 +772,10 @@ export const sendSlackEventWebhookTestEvent = async ({
     return { ok: false, error: `Unable to preview Slack event: ${eventName}` };
   }
 
-  // Deliver the sample straight to Slack WITHOUT persisting an Event. A test
-  // send is a preview, not a real notification — creating an Event would
-  // pollute the org's events feed and inflate digest activity counts. This
-  // mirrors the real delivery path (bot-token card upload, or text via the
-  // incoming-webhook URL) minus all the Event/notifier bookkeeping.
+  // Deliver the sample straight to Slack WITHOUT persisting an Event — a test
+  // send is a preview, and a real Event would pollute the events feed and
+  // inflate digest counts. Mirrors the real delivery path (bot-token card
+  // upload, or text via the incoming-webhook URL) minus the Event bookkeeping.
   const botToken = await getSlackBotAccessTokenForWebhook({
     eventWebHookId,
     organizationId: context.org.id,

@@ -4,9 +4,8 @@ import { buildExperimentCardData } from "back-end/src/services/slack/experimentC
 import { unfurlSlackLinks } from "back-end/src/services/slack/slackWebApi";
 
 // Unfurl GrowthBook experiment links shared in Slack into a concise text
-// summary. (Unfurls can't carry a private uploaded image — a slack_file block
-// is rejected — and we never host experiment results at a public URL, so the
-// unfurl is text-only.)
+// summary. Text-only because unfurls can't carry a private uploaded image (a
+// slack_file block is rejected) and we never host results at a public URL.
 
 const EXPERIMENT_URL_RE = /\/experiment\/([a-zA-Z0-9_-]+)/;
 

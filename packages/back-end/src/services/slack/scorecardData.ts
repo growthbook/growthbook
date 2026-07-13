@@ -9,10 +9,9 @@ import type {
 } from "back-end/src/services/slack/chartImage";
 import { logger } from "back-end/src/util/logger";
 
-// Aggregates a trailing window of experiment activity into the ScorecardData
-// the program digest renders. First-pass heuristics (documented inline) — the
-// numbers are meant as an at-a-glance program pulse, not an exact audit. The
-// window length (weekly / monthly / quarterly / custom) is passed in.
+// Aggregates a trailing window of experiment activity into the ScorecardData the
+// program digest renders. Heuristics — an at-a-glance program pulse, not an
+// exact audit. The window length is passed in.
 
 const MAX_NOTABLE = 8;
 

@@ -26,12 +26,10 @@ router.post(
   slackTestController.postEventWebhook,
 );
 
-// Phase 2: render an experiment card as a PNG for eyeballing quality
-// (?experimentId= for real data, else ?state= for a sample).
+// Render an experiment card as a PNG for eyeballing (see controller for query params).
 router.get("/chart-preview", slackTestController.getChartPreview);
 
-// Render a real experiment card and post it to the org's connected Slack
-// channel — end-to-end test of snapshot → card → upload → image block.
+// Post a real experiment card to the org's Slack channel (end-to-end path test).
 router.post(
   "/chart-post",
   validateRequestMiddleware({

@@ -48,8 +48,8 @@ const getQueryStringValue = (value: string | string[] | undefined) =>
 
 const getSlackChannelLabel = (i: SlackOAuthIntegrationInterface) => {
   const name = i.slack?.channelName;
-  // Prefix the resolved channel name with "#" (once) so it reads like Slack.
-  // The channel-id / webhook-name fallbacks are left as-is.
+  // Prefix the resolved name with "#" (once) so it reads like Slack; leave the
+  // channel-id / webhook-name fallbacks as-is.
   if (name) return name.startsWith("#") ? name : `#${name}`;
   return i.slack?.channelId || i.name;
 };
@@ -84,10 +84,9 @@ const SlackIntegrationsPage: NextPage = () => {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
-  // Slack-initiated install (App Directory "Add to Slack"): Slack returns a
-  // `code` with no GrowthBook `state`. Unlike the in-app "Connect" flow, we
-  // can't silently attach — we don't know which org the user means — so we
-  // hold the code and show an explicit org-confirmation screen.
+  // Slack-initiated install (App Directory "Add to Slack"): `code` with no
+  // GrowthBook `state`. We don't know which org the user means, so we hold the
+  // code and show an explicit org-confirmation screen instead of attaching.
   const [installCode, setInstallCode] = useState<string | null>(null);
   const [installStatus, setInstallStatus] = useState<
     "confirming" | "connecting" | "done" | "error"
@@ -122,8 +121,7 @@ const SlackIntegrationsPage: NextPage = () => {
     const state = getQueryStringValue(router.query.state);
     if (!code) return;
 
-    // No state → Slack-initiated install. Stash the code and show the
-    // org-confirmation screen instead of attaching silently.
+    // No state → Slack-initiated install: stash the code for the confirm screen.
     if (!state) {
       callbackProcessed.current = true;
       setInstallCode(code);
@@ -229,8 +227,8 @@ const SlackIntegrationsPage: NextPage = () => {
     [apiCall, mutate],
   );
 
-  // Slack-initiated install: an explicit org-confirmation screen, shown in
-  // place of the normal management page until the user confirms (or it's done).
+  // Slack-initiated install: show the org-confirmation screen in place of the
+  // management page until the user confirms (or it's done).
   if (installCode && installStatus !== "done") {
     return (
       <div className="container-fluid pagecontents">

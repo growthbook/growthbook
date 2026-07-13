@@ -10,14 +10,13 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 
-// Slack account-link consent page. The GrowthBook Slack bot sends an unlinked
-// user here with a signed `state`; because the user is logged in to GrowthBook,
-// confirming records "this Slack user IS this GrowthBook account" — so the
-// assistant acts as them without trusting the (spoofable) Slack profile email.
+// Slack account-link consent page. The bot sends an unlinked user here with a
+// signed `state`; confirming (while logged in to GrowthBook) records "this
+// Slack user IS this GrowthBook account", so the assistant acts as them without
+// trusting the spoofable Slack profile email.
 //
-// Auth-gated like any page (no preAuth flag) — an unauthenticated visitor is
-// bounced to login and returned here. Users in multiple orgs pick which one to
-// link before confirming.
+// Auth-gated (no preAuth flag), so an unauthenticated visitor logs in first.
+// Users in multiple orgs pick which one to link before confirming.
 
 type Status = "confirming" | "linking" | "done" | "error";
 

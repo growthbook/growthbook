@@ -1,10 +1,9 @@
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
-// Minimal Slack Web API client for the interactive assistant. Outbound event
-// notifications still go through incoming webhooks (EventWebHookNotifier); this
-// is only for the bot-token-authenticated calls the assistant needs
-// (chat.postMessage / chat.update to reply, users.info to map identities).
+// Minimal Slack Web API client for the interactive assistant (bot-token calls:
+// chat.postMessage/update, users.info). Outbound event notifications still go
+// through incoming webhooks (EventWebHookNotifier).
 
 const SLACK_API_URL = "https://slack.com/api";
 
@@ -17,8 +16,6 @@ type SlackApiResponse = { ok: boolean; error?: string } & Record<
 
 type SlackBlock = Record<string, unknown>;
 
-// Slack responses are small, but users.info / chat.postMessage echoes can be a
-// few KB — keep a comfortable ceiling.
 const SLACK_FETCH_OPTS = { maxTimeMs: 15000, maxContentSize: 1024 * 256 };
 
 function parseSlackResponse<T extends SlackApiResponse>(
@@ -40,8 +37,7 @@ function parseSlackResponse<T extends SlackApiResponse>(
   return parsed;
 }
 
-// POST with a JSON body — for "write" methods like chat.postMessage /
-// chat.update that accept JSON.
+// POST with a JSON body — for "write" methods like chat.postMessage/update.
 async function slackApiCall<T extends SlackApiResponse>(
   token: string,
   method: string,
@@ -72,8 +68,8 @@ async function slackApiCall<T extends SlackApiResponse>(
   }
 }
 
-// GET with query-string args — for "read" methods like users.info, which read
-// their arguments from the query string and IGNORE a JSON body.
+// GET with query-string args — "read" methods like users.info read their args
+// from the query string and IGNORE a JSON body.
 async function slackApiGet<T extends SlackApiResponse>(
   token: string,
   method: string,
@@ -99,9 +95,9 @@ async function slackApiGet<T extends SlackApiResponse>(
 }
 
 /**
- * Post a message to a channel (optionally threaded). Returns the new message's
- * `ts` (for a later chat.update), `ok`, and the Slack `error` on failure so
- * callers can surface *why* it failed (e.g. not_in_channel, invalid_blocks).
+ * Post a message (optionally threaded). Returns `ts` (for a later chat.update),
+ * `ok`, and the Slack `error` on failure so callers can surface why it failed
+ * (e.g. not_in_channel, invalid_blocks).
  */
 export async function postSlackMessageResult({
   token,
@@ -117,7 +113,7 @@ export async function postSlackMessageResult({
   blocks?: SlackBlock[];
   threadTs?: string;
   // When false, suppress Slack's link/media previews (e.g. for experiment
-  // names that contain a URL). Defaults to Slack's behavior (previews on).
+  // names containing a URL). Defaults to Slack's behavior (previews on).
   unfurl?: boolean;
 }): Promise<{ ok: boolean; ts: string | null; error: string | null }> {
   const res = await slackApiCall<SlackApiResponse & { ts?: string }>(
@@ -138,10 +134,7 @@ export async function postSlackMessageResult({
   };
 }
 
-/**
- * Post a message to a channel (optionally threaded). Returns the new message's
- * `ts` so callers can later chat.update it, or null on failure.
- */
+/** Post a message, returning its `ts` (for a later chat.update) or null. */
 export async function postSlackMessage(args: {
   token: string;
   channel: string;
@@ -154,10 +147,9 @@ export async function postSlackMessage(args: {
 }
 
 /**
- * Post an ephemeral message — visible only to `user` in the channel (optionally
- * in a thread). Used for messages meant for one person (e.g. the account-link
- * prompt), so a signed link/URL isn't exposed to everyone in the channel.
- * Returns false on failure (never throws).
+ * Post an ephemeral message, visible only to `user`. Used for one-person
+ * content (e.g. the account-link prompt) so a signed link isn't exposed to the
+ * whole channel. Returns false on failure (never throws).
  */
 export async function postSlackEphemeralMessage({
   token,
@@ -188,10 +180,7 @@ export async function postSlackEphemeralMessage({
   return !!res?.ok;
 }
 
-/**
- * Replace an existing message in place (used to swap a "thinking…" placeholder
- * for the final answer).
- */
+/** Replace a message in place (e.g. swap a "thinking…" placeholder for the answer). */
 export async function updateSlackMessage({
   token,
   channel,
@@ -215,7 +204,7 @@ export async function updateSlackMessage({
 }
 
 /**
- * Provide link-unfurl content for URLs shared in a message (responding to a
+ * Provide unfurl content for URLs shared in a message (responding to a
  * `link_shared` event). `unfurls` maps each shared URL to its block content.
  */
 export async function unfurlSlackLinks({
@@ -238,15 +227,14 @@ export async function unfurlSlackLinks({
 }
 
 /**
- * Upload a PNG to Slack as a private, Slack-hosted file (requires `files:write`)
- * and share it into a channel — Slack posts it as a native (private) image
- * message, optionally as a threaded reply with a leading comment. Returns the
- * file id, or null on failure.
+ * Upload a PNG as a private, Slack-hosted file (requires `files:write`) and
+ * share it into a channel, optionally as a threaded reply with a leading
+ * comment. Returns the file id, or null on failure.
  *
- * We share via completeUploadExternal's `channel_id` rather than referencing
- * the file from an `image` block's `slack_file` — the latter is rejected with
- * `invalid_blocks` (a known Slack limitation), and we never host at a public
- * URL. Uses the current external-upload flow (the older files.upload is gone).
+ * Shares via completeUploadExternal's `channel_id` rather than an `image`
+ * block's `slack_file` — the latter is rejected with `invalid_blocks` (known
+ * Slack limitation), and this keeps the file private (never a public URL).
+ * Uses the current external-upload flow (the older files.upload is gone).
  */
 export async function uploadSlackImageFile({
   token,
@@ -312,8 +300,6 @@ export async function getSlackUserEmail({
   token: string;
   slackUserId: string;
 }): Promise<string | null> {
-  // users.info is a read method — it reads its args from the query string, NOT
-  // a JSON body (unlike chat.postMessage), so pass `user` as a query param.
   const res = await slackApiGet<
     SlackApiResponse & { user?: { profile?: { email?: string } } }
   >(token, "users.info", { user: slackUserId });
@@ -321,11 +307,9 @@ export async function getSlackUserEmail({
   return email || null;
 }
 
-// Resolve a channel's current name via conversations.info. Requires a read
-// scope (channels:read / groups:read) — installs granted before those scopes
-// were requested return `missing_scope`, in which case this returns null and
-// callers fall back to the name captured at install time. Best-effort: never
-// throws.
+// Resolve a channel's current name via conversations.info (needs channels:read
+// / groups:read). Installs predating those scopes return `missing_scope`; we
+// return null so callers fall back to the name captured at install time.
 export async function getSlackConversationName({
   token,
   channelId,

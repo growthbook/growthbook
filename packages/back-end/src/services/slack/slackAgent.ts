@@ -3,10 +3,9 @@ import { aiTool } from "back-end/src/enterprise/services/ai";
 import type { AgentConfig } from "back-end/src/enterprise/services/agent-handler";
 import { generalAgentConfig } from "back-end/src/agent/general-agent";
 
-// The Slack assistant reuses the General agent's brain (callApi + skills) but
-// adds one Slack-specific capability: attaching a rich experiment results card
-// (rendered server-side to a PNG) to the reply. We compose a variant config
-// rather than touching the shared web-chat agent.
+// The Slack assistant reuses the General agent (callApi + skills) and adds one
+// capability: attaching a server-rendered experiment results card (PNG) to the
+// reply. Composed as a variant config rather than touching the web-chat agent.
 
 const SLACK_PROMPT_APPENDIX = `
 # Talking in Slack
@@ -110,9 +109,8 @@ export const slackAgentConfig: AgentConfig<Record<string, never>> = {
       description: SHOW_EXPERIMENT_RESULTS_DESCRIPTION,
       inputSchema: showExperimentResultsInput,
       execute: async (input) => {
-        // Signal the Slack bridge to render + post the card after the turn.
-        // Rendering/delivery happens outside the agent loop so a render error
-        // never derails the model.
+        // Signal the Slack bridge to render + post the card after the turn —
+        // outside the agent loop, so a render error never derails the model.
         if (emit) emit("experiment-card", { experimentId: input.experimentId });
         return {
           status: "ok" as const,

@@ -167,9 +167,8 @@ export async function handleSlackAssistantMention(
       return;
     }
     if (result.pendingAction) {
-      // The agent wants to make a change — ask for explicit confirmation via
-      // buttons rather than applying it silently. The interaction handler
-      // replays the parked mutation on Confirm.
+      // The agent parked a mutation — confirm via buttons rather than applying
+      // it silently. The interaction handler replays it on Confirm.
       const pa = result.pendingAction;
       const summary = pa.summary || `${pa.method} ${pa.path}`;
       const value = JSON.stringify({ c: conversationId, a: pa.id, t: rootTs });
@@ -225,9 +224,8 @@ export async function handleSlackAssistantMention(
     }
     await finish(result.reply || "I couldn't find an answer to that.");
 
-    // Attach any experiment results cards the agent asked for, as threaded
-    // follow-up image blocks. Best-effort — a render/upload failure never
-    // affects the text answer that already landed.
+    // Attach any experiment cards the agent asked for as threaded image blocks.
+    // Best-effort — a render/upload failure never affects the text answer.
     await attachExperimentCards({
       experimentIds: result.experimentCardIds,
       context: target.context,

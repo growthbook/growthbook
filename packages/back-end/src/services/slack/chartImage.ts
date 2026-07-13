@@ -4,24 +4,19 @@ import satori from "satori";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import { logger } from "back-end/src/util/logger";
 
-// Server-side experiment-card rendering for Slack (Phase 2). Pure-WASM pipeline
-// — no native binaries (sharp/node-canvas) and no external service, so it works
-// in the Docker image and keeps experiment data on-box:
+// Server-side experiment-card rendering for Slack. Pure-WASM pipeline (no native
+// binaries, no external service) so it runs in the Docker image and keeps data
+// on-box:
 //
 //   card model -> satori (JS, flexbox) -> SVG -> @resvg/resvg-wasm -> PNG
 //
-// Faithful to the GrowthBook "Slack experiment cards" design handoff. Two
-// Satori constraints shape the code: (1) no CSS grid, so the results table is
-// built from fixed-width flex rows; (2) charts are generated as standalone
-// SVG strings embedded as <img> data-URIs. Those embedded SVGs are pure shapes
-// (no <text>) so resvg needs no fonts of its own — all text goes through Satori
-// and is emitted as vector paths.
+// Two Satori constraints shape the code: no CSS grid (the results table is
+// fixed-width flex rows), and charts are standalone SVG strings embedded as
+// <img> data-URIs. Those SVGs are pure shapes (no <text>) so resvg needs no
+// fonts — all text goes through Satori and is emitted as vector paths.
 
-// ---------------------------------------------------------------------------
-// Assets: fonts (Inter + Roboto Mono) and the GrowthBook logo. All vendored in
-// ./assets and copied to dist by the `build:slack-assets` script; resolve from
-// src when running via ts/tests (same pattern as agent skills).
-// ---------------------------------------------------------------------------
+// Assets: fonts (Inter + Roboto Mono) + logo, vendored in ./assets and copied to
+// dist by `build:slack-assets`; resolve from src when running via ts/tests.
 
 function resolveAssetPath(file: string): string {
   const candidates = [
@@ -110,10 +105,8 @@ function ensureWasmInitialized(): Promise<void> {
   return wasmReady;
 }
 
-// ---------------------------------------------------------------------------
 // Design tokens (light theme). Mirrors reference/colors_and_type.css + the
 // prototype's PAL/SOLID/SOFT maps.
-// ---------------------------------------------------------------------------
 
 const P = {
   panel: "#FFFFFF",
@@ -195,26 +188,22 @@ const BADGE: Record<CardState, string> = {
 const VC = ["#3E63DD", "#12A594", "#F76808", "#E93D82"];
 
 const CARD_WIDTH = 1000;
-// The compact notification card is narrower + taller than the detailed card so
-// its aspect ratio isn't extreme — Slack center-crops very wide/short image
-// previews, and a narrower card also reads better in the message column. A
-// min-height keeps short cards from being wide-and-short (the hero centers in
-// the leftover space); taller ones (e.g. significance + violin) just grow.
+// Narrower + taller than the detailed card so the aspect ratio isn't extreme —
+// Slack center-crops very wide/short image previews. The min-height keeps short
+// cards from being wide-and-short (hero centers in the leftover space); taller
+// ones just grow.
 const COMPACT_WIDTH = 560;
 const COMPACT_MIN_HEIGHT = 240;
 const RAIL = 6;
 const COLS = [30, 150, 84, 84, 74, "flex" as const, 82];
 const VIOLIN_DOMAIN: [number, number] = [-20, 20];
 const CI_DOMAIN: [number, number] = [-10, 10];
-// The interval chart (violin / CI pill) spans this width; the flex interval
-// column is wider than the chart, so extra room sits to its right. Extra left
-// padding separates it from the Chance column.
+// The violin / CI chart spans this width; the flex interval column is wider, so
+// the extra room sits to its right. Left padding separates it from Chance.
 const INTERVAL_W = 320;
 const INTERVAL_PAD_LEFT = 28;
 
-// ---------------------------------------------------------------------------
 // Data model (mirrors the prototype's EXPS shape).
-// ---------------------------------------------------------------------------
 
 export interface CardGoalRow {
   v: string; // variation name
@@ -263,14 +252,12 @@ export interface ExperimentCardData {
   // Orthogonal to state — an experiment can be Running or Won and still be
   // flagged unhealthy. Renders a red banner under the header when unhealthy.
   health?: { status: "healthy" | "unhealthy"; issues: [string, string][] };
-  // started-only
   metrics?: { goal: string; secondary: string[]; guardrail: string[] };
   target?: number;
-  // warning-only
   srm?: string;
   p?: string;
-  // compact-card-only: the notification *event* the card announces (distinct
-  // from `state`/status). When unset, the compact card derives it from state.
+  // The notification *event* the compact card announces (distinct from
+  // `state`/status). When unset, the compact card derives it from state.
   event?: CompactEvent;
   daysToPower?: number; // "started" compact hero: est. days to reach power
   compactLine?: string; // one-line conclusion fallback for outcome events
@@ -289,9 +276,7 @@ export type CompactEvent =
   | "stopped"
   | "warning";
 
-// ---------------------------------------------------------------------------
 // Element helpers (Satori "without JSX" object form).
-// ---------------------------------------------------------------------------
 
 type El = {
   type: string;
@@ -315,8 +300,8 @@ function el(
   };
 }
 
-// A text node. Satori renders a div/span with a string child; we always pass a
-// font family + weight so glyphs resolve to the vendored fonts.
+// A text node. We always pass a font family so glyphs resolve to the vendored
+// fonts.
 function txt(s: string, style: Record<string, unknown>, mono = false): El {
   return el(
     "div",
@@ -341,27 +326,22 @@ function svgImg(svg: string, width: number, height: number): El {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Lightweight markdown for user-authored prose (hypothesis / conclusion). These
-// fields come from GrowthBook's markdown editor, so a raw string would show
-// literal `**`, `-`, `[label](url)` etc. Satori has no HTML/markdown support and
-// only the vendored font weights (Inter 400/500/600, no bold-700 / italic), so
-// we parse a safe subset into styled runs: bold -> weight 600, inline code ->
-// mono, links -> their label, bullet lists -> real bullets. Italic markers are
-// unwrapped to plain text (no italic font available). Not a full parser — just
-// the marks that show up in short experiment write-ups.
-// ---------------------------------------------------------------------------
+// Lightweight markdown for user-authored prose (hypothesis / conclusion), which
+// comes from GrowthBook's markdown editor. Satori has no markdown support and
+// only the vendored font weights (Inter 400/500/600, no 700/italic), so we parse
+// a safe subset into styled runs: bold -> 600, inline code -> mono, links ->
+// label, bullets -> real bullets, italic -> plain (no italic font). Not a full
+// parser — just the marks common in short write-ups.
 
 type MdRun = { text: string; bold?: boolean; code?: boolean };
 type MdBlock = { type: "p" | "li"; runs: MdRun[] };
 
 function parseInlineMd(input: string): MdRun[] {
-  // Links first: keep the label, drop the URL (not clickable in an image).
+  // Drop link URLs, keep the label (not clickable in an image).
   const s = input.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
   const runs: MdRun[] = [];
-  // Bold (**x** / __x__), `code`, then italic (*x* / _x_) unwrapped to plain.
-  // The italic branch is boundary-guarded so it doesn't fire inside
-  // snake_case identifiers or the like.
+  // Bold, `code`, then italic unwrapped to plain. The italic branch is
+  // boundary-guarded so it doesn't fire inside snake_case identifiers.
   const re =
     /(\*\*|__)(.+?)\1|`([^`]+)`|(?<![\w*])([*_])(?=\S)(.+?)(?<=\S)\4(?![\w*])/g;
   let last = 0;
@@ -417,9 +397,8 @@ interface MdStyle {
   letterSpacing?: string;
 }
 
-// Shared style for the hypothesis + conclusion body prose — deliberately the
-// same size and color so the two read as equally important; each block's label
-// (and the conclusion's tinted background) provides the differentiation.
+// Hypothesis + conclusion prose share one style (same size/color) so they read
+// as equally important; each block's label + tint provides the differentiation.
 const PROSE_STYLE: MdStyle = {
   fontSize: 13,
   color: P.text,
@@ -435,8 +414,8 @@ function runSpan(r: MdRun, base: MdStyle): El {
       lineHeight: base.lineHeight,
       color: r.code ? P.st.slate : base.color,
       fontWeight: r.bold ? 600 : base.weight,
-      // Preserve the spaces at run boundaries — Satori trims each flex child's
-      // edge whitespace otherwise, gluing adjacent runs together.
+      // Preserve run-boundary spaces — Satori trims each flex child's edge
+      // whitespace, gluing adjacent runs together otherwise.
       whiteSpace: "pre-wrap",
       ...(base.letterSpacing ? { letterSpacing: base.letterSpacing } : {}),
       ...(r.code
@@ -451,8 +430,8 @@ function runSpan(r: MdRun, base: MdStyle): El {
   );
 }
 
-// Render markdown prose into a stacked block layout. Paragraphs and list items
-// are `flexWrap` rows of styled runs so text still wraps within the card.
+// Render markdown into a stacked block layout. Paragraphs and list items are
+// `flexWrap` rows of styled runs so text still wraps within the card.
 function renderMarkdown(md: string, base: MdStyle): El {
   const blocks = parseMarkdownBlocks(md);
   return el(
@@ -500,9 +479,7 @@ function fmtPct(v: number): string {
   return (v > 0 ? "+" : "") + Math.round(v * 10) / 10 + "%";
 }
 
-// ---------------------------------------------------------------------------
 // Charts — pure-shape SVG strings (no <text>; labels are drawn in Satori).
-// ---------------------------------------------------------------------------
 
 function violinSvg(
   w: number,
@@ -599,10 +576,6 @@ function arrowImg(dir: "up" | "down", color: string, size = 9): El {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><path d="${d}" fill="${color}"/></svg>`;
   return svgImg(svg, size, size);
 }
-
-// ---------------------------------------------------------------------------
-// Shared cells / primitives.
-// ---------------------------------------------------------------------------
 
 function badge(state: CardState): El {
   const hue = HUE[state];
@@ -710,8 +683,8 @@ function gridRow(
   );
 }
 
-// The metric's display name on its own line, above the column header. (The
-// name is intentionally NOT in the column header — see the design handoff.)
+// The metric's display name on its own line, above the column header (the name
+// is intentionally NOT in the column header, per the design handoff).
 function metricNameEl(name: string): El {
   return txt(name, {
     fontSize: 14,
@@ -722,8 +695,8 @@ function metricNameEl(name: string): El {
 }
 
 function colHeader(): El {
-  // First cell (number circle) and the Interval cell are intentionally
-  // label-less; "Interval" was dropped from the header per product feedback.
+  // Number-circle and Interval cells are intentionally label-less ("Interval"
+  // was dropped from the header per product feedback).
   const labels = ["", "", "Control", "Variation", "Chance", "", "Change"];
   return el(
     "div",
@@ -760,10 +733,9 @@ function colHeader(): El {
   );
 }
 
-// `label` overrides the row's variation name (used for 2-way tests, where the
-// single treatment row is labeled with the goal metric name instead of the
-// variation name — and the number circle is dropped, mirroring secondary /
-// guardrail rows).
+// `label` overrides the row's variation name: 2-way tests label the single
+// treatment row with the goal metric name and drop the number circle, mirroring
+// secondary / guardrail rows.
 function goalRowEl(r: CardGoalRow, label?: string): El {
   const intervalCell = el(
     "div",
@@ -872,10 +844,6 @@ function sectionLabel(t: string): El {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Card sections.
-// ---------------------------------------------------------------------------
-
 // Soft tag badges (no leading '#'), colors cycled from TAG_COLORS.
 function tagBadges(tags: string[]): El[] {
   return tags.map((t, i) => {
@@ -891,8 +859,8 @@ function tagBadges(tags: string[]): El[] {
   });
 }
 
-// Condensed single-row header, no background tint (status is carried by the
-// left rail + the badge): name · key · badge on the left, tags + logo right.
+// Single-row header, no background tint (the left rail + badge carry status):
+// name · key · badge on the left, tags + logo on the right.
 function headerEl(exp: ExperimentCardData): El {
   const logoH = 15;
   return el(
@@ -986,11 +954,9 @@ function footerEl(items: (string | undefined)[]): El {
   );
 }
 
-// The goal-metric section. For a 2-way test (one treatment) the single row is
-// labeled with the goal metric name instead of the variation name — dropping
-// the redundant metric-name line and number circle — mirroring how secondary /
-// guardrail metrics read. Multi-way tests keep the metric name up top and one
-// numbered row per variation (so variations stay distinguishable).
+// The goal-metric section. A 2-way test labels its single row with the goal
+// metric name (dropping the metric-name line + number circle). Multi-way tests
+// keep the metric name up top and one numbered row per variation.
 function goalSectionEls(exp: ExperimentCardData): (El | null)[] {
   const twoWay = exp.rows.length === 1;
   return [
@@ -1249,10 +1215,9 @@ function hypothesisEl(exp: ExperimentCardData): El | null {
   );
 }
 
-// The main learning, featured near the top — "lead" treatment: soft status-hue
-// background, a caps CONCLUSION label, then the conclusion text. The body text
-// matches the hypothesis (same size + color) since the two are of similar
-// importance; the tinted background and colored label carry the emphasis.
+// The main learning, featured near the top: soft status-hue background, a caps
+// CONCLUSION label, then the text. Body matches the hypothesis (same size/color)
+// since they're of similar importance; the tint + colored label carry emphasis.
 function conclusionEl(exp: ExperimentCardData): El | null {
   if (!exp.conclusion?.text) return null;
   const hue = HUE[exp.state];
@@ -1348,12 +1313,9 @@ function cardShell(hue: Hue, column: El[], width: number = CARD_WIDTH): El {
   );
 }
 
-// ---------------------------------------------------------------------------
 // Compact card — a glanceable single-hero-stat card for per-event Slack
-// notifications (significance / stopped / started / warning). Reuses the same
-// header, rail, violin, badge, and tokens as the detailed card, condensed to
-// header + one hero row + slim footer (no full metrics table).
-// ---------------------------------------------------------------------------
+// notifications. Reuses the detailed card's violin, badge, and tokens, condensed
+// to banner + name + one hero row + slim footer (no full metrics table).
 
 // Markdown -> plain text, collapsed and clamped to one line for compact prose.
 function plainClamp(md: string, max: number): string {
@@ -1506,10 +1468,9 @@ function capLabel(
   });
 }
 
-// Full-width solid event banner (turn 9): a rounded icon chip + the event label
-// in white on the event color, with a translucent-white status pill on the
-// right. Carries the card's status color (there's no left rail on the compact
-// card).
+// Full-width solid event banner: a rounded icon chip + the event label in white
+// on the event color, with a translucent-white status pill on the right.
+// Carries the status color (the compact card has no left rail).
 function compactBannerEl(
   ev: (typeof COMPACT_EVENT)[CompactEvent],
   hue: Hue,
@@ -1782,10 +1743,9 @@ function compactHero(
     : exp.compactLine
       ? plainClamp(exp.compactLine, 200)
       : "";
-  // For a won test (esp. 3+ way) show the variation that shipped, matched by
-  // its variation index (names can collide). If the winner is control or has no
-  // goal row, outcomeRow is undefined and the hero shows just the word (no
-  // misattributed lift). lost/stopped use the first treatment row.
+  // A won test shows the variation that shipped, matched by index (names can
+  // collide). If the winner is control or has no goal row, outcomeRow is
+  // undefined and the hero shows just the word. lost/stopped use the first row.
   const outcomeRow =
     event === "won"
       ? exp.winningVariationIndex != null
@@ -1801,9 +1761,9 @@ function compactHero(
         ? "No lift"
         : "Inconclusive";
   const dirColor = outcomeRow?.dir === "up" ? P.st.green : P.st.red;
-  // Big-number layout, mirroring the significance hero so everything sits on
-  // the same baseline: metric eyebrow, then the change with the direction arrow
-  // (sign dropped — the arrow carries it), then the outcome word.
+  // Big-number layout mirroring the significance hero: metric eyebrow, then the
+  // change with a direction arrow (sign dropped — the arrow carries it), then
+  // the outcome word.
   const heroChildren: (El | null)[] = [
     capLabel(exp.goal, 6, P.text),
     outcomeRow?.chg && outcomeRow.dir
@@ -1919,9 +1879,9 @@ function buildCompactCard(exp: ExperimentCardData): El {
             exp.ds,
           ];
 
-  // Rail-less panel: the solid banner carries the status color, so there's no
-  // 6px left rail. The hero wrapper flex-grows and centers its content so short
-  // cards sit at min-height without looking wide-and-short; tall ones grow.
+  // Rail-less panel: the solid banner carries the status color. The hero wrapper
+  // flex-grows and centers its content so short cards sit at min-height without
+  // looking wide-and-short; tall ones grow.
   return el(
     "div",
     {
@@ -1959,8 +1919,8 @@ function compactFooterEl(items: (string | undefined)[]): El {
   const logoH = 16;
   const logoW = Math.round(logoH * LOGO_ASPECT);
   const gap = 12;
-  // Fixed metadata width so a long row wraps instead of pushing the logo off
-  // the right edge (Satori doesn't wrap flexGrow text — fixed widths do).
+  // Fixed metadata width so a long row wraps instead of pushing the logo off the
+  // right edge (Satori doesn't wrap flexGrow text — fixed widths do).
   const metaW = COMPACT_WIDTH - 44 - gap - logoW;
   return el(
     "div",
@@ -2016,11 +1976,9 @@ function compactFooterEl(items: (string | undefined)[]): El {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Weekly scorecard (turn 8) — a once-a-week program digest. Distinct from the
+// Weekly scorecard — a once-a-week program digest. Distinct from the
 // per-experiment cards: a stat strip, a biggest-win highlight, and a notable
 // list. Reuses the same tokens, logo, and arrow marks.
-// ---------------------------------------------------------------------------
 
 export interface ScorecardNotable {
   name: string;
@@ -2377,10 +2335,6 @@ function buildScorecard(data: ScorecardData): El {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Render.
-// ---------------------------------------------------------------------------
-
 // satori (flexbox tree -> SVG) -> resvg-wasm (SVG -> PNG @ 2x width).
 async function rasterize(
   root: El,
@@ -2399,11 +2353,9 @@ async function rasterize(
 
 /**
  * Render the "detailed" experiment card to a PNG buffer — the full results
- * table with posterior violin plots, CI pills, and health signals. Rendered at
- * 2x width for crisp display in Slack; height auto-fits (image-block mode).
- *
- * This is one card *style*; callers should go through `renderExperimentCard`
- * in `./cards`, which dispatches by style, rather than calling this directly.
+ * table with violin plots, CI pills, and health signals. Rendered at 2x width;
+ * height auto-fits. Callers should go through `renderExperimentCard` in
+ * `./cards` rather than calling this directly.
  */
 export async function renderDetailedCard(
   exp: ExperimentCardData,
@@ -2413,8 +2365,7 @@ export async function renderDetailedCard(
 
 /**
  * Render the "compact" experiment card — a glanceable single-hero-stat card for
- * per-event Slack notifications. Same tokens/header/rail as the detailed card,
- * condensed to one hero row. Go through `renderExperimentCard` in `./cards`.
+ * per-event Slack notifications. Go through `renderExperimentCard` in `./cards`.
  */
 export async function renderCompactCard(
   exp: ExperimentCardData,
@@ -2422,18 +2373,15 @@ export async function renderCompactCard(
   return rasterize(buildCompactCard(exp), COMPACT_WIDTH);
 }
 
-/** Render the weekly program scorecard (turn 8) to a PNG buffer. */
+/** Render the weekly program scorecard to a PNG buffer. */
 export async function renderWeeklyScorecard(
   data: ScorecardData,
 ): Promise<Buffer> {
   return rasterize(buildScorecard(data));
 }
 
-// ---------------------------------------------------------------------------
-// Feature-flag digest (turn 10) — the sibling of the weekly scorecard. Same
-// visual system (header · stat strip · secondary band · lists · footer), but
-// for feature-flag activity.
-// ---------------------------------------------------------------------------
+// Feature-flag digest — the sibling of the weekly scorecard. Same visual system
+// (header · stat strip · secondary band · lists · footer), for flag activity.
 
 export type FeatureDigestReason =
   | "rollback"
@@ -2831,7 +2779,7 @@ function buildFeatureDigest(data: FeatureDigestData): El {
   );
 }
 
-/** Render the feature-flag digest (turn 10) to a PNG buffer. */
+/** Render the feature-flag digest to a PNG buffer. */
 export async function renderFeatureDigest(
   data: FeatureDigestData,
 ): Promise<Buffer> {

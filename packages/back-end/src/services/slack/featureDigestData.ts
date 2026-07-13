@@ -7,9 +7,9 @@ import type {
 export type { FeatureDigestData } from "back-end/src/services/slack/chartImage";
 
 // Feature-flag digest: flag activity over a trailing window (published,
-// reverted, safe-rollout outcomes, stale candidates, review activity).
-// Aggregated org-wide, like the experiment scorecard — the per-install filters
-// apply to live notifications, not the digest roll-up.
+// reverted, safe-rollout outcomes, stale candidates, reviews). Aggregated
+// org-wide, like the experiment scorecard — per-install filters apply to live
+// notifications, not the digest roll-up.
 
 // Digest-worthy feature events and the bucket each lands in.
 const PUBLISHED = "feature.revision.published";

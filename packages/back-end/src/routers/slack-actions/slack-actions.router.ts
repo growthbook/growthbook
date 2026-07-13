@@ -27,8 +27,8 @@ const slackBodyParser = bodyParser.urlencoded({
   },
 });
 
-// The Events API posts JSON (slash commands/interactions are urlencoded). We
-// still capture the raw body so the signature check works.
+// The Events API posts JSON (slash commands/interactions are urlencoded).
+// Capture the raw body either way so the signature check works.
 const slackJsonParser = bodyParser.json({
   verify: (req: Request & { rawBody?: string }, _res, buf) => {
     req.rawBody = buf.toString("utf8");
@@ -211,10 +211,7 @@ router.post(
   },
 );
 
-// ---------------------------------------------------------------------------
 // Events API — app_mention drives the interactive assistant.
-// ---------------------------------------------------------------------------
-
 type SlackEventPayload = {
   type?: string;
   challenge?: string;
@@ -236,15 +233,14 @@ type SlackEventPayload = {
   };
 };
 
-// In-memory guard against double-processing if Slack ever re-delivers an event.
-// We ACK in <3s so retries are rare; this just makes a duplicate a no-op.
+// In-memory guard making a Slack event re-delivery a no-op (retries are rare
+// since we ACK in <3s).
 const processedSlackEventIds = new Set<string>();
 function isDuplicateSlackEvent(eventId?: string): boolean {
   if (!eventId) return false;
   if (processedSlackEventIds.has(eventId)) return true;
   processedSlackEventIds.add(eventId);
-  // Bounded — clearing wholesale is fine; the worst case is re-answering an
-  // event that was delivered more than ~2000 events ago.
+  // Bounded; worst case is re-answering an event from >2000 events ago.
   if (processedSlackEventIds.size > 2000) processedSlackEventIds.clear();
   return false;
 }
@@ -274,7 +270,7 @@ router.post(
     if (!event) return;
 
     // Skip bot/system messages (incl. our own replies) and edits/joins to
-    // avoid loops and noise.
+    // avoid loops.
     if (event.bot_id || event.subtype) return;
     if (isDuplicateSlackEvent(payload.event_id)) return;
 
@@ -300,15 +296,14 @@ router.post(
       return;
     }
 
-    // Thread-follow: a plain message inside a thread. We only reply if this
-    // user already has an assistant conversation in the thread (checked in the
-    // handler), so the bot doesn't jump into arbitrary channel chatter.
+    // Thread-follow: a plain message inside a thread. The handler only replies
+    // if this user already has an assistant conversation in the thread, so the
+    // bot doesn't jump into arbitrary channel chatter.
     if (event.type === "message") {
       if (!event.thread_ts) return; // only follow within threads
       if (!event.user || !event.channel || !event.ts || !event.text) return;
       if (botUserId && event.user === botUserId) return; // our own message
-      // If it @mentions the bot, the app_mention event handles it — avoid
-      // double-processing the same message.
+      // An @mention is handled by the app_mention event; don't double-process.
       if (botUserId && event.text.includes(`<@${botUserId}>`)) return;
       void queueSlackAssistantMention(
         {
@@ -328,8 +323,8 @@ router.post(
       return;
     }
 
-    // Link unfurling: a shared GrowthBook link — unfurl experiment URLs into a
-    // results card (respecting the sharer's permissions).
+    // Unfurl a shared GrowthBook experiment link into a results card
+    // (respecting the sharer's permissions).
     if (event.type === "link_shared") {
       logger.info(
         {

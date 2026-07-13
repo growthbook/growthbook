@@ -4,10 +4,8 @@ import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 
-// A simulated Slack message preview — shows what the text notification would
-// look like when the results card is set to "text only". Renders the real
-// message the app would post (fetched from the event-webhook previews) inside a
-// lightweight Slack-message mockup.
+// Preview of the "text only" notification: renders the real message the app
+// would post (fetched from the event-webhook previews) in a Slack-message mockup.
 
 type SlackBlock = {
   type: string;

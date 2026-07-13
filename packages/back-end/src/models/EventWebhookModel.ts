@@ -201,8 +201,8 @@ const eventWebHookSchema = new mongoose.Schema({
     min: 0,
     max: 23,
   },
-  // Slack bot options (flat keys). Stored as a free-form object so new toggles
-  // don't require a schema change; validated by slackEventWebHookOptions.
+  // Free-form object (validated by slackEventWebHookOptions) so new toggles
+  // don't require a schema change.
   slackOptions: {
     type: Object,
     required: false,
@@ -509,9 +509,8 @@ export const getSlackBotAccessTokenForWebhook = async ({
   return slack?.botAccessToken || null;
 };
 
-// Cache a freshly-resolved Slack channel name onto the install. Uses a dotted
-// $set so only slack.channelName is touched (the bot token and other metadata
-// are left intact).
+// Dotted $set so only slack.channelName is touched (bot token and other
+// metadata left intact).
 export const updateSlackChannelName = async ({
   eventWebHookId,
   organizationId,
@@ -527,13 +526,11 @@ export const updateSlackChannelName = async ({
   );
 };
 
-// Reconnect an existing Slack install: refresh the incoming-webhook url and all
-// slack metadata in a SINGLE write. Metadata fields are set via dotted $set so
-// slack.botAccessToken is left intact — a whole-object `$set: { slack }` would
-// drop the token (it's not part of the public metadata type). When Slack
-// returns a new bot token, it's set in this same write, so the token is never
-// missing mid-reconnect and never permanently lost when the OAuth response
-// omits one.
+// Reconnect an existing Slack install: refresh the incoming-webhook url and
+// slack metadata in one write. Dotted $set keeps slack.botAccessToken intact —
+// a whole-object `$set: { slack }` would drop it (not part of the public
+// metadata type) — and any new bot token is set in the same write, so the token
+// is never missing mid-reconnect nor lost when the OAuth response omits one.
 export const reconnectSlackEventWebhook = async ({
   eventWebHookId,
   organizationId,

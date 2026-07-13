@@ -131,8 +131,7 @@ type AgentRequestBody = {
   conversationId: string;
   /**
    * Self-hosted callers may pick a model on the first turn; Cloud ignores it.
-   * Optional so non-HTTP callers (e.g. the Slack bot) can omit it and fall
-   * through to the org default.
+   * Optional so non-HTTP callers (e.g. the Slack bot) can omit it.
    */
   model?: AIModel;
   /**
@@ -219,8 +218,8 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
       emit,
     });
 
-    // executeAgentTurn already emitted "done" and persisted the final turn
-    // before returning; just close the SSE stream if it's still open.
+    // executeAgentTurn already emitted "done" and persisted; close the SSE
+    // stream if it's still open.
     if (!res.writableFinished && !res.destroyed) {
       res.end();
     }
@@ -322,8 +321,7 @@ export async function runAgentTurnToCompletion<TParams>({
   );
 
   // No SSE sink — keep the streamed-at timestamp fresh (so stale-stream
-  // detection behaves like the HTTP path) and collect the artifact events a
-  // headless caller cares about (e.g. experiment cards to attach).
+  // detection matches the HTTP path) and collect experiment-card events.
   const experimentCardIds: string[] = [];
   const emit: AgentEmit = (event, data) => {
     buffer.touchStreamedAt();
@@ -357,11 +355,9 @@ export async function runAgentTurnToCompletion<TParams>({
 }
 
 /**
- * Transport-agnostic core of a single agent turn: resolve the model, build
- * tools, settle any parked mutation, append the user message, run the model
- * stream through {@link processStream}, and persist. All transport coupling
- * (SSE headers, `res.end`, access-gate error responses) lives in the callers;
- * everything here is shared between the HTTP handler and the headless runner.
+ * Transport-agnostic core of a single agent turn, shared between the HTTP
+ * handler and the headless runner. Transport coupling (SSE headers, `res.end`,
+ * access-gate error responses) lives in the callers.
  */
 async function executeAgentTurn<TParams>({
   context,

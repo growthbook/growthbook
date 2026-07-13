@@ -4,20 +4,10 @@ import {
   renderCompactCard,
 } from "back-end/src/services/slack/chartImage";
 
-// Experiment-card styles.
-//
-// A "card style" is one visual treatment for rendering an ExperimentCardData
-// into a PNG. Today there's a single style ("detailed"), but the plan is to let
-// users choose (e.g. a compact/summary card). The data model
-// (`ExperimentCardData`) is intentionally style-agnostic — every style consumes
-// the same model — so adding a style is purely a new renderer + registry entry,
-// with no change to how cards are built from an experiment.
-//
-// To add a style:
-//   1. Write a `render<Name>Card(exp: ExperimentCardData): Promise<Buffer>`.
-//   2. Add its id to `ExperimentCardStyle` and an entry to `CARD_STYLES`.
-//   3. (Later) resolve the org/user's chosen style at the call site and pass it
-//      to `renderExperimentCard`.
+// Experiment-card styles. A "card style" is one visual treatment for rendering
+// an ExperimentCardData into a PNG. The data model is intentionally
+// style-agnostic — every style consumes the same model — so adding a style is a
+// new renderer + a `CARD_STYLES` entry, with no change to how cards are built.
 
 export type ExperimentCardStyle = "detailed" | "compact";
 

@@ -334,9 +334,9 @@ export const getSlackMessageForNotificationEvent = async (
   }
 };
 
-// Map a notification event name to the compact card's *event* (which drives
-// its hero layout). Returns undefined for events that don't map cleanly — the
-// compact card then derives an event from the experiment's state.
+// Map a notification event to the compact card's *event* (which drives its hero
+// layout). Returns undefined when it doesn't map cleanly; the card then derives
+// one from the experiment's state.
 const compactEventForNotification = (
   event: NotificationEvent,
 ): CompactEvent | undefined => {
@@ -354,9 +354,9 @@ const compactEventForNotification = (
     case "experiment.health.noData":
     case "experiment.health.queryFailed":
       return "warning";
-    // A stop is emitted as shipped/rolledback, but the actual outcome is in
-    // `results` — a non-ship stop can still be inconclusive/dnf, which is a
-    // neutral "stopped", not a "rolled back / no lift" loss.
+    // A stop is emitted as shipped/rolledback, but the real outcome is in
+    // `results`: a non-ship stop can be inconclusive/dnf, i.e. a neutral
+    // "stopped" rather than a "rolled back / no lift" loss.
     case "experiment.stopped.shipped":
     case "experiment.stopped.rolledback": {
       const results = (event.data?.object as { results?: string } | undefined)
@@ -370,9 +370,8 @@ const compactEventForNotification = (
   }
 };
 
-// Short, URL-free headline used as the card message's caption. Deliberately
-// omits the experiment name (which can contain a URL that Slack would unfurl) —
-// the card image already shows the name.
+// Short, URL-free card caption. Omits the experiment name (which can contain a
+// URL that Slack would unfurl); the card image already shows the name.
 const CARD_CAPTION: Record<CompactEvent, string> = {
   started: "Experiment started",
   significance: "Reached significance",
@@ -383,9 +382,8 @@ const CARD_CAPTION: Record<CompactEvent, string> = {
 };
 
 // Render the compact results-card PNG for an experiment event (best-effort).
-// Only meaningful lifecycle events get a card — started, significance,
-// won/lost, stopped, warning — NOT metadata changes like experiment.updated.
-// Returns the PNG plus a short, URL-free caption. Never throws.
+// Only card-worthy lifecycle events get one (not metadata changes like
+// experiment.updated); returns the PNG plus a URL-free caption. Never throws.
 export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,
@@ -2519,10 +2517,9 @@ const getObjectLabelForEvent = (event: EventInterface): string => {
 };
 
 /**
- * Pure composition step: take an ordered list of already-rendered
- * per-event Slack messages and combine them into one digest. Extracted
- * so it can be unit tested without exercising the per-event renderers
- * (which do their own DB lookups).
+ * Combine an ordered list of already-rendered per-event Slack messages into one
+ * digest. Extracted from buildCoalescedSlackMessage so it can be unit tested
+ * without the per-event renderers (which do their own DB lookups).
  */
 export const composeCoalescedSlackMessage = (
   rendered: Array<{ event: EventInterface; message: SlackMessage }>,
@@ -2576,10 +2573,10 @@ export const composeCoalescedSlackMessage = (
 };
 
 /**
- * Build a single digest Slack message from multiple events that touched
- * the same object inside the coalescing window. Events that resolve to
- * `null` (unsupported types) are skipped. If a single event remains we
- * return it as-is so coalescing is invisible for non-bursty objects.
+ * Build one digest message from multiple events on the same object within the
+ * coalescing window. Events that render to `null` (unsupported types) are
+ * skipped; a lone remaining event is returned as-is so coalescing is invisible
+ * for non-bursty objects.
  */
 export const buildCoalescedSlackMessage = async (
   events: EventInterface[],

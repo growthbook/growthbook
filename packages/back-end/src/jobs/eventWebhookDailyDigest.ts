@@ -3,10 +3,9 @@ import { createEvent, EventModel } from "back-end/src/models/EventModel";
 import { FeatureModel } from "back-end/src/models/FeatureModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 
-// Hourly maintenance job. The Slack digests (experiment scorecard + feature
-// summary) are delivered by the digest job (eventWebhookWeeklyDigest); this job
-// only emits "stale feature candidate" events, which then flow through the
-// normal notification + digest pipeline.
+// Hourly maintenance job. The Slack digests are delivered by
+// eventWebhookWeeklyDigest; this job only emits "stale feature candidate"
+// events, which flow through the normal notification + digest pipeline.
 const DAILY_DIGEST_JOB = "eventWebhookDailyDigest";
 const STALE_FEATURE_DAYS = 180;
 const STALE_FEATURE_REPEAT_DAYS = 7;

@@ -28,10 +28,9 @@ import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
-// Runs hourly and delivers both Slack digests — the experiment scorecard (an
-// image) and the feature-flag summary (text) — each on its own independent
-// schedule. (Job id kept for agenda continuity even though it's no longer
-// weekly-only.)
+// Runs hourly and delivers both Slack digests (experiment scorecard image and
+// feature-flag summary), each on its own schedule. (Job id kept for agenda
+// continuity even though it's no longer weekly-only.)
 const DIGEST_JOB = "eventWebhookWeeklyDigest";
 
 const PERIOD_LABELS: Record<string, string> = {
@@ -43,9 +42,8 @@ const PERIOD_LABELS: Record<string, string> = {
 };
 
 // Deliver the scorecard as a private, Slack-hosted image shared into the
-// channel (files.upload + completeUploadExternal with channel_id). The
-// scorecard is image-only, so it requires a bot token + channel + files:write;
-// we never host it at a public URL.
+// channel (files.upload + completeUploadExternal). It's image-only, so it needs
+// a bot token + channel + files:write; we never host it at a public URL.
 async function deliverScorecard(
   webhook: EventWebHookInterface,
   data: ScorecardData,
@@ -158,9 +156,9 @@ export default function addWeeklyScorecardJob(agenda: Agenda) {
   agenda.define(DIGEST_JOB, async () => {
     const now = new Date();
 
-    // Scan enabled Slack installs; resolve the experiment and feature digest
-    // schedules independently and deliver whichever are due this hour. Slack
-    // installs are few, so an hourly scan is cheap.
+    // Resolve each install's experiment and feature digest schedules
+    // independently and deliver whichever are due this hour. Slack installs are
+    // few, so an hourly scan is cheap.
     const webhooks = await EventWebHookModel.find({
       enabled: true,
       payloadType: "slack",

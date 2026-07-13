@@ -4,11 +4,10 @@ import { NotificationEventResource } from "shared/types/events/base-types";
 import { logger } from "back-end/src/util/logger";
 
 /**
- * A short-lived buffer of events waiting to be flushed to a chat-style
- * webhook (Slack/Discord) as a single digest message. One bucket per
- * (organization, webhook, object) tuple. When the first event arrives we
- * stamp `flushAt`; subsequent events within the window are appended and
- * the existing flush job picks them up.
+ * A short-lived buffer of events flushed to a chat-style webhook
+ * (Slack/Discord) as a single digest message, one bucket per (org, webhook,
+ * object) tuple. The first event stamps `flushAt`; events within the window are
+ * appended and picked up by the existing flush job.
  */
 export interface EventWebHookCoalesceBucketInterface {
   id: string;
@@ -44,8 +43,8 @@ eventWebHookCoalesceBucketSchema.index(
   { unique: true, name: "ewh_coalesce_key_unique" },
 );
 
-// Belt-and-braces safety net: prune buckets that, for whatever reason,
-// hang around for over an hour. Normal buckets are flushed within seconds.
+// TTL safety net: prune buckets that outlive an hour for any reason. Normal
+// buckets flush within seconds.
 eventWebHookCoalesceBucketSchema.index(
   { flushAt: 1 },
   { expireAfterSeconds: 60 * 60 },
@@ -73,13 +72,10 @@ export type CoalesceBucketUpsertResult = {
 };
 
 /**
- * Add an event id to the bucket for (org, webhook, object). Creates the
- * bucket if it does not exist; the caller is told whether they should
- * schedule a flush via the returned `scheduledFlush` flag.
- *
- * Event id de-dup is handled by `$addToSet` so repeated upserts for the
- * same event id are a no-op (defensive against agenda retrying the same
- * incoming notification).
+ * Add an event id to the bucket for (org, webhook, object), creating it if
+ * needed. The returned `scheduledFlush` flag tells the caller whether to
+ * schedule a flush. `$addToSet` de-dups event ids so repeated upserts of the
+ * same id are a no-op (defensive against agenda retries).
  */
 export const upsertCoalesceBucket = async ({
   organizationId,
@@ -116,9 +112,8 @@ export const upsertCoalesceBucket = async ({
       $set: { lastSeenAt: now },
     };
 
-    // rawResult exposes Mongo's reply so we can tell whether this call
-    // inserted the bucket (caller must then schedule a flush) or just
-    // appended to an existing one.
+    // rawResult exposes Mongo's reply so we can tell an insert (schedule a
+    // flush) from an append to an existing bucket.
     const result = await EventWebHookCoalesceBucketModel.findOneAndUpdate(
       filter,
       update,

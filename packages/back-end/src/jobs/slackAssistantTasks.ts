@@ -12,22 +12,19 @@ import {
 } from "back-end/src/services/slack/slackUnfurl";
 
 // Durable processing for the interactive Slack assistant. The Events /
-// Interactions endpoints must ACK Slack within 3s, but answering a mention
-// (running the AI agent) or unfurling a link (rendering a PNG) can take many
-// seconds. Rather than running that work as a fire-and-forget promise in the
-// web process — where a restart or crash would silently drop it — we enqueue
-// an Agenda job. The job is persisted in Mongo the moment it's created, so it
-// survives a restart and is picked up by whichever process runs the queue.
+// Interactions endpoints must ACK within 3s, but answering a mention or
+// unfurling a link can take many seconds. Enqueuing an Agenda job (persisted
+// in Mongo on creation) means the work survives a web-process restart/crash
+// instead of being dropped like a fire-and-forget promise.
 //
-// These handlers post user-facing Slack messages and are NOT idempotent
-// (retrying a mention would re-run the agent and post a duplicate reply), so
-// this job intentionally has no automatic retry on failure.
+// The handlers post user-facing messages and are NOT idempotent (a retry would
+// post a duplicate reply), so the job has no automatic retry on failure.
 
 const SLACK_ASSISTANT_JOB_NAME = "slackAssistantTask";
 
-// A single job type with a discriminated payload keeps enqueuing simple and
-// lets one worker slot serve all three interaction kinds. `dedupeKey` is used
-// with job.unique so a Slack re-delivery doesn't spawn a second pending job.
+// One job type with a discriminated payload serves all three interaction
+// kinds. `dedupeKey` + job.unique stops a Slack re-delivery from spawning a
+// second pending job.
 type SlackAssistantTaskData = { dedupeKey?: string } & (
   | { kind: "mention"; mention: SlackAssistantMention }
   | { kind: "confirmation"; confirmation: SlackAssistantConfirmation }
@@ -63,9 +60,8 @@ const processSlackAssistantTask = async (job: SlackAssistantJob) => {
 let agenda: Agenda;
 export default function addSlackAssistantJobs(ag: Agenda) {
   agenda = ag;
-  // The agent turn + PNG render is the slow, CPU-ish part; the default lock
-  // lifetime (10m) is plenty and the default concurrency keeps a single worker
-  // from running too many turns at once.
+  // Default lock lifetime (10m) and concurrency are fine for the slow agent
+  // turn + PNG render.
   agenda.define(SLACK_ASSISTANT_JOB_NAME, processSlackAssistantTask);
 }
 
@@ -81,9 +77,9 @@ async function enqueue(
     ...data,
     dedupeKey,
   }) as SlackAssistantJob;
-  // Collapse a duplicate delivery of the same event into the existing pending
-  // job. Once the job runs and is removed, a later identical key can enqueue
-  // again — which is the desired behavior for a genuinely new interaction.
+  // Collapse a duplicate delivery into the existing pending job. Once the job
+  // runs and is removed, an identical key can enqueue again (a genuinely new
+  // interaction).
   if (dedupeKey) job.unique({ "data.dedupeKey": dedupeKey });
   job.schedule(new Date());
   await job.save();
