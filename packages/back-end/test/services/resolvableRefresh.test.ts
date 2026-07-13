@@ -5,6 +5,7 @@ import {
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
   computeConfigKeyImplementations,
+  experimentRefsReferencingConstant,
   FeatureValueSource,
 } from "back-end/src/services/constants";
 import {
@@ -711,5 +712,107 @@ describe("computeConfigKeyImplementations", () => {
     const impls = computeConfigKeyImplementations([live, draft], family);
     expect(impls).toHaveLength(1);
     expect(impls[0].state).toBe("live");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// experimentRefsReferencingConstant — direct @const refs in experiment/bandit arms
+// ---------------------------------------------------------------------------
+
+const expRefRuleWith = (
+  experimentId: string,
+  ...values: string[]
+): FeatureRule =>
+  ({
+    id: "er",
+    type: "experiment-ref",
+    experimentId,
+    variations: values.map((value, i) => ({ variationId: `v${i}`, value })),
+  }) as unknown as FeatureRule;
+
+const banditRefRuleWith = (
+  contextualBanditId: string,
+  ...values: string[]
+): FeatureRule =>
+  ({
+    id: "br",
+    type: "contextual-bandit-ref",
+    contextualBanditId,
+    variations: values.map((value, i) => ({ variationId: `v${i}`, value })),
+  }) as unknown as FeatureRule;
+
+describe("experimentRefsReferencingConstant", () => {
+  it("collects the experimentId when an experiment-ref arm references the constant", () => {
+    const features = [
+      feat({ rules: [expRefRuleWith("exp_1", "lit", constInterp("target"))] }),
+    ];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: ["exp_1"],
+      banditIds: [],
+    });
+  });
+
+  it("collects the contextualBanditId for a bandit-ref arm reference", () => {
+    const features = [
+      feat({ rules: [banditRefRuleWith("cb_1", constInterp("target"))] }),
+    ];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: [],
+      banditIds: ["cb_1"],
+    });
+  });
+
+  it("ignores an experiment-ref rule that does not reference the constant", () => {
+    const features = [
+      feat({ rules: [expRefRuleWith("exp_1", "lit", constInterp("other"))] }),
+    ];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: [],
+      banditIds: [],
+    });
+  });
+
+  it("ignores a non-experiment rule that references the constant (config path covers those)", () => {
+    const features = [feat({ rules: [rule(constInterp("target"))] })];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: [],
+      banditIds: [],
+    });
+  });
+
+  it("scans per-environment rules, not just the flat rules array", () => {
+    const features = [
+      feat({
+        rules: [],
+        environmentSettings: {
+          dev: {
+            enabled: true,
+            rules: [expRefRuleWith("exp_env", constInterp("target"))],
+          },
+          production: { enabled: true, rules: [] },
+        },
+      }),
+    ];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: ["exp_env"],
+      banditIds: [],
+    });
+  });
+
+  it("dedupes the same experimentId referenced by multiple features", () => {
+    const features = [
+      feat({
+        id: "f1",
+        rules: [expRefRuleWith("exp_1", constInterp("target"))],
+      }),
+      feat({
+        id: "f2",
+        rules: [expRefRuleWith("exp_1", constInterp("target"))],
+      }),
+    ];
+    expect(experimentRefsReferencingConstant(features, "target")).toEqual({
+      experimentIds: ["exp_1"],
+      banditIds: [],
+    });
   });
 });

@@ -298,6 +298,92 @@ export function featureReferenceTokens(feature: FeatureInterface): Set<string> {
   return tokens;
 }
 
+// Pure: the experiment / contextual-bandit ids whose experiment-ref (or
+// contextual-bandit-ref) rule interpolates `@const:<key>` DIRECTLY in an arm
+// value — i.e. NOT through a config. The resolvable graph has only constant and
+// config nodes, so a feature's direct `@const:` reference is invisible to
+// `resolvableDependencyClosure`; this scans features per-rule to close that gap.
+// Exported for unit testing; the I/O wrapper below adds loading + running-status.
+export function experimentRefsReferencingConstant(
+  features: FeatureInterface[],
+  constantKey: string,
+): { experimentIds: string[]; banditIds: string[] } {
+  const experimentIds = new Set<string>();
+  const banditIds = new Set<string>();
+
+  const referencesConstant = (rule: ImplementingRule): boolean => {
+    const values: unknown[] = [
+      rule.value,
+      rule.controlValue,
+      rule.variationValue,
+      ...(rule.variations ?? []).map((v) => v.value),
+      ...(rule.values ?? []).map((v) => v.value),
+    ];
+    return values.some(
+      (v) =>
+        typeof v === "string" &&
+        getConstantReferenceKeys(v, undefined, "constant").includes(
+          constantKey,
+        ),
+    );
+  };
+
+  const scan = (rule: ImplementingRule) => {
+    if (rule.type === "experiment-ref") {
+      if (rule.experimentId && referencesConstant(rule)) {
+        experimentIds.add(rule.experimentId);
+      }
+    } else if (rule.type === "contextual-bandit-ref") {
+      if (rule.contextualBanditId && referencesConstant(rule)) {
+        banditIds.add(rule.contextualBanditId);
+      }
+    }
+  };
+
+  for (const feature of features) {
+    for (const rule of (feature.rules ?? []) as ImplementingRule[]) scan(rule);
+    const envSettings = (feature.environmentSettings ?? {}) as Record<
+      string,
+      { rules?: ImplementingRule[] }
+    >;
+    for (const env of Object.values(envSettings)) {
+      for (const rule of env?.rules ?? []) scan(rule);
+    }
+  }
+
+  return { experimentIds: [...experimentIds], banditIds: [...banditIds] };
+}
+
+// Running experiments / contextual bandits whose rule directly references the
+// constant. Returns `exp:<id>` tokens so they never collide with config-key
+// conflicts in the shared experiment-guard fingerprint. Caller supplies an
+// org-wide context so a running experiment in any project is seen.
+export async function findRunningExperimentRefsReferencingConstant(
+  context: ReqContext | ApiReqContext,
+  constantKey: string,
+): Promise<Set<string>> {
+  const features = await getAllFeatures(context, {});
+  const { experimentIds, banditIds } = experimentRefsReferencingConstant(
+    features,
+    constantKey,
+  );
+  if (!experimentIds.length && !banditIds.length) return new Set<string>();
+
+  const conflicts = new Set<string>();
+  const collectRunning = (entities: Array<{ id: string; status: string }>) => {
+    for (const e of entities) {
+      if (e.status === "running") conflicts.add(`exp:${e.id}`);
+    }
+  };
+  if (experimentIds.length) {
+    collectRunning(await getExperimentsByIds(context, experimentIds));
+  }
+  if (banditIds.length) {
+    collectRunning(await context.models.contextualBandits.getByIds(banditIds));
+  }
+  return conflicts;
+}
+
 // Features and constants/configs that reference a constant. Includes one level
 // of constant chaining (feature → @const:mid → @const:target), matching saved
 // groups. Returns null if the constant doesn't exist.

@@ -9,6 +9,7 @@ import { getConfigSubtree } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ConfigKeyImplementation,
+  findRunningExperimentRefsReferencingConstant,
   getConfigKeyImplementations,
   resolvableDependencyClosure,
 } from "back-end/src/services/constants";
@@ -314,11 +315,15 @@ export async function captureConfigExperimentGuardAcknowledgment(
   return sortedKeys;
 }
 
-// Config keys whose live value would shift because publishing `constant` changes
-// what they resolve to, AND that a running experiment serves through a GUARDED
-// config. The guard is otherwise config-scoped; this extends it to the transitive
-// constant path. Every config that (transitively) references the constant counts —
-// the resolvable graph already folds in `@const:` chains and descendant lineage.
+// The conflict set for publishing `constant`: running experiments whose live
+// served value would shift because the constant feeds them. Two paths, unioned:
+//   (A) DIRECT — a feature's experiment-ref/bandit-ref rule interpolates
+//       `@const:key` straight in an arm value (keys: `exp:<id>`).
+//   (B) CONFIG-BACKED — a GUARDED config that (transitively) references the
+//       constant serves a running experiment (keys: the config keys). The
+//       resolvable graph folds in `@const:` chains and descendant lineage.
+// Path (B) is what the config guard covers transitively; path (A) closes the gap
+// where no config sits between the constant and the experiment.
 export async function evaluateConstantExperimentGuardConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
@@ -326,6 +331,18 @@ export async function evaluateConstantExperimentGuardConflicts(
   // Org-wide (unfiltered) scan, mirroring the config guard: a running experiment
   // in any project must be seen or the warning silently misses it.
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
+
+  const conflicts = new Set<string>();
+
+  // (A) Direct feature experiment-ref/bandit-ref references (no config between).
+  for (const k of await findRunningExperimentRefsReferencingConstant(
+    scanContext,
+    constant.key,
+  )) {
+    conflicts.add(k);
+  }
+
+  // (B) Config-backed path.
   const resolvables = await getResolvableValues(scanContext);
   const affected = resolvableDependencyClosure(
     resolvables,
@@ -336,32 +353,43 @@ export async function evaluateConstantExperimentGuardConflicts(
   const affectedConfigKeys = [...affected]
     .filter((t) => t.startsWith(CONFIG_PREFIX))
     .map((t) => t.slice(CONFIG_PREFIX.length));
-  if (!affectedConfigKeys.length) return new Set<string>();
 
-  const allConfigs = await scanContext.models.configs.getAllForReconcile();
-  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-  const guardedKeys = new Set(
-    affectedConfigKeys.filter((k) => byKey.get(k)?.experimentGuard),
-  );
-  if (!guardedKeys.size) return new Set<string>();
-
-  const conflicts = new Set<string>();
-  for (const key of guardedKeys) {
-    const cfg = byKey.get(key);
-    if (!cfg) continue;
-    const impl = await getConfigKeyImplementations(scanContext, cfg.id);
-    for (const k of computeExperimentGuardConflictKeys(
-      impl?.implementations ?? [],
-      guardedKeys,
-    )) {
-      conflicts.add(k);
+  if (affectedConfigKeys.length) {
+    const allConfigs = await scanContext.models.configs.getAllForReconcile();
+    const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+    const guardedKeys = new Set(
+      affectedConfigKeys.filter((k) => byKey.get(k)?.experimentGuard),
+    );
+    for (const key of guardedKeys) {
+      const cfg = byKey.get(key);
+      if (!cfg) continue;
+      const impl = await getConfigKeyImplementations(scanContext, cfg.id);
+      for (const k of computeExperimentGuardConflictKeys(
+        impl?.implementations ?? [],
+        guardedKeys,
+      )) {
+        conflicts.add(k);
+      }
     }
   }
+
   return conflicts;
 }
 
+// Human-readable rendering of the mixed constant conflict-key set — config keys
+// (config-backed path) and `exp:<id>` tokens (direct experiment-ref path) — for
+// the warning message.
+function describeConstantConflictKeys(keys: string[]): string {
+  return keys
+    .map((k) =>
+      k.startsWith("exp:") ? `experiment ${k.slice(4)}` : `config "${k}"`,
+    )
+    .join(", ");
+}
+
 // Warn (never hard-block) when publishing a constant would rewrite the live
-// value served to a running experiment via a guarded config. Mirrors
+// value served to a running experiment — either through a guarded config or via a
+// feature experiment-ref rule that references the constant directly. Mirrors
 // assertConfigExperimentGuard: a bypassable soft-warning on a direct publish, a
 // re-confirm gate on a deferred (scheduled / auto-publish-on-approval) fire.
 export async function assertConstantExperimentGuard(
@@ -403,15 +431,15 @@ export async function assertConstantExperimentGuard(
     return;
   }
 
-  const keyList = decision.conflictKeys.join(", ");
+  const keyList = describeConstantConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this constant rewrites the live value served to a running experiment through a guarded config (config keys: ${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this constant rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
   throw new TerminalPublishError(
-    `Constant publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (config keys now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    `Constant publish blocked by the experiment guard: the affected running experiments have changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -449,8 +477,8 @@ export async function captureConstantExperimentGuardAcknowledgment(
     });
   if (!override) {
     throw new SoftWarningError(
-      `Scheduling this publish will rewrite the live value served to a running experiment through a guarded config (config keys: ${sortedKeys.join(
-        ", ",
+      `Scheduling this publish will rewrite the live value served to a running experiment (${describeConstantConflictKeys(
+        sortedKeys,
       )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
       sortedKeys,
     );
