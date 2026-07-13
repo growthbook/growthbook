@@ -1,7 +1,5 @@
-import isEqual from "lodash/isEqual";
 import { ConfigInterface } from "shared/types/config";
 import { ConstantInterface } from "shared/types/constant";
-import { FeatureInterface } from "shared/types/feature";
 import {
   Revision,
   getConstantRevisionChange,
@@ -9,7 +7,6 @@ import {
 } from "shared/enterprise";
 import { getConfigSubtree } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   ConfigKeyImplementation,
   getConfigKeyImplementations,
@@ -461,62 +458,4 @@ export async function captureConstantExperimentGuardAcknowledgment(
     );
   }
   return sortedKeys;
-}
-
-// Extends the experiment guard to the feature publish path: soft-warn
-// (bypassable) when publishing a config-backed feature would change the served
-// arm values of a RUNNING experiment-ref rule — i.e. an edit to that rule's own
-// variation values (or a config re-point on them). This is the flag-side gap the
-// config-scoped guard doesn't reach.
-//
-// Scope (deliberately narrow — the broader guard is disproportionate on this
-// highest-blast-radius choke point): config-backed features only; experiment-ref
-// rules whose STORED variation values changed (covers direct edits + config
-// re-points, NOT a default value change a sparse variation inherits — that needs
-// full served-value resolution). On a deferred merge `context.ignoreWarnings` is
-// forced true, so this only surfaces on synchronous publishes.
-export async function assertFeatureExperimentGuard(
-  context: Context,
-  current: Pick<FeatureInterface, "rules">,
-  proposed: Pick<FeatureInterface, "rules" | "baseConfig" | "project">,
-): Promise<void> {
-  if (!proposed.baseConfig) return;
-
-  const currentById = new Map((current.rules ?? []).map((r) => [r.id, r]));
-  const affected = new Set<string>();
-  for (const rule of proposed.rules ?? []) {
-    if (rule.type !== "experiment-ref") continue;
-    const old = currentById.get(rule.id);
-    // Only an edit to an existing rule's served arm values counts — adding a
-    // rule is a deliberate new experiment link, not a silent rewrite.
-    if (!old || old.type !== "experiment-ref") continue;
-    const oldValues = (old.variations ?? []).map((v) => v.value);
-    const newValues = (rule.variations ?? []).map((v) => v.value);
-    if (isEqual(oldValues, newValues)) continue;
-    const experiment = await getExperimentById(context, rule.experimentId);
-    if (experiment?.status === "running") {
-      affected.add(experiment.name || experiment.id);
-    }
-  }
-  if (!affected.size) return;
-
-  const sorted = [...affected].sort();
-  const override =
-    context.ignoreWarnings ||
-    context.permissions.canBypassApprovalChecks({
-      project: proposed.project || "",
-    });
-  if (override) {
-    logger.info(
-      { userId: context.userId, experiments: sorted },
-      "Feature experiment guard overridden on publish",
-    );
-    return;
-  }
-  throw new SoftWarningError(
-    `This publish changes the value served to running experiment(s): ${sorted.join(
-      ", ",
-    )}. Editing a live arm can invalidate results. Re-submit with ignoreWarnings to proceed.`,
-    sorted,
-  );
 }

@@ -49,7 +49,6 @@ import {
   synthesizeRuleId,
 } from "back-end/src/services/features";
 import { assertConfigBackedDefaultHasNoOverrides } from "back-end/src/services/configValidation";
-import { assertFeatureExperimentGuard } from "back-end/src/services/experimentGuard";
 import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
@@ -2386,11 +2385,6 @@ export async function prevalidatePublishRevision({
     proposedFeature,
     proposedFeature.defaultValue,
   );
-  // Experiment guard on the feature side: warn (bypassably) when this publish
-  // rewrites the served arm values of a running experiment on a config-backed
-  // feature. Soft on synchronous publishes; auto-allowed on deferred merges
-  // (background jobs force ignoreWarnings).
-  await assertFeatureExperimentGuard(context, feature, proposedFeature);
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,
