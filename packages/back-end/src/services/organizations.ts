@@ -496,9 +496,8 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
-// Free (role-restricted) plans can only assign the admin global role. Project- and
-// environment-scoped roles are separately gated by the advanced-permissions commercial
-// feature, so only the global role needs checking here.
+// Free (role-restricted) plans can only assign the admin global role. Only the
+// global role is checked here.
 export function assertRoleAssignmentAllowed(
   organization: OrganizationInterface,
   role: string,

@@ -2485,6 +2485,9 @@ export async function putDefaultRole(
     context.permissions.throwPermissionError();
   }
 
+  // Only gate a change so an existing non-admin default keeps working
+  assertRoleChangeAllowed(org, getDefaultRole(org).role, defaultRole.role);
+
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,
     defaultRole.role,
