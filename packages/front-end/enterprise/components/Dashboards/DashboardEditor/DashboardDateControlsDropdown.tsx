@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { PiCalendarBlank, PiCaretDown } from "react-icons/pi";
@@ -116,6 +116,7 @@ export default function DashboardDateControlsDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [localLookbackValue, setLocalLookbackValue] = useState("");
+  const committedLookbackValueRef = useRef<number | null>(null);
   const activeDateRange = value ?? DEFAULT_DATE_RANGE;
   const updateCustomDateRange = useMergedDateRangeUpdates(value, (dateRange) =>
     onChange(dateRange),
@@ -123,6 +124,7 @@ export default function DashboardDateControlsDropdown({
 
   useEffect(() => {
     setLocalLookbackValue(value?.lookbackValue?.toString() ?? "");
+    committedLookbackValueRef.current = value?.lookbackValue ?? null;
   }, [value?.lookbackValue]);
 
   const selectDateRangeOption = (option: DateRangeOption) => {
@@ -150,7 +152,9 @@ export default function DashboardDateControlsDropdown({
       setLocalLookbackValue(activeDateRange.lookbackValue?.toString() ?? "");
       return;
     }
+    if (parsed === committedLookbackValueRef.current) return;
 
+    committedLookbackValueRef.current = parsed;
     onChange({
       ...buildDateRange(value, "customLookback"),
       lookbackValue: parsed,
@@ -307,6 +311,10 @@ export default function DashboardDateControlsDropdown({
           target.closest("[data-radix-popper-content-wrapper]")
         ) {
           event.preventDefault();
+          return;
+        }
+        if (selectedDateRangeOption === "customLookback") {
+          commitLookbackValue();
         }
       }}
       contentStyle={{ padding: "20px 24px", width: 342 }}
