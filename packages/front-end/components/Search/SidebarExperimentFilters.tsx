@@ -101,6 +101,21 @@ const SidebarExperimentFilters: FC<Props> = ({
     [searchValue],
   );
 
+  // This UI can only author plain filters (`field:value`). Negated (`!`) or
+  // operator (`>`, `^`, ...) filters typed by hand elsewhere are kept separate:
+  // they never satisfy a checkbox's checked state (a `tag:!checkout` must not
+  // render as a checked "checkout"), and they render as their own read-only
+  // chips below instead of being folded into a category chip.
+  const isPlainFilter = (f: SyntaxFilter) => !f.negated && !f.operator;
+  const plainFilters = useMemo(
+    () => syntaxFilters.filter(isPlainFilter),
+    [syntaxFilters],
+  );
+  const advancedFilters = useMemo(
+    () => syntaxFilters.filter((f) => !isPlainFilter(f)),
+    [syntaxFilters],
+  );
+
   const searchInputProps = useMemo(
     () => ({ value: searchValue, onChange: () => {} }),
     [searchValue],
@@ -201,9 +216,11 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   // One chip per category (field): every field with selected values, plus a
   // draft field created on category click that has no values selected yet.
+  // Only plain filters get a category chip; negated/operator filters render as
+  // their own chips.
   const chipFields = useMemo(() => {
     const fields: string[] = [];
-    syntaxFilters.forEach((f) => {
+    plainFilters.forEach((f) => {
       if (categoryByKey.has(f.field) && !fields.includes(f.field)) {
         fields.push(f.field);
       }
@@ -216,7 +233,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       fields.push(draftField);
     }
     return fields;
-  }, [syntaxFilters, categoryByKey, draftField]);
+  }, [plainFilters, categoryByKey, draftField]);
 
   const extraByKey = useMemo(() => {
     const m = new Map<string, ExtraFilter>();
@@ -274,7 +291,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       return;
     }
     setActiveField(key);
-    setDraftField(syntaxFilters.some((f) => f.field === key) ? "" : key);
+    setDraftField(plainFilters.some((f) => f.field === key) ? "" : key);
   };
 
   // Back arrow: leave the pill panel and reopen the category list. Discards the
@@ -301,7 +318,7 @@ const SidebarExperimentFilters: FC<Props> = ({
       if (activeField === field) setActiveField("");
       return;
     }
-    const filter = syntaxFilters.find((f) => f.field === field);
+    const filter = plainFilters.find((f) => f.field === field);
     if (filter) removeFilter(filter);
     if (draftField === field) setDraftField("");
     if (activeField === field) setActiveField("");
@@ -317,8 +334,10 @@ const SidebarExperimentFilters: FC<Props> = ({
       <Box style={{ padding: "6px 8px" }}>
         {categories
           // Hide categories that already have a pill; each field maps to a
-          // single chip, so it shouldn't be addable again.
-          .filter((c) => !syntaxFilters.some((f) => f.field === c.key))
+          // single chip, so it shouldn't be addable again. (A field with only
+          // a negated/operator filter has no category pill, so it stays
+          // addable.)
+          .filter((c) => !plainFilters.some((f) => f.field === c.key))
           .map((c) => (
             <Flex
               key={c.key}
@@ -444,7 +463,9 @@ const SidebarExperimentFilters: FC<Props> = ({
               </Box>
             )}
             {items.map((item) => {
-              const exists = syntaxFilters.some(
+              // Only plain filters can check a box — a negated `tag:!checkout`
+              // must not render as a checked "checkout".
+              const exists = plainFilters.some(
                 (f) =>
                   f.field === category.key &&
                   f.values.some(
@@ -453,6 +474,39 @@ const SidebarExperimentFilters: FC<Props> = ({
               );
               const selectItem = () => {
                 if (item.disabled) return;
+                // If a hand-typed negated filter already excludes this exact
+                // value, checking the box lifts the exclusion instead of
+                // appending a contradictory `tag:!x tag:x` (zero results).
+                const negatedMatch = advancedFilters.find(
+                  (f) =>
+                    f.field === category.key &&
+                    f.negated &&
+                    f.values.some(
+                      (v) => v.toLowerCase() === item.searchValue.toLowerCase(),
+                    ),
+                );
+                if (negatedMatch) {
+                  const remaining = negatedMatch.values.filter(
+                    (v) => v.toLowerCase() !== item.searchValue.toLowerCase(),
+                  );
+                  const tokens = syntaxFilters
+                    .filter((f) => f !== negatedMatch)
+                    .map(filterToString);
+                  if (remaining.length > 0) {
+                    tokens.push(
+                      filterToString({ ...negatedMatch, values: remaining }),
+                    );
+                  }
+                  const joined = tokens.join(" ");
+                  setSearchValue(
+                    joined
+                      ? searchTerm
+                        ? `${joined} ${searchTerm}`
+                        : joined
+                      : searchTerm,
+                  );
+                  return;
+                }
                 updateQuery({
                   field: category.key,
                   values: [item.searchValue],
@@ -499,7 +553,7 @@ const SidebarExperimentFilters: FC<Props> = ({
         {chipFields.map((field) => {
           const category = categoryByKey.get(field);
           if (!category) return null;
-          const filter = syntaxFilters.find((f) => f.field === field);
+          const filter = plainFilters.find((f) => f.field === field);
           const valueText = (filter?.values ?? [])
             .map((value) => labelFor(field, value))
             .join(", ");
@@ -564,6 +618,51 @@ const SidebarExperimentFilters: FC<Props> = ({
                 />
               }
               content={renderFilterPanel(category)}
+            />
+          );
+        })}
+
+        {/* Hand-typed negated/operator filters this UI can't author. Rendered
+            as read-only chips (no popover panel): "Not Tag: checkout" for a
+            plain negation, or the raw token for operator filters. The X strips
+            exactly that filter from the search string. */}
+        {advancedFilters.map((filter, i) => {
+          const heading = categoryByKey.get(filter.field)?.heading;
+          const label =
+            filter.negated && !filter.operator && heading
+              ? `Not ${heading}: ${filter.values
+                  .map((v) => labelFor(filter.field, v))
+                  .join(", ")}`
+              : filterToString(filter);
+          return (
+            <Badge
+              key={`advanced-${filter.field}-${i}`}
+              color="violet"
+              variant="soft"
+              radius="small"
+              style={{ maxWidth: "100%", whiteSpace: "normal" }}
+              label={
+                <Flex align="center" gap="1">
+                  <Text
+                    size="small"
+                    whiteSpace="normal"
+                    weight="medium"
+                    overflowWrap="anywhere"
+                  >
+                    {label}
+                  </Text>
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="violet"
+                    radius="full"
+                    aria-label={`Remove ${label} filter`}
+                    onClick={() => removeFilter(filter)}
+                  >
+                    <PiX size={12} />
+                  </IconButton>
+                </Flex>
+              }
             />
           );
         })}
@@ -652,7 +751,7 @@ const SidebarExperimentFilters: FC<Props> = ({
           content={categoryListView}
         />
 
-        {chipFields.length > 0 && (
+        {(chipFields.length > 0 || advancedFilters.length > 0) && (
           <Link
             size="1"
             onClick={clearFilters}

@@ -26,9 +26,21 @@ export const PREDEFINED_LABELS: Record<
   customDateRange: "Custom Date Range",
 };
 
+// Format a UTC instant as its UTC calendar day ("yyyy-MM-dd"). These strings
+// are parsed back as UTC days everywhere downstream (getValidDateOffsetByUTC,
+// calculateProductAnalyticsDateRange), so local-time formatting would shift the
+// seeded range by a day for users west of UTC.
+function formatUTCDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 // The equal-length window immediately before the current custom range, used as
 // the default "Prior" value until the user overrides it. Mirrors the span-shift
-// the data layer applies when no explicit previous window is stored.
+// the data layer applies when no explicit previous window is stored. Because
+// getPreviousWindow ends 1ms before the current start (which is 00:00:00 UTC
+// for a custom range), the seeded prior end lands on the calendar day before
+// the current start day — the two ranges never overlap once the prior end is
+// expanded back to end-of-day.
 function defaultPriorRange(
   current: ExplorationDateRange,
 ): ExplorationDateRange {
@@ -36,8 +48,8 @@ function defaultPriorRange(
   const prev = getPreviousWindow({ startDate, endDate });
   return {
     predefined: "customDateRange",
-    startDate: format(prev.startDate, "yyyy-MM-dd"),
-    endDate: format(prev.endDate, "yyyy-MM-dd"),
+    startDate: formatUTCDay(prev.startDate),
+    endDate: formatUTCDay(prev.endDate),
   };
 }
 

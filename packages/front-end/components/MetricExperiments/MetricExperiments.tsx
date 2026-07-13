@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import { PiTrophyDuotone } from "react-icons/pi";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
@@ -127,6 +127,11 @@ export interface MetricExperimentData {
   variationId: number;
   variationName: string;
   variationResults?: SnapshotMetric;
+  // The difference type of the analysis these results were computed under.
+  // May differ from the requested difference type when the snapshot has no
+  // matching analysis — formatting must always use this value so the numbers
+  // are never rendered as a type they weren't computed as.
+  differenceType: DifferenceType;
   significant?: boolean;
   lift?: number | undefined;
   users?: number;
@@ -168,76 +173,98 @@ function MetricExperimentResultTab({
   // look them up per-experiment without calling hooks in a loop.
   const significanceThresholdsByProject = useSignificanceThresholdsByProject();
 
-  const expData: MetricExperimentData[] = [];
-  experimentsWithSnapshot.forEach((e) => {
-    const {
-      bayesianConfidenceLevels: { ciUpper, ciLower },
-      pValueThreshold,
-    } =
-      significanceThresholdsByProject.get(e.project || "") ??
-      defaultSignificanceThresholds;
-    let variationResults: SnapshotMetric[] = [];
-    let statsEngine: StatsEngine = "bayesian";
-    let differenceType: DifferenceType = "relative";
-    if (e.snapshot) {
-      const snapshot = e.snapshot.analyses?.[0];
-      if (snapshot) {
-        statsEngine = snapshot.settings.statsEngine;
-        differenceType = snapshot.settings.differenceType;
-        variationResults = snapshot.results?.[0]?.variations.map((v) => {
-          return v.metrics?.[metric.id];
-        });
-      }
-    }
-    const baseline = variationResults?.[0];
-    getLatestPhaseVariations(e).forEach((v, i) => {
-      if (i === 0) return;
-      let expVariationData: MetricExperimentData = {
-        id: e.id,
-        date: experimentDate(e),
-        name: e.name,
-        status: e.status,
-        results: e.results,
-        archived: e.archived,
-        variations: getLatestPhaseVariations(e),
-        statsEngine: statsEngine,
-        variationId: i,
-        variationName: v.name,
-        phases: e.phases,
-        goalMetrics: e.goalMetrics,
-        guardrailMetrics: e.guardrailMetrics,
-        secondaryMetrics: e.secondaryMetrics,
-        datasource: e.datasource,
-        decisionFrameworkSettings: e.decisionFrameworkSettings,
-        project: e.project,
-      };
-      if (!bandits && baseline && variationResults[i]) {
-        const { significant, resultsStatus, directionalStatus } =
-          getMetricResultStatus({
-            metric: metric,
-            metricDefaults,
-            baseline: baseline,
-            stats: variationResults[i],
-            ciLower,
-            ciUpper,
-            pValueThreshold,
-            statsEngine,
-            differenceType,
+  const expData: MetricExperimentData[] = useMemo(() => {
+    const rows: MetricExperimentData[] = [];
+    experimentsWithSnapshot.forEach((e) => {
+      const {
+        bayesianConfidenceLevels: { ciUpper, ciLower },
+        pValueThreshold,
+      } =
+        significanceThresholdsByProject.get(e.project || "") ??
+        defaultSignificanceThresholds;
+      let variationResults: SnapshotMetric[] = [];
+      let statsEngine: StatsEngine = "bayesian";
+      // The difference type actually used for this experiment's numbers. A
+      // snapshot can contain multiple analyses that differ by difference
+      // type; prefer the one matching the requested type, otherwise fall
+      // back to the default analysis and surface its real difference type so
+      // significance and formatting stay consistent with the data.
+      let effectiveDifferenceType: DifferenceType = "relative";
+      if (e.snapshot) {
+        const analysis =
+          e.snapshot.analyses?.find(
+            (a) => a.settings.differenceType === differenceType,
+          ) ?? e.snapshot.analyses?.[0];
+        if (analysis) {
+          statsEngine = analysis.settings.statsEngine;
+          effectiveDifferenceType = analysis.settings.differenceType;
+          variationResults = analysis.results?.[0]?.variations.map((v) => {
+            return v.metrics?.[metric.id];
           });
-        expVariationData = {
-          ...expVariationData,
-          variationResults: variationResults[i],
-          lift: variationResults[i].uplift?.mean ?? undefined,
-          users: variationResults[i].users,
-          shipped: e.results === "won" && e.winner == i,
-          significant: significant,
-          resultsStatus: resultsStatus,
-          directionalStatus: directionalStatus,
-        };
+        }
       }
-      expData.push(expVariationData);
+      const baseline = variationResults?.[0];
+      getLatestPhaseVariations(e).forEach((v, i) => {
+        if (i === 0) return;
+        let expVariationData: MetricExperimentData = {
+          id: e.id,
+          date: experimentDate(e),
+          name: e.name,
+          status: e.status,
+          results: e.results,
+          archived: e.archived,
+          variations: getLatestPhaseVariations(e),
+          statsEngine: statsEngine,
+          variationId: i,
+          variationName: v.name,
+          differenceType: effectiveDifferenceType,
+          phases: e.phases,
+          goalMetrics: e.goalMetrics,
+          guardrailMetrics: e.guardrailMetrics,
+          secondaryMetrics: e.secondaryMetrics,
+          datasource: e.datasource,
+          decisionFrameworkSettings: e.decisionFrameworkSettings,
+          project: e.project,
+        };
+        if (!bandits && baseline && variationResults[i]) {
+          const { significant, resultsStatus, directionalStatus } =
+            getMetricResultStatus({
+              metric: metric,
+              metricDefaults,
+              baseline: baseline,
+              stats: variationResults[i],
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine,
+              differenceType: effectiveDifferenceType,
+            });
+          expVariationData = {
+            ...expVariationData,
+            variationResults: variationResults[i],
+            lift: variationResults[i].uplift?.mean ?? undefined,
+            users: variationResults[i].users,
+            shipped: e.results === "won" && e.winner == i,
+            significant: significant,
+            resultsStatus: resultsStatus,
+            directionalStatus: directionalStatus,
+          };
+        }
+        rows.push(expVariationData);
+      });
     });
-  });
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    experimentsWithSnapshot,
+    metric,
+    bandits,
+    differenceType,
+    metricDefaults,
+    significanceThresholdsByProject,
+    bayesianConfidenceLevels,
+    pValueThreshold,
+  ]);
 
   const { items, SortableTH } = useSearch({
     items: expData,
@@ -332,7 +359,7 @@ function MetricExperimentResultTab({
             }}
             showPlusMinus={false}
             statsEngine={e.statsEngine}
-            differenceType={differenceType}
+            differenceType={e.differenceType}
             showCI={true}
             className={resultsHighlightClassname}
           />

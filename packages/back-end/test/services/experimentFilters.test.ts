@@ -51,6 +51,38 @@ describe("parseExperimentSearchString", () => {
   it("ignores negated filters", () => {
     expect(parseExperimentSearchString("status:!running")).toEqual({});
   });
+
+  it("throws on negated filters in strict mode", () => {
+    expect(() =>
+      parseExperimentSearchString("status:!stopped", { strict: true }),
+    ).toThrow(/Unsupported search syntax: status:!stopped/);
+  });
+
+  it("throws on operator tokens in strict mode", () => {
+    expect(() =>
+      parseExperimentSearchString("owner:~smith", { strict: true }),
+    ).toThrow(/Unsupported search syntax: owner:~smith/);
+  });
+
+  it("lists all unsupported tokens in strict mode", () => {
+    expect(() =>
+      parseExperimentSearchString("status:!stopped owner:~smith tag:checkout", {
+        strict: true,
+      }),
+    ).toThrow(/status:!stopped, owner:~smith/);
+  });
+
+  it("leaves plain filters unaffected in strict mode", () => {
+    expect(
+      parseExperimentSearchString("status:running tag:checkout homepage", {
+        strict: true,
+      }),
+    ).toEqual({
+      statuses: ["running"],
+      tags: ["checkout"],
+      search: "homepage",
+    });
+  });
 });
 
 describe("normalizeExperimentFilters", () => {

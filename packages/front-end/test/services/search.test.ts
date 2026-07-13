@@ -178,6 +178,24 @@ describe("useSearch", () => {
         ],
       });
     });
+    it("normalizes capitalized filter keys to lowercase, preserving value case", () => {
+      // The regex matches keys case-insensitively; the stored field must be
+      // lowercased so downstream (case-sensitive) lookups still find it.
+      const query = "Status:Running OWNER:Adriel";
+      const result = transformQuery(query, ["status", "owner"]);
+      expect(result).toEqual({
+        searchTerm: "",
+        syntaxFilters: [
+          {
+            field: "status",
+            operator: "",
+            negated: false,
+            values: ["Running"],
+          },
+          { field: "owner", operator: "", negated: false, values: ["Adriel"] },
+        ],
+      });
+    });
     it("trims extra spaces", () => {
       const query = "test foo:bar  ";
       const result = transformQuery(query, ["foo"]);

@@ -18,6 +18,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
 import {
   VELOCITY_RESULT_KEYS,
+  VelocityBucket,
   VelocityResultKey,
   bucketVelocity,
   rangeLabel,
@@ -105,7 +106,7 @@ function buildVelocityTooltip({
 }: {
   index: number;
   currentBuckets: { [k in VelocityResultKey]: number }[];
-  previousBuckets: { [k in VelocityResultKey]: number }[];
+  previousBuckets: ({ [k in VelocityResultKey]: number } | null)[];
   tooltipLabels: string[];
   prevTooltipLabels: string[];
   comparisonEnabled: boolean;
@@ -218,9 +219,17 @@ export default function VelocityBlockChart({
     );
 
     const currentBuckets = bucketVelocity(current, window, resolvedGranularity);
-    const previousBuckets = comparisonEnabled
+    const rawPreviousBuckets = comparisonEnabled
       ? bucketVelocity(previous, previousWindow, resolvedGranularity)
       : [];
+    // Align previous buckets to the current window by ordinal offset from each
+    // window's start. The shifted window can produce a different bucket count
+    // (e.g. month granularity spanning an extra month boundary), so truncate
+    // extras and pad missing slots with null so lengths always match the
+    // current window's buckets (null renders as zero counts / no compare row).
+    const previousBuckets: (VelocityBucket | null)[] = currentBuckets.map(
+      (_, i) => rawPreviousBuckets[i] ?? null,
+    );
 
     // Compact labels on the axis; verbose labels (e.g. "December 2025") only in
     // the tooltip so ticks stay readable.
@@ -231,13 +240,13 @@ export default function VelocityBlockChart({
       formatDateByGranularity(b.date, resolvedGranularity),
     );
     const prevTooltipLabels = previousBuckets.map((b) =>
-      formatDateByGranularity(b.date, resolvedGranularity),
+      b ? formatDateByGranularity(b.date, resolvedGranularity) : "",
     );
 
-    // Align previous buckets to the current x-axis by index (both windows share
-    // the same span + granularity, so bucket i lines up with bucket i).
+    // previousBuckets is already aligned 1:1 with the current buckets; padded
+    // (null) slots contribute zero counts.
     const prevAligned = (key: VelocityResultKey) =>
-      categories.map((_, i) => previousBuckets[i]?.[key] ?? 0);
+      previousBuckets.map((b) => b?.[key] ?? 0);
 
     const currentSeries = VELOCITY_RESULT_KEYS.filter(
       (key) => !hiddenSeries.has(currentSeriesName(key)),

@@ -87,7 +87,12 @@ export function classifyVelocityResult(
 /**
  * Filter the org's experiments to the completed set inside a window, matching
  * useCompletedExperiments: standard (non-bandit), stopped, project-scoped, with
- * a phase that ended inside [startDate, endDate].
+ * a result date (getExperimentResultDate: most recent Main phase end, falling
+ * back to the most recent phase end) inside [startDate, endDate].
+ *
+ * Using the single result date — rather than "any phase ended in-window" —
+ * keeps this filter consistent with bucketVelocity, so the Win Percentage and
+ * Team Velocity blocks count exactly the same experiments for a given window.
  */
 export function filterCompletedExperiments(
   experiments: ExperimentInterfaceStringDates[],
@@ -101,25 +106,27 @@ export function filterCompletedExperiments(
         projects.length === 0 ||
         (e.project ? projects.includes(e.project) : false),
     )
-    .filter((e) =>
-      e.phases.some((p) => {
-        if (!p.dateEnded) return false;
-        const ended = new Date(p.dateEnded);
-        return ended >= startDate && ended <= endDate;
-      }),
-    );
+    .filter((e) => {
+      const resultDate = getExperimentResultDate(e);
+      if (!resultDate) return false;
+      return resultDate >= startDate && resultDate <= endDate;
+    });
 }
 
 /**
  * The equal-length window immediately preceding the current one (span-shift).
  * Mirrors buildComparisonDateRange for rolling windows so compare math lines up
  * with the rest of the dashboard.
+ *
+ * The previous window ends 1ms before the current window starts so the two
+ * windows never share an instant — an experiment ending exactly at the current
+ * start is counted in the current window only, never double-counted.
  */
 export function getPreviousWindow({ startDate, endDate }: Window): Window {
   const spanMs = endDate.getTime() - startDate.getTime();
   return {
     startDate: new Date(startDate.getTime() - spanMs),
-    endDate: new Date(startDate.getTime()),
+    endDate: new Date(startDate.getTime() - 1),
   };
 }
 

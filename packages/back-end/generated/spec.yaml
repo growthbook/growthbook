@@ -37383,11 +37383,14 @@ components:
       in: query
       description: >-
         Raw experiment search/filter string (same syntax as the app's experiment
-        list filters, e.g. `status:running tag:checkout`)
+        list filters, e.g. `status:running tag:checkout`). Negation (`!`) and
+        operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400
       schema:
         description: >-
           Raw experiment search/filter string (same syntax as the app's
-          experiment list filters, e.g. `status:running tag:checkout`)
+          experiment list filters, e.g. `status:running tag:checkout`). Negation
+          (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and
+          return a 400
         type: string
     owner:
       name: owner

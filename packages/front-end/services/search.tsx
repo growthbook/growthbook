@@ -635,7 +635,12 @@ export function parseQuery(query: string, regex: RegExp) {
   const matches = query.matchAll(regex);
   for (const match of matches) {
     if (match && match.length >= 3) {
-      const field = match[2];
+      // The regex matches field names case-insensitively, but downstream
+      // lookups (searchTermFilters keys, filter UIs) are all lowercase — so
+      // normalize the field here or `Status:running` becomes an invisible
+      // always-false filter. Values keep their case (matching happens
+      // case-insensitively in filterSearchTerm).
+      const field = match[2].toLowerCase();
       const negated = !!match[3];
       const operator = match[4] as SearchTermFilterOperator;
       const rawValue = match[5];

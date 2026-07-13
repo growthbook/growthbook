@@ -53,7 +53,7 @@ export default function MetricExperimentsBlock({
     block.endDateRange,
   ]);
 
-  const { data, isLoading } = useApi<{
+  const { data, error, isLoading } = useApi<{
     data: ExperimentWithSnapshot[];
   }>(
     `/metrics/${block.metricId}/experiments${
@@ -74,6 +74,14 @@ export default function MetricExperimentsBlock({
 
   if (isLoading) {
     return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <Callout status="error">
+        Failed to load experiments for this metric: {error.message}
+      </Callout>
+    );
   }
 
   return (

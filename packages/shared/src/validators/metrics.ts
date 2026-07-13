@@ -808,7 +808,7 @@ export const listMetricExperimentsValidator = {
       q: z
         .string()
         .describe(
-          "Raw experiment search/filter string (same syntax as the app's experiment list filters, e.g. `status:running tag:checkout`)",
+          "Raw experiment search/filter string (same syntax as the app's experiment list filters, e.g. `status:running tag:checkout`). Negation (`!`) and operators (`~`, `^`, `>`, `<`, `=`) are not supported and return a 400",
         )
         .optional(),
       projectId: z

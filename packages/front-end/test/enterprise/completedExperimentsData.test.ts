@@ -4,6 +4,7 @@ import {
   classifyVelocityResult,
   computeWinRateByProject,
   computeWinRateSummary,
+  filterCompletedExperiments,
   floorToGranularity,
   getExperimentResultDate,
   getPreviousWindow,
@@ -42,11 +43,103 @@ describe("getPreviousWindow", () => {
     const startDate = new Date("2026-04-01T00:00:00Z");
     const endDate = new Date("2026-05-01T00:00:00Z");
     const prev = getPreviousWindow({ startDate, endDate });
-    expect(prev.endDate.getTime()).toBe(startDate.getTime());
+    // The previous window ends 1ms BEFORE the current start (exclusive
+    // boundary), so an experiment ending exactly at the boundary instant is
+    // only ever counted in the current window.
+    expect(prev.endDate.getTime()).toBe(startDate.getTime() - 1);
     expect(prev.startDate.getTime()).toBe(
       startDate.getTime() - (endDate.getTime() - startDate.getTime()),
     );
     expect(prev.startDate).toEqual(new Date("2026-03-02T00:00:00Z"));
+  });
+
+  it("does not double-count an experiment ending exactly at the window boundary", () => {
+    const startDate = new Date("2026-04-01T00:00:00Z");
+    const endDate = new Date("2026-05-01T00:00:00Z");
+    const prev = getPreviousWindow({ startDate, endDate });
+    const boundaryExp = exp({
+      results: "won",
+      endedISO: "2026-04-01T00:00:00Z",
+    });
+    const inCurrent = filterCompletedExperiments([boundaryExp], {
+      startDate,
+      endDate,
+      projects: [],
+    });
+    const inPrevious = filterCompletedExperiments([boundaryExp], {
+      ...prev,
+      projects: [],
+    });
+    expect(inCurrent).toHaveLength(1);
+    expect(inPrevious).toHaveLength(0);
+  });
+});
+
+describe("filterCompletedExperiments", () => {
+  const startDate = new Date("2026-01-01T00:00:00Z");
+  const endDate = new Date("2026-03-31T23:59:59.999Z");
+  const window = { startDate, endDate, projects: [] };
+
+  it("keeps stopped, non-bandit experiments whose result date is in-window", () => {
+    const inWindow = exp({ results: "won", endedISO: "2026-02-01T00:00:00Z" });
+    const outOfWindow = exp({
+      results: "won",
+      endedISO: "2025-12-31T00:00:00Z",
+    });
+    const running = exp({
+      results: "won",
+      endedISO: "2026-02-01T00:00:00Z",
+      status: "running",
+    });
+    const bandit = exp({
+      results: "won",
+      endedISO: "2026-02-01T00:00:00Z",
+      type: "multi-armed-bandit",
+    });
+    expect(
+      filterCompletedExperiments(
+        [inWindow, outOfWindow, running, bandit],
+        window,
+      ),
+    ).toEqual([inWindow]);
+  });
+
+  it("uses the Main-phase-preferred result date, same as bucketVelocity", () => {
+    // Non-Main phase ended in-window, but the Main phase (the result date)
+    // ended outside it: the experiment must NOT count, so the Win Percentage
+    // and Team Velocity blocks agree on the experiment set.
+    const mainOutside = exp({
+      results: "won",
+      endedISO: "2026-02-01T00:00:00Z",
+      mainEndedISO: "2026-05-01T00:00:00Z",
+    });
+    expect(filterCompletedExperiments([mainOutside], window)).toEqual([]);
+
+    // And the converse: Main in-window counts even if another phase is not.
+    const mainInside = exp({
+      results: "won",
+      endedISO: "2025-06-01T00:00:00Z",
+      mainEndedISO: "2026-02-01T00:00:00Z",
+    });
+    expect(filterCompletedExperiments([mainInside], window)).toHaveLength(1);
+  });
+
+  it("scopes to selected projects", () => {
+    const p1 = exp({
+      results: "won",
+      project: "p1",
+      endedISO: "2026-02-01T00:00:00Z",
+    });
+    const noProject = exp({
+      results: "won",
+      endedISO: "2026-02-01T00:00:00Z",
+    });
+    expect(
+      filterCompletedExperiments([p1, noProject], {
+        ...window,
+        projects: ["p1"],
+      }),
+    ).toEqual([p1]);
   });
 });
 

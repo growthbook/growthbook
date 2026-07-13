@@ -6,9 +6,13 @@ import {
 } from "back-end/src/util/handler";
 import {
   getFilteredExperimentsUsingMetric,
+  parseExperimentSearchString,
   StructuredExperimentFilters,
 } from "back-end/src/services/experimentFilters";
-import { _getSnapshots } from "back-end/src/services/experiments";
+import {
+  _getSnapshots,
+  getExperimentMetricById,
+} from "back-end/src/services/experiments";
 
 function splitCsv(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
@@ -23,6 +27,18 @@ export const listMetricExperiments = createApiRequestHandler(
   listMetricExperimentsValidator,
 )(async (req) => {
   const metricId = req.params.id;
+
+  // Ensure the metric (fact or classic) exists and is readable
+  const metric = await getExperimentMetricById(req.context, metricId);
+  if (!metric) {
+    throw new Error("Could not find metric with that id");
+  }
+
+  // Reject unsupported search syntax (negation/operators) with a 400 instead
+  // of silently dropping it like the internal endpoint does
+  if (req.query.q) {
+    parseExperimentSearchString(req.query.q, { strict: true });
+  }
 
   const filters: StructuredExperimentFilters = {
     projects: splitCsv(req.query.projectId),
@@ -51,7 +67,13 @@ export const listMetricExperiments = createApiRequestHandler(
     limit: 1000,
   });
 
-  const snapshots = await _getSnapshots(req.context, experiments);
+  const snapshots = await _getSnapshots(
+    req.context,
+    experiments,
+    undefined,
+    true,
+    [metricId],
+  );
 
   const experimentResults = experiments.map((experiment) => {
     const snapshot = snapshots.find((s) => s.experiment === experiment.id);

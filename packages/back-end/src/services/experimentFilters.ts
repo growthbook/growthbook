@@ -51,9 +51,16 @@ function normalizeTypeToken(token: string): string | undefined {
  * Uses the same `field:[!][operator]value1,value2` syntax (with quoted values)
  * that the front-end parser in services/search.tsx produces. Only the filter
  * keys we understand are extracted; everything else is treated as free text.
+ *
+ * Negation (`!`) and operators (`~`, `^`, `>`, `<`, `=`) aren't expressible in
+ * StructuredExperimentFilters. By default they are handled leniently (negated
+ * filters are skipped, operators are ignored). With `strict: true`, any token
+ * using them throws an Error listing the unsupported token(s) so callers (the
+ * public API) can surface a 400 instead of silently returning wrong results.
  */
 export function parseExperimentSearchString(
   searchString: string,
+  { strict = false }: { strict?: boolean } = {},
 ): StructuredExperimentFilters {
   if (!searchString || !searchString.trim()) return {};
 
@@ -74,12 +81,20 @@ export function parseExperimentSearchString(
     filters[key] = [...existing, ...vals] as never;
   };
 
+  const unsupportedTokens: string[] = [];
   const matches = searchString.matchAll(regex);
   for (const match of matches) {
     const field = (match[2] || "").toLowerCase();
     const negated = !!match[3];
+    const operator = match[4] || "";
+    if (negated || operator) {
+      unsupportedTokens.push(
+        `${field}:${match[3] || ""}${operator}${match[5] || ""}`,
+      );
+    }
     // Negated filters aren't expressible in ExperimentSearchFilters, so skip
-    // them rather than guessing at exclusion semantics.
+    // them rather than guessing at exclusion semantics. (Operators are
+    // ignored and the values used as-is, matching front-end behavior.)
     if (negated) continue;
     const rawValue = match[5] || "";
     const values = (rawValue.match(/"[^"]*"|[^,]+/g) || []).map((s) =>
@@ -115,6 +130,14 @@ export function parseExperimentSearchString(
         );
         break;
     }
+  }
+
+  if (strict && unsupportedTokens.length > 0) {
+    throw new Error(
+      `Unsupported search syntax: ${unsupportedTokens.join(
+        ", ",
+      )}. Negation ("!") and operators ("~", "^", ">", "<", "=") are not supported.`,
+    );
   }
 
   const searchTerm = searchString
