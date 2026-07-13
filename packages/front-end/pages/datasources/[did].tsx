@@ -154,9 +154,9 @@ const DataSourcePage: FC = () => {
   if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           {error || currentDataSourceError?.message}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -166,9 +166,9 @@ const DataSourcePage: FC = () => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -187,16 +187,17 @@ const DataSourcePage: FC = () => {
       />
 
       {d.decryptionError && (
-        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
-          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink
-            useRadix={false}
-            docSection="env_prod"
-            className="btn btn-primary"
-          >
-            View instructions for fixing
-          </DocLink>
-        </div>
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <DocLink docSection="env_prod" useRadix>
+              View instructions for fixing
+            </DocLink>
+          }
+        >
+          <strong>Error Decrypting Data Source Credentials.</strong>
+        </Callout>
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
@@ -470,7 +471,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                   <Frame>
                     {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                      <ClickhouseManagedWarehouseIdentifiers
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
+                      />
                     ) : (
                       <ClickhouseMaterializedColumns
                         dataSource={d}

@@ -87,7 +87,7 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -133,7 +133,7 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -182,7 +182,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     decisionCriteria,
     webhookSecrets,
   ] = await Promise.all([
-    getMetricsByOrganization(context),
+    getMetricsForDefinitions(context),
     getDataSourcesByOrganization(context).then((ds) =>
       getDataSourcesWithParams(context, ds),
     ),
@@ -194,7 +194,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.constants.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
-    getAllFactTablesForOrganization(context),
+    getAllFactTablesForDefinitions(context),
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),

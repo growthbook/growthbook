@@ -33,6 +33,16 @@ router.post(
   factTableController.postFactTable,
 );
 
+router.get("/fact-tables", factTableController.getFactTables);
+
+router.get(
+  "/fact-tables/:id",
+  validateRequestMiddleware({
+    params: factTableParams,
+  }),
+  factTableController.getFactTableById,
+);
+
 router.put(
   "/fact-tables/:id",
   validateRequestMiddleware({

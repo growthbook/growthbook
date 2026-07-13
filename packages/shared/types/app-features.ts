@@ -119,6 +119,7 @@ export type AppFeatures = {
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
   "managed-warehouse-json-migration": boolean;
+  "managed-warehouse-migration-sweep": boolean;
   "session-replays": boolean;
   "login-page-content": Record<string, unknown>;
   "slackbot-enabled": boolean;

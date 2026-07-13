@@ -1,7 +1,7 @@
 import { FC, useState, useMemo } from "react";
 import { PiInfo } from "react-icons/pi";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
 } from "shared/experiments";
 import {
@@ -26,7 +26,7 @@ import { filterRowsForMetricDrilldown } from "./helpers";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
 
 interface MetricDrilldownSlicesProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   // Rows computed by parent using useExperimentTableRows
   rows: ExperimentTableRow[];
   variationNames: string[];

@@ -13,6 +13,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import TempMessage from "@/components/TempMessage";
+import Callout from "@/ui/Callout";
 
 export default function RoleForm({
   role,
@@ -236,9 +237,9 @@ export default function RoleForm({
         >
           <div className="container-fluid pagecontents d-flex">
             {error ? (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 <strong>Error: {error}</strong>
-              </div>
+              </Callout>
             ) : null}
             <div className="flex-grow-1 mr-4">
               {saveMsg && (
