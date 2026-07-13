@@ -193,6 +193,10 @@ export async function refreshDashboardData(
     const datasource = await getDataSourceById(context, experiment.datasource);
     if (!datasource) throw new Error("Failed to find connected datasource");
 
+    if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+
     const plannedExperimentMainSnapshot = await planExperimentSnapshot({
       context,
       experiment,
@@ -271,6 +275,9 @@ export async function refreshDashboardData(
       blocks: newBlocks,
     });
   } else {
+    if (!context.permissions.canCreateAnalyses(dashboard.projects)) {
+      context.permissions.throwPermissionError();
+    }
     await updateNonExperimentDashboard(context, dashboard);
   }
 
