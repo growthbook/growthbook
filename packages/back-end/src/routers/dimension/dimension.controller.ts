@@ -9,6 +9,7 @@ import {
   deleteDimensionById,
   findDimensionById,
   findDimensionsByOrganization,
+  hasDimensionDatasourceAccess,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import {
@@ -156,7 +157,7 @@ export const putDimension = async (
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
     throw new Error("Could not find dimension");
   }
 
@@ -211,7 +212,7 @@ export const deleteDimension = async (
   const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension) {
+  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
     throw new Error("Could not find dimension");
   }
   try {

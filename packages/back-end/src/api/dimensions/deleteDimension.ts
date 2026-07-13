@@ -2,6 +2,7 @@ import { deleteDimensionValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   findDimensionById,
+  hasDimensionDatasourceAccess,
   deleteDimensionById,
 } from "back-end/src/models/DimensionModel";
 
@@ -15,7 +16,10 @@ export const deleteDimension = createApiRequestHandler(
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
-  if (!dimension) {
+  if (
+    !dimension ||
+    !(await hasDimensionDatasourceAccess(req.context, dimension))
+  ) {
     throw new Error("Could not find dimension with that id");
   }
 
