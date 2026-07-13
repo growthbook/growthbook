@@ -39,6 +39,17 @@ import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
+export const DEFAULT_DASHBOARD_GLOBAL_CONTROLS = {
+  dateRange: {
+    predefined: "last30Days",
+    lookbackValue: null,
+    lookbackUnit: null,
+    startDate: null,
+    endDate: null,
+  },
+  dateGranularity: "auto",
+} satisfies NonNullable<DashboardInterface["globalControls"]>;
+
 // BlockConfig item types for sql-explorer blocks
 export const BLOCK_CONFIG_ITEM_TYPES = {
   RESULTS_TABLE: "results_table",

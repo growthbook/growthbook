@@ -237,6 +237,16 @@ export default function DashboardWorkspace({
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >(undefined);
 
+  useEffect(() => {
+    if (!globalControls?.dateRange) return;
+    setStagedAddBlock((block) =>
+      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    );
+    setStagedEditBlock((block) =>
+      block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
+    );
+  }, [globalControls?.dateRange]);
+
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
   // Without this, paths like duplicateBlock - which only set addBlockIndex +
@@ -501,6 +511,7 @@ export default function DashboardWorkspace({
               }
               title={dashboard.title}
               blocks={effectiveBlocks}
+              globalControlBlocks={blocks}
               globalControls={globalControls}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}

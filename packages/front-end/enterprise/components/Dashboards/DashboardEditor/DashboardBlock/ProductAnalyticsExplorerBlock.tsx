@@ -24,7 +24,6 @@ import { BlockProps } from ".";
 export default function ProductAnalyticsExplorerBlock({
   block,
   dashboardGlobalControls,
-  isEditing,
 }: BlockProps<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
@@ -63,16 +62,31 @@ export default function ProductAnalyticsExplorerBlock({
   // dashboard matches the Explorer: empty previous periods densify to zeros
   // instead of triggering the "no data, nothing to compare" message, and
   // big-number / table trends are computed identically.
-  const submittedConfig =
-    block.config && dashboardGlobalControls
-      ? getEffectiveExplorationConfig(block, {
-          globalControls: dashboardGlobalControls,
-        })
-      : (block.config ?? data?.exploration?.config ?? null);
+  const submittedConfig = useMemo(
+    () =>
+      block.config && dashboardGlobalControls
+        ? getEffectiveExplorationConfig(block, {
+            globalControls: dashboardGlobalControls,
+          })
+        : (block.config ?? data?.exploration?.config ?? null),
+    [block, dashboardGlobalControls, data?.exploration?.config],
+  );
+  const submittedExplorationConfig = data?.exploration?.config;
   // A block only tracks the dashboard date control when it hasn't opted out.
   const usesDashboardDateRange =
     blockUsesDashboardDateControl(block) &&
     Boolean(dashboardGlobalControls?.dateRange);
+  const hasStaleDashboardDateResults = useMemo(
+    () =>
+      usesDashboardDateRange &&
+      submittedConfig !== null &&
+      submittedExplorationConfig !== undefined &&
+      !isEqual(
+        getExplorationDateControlFingerprint(submittedConfig),
+        getExplorationDateControlFingerprint(submittedExplorationConfig),
+      ),
+    [usesDashboardDateRange, submittedConfig, submittedExplorationConfig],
+  );
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -117,15 +131,7 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  if (
-    !isEditing &&
-    usesDashboardDateRange &&
-    submittedConfig &&
-    !isEqual(
-      getExplorationDateControlFingerprint(submittedConfig),
-      getExplorationDateControlFingerprint(data.exploration.config),
-    )
-  ) {
+  if (hasStaleDashboardDateResults) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
         <Callout status="info">

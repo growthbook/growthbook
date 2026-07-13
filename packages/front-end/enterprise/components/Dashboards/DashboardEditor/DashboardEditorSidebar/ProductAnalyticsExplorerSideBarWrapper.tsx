@@ -18,6 +18,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
   dashboardGlobalControls,
+  invalidateStaleResults = true,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: {
@@ -34,6 +35,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  invalidateStaleResults?: boolean;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }) {
@@ -95,18 +97,22 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     const nextConfig = usesDashboardDateRange
       ? restoreBlockLocalDateControls(nextDraftConfig, block.config)
       : nextDraftConfig;
+    const shouldInvalidateResults =
+      needsFetch && invalidateStaleResults && Boolean(explorerAnalysisId);
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
-      !isEqual(block.comparison, nextComparison)
+      !isEqual(block.comparison, nextComparison) ||
+      shouldInvalidateResults
     ) {
       setBlock({
         ...block,
         config: nextConfig,
         comparison: nextComparison,
         // Only invalidate the cached analysis when the change requires new data
-        explorerAnalysisId: needsFetch ? "" : block.explorerAnalysisId,
+        explorerAnalysisId:
+          needsFetch && invalidateStaleResults ? "" : block.explorerAnalysisId,
         comparisonExplorerAnalysisId:
-          nextComparison && !needsFetch
+          nextComparison && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
       } as
@@ -117,12 +123,14 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
   }, [
     needsFetch,
     needsUpdate,
+    invalidateStaleResults,
     setBlock,
     block,
     draftExploreState,
     dashboardGlobalControls,
     nextComparison,
     usesDashboardDateRange,
+    explorerAnalysisId,
   ]);
 
   // When Save & Close is requested and the block is stale, run the analysis first.

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -36,6 +37,7 @@ export function createTemporaryDashboard(
     enableAutoUpdates: false,
     title: "Untitled Dashboard",
     blocks: [],
+    globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
     projects: project ? [project] : [],
     dateCreated: now,
     dateUpdated: now,

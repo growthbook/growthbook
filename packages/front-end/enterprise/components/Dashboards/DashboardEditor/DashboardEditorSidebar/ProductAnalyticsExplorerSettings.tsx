@@ -7,8 +7,10 @@ import {
   buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
+  getExplorationDateControlFingerprint,
   restoreBlockLocalDateControls,
 } from "shared/enterprise";
+import { isEqual } from "lodash";
 import type {
   ExplorationDateRange,
   ProductAnalyticsExploration,
@@ -52,7 +54,36 @@ export default function ProductAnalyticsExplorerSettings({
     shouldRun: () => !!block.explorerAnalysisId,
   });
 
-  if (!block.config) {
+  const baseInitialConfig =
+    data?.exploration?.config && block.config
+      ? { ...data.exploration.config, ...block.config }
+      : (data?.exploration?.config ?? block.config ?? null);
+  const blockForInitialConfig = baseInitialConfig
+    ? ({
+        ...block,
+        config: baseInitialConfig,
+      } as typeof block)
+    : null;
+  const effectiveInitialConfig = blockForInitialConfig
+    ? dashboardGlobalControls
+      ? getEffectiveExplorationConfig(blockForInitialConfig, {
+          globalControls: dashboardGlobalControls,
+        })
+      : baseInitialConfig
+    : null;
+  const usesDashboardDateRange =
+    block.globalControlSettings?.dateRange === true &&
+    Boolean(dashboardGlobalControls?.dateRange);
+  const hasStaleDashboardDateResults =
+    usesDashboardDateRange &&
+    effectiveInitialConfig !== null &&
+    data?.exploration !== undefined
+      ? !isEqual(
+          getExplorationDateControlFingerprint(effectiveInitialConfig),
+          getExplorationDateControlFingerprint(data.exploration.config),
+        )
+      : false;
+  if (!block.config || !effectiveInitialConfig) {
     return <LoadingSpinner />;
   }
 
@@ -64,19 +95,6 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const baseInitialConfig =
-    data?.exploration?.config && block.config
-      ? { ...data.exploration.config, ...block.config }
-      : data?.exploration?.config || block.config;
-  const blockForInitialConfig = {
-    ...block,
-    config: baseInitialConfig,
-  } as typeof block;
-  const effectiveInitialConfig = dashboardGlobalControls
-    ? getEffectiveExplorationConfig(blockForInitialConfig, {
-        globalControls: dashboardGlobalControls,
-      })
-    : baseInitialConfig;
   const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
     ? {
         ...effectiveInitialConfig,
@@ -85,20 +103,30 @@ export default function ProductAnalyticsExplorerSettings({
           buildComparisonDateRange(effectiveInitialConfig.dateRange),
       }
     : effectiveInitialConfig;
+  const initialSubmittedConfig: ExplorerDraftConfig | undefined =
+    data?.exploration
+      ? block.comparison?.enabled
+        ? {
+            ...data.exploration.config,
+            previousTimeFrame:
+              block.comparison.previousTimeFrame ??
+              buildComparisonDateRange(data.exploration.config.dateRange),
+          }
+        : data.exploration.config
+      : undefined;
   const explorerProviderKey = [
     dashboardBlockHasIds(block) ? block.id : "",
     block.explorerAnalysisId,
     block.globalControlSettings?.dateRange === true,
     JSON.stringify(dashboardGlobalControls ?? null),
+    hasStaleDashboardDateResults,
   ].join(":");
-  const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
-    Boolean(dashboardGlobalControls?.dateRange);
 
   return (
     <ExplorerProvider
       key={explorerProviderKey}
       initialConfig={initialConfig}
+      initialSubmittedConfig={initialSubmittedConfig}
       hasExistingResults={!!block.explorerAnalysisId}
       trackingSource="dashboard-editor"
       onRunComplete={(
@@ -143,6 +171,7 @@ export default function ProductAnalyticsExplorerSettings({
         block={block}
         setBlock={setBlock}
         dashboardGlobalControls={dashboardGlobalControls}
+        invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}
       />

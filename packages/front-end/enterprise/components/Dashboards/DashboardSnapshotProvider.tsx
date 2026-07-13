@@ -233,9 +233,11 @@ export default function DashboardSnapshotProvider({
       setRefreshError(e.message);
     } finally {
       await mutateDefinitions();
-      await mutateDefaultSnapshot();
-      await mutateAllSnapshots();
-      await mutateSavedQueries();
+      await Promise.all([
+        mutateDefaultSnapshot(),
+        mutateAllSnapshots(),
+        mutateSavedQueries(),
+      ]);
     }
   };
 

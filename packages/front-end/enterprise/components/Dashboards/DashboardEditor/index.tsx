@@ -325,6 +325,7 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   isEditing: boolean;
   projects: string[];
@@ -359,6 +360,7 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
+  globalControlBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
@@ -745,7 +747,7 @@ function DashboardEditor({
         )}
         {isGeneralDashboard && onGlobalControlsChange ? (
           <DashboardGlobalControlsBar
-            blocks={blocks}
+            blocks={globalControlBlocks ?? blocks}
             globalControls={globalControls}
             canEdit={canEdit}
             onGlobalControlsChange={onGlobalControlsChange}
