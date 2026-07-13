@@ -54,6 +54,20 @@ import {
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
 } from "./saved-group-revision-notifications";
+import { apiConstantValidator } from "./constant";
+import {
+  constantRevisionCreatedPayload,
+  constantRevisionUpdatedPayload,
+  constantRevisionReviewRequestedPayload,
+  constantRevisionApprovedPayload,
+  constantRevisionChangesRequestedPayload,
+  constantRevisionCommentedPayload,
+  constantRevisionDiscardedPayload,
+  constantRevisionRebasedPayload,
+  constantRevisionPublishedPayload,
+  constantRevisionRevertedPayload,
+  constantRevisionReopenedPayload,
+} from "./constant-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
@@ -142,7 +156,7 @@ export const notificationEvents = {
     "rampSchedule.actions.step.advanced": {
       schema: rampScheduleStepAdvancedPayload,
       description:
-        "Triggered when a feature ramp schedule advances to the next step",
+        "Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually.",
     },
     "rampSchedule.actions.step.approvalRequired": {
       schema: rampScheduleStepApprovalRequiredPayload,
@@ -298,6 +312,71 @@ export const notificationEvents = {
     },
     "revision.reopened": {
       schema: savedGroupRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+  },
+  constant: {
+    created: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is created",
+    },
+    updated: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConstantValidator,
+      description: "Triggered when a constant is deleted",
+    },
+    "revision.created": {
+      schema: constantRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a constant",
+    },
+    "revision.updated": {
+      schema: constantRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (value, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: constantRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: constantRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: constantRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: constantRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: constantRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: constantRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: constantRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `constant.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: constantRevisionRevertedPayload,
+      description:
+        "Triggered when a constant is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: constantRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
   },

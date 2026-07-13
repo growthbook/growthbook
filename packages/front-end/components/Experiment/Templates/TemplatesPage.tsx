@@ -31,6 +31,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import Callout from "@/ui/Callout";
 
 function TemplateRowMenu({
   templateId,
@@ -182,7 +183,7 @@ export const TemplatesPage = ({
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!hasTemplatesFeature) {

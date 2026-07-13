@@ -94,6 +94,7 @@ const SRMWarning: FC<{
     <>
       {type === "with_modal" && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType="srm-warning"
           close={() => setOpen(false)}
           open={open}
@@ -175,7 +176,7 @@ const SRMWarning: FC<{
       )}
 
       {srm >= srmThreshold ? (
-        <Callout status="success" contentsAs="div">
+        <Callout status="success">
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}
@@ -189,7 +190,7 @@ const SRMWarning: FC<{
           </b>
         </Callout>
       ) : (
-        <Callout status="warning" contentsAs="div">
+        <Callout status="warning">
           <strong>
             Sample Ratio Mismatch (SRM) detected. P-value below{" "}
             {pValueFormatter(srmThreshold)}

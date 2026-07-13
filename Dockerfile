@@ -40,14 +40,19 @@ RUN \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
-  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47"
-# cryptography is pinned to override a vulnerable transitive dep.
+  && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2
 # No compiler in this stage (dev variant has only binutils) — fine while every
 # gbstats dep is a manylinux wheel; add one if a dep ever ships sdist-only.
 
-# Strip poetry + build-only deps so they (and their CVEs) don't ride along in the
-# venv copied into the final image.
-RUN pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
+# Remove poetry's build-only footprint (poetry + its keyring/cryptography backend, setuptools,
+# wheel, etc.) from the runtime venv. None are gbstats runtime deps, so dropping them shrinks the
+# image and its vulnerability surface. The list lives in check_stripped_deps.STRIPPED so it stays
+# in sync with the guard below.
+RUN pip uninstall -y $(python -c "from check_stripped_deps import STRIPPED; print(*STRIPPED)")
+
+# Verify the strip held: gbstats still imports with only its runtime deps, and nothing pulled a
+# removed package back in. Fails the build otherwise.
+RUN python check_stripped_deps.py
 
 # Assert the runtime python entrypoints exist before this venv is copied into the
 # shell-less final image (where such a check can't run). Replaces the deleted
@@ -102,6 +107,8 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
+# Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm postinstall
 COPY packages ./packages
@@ -113,6 +120,7 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && rm -rf packages/shared/node_modules \
+  && rm -rf packages/stats-ts/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \

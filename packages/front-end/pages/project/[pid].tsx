@@ -35,6 +35,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import Metadata from "@/ui/Metadata";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
+import Callout from "@/ui/Callout";
 
 function emptyStringToUndefined(v: unknown): number | undefined {
   if (v === "" || v === null || v === undefined) return undefined;
@@ -120,16 +121,16 @@ const ProjectPage: FC = () => {
   if (!canEditSettings) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           You do not have access to view this page.
-        </div>
+        </Callout>
       </div>
     );
   }
   if (error) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <Callout status="error">{error}</Callout>
       </div>
     );
   }
@@ -139,9 +140,9 @@ const ProjectPage: FC = () => {
   if (!p) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Project <code>{pid}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -191,7 +192,7 @@ const ProjectPage: FC = () => {
               />
             </Flex>
           </Flex>
-          <MoreMenu useRadix={true}>
+          <MoreMenu>
             <a
               href="#"
               className="dropdown-item"
@@ -375,7 +376,6 @@ const ProjectPage: FC = () => {
                         {checklist?.id ? (
                           <DeleteButton
                             displayName="Checklist"
-                            useRadix={true}
                             text="Delete Checklist"
                             deleteMessage="Once deleted, all experiments in this project will revert to using your organization's default Pre-Launch Checklist."
                             onClick={async () => {

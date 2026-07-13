@@ -18,10 +18,18 @@ import {
   isFactMetric,
   isMetricJoinable,
   expandAllSliceMetricsInMap,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getLatestPhaseVariations,
+  isDimensionPrecomputed,
+  getExperimentOutdatedReasonLabel,
 } from "shared/experiments";
-import { isNewerOverallResultsDataAvailable } from "shared/enterprise";
+import {
+  isNewerOverallResultsDataAvailable,
+  getIncrementalFullRefreshReasons,
+  overallResultsBuiltWithoutIncrementalPipeline,
+  OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
+  IncrementalFullRefreshComparable,
+} from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -32,18 +40,24 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { startCase } from "lodash";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
+import ResultMoreMenu, {
+  shouldOfferMenuRefresh,
+} from "@/components/Experiment/ResultMoreMenu";
 import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useIncrementalPipelineFallbackConfirm } from "@/hooks/useIncrementalPipelineFallbackConfirm";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import { useUser } from "@/services/UserContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
 import IncrementalPipelineFallbackDialog from "@/components/Experiment/IncrementalPipelineFallbackDialog";
+import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
+import MainSnapshotRefreshDialog from "@/components/Experiment/MainSnapshotRefreshDialog";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
@@ -52,6 +66,7 @@ import Callout from "@/ui/Callout";
 import {
   getIsExperimentIncludedInIncrementalRefresh,
   getPipelineSettingsAfterDisablingExperiment,
+  getHonoredPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
@@ -148,6 +163,7 @@ export default function AnalysisSettingsSummary({
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
 
   const {
     snapshot,
@@ -250,19 +266,141 @@ export default function AnalysisSettingsSummary({
       experiment.type,
     );
 
+  const isIncremental =
+    isExperimentIncludedInIncrementalRefresh && !incrementalUpdatesUnavailable;
+
+  const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
+    useIncrementalRefresh(isIncremental ? experiment.id : "");
+  useEffect(() => {
+    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    if (!isIncremental) return;
+    mutateIncrementalRefresh();
+  }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
+  const honoredPrecomputedUnitDimensionIds = useMemo(
+    () =>
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment.precomputedUnitDimensionIds,
+        datasource ?? undefined,
+        hasPipelineModeFeature,
+      ),
+    [
+      experiment.precomputedUnitDimensionIds,
+      datasource,
+      hasPipelineModeFeature,
+    ],
+  );
+  const hasOverallResults = !!dimensionless && !dimensionless.dimension;
+  // Overall-first rules apply only while incremental updates are active.
+  const dimensionResultsUseOverallResults = isIncremental && !!dimension;
+
+  const fullRefreshReasons: string[] = useMemo(() => {
+    if (!isIncremental || !dimensionless || !hasOverallResults) return [];
+    const phaseStart = experiment.phases?.[phase]?.dateStarted;
+    const currentComparable: IncrementalFullRefreshComparable = {
+      activationMetric: experiment.activationMetric ?? null,
+      attributionModel: experiment.attributionModel ?? "firstExposure",
+      queryFilter: experiment.queryFilter ?? "",
+      segment: experiment.segment ?? "",
+      skipPartialData: experiment.skipPartialData ?? false,
+      datasourceId: experiment.datasource,
+      exposureQueryId: experiment.exposureQueryId ?? "",
+      // Match isOutdated's commercial-feature gate for regression adjustment.
+      regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
+        ? !!experiment.regressionAdjustmentEnabled
+        : false,
+      experimentId: experiment.id,
+      startDate: phaseStart
+        ? new Date(phaseStart)
+        : getValidDate(experiment.phases?.[0]?.dateStarted ?? ""),
+    };
+    const baselineComparable: IncrementalFullRefreshComparable = {
+      activationMetric: dimensionless.settings.activationMetric,
+      attributionModel: dimensionless.settings.attributionModel,
+      queryFilter: dimensionless.settings.queryFilter,
+      segment: dimensionless.settings.segment,
+      skipPartialData: dimensionless.settings.skipPartialData,
+      datasourceId: dimensionless.settings.datasourceId,
+      exposureQueryId: dimensionless.settings.exposureQueryId,
+      regressionAdjustmentEnabled:
+        dimensionless.settings.regressionAdjustmentEnabled,
+      experimentId: dimensionless.settings.experimentId,
+      startDate: dimensionless.settings.startDate,
+    };
+    const reasons = getIncrementalFullRefreshReasons(
+      currentComparable,
+      baselineComparable,
+    );
+    if (
+      overallResultsBuiltWithoutIncrementalPipeline({
+        unitsTableFullName: incrementalRefresh?.unitsTableFullName ?? null,
+        materializedBySnapshotId: incrementalRefresh?.materializedBySnapshotId,
+        latestOverallSnapshotId: dimensionless?.id ?? null,
+      })
+    ) {
+      reasons.push(OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON);
+    }
+    return reasons;
+  }, [
+    isIncremental,
+    dimensionless,
+    hasOverallResults,
+    experiment,
+    phase,
+    hasRegressionAdjustmentFeature,
+    incrementalRefresh,
+  ]);
+
+  const overallNeedsFullRefresh =
+    isIncremental && fullRefreshReasons.length > 0;
+  const overallNeverRanIncrementally =
+    dimensionResultsUseOverallResults &&
+    (!incrementalRefresh?.unitsTableFullName || !hasOverallResults);
+  const dimensionIsPrecomputed = isDimensionPrecomputed(
+    dimension,
+    honoredPrecomputedUnitDimensionIds,
+  );
+  const viewingOnDemandDimension = !!dimension && !dimensionIsPrecomputed;
+  const viewingDimensionThatRequiresOverallFirst =
+    dimensionResultsUseOverallResults && viewingOnDemandDimension;
+  const overallResultsRequiredBeforeDimensionRefresh =
+    overallNeedsFullRefresh || overallNeverRanIncrementally;
+  const hideOutdatedBadge =
+    viewingDimensionThatRequiresOverallFirst && overallNeedsFullRefresh;
+
   const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
     sourceSnapshot,
-    dimensionless,
+    hasOverallResults ? dimensionless : undefined,
   );
 
-  const { runSnapshot } = useExperimentSnapshotUpdate({
+  const [showMainRefreshModal, setShowMainRefreshModal] = useState(false);
+
+  const handleSnapshotRefreshBlocked = () => {
+    setShowMainRefreshModal(true);
+  };
+
+  const { runSnapshot, fullRefreshConfirm } = useExperimentSnapshotUpdate({
     experiment,
     phase,
     dimension,
     mutate,
     mutateAdditional: mutateExperiment,
     setRefreshError,
+    onSnapshotRefreshBlocked: handleSnapshotRefreshBlocked,
   });
+
+  const goToOverallResults = useCallback(() => {
+    setSnapshotDimension("");
+    setAnalysisSettings(null);
+    setDimension?.("", true);
+  }, [setSnapshotDimension, setAnalysisSettings, setDimension]);
+
+  const updateMainResults = async () => {
+    setShowMainRefreshModal(false);
+    const started = await runSnapshot("", { force: true });
+    if (!started) return;
+    goToOverallResults();
+    setSnapshotType?.(undefined);
+  };
 
   const handleDisableIncrementalRefresh = async () => {
     if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
@@ -349,23 +487,14 @@ export default function AnalysisSettingsSummary({
       newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
   });
 
-  // In Incremental Pipeline mode, dimension results are built on top of overall
-  // results (the dimensionless snapshot). When the user clicks 'Update' while
-  // viewing a dimension breakdown that already covers the latest overall results
-  // (no newer overall data available), re-running won't fetch anything new, so we
-  // confirm and point them at updating overall results instead. This only applies
-  // when incremental updates are available — under a full-rescan fallback there is
-  // no overall/dimension split to reconcile.
+  // If a dimension breakdown already covers the latest Overall Results, another
+  // dimension update would read the same caches. Point the user to Overall
+  // Results instead, where incremental updates can pull in newer data.
   const needsDimensionRefreshConfirm =
     !!sourceSnapshot &&
     !newerOverallResultsAvailable &&
     !incrementalUpdatesUnavailable;
 
-  // Single gate for the "Update" button. The two confirms are mutually exclusive
-  // by construction: the dimension modal only fires when incremental updates are
-  // available, and the fallback confirm only fires when they are not. Sequencing
-  // them in one gate keeps them from competing over the button's single
-  // customValidation slot.
   const confirmRefresh = useCallback(async (): Promise<boolean> => {
     if (needsDimensionRefreshConfirm) {
       setUpdateDimensionBreakdownModalOpen(true);
@@ -403,7 +532,7 @@ export default function AnalysisSettingsSummary({
       ...expandedSecondaries,
       ...expandedGuardrails,
     ];
-    const allMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const allMetricsMap = new Map<string, ExperimentMetricDefinition>();
     allExpandedIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !allMetricsMap.has(id)) {
@@ -443,12 +572,12 @@ export default function AnalysisSettingsSummary({
       const expanded = expandMetricGroups(filtered, groupsToUse);
       const defs = expanded
         .map((id) => getExperimentMetricById(id))
-        .filter((m): m is ExperimentMetricInterface => !!m);
+        .filter((m): m is ExperimentMetricDefinition => !!m);
       return filterMetricsByTags(defs, metricTagFilter);
     };
 
     const filteredIds = allMetricsArrays.flatMap(processMetrics);
-    const filteredMetricsMap = new Map<string, ExperimentMetricInterface>();
+    const filteredMetricsMap = new Map<string, ExperimentMetricDefinition>();
     filteredIds.forEach((id) => {
       const metric = getExperimentMetricById(id);
       if (metric && !filteredMetricsMap.has(id)) {
@@ -553,19 +682,19 @@ export default function AnalysisSettingsSummary({
       reasons.push("Stats engine changed");
     }
     if (isDifferent(exp.activationMetric, snapshotSettings.activationMetric)) {
-      reasons.push("Activation metric changed");
+      reasons.push(getExperimentOutdatedReasonLabel("activationMetric"));
     }
     if (isDifferent(exp.segment, snapshotSettings.segment)) {
-      reasons.push("Segment changed");
+      reasons.push(getExperimentOutdatedReasonLabel("segment"));
     }
     if (isDifferent(exp.queryFilter, snapshotSettings.queryFilter)) {
-      reasons.push("Query filter changed");
+      reasons.push(getExperimentOutdatedReasonLabel("queryFilter"));
     }
     if (isDifferent(exp.skipPartialData, snapshotSettings.skipPartialData)) {
-      reasons.push("In-progress conversion behavior changed");
+      reasons.push(getExperimentOutdatedReasonLabel("skipPartialData"));
     }
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
-      reasons.push("Experiment assignment query changed");
+      reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
     if (
       isDifferent(
@@ -573,7 +702,7 @@ export default function AnalysisSettingsSummary({
         snapshotSettings.attributionModel || "firstExposure",
       )
     ) {
-      reasons.push("Attribution model changed");
+      reasons.push(getExperimentOutdatedReasonLabel("attributionModel"));
     }
 
     const snapshotMetrics = Array.from(
@@ -637,7 +766,9 @@ export default function AnalysisSettingsSummary({
         !!analysisSettings?.regressionAdjusted,
       )
     ) {
-      reasons.push("CUPED settings changed");
+      reasons.push(
+        getExperimentOutdatedReasonLabel("regressionAdjustmentEnabled"),
+      );
     }
 
     const experimentPostStratificationEnabled =
@@ -761,7 +892,10 @@ export default function AnalysisSettingsSummary({
                     : undefined
                 }
               />
-              {hasData && outdated && status !== "running" ? (
+              {hasData &&
+              outdated &&
+              status !== "running" &&
+              !hideOutdatedBadge ? (
                 <OutdatedBadge
                   label={`These results are outdated. Click "Update" to re-run the analysis.`}
                   reasons={reasons}
@@ -803,6 +937,16 @@ export default function AnalysisSettingsSummary({
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
                 customValidation={confirmRefresh}
+                onSnapshotRefreshBlocked={handleSnapshotRefreshBlocked}
+                disabled={
+                  viewingDimensionThatRequiresOverallFirst &&
+                  overallResultsRequiredBeforeDimensionRefresh
+                }
+                fullRefreshRequired={
+                  !viewingDimensionThatRequiresOverallFirst &&
+                  overallNeedsFullRefresh
+                }
+                fullRefreshReasons={fullRefreshReasons}
               />
             ) : null}
 
@@ -810,7 +954,12 @@ export default function AnalysisSettingsSummary({
               experiment={experiment}
               datasource={datasource}
               forceRefresh={
-                allMetrics.length > 0
+                allMetrics.length > 0 &&
+                shouldOfferMenuRefresh({
+                  isIncremental,
+                  dimension,
+                  overallNeedsFullRefresh,
+                })
                   ? async () => {
                       if (!(await confirmIncrementalPipelineFallback())) return;
                       await runSnapshot(dimension ?? "", {
@@ -826,7 +975,7 @@ export default function AnalysisSettingsSummary({
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={useMemo(() => {
-                const metricMap = new Map<string, ExperimentMetricInterface>();
+                const metricMap = new Map<string, ExperimentMetricDefinition>();
                 const allBaseMetrics = [...metrics, ...factMetrics];
                 allBaseMetrics.forEach((metric) =>
                   metricMap.set(metric.id, metric),
@@ -932,6 +1081,45 @@ export default function AnalysisSettingsSummary({
         />
       ) : null}
 
+      <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+
+      {viewingDimensionThatRequiresOverallFirst &&
+      overallResultsRequiredBeforeDimensionRefresh ? (
+        <Callout status="warning" mt="2">
+          {overallNeedsFullRefresh ? (
+            <>
+              <Text weight="semibold" size="medium">
+                Overall Results require a Full Refresh.
+              </Text>{" "}
+              Dimension Results are computed from Overall Results and would be
+              inaccurate.{" "}
+              <Link onClick={goToOverallResults}>
+                Refresh Overall Results <PiArrowSquareOut size={15} />
+              </Link>
+            </>
+          ) : (
+            <>
+              <Text weight="semibold" size="medium">
+                Overall Results need to be run first.
+              </Text>{" "}
+              Dimension Results are computed from Overall Results.{" "}
+              <Link onClick={goToOverallResults}>
+                Run Overall Results <PiArrowSquareOut size={15} />
+              </Link>
+            </>
+          )}
+        </Callout>
+      ) : null}
+
+      {showMainRefreshModal ? (
+        <MainSnapshotRefreshDialog
+          onConfirm={() =>
+            updateMainResults().catch((e) => setRefreshError(e.message))
+          }
+          onCancel={() => setShowMainRefreshModal(false)}
+        />
+      ) : null}
+
       {refreshError && (
         <>
           <Callout status="error" mt="2">
@@ -984,19 +1172,14 @@ export default function AnalysisSettingsSummary({
               trackingSource: "UpdateDimensionBreakdownModal",
             });
           }}
-          handleGoToOverallResultsClick={() => {
-            // Kick-off overall results refresh.
-            void runSnapshot("", {
+          handleGoToOverallResultsClick={async () => {
+            const started = await runSnapshot("", {
               trackingSource: "UpdateDimensionBreakdownModal",
             });
+            if (!started) return;
 
             setUpdateDimensionBreakdownModalOpen(false);
-
-            // Show the overall results
-            // FIXME: this feels fragile, it should be only 1 state call
-            setSnapshotDimension("");
-            setAnalysisSettings(null);
-            setDimension?.("", true);
+            goToOverallResults();
           }}
         />
       )}

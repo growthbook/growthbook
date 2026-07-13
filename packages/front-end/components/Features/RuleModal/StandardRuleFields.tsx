@@ -1,7 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
@@ -251,19 +250,21 @@ export default function StandardRuleFields({
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
-      <FeatureValueField
-        label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-        id="value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-        sparse={!!form.watch("sparse")}
-        setSparse={(v) => form.setValue("sparse", v)}
-      />
+      <Box mb="5">
+        <FeatureValueField
+          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+          sparse={!!form.watch("sparse")}
+          setSparse={(v) => form.setValue("sparse", v)}
+        />
+      </Box>
 
       <div className="mb-3">
         <Heading as="h3" size="small" mb="2">
@@ -379,18 +380,29 @@ export default function StandardRuleFields({
                       ruleRampSchedule.status,
                     );
                   const isPendingRemoval = rampSectionState.mode === "off";
+                  // A running simple schedule's start has already passed, so the
+                  // back-end ignores startDate edits — lock the Start row while
+                  // still allowing the end date to be changed.
+                  const isRunningSimple =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ruleRampSchedule.status === "running";
                   return (
                     <>
                       <ScheduleInputs
                         state={rampSectionState}
                         setState={setRampSectionState}
                         disabled={isTerminal || isPendingRemoval}
+                        disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
-                        <Callout status="info" mt="3" size="sm">
-                          <Flex align="center" justify="between" gap="3">
-                            <Text>This schedule has finished.</Text>
+                        <Callout
+                          status="info"
+                          mt="3"
+                          size="sm"
+                          action={
                             <Button
+                              color="inherit"
                               size="xs"
                               variant="outline"
                               onClick={() =>
@@ -402,7 +414,9 @@ export default function StandardRuleFields({
                             >
                               Remove schedule
                             </Button>
-                          </Flex>
+                          }
+                        >
+                          This schedule has finished.
                         </Callout>
                       )}
                       {isPendingRemoval && (
@@ -504,11 +518,10 @@ export default function StandardRuleFields({
         </Flex>
       )}
       {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
+        <Callout status="error">
+          A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+          dependency. Remove this prerequisite to continue.
+        </Callout>
       )}
     </>
   );

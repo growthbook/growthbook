@@ -24,6 +24,7 @@ import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -125,7 +126,9 @@ export default function DataSourceMetrics({
         <p className="m-0">
           Metrics are what your experiments are trying to improve (or at least
           not hurt). Below are the metrics defined from this data source.{" "}
-          <DocLink docSection="metrics">Learn more.</DocLink>
+          <DocLink useRadix={false} docSection="metrics">
+            Learn more.
+          </DocLink>
         </p>
         <Button
           variant="ghost"
@@ -230,7 +233,7 @@ export default function DataSourceMetrics({
                             </Tooltip>
                           ) : null}
                         </div>
-                        <MoreMenu className="px-2">
+                        <MoreMenu useRadix={false} className="px-2">
                           {metric.onDuplicate ? (
                             <button
                               className="btn dropdown-item py-2"
@@ -274,13 +277,13 @@ export default function DataSourceMetrics({
               })}
             </Box>
           ) : (
-            <div className="alert alert-info">
+            <Callout status="info">
               No metrics have been defined yet from this data source. Click the{" "}
               <strong>
                 {showCreateFactTableButton ? "Create Fact Table" : "Add"}
               </strong>{" "}
               button to create your first one.
-            </div>
+            </Callout>
           )}
         </Box>
       ) : null}

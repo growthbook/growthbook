@@ -584,7 +584,9 @@ export default function EventForwarder({
         directly into this data source so you can query and analyze it alongside
         the rest of your warehouse data. More information available on our
         docs.&nbsp;
-        <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
+        <DocLink useRadix={false} docSection="eventForwarder">
+          Event Forwarder Docs
+        </DocLink>
       </p>
 
       {!eventForwarderConfig ? (
@@ -606,7 +608,7 @@ export default function EventForwarder({
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
               <Box mt="3">
-                <Button onClick={() => setShowEditModal(true)}>
+                <Button color="inherit" onClick={() => setShowEditModal(true)}>
                   Set Up Event Forwarder
                 </Button>
               </Box>

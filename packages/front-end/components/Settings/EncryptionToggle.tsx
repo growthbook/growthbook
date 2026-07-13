@@ -68,7 +68,9 @@ export default function EncryptionToggle({
               style={{ fontSize: 11 }}
             >
               Requires changes to your implementation.{" "}
-              <DocLink docSection="encryptedSDKEndpoints">View docs</DocLink>
+              <DocLink useRadix={false} docSection="encryptedSDKEndpoints">
+                View docs
+              </DocLink>
             </div>
           )}
         </div>
