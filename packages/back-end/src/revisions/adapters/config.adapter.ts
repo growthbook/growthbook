@@ -34,10 +34,12 @@ import {
   buildArmAcknowledgments,
 } from "back-end/src/services/armGuards";
 import {
-  assertConfigExperimentGuard,
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
+  configRevisionAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
+import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -278,12 +280,20 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     entity: ConfigInterface,
     proposedChanges: unknown,
   ): Promise<ArmAcknowledgments | undefined> {
+    const valueAffecting = configRevisionAffectsServedValue(proposedChanges);
     return buildArmAcknowledgments({
       experiment: await captureConfigExperimentGuardAcknowledgment(
         context,
         entity,
         proposedChanges,
       ),
+      "config-lock": valueAffecting
+        ? await captureConfigLockAcknowledgment(context, {
+            source: "config",
+            key: entity.key,
+            project: entity.project,
+          })
+        : undefined,
     });
   },
 
@@ -318,7 +328,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // Skipped for a metadata-only publish (no served value changes → can't
     // disrupt an experiment), matching the direct-update path.
     if (configChangeAffectsServedValue(Object.keys(filteredChanges))) {
-      await assertConfigExperimentGuard(context, entity, revision, {
+      await assertConfigPublishGuards(context, entity, revision, {
         armed: !!options?.deferred,
       });
     }

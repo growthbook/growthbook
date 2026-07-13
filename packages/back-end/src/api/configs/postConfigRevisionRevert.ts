@@ -8,10 +8,8 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import {
-  assertConfigExperimentGuard,
-  configChangeAffectsServedValue,
-} from "back-end/src/services/experimentGuard";
+import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
@@ -189,7 +187,7 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // Skipped for a metadata-only revert (can't rewrite a served value), matching
   // the other publish paths.
   if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-    await assertConfigExperimentGuard(req.context, config, targetRevision, {
+    await assertConfigPublishGuards(req.context, config, targetRevision, {
       armed: false,
     });
   }

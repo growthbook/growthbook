@@ -20,10 +20,8 @@ import {
 } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import {
-  assertConfigExperimentGuard,
-  configChangeAffectsServedValue,
-} from "back-end/src/services/experimentGuard";
+import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -167,7 +165,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   // Experiment guard (direct publish → armed:false). Skipped for a metadata-only
   // publish, which can't rewrite any served value.
   if (configChangeAffectsServedValue(changedFields)) {
-    await assertConfigExperimentGuard(req.context, config, revision, {
+    await assertConfigPublishGuards(req.context, config, revision, {
       armed: false,
     });
   }

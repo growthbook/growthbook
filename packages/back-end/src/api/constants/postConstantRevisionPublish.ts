@@ -19,7 +19,7 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantExperimentGuard } from "back-end/src/services/experimentGuard";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -139,7 +139,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     constantChange.valueChanged ||
     constantChange.changedEnvironments.length
   ) {
-    await assertConstantExperimentGuard(req.context, constant, revision, {
+    await assertConstantPublishGuards(req.context, constant, revision, {
       armed: false,
     });
   }

@@ -18,10 +18,9 @@ import {
   ArmAcknowledgments,
   buildArmAcknowledgments,
 } from "back-end/src/services/armGuards";
-import {
-  assertConstantExperimentGuard,
-  captureConstantExperimentGuardAcknowledgment,
-} from "back-end/src/services/experimentGuard";
+import { captureConstantExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
+import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
 // so the two can't drift. The snapshot validator runs in `.strict()` mode, so a
@@ -205,12 +204,22 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     entity: ConstantInterface,
     proposedChanges: unknown,
   ): Promise<ArmAcknowledgments | undefined> {
+    const change = getConstantRevisionChange(entity, proposedChanges);
+    const valueAffecting =
+      change.valueChanged || change.changedEnvironments.length > 0;
     return buildArmAcknowledgments({
       experiment: await captureConstantExperimentGuardAcknowledgment(
         context,
         entity,
         proposedChanges,
       ),
+      "config-lock": valueAffecting
+        ? await captureConfigLockAcknowledgment(context, {
+            source: "constant",
+            key: entity.key,
+            project: entity.project,
+          })
+        : undefined,
     });
   },
 
@@ -231,7 +240,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
     if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
-      await assertConstantExperimentGuard(context, entity, revision, {
+      await assertConstantPublishGuards(context, entity, revision, {
         armed: !!options?.deferred,
       });
     }

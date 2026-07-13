@@ -68,10 +68,8 @@ import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
 } from "back-end/src/services/configRevertBypass";
-import {
-  assertConfigExperimentGuard,
-  configChangeAffectsServedValue,
-} from "back-end/src/services/experimentGuard";
+import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import {
   assertConfigNotLocked,
   resolveConfigLockTarget,
@@ -917,7 +915,7 @@ export const putConfig = async (
       // Experiment guard (direct publish → armed:false). Skipped for a
       // metadata-only publish, which can't rewrite any served value.
       if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-        await assertConfigExperimentGuard(context, existing, revision, {
+        await assertConfigPublishGuards(context, existing, revision, {
           armed: false,
         });
       }

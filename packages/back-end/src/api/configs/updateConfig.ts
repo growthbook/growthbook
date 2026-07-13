@@ -32,7 +32,7 @@ import {
   getEffectiveConfigSchema,
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { assertConfigExperimentGuard } from "back-end/src/services/experimentGuard";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -315,8 +315,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       extendsChanged
     ) {
       const postValue = fieldsToUpdate.value ?? config.value;
-      // Experiment guard (direct publish → armed:false).
-      await assertConfigExperimentGuard(
+      // Deferred-publish guards (direct publish → armed:false).
+      await assertConfigPublishGuards(
         req.context,
         config,
         { armAcknowledgments: undefined },

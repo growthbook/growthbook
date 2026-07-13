@@ -33,7 +33,7 @@ import {
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantExperimentGuard } from "back-end/src/services/experimentGuard";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
@@ -449,7 +449,7 @@ export const putConstant = async (
       // Warn (bypassably) when this value change would reach a running experiment
       // through a guarded config. Metadata-only edits can't shift a served value.
       if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
-        await assertConstantExperimentGuard(context, existing, revision, {
+        await assertConstantPublishGuards(context, existing, revision, {
           armed: false,
         });
       }
