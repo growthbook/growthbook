@@ -43,6 +43,9 @@ import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/D
 
 export interface PublicDashboardBlockProps {
   block: DashboardBlockInterface;
+  // Dashboard uid — used so embedded images resolve via the public signed-URL
+  // endpoint (shareType=dashboard).
+  dashboardUid: string;
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
@@ -101,6 +104,7 @@ function BlockCard({
 // product-analytics exploration blocks (metric/fact-table/data-source).
 export default function PublicDashboardBlock({
   block,
+  dashboardUid,
   ssrPolyfills,
   savedQueriesMap,
   snapshotsMap,
@@ -119,6 +123,9 @@ export default function PublicDashboardBlock({
     ssrPolyfills,
     // Public view: SQL is stripped server-side, so hide the SQL tab.
     hideSql: true,
+    // Public view: embedded images resolve via the public signed-URL endpoint.
+    isPublic: true,
+    publicShareUid: dashboardUid,
   };
 
   // Resolves the shared inputs for the metric-bearing experiment-result blocks:

@@ -4,6 +4,16 @@ import { BlockProps } from ".";
 
 export default function MarkdownBlock({
   block,
+  isPublic,
+  publicShareUid,
 }: BlockProps<MarkdownBlockInterface>) {
-  return <Markdown>{block.content || ""}</Markdown>;
+  return (
+    <Markdown
+      isPublic={isPublic}
+      shareUid={publicShareUid}
+      shareType="dashboard"
+    >
+      {block.content || ""}
+    </Markdown>
+  );
 }

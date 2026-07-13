@@ -10,7 +10,7 @@ interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   onErrorMsg?: (msg: string) => JSX.Element | null;
   isPublic?: boolean;
   shareUid?: string;
-  shareType?: "experiment" | "report";
+  shareType?: "experiment" | "report" | "dashboard";
 }
 
 /**

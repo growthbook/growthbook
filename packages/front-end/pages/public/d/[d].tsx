@@ -184,6 +184,7 @@ export default function PublicDashboardPage({
             renderBlock={(block) => (
               <PublicDashboardBlock
                 block={block as DashboardBlockInterface}
+                dashboardUid={dashboard.uid}
                 ssrPolyfills={ssrPolyfills}
                 savedQueriesMap={savedQueriesMap}
                 snapshotsMap={snapshotsMap}
