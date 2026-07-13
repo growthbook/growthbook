@@ -53,18 +53,20 @@ export default function ClickhouseManagedWarehouseIdentifiers({
       <Flex gap="2" wrap="wrap" my="3">
         {identifiers.length ? (
           identifiers.map((id) =>
-            canEdit && legacy.has(id) ? (
+            legacy.has(id) ? (
               <Flex key={id} align="center" gap="1">
                 <Badge label={id} color="gray" />
-                <DeleteButton
-                  useRadix={false}
-                  useIcon={true}
-                  link={true}
-                  displayName={id}
-                  title={`Delete legacy identifier "${id}"`}
-                  deleteMessage={`Delete the legacy identifier "${id}"? It was preserved from a past migration and is no longer one of your attributes. It will stop being selectable and be removed from your warehouse fact tables. Any experiment still using it will need a different identifier.`}
-                  onClick={() => removeIdentifier(id)}
-                />
+                {canEdit ? (
+                  <DeleteButton
+                    useRadix={false}
+                    useIcon={true}
+                    link={true}
+                    displayName={id}
+                    title={`Delete legacy identifier "${id}"`}
+                    deleteMessage={`Delete the legacy identifier "${id}"? It was preserved from a past migration and is no longer one of your attributes. It will stop being selectable and be removed from your warehouse fact tables. Any experiment still using it will need a different identifier.`}
+                    onClick={() => removeIdentifier(id)}
+                  />
+                ) : null}
               </Flex>
             ) : (
               <Badge key={id} label={id} color="violet" />
