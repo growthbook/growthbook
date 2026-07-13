@@ -17,8 +17,7 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useFeatureValue } from "@growthbook/growthbook-react";
-import { FaChevronRight } from "react-icons/fa";
-import { PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -179,41 +178,52 @@ function getEventForwarderDraft(
   return null;
 }
 
-function getCanConfirmEventForwarder(
+// Only validates what the browser's native `required` validation can't cover:
+// read-only/derived fields (Snowflake access URL), datasource connection params
+// that aren't inputs in this modal (account/username/auth method), and table
+// prefix *format*. Empty visible required fields (BigQuery project/dataset,
+// Snowflake database/schema) are handled by native `required` on the inputs, so
+// don't re-check them here — that would duplicate the per-field tooltip.
+function getEventForwarderValidationErrors(
   draft: EventForwarderDatasourceDraft,
-): boolean {
+): string[] {
   const cfg = draft.eventForwarderConfig;
-  if (!cfg) return false;
+  if (!cfg) return ["Event forwarder configuration is missing."];
   const rawParams = draft.params || {};
+  const errors: string[] = [];
+
   if (cfg.sinkType === "bigquery") {
     try {
       normalizeBigQueryTablePrefixForEventForwarder(cfg.config.tablePrefix);
-      return !!cfg.config.projectId.trim() && !!cfg.config.dataset.trim();
-    } catch {
-      return false;
+    } catch (e) {
+      errors.push(
+        e instanceof Error ? e.message : "Enter a valid table prefix.",
+      );
     }
+    return errors;
   }
+
   if (cfg.sinkType === "snowflake") {
     const p = rawParams as Partial<SnowflakeConnectionParams>;
     const authMethod = p.authMethod ?? "password";
-    const hasSnowflakePrivateKey =
-      authMethod === "key-pair" || !!p.privateKey?.trim();
+    if (!cfg.config.accessUrl?.trim())
+      errors.push("Enter a Snowflake access URL.");
+    if (!p.account?.trim()) errors.push("Enter a Snowflake account.");
+    if (!p.username?.trim()) errors.push("Enter a Snowflake username.");
+    if (authMethod !== "key-pair") {
+      errors.push("Use key-pair authentication for the Snowflake connection.");
+    }
     try {
       normalizeSnowflakeTablePrefixForEventForwarder(cfg.config.tablePrefix);
-    } catch {
-      return false;
+    } catch (e) {
+      errors.push(
+        e instanceof Error ? e.message : "Enter a valid table prefix.",
+      );
     }
-    return (
-      !!cfg.config.database.trim() &&
-      !!cfg.config.schema.trim() &&
-      !!cfg.config.accessUrl?.trim() &&
-      !!p.account?.trim() &&
-      !!p.username?.trim() &&
-      authMethod === "key-pair" &&
-      hasSnowflakePrivateKey
-    );
+    return errors;
   }
-  return false;
+
+  return ["Unsupported event forwarder type."];
 }
 
 function EventForwarderConfigField({
@@ -256,35 +266,23 @@ function SyncSubmittingRef({
 }
 
 function EventForwarderConfirmButton({
-  canConfirmEventForwarder,
   usEventForwarderFlowConsent,
-  datasourceDraft,
 }: {
-  canConfirmEventForwarder: boolean;
   usEventForwarderFlowConsent: boolean;
-  datasourceDraft: EventForwarderDatasourceDraft;
 }) {
   const { loading } = useModalForm();
-  const ctaEnabled = canConfirmEventForwarder && usEventForwarderFlowConsent;
-  const disabledMessage = !canConfirmEventForwarder
-    ? datasourceDraft.type === "bigquery"
-      ? "Enter a BigQuery project and dataset before confirming."
-      : "Enter Snowflake database, schema, URL, and required connection fields before confirming."
-    : !usEventForwarderFlowConsent
-      ? "Acknowledge US data flow and authorization to use Confirm."
-      : undefined;
 
   return (
     <Tooltip
-      body={disabledMessage || ""}
-      shouldDisplay={!ctaEnabled && !!disabledMessage}
+      body="Acknowledge US data flow and authorization to use Confirm."
+      shouldDisplay={!usEventForwarderFlowConsent}
       tipPosition="top"
     >
       <Button
         type="submit"
-        disabled={!ctaEnabled}
+        disabled={!usEventForwarderFlowConsent}
         loading={loading}
-        icon={<FaChevronRight size={12} />}
+        icon={<PiCaretRight size={12} />}
         iconPosition="right"
       >
         Confirm
@@ -319,7 +317,6 @@ function EventForwarderModal({
   const isEditingEventForwarder = !!dataSource.eventForwarderConfig;
   const [usEventForwarderFlowConsent, setUsEventForwarderFlowConsent] =
     useState(isEditingEventForwarder);
-
   const setEventForwarderConfig = (
     eventForwarderConfig: EventForwarderConfigDraft | null,
   ) => {
@@ -344,8 +341,6 @@ function EventForwarderModal({
     eventForwarderConfig,
   });
 
-  const canConfirmEventForwarder = getCanConfirmEventForwarder(datasourceDraft);
-
   const attemptClose = useCallback(() => {
     if (isSubmittingRef.current) {
       setShowCloseConfirm(true);
@@ -366,7 +361,17 @@ function EventForwarderModal({
       >
         <ModalForm
           onSubmit={async () => {
-            if (!eventForwarderConfig) return;
+            const validationErrors =
+              getEventForwarderValidationErrors(datasourceDraft);
+            if (validationErrors.length) {
+              // ErrorDisplay renders with pre-wrap, so each error gets a line.
+              throw new Error(validationErrors.join("\n"));
+            }
+            // Unreachable once validation passes (a null config yields an
+            // error above); the throw narrows the type for the request body.
+            if (!eventForwarderConfig) {
+              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+            }
             try {
               await testEventForwarderAccess();
               await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
@@ -416,9 +421,7 @@ function EventForwarderModal({
               Cancel
             </Button>
             <EventForwarderConfirmButton
-              canConfirmEventForwarder={canConfirmEventForwarder}
               usEventForwarderFlowConsent={usEventForwarderFlowConsent}
-              datasourceDraft={datasourceDraft}
             />
           </Modal.Footer>
         </ModalForm>
