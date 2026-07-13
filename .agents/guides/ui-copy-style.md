@@ -11,7 +11,7 @@ Two cases, chosen by element type.
 - **Title Case** for `<Heading>` elements. Section and sub-section titles. Example "Data Source Settings", "Experiment Health Settings".
 - **Sentence case** for everything else. Field labels, checkbox and switch labels, select labels, buttons, placeholders, tooltips, helper text, and body copy. Capitalize only the first word. Example "Require unique experiment keys", "Add custom", "New template".
 
-Sentence case is the default for actions and labels. This matches modern product convention (Google Material, Shopify Polaris, Atlassian). Buttons are sentence case, not Title Case. "Save", "Regenerate all", "Import from another service".
+Sentence case is the default for actions and labels. This matches modern product convention. Buttons are sentence case, not Title Case. "Save", "Regenerate all", "Import from another service".
 
 ## Back-end and API messages
 
@@ -42,7 +42,7 @@ The glossary:
 | Saved Group                   | Saved Groups                   |                                                                                                                             |
 | SDK Connection                | SDK Connections                |                                                                                                                             |
 | Experiment Template           | Experiment Templates           | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template"). |
-| Experiment Decision Framework | Experiment Decision Frameworks | Title Case. Abbreviated as "EDF".                                                                                           |
+| Experiment Decision Framework | -                              | Title Case. Abbreviated as "EDF".                                                                                           |
 | Metric Slices                 | —                              | The metric-slicing feature (overall).                                                                                       |
 | Auto Slice                    | Auto Slices                    | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
 | Project                       | Projects                       | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
