@@ -12,6 +12,22 @@ describe("definitions ETag helpers", () => {
       );
     });
 
+    it("appends the config file hash only when using file config", () => {
+      expect(buildDefinitionsEtag(1, "org_1", "abc", "filehash")).toBe(
+        '"v1-org_1-abc-filehash"',
+      );
+      expect(buildDefinitionsEtag(1, "org_1", "abc", null)).toBe(
+        '"v1-org_1-abc"',
+      );
+      // File config toggling on/off or the file changing must change the ETag.
+      expect(buildDefinitionsEtag(1, "org_1", "abc", "filehash")).not.toBe(
+        buildDefinitionsEtag(1, "org_1", "abc", null),
+      );
+      expect(buildDefinitionsEtag(1, "org_1", "abc", "hash1")).not.toBe(
+        buildDefinitionsEtag(1, "org_1", "abc", "hash2"),
+      );
+    });
+
     it("varies by version, org, and fingerprint", () => {
       expect(buildDefinitionsEtag(1, "org_1", "abc")).not.toBe(
         buildDefinitionsEtag(2, "org_1", "abc"),

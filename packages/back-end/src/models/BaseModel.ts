@@ -1563,6 +1563,15 @@ type MergedCrudOverrides<
   update: { bodySchema: UB };
 };
 
+// Collections whose BaseModel bumps the definitions version on write.
+// Populated at module-import time by MakeModelClass; used by the coverage
+// guard test to assert every collection the definitions endpoint reads is
+// covered (see services/definitions.ts).
+const definitionsVersionCollections = new Set<string>();
+export function getDefinitionsVersionCollections(): string[] {
+  return [...definitionsVersionCollections];
+}
+
 export const MakeModelClass = <
   T extends BaseSchemaWithPrimaryKey<PKey>,
   E extends EntityType,
@@ -1582,6 +1591,10 @@ export const MakeModelClass = <
     };
   } & { pKey?: PK },
 ) => {
+  if (config.affectsDefinitionsVersion) {
+    definitionsVersionCollections.add(config.collectionName);
+  }
+
   const createValidator = createSchema<T, PKey>(config.schema);
   const updateValidator = updateSchema<T, PKey>(
     config.schema,

@@ -8,12 +8,17 @@
 // org starts at 0) and permission fingerprints are identical across orgs for
 // the same role, so without the org id that false-matches into a cross-org 304.
 
+// Under file config, metrics/dimensions/datasources/segments come from
+// config.yml and bypass the Mongo writes that bump the version, so the parsed
+// file's hash joins the ETag to invalidate on file changes.
 export function buildDefinitionsEtag(
   version: number,
   organization: string,
   permissionsFingerprint: string,
+  configFileHash?: string | null,
 ): string {
-  return `"v${version}-${organization}-${permissionsFingerprint}"`;
+  const configPart = configFileHash ? `-${configFileHash}` : "";
+  return `"v${version}-${organization}-${permissionsFingerprint}${configPart}"`;
 }
 
 // Returns true if the client's If-None-Match header matches our ETag. Handles

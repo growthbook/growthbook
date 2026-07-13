@@ -57,9 +57,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
-import { getAllTags } from "back-end/src/models/TagModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -71,7 +69,6 @@ import {
   getAllFeatures,
   hasNonDemoFeature,
 } from "back-end/src/models/FeatureModel";
-import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
@@ -86,8 +83,6 @@ import {
   sendPendingMemberApprovalEmail,
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -102,7 +97,8 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { ConfigFile, usingFileConfig } from "back-end/src/init/config";
+import { ConfigFile, getConfigFileHash } from "back-end/src/init/config";
+import { getDefinitionsData } from "back-end/src/services/definitions";
 import { getDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 import {
   buildDefinitionsEtag,
@@ -138,7 +134,6 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
@@ -185,15 +180,16 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   // client's cached copy is still current. The ETag combines the org's
   // definitions version (bumped by every relevant write via
   // touchDefinitionsVersion) with the user's permission fingerprint (the
-  // response is permission-filtered). Skipped under config.yml, whose
-  // metrics/dimensions/datasources bypass the Mongo writes that bump the
-  // version, and gated behind a feature flag.
-  if (req.gb?.isOn("definitions-etag-304") && !usingFileConfig()) {
+  // response is permission-filtered) and, under config.yml, the parsed file's
+  // hash (file-managed resources bypass the Mongo writes that bump the
+  // version). Gated behind a feature flag.
+  if (req.gb?.isOn("definitions-etag-304")) {
     const version = await getDefinitionsVersion(orgId);
     const etag = buildDefinitionsEtag(
       version,
       orgId,
       context.getPermissionsFingerprint(),
+      getConfigFileHash(),
     );
     // Make the browser behavior we rely on explicit: store, but always
     // revalidate (private keeps shared caches out). Vary on the org header so
@@ -206,56 +202,11 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     }
   }
 
-  const [
-    metrics,
-    datasources,
-    dimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    constants,
-    customFields,
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
-  ] = await Promise.all([
-    getMetricsForDefinitions(context),
-    getDataSourcesByOrganization(context).then((ds) =>
-      getDataSourcesWithParams(context, ds),
-    ),
-    findDimensionsByOrganization(orgId),
-    context.models.segments.getAll(),
-    context.models.metricGroups.getAll(),
-    getAllTags(orgId),
-    context.models.savedGroups.getAllWithoutValues(),
-    context.models.constants.getAllWithoutValues(),
-    context.models.customFields.getCustomFields(),
-    context.models.projects.getAll(),
-    getAllFactTablesForDefinitions(context),
-    context.models.factMetrics.getAll(),
-    context.models.decisionCriteria.getAll(),
-    context.models.webhookSecrets.getAllForFrontEnd(),
-  ]);
+  const definitions = await getDefinitionsData(context);
 
   return res.status(200).json({
     status: 200,
-    metrics,
-    datasources,
-    dimensions,
-    segments,
-    metricGroups,
-    tags,
-    savedGroups,
-    constants,
-    customFields: customFields?.fields ?? [],
-    projects,
-    factTables,
-    factMetrics,
-    decisionCriteria,
-    webhookSecrets,
+    ...definitions,
   });
 }
 

@@ -2,6 +2,7 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
+import md5 from "md5";
 import { SegmentInterface } from "shared/types/segment";
 import {
   DataSourceInterface,
@@ -77,6 +78,7 @@ const CONFIG_FILE = path.join(
 
 let configFileTime: number;
 let config: ConfigFile | null = null;
+let configHash: string | null = null;
 
 function loadConfig(initial = false) {
   if (IS_CLOUD) return;
@@ -98,10 +100,13 @@ function loadConfig(initial = false) {
     }
     // TODO: more validation
 
-    // Store the parsed config
+    // Store the parsed config. Hash the parsed (env-interpolated) form rather
+    // than the raw file so env-var changes are reflected too.
     config = parsed as ConfigFile;
+    configHash = md5(JSON.stringify(config));
   } else if (ENVIRONMENT !== "production") {
     config = null;
+    configHash = null;
     if (initial) {
       logger.info(
         "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions.",
@@ -145,6 +150,17 @@ function reloadConfigIfNeeded() {
 export function usingFileConfig(): boolean {
   reloadConfigIfNeeded();
   return !!config;
+}
+
+/**
+ * Hash of the parsed config.yml, or null when not using file config. Folded
+ * into the definitions ETag so file-managed resources (metrics, dimensions,
+ * datasources, segments) invalidate the cache when the file changes, since
+ * they bypass the Mongo writes that bump the definitions version.
+ */
+export function getConfigFileHash(): string | null {
+  reloadConfigIfNeeded();
+  return configHash;
 }
 
 export function getConfigDatasources(
