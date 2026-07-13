@@ -363,11 +363,15 @@ function EventForwarderModal({
       >
         <ModalForm
           onSubmit={async () => {
-            if (!eventForwarderConfig) return;
             const validationErrors =
               getEventForwarderValidationErrors(datasourceDraft);
             if (validationErrors.length) {
               throw new Error(validationErrors.join(" "));
+            }
+            // Unreachable once validation passes (a null config yields an
+            // error above); the throw narrows the type for the request body.
+            if (!eventForwarderConfig) {
+              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
             }
             try {
               await testEventForwarderAccess();
