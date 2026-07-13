@@ -53,6 +53,7 @@ interface Props {
   onConsumeInitialEditBlockIndex?: () => void;
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+    globalControls?: DashboardInterface["globalControls"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -83,8 +84,10 @@ export default function DashboardWorkspace({
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
+      setGlobalControls(dashboard.globalControls);
     } else {
       setBlocks([]);
+      setGlobalControls(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -117,6 +120,9 @@ export default function DashboardWorkspace({
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >(dashboard.blocks);
+  const [globalControls, setGlobalControls] = useState<
+    DashboardInterface["globalControls"]
+  >(dashboard.globalControls);
   const setBlocksAndSubmit = useMemo(() => {
     return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
@@ -146,6 +152,41 @@ export default function DashboardWorkspace({
     submit,
     dashboard.id,
     dashboardFirstSave,
+    updateTemporaryDashboard,
+  ]);
+
+  const setGlobalControlsAndSubmit = useMemo(() => {
+    return async (
+      globalControls: DashboardInterface["globalControls"],
+      controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+    ) => {
+      setHasMadeChanges(true);
+      setGlobalControls(globalControls);
+      if (controlBlocks) {
+        setBlocks(controlBlocks);
+      }
+
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({
+          ...(controlBlocks ? { blocks: controlBlocks } : {}),
+          globalControls,
+        });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            ...(controlBlocks ? { blocks: controlBlocks } : {}),
+            globalControls,
+          },
+        });
+      }
+    };
+  }, [
+    dashboard.id,
+    dashboardFirstSave,
+    setBlocks,
+    submit,
     updateTemporaryDashboard,
   ]);
 
@@ -442,6 +483,7 @@ export default function DashboardWorkspace({
               }
               title={dashboard.title}
               blocks={effectiveBlocks}
+              globalControls={globalControls}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
               enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -509,6 +551,7 @@ export default function DashboardWorkspace({
                 deleteBlock: deleteBlock,
               }}
               mutate={mutate}
+              onGlobalControlsChange={setGlobalControlsAndSubmit}
             />
           </div>
           <Flex
@@ -554,6 +597,7 @@ export default function DashboardWorkspace({
               experiment={experiment}
               projects={dashboard.projects || []}
               isGeneralDashboard={isGeneralDashboard}
+              dashboardGlobalControls={globalControls}
               open={editSidebarExpanded}
               cancel={clearEditingState}
               submit={() => {
