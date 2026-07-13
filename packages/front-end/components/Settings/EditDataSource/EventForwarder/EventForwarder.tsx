@@ -179,14 +179,15 @@ function getEventForwarderDraft(
   return null;
 }
 
-// Only validates what the browser's native `required` validation can't cover:
+// Validates what the browser's native `required` validation can't cover:
 // datasource connection params that aren't inputs in this modal
 // (account/username/auth method), and *format* of free-form fields (table
-// prefix, and the access URL when it's editable). Empty visible required
-// fields (BigQuery project/dataset, Snowflake database/schema, and the access
-// URL when the user must enter it) are handled by native `required` on the
-// inputs, so don't re-check emptiness here — that duplicates the per-field
-// tooltip.
+// prefix, access URL). Empty visible required fields (BigQuery project/dataset,
+// Snowflake database/schema) are handled by native `required` on the inputs, so
+// don't re-check emptiness here — that duplicates the per-field tooltip. The
+// access URL is the exception: it's only conditionally editable/required in the
+// UI, so this validator owns its emptiness too as a backstop (native gates
+// submit first, so it never double-messages).
 function getEventForwarderValidationErrors(
   draft: EventForwarderDatasourceDraft,
 ): string[] {
@@ -214,10 +215,10 @@ function getEventForwarderValidationErrors(
     if (authMethod !== "key-pair") {
       errors.push("Use key-pair authentication for the Snowflake connection.");
     }
-    // Emptiness is handled by native `required`; validate the format of
-    // whatever the user entered (derived URLs are already well-formed).
     const accessUrl = cfg.config.accessUrl?.trim();
-    if (accessUrl) {
+    if (!accessUrl) {
+      errors.push("Enter a Snowflake access URL.");
+    } else {
       try {
         normalizeSnowflakeEventForwarderAccessUrl(accessUrl);
       } catch (e) {
