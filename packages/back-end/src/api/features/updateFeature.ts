@@ -34,6 +34,7 @@ import {
 import {
   getEnabledEnvironments,
   reconcileDefaultValueOverrideIds,
+  validateEnvKeys,
 } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -49,7 +50,6 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
@@ -247,12 +247,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // assign ids to new entries. Route through the revision like defaultValue.
     let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
     if (req.body.defaultValueOverrides !== undefined) {
+      validateEnvKeys(
+        orgEnvs,
+        req.body.defaultValueOverrides.flatMap((o) => o.environments),
+      );
       nextDefaultValueOverrides = reconcileDefaultValueOverrideIds(
         req.body.defaultValueOverrides.map((o) => ({
           value: validateFeatureValue(feature, o.value),
-          ...(o.description !== undefined
-            ? { description: o.description }
-            : {}),
           environments: o.environments ?? [],
         })),
         feature.defaultValueOverrides,

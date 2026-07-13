@@ -9,7 +9,10 @@ import {
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { generateId } from "back-end/src/util/uuid";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  validateEnvKeys,
+} from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   createInterfaceEnvSettingsFromApiEnvSettings,
@@ -23,7 +26,6 @@ import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
-import { validateEnvKeys } from "./postFeature";
 import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
@@ -124,13 +126,14 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
 
     // Default value overrides (ordered list); validate each value + assign ids.
     if (req.body.defaultValueOverrides !== undefined) {
+      validateEnvKeys(
+        orgEnvs.map((e) => e.id),
+        req.body.defaultValueOverrides.flatMap((o) => o.environments),
+      );
       feature.defaultValueOverrides = req.body.defaultValueOverrides.map(
         (o) => ({
           id: generateId(),
           value: validateFeatureValue(feature, o.value),
-          ...(o.description !== undefined
-            ? { description: o.description }
-            : {}),
           environments: o.environments ?? [],
         }),
       );

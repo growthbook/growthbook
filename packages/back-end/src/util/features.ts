@@ -335,11 +335,29 @@ export function getSDKPayloadKeys(
   return keys;
 }
 
+// Throw if any incoming environment key isn't a real org environment. Shared by
+// the feature create/update paths (rule env keys, default-value override envs)
+// so the error is consistent everywhere.
+export const validateEnvKeys = (
+  orgEnvKeys: string[],
+  incomingEnvKeys: string[],
+) => {
+  const invalidEnvKeys = incomingEnvKeys.filter((k) => !orgEnvKeys.includes(k));
+
+  if (invalidEnvKeys.length) {
+    throw new Error(
+      `Environment key(s) '${invalidEnvKeys.join(
+        "', '",
+      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`,
+    );
+  }
+};
+
 // Reconcile a client-supplied override list (REST callers can't send ids)
 // against the feature's current overrides: reuse an existing entry's id when its
-// content (value + environments + description) matches. Keeps ids stable across
-// edits and stops content-identical re-submits from churning ids / spawning
-// no-op revisions. Unmatched entries get a fresh id.
+// content (value + environments) matches. Keeps ids stable across edits and
+// stops content-identical re-submits from churning ids / spawning no-op
+// revisions. Unmatched entries get a fresh id.
 export function reconcileDefaultValueOverrideIds(
   incoming: Omit<FeatureDefaultValueOverride, "id">[],
   existing: FeatureDefaultValueOverride[] | undefined,
@@ -347,18 +365,10 @@ export function reconcileDefaultValueOverrideIds(
   const pool = [...(existing ?? [])];
   return incoming.map((o) => {
     const idx = pool.findIndex(
-      (e) =>
-        e.value === o.value &&
-        (e.description ?? undefined) === (o.description ?? undefined) &&
-        isEqual(e.environments, o.environments),
+      (e) => e.value === o.value && isEqual(e.environments, o.environments),
     );
     const id = idx >= 0 ? pool.splice(idx, 1)[0].id : generateId();
-    return {
-      id,
-      value: o.value,
-      ...(o.description !== undefined ? { description: o.description } : {}),
-      environments: o.environments,
-    };
+    return { id, value: o.value, environments: o.environments };
   });
 }
 

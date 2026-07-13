@@ -10,7 +10,10 @@ import {
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { generateId } from "back-end/src/util/uuid";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  validateEnvKeys,
+} from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -36,21 +39,6 @@ export type ApiFeatureEnvSettings = NonNullable<
 
 export type ApiFeatureEnvSettingsRules =
   ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
-
-export const validateEnvKeys = (
-  orgEnvKeys: string[],
-  incomingEnvKeys: string[],
-) => {
-  const invalidEnvKeys = incomingEnvKeys.filter((k) => !orgEnvKeys.includes(k));
-
-  if (invalidEnvKeys.length) {
-    throw new Error(
-      `Environment key(s) '${invalidEnvKeys.join(
-        "', '",
-      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`,
-    );
-  }
-};
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
@@ -152,10 +140,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   // Default value overrides (ordered list); validate each value + assign ids.
   if (req.body.defaultValueOverrides !== undefined) {
+    validateEnvKeys(
+      orgEnvs.map((e) => e.id),
+      req.body.defaultValueOverrides.flatMap((o) => o.environments),
+    );
     feature.defaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
       id: generateId(),
       value: validateFeatureValue(feature, o.value),
-      ...(o.description !== undefined ? { description: o.description } : {}),
       environments: o.environments ?? [],
     }));
   }

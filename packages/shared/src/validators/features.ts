@@ -259,7 +259,6 @@ export const featureDefaultValueOverride = z
   .object({
     id: z.string(),
     value: z.string(),
-    description: z.string().optional(),
     // Scope. Empty array = matches all environments. Future axes (tags,
     // projects) will AND with this one.
     environments: z.array(z.string()),
@@ -1128,7 +1127,6 @@ export const apiFeatureDefaultValueOverride = z.object({
   value: z
     .string()
     .describe("Override value (string form, matching the feature's valueType)"),
-  description: z.string().optional(),
   environments: z
     .array(z.string())
     .describe("Environments this override applies to; empty matches all"),
@@ -1469,10 +1467,12 @@ export const postFeatureDefaultValueOverride = z.object({
   value: z
     .string()
     .describe("Override value (string form, matching the feature's valueType)"),
-  description: z.string().optional(),
+  // MVP: an override must target at least one environment. An empty array
+  // (match-all) is reserved for a future release that adds project scoping.
   environments: z
     .array(z.string())
-    .describe("Environments this override applies to; empty matches all"),
+    .min(1)
+    .describe("Environments this override applies to (at least one required)"),
 });
 
 // ---- Shared sub-schemas for route validators ----

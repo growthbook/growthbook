@@ -703,12 +703,11 @@ paths:
                           Override value (string form, matching the feature's
                           valueType)
                         type: string
-                      description:
-                        type: string
                       environments:
                         description: >-
-                          Environments this override applies to; empty matches
-                          all
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -1571,12 +1570,11 @@ paths:
                           Override value (string form, matching the feature's
                           valueType)
                         type: string
-                      description:
-                        type: string
                       environments:
                         description: >-
-                          Environments this override applies to; empty matches
-                          all
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -6034,12 +6032,11 @@ paths:
                           Override value (string form, matching the feature's
                           valueType)
                         type: string
-                      description:
-                        type: string
                       environments:
                         description: >-
-                          Environments this override applies to; empty matches
-                          all
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -6600,12 +6597,11 @@ paths:
                           Override value (string form, matching the feature's
                           valueType)
                         type: string
-                      description:
-                        type: string
                       environments:
                         description: >-
-                          Environments this override applies to; empty matches
-                          all
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -10747,8 +10743,6 @@ paths:
                               type: string
                             value:
                               type: string
-                            description:
-                              type: string
                             environments:
                               type: array
                               items:
@@ -10928,8 +10922,6 @@ paths:
                             id:
                               type: string
                             value:
-                              type: string
-                            description:
                               type: string
                             environments:
                               type: array
@@ -36029,8 +36021,6 @@ components:
               value:
                 description: Override value (string form, matching the feature's valueType)
                 type: string
-              description:
-                type: string
               environments:
                 description: Environments this override applies to; empty matches all
                 type: array
@@ -36975,8 +36965,6 @@ components:
                 type: string
               value:
                 description: Override value (string form, matching the feature's valueType)
-                type: string
-              description:
                 type: string
               environments:
                 description: Environments this override applies to; empty matches all
@@ -38193,8 +38181,6 @@ components:
                 type: string
               value:
                 description: Override value (string form, matching the feature's valueType)
-                type: string
-              description:
                 type: string
               environments:
                 description: Environments this override applies to; empty matches all
@@ -49872,8 +49858,6 @@ components:
               id:
                 type: string
               value:
-                type: string
-              description:
                 type: string
               environments:
                 type: array

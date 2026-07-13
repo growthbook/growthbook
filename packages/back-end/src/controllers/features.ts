@@ -173,6 +173,7 @@ import {
 import {
   buildFeatureLookups,
   getEnabledEnvironments,
+  validateEnvKeys,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -3951,17 +3952,22 @@ export async function postFeatureDefaultValue(
       throw new Error("`defaultValueOverrides` must be an array");
     }
     const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
+    validateEnvKeys(
+      orgEnvironments,
+      defaultValueOverrides.flatMap((o) => o.environments ?? []),
+    );
     nextDefaultValueOverrides = defaultValueOverrides.map((o) => {
-      for (const env of o.environments ?? []) {
-        if (!orgEnvironments.includes(env)) {
-          throw new Error(`Unknown environment: ${env}`);
-        }
+      // MVP: an override must target at least one environment (empty = match-all
+      // is reserved for the future project-scoping release).
+      if (!o.environments?.length) {
+        throw new Error(
+          "Each default value override must target at least one environment",
+        );
       }
       return {
         id: o.id || generateId(),
         value: validateFeatureValue(feature, o.value, "Value"),
-        ...(o.description !== undefined ? { description: o.description } : {}),
-        environments: o.environments ?? [],
+        environments: o.environments,
       };
     });
   }
