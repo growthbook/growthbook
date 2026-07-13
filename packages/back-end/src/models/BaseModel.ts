@@ -36,6 +36,7 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
+import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
 import { generateId } from "back-end/src/util/uuid";
 import {
   resolveOwnerEmail,
@@ -223,6 +224,14 @@ export interface ModelConfig<
   auditLog?: AuditLogConfig<Entity>;
   globallyUniquePrimaryKeys?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
+  // When true, successful writes bump the org's definitions version (see
+  // `touchDefinitionsVersion`) so the cached `/organization/definitions`
+  // response is invalidated. Covers create/update/delete routed through the
+  // BaseModel write methods, including the `dangerous*BypassPermission`
+  // variants. Raw `_dangerousGetCollection()` writes and `bulkWrite` bypass
+  // this hook and need a manual `touchDefinitionsVersion` call (none of these
+  // models use `bulkWrite` today).
+  affectsDefinitionsVersion?: boolean;
   skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
@@ -1017,6 +1026,10 @@ export abstract class BaseModel<
       await this.context.registerTags(doc.tags);
     }
 
+    if (this.config.affectsDefinitionsVersion) {
+      await touchDefinitionsVersion(this.context.org.id);
+    }
+
     return doc;
   }
 
@@ -1159,6 +1172,12 @@ export abstract class BaseModel<
       await this.context.registerTags(newDoc.tags);
     }
 
+    // Gate on setDateUpdated so a no-meaningful-change / skipDateUpdatedFields
+    // update doesn't churn the version and tank the ETag hit rate.
+    if (this.config.affectsDefinitionsVersion && setDateUpdated) {
+      await touchDefinitionsVersion(this.context.org.id);
+    }
+
     return newDoc;
   }
 
@@ -1246,6 +1265,10 @@ export abstract class BaseModel<
     }
 
     await this.afterDelete(doc, writeOptions);
+
+    if (this.config.affectsDefinitionsVersion) {
+      await touchDefinitionsVersion(this.context.org.id);
+    }
   }
 
   protected detectForeignKey(

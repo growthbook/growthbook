@@ -102,7 +102,12 @@ import {
   activateRoleById,
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
-import { ConfigFile } from "back-end/src/init/config";
+import { ConfigFile, usingFileConfig } from "back-end/src/init/config";
+import { getDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import {
+  buildDefinitionsEtag,
+  ifNoneMatchMatches,
+} from "back-end/src/util/definitionsEtag";
 import {
   classifyEmail,
   parseAttributionCookie,
@@ -164,6 +169,25 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   const orgId = context.org.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
+  }
+
+  // Short-circuit with a cheap 304 before the expensive reads below when the
+  // client's cached copy is still current. The ETag combines the org's
+  // definitions version (bumped by every relevant write via
+  // touchDefinitionsVersion) with the user's permission fingerprint (the
+  // response is permission-filtered). Skipped under config.yml, whose
+  // metrics/dimensions/datasources bypass the Mongo writes that bump the
+  // version, and gated behind a feature flag.
+  if (req.gb?.isOn("definitions-etag-304") && !usingFileConfig()) {
+    const version = await getDefinitionsVersion(orgId);
+    const etag = buildDefinitionsEtag(
+      version,
+      context.getPermissionsFingerprint(),
+    );
+    res.set("ETag", etag);
+    if (ifNoneMatchMatches(req.headers["if-none-match"], etag)) {
+      return res.status(304).end();
+    }
   }
 
   const [

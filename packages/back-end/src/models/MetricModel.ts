@@ -26,6 +26,7 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 
 const audit = createModelAuditLogger({
   entity: "metric",
@@ -198,6 +199,7 @@ export async function insertMetric(
 
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
+  await touchDefinitionsVersion(context.org.id);
   return created;
 }
 
@@ -234,6 +236,7 @@ export async function insertMetrics(
   for (const metric of created) {
     await audit.logAutocreate(context, metric);
   }
+  await touchDefinitionsVersion(context.org.id);
   return created;
 }
 
@@ -273,6 +276,7 @@ export async function deleteMetricById(
   });
 
   await audit.logDelete(context, metric);
+  await touchDefinitionsVersion(context.org.id);
 }
 
 /**
@@ -397,6 +401,10 @@ const METRIC_DEFINITION_EXCLUDED_FIELDS = [
   "queries",
   "analysis",
   "analysisError",
+  // Not part of the definitions payload; kept in sync with
+  // FIELDS_NOT_REQUIRING_DATE_UPDATED so skipping the definitions-version
+  // touch aligns with skipping dateUpdated.
+  "runStarted",
 ] as const;
 
 // Slimmed version of getMetricsByOrganization for the definitions endpoint.
@@ -539,6 +547,7 @@ export async function removeProjectFromMetrics(
       $set: { dateUpdated: new Date() },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function getMetricsUsingSegment(
@@ -601,6 +610,11 @@ export async function updateMetric(
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
+  // dateUpdated is only stamped when a payload-relevant field changed, so use
+  // it to decide whether to bump the definitions version (avoids churning the
+  // cache when only queries/analysis/runStarted change — see updateMetricQueriesAndStatus).
+  const changedDefinitionFields = "dateUpdated" in updates;
+
   const safeUpdates = (Object.keys(updates) as (keyof MetricInterface)[]).every(
     (k) => FILE_CONFIG_UPDATEABLE_FIELDS.includes(k),
   );
@@ -642,6 +656,10 @@ export async function updateMetric(
   await addTagsDiff(context.org.id, metric.tags || [], updates.tags || []);
 
   await audit.logUpdate(context, metric, { ...metric, ...updates });
+
+  if (changedDefinitionFields) {
+    await touchDefinitionsVersion(context.org.id);
+  }
 }
 
 export async function removeSegmentFromAllMetrics(
@@ -655,6 +673,7 @@ export async function removeSegmentFromAllMetrics(
       $set: updates,
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function removeTagInMetrics(organization: string, tag: string) {
@@ -665,6 +684,7 @@ export async function removeTagInMetrics(organization: string, tag: string) {
       $pull: { tags: tag },
     },
   );
+  await touchDefinitionsVersion(organization);
 }
 
 export async function generateMetricEmbeddings(

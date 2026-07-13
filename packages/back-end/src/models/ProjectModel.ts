@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -23,6 +24,7 @@ type MigratedProject = Omit<ProjectInterface, "settings"> & {
 const BaseClass = MakeModelClass({
   schema: projectValidator,
   collectionName: "projects",
+  affectsDefinitionsVersion: true,
   idPrefix: "prj_",
   auditLog: {
     entity: "project",
@@ -171,6 +173,8 @@ export class ProjectModel extends BaseClass {
         },
       },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
   public async ensureProjectsExist(projectIds: string[]) {

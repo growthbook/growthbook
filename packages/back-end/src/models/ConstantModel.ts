@@ -18,6 +18,7 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: constantValidator,
   collectionName: "constants",
+  affectsDefinitionsVersion: true,
   idPrefix: "const_",
   auditLog: {
     entity: "constant",

@@ -35,6 +35,7 @@ import { getFactTableMap } from "./FactTableModel";
 const BaseClass = MakeModelClass({
   schema: factMetricValidator,
   collectionName: "factmetrics",
+  affectsDefinitionsVersion: true,
   idPrefix: "fact__",
   auditLog: {
     entity: "metric",

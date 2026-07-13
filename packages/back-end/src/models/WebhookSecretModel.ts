@@ -9,6 +9,7 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: webhookSecretSchema,
   collectionName: "webhooksecrets",
+  affectsDefinitionsVersion: true,
   idPrefix: "secret_",
   // If true, `id` is globally unique across all orgs
   // If false (default), the `organization`/`id` combo is unique.
