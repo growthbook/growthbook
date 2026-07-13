@@ -1262,7 +1262,14 @@ export const apiFeatureValidator = namedSchema(
         .string()
         .nullable()
         .describe(
-          'Key of the config backing this flag ("Config mode"), or null. The config supplies the base JSON and schema; `defaultValue` and rule values are override patches on top. (v2 exposes this and per-value config fields more richly.)',
+          'Key of the config backing this flag ("Config mode"), or null. The config supplies the base JSON and schema. The internal `@config:` directive is scrubbed from values; `@const:` references are preserved. (v2 additionally exposes per-rule config fields.)',
+        )
+        .optional(),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Config within `baseConfig`'s family that the default value resolves to (a descendant), or null when the default uses `baseConfig` directly.",
         )
         .optional(),
       tags: z.array(z.string()),

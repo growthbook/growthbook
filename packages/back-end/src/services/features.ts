@@ -30,6 +30,7 @@ import {
   stemRuleId,
   getConfigBackingKey,
   getConfigBackingPatch,
+  stripConfigExtends,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -2396,7 +2397,14 @@ export function getApiFeatureObj({
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
 }): ApiFeatureWithRevisions {
-  const defaultValue = feature.defaultValue;
+  // Scrub the internal `@config:` directive out of the exposed values and
+  // surface config backing via `baseConfig`/`defaultValueConfig` instead
+  // (mirrors the v2 REST shape; `@const:` refs are left intact). Shared by the
+  // v1 REST endpoint and the feature webhook payload.
+  const baseConfig = feature.baseConfig ?? null;
+  const { value: decomposedDefault, config: defaultValueConfig } =
+    decomposeConfigValue(feature.defaultValue);
+  const defaultValue = decomposedDefault ?? feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
   // Raw spread + standard overrides. Preserves internal FeatureRule field
@@ -2410,6 +2418,10 @@ export function getApiFeatureObj({
   // response by accident and are intentionally NOT re-introduced here — the
   // SDK payload (`definition`) is unaffected and external consumers should
   // null-check sparse rule fields.
+  // Strip the internal `@config:` directive from a value string (config backing
+  // is conveyed by `baseConfig`); `@const:` refs pass through.
+  const scrubValue = (v: string | undefined): string | undefined =>
+    v === undefined ? v : (stripConfigExtends(v) ?? v);
   const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>
     ({
       ...rule,
@@ -2424,6 +2436,34 @@ export function getApiFeatureObj({
       })),
       prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
+      // Scrub `@config:` from every value-bearing field of this rule type.
+      ...("value" in rule && typeof rule.value === "string"
+        ? { value: scrubValue(rule.value) }
+        : {}),
+      ...(rule.type === "experiment" && Array.isArray(rule.values)
+        ? {
+            values: rule.values.map((v) => ({
+              ...v,
+              value: scrubValue(v.value),
+            })),
+          }
+        : {}),
+      ...((rule.type === "experiment-ref" ||
+        rule.type === "contextual-bandit-ref") &&
+      Array.isArray(rule.variations)
+        ? {
+            variations: rule.variations.map((v) => ({
+              ...v,
+              value: scrubValue(v.value),
+            })),
+          }
+        : {}),
+      ...(rule.type === "safe-rollout"
+        ? {
+            controlValue: scrubValue(rule.controlValue),
+            variationValue: scrubValue(rule.variationValue),
+          }
+        : {}),
     }) as unknown as ApiFeatureRule;
   // `applicableEnvs` scopes `allEnvironments: true` rules; seeding with
   // `environments` keeps every org env present in the response.
@@ -2455,7 +2495,9 @@ export function getApiFeatureObj({
       rules: rules as ApiFeatureRule[],
     };
     if (definition) {
-      featureEnvironments[env].definition = JSON.stringify(definition);
+      featureEnvironments[env].definition = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     }
   });
   const createdBy =
@@ -2508,7 +2550,9 @@ export function getApiFeatureObj({
       });
 
       environmentRules[env] = revRulesByEnv[env] ?? [];
-      environmentDefinitions[env] = JSON.stringify(definition);
+      environmentDefinitions[env] = JSON.stringify(
+        scrubConfigExtends(definition),
+      );
     });
     const createdBy =
       rev?.createdBy?.type === "api_key"
@@ -2533,7 +2577,7 @@ export function getApiFeatureObj({
       publishedBy,
       rules: environmentRules,
       definitions: environmentDefinitions,
-      defaultValue: rev.defaultValue,
+      defaultValue: stripConfigExtends(rev.defaultValue) ?? rev.defaultValue,
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
       }),
@@ -2560,8 +2604,9 @@ export function getApiFeatureObj({
     archived: !!feature.archived,
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
-    defaultValue: feature.defaultValue,
-    ...(feature.baseConfig != null && { baseConfig: feature.baseConfig }),
+    defaultValue,
+    ...(baseConfig !== null && { baseConfig }),
+    ...(defaultValueConfig !== null && { defaultValueConfig }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",

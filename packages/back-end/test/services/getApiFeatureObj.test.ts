@@ -1160,3 +1160,60 @@ describe("scrubConfigExtends", () => {
     expect(scrubConfigExtends("plain")).toBe("plain");
   });
 });
+
+describe("getApiFeatureObj: config-backing decomposition (v1 / webhook shape)", () => {
+  it("scrubs @config into standalone fields, keeps @const, and doesn't leak it in the definition", () => {
+    const organization = { id: "org_test" } as unknown as OrganizationInterface;
+    const feature = {
+      id: "feat_cfg",
+      organization: "org_test",
+      owner: "",
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-01"),
+      valueType: "json",
+      baseConfig: "base",
+      // Default resolves to a descendant of the base config.
+      defaultValue: JSON.stringify({ $extends: ["@config:child"] }),
+      version: 1,
+      tags: [],
+      project: "",
+      environmentSettings: { production: { enabled: true } },
+      rules: [
+        {
+          id: "fr1",
+          type: "force",
+          description: "",
+          enabled: true,
+          allEnvironments: true,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            note: "@const:keep",
+          }),
+        },
+      ],
+    } as unknown as FeatureInterface;
+
+    const api = getApiFeatureObj({
+      feature,
+      organization,
+      groupMap: new Map() as GroupMap,
+      experimentMap: new Map<string, ExperimentInterface>(),
+      revision: null,
+      safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+    });
+
+    // Config backing surfaced via standalone fields; @config scrubbed from values.
+    expect(api.baseConfig).toBe("base");
+    expect(api.defaultValueConfig).toBe("child");
+    expect(api.defaultValue).toBe("{}");
+
+    const rule = api.environments.production.rules[0] as { value: string };
+    // @config dropped, @const preserved.
+    expect(JSON.parse(rule.value)).toEqual({ note: "@const:keep" });
+
+    // The compiled SDK definition never exposes the internal @config directive.
+    expect(api.environments.production.definition ?? "").not.toContain(
+      "@config:",
+    );
+  });
+});
