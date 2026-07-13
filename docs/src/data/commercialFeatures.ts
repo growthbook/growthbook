@@ -29,6 +29,10 @@ export default {
     plan: "pro",
     displayName: "Code References",
   },
+  "contextual-bandits": {
+    plan: "enterprise",
+    displayName: "Contextual Bandits",
+  },
   "custom-hooks": {
     plan: "enterprise",
     displayName: "Custom Hooks",
@@ -224,6 +228,10 @@ export default {
   "schedule-feature-flag": {
     plan: "pro",
     displayName: "Schedule Feature Flag",
+  },
+  "scheduled-revisions": {
+    plan: "enterprise",
+    displayName: "Scheduled Revisions",
   },
   scim: {
     plan: "enterprise",

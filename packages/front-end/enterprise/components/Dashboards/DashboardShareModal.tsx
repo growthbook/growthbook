@@ -198,7 +198,6 @@ export default function DashboardShareModal({
         showHeaderCloseButton={false}
         close={onClose}
         closeCta="Close"
-        useRadixButton={true}
         secondaryCTA={shareLinkButton}
       >
         <Flex direction="column" gap="1">

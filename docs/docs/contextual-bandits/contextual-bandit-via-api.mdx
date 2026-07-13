@@ -1,0 +1,197 @@
+---
+title: Driving a Contextual Bandit via API
+slug: /contextual-bandits/contextual-bandit-via-api
+unlisted: true
+---
+
+import CommercialFeature from '@site/src/components/CommercialFeature';
+import Pill from '@site/src/components/Pill';
+
+<CommercialFeature feature="contextual-bandits" />
+
+# Driving a Contextual Bandit via API <Pill>beta</Pill>
+
+This runbook walks through the full lifecycle of a Contextual Bandit driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the relevant Contextual Bandit permissions on the target project.
+
+Contextual Bandits use two REST resources:
+
+- `/v1/contextual-bandit-queries` — the assignment SQL plus the targeting (context) columns the bandit splits on. This is the bandit-specific replacement for borrowing an Experiment Assignment Query off the datasource.
+- `/v1/contextual-bandits` — the bandit itself, which references a query by id.
+
+See the [REST API reference](https://docs.growthbook.io/api) for the full schema.
+
+:::info
+Contextual Bandits are an Enterprise-only feature. Every endpoint below returns `402 Plan Does Not Allow` on Pro / Free plans.
+:::
+
+## 1. Create a Contextual Bandit Query
+
+A Contextual Bandit needs a query that defines the assignment SQL and the targeting-attribute columns it splits on. `targetingAttributeColumns` is required and must be non-empty — a bandit with no context to split on is not a contextual bandit. Each named column must also appear in the query's `SELECT`.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "datasourceId": "ds_abc",
+    "name": "Logged-in users",
+    "userIdType": "user_id",
+    "query": "SELECT user_id, timestamp, country, device FROM events",
+    "targetingAttributeColumns": ["country", "device"]
+  }'
+```
+
+The response includes the new query id (`cbq_…`). You can manage queries with the standard CRUD endpoints (`GET /v1/contextual-bandit-queries`, `GET/PUT/DELETE /v1/contextual-bandit-queries/:id`); pass `?datasourceId=ds_abc` on the list endpoint to scope by datasource.
+
+## 2. Create the Contextual Bandit
+
+Reference the query from the previous step via `contextualBanditQueryId`.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Homepage CTA bandit",
+    "trackingKey": "homepage-cta-bandit",
+    "datasource": "ds_abc",
+    "contextualBanditQueryId": "cbq_abc",
+    "decisionMetric": "metric_signup",
+    "variations": [
+      { "key": "control",   "name": "Control"  },
+      { "key": "treatment", "name": "Treatment" }
+    ],
+    "contextualAttributes": ["country", "device"],
+    "project": "proj_a"
+  }'
+```
+
+Required fields are `name`, `trackingKey`, `datasource`, `contextualBanditQueryId`, `variations`, `decisionMetric`, and `contextualAttributes`. Other fields (`hashAttribute`, `queryFilter`, `activationMetric`, `minUsersPerLeaf`, `maxLeaves`, etc.) are optional and fall back to defaults.
+
+The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
+
+## 3. Start the Contextual Bandit
+
+Move the CB out of `draft` (to `status: "running"`) so it is eligible for refresh:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/start' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+The response returns the updated CB: `{ "contextualBandit": { … } }`.
+
+## 4. Refresh — run a snapshot
+
+Triggers the contextual-bandit snapshot pipeline. The orchestrator builds frozen settings, opens a ContextualBanditSnapshot (CBS) doc, runs the warehouse query and the stats engine, and on success persists a ContextualBanditEvent (CBE) with the new per-leaf weights. Each successful snapshot increments the CB's `banditVersion`.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/refresh' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Response shape:
+
+```json
+{ "snapshotId": "cbs_abc", "cbeId": "cbe_def" }
+```
+
+`cbeId` is omitted when the run failed before producing an event (the CBS doc will be in `status: "error"`).
+
+## 5. Read the latest results
+
+Returns the same payload the GrowthBook UI uses to render the CB results table — the latest stats engine output plus a snapshot-status summary.
+
+```bash
+curl 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/results' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Response (abbreviated; `contextualBanditSnapshot` and `latest` are each `null` until a run exists):
+
+```json
+{
+  "contextualBanditSnapshot": {
+    "attributes": ["country"],
+    "responses": [ /* per-context stats rows from the stats engine */ ],
+    "leaf_map": [ /* optional decision-tree leaf mapping */ ]
+  },
+  "latest": {
+    "id": "cbs_abc",
+    "status": "success",
+    "error": "",
+    "queries": [ /* QueryPointer[] */ ],
+    "runStarted": "2026-05-29T12:00:00.000Z",
+    "dateCreated": "2026-05-29T12:00:05.000Z",
+    "multipleExposures": 0,
+    "type": "standard",
+    "triggeredBy": "manual"
+  }
+}
+```
+
+`latest.status` is one of `running`, `success`, or `error`, and `latest.runStarted` may be `null` if the run hasn't started.
+
+Use the companion endpoints for finer-grained inspection:
+
+- `GET /v1/contextual-bandits/:id/snapshots` — list recent snapshot runs (optional `?limit=`, max 100).
+- `GET /v1/contextual-bandits/:id/snapshots/:snapshotId` — single snapshot status.
+- `GET /v1/contextual-bandits/:id/events` — list CBE outputs, one per successful snapshot (optional `?limit=`, max 100).
+- `GET /v1/contextual-bandits/:id/events/:eventId` — single CBE.
+- `GET /v1/contextual-bandits/:id/current` — current root-level `currentLeafWeights` plus the latest event object (`latestEvent`, or `null`).
+
+The `/current` response looks like:
+
+```json
+{
+  "currentLeafWeights": [
+    {
+      "contextId": "country=US",
+      "weights": [
+        { "variationId": "0", "weight": 0.38 },
+        { "variationId": "1", "weight": 0.62 }
+      ]
+    }
+  ],
+  "latestEvent": {
+    "id": "cbe_def",
+    "contextualBandit": "cb_xxx",
+    "snapshotId": "cbs_abc",
+    "weightsWereUpdated": true,
+    "degreesOfFreedom": 3,
+    "dateCreated": "2026-05-29T12:00:05.000Z"
+  }
+}
+```
+
+## 6. Stop the Contextual Bandit
+
+When you're done, stop the CB:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/stop' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Like `start`, this returns the updated CB under `contextualBandit`.
+
+## Standard CRUD
+
+Both resources also expose the default CRUD endpoints:
+
+- `GET /v1/contextual-bandits` (filter with `?projectId=`, `?datasourceId=`, or `?trackingKey=`), `GET /v1/contextual-bandits/:id`, `POST /v1/contextual-bandits`, `PUT /v1/contextual-bandits/:id`, `DELETE /v1/contextual-bandits/:id`.
+- `GET /v1/contextual-bandit-queries` (filter with `?datasourceId=`), `GET /v1/contextual-bandit-queries/:id`, `POST /v1/contextual-bandit-queries`, `PUT /v1/contextual-bandit-queries/:id`, `DELETE /v1/contextual-bandit-queries/:id`.
+
+## Permissions cheat sheet
+
+Permissions are checked directly against the Contextual Bandit doc (CBs no longer delegate RBAC to a paired experiment):
+
+- **Read** (`GET results`, `GET current`, `GET snapshot(s)`, `GET event(s)`, `GET /:id`, `GET /`) — `canReadSingleProjectResource(cb.project)`.
+- **Create** (`POST /`) — `canCreateContextualBandit(cb)`.
+- **Update** (`PUT /:id`) — `canUpdateContextualBandit(existing, updated)`.
+- **Run** (`POST refresh`, `POST start`, `POST stop`) — `canRunContextualBandit(cb, environments)`.
+- **Delete** (`DELETE /:id`) — `canDeleteContextualBandit(cb)`.
+
+Contextual Bandit Query create/update/delete are gated by the datasource: you need `canUpdateDataSourceSettings` on the query's datasource.
+
+Plan gate (`hasPremiumFeature("contextual-bandits")`) is checked first on every endpoint and short-circuits with `402` before any data access.

@@ -5,11 +5,13 @@ import { ago, datetime, getValidDate } from "shared/dates";
 import { upperFirst } from "lodash";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { Flex } from "@radix-ui/themes";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import RefreshBanditButton from "@/components/Experiment/RefreshBanditButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import Callout from "@/ui/Callout";
 
 export default function BanditUpdateStatus({
   experiment,
@@ -208,29 +210,28 @@ export default function BanditUpdateStatus({
           </div>
 
           {!isPublic && error ? (
-            <div className="alert small alert-danger mx-2 px-1 pt-2 pb-1 row align-items-start">
-              <div className="col">
-                <FaExclamationTriangle className="mr-1" />
-                {error}
-              </div>
-              {generatedSnapshot || latest ? (
-                <div className="col-auto">
-                  <ViewAsyncQueriesButton
-                    queries={
-                      (generatedSnapshot || latest)?.queries?.map(
-                        (q) => q.query,
-                      ) ?? []
-                    }
-                    error={(generatedSnapshot || latest)?.error}
-                    status={status}
-                    display={null}
-                    color="link link-purple p-0 pb-1"
-                    condensed={true}
-                    hideQueryCount={true}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <Callout status="error" size="sm" mx="2">
+              <Flex align="start" justify="between" gap="2">
+                <div>{error}</div>
+                {generatedSnapshot || latest ? (
+                  <div>
+                    <ViewAsyncQueriesButton
+                      queries={
+                        (generatedSnapshot || latest)?.queries?.map(
+                          (q) => q.query,
+                        ) ?? []
+                      }
+                      error={(generatedSnapshot || latest)?.error}
+                      status={status}
+                      display={null}
+                      color="link link-purple p-0 pb-1"
+                      condensed={true}
+                      hideQueryCount={true}
+                    />
+                  </div>
+                ) : null}
+              </Flex>
+            </Callout>
           ) : null}
 
           {!isPublic && experiment.status === "running" && mutate && (

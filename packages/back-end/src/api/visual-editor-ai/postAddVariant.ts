@@ -33,6 +33,9 @@ const validation = {
   method: "post" as const,
   path: "/visual-editor/add-variant",
   operationId: "postVisualEditorAddVariant",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // Appends a variation to the experiment and a matching visualChange to

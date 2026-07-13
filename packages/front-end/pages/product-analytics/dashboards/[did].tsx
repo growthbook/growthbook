@@ -123,7 +123,7 @@ function SingleDashboardPage() {
     return (
       <PremiumCallout
         id="product-analytics-single-dashboard"
-        dismissable={false}
+        dismissible={false}
         commercialFeature="product-analytics-dashboards"
       >
         Use of Product Analytics Dashboards requires a paid plan
@@ -136,11 +136,7 @@ function SingleDashboardPage() {
   }
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
 
   if (!dashboard) {

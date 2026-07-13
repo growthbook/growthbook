@@ -20,9 +20,16 @@ import {
   PiPencil,
   PiLockSimple,
   PiProhibit,
+  PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  isScheduledPublishPending,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+} from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -65,7 +72,8 @@ import {
   FeatureUsageSparkline,
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
-import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
+import EditRevisionDescriptionModal from "@/components/Reviews/EditRevisionDescriptionModal";
+import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
 import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
@@ -242,10 +250,6 @@ export default function FeaturesOverview({
   const permissionsUtil = usePermissionsUtil();
 
   const [editCommentModel, setEditCommentModal] = useState(false);
-  const [commentExpanded, setCommentExpanded] = useState(false);
-  useEffect(() => {
-    setCommentExpanded(false);
-  }, [revision?.version]);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
@@ -473,9 +477,15 @@ export default function FeaturesOverview({
   const projectId = feature.project;
 
   const isDiscarded = revision.status === "discarded";
-  // True when browsing a read-only historical snapshot: an old published revision or a discarded one.
+  // Draft frozen by a pending scheduled publish with "lock edits" (parallel to a
+  // ramp lockdown). Rebase is still allowed via the publish modal.
+  const editLockedBySchedule =
+    isDraft && isRevisionEditLockedBySchedule(revision);
+  const scheduledPublishPending = isScheduledPublishPending(revision);
   const isReadOnly =
-    isDiscarded || (revision.status === "published" && !isLive);
+    isDiscarded ||
+    (revision.status === "published" && !isLive) ||
+    editLockedBySchedule;
 
   const envAndSummaryTooltipNonLiveDisclaimer = !isLive
     ? isDraft
@@ -606,83 +616,11 @@ export default function FeaturesOverview({
           </Flex>
         </Flex>
         <CoAuthors rev={revision} mt="3" mb="3" />
-        <Flex align="start" gap="2" style={{ width: "fit-content" }}>
-          <Text weight="semibold" color="text-high">
-            Revision description:
-          </Text>{" "}
-          {revision.comment ? (
-            <Flex align="start" gap="1">
-              <Box>
-                <Box
-                  style={
-                    !commentExpanded
-                      ? {
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }
-                      : undefined
-                  }
-                >
-                  <Markdown className="speech-bubble">
-                    {revision.comment}
-                  </Markdown>
-                </Box>
-                {revision.comment.length > 80 && (
-                  <Box mt={commentExpanded ? "1" : "0"}>
-                    <Link
-                      onClick={() => setCommentExpanded((v) => !v)}
-                      style={{ whiteSpace: "nowrap" }}
-                    >
-                      {commentExpanded ? "show less" : "show more"}
-                    </Link>
-                  </Box>
-                )}
-              </Box>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </Flex>
-          ) : (
-            <>
-              <em style={{ color: "var(--color-text-mid)" }}>none</em>
-              {canEditDrafts && (
-                <IconButton
-                  variant="ghost"
-                  color="violet"
-                  size="2"
-                  radius="full"
-                  onClick={() => setEditCommentModal(true)}
-                  style={{
-                    flexShrink: 0,
-                    marginTop: -2,
-                    marginBottom: -2,
-                    marginLeft: 4,
-                    marginRight: 0,
-                  }}
-                >
-                  <PiPencilSimpleFill />
-                </IconButton>
-              )}
-            </>
-          )}
-        </Flex>
+        <InlineRevisionDescription
+          comment={revision.comment}
+          canEdit={canEditDrafts}
+          onEdit={() => setEditCommentModal(true)}
+        />
       </Flex>
     );
   };
@@ -693,19 +631,58 @@ export default function FeaturesOverview({
         {(() => {
           const bannerProps =
             isDraft || isPendingReview
-              ? {
-                  icon: <PiPencil size={18} />,
-                  color: "var(--amber-11)",
-                  bgColor: "var(--amber-a3)",
-                  message: (
-                    <>
-                      Viewing a <strong>draft</strong> —{" "}
-                      {isPendingReview
-                        ? "changes will not go live until approved and published"
-                        : "changes will not go live until published"}
-                    </>
-                  ),
-                }
+              ? scheduledPublishPending
+                ? (() => {
+                    // Mirrors a ramp lockdown, naming the target date. Locks
+                    // engage only once approved; while in review we say "once
+                    // approved" and omit the lock clauses (editing stays open).
+                    const lockActive = isScheduledPublishLockActive(revision);
+                    const awaitingApproval =
+                      revision.status === "pending-review" ||
+                      revision.status === "changes-requested";
+                    const lockOthersActive =
+                      lockActive && !!revision.scheduledPublishLockOthers;
+                    const lockClauses = [
+                      editLockedBySchedule ? "edits are locked" : null,
+                      lockOthersActive
+                        ? "publishing other drafts is locked"
+                        : null,
+                    ].filter((c): c is string => c !== null);
+                    return {
+                      icon: lockClauses.length ? (
+                        <PiLockSimple size={18} />
+                      ) : (
+                        <PiClockFill size={18} />
+                      ),
+                      color: "var(--amber-11)",
+                      bgColor: "var(--amber-a3)",
+                      message: (
+                        <>
+                          This <strong>draft</strong> is scheduled to publish on{" "}
+                          <strong>
+                            {datetime(revision.scheduledPublishAt as Date)}
+                          </strong>
+                          {awaitingApproval ? " once approved" : ""}
+                          {lockClauses.length
+                            ? ` — ${lockClauses.join(" and ")}`
+                            : ""}
+                        </>
+                      ),
+                    };
+                  })()
+                : {
+                    icon: <PiPencil size={18} />,
+                    color: "var(--amber-11)",
+                    bgColor: "var(--amber-a3)",
+                    message: (
+                      <>
+                        Viewing a <strong>draft</strong> —{" "}
+                        {isPendingReview
+                          ? "changes will not go live until approved and published"
+                          : "changes will not go live until published"}
+                      </>
+                    ),
+                  }
               : isDiscarded
                 ? {
                     icon: <PiProhibit size={18} />,
@@ -824,7 +801,15 @@ export default function FeaturesOverview({
                       gap="2"
                       style={{ gridColumn: 2 }}
                     >
-                      {bannerProps.icon}
+                      <span
+                        style={{
+                          display: "flex",
+                          flexGrow: 0,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {bannerProps.icon}
+                      </span>
                       <span style={{ fontSize: "var(--font-size-2)" }}>
                         {bannerProps.message}
                       </span>
@@ -1583,6 +1568,7 @@ export default function FeaturesOverview({
                       feature={feature}
                       baseFeature={baseFeature}
                       isLocked={isReadOnly}
+                      lockedBySchedule={editLockedBySchedule}
                       canEditDrafts={canEditDrafts}
                       experimentsMap={experimentsMap}
                       mutate={mutate}
@@ -1686,7 +1672,6 @@ export default function FeaturesOverview({
             ctaEnabled={!atDraftCap || draftCapAcknowledged}
             disabledMessage="Acknowledge the draft cap warning to continue"
             loading={creatingDraft}
-            useRadixButton={true}
             submit={async () => {
               setCreatingDraft(true);
               try {
@@ -1873,11 +1858,20 @@ export default function FeaturesOverview({
           </Modal>
         )}
         {editCommentModel && revision && (
-          <EditRevisionCommentModal
+          <EditRevisionDescriptionModal
             close={() => setEditCommentModal(false)}
-            feature={feature}
-            mutate={mutate}
-            revision={revision}
+            initialValue={revision.comment || ""}
+            trackingEventModalType=""
+            onSubmit={async (comment) => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/comment`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({ comment }),
+                },
+              );
+              mutate();
+            }}
           />
         )}
         {prerequisiteModal !== null && (

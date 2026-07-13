@@ -29,7 +29,7 @@ export function ChangeField({
   oldNode,
   newNode,
 }: {
-  label: string;
+  label?: string;
   changed: boolean;
   oldNode: ReactNode;
   newNode: ReactNode;
@@ -37,11 +37,13 @@ export function ChangeField({
   if (!changed) return null;
   return (
     <div className="mb-2">
-      <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
-          {label}
-        </Text>
-      </div>
+      {label && (
+        <div className="mb-1">
+          <Text size="medium" weight="medium" color="text-mid">
+            {label}
+          </Text>
+        </div>
+      )}
       <div className="d-flex align-items-start">
         <div className="text-danger d-flex align-items-start">
           <div className="text-center mr-2" style={{ width: 16 }}>
@@ -65,10 +67,12 @@ export function TextChangedField({
   label,
   pre,
   post,
+  emptyLabel = "unset",
 }: {
-  label: string;
+  label?: string;
   pre: string | null | undefined;
   post: string | null | undefined;
+  emptyLabel?: string;
 }) {
   if (isEqual(pre, post)) return null;
 
@@ -103,18 +107,20 @@ export function TextChangedField({
           lineHeight: 1.5,
         }}
       >
-        {value || <em className="text-muted">unset</em>}
+        {value || <em className="text-muted">{emptyLabel}</em>}
       </div>
     </div>
   );
 
   return (
     <div className="mb-2">
-      <div className="mb-1">
-        <Text size="medium" weight="medium" color="text-mid">
-          {label}
-        </Text>
-      </div>
+      {label && (
+        <div className="mb-1">
+          <Text size="medium" weight="medium" color="text-mid">
+            {label}
+          </Text>
+        </div>
+      )}
       <TextBox value={pre} marker="Δ" colorClass="text-danger" />
       <TextBox value={post} marker="→" colorClass="text-success" />
     </div>

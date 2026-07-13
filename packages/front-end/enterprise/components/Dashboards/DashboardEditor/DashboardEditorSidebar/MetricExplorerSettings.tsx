@@ -7,8 +7,9 @@ import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -26,7 +27,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
   const metric = getFactMetricById(block.factMetricId);
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
-  let denominatorFactTable: FactTableInterface | null = null;
+  let denominatorFactTable: FactTableDefinition | null = null;
 
   if (metric?.denominator?.factTableId) {
     if (metric?.numerator?.factTableId !== metric?.denominator?.factTableId) {
@@ -278,12 +279,33 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
                   })
                 }
               >
-                <SelectItem value="bigNumber">Big Number</SelectItem>
+                <SelectItem value="bigNumber">Big Numbers</SelectItem>
                 <SelectItem value="timeseries">Timeseries</SelectItem>
                 {metric?.metricType === "mean" && (
                   <SelectItem value="histogram">Histogram</SelectItem>
                 )}
               </Select>
+              {block.visualizationType !== "histogram" && (
+                <Switch
+                  label="Compare to previous period"
+                  description="Overlay the prior period of equal length for context. The previous window rolls with the date range."
+                  value={!!block.comparison?.enabled}
+                  onChange={(checked) =>
+                    setBlock({
+                      ...block,
+                      comparison: {
+                        ...(block.comparison ?? {}),
+                        enabled: checked,
+                      },
+                      // Drop the stale comparison analysis when turning off so
+                      // we don't render data from a previous configuration.
+                      comparisonMetricAnalysisId: checked
+                        ? block.comparisonMetricAnalysisId
+                        : "",
+                    })
+                  }
+                />
+              )}
             </Flex>
           </Box>
         </Collapsible>

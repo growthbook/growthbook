@@ -5,7 +5,10 @@ import {
   includeExperimentInPayload,
   calculateNamespaceCoverage,
 } from "shared/util";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  hasTargetingConfigured,
+} from "shared/experiments";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -112,10 +115,7 @@ export default function ExperimentRefSummary({
       : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
-  const hasCondition =
-    (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length ||
-    !!phase.prerequisites?.length;
+  const hasCondition = hasTargetingConfigured(phase);
 
   return (
     <Box>
@@ -203,7 +203,7 @@ export default function ExperimentRefSummary({
               color="gray"
               label={
                 <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage || 1)}
+                  {percentFormatter.format(phase?.coverage ?? 1)}
                 </Text>
               }
             />
@@ -212,7 +212,11 @@ export default function ExperimentRefSummary({
         )}
       </Flex>
       {releasedValue ? (
-        <ForceSummary feature={feature} value={releasedValue.value} />
+        <ForceSummary
+          feature={feature}
+          value={releasedValue.value}
+          sparse={rule.sparse}
+        />
       ) : (
         <>
           <Flex gap="2">
@@ -285,6 +289,8 @@ export default function ExperimentRefSummary({
                               value={value}
                               type={type}
                               showFullscreenButton={true}
+                              sparse={rule.sparse}
+                              defaultValue={feature.defaultValue}
                             />
                             <ValidateValue value={value} feature={feature} />
                           </>

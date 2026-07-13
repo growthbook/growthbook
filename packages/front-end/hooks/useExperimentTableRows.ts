@@ -7,11 +7,11 @@ import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
@@ -482,8 +482,8 @@ export function generateRowsForMetric({
     }>;
   }>;
   expandedMetrics?: Record<string, boolean>;
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
-  getFactTableById: (id: string) => FactTableInterface | null;
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  getFactTableById: (id: string) => FactTableDefinition | null;
   sliceTagsFilter?: string[];
 }): ExperimentTableRow[] {
   const resultsArray = Array.isArray(results) ? results : [results];
@@ -713,7 +713,7 @@ export function generateRowsForMetric({
 }
 
 export function sortMetricsByCustomOrder(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   customOrder: string[],
   metricGroups?: MetricGroupInterface[],
 ): string[] {
@@ -755,7 +755,7 @@ export function sortMetricsByCustomOrder(
 }
 
 export function sortMetricsByTags(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   metricTagFilter: string[],
   metricGroups: MetricGroupInterface[],
 ): string[] {
@@ -796,7 +796,7 @@ export function sortMetricsByTags(
 }
 
 export function filterMetricsByTags(
-  metrics: ExperimentMetricInterface[],
+  metrics: ExperimentMetricDefinition[],
   tagFilter?: string[],
 ): string[] {
   // If no filter, return all metrics

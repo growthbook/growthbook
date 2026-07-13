@@ -331,7 +331,7 @@ export async function refreshDashboardData(
 
     await updateDashboardMetricAnalyses(context, newBlocks);
     await updateDashboardSavedQueries(context, newBlocks);
-    await updateDashboardExplorations(context, newBlocks);
+    await updateDashboardExplorations(context, newBlocks, dashboard);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {

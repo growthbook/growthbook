@@ -24,12 +24,13 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
+import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
-  QueryMetadata,
   QueryPointer,
   QueryStatus,
+  RunQueryMetadata,
 } from "shared/types/query";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ApiReqContext } from "back-end/types/api";
@@ -304,13 +305,13 @@ const startExperimentIncrementalRefreshQueries = async (
       run: (
         query: string,
         setExternalId: ExternalIdCallback,
-        queryMetadata?: QueryMetadata,
+        queryMetadata: RunQueryMetadata,
       ) => Promise<R>,
     ) =>
     async (
       query: string,
       setExternalId: ExternalIdCallback,
-      queryMetadata?: QueryMetadata,
+      queryMetadata: RunQueryMetadata,
     ): Promise<R> => {
       const current =
         await context.models.incrementalRefresh.getCurrentExecutionSnapshotId(
@@ -378,6 +379,16 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
+  const resolvedExposureQuery = {
+    query: exposureQuery.query,
+    userIdType: exposureQuery.userIdType,
+  };
+
+  const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
+    snapshotSettings,
+    resolvedExposureQuery,
+  );
+
   const {
     eligibleDimensions,
     // Used for traffic analysis
@@ -394,6 +405,7 @@ const startExperimentIncrementalRefreshQueries = async (
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
+    exposureQuery: resolvedExposureQuery,
     activationMetric: null, // TODO(incremental-refresh): activation metric
     dimensions: eligibleDimensions,
     segment: segmentObj,
@@ -637,6 +649,7 @@ const startExperimentIncrementalRefreshQueries = async (
         displayTitle: `Create Metrics Source ${sourceName}`,
         query: integration.getCreateMetricSourceTableQuery({
           settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
           factTableId: group.factTableId,
           metrics: group.metrics,
           factTableMap: params.factTableMap,
@@ -657,6 +670,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
     const insertParams: InsertMetricSourceDataQueryParams = {
       settings: snapshotSettings,
+      exposureQuery: resolvedExposureQuery,
       activationMetric: activationMetric,
       factTableMap: params.factTableMap,
       factTableId: group.factTableId,
@@ -739,6 +753,7 @@ const startExperimentIncrementalRefreshQueries = async (
           displayTitle: `Create Metric Covariate Table ${sourceName}`,
           query: integration.getCreateMetricSourceCovariateTableQuery({
             settings: snapshotSettings,
+            exposureQuery: resolvedExposureQuery,
             factTableId: group.factTableId,
             metrics: regressionAdjustedMetrics,
             metricSourceCovariateTableFullName,
@@ -790,7 +805,7 @@ const startExperimentIncrementalRefreshQueries = async (
         run: (
           query: string,
           setExternalId: ExternalIdCallback,
-          queryMetadata?: QueryMetadata,
+          queryMetadata: RunQueryMetadata,
         ) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
@@ -843,6 +858,7 @@ const startExperimentIncrementalRefreshQueries = async (
 
       const commonCovariateQueryParams = {
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         factTableMap: params.factTableMap,
         factTableId: group.factTableId,
@@ -995,6 +1011,7 @@ const startExperimentIncrementalRefreshQueries = async (
         displayTitle: `Compute Statistics ${sourceName}`,
         query: integration.getIncrementalRefreshStatisticsQuery({
           settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
           activationMetric: activationMetric,
           factTableMap: params.factTableMap,
           unitsSourceTableFullName: unitsTableFullName,
@@ -1063,6 +1080,7 @@ const startExperimentIncrementalRefreshQueries = async (
       displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery({
         settings: snapshotSettings,
+        exposureQuery: resolvedExposureQuery,
         activationMetric: activationMetric,
         factTableMap: params.factTableMap,
         unitsSourceTableFullName: unitsTableFullName,
@@ -1128,6 +1146,7 @@ const startExperimentIncrementalRefreshQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
+        unitsSettings,
         dimensions: eligibleDimensionsWithSlices,
         useUnitsTable: true,
       }),

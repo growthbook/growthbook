@@ -6,6 +6,8 @@ import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   isEventForwarderAllowedUserIdTypesChange,
   getEventForwarderDatasourceParams,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseUserIdTypeSettings,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -39,6 +41,7 @@ import {
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
+import { SDKAttributeSchema } from "shared/types/organization";
 import { SQLExecutionError } from "back-end/src/util/errors";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -106,6 +109,7 @@ import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getReservedColumnNames,
+  removeManagedWarehouseLegacyIdentifier,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
@@ -325,45 +329,6 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
-  // Start out with some default materialized columns
-  // These can be changed by the user later
-  const identifiers = ["device_id"];
-  const dimensions = [
-    "geo_country",
-    "ua_browser",
-    "ua_os",
-    "ua_device_type",
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-  ];
-  const materializedColumns: MaterializedColumn[] = [
-    ...identifiers.map(
-      (id) =>
-        ({
-          sourceField: id,
-          columnName: id,
-          datatype: "string",
-          type: "identifier",
-        }) as const,
-    ),
-    ...dimensions.map(
-      (dim) =>
-        ({
-          sourceField: dim,
-          columnName: dim,
-          datatype: "string",
-          type: "dimension",
-        }) as const,
-    ),
-    {
-      sourceField: "url_path",
-      columnName: "url_path",
-      datatype: "string",
-      type: "",
-    },
-  ];
-
   const params: ClickHouseConnectionParams = {
     url: "https://managed-warehouse-placeholder.invalid",
     port: 443,
@@ -371,9 +336,12 @@ export async function postManagedWarehouse(
     password: "pending_provisioning",
     database: "pending_provisioning",
   };
-  const datasourceSettings = getManagedWarehouseSettings(materializedColumns, {
-    hasBeenProvisioned: false,
-  });
+  // New warehouses use native ClickHouse JSON columns. Identifiers and exposure
+  // queries are derived from the org's hashAttribute attributes.
+  const datasourceSettings = getManagedWarehouseJsonSettings(
+    context.org.settings?.attributeSchema,
+    { hasBeenProvisioned: false },
+  );
 
   const datasource = await createDataSource(
     context,
@@ -1790,6 +1758,12 @@ export async function postMaterializedColumn(
     );
   }
 
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
+    );
+  }
+
   const originalColumns = datasource.settings.materializedColumns || [];
   const finalColumns = [...originalColumns, newColumn];
 
@@ -1867,6 +1841,12 @@ export async function updateMaterializedColumn(
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
       "Can only manage materialized columns for growthbook-clickhouse datasources",
+    );
+  }
+
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
     );
   }
 
@@ -1988,6 +1968,12 @@ export async function deleteMaterializedColumn(
     );
   }
 
+  if (datasource.settings.useJsonColumns) {
+    throw new Error(
+      "Materialized columns are not used for JSON-column managed warehouses. Identifiers are derived from your organization's attributes.",
+    );
+  }
+
   const originalColumns = datasource.settings.materializedColumns || [];
 
   const originalIdx = originalColumns.findIndex(
@@ -2060,7 +2046,47 @@ export async function postRecreateManagedWarehouse(
     );
   }
 
-  await dangerousRecreateClickhouseTables(context.org.id);
+  const result = await dangerousRecreateClickhouseTables(context.org.id);
+  if (result === "already-running") {
+    res.status(409).json({
+      status: 409,
+      message:
+        "A recreate is already in progress for this Managed Warehouse. Please wait for it to finish before triggering another.",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postRemoveManagedWarehouseLegacyIdentifier(
+  req: AuthRequest<{ identifier?: string }, { datasourceId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.params;
+  const { identifier } = req.body;
+
+  if (!identifier || typeof identifier !== "string") {
+    throw new Error("Must specify an identifier to remove");
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only manage identifiers on a Managed Warehouse datasource",
+    );
+  }
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeManagedWarehouseLegacyIdentifier(context, datasource, identifier);
 
   res.status(200).json({
     status: 200,
@@ -2192,6 +2218,25 @@ function sanitizeMatColumnName(userInput: string) {
   return userInput;
 }
 
+// Managed-warehouse settings for the JSON-columns model: identifiers and exposure
+// queries derive from the org's hashAttribute attributes.
+function getManagedWarehouseJsonSettings(
+  attributeSchema: SDKAttributeSchema | undefined,
+  existing: GrowthbookClickhouseDataSource["settings"],
+): GrowthbookClickhouseSettings {
+  return {
+    ...existing,
+    useJsonColumns: true,
+    materializedColumns: undefined,
+    userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+    queries: {
+      ...existing.queries,
+      exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+    },
+  };
+}
+
+// @deprecated Legacy materialized-columns model; used only when `useJsonColumns` is unset.
 function getManagedWarehouseSettings(
   materializedColumns: MaterializedColumn[],
   existing: GrowthbookClickhouseDataSource["settings"],

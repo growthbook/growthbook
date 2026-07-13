@@ -13,6 +13,7 @@ import {
   parseAggregatedFactTableCoverage,
   foldAggregatedFactTableCoverage,
 } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import { getAggregatedFactTableMetrics } from "back-end/src/services/aggregatedFactTables";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -197,6 +198,24 @@ describe("getFactTableSettingsHashForAggregatedFactTable", () => {
     expect(getFactTableSettingsHashForAggregatedFactTable(a)).not.toEqual(
       getFactTableSettingsHashForAggregatedFactTable(b),
     );
+  });
+});
+
+describe("getAggregatedFactTableMetrics", () => {
+  it("excludes archived fact-metrics", () => {
+    const factTable = factTableFactory.build({ id: FT_ID });
+    const active = factMetricFactory.build({
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+    });
+    const archived = factMetricFactory.build({
+      archived: true,
+      numerator: { factTableId: FT_ID, column: "gone", aggregation: "sum" },
+    });
+    const metrics = getAggregatedFactTableMetrics({
+      factMetrics: [active, archived],
+      factTable,
+    });
+    expect(metrics.map((m) => m.id)).toEqual([active.id]);
   });
 });
 

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { RampScheduleInterface } from "shared/validators";
+import { PermissionError } from "shared/util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -17,12 +18,14 @@ import {
   rollbackSchedule,
   restartSchedule,
   resumeSchedule,
+  runLockedRampScheduleAction,
   setRampMonitoringMode,
   startSchedule,
 } from "back-end/src/services/rampSchedule";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { ConflictError } from "back-end/src/util/errors";
 
 type CreateBody = Pick<
   RampScheduleInterface,
@@ -179,57 +182,68 @@ export const putRampSchedule = async (
   }
 
   const body = req.body;
-  const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.startActions !== undefined) updates.startActions = body.startActions;
-  if (body.steps !== undefined) updates.steps = body.steps;
-  if (body.endActions !== undefined) updates.endActions = body.endActions;
-  if ("startDate" in body) {
-    updates.startDate = body.startDate ? new Date(body.startDate) : null;
-  }
-  if ("cutoffDate" in body) {
-    updates.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
-  }
-  if (body.lockdownConfig !== undefined) {
-    updates.lockdownConfig = body.lockdownConfig;
-  }
-  if (body.monitoringConfig !== undefined) {
-    const monitoringConfig = normalizeMonitoringConfig(body.monitoringConfig);
-    await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
-      context,
-      schedule,
-      monitoringConfig,
-    );
-    updates.monitoringConfig = monitoringConfig;
-  }
-  if (body.experimentHealthAction !== undefined) {
-    updates.experimentHealthAction = body.experimentHealthAction;
-  }
-  updates.nextProcessAt = computeNextProcessAt({
-    status: schedule.status,
-    nextStepAt: schedule.nextStepAt,
-    cutoffDate: ("cutoffDate" in updates
-      ? updates.cutoffDate
-      : schedule.cutoffDate) as RampScheduleInterface["cutoffDate"],
-    startDate: ("startDate" in updates
-      ? updates.startDate
-      : schedule.startDate) as RampScheduleInterface["startDate"],
-  });
-
-  const editedFields = Object.keys(updates).filter(
-    (k) => k !== "nextProcessAt" && k !== "eventHistory",
-  );
-  if (editedFields.length > 0) {
-    updates.eventHistory = appendRampEvent(schedule, "config-edited", {
-      stepIndex: schedule.currentStepIndex,
-      status: schedule.status,
-      reason: `Edited: ${editedFields.join(", ")}`,
-    });
-  }
-
-  const updated = await context.models.rampSchedules.updateById(
+  const updated = await runLockedRampScheduleAction(
+    context,
     schedule.id,
-    updates,
+    async (fresh) => {
+      if (!["pending", "ready", "paused"].includes(fresh.status)) {
+        throw new ConflictError(
+          `Cannot update: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      const updates: Record<string, unknown> = {};
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.startActions !== undefined)
+        updates.startActions = body.startActions;
+      if (body.steps !== undefined) updates.steps = body.steps;
+      if (body.endActions !== undefined) updates.endActions = body.endActions;
+      if ("startDate" in body) {
+        updates.startDate = body.startDate ? new Date(body.startDate) : null;
+      }
+      if ("cutoffDate" in body) {
+        updates.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
+      }
+      if (body.lockdownConfig !== undefined) {
+        updates.lockdownConfig = body.lockdownConfig;
+      }
+      if (body.monitoringConfig !== undefined) {
+        const monitoringConfig = normalizeMonitoringConfig(
+          body.monitoringConfig,
+        );
+        await assertCanUpdateLinkedSafeRolloutMonitoringConfig(
+          context,
+          fresh,
+          monitoringConfig,
+        );
+        updates.monitoringConfig = monitoringConfig;
+      }
+      if (body.experimentHealthAction !== undefined) {
+        updates.experimentHealthAction = body.experimentHealthAction;
+      }
+      updates.nextProcessAt = computeNextProcessAt({
+        status: fresh.status,
+        nextStepAt: fresh.nextStepAt,
+        cutoffDate: ("cutoffDate" in updates
+          ? updates.cutoffDate
+          : fresh.cutoffDate) as RampScheduleInterface["cutoffDate"],
+        startDate: ("startDate" in updates
+          ? updates.startDate
+          : fresh.startDate) as RampScheduleInterface["startDate"],
+      });
+
+      const editedFields = Object.keys(updates).filter(
+        (k) => k !== "nextProcessAt" && k !== "eventHistory",
+      );
+      if (editedFields.length > 0) {
+        updates.eventHistory = appendRampEvent(fresh, "config-edited", {
+          stepIndex: fresh.currentStepIndex,
+          status: fresh.status,
+          reason: `Edited: ${editedFields.join(", ")}`,
+        });
+      }
+
+      return context.models.rampSchedules.updateById(fresh.id, updates);
+    },
   );
   res.status(200).json({ status: 200, rampSchedule: updated });
 };
@@ -260,7 +274,17 @@ export const deleteRampSchedule = async (
   //     which the user has chosen to keep by not rolling back before deleting.
   // In all cases the caller is assumed to have made a deliberate choice about
   // the rule's state before removing the schedule record.
-  await context.models.rampSchedules.deleteById(schedule.id);
+  //
+  // Locked so the doc can't be deleted out from under an in-flight advance
+  // (whose subsequent writes would fail mid-publish).
+  await runLockedRampScheduleAction(context, schedule.id, async (fresh) => {
+    if (fresh.status === "running") {
+      throw new ConflictError(
+        "Cannot delete: the schedule started running while the request was in flight",
+      );
+    }
+    await context.models.rampSchedules.deleteById(fresh.id);
+  });
 
   await dispatchRampEvent(context, schedule, "rampSchedule.deleted", {
     object: {
@@ -295,7 +319,18 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
-      updated = await startSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh, heartbeat) => {
+          if (fresh.status !== "ready") {
+            throw new ConflictError(
+              `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return startSchedule(context, fresh, heartbeat);
+        },
+      );
       break;
     }
 
@@ -306,7 +341,18 @@ export const postRampScheduleAction = async (
           message: `Cannot pause a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await pauseSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (fresh.status !== "running") {
+            throw new ConflictError(
+              `Cannot pause: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return pauseSchedule(context, fresh);
+        },
+      );
       break;
 
     case "resume": {
@@ -316,7 +362,18 @@ export const postRampScheduleAction = async (
           message: `Cannot resume a schedule in status "${schedule.status}"`,
         });
       }
-      updated = await resumeSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh, heartbeat) => {
+          if (fresh.status !== "paused") {
+            throw new ConflictError(
+              `Cannot resume: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return resumeSchedule(context, fresh, heartbeat);
+        },
+      );
       break;
     }
 
@@ -352,7 +409,47 @@ export const postRampScheduleAction = async (
           });
         }
       }
-      updated = await advanceScheduleManually(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        async (fresh) => {
+          if (!["running", "paused"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot advance: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          // Pin the playhead: a concurrent advance would make this skip an
+          // extra (unscreened) step.
+          if (fresh.currentStepIndex !== schedule.currentStepIndex) {
+            throw new ConflictError(
+              "Cannot advance: the schedule advanced while the request was in flight",
+            );
+          }
+          // Re-derive the approval gate — holdConditions can change in place
+          // (steps editors allow it on the current step) while we waited.
+          const freshStep = fresh.steps[fresh.currentStepIndex];
+          const freshApprovalPending =
+            freshStep?.holdConditions?.requiresApproval &&
+            fresh.stepApproval?.stepIndex !== fresh.currentStepIndex;
+          if (freshApprovalPending && !forceAdvance) {
+            throw new ConflictError(
+              "This step requires approval before advancing. Use approve-step first, or pass force: true to bypass (requires canBypassApprovalChecks).",
+            );
+          }
+          if (freshApprovalPending && forceAdvance) {
+            const linkedFeature = await getFeature(context, fresh.entityId);
+            if (
+              !linkedFeature ||
+              !context.permissions.canBypassApprovalChecks(linkedFeature)
+            ) {
+              throw new PermissionError(
+                "Permission denied: canBypassApprovalChecks required on the linked feature",
+              );
+            }
+          }
+          return advanceScheduleManually(context, fresh);
+        },
+      );
       break;
     }
 
@@ -363,20 +460,28 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      {
-        const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
-        const disableNow = req.body?.disableRule === true || isSimple;
-        const hasFutureCutoff =
-          schedule.cutoffDate && schedule.cutoffDate > new Date();
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
+          const disableNow = req.body?.disableRule === true || isSimple;
+          const hasFutureCutoff =
+            fresh.cutoffDate && fresh.cutoffDate > new Date();
 
-        if (!disableNow && hasFutureCutoff) {
-          updated = await completeRampKeepCutoff(context, schedule);
-        } else {
-          updated = await completeRollout(context, schedule, {
+          if (!disableNow && hasFutureCutoff) {
+            return completeRampKeepCutoff(context, fresh);
+          }
+          return completeRollout(context, fresh, {
             disableActiveTargets: disableNow,
           });
-        }
-      }
+        },
+      );
       break;
 
     case "rollback": {
@@ -388,7 +493,18 @@ export const postRampScheduleAction = async (
       }
       const cause = req.body?.reason?.trim();
       const reason = cause ? `Manual: ${cause}` : "Manual";
-      updated = await rollbackSchedule(context, schedule, reason);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot rollback: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return rollbackSchedule(context, fresh, reason);
+        },
+      );
       break;
     }
 
@@ -399,7 +515,18 @@ export const postRampScheduleAction = async (
           message: `Cannot restart a schedule in status "${schedule.status}". Only terminal (rolled-back / completed) schedules can be restarted.`,
         });
       }
-      updated = await restartSchedule(context, schedule);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh, heartbeat) => {
+          if (!["rolled-back", "completed"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot restart: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return restartSchedule(context, fresh, heartbeat);
+        },
+      );
       break;
     }
 
@@ -422,7 +549,18 @@ export const postRampScheduleAction = async (
         });
       }
 
-      updated = await jumpSchedule(context, schedule, jumpTarget);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          if (["completed", "rolled-back"].includes(fresh.status)) {
+            throw new ConflictError(
+              `Cannot jump: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          return jumpSchedule(context, fresh, jumpTarget);
+        },
+      );
       break;
     }
 
@@ -439,7 +577,23 @@ export const postRampScheduleAction = async (
           message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
-      const approveErr = await approveAndPublishStep(context, schedule, "ui");
+      const approveErr = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => {
+          // Pin to the step the reviewer saw — a queued approval must not
+          // land on a step that was never reviewed.
+          if (fresh.currentStepIndex !== schedule.currentStepIndex) {
+            throw new ConflictError(
+              "Cannot approve step: the schedule advanced while the request was in flight",
+            );
+          }
+          // Idempotency and awaiting-approval validation live in
+          // approveAndPublishStep, AFTER its permission checks — duplicating
+          // them here would return success to unchecked callers.
+          return approveAndPublishStep(context, fresh, "ui");
+        },
+      );
       if (approveErr) {
         const httpStatus =
           approveErr.code === "permission_denied"
@@ -493,7 +647,11 @@ export const postRampScheduleAction = async (
           message: 'monitoringMode must be "auto" or "manual"',
         });
       }
-      updated = await setRampMonitoringMode(context, schedule, requestedMode);
+      updated = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => setRampMonitoringMode(context, fresh, requestedMode),
+      );
       break;
     }
 
@@ -535,9 +693,12 @@ export const postRampScheduleAction = async (
         : null;
 
       if (!safeRollout && currentStep?.monitored) {
-        const updatedSchedule = await ensureSafeRolloutForMonitoredRamp(
+        // Serialize against the tick, which runs the same ensure — otherwise
+        // both create a SafeRollout and one becomes an orphan.
+        const updatedSchedule = await runLockedRampScheduleAction(
           context,
-          schedule,
+          schedule.id,
+          (fresh) => ensureSafeRolloutForMonitoredRamp(context, fresh),
         );
         safeRollout = updatedSchedule.safeRolloutId
           ? await context.models.safeRollout.getById(

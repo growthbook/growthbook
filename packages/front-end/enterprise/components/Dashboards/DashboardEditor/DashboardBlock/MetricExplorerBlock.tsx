@@ -31,7 +31,8 @@ export default function MetricExplorerBlock({
   const { visualizationType, valueType, analysisSettings } = block;
   const { getFactTableById: _getFactTableById } = useDefinitions();
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
-  const { loading, error } = useDashboardMetricAnalysis(block, setBlock);
+  const { loading, error, comparisonMetricAnalysis, compareEnabled } =
+    useDashboardMetricAnalysis(block, setBlock);
   // Anonymous public view has no currency hook context; fall back to the
   // ssrPolyfills currency (both hooks are called unconditionally per hooks rules).
   const _displayCurrency = useCurrency();
@@ -55,6 +56,7 @@ export default function MetricExplorerBlock({
 
   const chartData = useMemo(() => {
     const data: { x: string | number | Date; y: number }[] = [];
+    const comparisonData: { x: string | number | Date; y: number }[] = [];
 
     const rawFormatter = getExperimentMetricFormatter(
       factMetric,
@@ -63,27 +65,56 @@ export default function MetricExplorerBlock({
     );
     const formatter = (value: number) => rawFormatter(value, formatterOptions);
 
+    const curStart = getValidDate(analysisSettings.startDate);
+    const curEnd = getValidDate(analysisSettings.endDate);
+    const spanMs = curEnd.getTime() - curStart.getTime();
+
     const rows = (metricAnalysis.result?.dates || [])
       .map((r) => {
         return { ...r, date: getValidDate(r.date) };
       })
       .filter((d) => {
-        if (d.date < analysisSettings.startDate) return false;
-        if (d.date > analysisSettings.endDate) return false;
+        if (d.date < curStart) return false;
+        if (d.date > curEnd) return false;
         return true;
       });
 
-    if (visualizationType === "bigNumber") {
-      const sum = rows.reduce((acc, curr) => {
-        const value =
-          valueType === "avg" ? curr.mean || 0 : curr.mean * (curr.units || 0);
-        return acc + value;
-      }, 0);
+    // Previous-period rows already come scoped to the prior window from their
+    // own analysis. For the timeseries we shift them forward by the window
+    // length so they overlay the current axis point-for-point.
+    const comparisonRows =
+      compareEnabled && comparisonMetricAnalysis
+        ? (comparisonMetricAnalysis.result?.dates || []).map((r) => ({
+            ...r,
+            date: getValidDate(r.date),
+          }))
+        : [];
 
-      return {
-        value: valueType === "sum" ? sum : sum / (rows.length || 1),
-        formatter,
-      };
+    const rowValue = (row: { mean?: number; units?: number }) =>
+      valueType === "avg" ? row.mean || 0 : (row.mean || 0) * (row.units || 0);
+
+    if (visualizationType === "bigNumber") {
+      const sum = rows.reduce((acc, curr) => acc + rowValue(curr), 0);
+      const value = valueType === "sum" ? sum : sum / (rows.length || 1);
+
+      let compareValue: number | undefined = undefined;
+      let comparePct: number | undefined = undefined;
+      if (compareEnabled && comparisonRows.length) {
+        const compareSum = comparisonRows.reduce(
+          (acc, curr) => acc + rowValue(curr),
+          0,
+        );
+        compareValue =
+          valueType === "sum"
+            ? compareSum
+            : compareSum / (comparisonRows.length || 1);
+        comparePct =
+          compareValue !== 0
+            ? (value - compareValue) / Math.abs(compareValue)
+            : undefined;
+      }
+
+      return { value, formatter, compareValue, comparePct };
     } else if (
       visualizationType === "histogram" &&
       factMetric.metricType === "mean"
@@ -105,7 +136,24 @@ export default function MetricExplorerBlock({
           });
         }
       });
+      comparisonRows.forEach((row) => {
+        const shifted = new Date(row.date.getTime() + spanMs);
+        if (valueType === "sum" && factMetric.metricType !== "ratio") {
+          comparisonData.push({
+            x: shifted,
+            y: (row.mean || 0) * (row.units || 0),
+          });
+        } else {
+          comparisonData.push({ x: shifted, y: row.mean || 0 });
+        }
+      });
     }
+
+    // Comparison overlay only makes sense for the timeseries view.
+    const showComparisonSeries =
+      compareEnabled &&
+      visualizationType === "timeseries" &&
+      comparisonData.length > 0;
 
     const option = {
       tooltip: {
@@ -118,6 +166,12 @@ export default function MetricExplorerBlock({
           return formatter(value);
         },
       },
+      legend: showComparisonSeries
+        ? {
+            data: ["Current period", "Previous period"],
+            textStyle: { color: textColor },
+          }
+        : undefined,
       xAxis: {
         type: visualizationType === "timeseries" ? "time" : "category",
         nameLocation: "middle",
@@ -149,19 +203,29 @@ export default function MetricExplorerBlock({
           formatter: visualizationType !== "histogram" ? formatter : undefined,
         },
       },
-      dataset: [
-        {
-          source: data,
-        },
-      ],
+      dataset: [{ source: data }, { source: comparisonData }],
       series: [
         {
+          name: "Current period",
           type: visualizationType === "histogram" ? "bar" : "line",
           encode: {
             x: "x",
             y: "y",
           },
+          datasetIndex: 0,
         },
+        ...(showComparisonSeries
+          ? [
+              {
+                name: "Previous period",
+                type: "line",
+                encode: { x: "x", y: "y" },
+                datasetIndex: 1,
+                lineStyle: { type: "dashed" },
+                itemStyle: { color: "#999999" },
+              },
+            ]
+          : []),
       ],
     };
     return option;
@@ -170,6 +234,8 @@ export default function MetricExplorerBlock({
     valueType,
     visualizationType,
     metricAnalysis,
+    comparisonMetricAnalysis,
+    compareEnabled,
     analysisSettings.startDate,
     analysisSettings.endDate,
     textColor,
@@ -236,6 +302,31 @@ export default function MetricExplorerBlock({
           value={(chartData && "value" in chartData && chartData.value) || 0}
           formatter={
             (chartData as { formatter: (value: number) => string }).formatter
+          }
+          compareSlot={
+            compareEnabled &&
+            "comparePct" in chartData &&
+            chartData.comparePct !== undefined ? (
+              <Text
+                as="div"
+                size="2"
+                weight="medium"
+                mt="1"
+                style={{
+                  color:
+                    chartData.comparePct >= 0
+                      ? "var(--green-11)"
+                      : "var(--red-11)",
+                }}
+              >
+                {new Intl.NumberFormat(undefined, {
+                  style: "percent",
+                  maximumFractionDigits: 1,
+                  signDisplay: "exceptZero",
+                }).format(chartData.comparePct)}{" "}
+                vs. previous period
+              </Text>
+            ) : undefined
           }
         />
       ) : (
