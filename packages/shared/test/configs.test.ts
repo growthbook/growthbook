@@ -1168,6 +1168,22 @@ describe("collectConfigInvariantViolations", () => {
     expect(collectConfigInvariantViolations("leaf", noLayer)).toEqual([
       { name: "must-us", message: "must be us" },
     ]);
+
+    // Mixed: a reference layer is present BUT the invariant's field is also
+    // concretely set — it must still be evaluated (the layer elsewhere in the
+    // chain doesn't exempt a field we can resolve). Regression guard against an
+    // over-broad whole-chain exemption.
+    const layerPlusConcrete = dagMap([
+      base,
+      {
+        key: "leaf",
+        parent: "base",
+        value: '{"$extends":["@config:other"],"region":"eu"}',
+      },
+    ]);
+    expect(collectConfigInvariantViolations("leaf", layerPlusConcrete)).toEqual(
+      [{ name: "must-us", message: "must be us" }],
+    );
   });
 });
 

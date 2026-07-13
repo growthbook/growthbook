@@ -783,12 +783,6 @@ export function collectConfigInvariantViolations(
   byKey: Map<string, ConfigDagNode>,
 ): InvariantViolation[] {
   const chain = linearizeConfigDag(leafKey, byKey);
-  // A `@const:`/`@config:` `$extends` layer can supply arbitrary fields that
-  // aren't resolvable at gate time, so a field it provides looks missing/null to
-  // an invariant here. Exempt the whole chain (same coarseness as the
-  // required-field gate) rather than falsely block a publish whose fields
-  // resolve fine at serve time.
-  if (configChainDeclaresReferenceLayer(chain)) return [];
   type Invariant = NonNullable<SimpleSchema["invariants"]>[number];
   const invByName = new Map<string, Invariant>();
   for (const node of chain) {
@@ -801,16 +795,24 @@ export function collectConfigInvariantViolations(
   for (const f of resolveConfigChain(chain).fields) {
     if (f.source !== null) resolvedValue[f.key] = f.value;
   }
-  // Reference-backed keys hold raw `@const:`/`{{ @const:... }}` tokens here, not
-  // their resolved values — a rule over them would compare against the token
-  // string. Skip those rules (same exemption as type validation).
+  // Skip a rule we can't fairly evaluate at gate time, per field it references:
+  //  - reference-backed keys hold raw `@const:`/`{{ @const:... }}` tokens here,
+  //    not their resolved values, so a rule would compare against the token; and
+  //  - when the chain declares a `@const:`/`@config:` `$extends` layer, a field
+  //    ABSENT from the resolved value may be supplied by that (gate-time-
+  //    unresolvable) layer, so a rule over it can't be judged.
+  // A rule over concretely-resolved fields still evaluates — a reference layer
+  // elsewhere in the chain no longer exempts the whole config.
+  const hasRefLayer = configChainDeclaresReferenceLayer(chain);
   const refBackedKeys = new Set(
     Object.keys(resolvedValue).filter((k) =>
       valueHasReferenceToken(resolvedValue[k]),
     ),
   );
+  const unevaluableField = (k: string): boolean =>
+    refBackedKeys.has(k) || (hasRefLayer && !(k in resolvedValue));
   const evaluable = [...invByName.values()].filter(
-    (inv) => !invariantRuleFields(inv.rule).some((k) => refBackedKeys.has(k)),
+    (inv) => !invariantRuleFields(inv.rule).some(unevaluableField),
   );
   if (!evaluable.length) return [];
   return evaluateInvariants(resolvedValue, evaluable);
