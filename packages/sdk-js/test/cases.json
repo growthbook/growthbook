@@ -5465,7 +5465,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5543,7 +5543,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5621,7 +5621,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5907,7 +5907,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8608,7 +8608,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8696,7 +8696,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8791,7 +8791,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8887,7 +8887,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8994,7 +8994,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9101,7 +9101,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9202,7 +9202,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9264,7 +9264,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               },
               {
@@ -9330,7 +9330,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "condition": {
                   "country": "US"
                 },
@@ -9396,7 +9396,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9462,7 +9462,7 @@
                     "key": "2"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9580,7 +9580,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9674,7 +9674,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9760,7 +9760,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9846,7 +9846,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9932,7 +9932,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10018,7 +10018,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10105,7 +10105,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10168,7 +10168,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10230,7 +10230,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10293,7 +10293,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10391,7 +10391,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10483,7 +10483,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10575,7 +10575,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10642,7 +10642,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10734,7 +10734,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10806,7 +10806,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10909,7 +10909,7 @@
                     "key": "0"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10966,7 +10966,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "condition": {
                   "country": "US"
                 },
@@ -11067,7 +11067,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -11162,7 +11162,7 @@
                     "key": "1"
                   }
                 ],
-                "type": "contextual-bandit",
+                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]

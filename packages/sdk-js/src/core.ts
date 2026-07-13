@@ -1,6 +1,6 @@
 import {
   EvalContext,
-  ContextualBanditData,
+  ContextualBanditDefinition,
   ContextualBanditInfo,
   FeatureDefinition,
   FeatureResult,
@@ -354,18 +354,19 @@ export function evalFeature<V = unknown>(
       if (rule.condition) exp.condition = rule.condition;
 
       let cbInfo: ContextualBanditInfo | undefined;
-      if (rule.type === "contextual-bandit" && rule.contextualBanditRef) {
-        const cbData = ctx.global.contextualBandits?.[rule.contextualBanditRef];
-        if (!cbData) {
+      if (rule.isContextualBandit && rule.contextualBanditRef) {
+        const cbDefinition =
+          ctx.global.contextualBandits?.[rule.contextualBanditRef];
+        if (!cbDefinition) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log(
               "Contextual bandit ref not found in payload, using aggregate weights",
               { id, rule },
             );
-        } else if (cbData.contexts.length) {
+        } else if (cbDefinition.contexts.length) {
           // No leaf weights yet (e.g. explore stage) also falls through to the
           // plain-experiment path above via the else branch.
-          const leaf = getContextualBanditLeaf(cbData, ctx);
+          const leaf = getContextualBanditLeaf(cbDefinition, ctx);
           if (!leaf) {
             process.env.NODE_ENV !== "production" &&
               ctx.global.log(
@@ -378,7 +379,7 @@ export function evalFeature<V = unknown>(
           cbInfo = {
             leafId: leaf.leafId,
             variationWeights: leaf.weights,
-            banditVersion: cbData.banditVersion,
+            banditVersion: cbDefinition.banditVersion,
           };
         }
       }
@@ -855,19 +856,22 @@ function getAttributes(ctx: EvalContext) {
 }
 
 function getContextualBanditLeaf(
-  cbData: ContextualBanditData,
+  cbDefinition: ContextualBanditDefinition,
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
-  if (cbData.attributesRequired && cbData.attributesRequired.length) {
+  if (
+    cbDefinition.attributesRequired &&
+    cbDefinition.attributesRequired.length
+  ) {
     const attributes = getAttributes(ctx);
-    for (const attr of cbData.attributesRequired) {
+    for (const attr of cbDefinition.attributesRequired) {
       if (attributes[attr] === undefined || attributes[attr] === null) {
         return null;
       }
     }
   }
 
-  for (const context of cbData.contexts || []) {
+  for (const context of cbDefinition.contexts || []) {
     if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
       return { leafId: context.leafId, weights: context.weights };
     }

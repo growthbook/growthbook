@@ -114,7 +114,7 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
 
     expect(def).toBeTruthy();
     const rule = def?.rules?.[0];
-    expect(rule?.type).toEqual("contextual-bandit");
+    expect(rule?.isContextualBandit).toEqual(true);
     expect(rule?.contextualBanditRef).toEqual("cb_1");
     // Nothing bulky on the rule — it all lives in the top-level map
     expect(rule).not.toHaveProperty("contexts");
@@ -140,7 +140,7 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     const rule = def?.rules?.[0];
     expect(rule).toBeTruthy();
     expect(rule).not.toHaveProperty("contextualBanditRef");
-    expect(rule).not.toHaveProperty("type");
+    expect(rule).not.toHaveProperty("isContextualBandit");
     // Degrades to a plain experiment rule with aggregate weights
     expect(rule?.variations).toEqual(["control", "treatment"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
@@ -151,11 +151,11 @@ describe("filterUsedContextualBandits", () => {
   const featuresWithRef: Record<string, FeatureDefinition> = {
     feature_a: {
       defaultValue: "control",
-      rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_1" }],
+      rules: [{ isContextualBandit: true, contextualBanditRef: "cb_1" }],
     },
     feature_b: {
       defaultValue: "off",
-      rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_1" }],
+      rules: [{ isContextualBandit: true, contextualBanditRef: "cb_1" }],
     },
   };
 
@@ -251,19 +251,19 @@ describe("measureContextualBanditPayload", () => {
         f1: {
           defaultValue: "x",
           rules: [
-            { type: "contextual-bandit", contextualBanditRef: "cb_small" },
+            { isContextualBandit: true, contextualBanditRef: "cb_small" },
           ],
         },
         f2: {
           defaultValue: "y",
           rules: [
-            { type: "contextual-bandit", contextualBanditRef: "cb_big" },
+            { isContextualBandit: true, contextualBanditRef: "cb_big" },
             { force: "z" },
           ],
         },
         f3: {
           defaultValue: "z",
-          rules: [{ type: "contextual-bandit", contextualBanditRef: "cb_big" }],
+          rules: [{ isContextualBandit: true, contextualBanditRef: "cb_big" }],
         },
       },
     );

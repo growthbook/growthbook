@@ -12,7 +12,7 @@ function cbRule(overrides: Record<string, unknown> = {}) {
     variations: ["control", "treatment"],
     weights: [1, 0],
     meta: [{ key: "0" }, { key: "1" }],
-    type: "contextual-bandit" as const,
+    isContextualBandit: true,
     contextualBanditRef: "cb_promo",
     ...overrides,
   };

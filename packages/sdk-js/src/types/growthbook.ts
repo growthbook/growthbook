@@ -48,11 +48,11 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  type?: "standard" | "multi-armed-bandit" | "contextual-bandit";
+  isContextualBandit?: boolean;
   contextualBanditRef?: string;
 };
 
-export type ContextualBanditData = {
+export type ContextualBanditDefinition = {
   banditVersion?: number;
   attributesRequired?: string[];
   contexts: {
@@ -62,7 +62,7 @@ export type ContextualBanditData = {
   }[];
 };
 
-export type ContextualBanditsMap = Record<string, ContextualBanditData>;
+export type ContextualBanditsMap = Record<string, ContextualBanditDefinition>;
 
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;

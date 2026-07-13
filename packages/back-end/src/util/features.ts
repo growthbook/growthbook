@@ -953,7 +953,7 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.type = "contextual-bandit";
+            rule.isContextualBandit = true;
             rule.contextualBanditRef = cb.id;
           }
 
