@@ -41,6 +41,7 @@ import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Link from "@/ui/Link";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 
@@ -216,8 +217,10 @@ function EventSelect({
   );
 }
 
-// Scopes added after the earliest installs; if a connection is missing any of
-// these we prompt the user to reconnect. Keep in sync with SLACK_OAUTH_SCOPE.
+// Scopes a CHANNEL connection needs (channels:join is workspace-level — see
+// the index page). Missing any → reconnect prompt; a workspace reconnect
+// propagates the fresh scope string to channel docs. Subset of
+// SLACK_OAUTH_SCOPE (back-end slackIntegration.ts).
 const REQUIRED_SCOPES = ["channels:read", "groups:read"];
 
 const getChannelLabel = (i: SlackOAuthIntegrationInterface) => {
@@ -893,6 +896,25 @@ const SlackIntegrationDetailPage = () => {
         />
         <Callout status="error">
           This Slack channel is no longer connected.
+        </Callout>
+      </div>
+    );
+  }
+
+  // Workspace connections (channel-less docs) have no channel settings —
+  // channels are managed from the Slack integrations page.
+  if (!integration.slack?.channelId) {
+    return (
+      <div className="container pagecontents">
+        <PageHead
+          breadcrumb={[
+            { display: "Slack", href: "/integrations/slack" },
+            { display: "Workspace connection" },
+          ]}
+        />
+        <Callout status="info">
+          This is a Slack workspace connection, not a channel. Add and manage
+          channels from the <Link href="/integrations/slack">Slack page</Link>.
         </Callout>
       </div>
     );

@@ -22,6 +22,7 @@ import {
 } from "back-end/src/services/slack/chartImage";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import {
+  isSlackIncomingWebhookUrl,
   postSlackMessageResult,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
@@ -841,7 +842,15 @@ export const sendSlackEventWebhookTestEvent = async ({
       }
     } else {
       // No bot token — text-only via the incoming-webhook URL (never a public
-      // card image URL). Mirrors the generic non-bot-token Slack path.
+      // card image URL), legacy installs only. Workspace-level installs store
+      // a placeholder url that must never be POSTed.
+      if (!isSlackIncomingWebhookUrl(eventWebHook.url)) {
+        return {
+          ok: false,
+          error:
+            "This Slack connection has no bot token. Reconnect the workspace from Settings → Slack.",
+        };
+      }
       const { responseWithoutBody } = await cancellableFetch(
         eventWebHook.url,
         {

@@ -29,6 +29,7 @@ import {
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
+  isSlackIncomingWebhookUrl,
   postSlackMessageResult,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
@@ -195,6 +196,26 @@ export class EventWebHookNotifier implements Notifier {
         organizationId: organization.id,
       });
       if (handled) return;
+
+      // No bot token/channel AND no real incoming-webhook URL (workspace-level
+      // installs store a placeholder) — there is nowhere to deliver. Surface
+      // an error in Run Logs rather than POSTing the placeholder.
+      if (!isSlackIncomingWebhookUrl(eventWebHook.url)) {
+        return EventWebHookNotifier.handleWebHookError({
+          job,
+          webHookResult: {
+            result: "error",
+            statusCode: null,
+            error:
+              "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
+          },
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method: eventWebHook.method || "POST",
+          payload: {},
+        });
+      }
     }
 
     const payload = await (async () => {
@@ -485,6 +506,82 @@ export class EventWebHookNotifier implements Notifier {
     }
 
     const method = eventWebHook.method || "POST";
+
+    const logPayload = {
+      ...(payload.body as Record<string, unknown>),
+      coalescedEventIds: eventIds,
+    };
+
+    // Use the first event's name as the representative "event" for
+    // status/log entries; the bundled ids are preserved in the payload.
+    const representativeEvent = loadedEvents[0].event;
+
+    const finish = (webHookResult: EventWebHookResult) =>
+      webHookResult.result === "success"
+        ? EventWebHookNotifier.handleWebHookSuccess({
+            job: job as unknown as Job<EventWebHookJobData>,
+            webHookResult,
+            organizationId,
+            event: representativeEvent,
+            url: eventWebHook.url,
+            method,
+            payload: logPayload,
+          })
+        : EventWebHookNotifier.handleWebHookError({
+            job: job as unknown as Job<EventWebHookJobData>,
+            webHookResult,
+            organizationId,
+            event: representativeEvent,
+            url: eventWebHook.url,
+            method,
+            payload: logPayload,
+          });
+
+    // Slack: prefer the bot token (chat.postMessage). Workspace-level installs
+    // have no real incoming-webhook URL — only a placeholder that must never
+    // be POSTed — and legacy installs with a token get delivery consistent
+    // with the immediate (non-coalesced) path.
+    if ((eventWebHook.payloadType || "raw") === "slack") {
+      const botToken = await getSlackBotAccessTokenForWebhook({
+        eventWebHookId,
+        organizationId,
+      });
+      const channelId = (
+        eventWebHook.slack as { channelId?: string } | undefined
+      )?.channelId;
+      if (botToken && channelId) {
+        const message = payload.body as unknown as SlackMessage;
+        const result = await postSlackMessageResult({
+          token: botToken,
+          channel: channelId,
+          text: message.text,
+          blocks: message.blocks as unknown as Record<string, unknown>[],
+          unfurl: false,
+        });
+        return finish(
+          result.ok
+            ? {
+                result: "success",
+                statusCode: 200,
+                responseBody: result.ts || "ok",
+              }
+            : {
+                result: "error",
+                statusCode: null,
+                error: `Slack delivery failed: ${result.error}`,
+              },
+        );
+      }
+      if (!isSlackIncomingWebhookUrl(eventWebHook.url)) {
+        return finish({
+          result: "error",
+          statusCode: null,
+          error:
+            "Slack delivery failed: no bot token or channel for this connection (reconnect the Slack workspace)",
+        });
+      }
+    }
+
     const context = getContextForAgendaJobByOrgObject(organization);
     const origin = new URL(eventWebHook.url).origin;
     const applySecrets =
@@ -497,37 +594,7 @@ export class EventWebHookNotifier implements Notifier {
       applySecrets,
     });
 
-    const logPayload = {
-      ...(payload.body as Record<string, unknown>),
-      coalescedEventIds: eventIds,
-    };
-
-    // Use the first event's name as the representative "event" for
-    // status/log entries; the bundled ids are preserved in the payload.
-    const representativeEvent = loadedEvents[0].event;
-
-    switch (webHookResult.result) {
-      case "success":
-        return EventWebHookNotifier.handleWebHookSuccess({
-          job: job as unknown as Job<EventWebHookJobData>,
-          webHookResult,
-          organizationId,
-          event: representativeEvent,
-          url: eventWebHook.url,
-          method,
-          payload: logPayload,
-        });
-      case "error":
-        return EventWebHookNotifier.handleWebHookError({
-          job: job as unknown as Job<EventWebHookJobData>,
-          webHookResult,
-          organizationId,
-          event: representativeEvent,
-          url: eventWebHook.url,
-          method,
-          payload: logPayload,
-        });
-    }
+    return finish(webHookResult);
   }
 
   /**

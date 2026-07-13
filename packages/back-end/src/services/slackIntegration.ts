@@ -17,30 +17,43 @@ import {
   createEventWebHook,
   deleteEventWebHookById,
   EventWebHookModel,
+  findSlackWorkspaceEventWebhook,
   getAllEventWebHooks,
   getEventWebHookById,
   getSlackBotAccessTokenForWebhook,
+  propagateSlackTeamCredentials,
   reconnectSlackEventWebhook,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
-import { getSlackConversationName } from "back-end/src/services/slack/slackWebApi";
+import {
+  getSlackConversationName,
+  joinSlackConversation,
+  listSlackConversations,
+} from "back-end/src/services/slack/slackWebApi";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
+// Workspace-level install — no incoming-webhook scope, so Slack shows no
+// channel picker on consent; channels are added from the GrowthBook UI.
 // app_mentions:read: receive @-mentions. *:history: receive plain thread
-// follow-ups without a mention. channels:read/groups:read: resolve a channel's
-// current name (conversations.info) so the UI shows renames. Rest cover
-// incoming-webhook notifications, slash commands, chat:write, and users:read*.
+// follow-ups without a mention. channels:read/groups:read: list channels and
+// resolve renames (conversations.list/info). channels:join: the bot joins
+// public channels picked in the UI. Rest cover slash commands, chat:write
+// delivery, file uploads, and users:read*.
 const SLACK_OAUTH_SCOPE =
-  "incoming-webhook,commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:history,groups:history,im:history,mpim:history,links:read";
+  "commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:join,channels:history,groups:history,im:history,mpim:history,links:read";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 // Fresh installs subscribe to the curated default set (explicit event names,
 // no wildcards) so the low-signal suppression gate is bypassed. Editable on the
 // Slack settings page afterward.
 const DEFAULT_SLACK_EVENTS = defaultSlackEventSubscriptions();
+// Workspace-level installs have no incoming-webhook URL; the model requires a
+// url, so store a placeholder. Delivery code never POSTs it — everything goes
+// through the bot token, guarded by isSlackIncomingWebhookUrl.
+const SLACK_PLACEHOLDER_URL = "https://slack.com";
 
 const slackOAuthStateSchema = z
   .object({
@@ -79,6 +92,9 @@ const slackOAuthAccessSuccessSchema = z
       })
       .passthrough()
       .optional(),
+    // Only present when the app still requests the incoming-webhook scope
+    // (legacy manifest / per-channel installs). Workspace-level installs omit
+    // it; when present its shape is still validated strictly.
     incoming_webhook: z
       .object({
         channel: z.string().optional(),
@@ -86,7 +102,8 @@ const slackOAuthAccessSuccessSchema = z
         configuration_url: z.string().url().optional(),
         url: z.string().url().startsWith("https://hooks.slack.com/services/"),
       })
-      .strict(),
+      .strict()
+      .optional(),
     is_enterprise_install: z.boolean().optional(),
   })
   .passthrough();
@@ -240,9 +257,9 @@ const getSlackMetadata = (slackOAuthResponse: SlackOAuthAccessSuccess) => ({
   teamName: slackOAuthResponse.team?.name,
   enterpriseId: slackOAuthResponse.enterprise?.id,
   enterpriseName: slackOAuthResponse.enterprise?.name,
-  channelName: slackOAuthResponse.incoming_webhook.channel,
-  channelId: slackOAuthResponse.incoming_webhook.channel_id,
-  configurationUrl: slackOAuthResponse.incoming_webhook.configuration_url,
+  channelName: slackOAuthResponse.incoming_webhook?.channel,
+  channelId: slackOAuthResponse.incoming_webhook?.channel_id,
+  configurationUrl: slackOAuthResponse.incoming_webhook?.configuration_url,
   botUserId: slackOAuthResponse.bot_user_id,
   authedUserId: slackOAuthResponse.authed_user?.id,
   scope: slackOAuthResponse.scope,
@@ -267,10 +284,12 @@ const persistSlackBotAccessToken = async ({
 };
 
 const getSlackWebhookName = (slackOAuthResponse: SlackOAuthAccessSuccess) => {
+  const team = slackOAuthResponse.team?.name;
+  if (!slackOAuthResponse.incoming_webhook) {
+    return team ? `Slack workspace (${team})` : "Slack workspace";
+  }
   const channel =
     slackOAuthResponse.incoming_webhook.channel || "Slack channel";
-  const team = slackOAuthResponse.team?.name;
-
   return team ? `Slack ${channel} (${team})` : `Slack ${channel}`;
 };
 
@@ -282,7 +301,7 @@ const findExistingSlackEventWebhook = async ({
   slackOAuthResponse: SlackOAuthAccessSuccess;
 }) => {
   const teamId = slackOAuthResponse.team?.id;
-  const channelId = slackOAuthResponse.incoming_webhook.channel_id;
+  const channelId = slackOAuthResponse.incoming_webhook?.channel_id;
 
   if (!teamId || !channelId) return null;
 
@@ -386,6 +405,16 @@ const attachSlackOAuthCode = async ({
   code: string;
 }) => {
   const slackOAuthResponse = await exchangeSlackOAuthCode(code);
+
+  // Workspace-level install (current manifest, no incoming-webhook scope):
+  // no channel was picked on Slack's consent screen — attach a channel-less
+  // workspace connection; channels are added afterward from the GrowthBook UI.
+  if (!slackOAuthResponse.incoming_webhook) {
+    return attachSlackWorkspaceInstall({ context, slackOAuthResponse });
+  }
+
+  // Legacy per-channel install (manifest still has the incoming-webhook
+  // scope): Slack picked a channel and minted a webhook URL for it.
   const existing = await findExistingSlackEventWebhook({
     context,
     slackOAuthResponse,
@@ -439,6 +468,86 @@ const attachSlackOAuthCode = async ({
 
   const updated = await getEventWebHookById(created.id, context.org.id);
   return slackEventWebhookToIntegration(updated || created);
+};
+
+// Attach a workspace-level install: one channel-less, DISABLED EventWebHook
+// doc per team+org holding the bot token + team metadata. Disabled keeps it
+// out of the event fan-out and digest scans — it exists to hold credentials
+// (and to route the assistant) until channels are added from the UI.
+const attachSlackWorkspaceInstall = async ({
+  context,
+  slackOAuthResponse,
+}: {
+  context: ReqContext;
+  slackOAuthResponse: SlackOAuthAccessSuccess;
+}) => {
+  const teamId = slackOAuthResponse.team?.id;
+  if (!teamId) {
+    throw new Error(
+      "Slack did not return a workspace id. Install the GrowthBook app into a specific workspace (org-wide enterprise installs are not supported).",
+    );
+  }
+
+  const existing = await findSlackWorkspaceEventWebhook({
+    organizationId: context.org.id,
+    teamId,
+  });
+
+  let eventWebHookId: string;
+  if (existing) {
+    await reconnectSlackEventWebhook({
+      eventWebHookId: existing.id,
+      organizationId: context.org.id,
+      slack: getSlackMetadata(slackOAuthResponse),
+      botAccessToken: slackOAuthResponse.access_token,
+      enabled: false,
+    });
+    eventWebHookId = existing.id;
+  } else {
+    const created = await createEventWebHook({
+      name: getSlackWebhookName(slackOAuthResponse),
+      url: SLACK_PLACEHOLDER_URL,
+      organizationId: context.org.id,
+      enabled: false,
+      events: DEFAULT_SLACK_EVENTS,
+      projects: [],
+      experiments: [],
+      metrics: [],
+      tags: [],
+      environments: [],
+      payloadType: "slack",
+      method: "POST",
+      headers: {},
+      slack: getSlackMetadata(slackOAuthResponse),
+      coalesceWindowMs: EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS,
+      slackOptions: {
+        experimentCardFormat: "compact",
+        digest: { frequency: "off" },
+      },
+    });
+    await persistSlackBotAccessToken({
+      eventWebHookId: created.id,
+      organizationId: context.org.id,
+      accessToken: slackOAuthResponse.access_token,
+    });
+    eventWebHookId = created.id;
+  }
+
+  // Channel docs no longer get their own OAuth exchange — push the fresh
+  // token + scope onto every same-team doc so they keep delivering and their
+  // settings-page reconnect banner clears.
+  await propagateSlackTeamCredentials({
+    organizationId: context.org.id,
+    teamId,
+    botAccessToken: slackOAuthResponse.access_token,
+    scope: slackOAuthResponse.scope,
+  });
+
+  const updated = await getEventWebHookById(eventWebHookId, context.org.id);
+  if (!updated) {
+    throw new Error("Unable to load Slack workspace connection");
+  }
+  return slackEventWebhookToIntegration(updated);
 };
 
 /**
@@ -499,4 +608,202 @@ export const deleteSlackOAuthIntegration = async ({
     eventWebHookId: eventWebHook.id,
     organizationId: context.org.id,
   });
+};
+
+// Resolve the org's workspace connection (channel-less doc) and its bot token.
+// `teamId` selects between multiple connected workspaces; it may be omitted
+// when the org has exactly one.
+const resolveSlackWorkspace = async ({
+  context,
+  teamId,
+}: {
+  context: ReqContext;
+  teamId?: string;
+}) => {
+  const eventWebHooks = await getAllEventWebHooks(context.org.id);
+  const slackWebhooks = eventWebHooks.filter((w) => w.payloadType === "slack");
+  const workspaceDocs = slackWebhooks.filter(
+    (w) => w.slack?.teamId && !w.slack?.channelId,
+  );
+  const workspace = teamId
+    ? workspaceDocs.find((w) => w.slack?.teamId === teamId)
+    : workspaceDocs.length === 1
+      ? workspaceDocs[0]
+      : undefined;
+  if (!workspace) {
+    throw new Error(
+      workspaceDocs.length && !teamId
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found. Connect to Slack first.",
+    );
+  }
+  const token = await getSlackBotAccessTokenForWebhook({
+    eventWebHookId: workspace.id,
+    organizationId: context.org.id,
+  });
+  if (!token) {
+    throw new Error(
+      "Slack bot token unavailable. Reconnect the Slack workspace.",
+    );
+  }
+  return { workspace, token, slackWebhooks };
+};
+
+export type SlackChannelOption = {
+  id: string;
+  name: string;
+  isPrivate: boolean;
+  isMember: boolean;
+  alreadyConnected: boolean;
+};
+
+/**
+ * Channels available to connect in the org's Slack workspace, for the
+ * add-channel picker. Private channels only appear once the bot has been
+ * /invited (conversations.list semantics). Caps at ~5 pages per request;
+ * `nextCursor` lets the UI fetch more.
+ */
+export const listSlackWorkspaceChannels = async ({
+  context,
+  teamId,
+  cursor,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  cursor?: string;
+}): Promise<{
+  channels: SlackChannelOption[];
+  nextCursor: string | null;
+  teamId: string;
+}> => {
+  const { workspace, token, slackWebhooks } = await resolveSlackWorkspace({
+    context,
+    teamId,
+  });
+  const wsTeamId = workspace.slack?.teamId as string;
+
+  const connected = new Set(
+    slackWebhooks
+      .filter((w) => w.slack?.teamId === wsTeamId && w.slack?.channelId)
+      .map((w) => w.slack?.channelId),
+  );
+
+  const channels: SlackChannelOption[] = [];
+  let nextCursor: string | null = cursor || null;
+  for (let page = 0; page < 5; page++) {
+    const res = await listSlackConversations({
+      token,
+      cursor: nextCursor || undefined,
+    });
+    if (!res) throw new Error("Failed to list Slack channels");
+    channels.push(
+      ...res.channels.map((c) => ({
+        ...c,
+        alreadyConnected: connected.has(c.id),
+      })),
+    );
+    nextCursor = res.nextCursor;
+    if (!nextCursor) break;
+  }
+  channels.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { channels, nextCursor, teamId: wsTeamId };
+};
+
+/**
+ * Connect a channel picked in the GrowthBook UI: join it (public channels;
+ * private ones require a prior /invite) and create its per-channel
+ * EventWebHook doc with the workspace's team metadata + bot token copied on.
+ * Idempotent — an already-connected channel returns its existing connection.
+ */
+export const addSlackChannelToWorkspace = async ({
+  context,
+  teamId,
+  channelId,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  channelId: string;
+}): Promise<SlackOAuthIntegrationInterface> => {
+  const { workspace, token, slackWebhooks } = await resolveSlackWorkspace({
+    context,
+    teamId,
+  });
+  const wsTeamId = workspace.slack?.teamId as string;
+
+  const existing = slackWebhooks.find(
+    (w) => w.slack?.teamId === wsTeamId && w.slack?.channelId === channelId,
+  );
+  if (existing) return slackEventWebhookToIntegration(existing);
+
+  // Find the channel (name / privacy / membership) in the workspace list.
+  let channel:
+    | { id: string; name: string; isPrivate: boolean; isMember: boolean }
+    | undefined;
+  let cursor: string | undefined;
+  for (let page = 0; page < 5 && !channel; page++) {
+    const res = await listSlackConversations({ token, cursor });
+    if (!res) break;
+    channel = res.channels.find((c) => c.id === channelId);
+    if (!res.nextCursor) break;
+    cursor = res.nextCursor;
+  }
+  if (!channel) {
+    // Deep pagination fallback: resolve the name directly and attempt a join.
+    const name = await getSlackConversationName({ token, channelId });
+    if (!name) throw new Error("Slack channel not found in this workspace");
+    channel = { id: channelId, name, isPrivate: false, isMember: false };
+  }
+
+  if (!channel.isMember) {
+    if (channel.isPrivate) {
+      throw new Error(
+        `GrowthBook can't join private channels itself. In Slack, run /invite @GrowthBook in #${channel.name}, then try again.`,
+      );
+    }
+    const join = await joinSlackConversation({ token, channelId });
+    if (!join.ok) {
+      throw new Error(
+        `Couldn't join #${channel.name}: ${join.error}. If it's a private channel, run /invite @GrowthBook in it first.`,
+      );
+    }
+  }
+
+  const created = await createEventWebHook({
+    name: workspace.slack?.teamName
+      ? `Slack #${channel.name} (${workspace.slack.teamName})`
+      : `Slack #${channel.name}`,
+    url: SLACK_PLACEHOLDER_URL,
+    organizationId: context.org.id,
+    enabled: true,
+    events: DEFAULT_SLACK_EVENTS,
+    projects: [],
+    experiments: [],
+    metrics: [],
+    tags: [],
+    environments: [],
+    payloadType: "slack",
+    method: "POST",
+    headers: {},
+    slack: {
+      ...workspace.slack,
+      channelId: channel.id,
+      channelName: channel.name,
+    },
+    coalesceWindowMs: EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS,
+    slackOptions: {
+      experimentCardFormat: "compact",
+      digest: { frequency: "off" },
+    },
+  });
+  // Copy the workspace bot token onto the channel doc so per-doc token reads
+  // keep working even if the workspace connection is later deleted.
+  await persistSlackBotAccessToken({
+    eventWebHookId: created.id,
+    organizationId: context.org.id,
+    accessToken: token,
+  });
+
+  const updated = await getEventWebHookById(created.id, context.org.id);
+  return slackEventWebhookToIntegration(updated || created);
 };

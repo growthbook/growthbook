@@ -9,12 +9,15 @@ import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
 import {
+  addSlackChannelToWorkspace,
   connectSlackOAuthIntegration,
   connectSlackOAuthInstallFromSession,
   deleteSlackOAuthIntegration,
   getSlackOAuthAuthorizeUrl,
   getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
+  listSlackWorkspaceChannels,
+  type SlackChannelOption,
 } from "back-end/src/services/slackIntegration";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
 import { upsertSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
@@ -189,6 +192,77 @@ export const postSlackLink = async (
 };
 
 // endregion POST /integrations/slack/link
+
+// region GET /integrations/slack/channels
+
+type GetSlackWorkspaceChannelsRequest = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  { teamId?: string; cursor?: string }
+>;
+
+type GetSlackWorkspaceChannelsResponse = {
+  channels: SlackChannelOption[];
+  nextCursor: string | null;
+  teamId: string;
+};
+
+// Channels available to connect in the org's Slack workspace (for the
+// add-channel picker on the settings page).
+export const getSlackWorkspaceChannels = async (
+  req: GetSlackWorkspaceChannelsRequest,
+  res: Response<GetSlackWorkspaceChannelsResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await listSlackWorkspaceChannels({
+    context,
+    teamId: req.query.teamId,
+    cursor: req.query.cursor,
+  });
+
+  return res.json(result);
+};
+
+// endregion GET /integrations/slack/channels
+
+// region POST /integrations/slack/channels
+
+type PostSlackChannelRequest = AuthRequest<{
+  teamId?: string;
+  channelId: string;
+}>;
+
+type PostSlackChannelResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
+// Connect a channel picked in the UI: the bot joins it (public channels) and a
+// per-channel connection is created with the workspace's credentials.
+export const postSlackChannel = async (
+  req: PostSlackChannelRequest,
+  res: Response<PostSlackChannelResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await addSlackChannelToWorkspace({
+    context,
+    teamId: req.body.teamId,
+    channelId: req.body.channelId,
+  });
+
+  return res.json({ slackIntegration });
+};
+
+// endregion POST /integrations/slack/channels
 
 // region GET /integrations/slack/:id
 

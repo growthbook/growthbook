@@ -1,11 +1,20 @@
 import { cancellableFetch, fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
-// Minimal Slack Web API client for the interactive assistant (bot-token calls:
-// chat.postMessage/update, users.info). Outbound event notifications still go
-// through incoming webhooks (EventWebHookNotifier).
+// Minimal Slack Web API client for bot-token calls: chat.postMessage/update,
+// files upload, users.info, conversations.*. Event notifications deliver via
+// these too (EventWebHookNotifier); legacy installs may still post text via an
+// incoming-webhook URL.
 
 const SLACK_API_URL = "https://slack.com/api";
+
+// Real Slack incoming-webhook URLs (legacy per-channel installs) start with
+// this. Workspace-level installs store a placeholder url instead — delivery
+// code must check this before POSTing to `eventWebHook.url`.
+export const SLACK_INCOMING_WEBHOOK_PREFIX = "https://hooks.slack.com/";
+export const isSlackIncomingWebhookUrl = (
+  url: string | undefined | null,
+): boolean => !!url && url.startsWith(SLACK_INCOMING_WEBHOOK_PREFIX);
 
 // Slack returns HTTP 200 even on logical failures, carrying { ok: false,
 // error }. Always inspect the parsed body, never just the HTTP status.
@@ -322,4 +331,83 @@ export async function getSlackConversationName({
   >(token, "conversations.info", { channel: channelId });
   const name = res?.ok ? res.channel?.name : undefined;
   return name || null;
+}
+
+export type SlackConversation = {
+  id: string;
+  name: string;
+  isPrivate: boolean;
+  isMember: boolean;
+};
+
+/**
+ * One page of the workspace's channels via conversations.list. Private
+ * channels only appear when the bot is already a member (Slack semantics) —
+ * exactly the "/invite the bot first" flow the channel picker wants. Returns
+ * null on API failure.
+ */
+export async function listSlackConversations({
+  token,
+  cursor,
+}: {
+  token: string;
+  cursor?: string;
+}): Promise<{
+  channels: SlackConversation[];
+  nextCursor: string | null;
+} | null> {
+  const res = await slackApiGet<
+    SlackApiResponse & {
+      channels?: {
+        id?: string;
+        name?: string;
+        is_private?: boolean;
+        is_member?: boolean;
+        is_archived?: boolean;
+      }[];
+      response_metadata?: { next_cursor?: string };
+    }
+  >(token, "conversations.list", {
+    types: "public_channel,private_channel",
+    exclude_archived: "true",
+    limit: "200",
+    ...(cursor ? { cursor } : {}),
+  });
+  if (!res?.ok) return null;
+  const channels = (res.channels || [])
+    .filter((c) => c.id && c.name && !c.is_archived)
+    .map((c) => ({
+      id: c.id as string,
+      name: c.name as string,
+      isPrivate: !!c.is_private,
+      isMember: !!c.is_member,
+    }));
+  return {
+    channels,
+    nextCursor: res.response_metadata?.next_cursor || null,
+  };
+}
+
+/**
+ * Join a public channel (requires channels:join). `already_in_channel` comes
+ * back as ok:true with a warning, so it's naturally a success. Private
+ * channels can't be joined via API (method_not_supported_for_channel_type) —
+ * callers surface the "/invite the bot" instruction instead.
+ */
+export async function joinSlackConversation({
+  token,
+  channelId,
+}: {
+  token: string;
+  channelId: string;
+}): Promise<{ ok: boolean; error: string | null }> {
+  const res = await slackApiCall<SlackApiResponse>(
+    token,
+    "conversations.join",
+    { channel: channelId },
+  );
+  return {
+    ok: !!res?.ok,
+    error: res?.ok ? null : (res?.error ?? "unknown error"),
+  };
 }

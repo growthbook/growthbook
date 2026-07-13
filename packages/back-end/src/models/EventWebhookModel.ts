@@ -505,8 +505,70 @@ export const getSlackBotAccessTokenForWebhook = async ({
     organizationId,
     payloadType: "slack",
   }).lean();
-  const slack = doc?.slack as { botAccessToken?: string } | undefined;
-  return slack?.botAccessToken || null;
+  const slack = doc?.slack as
+    | { botAccessToken?: string; teamId?: string }
+    | undefined;
+  if (slack?.botAccessToken) return slack.botAccessToken;
+
+  // The bot token is workspace-level, so fall back to any same-team doc's
+  // token (e.g. the workspace connection doc, or a sibling channel refreshed
+  // by a more recent reconnect).
+  if (!slack?.teamId) return null;
+  const teamDoc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": slack.teamId,
+    "slack.botAccessToken": { $exists: true, $nin: [null, ""] },
+  }).lean();
+  const teamSlack = teamDoc?.slack as { botAccessToken?: string } | undefined;
+  return teamSlack?.botAccessToken || null;
+};
+
+// The org's workspace-level Slack connection for a team: the channel-less doc
+// created by a workspace install (channel docs are separate, one per channel).
+export const findSlackWorkspaceEventWebhook = async ({
+  organizationId,
+  teamId,
+}: {
+  organizationId: string;
+  teamId: string;
+}): Promise<EventWebHookInterface | null> => {
+  const doc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": teamId,
+    $or: [
+      { "slack.channelId": { $exists: false } },
+      { "slack.channelId": { $in: [null, ""] } },
+    ],
+  });
+  return doc ? toInterface(doc) : null;
+};
+
+// Push a freshly-issued bot token and/or scope string onto every same-team doc
+// in the org. Run after a workspace (re)install so channel docs — which no
+// longer get their own OAuth exchange — pick up the new credentials (and their
+// settings-page reconnect banner, which reads slack.scope, clears).
+export const propagateSlackTeamCredentials = async ({
+  organizationId,
+  teamId,
+  botAccessToken,
+  scope,
+}: {
+  organizationId: string;
+  teamId: string;
+  botAccessToken?: string;
+  scope?: string;
+}): Promise<void> => {
+  const set: Record<string, unknown> = {
+    ...(botAccessToken ? { "slack.botAccessToken": botAccessToken } : {}),
+    ...(scope ? { "slack.scope": scope } : {}),
+  };
+  if (!Object.keys(set).length) return;
+  await EventWebHookModel.updateMany(
+    { organizationId, payloadType: "slack", "slack.teamId": teamId },
+    { $set: set },
+  );
 };
 
 // Dotted $set so only slack.channelName is touched (bot token and other
@@ -526,25 +588,33 @@ export const updateSlackChannelName = async ({
   );
 };
 
-// Reconnect an existing Slack install: refresh the incoming-webhook url and
-// slack metadata in one write. Dotted $set keeps slack.botAccessToken intact —
-// a whole-object `$set: { slack }` would drop it (not part of the public
-// metadata type) — and any new bot token is set in the same write, so the token
-// is never missing mid-reconnect nor lost when the OAuth response omits one.
+// Reconnect an existing Slack install: refresh the url (when provided — a
+// workspace reconnect has none) and slack metadata in one write. Dotted $set
+// keeps slack.botAccessToken intact — a whole-object `$set: { slack }` would
+// drop it (not part of the public metadata type) — and any new bot token is set
+// in the same write, so the token is never missing mid-reconnect nor lost when
+// the OAuth response omits one. `enabled` lets a workspace reconnect force the
+// channel-less doc out of the event fan-out.
 export const reconnectSlackEventWebhook = async ({
   eventWebHookId,
   organizationId,
   url,
   slack,
   botAccessToken,
+  enabled,
 }: {
   eventWebHookId: string;
   organizationId: string;
-  url: string;
+  url?: string;
   slack: NonNullable<EventWebHookInterface["slack"]>;
   botAccessToken?: string;
+  enabled?: boolean;
 }): Promise<void> => {
-  const set: Record<string, unknown> = { url, dateUpdated: new Date() };
+  const set: Record<string, unknown> = {
+    ...(url ? { url } : {}),
+    ...(enabled !== undefined ? { enabled } : {}),
+    dateUpdated: new Date(),
+  };
   for (const [key, value] of Object.entries(slack)) {
     if (value !== undefined) set[`slack.${key}`] = value;
   }

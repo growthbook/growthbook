@@ -56,6 +56,34 @@ router.post(
   slackIntegrationController.postSlackLink,
 );
 
+// Channel management for workspace-level installs. Registered before /:id so
+// "channels" isn't captured as an id param.
+router.get(
+  "/channels",
+  validateRequestMiddleware({
+    query: z
+      .object({
+        teamId: z.string().optional(),
+        cursor: z.string().optional(),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.getSlackWorkspaceChannels,
+);
+
+router.post(
+  "/channels",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        teamId: z.string().optional(),
+        channelId: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackChannel,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

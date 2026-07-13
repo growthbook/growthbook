@@ -24,7 +24,10 @@ import {
   buildFeatureDigestData,
   buildFeatureDigestMessage,
 } from "back-end/src/services/slack/featureDigestData";
-import { uploadSlackImageFile } from "back-end/src/services/slack/slackWebApi";
+import {
+  isSlackIncomingWebhookUrl,
+  uploadSlackImageFile,
+} from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
@@ -139,7 +142,15 @@ async function deliverFeatureDigest(
     );
   }
 
-  // Fallback: text message via the incoming webhook URL.
+  // Fallback: text message via the incoming webhook URL — legacy installs
+  // only. Workspace-level installs store a placeholder url that must never be
+  // POSTed.
+  if (!isSlackIncomingWebhookUrl(webhook.url)) {
+    logger.warn(
+      `Feature digest: no bot token/channel and no incoming-webhook URL for webhook ${webhook.id}; skipping`,
+    );
+    return;
+  }
   const message = buildFeatureDigestMessage(data);
   await cancellableFetch(
     webhook.url,

@@ -11,16 +11,25 @@ channels. Each connected Slack channel creates a Slack-formatted Event Webhook
 in GrowthBook, so delivery status, retries, logs, and notification filters use
 the same system as other Event Webhooks.
 
-## Connect a Slack channel
+## Connect your Slack workspace
 
 1. In GrowthBook, go to **Integrations → Slack**.
-2. Click **Connect to Slack**.
-3. Approve the Slack app and choose the channel where GrowthBook should post.
-4. After Slack redirects back to GrowthBook, the channel appears on the Slack
-   integrations page.
+2. Click **Connect to Slack** and approve the GrowthBook app for your
+   workspace.
+3. After Slack redirects back to GrowthBook, add the channels GrowthBook
+   should post to.
 
-To add another channel, run the same connection flow again and choose a
-different channel.
+## Add channels
+
+Once the workspace is connected, click **Add channel** on the Slack
+integrations page and pick a channel from the searchable list. GrowthBook
+joins public channels automatically.
+
+For **private channels**, first run `/invite @GrowthBook` in the channel in
+Slack — it then appears in the channel picker.
+
+Each channel is configured independently (events, filters, digests), so
+different channels can receive different updates.
 
 ## Configure notifications
 
@@ -94,17 +103,23 @@ create a Slack app and configure these settings before users can connect
 channels:
 
 1. Create a Slack app from your workspace's app dashboard.
-2. In **OAuth & Permissions**, add the bot scope `incoming-webhook`.
-3. In **Incoming Webhooks**, activate incoming webhooks.
-4. Add `{APP_ORIGIN}/integrations/slack` as an OAuth redirect URL, replacing
+2. In **OAuth & Permissions**, add these bot scopes:
+   `chat:write`, `files:write`, `channels:read`, `groups:read`,
+   `channels:join`, `commands`, `users:read`, `users:read.email`,
+   `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
+   `mpim:history`, `links:read`.
+3. Add `{APP_ORIGIN}/integrations/slack` as an OAuth redirect URL, replacing
    `{APP_ORIGIN}` with your GrowthBook app URL.
-5. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` on the GrowthBook API server.
+4. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` on the GrowthBook API server.
 
-Slack's `incoming-webhook` scope shows a channel picker during OAuth and returns
-the channel-specific webhook URL GrowthBook uses for delivery.
+Installing is workspace-level — Slack shows no channel picker during OAuth.
+Delivery uses the bot token (`chat.postMessage` and private file uploads);
+channels are selected in GrowthBook after connecting. Connections created by
+older GrowthBook versions with the `incoming-webhook` scope keep working
+unchanged.
 
 ## Slack references
 
 - <ExternalLink href="https://docs.slack.dev/authentication/installing-with-oauth/">Slack OAuth v2</ExternalLink>
-- <ExternalLink href="https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/">Sending messages using incoming webhooks</ExternalLink>
-- <ExternalLink href="https://docs.slack.dev/reference/scopes/incoming-webhook/">`incoming-webhook` scope</ExternalLink>
+- <ExternalLink href="https://docs.slack.dev/messaging/#sending">Sending messages with chat.postMessage</ExternalLink>
+- <ExternalLink href="https://docs.slack.dev/reference/methods/conversations.list/">`conversations.list`</ExternalLink>
