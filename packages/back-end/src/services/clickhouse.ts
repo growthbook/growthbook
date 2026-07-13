@@ -374,9 +374,14 @@ export async function syncManagedWarehouseIdentifiers(
   // Pass the freshly-updated schema; context.org may still be stale post-mutation.
   attributeSchema: SDKAttributeSchema | undefined = context.org.settings
     ?.attributeSchema,
+  // Optionally reconcile a specific (already-fetched) warehouse instead of
+  // re-selecting by org — callers that just mutated one datasource pass it so the
+  // rebuild targets the same doc.
+  providedDatasource: DataSourceInterface | null = null,
 ): Promise<void> {
   const datasource =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    providedDatasource ??
+    (await dangerouslyGetGrowthbookDatasourceBypassPermission(context));
   if (
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
@@ -575,19 +580,23 @@ export async function removeManagedWarehouseLegacyIdentifier(
     );
   }
 
+  const updatedSettings = {
+    ...datasource.settings,
+    migratedIdentifiers: migrated.filter((t) => t !== identifier),
+  };
   await updateDataSource(
     context,
     datasource,
-    {
-      settings: {
-        ...datasource.settings,
-        migratedIdentifiers: migrated.filter((t) => t !== identifier),
-      },
-    },
+    { settings: updatedSettings },
     { skipExposureQueryValidation: true },
   );
 
-  await syncManagedWarehouseIdentifiers(context);
+  // Reconcile the same datasource we just updated (with its post-removal settings),
+  // rather than letting the sync re-select a warehouse by org.
+  await syncManagedWarehouseIdentifiers(context, undefined, {
+    ...datasource,
+    settings: updatedSettings,
+  });
 }
 
 // Kick off the async table rebuild. The license server acks and rebuilds in the
