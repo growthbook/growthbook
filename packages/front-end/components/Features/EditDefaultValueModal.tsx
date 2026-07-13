@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -6,11 +6,14 @@ import {
   validateFeatureValue,
   getReviewSetting,
   filterEnvironmentsByFeature,
+  getUnreachableDefaultValueOverrideIds,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsSixVertical, PiPlus, PiTrash } from "react-icons/pi";
+import { PiPlus, PiTrash } from "react-icons/pi";
+import { RiDraggable } from "react-icons/ri";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   useSensor,
   useSensors,
@@ -35,6 +38,8 @@ import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import FeatureValueField from "./FeatureValueField";
 
@@ -103,6 +108,16 @@ export default function EditDefaultValueModal({
   });
 
   const overrides = form.watch("overrides");
+  // Id of the row currently being dragged; drives the ghosted source + overlay.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeRow = overrides.find((o) => o.id === activeId) ?? null;
+
+  // Overrides that can never serve (shadowed by earlier ones). Incomplete rows
+  // (no env selected yet) are treated as drafts — neither covering nor flagged.
+  const unreachableIds = useMemo(
+    () => getUnreachableDefaultValueOverrideIds(overrides),
+    [overrides],
+  );
 
   const setOverrides = (next: OverrideRow[]) =>
     form.setValue("overrides", next);
@@ -173,6 +188,14 @@ export default function EditDefaultValueModal({
         );
         if (normalizedDefault !== values.defaultValue) fixed = true;
 
+        // Every override must target at least one environment. Matching all
+        // environments (empty scope) isn't allowed for now.
+        if (values.overrides.some((o) => o.environments.length === 0)) {
+          throw new Error(
+            "Each override must target at least one environment.",
+          );
+        }
+
         const normalizedOverrides = values.overrides.map((o) => {
           const normalized = validateFeatureValue(feature, o.value ?? "", "");
           if (normalized !== o.value) fixed = true;
@@ -221,74 +244,273 @@ export default function EditDefaultValueModal({
         gatedEnvSet={gatedEnvSet}
       />
 
-      <FeatureValueField
-        label="Value When Enabled"
-        id="defaultValue"
-        value={form.watch("defaultValue")}
-        setValue={(v) => form.setValue("defaultValue", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-      />
+      {/* Base default value, wrapped in the same card chrome as the override
+          rows (with empty grip/trash gutters) so its field lines up with them. */}
+      <ModalValueCard
+        sideColor="var(--green-9)"
+        left={<Box style={{ width: 14, flexShrink: 0 }} />}
+        right={
+          <IconButton
+            aria-hidden
+            tabIndex={-1}
+            variant="ghost"
+            color="red"
+            size="2"
+            radius="full"
+            style={{ marginRight: -4, flexShrink: 0, visibility: "hidden" }}
+          >
+            <PiTrash size={16} />
+          </IconButton>
+        }
+      >
+        <Box mb="-3">
+          <FeatureValueField
+            label="Value When Enabled"
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
+            valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
+            useCodeInput={true}
+            showFullscreenButton={true}
+          />
+        </Box>
+      </ModalValueCard>
 
       {environmentOptions.length > 0 && (
-        <Box mt="5" pt="4" style={{ borderTop: "1px solid var(--gray-a4)" }}>
+        <Box mt="6">
           <Flex align="center" justify="between" mb="1">
             <Text as="div" weight="semibold">
-              Default value overrides
+              Environment overrides
             </Text>
-            <Button variant="outline" size="sm" onClick={() => addOverride()}>
-              <Flex align="center" gap="1">
-                <PiPlus /> Add override
-              </Flex>
-            </Button>
+            {/* With items present, the add button moves below the list. */}
+            {overrides.length === 0 && (
+              <Button variant="outline" size="sm" onClick={() => addOverride()}>
+                <Flex align="center" gap="1">
+                  <PiPlus /> Add override
+                </Flex>
+              </Button>
+            )}
           </Flex>
-          <Text as="p" color="text-low" size="small" mb="3">
-            Served top-to-bottom: the first override whose environments match is
-            used. Environments matched by no override serve the base value
-            above.
-          </Text>
 
-          {overrides.length === 0 ? (
-            <Text as="div" size="small" color="text-mid">
-              No overrides yet.
-            </Text>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={({ active, over }) => {
-                if (!over || active.id === over.id) return;
-                const current = form.getValues("overrides");
-                const oldIndex = current.findIndex((o) => o.id === active.id);
-                const newIndex = current.findIndex((o) => o.id === over.id);
-                if (oldIndex === -1 || newIndex === -1) return;
-                setOverrides(arrayMove(current, oldIndex, newIndex));
-              }}
-            >
-              <SortableContext
-                items={overrides.map((o) => o.id)}
-                strategy={verticalListSortingStrategy}
+          <Box mt="4">
+            {overrides.length === 0 ? (
+              <Text as="div" color="text-mid">
+                <em>No overrides yet.</em>
+              </Text>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={({ active }) => setActiveId(active.id as string)}
+                onDragCancel={() => setActiveId(null)}
+                onDragEnd={({ active, over }) => {
+                  setActiveId(null);
+                  if (!over || active.id === over.id) return;
+                  const current = form.getValues("overrides");
+                  const oldIndex = current.findIndex((o) => o.id === active.id);
+                  const newIndex = current.findIndex((o) => o.id === over.id);
+                  if (oldIndex === -1 || newIndex === -1) return;
+                  setOverrides(arrayMove(current, oldIndex, newIndex));
+                }}
               >
-                {overrides.map((o, i) => (
-                  <OverrideRowEditor
-                    key={o.id}
-                    row={o}
-                    index={i}
-                    feature={feature}
-                    environmentOptions={environmentOptions}
-                    onChange={(patch) => patchOverride(o.id, patch)}
-                    onRemove={() => removeOverride(o.id)}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-          )}
+                <SortableContext
+                  items={overrides.map((o) => o.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {overrides.map((o, i) => (
+                    <OverrideRowEditor
+                      key={o.id}
+                      row={o}
+                      index={i}
+                      feature={feature}
+                      environmentOptions={environmentOptions}
+                      unreachable={unreachableIds.has(o.id)}
+                      onChange={(patch) => patchOverride(o.id, patch)}
+                      onRemove={() => removeOverride(o.id)}
+                    />
+                  ))}
+                </SortableContext>
+                {/* Full-opacity clone that follows the cursor while the source row
+                  stays ghosted in place — mirrors the feature rule list. */}
+                <DragOverlay>
+                  {activeRow ? (
+                    <OverrideRowCard
+                      row={activeRow}
+                      feature={feature}
+                      environmentOptions={environmentOptions}
+                      valueId={`override-value-overlay-${activeRow.id}`}
+                      removeLabel="Remove override"
+                      unreachable={unreachableIds.has(activeRow.id)}
+                      dragHandleProps={{}}
+                      onChange={() => {}}
+                      onRemove={() => {}}
+                    />
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+            )}
+            {overrides.length > 0 && (
+              <Flex justify="end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addOverride()}
+                >
+                  <Flex align="center" gap="1">
+                    <PiPlus /> Add override
+                  </Flex>
+                </Button>
+              </Flex>
+            )}
+          </Box>
         </Box>
       )}
     </ModalStandard>
+  );
+}
+
+// Presentational card shared by the sortable editor row and the DragOverlay
+// clone so the two are pixel-identical (no size shift when a drag starts). The
+// overlay passes a distinct `valueId` to avoid a duplicate DOM id on the value
+// field, and no-op handlers (it's pointer-captured mid-drag).
+function OverrideRowCard({
+  row,
+  feature,
+  environmentOptions,
+  valueId,
+  removeLabel,
+  unreachable,
+  dragHandleProps,
+  onChange,
+  onRemove,
+}: {
+  row: OverrideRow;
+  feature: FeatureInterface;
+  environmentOptions: { value: string; label: string }[];
+  valueId: string;
+  removeLabel: string;
+  unreachable: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  onChange: (patch: Partial<OverrideRow>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <ModalValueCard
+      sideColor={unreachable ? "var(--orange-7)" : "var(--green-9)"}
+      left={
+        <Box style={{ width: 14, marginTop: 6, flexShrink: 0 }}>
+          <div
+            {...dragHandleProps}
+            title="Drag and drop to re-order overrides"
+            style={{ cursor: "grab" }}
+          >
+            <RiDraggable size={16} />
+          </div>
+        </Box>
+      }
+      right={
+        <IconButton
+          type="button"
+          variant="ghost"
+          color="red"
+          size="2"
+          radius="full"
+          onClick={onRemove}
+          aria-label={removeLabel}
+          style={{ marginTop: 4, marginRight: -4, flexShrink: 0 }}
+        >
+          <PiTrash size={16} />
+        </IconButton>
+      }
+    >
+      <Box mb="2">
+        <Flex align="center" gap="2">
+          <Box flexGrow="1" style={{ minWidth: 0 }}>
+            <MultiSelectField
+              value={row.environments}
+              options={environmentOptions}
+              onChange={(v) => onChange({ environments: v })}
+              placeholder="Select environments"
+            />
+          </Box>
+          {unreachable && (
+            <Tooltip body="Every environment this override targets is already served by an earlier override, so this one is never used. Reorder or change its environments to make it reachable.">
+              <Badge
+                label="Unreachable"
+                color="orange"
+                variant="soft"
+                radius="full"
+                size="sm"
+              />
+            </Tooltip>
+          )}
+        </Flex>
+      </Box>
+      {/* The value field carries its own trailing margin; pull it back in
+          to tighten the card's bottom padding. */}
+      <Box mt="3" mb="-3">
+        <FeatureValueField
+          label="Value When Enabled"
+          id={valueId}
+          value={row.value}
+          setValue={(v) => onChange({ value: v })}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+        />
+      </Box>
+    </ModalValueCard>
+  );
+}
+
+// Green/orange-edged card chrome shared by the base value and each override row
+// (not Radix Card, so nothing clips the env select's menu). `left`/`right` are
+// the grip and delete gutters; the base value passes empty/hidden placeholders
+// so its field lines up with the override rows.
+function ModalValueCard({
+  sideColor,
+  left,
+  right,
+  children,
+}: {
+  sideColor: string;
+  left: ReactNode;
+  right: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Box
+      style={{
+        position: "relative",
+        borderRadius: "var(--radius-4)",
+        border: "1px solid var(--gray-a5)",
+        background: "var(--color-panel-solid)",
+      }}
+    >
+      <Box
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 4,
+          borderTopLeftRadius: "var(--radius-4)",
+          borderBottomLeftRadius: "var(--radius-4)",
+          backgroundColor: sideColor,
+        }}
+      />
+      <Flex align="start" justify="between" gap="4" p="3">
+        {left}
+        <Box flexGrow="1" style={{ maxWidth: "100%", minWidth: 0 }}>
+          {children}
+        </Box>
+        {right}
+      </Flex>
+    </Box>
   );
 }
 
@@ -297,6 +519,7 @@ function OverrideRowEditor({
   index,
   feature,
   environmentOptions,
+  unreachable,
   onChange,
   onRemove,
 }: {
@@ -304,70 +527,35 @@ function OverrideRowEditor({
   index: number;
   feature: FeatureInterface;
   environmentOptions: { value: string; label: string }[];
+  unreachable: boolean;
   onChange: (patch: Partial<OverrideRow>) => void;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
     useSortable({ id: row.id });
 
   return (
     <Box
       ref={setNodeRef}
-      mb="3"
+      mb="4"
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        border: "1px solid var(--gray-a4)",
-        borderRadius: "var(--radius-3)",
-        padding: "12px",
-        background: "var(--color-panel-solid)",
+        // Ghost the source in place while its full-opacity clone is dragged
+        // (the DragOverlay renders the clone) — same as the rule list.
+        opacity: active?.id === row.id ? 0.3 : 1,
       }}
     >
-      <Flex align="center" justify="between" mb="2">
-        <Flex align="center" gap="2">
-          <IconButton
-            variant="ghost"
-            color="gray"
-            size="1"
-            aria-label="Drag to reorder"
-            style={{ cursor: "grab" }}
-            {...attributes}
-            {...listeners}
-          >
-            <PiDotsSixVertical size={16} />
-          </IconButton>
-          <Text weight="medium">Override {index + 1}</Text>
-        </Flex>
-        <IconButton
-          variant="ghost"
-          color="red"
-          size="2"
-          radius="full"
-          onClick={onRemove}
-          aria-label={`Remove override ${index + 1}`}
-        >
-          <PiTrash size={16} />
-        </IconButton>
-      </Flex>
-      <Box mb="2">
-        <MultiSelectField
-          label="Environments"
-          value={row.environments}
-          options={environmentOptions}
-          onChange={(v) => onChange({ environments: v })}
-          placeholder="All environments"
-          helpText="Leave empty to match all environments."
-        />
-      </Box>
-      <FeatureValueField
-        id={`override-value-${row.id}`}
-        value={row.value}
-        setValue={(v) => onChange({ value: v })}
-        valueType={feature.valueType}
+      <OverrideRowCard
+        row={row}
         feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
+        environmentOptions={environmentOptions}
+        valueId={`override-value-${row.id}`}
+        removeLabel={`Remove override ${index + 1}`}
+        unreachable={unreachable}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        onChange={onChange}
+        onRemove={onRemove}
       />
     </Box>
   );

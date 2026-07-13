@@ -48,6 +48,7 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
+  getUnreachableDefaultValueOverrideIds,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -991,6 +992,55 @@ describe("mergeRevision default value overrides", () => {
     expect(merged.defaultValueOverrides).toEqual([
       ov("keep", "keep-dev", ["dev"]),
     ]);
+  });
+});
+
+describe("getUnreachableDefaultValueOverrideIds", () => {
+  const mk = (id: string, environments: string[]) => ({ id, environments });
+
+  it("flags none when overrides target distinct environments", () => {
+    const res = getUnreachableDefaultValueOverrideIds([
+      mk("a", ["production"]),
+      mk("b", ["staging"]),
+    ]);
+    expect([...res]).toEqual([]);
+  });
+
+  it("flags an override whose envs are all claimed by earlier ones", () => {
+    const res = getUnreachableDefaultValueOverrideIds([
+      mk("a", ["production", "staging"]),
+      mk("b", ["production"]),
+    ]);
+    expect([...res]).toEqual(["b"]);
+  });
+
+  it("keeps an override reachable when it has at least one uncovered env", () => {
+    const res = getUnreachableDefaultValueOverrideIds([
+      mk("a", ["production"]),
+      mk("b", ["production", "dev"]),
+    ]);
+    expect([...res]).toEqual([]);
+  });
+
+  it("skips empty-scope rows by default (incomplete drafts)", () => {
+    const res = getUnreachableDefaultValueOverrideIds([
+      mk("a", []),
+      mk("b", ["production"]),
+    ]);
+    expect([...res]).toEqual([]);
+  });
+
+  it("treats an empty scope as match-all when asked, shadowing rows below", () => {
+    const res = getUnreachableDefaultValueOverrideIds(
+      [mk("a", []), mk("b", ["production"])],
+      { treatEmptyAsMatchAll: true },
+    );
+    expect([...res]).toEqual(["b"]);
+  });
+
+  it("returns empty for undefined/empty input", () => {
+    expect([...getUnreachableDefaultValueOverrideIds(undefined)]).toEqual([]);
+    expect([...getUnreachableDefaultValueOverrideIds([])]).toEqual([]);
   });
 });
 

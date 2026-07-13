@@ -4,9 +4,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RevisionMetadata } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
-import { getDefaultValueOverrideForEnvironment } from "shared/util";
 import {
   renderFeatureDefaultValue,
+  renderDefaultValueOverrides,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
@@ -314,51 +314,30 @@ export function useFeatureRevisionDiff({
       }
     });
 
-    // 2b. Default value overrides (ordered, first-match-wins list). Resolve the
-    // effective override per env on both sides and emit one row per env whose
-    // resolved override value actually changed (added, removed, or modified).
-    // Rendered with the same renderer as the base default value so
-    // boolean/number/string/json all display consistently.
-    orgEnvs.forEach((e) => {
-      const envId = e.id;
-      const currentOverride = getDefaultValueOverrideForEnvironment(
-        current.defaultValueOverrides,
-        envId,
-      );
-      const draftOverride = getDefaultValueOverrideForEnvironment(
-        draft.defaultValueOverrides,
-        envId,
-      );
-      const aParsed = parseDefaultValue(currentOverride ?? "");
-      const bParsed = parseDefaultValue(draftOverride ?? "");
-      // Only diff when the resolved override values differ. Use isEqual so an
-      // unchanged JSON override doesn't churn just from formatting.
-      if (currentOverride === draftOverride || isEqual(aParsed, bParsed)) {
-        return;
-      }
+    // 2b. Default value overrides — diff the ordered list as a whole (like
+    // rules) rather than per-env effective values, so structural changes that
+    // don't alter any env's served value (a shadowed/unreachable override added,
+    // or a reorder) still surface.
+    const currentOverrides = current.defaultValueOverrides ?? [];
+    const draftOverrides = draft.defaultValueOverrides ?? [];
+    if (!isEqual(currentOverrides, draftOverrides)) {
       diffs.push({
-        key: `defaultValueOverrides.${envId}`,
-        title: `Default value (${envId})`,
-        a:
-          typeof aParsed === "string"
-            ? aParsed
-            : JSON.stringify(aParsed, null, 2),
-        b:
-          typeof bParsed === "string"
-            ? bParsed
-            : JSON.stringify(bParsed, null, 2),
-        customRender: renderFeatureDefaultValue(
-          currentOverride ?? null,
-          draftOverride ?? "",
+        key: "defaultValueOverrides",
+        title: "Environment overrides",
+        a: JSON.stringify(currentOverrides, null, 2),
+        b: JSON.stringify(draftOverrides, null, 2),
+        customRender: renderDefaultValueOverrides(
+          currentOverrides,
+          draftOverrides,
         ),
         badges: [
           {
-            label: `Edit default value (${envId})`,
-            action: `edit default value ${envId}`,
+            label: "Edit environment overrides",
+            action: "edit environment overrides",
           },
         ],
       });
-    });
+    }
 
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
@@ -485,13 +464,11 @@ export function mergeResultToDiffInput(
     ...(result.environmentsEnabled !== undefined
       ? { environmentsEnabled: result.environmentsEnabled }
       : {}),
-    ...(result.defaultValueOverrides !== undefined
-      ? {
-          // `result.defaultValueOverrides` is the complete authoritative ordered
-          // snapshot (full-replace), so use it directly as the post-state list.
-          defaultValueOverrides: result.defaultValueOverrides,
-        }
-      : {}),
+    // `result.defaultValueOverrides`, when present, is the complete authoritative
+    // ordered snapshot (full-replace). When absent the merge didn't touch
+    // overrides, so fall back to current — otherwise the diff reads as a removal.
+    defaultValueOverrides:
+      result.defaultValueOverrides ?? current.defaultValueOverrides,
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }
       : {}),

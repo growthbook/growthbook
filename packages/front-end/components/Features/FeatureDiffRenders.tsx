@@ -10,6 +10,7 @@ import {
   ExperimentRefVariation,
   FeatureInterface,
   FeatureEnvironment,
+  FeatureDefaultValueOverride,
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
 import {
@@ -1014,6 +1015,34 @@ export function renderFeatureDefaultValue(
     pre !== null && pre !== undefined ? formatValue(pre) : null;
   const postFormatted = formatValue(post);
   return <ValueChangedField pre={preFormatted} post={postFormatted} />;
+}
+
+// Serialize the ordered override list to a readable multi-line block so a
+// before/after diff surfaces every structural change — adds, removes, reorders,
+// value edits, and shadowed/unreachable entries (which don't change any env's
+// served value and so wouldn't show in a per-env diff).
+function overridesToDiffText(
+  overrides: FeatureDefaultValueOverride[] | undefined,
+): string {
+  if (!overrides || overrides.length === 0) return "(no overrides)";
+  return overrides
+    .map((o, i) => {
+      const scope = o.environments.length
+        ? o.environments.join(", ")
+        : "all environments";
+      return `${i + 1}. [${scope}]\n${formatValue(o.value)}`;
+    })
+    .join("\n\n");
+}
+
+export function renderDefaultValueOverrides(
+  pre: FeatureDefaultValueOverride[] | undefined,
+  post: FeatureDefaultValueOverride[] | undefined,
+): ReactNode | null {
+  const preText = overridesToDiffText(pre);
+  const postText = overridesToDiffText(post);
+  if (preText === postText) return null;
+  return <ValueChangedField pre={preText} post={postText} />;
 }
 
 export type RuleChangeSummary = {

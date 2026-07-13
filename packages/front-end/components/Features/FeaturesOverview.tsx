@@ -29,7 +29,8 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-  getDefaultValueOverrideForEnvironment,
+  getMatchingDefaultValueOverrides,
+  getUnreachableDefaultValueOverrideIds,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
@@ -108,6 +109,8 @@ import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
 import FeatureEnvironmentTabs from "./FeatureEnvironmentTabs";
+import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
+import FeatureValueCard from "./FeatureValueCard";
 
 export const featureStatusColors = {
   on: "var(--green-10)",
@@ -1560,24 +1563,11 @@ export default function FeaturesOverview({
                 />
               )}
 
-              <Flex align="center" justify="between">
-                <Flex align="center" gap="2" mb="3">
+              <Flex align="end" justify="between" mb="3">
+                <Flex align="center" gap="2">
                   <Heading as="h4" size="small" mb="0">
                     Default Value
                   </Heading>
-                  {selectedEnv !== null &&
-                    getDefaultValueOverrideForEnvironment(
-                      feature.defaultValueOverrides,
-                      selectedEnv,
-                    ) !== undefined && (
-                      <Badge
-                        label="Overrides default"
-                        variant="soft"
-                        color="violet"
-                        radius="full"
-                        size="sm"
-                      />
-                    )}
                 </Flex>
                 {canEdit && canEditDrafts && !isReadOnly && (
                   <Button
@@ -1589,23 +1579,111 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Box mt="2" mb="1">
-                <Flex width="100%">
-                  <Box flexGrow="1">
-                    <ForceSummary
-                      value={
-                        (selectedEnv !== null
-                          ? getDefaultValueOverrideForEnvironment(
-                              feature.defaultValueOverrides,
-                              selectedEnv,
-                            )
-                          : undefined) ?? getFeatureDefaultValue(feature)
-                      }
-                      feature={feature}
-                    />
-                  </Box>
-                </Flex>
-              </Box>
+              {(() => {
+                // Overrides that apply to the current view, in precedence order.
+                // "All environments" shows every override (full expansion);
+                // a single env shows only those whose scope matches it. The
+                // compiler serves the first match per env, so the top entry is
+                // the effective one; lower entries are shadowed but shown for
+                // transparency (mirrors how the rule list shows all rules).
+                const shown =
+                  selectedEnv === null
+                    ? (feature.defaultValueOverrides ?? [])
+                    : getMatchingDefaultValueOverrides(
+                        feature.defaultValueOverrides,
+                        selectedEnv,
+                      );
+                // On a specific env, a matching override always serves in place
+                // of the base (first match wins), so the base isn't the served
+                // value — hide it and show only the override(s). On "All
+                // environments" (or when nothing matches) the base IS the
+                // served/fallback value, so keep showing it.
+                const showBase = selectedEnv === null || shown.length === 0;
+                // Plural when there are multiple overrides, or a single override
+                // targeting multiple environments (empty scope = all envs).
+                const pluralOverrides =
+                  shown.length > 1 ||
+                  (shown.length === 1 && shown[0].environments.length !== 1);
+                // Reachability is computed over the full ordered list (saved
+                // data, so an empty scope matches all), then applied to whichever
+                // overrides are shown.
+                const unreachableIds = getUnreachableDefaultValueOverrideIds(
+                  feature.defaultValueOverrides,
+                  { treatEmptyAsMatchAll: true },
+                );
+                return (
+                  <>
+                    {showBase && (
+                      <Box mt="2" mb="1">
+                        <FeatureValueCard>
+                          <ForceSummary
+                            value={getFeatureDefaultValue(feature)}
+                            feature={feature}
+                          />
+                        </FeatureValueCard>
+                      </Box>
+                    )}
+                    {shown.length > 0 && (
+                      <Box mt={showBase ? "4" : "2"}>
+                        <Box mb="2" style={{ color: "var(--gray-12)" }}>
+                          <Text as="div" size="medium" weight="medium">
+                            Environment override{pluralOverrides ? "s" : ""}
+                          </Text>
+                        </Box>
+                        <Flex direction="column" gap="4">
+                          {shown.map((o) => {
+                            const unreachable = unreachableIds.has(o.id);
+                            return (
+                              <FeatureValueCard
+                                key={o.id}
+                                sideColor={
+                                  unreachable
+                                    ? "var(--orange-7)"
+                                    : "var(--green-9)"
+                                }
+                              >
+                                <Flex
+                                  align="start"
+                                  justify="between"
+                                  gap="2"
+                                  mb="2"
+                                >
+                                  <Box flexGrow="1" style={{ minWidth: 0 }}>
+                                    <RuleEnvScopeBadges
+                                      activeEnvironmentIds={
+                                        o.environments.length === 0
+                                          ? "all"
+                                          : o.environments
+                                      }
+                                      environments={environments}
+                                      my="0"
+                                    />
+                                  </Box>
+                                  {unreachable && (
+                                    <Tooltip body="Every environment this override targets is already served by an earlier override, so this one is never used.">
+                                      <Badge
+                                        label="Unreachable"
+                                        color="orange"
+                                        variant="soft"
+                                        radius="full"
+                                        size="sm"
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </Flex>
+                                <ForceSummary
+                                  value={o.value}
+                                  feature={feature}
+                                />
+                              </FeatureValueCard>
+                            );
+                          })}
+                        </Flex>
+                      </Box>
+                    )}
+                  </>
+                );
+              })()}
 
               <Box
                 mt="6"

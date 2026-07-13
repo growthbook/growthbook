@@ -171,6 +171,50 @@ export function getDefaultValueOverrideForEnvironment(
   return undefined;
 }
 
+// Every override whose scope matches the target environment, in list
+// (precedence) order — not just the first. Used to surface the full set of
+// overrides that apply to an environment (the first is the one actually
+// served; see getDefaultValueOverrideForEnvironment). An empty `environments`
+// array matches all environments.
+export function getMatchingDefaultValueOverrides(
+  overrides: FeatureDefaultValueOverride[] | undefined,
+  environment: string,
+): FeatureDefaultValueOverride[] {
+  if (!overrides) return [];
+  return overrides.filter(
+    (o) => o.environments.length === 0 || o.environments.includes(environment),
+  );
+}
+
+// Ids of overrides that can never serve: walking top-to-bottom (first match
+// wins), every environment an override targets is already claimed by an earlier
+// override. `treatEmptyAsMatchAll` controls how an empty `environments` array is
+// read: for saved data it matches all environments (and shadows everything
+// below), but while editing an empty row is just an incomplete draft, so it
+// neither covers nor is flagged.
+export function getUnreachableDefaultValueOverrideIds(
+  overrides: { id: string; environments: string[] }[] | undefined,
+  { treatEmptyAsMatchAll = false }: { treatEmptyAsMatchAll?: boolean } = {},
+): Set<string> {
+  const ids = new Set<string>();
+  if (!overrides) return ids;
+  const covered = new Set<string>();
+  let coversAll = false;
+  for (const o of overrides) {
+    const matchesAll = o.environments.length === 0;
+    if (matchesAll && !treatEmptyAsMatchAll) continue;
+    const reachable = coversAll
+      ? false
+      : matchesAll
+        ? true
+        : o.environments.some((e) => !covered.has(e));
+    if (!reachable) ids.add(o.id);
+    if (matchesAll) coversAll = true;
+    else o.environments.forEach((e) => covered.add(e));
+  }
+  return ids;
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
