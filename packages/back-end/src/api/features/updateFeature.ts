@@ -11,7 +11,6 @@ import {
   FeatureDefaultValueOverride,
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { generateId } from "back-end/src/util/uuid";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -32,7 +31,10 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  reconcileDefaultValueOverrideIds,
+} from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -245,12 +247,16 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // assign ids to new entries. Route through the revision like defaultValue.
     let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
     if (req.body.defaultValueOverrides !== undefined) {
-      nextDefaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
-        id: generateId(),
-        value: validateFeatureValue(feature, o.value),
-        ...(o.description !== undefined ? { description: o.description } : {}),
-        environments: o.environments ?? [],
-      }));
+      nextDefaultValueOverrides = reconcileDefaultValueOverrideIds(
+        req.body.defaultValueOverrides.map((o) => ({
+          value: validateFeatureValue(feature, o.value),
+          ...(o.description !== undefined
+            ? { description: o.description }
+            : {}),
+          environments: o.environments ?? [],
+        })),
+        feature.defaultValueOverrides,
+      );
     }
     const hasEnvDefaultChanges =
       nextDefaultValueOverrides !== undefined &&

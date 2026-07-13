@@ -139,6 +139,11 @@ const featureSchema = new mongoose.Schema({
   version: Number,
   valueType: String,
   defaultValue: String,
+  // Ordered default-value override list (Mixed array — validation lives in Zod).
+  // `default: undefined` keeps the field genuinely absent for features that
+  // never set it, so `undefined` (legacy) stays distinct from `[]` (all cleared)
+  // — matching the revision schema and avoiding spurious SDK-payload diffs.
+  defaultValueOverrides: { type: [{}], default: undefined },
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —

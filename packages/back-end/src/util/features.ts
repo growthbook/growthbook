@@ -51,6 +51,7 @@ import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
+  FeatureDefaultValueOverride,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import {
@@ -59,6 +60,7 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
+import { generateId } from "back-end/src/util/uuid";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
@@ -333,6 +335,33 @@ export function getSDKPayloadKeys(
   return keys;
 }
 
+// Reconcile a client-supplied override list (REST callers can't send ids)
+// against the feature's current overrides: reuse an existing entry's id when its
+// content (value + environments + description) matches. Keeps ids stable across
+// edits and stops content-identical re-submits from churning ids / spawning
+// no-op revisions. Unmatched entries get a fresh id.
+export function reconcileDefaultValueOverrideIds(
+  incoming: Omit<FeatureDefaultValueOverride, "id">[],
+  existing: FeatureDefaultValueOverride[] | undefined,
+): FeatureDefaultValueOverride[] {
+  const pool = [...(existing ?? [])];
+  return incoming.map((o) => {
+    const idx = pool.findIndex(
+      (e) =>
+        e.value === o.value &&
+        (e.description ?? undefined) === (o.description ?? undefined) &&
+        isEqual(e.environments, o.environments),
+    );
+    const id = idx >= 0 ? pool.splice(idx, 1)[0].id : generateId();
+    return {
+      id,
+      value: o.value,
+      ...(o.description !== undefined ? { description: o.description } : {}),
+      environments: o.environments,
+    };
+  });
+}
+
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -418,14 +447,36 @@ export function getSDKPayloadKeysByDiff(
       return;
     }
 
-    // Otherwise, if the environment settings are not equal
-    // (this includes a change to the per-env `defaultValue` override, which
-    // lives on `environmentSettings[e]` and so invalidates ONLY this env —
-    // unlike the base `feature.defaultValue` which invalidates all envs above).
+    // Otherwise, if the environment settings (enabled, prerequisites, …) are
+    // not equal, invalidate this env.
     if (!isEqual(oldSettings, newSettings)) {
       environments.add(e);
     }
   });
+
+  // Default value overrides are a top-level ordered list; a change to it alters
+  // the served default only for the environments whose first-match override
+  // resolves differently (an empty-scope override matches — and so invalidates —
+  // every env). Invalidate exactly those relevant envs.
+  if (
+    !isEqual(
+      originalFeature.defaultValueOverrides ?? [],
+      updatedFeature.defaultValueOverrides ?? [],
+    )
+  ) {
+    allEnvs.forEach((e) => {
+      if (!envIsRelevant(e)) return;
+      const oldVal = getDefaultValueOverrideForEnvironment(
+        originalFeature.defaultValueOverrides,
+        e,
+      );
+      const newVal = getDefaultValueOverrideForEnvironment(
+        updatedFeature.defaultValueOverrides,
+        e,
+      );
+      if (oldVal !== newVal) environments.add(e);
+    });
+  }
 
   const projects = new Set([
     "",

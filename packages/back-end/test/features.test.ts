@@ -28,6 +28,7 @@ import {
   getJSONValue,
   getParsedCondition,
   getSDKPayloadKeysByDiff,
+  reconcileDefaultValueOverrideIds,
   roundVariationWeight,
 } from "back-end/src/util/features";
 
@@ -1025,6 +1026,101 @@ describe("Detecting Feature Changes", () => {
         environment: "dev",
       },
     ]);
+  });
+
+  it("Invalidates only the env whose default value override resolves differently", () => {
+    const feature = cloneDeep(baseFeature);
+    const updatedFeature = cloneDeep(baseFeature);
+    updatedFeature.defaultValueOverrides = [
+      { id: "o1", value: "false", environments: ["production"] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([{ project: "", environment: "production" }]);
+  });
+
+  it("An all-environments (empty-scope) override invalidates every enabled env", () => {
+    const feature = cloneDeep(baseFeature);
+    const updatedFeature = cloneDeep(baseFeature);
+    updatedFeature.defaultValueOverrides = [
+      { id: "o1", value: "false", environments: [] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([
+      { project: "", environment: "dev" },
+      { project: "", environment: "production" },
+    ]);
+  });
+
+  it("Reordering overrides that target disjoint envs invalidates nothing", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.defaultValueOverrides = [
+      { id: "p", value: "false", environments: ["production"] },
+      { id: "d", value: "false", environments: ["dev"] },
+    ];
+    const updatedFeature = cloneDeep(feature);
+    updatedFeature.defaultValueOverrides = [
+      { id: "d", value: "false", environments: ["dev"] },
+      { id: "p", value: "false", environments: ["production"] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("reconcileDefaultValueOverrideIds", () => {
+  const existing = [
+    { id: "id_prod", value: "a", environments: ["production"] },
+    { id: "id_dev", value: "b", environments: ["dev"] },
+  ];
+
+  it("reuses ids when content is unchanged (no churn / no-op)", () => {
+    const result = reconcileDefaultValueOverrideIds(
+      [
+        { value: "a", environments: ["production"] },
+        { value: "b", environments: ["dev"] },
+      ],
+      existing,
+    );
+    expect(result).toEqual(existing);
+  });
+
+  it("keeps ids following content across a reorder", () => {
+    const result = reconcileDefaultValueOverrideIds(
+      [
+        { value: "b", environments: ["dev"] },
+        { value: "a", environments: ["production"] },
+      ],
+      existing,
+    );
+    expect(result.map((o) => o.id)).toEqual(["id_dev", "id_prod"]);
+  });
+
+  it("mints a fresh id only for genuinely changed/new entries", () => {
+    const result = reconcileDefaultValueOverrideIds(
+      [
+        { value: "a", environments: ["production"] }, // unchanged → reuse
+        { value: "c", environments: ["dev"] }, // value changed → new id
+      ],
+      existing,
+    );
+    expect(result[0].id).toBe("id_prod");
+    expect(result[1].id).not.toBe("id_dev");
+    expect(result[1].id).toBeTruthy();
   });
 });
 

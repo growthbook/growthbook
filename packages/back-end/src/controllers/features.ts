@@ -963,11 +963,13 @@ export async function postFeatureRebase(
       false;
   });
   // Default value overrides — complete ordered snapshot. The merge result, when
-  // present, IS the authoritative complete snapshot (full-replace); when absent,
-  // keep the revision's existing complete snapshot.
+  // present, IS the authoritative complete snapshot (full-replace); when absent
+  // the draft didn't touch overrides, so re-anchor onto the live feature (same
+  // as rules/defaultValue/prerequisites above) — NOT the draft's stale snapshot,
+  // which would revert overrides published since the draft was created.
   const newDefaultValueOverrides =
     mergeResult.result.defaultValueOverrides ??
-    revision.defaultValueOverrides ??
+    feature.defaultValueOverrides ??
     [];
 
   // Build complete metadata snapshot: start from live feature, overlay any

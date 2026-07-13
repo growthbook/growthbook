@@ -86,7 +86,7 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       // otherwise produce no visible row. This section renders one clearly
       // labeled "Default value ({env})" row per changed override.
       label: "Environment default values",
-      keys: ["environmentSettings"],
+      keys: ["environmentSettings", "defaultValueOverrides"],
       suppressCardLabel: true,
       render: renderFeatureEnvironmentDefaultsSection,
     },
