@@ -30,6 +30,7 @@ import {
   getSDKPayloadKeysByDiff,
   reconcileDefaultValueOverrideIds,
   roundVariationWeight,
+  validateEnvKeys,
 } from "back-end/src/util/features";
 
 // Minimal constant fixture for payload-resolution tests.
@@ -1079,6 +1080,19 @@ describe("Detecting Feature Changes", () => {
         "test",
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("validateEnvKeys", () => {
+  it("passes when every incoming key is a known org environment", () => {
+    expect(() =>
+      validateEnvKeys(["prod", "dev"], ["prod", "dev"]),
+    ).not.toThrow();
+    expect(() => validateEnvKeys(["prod", "dev"], [])).not.toThrow();
+  });
+
+  it("throws listing the unrecognized keys", () => {
+    expect(() => validateEnvKeys(["prod"], ["prod", "nope"])).toThrow(/nope/);
   });
 });
 

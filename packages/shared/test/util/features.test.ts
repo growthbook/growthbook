@@ -49,6 +49,8 @@ import {
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
   getUnreachableDefaultValueOverrideIds,
+  getDefaultValueOverrideForEnvironment,
+  getMatchingDefaultValueOverrides,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -992,6 +994,80 @@ describe("mergeRevision default value overrides", () => {
     expect(merged.defaultValueOverrides).toEqual([
       ov("keep", "keep-dev", ["dev"]),
     ]);
+  });
+});
+
+describe("getDefaultValueOverrideForEnvironment", () => {
+  const o = (value: string, environments: string[]) => ({
+    id: value,
+    value,
+    environments,
+  });
+
+  it("returns undefined when there are no overrides", () => {
+    expect(getDefaultValueOverrideForEnvironment(undefined, "prod")).toBe(
+      undefined,
+    );
+    expect(getDefaultValueOverrideForEnvironment([], "prod")).toBe(undefined);
+  });
+
+  it("returns the first matching override in list order", () => {
+    const overrides = [o("first", ["prod"]), o("second", ["prod", "dev"])];
+    expect(getDefaultValueOverrideForEnvironment(overrides, "prod")).toBe(
+      "first",
+    );
+    // dev only matches the second entry
+    expect(getDefaultValueOverrideForEnvironment(overrides, "dev")).toBe(
+      "second",
+    );
+  });
+
+  it("treats an empty environments array as matching every environment", () => {
+    const overrides = [o("all", [])];
+    expect(getDefaultValueOverrideForEnvironment(overrides, "anything")).toBe(
+      "all",
+    );
+  });
+
+  it("does not match an override scoped to other environments", () => {
+    expect(
+      getDefaultValueOverrideForEnvironment([o("x", ["staging"])], "prod"),
+    ).toBe(undefined);
+  });
+
+  it("returns an empty-string override value rather than skipping it", () => {
+    // Distinguishes 'has an override of \"\"' from 'no override' (uses ??, not ||).
+    expect(
+      getDefaultValueOverrideForEnvironment([o("", ["prod"])], "prod"),
+    ).toBe("");
+  });
+});
+
+describe("getMatchingDefaultValueOverrides", () => {
+  const o = (id: string, environments: string[]) => ({
+    id,
+    value: id,
+    environments,
+  });
+
+  it("returns [] for undefined/empty or no match", () => {
+    expect(getMatchingDefaultValueOverrides(undefined, "prod")).toEqual([]);
+    expect(getMatchingDefaultValueOverrides([], "prod")).toEqual([]);
+    expect(getMatchingDefaultValueOverrides([o("a", ["dev"])], "prod")).toEqual(
+      [],
+    );
+  });
+
+  it("returns all matching overrides in list order (including empty-scope)", () => {
+    const overrides = [
+      o("all", []),
+      o("prod-only", ["prod"]),
+      o("dev-only", ["dev"]),
+      o("prod-again", ["prod", "staging"]),
+    ];
+    expect(
+      getMatchingDefaultValueOverrides(overrides, "prod").map((x) => x.id),
+    ).toEqual(["all", "prod-only", "prod-again"]);
   });
 });
 
