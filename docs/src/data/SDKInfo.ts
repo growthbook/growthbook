@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.5",
+    version: "1.7.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -24,6 +24,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v1.7.0",
       },
       {
         caseInsensitiveMembership: "≥ v1.6.4",
@@ -77,7 +80,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.5",
+    version: "1.7.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -106,6 +109,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v1.7.0",
       },
       {
         caseInsensitiveMembership: "≥ v1.6.4",
@@ -256,7 +262,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.5",
+    version: "1.7.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -277,6 +283,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v1.7.0",
       },
       {
         caseInsensitiveMembership: "≥ v1.6.4",
@@ -790,7 +799,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.5",
+    version: "1.7.0",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -811,6 +820,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        contextualBandits: "≥ v1.7.0",
       },
       {
         caseInsensitiveMembership: "≥ v1.6.4",
