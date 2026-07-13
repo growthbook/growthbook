@@ -487,22 +487,33 @@ function ModalValueCard({
       style={{
         position: "relative",
         borderRadius: "var(--radius-4)",
-        border: "1px solid var(--gray-a5)",
+        boxShadow: "inset 0 0 0 1px var(--gray-a5)",
         background: "var(--color-panel-solid)",
       }}
     >
+      {/* Decorative clip layer: rounds the straight side bar to the card's
+          corners without clipping the content. A plain overflow:hidden on the
+          card would clip the env select's dropdown menu. */}
       <Box
         style={{
           position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 4,
-          borderTopLeftRadius: "var(--radius-4)",
-          borderBottomLeftRadius: "var(--radius-4)",
-          backgroundColor: sideColor,
+          inset: 0,
+          borderRadius: "var(--radius-4)",
+          overflow: "hidden",
+          pointerEvents: "none",
         }}
-      />
+      >
+        <Box
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            backgroundColor: sideColor,
+          }}
+        />
+      </Box>
       <Flex align="start" justify="between" gap="4" p="3">
         {left}
         <Box flexGrow="1" style={{ maxWidth: "100%", minWidth: 0 }}>

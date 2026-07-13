@@ -294,6 +294,12 @@ export default function FeaturesOverview({
     storedRuleEnv !== null && !envs.includes(storedRuleEnv)
       ? null
       : storedRuleEnv;
+  // Reveal the base default value when it's hidden because the selected env is
+  // fully overridden. Reset on env tab switch so it doesn't carry across envs.
+  const [revealOverriddenBase, setRevealOverriddenBase] = useState(false);
+  useEffect(() => {
+    setRevealOverriddenBase(false);
+  }, [selectedEnv]);
   // Rule-list display toggles surfaced in the tab bar's "More" menu; shared with
   // the Rules section for filtering.
   const [hideInactiveRules, setHideInactiveRules] = useLocalStorage(
@@ -1613,7 +1619,7 @@ export default function FeaturesOverview({
                 );
                 return (
                   <>
-                    {showBase && (
+                    {showBase ? (
                       <Box mt="2" mb="1">
                         <FeatureValueCard>
                           <ForceSummary
@@ -1622,14 +1628,34 @@ export default function FeaturesOverview({
                           />
                         </FeatureValueCard>
                       </Box>
+                    ) : (
+                      // Base is fully overridden for this env; the served
+                      // override(s) below lead, but it stays revealable.
+                      <Box mt="2" mb="3">
+                        {revealOverriddenBase ? (
+                          <FeatureValueCard>
+                            <ForceSummary
+                              value={getFeatureDefaultValue(feature)}
+                              feature={feature}
+                            />
+                          </FeatureValueCard>
+                        ) : (
+                          <Flex align="center" gap="2" mb="4">
+                            <span className="text-muted">
+                              <em>Default value overridden.</em>
+                            </span>
+                            <Link onClick={() => setRevealOverriddenBase(true)}>
+                              <em>Show</em>
+                            </Link>
+                          </Flex>
+                        )}
+                      </Box>
                     )}
                     {shown.length > 0 && (
                       <Box mt={showBase ? "4" : "2"}>
-                        <Box mb="2" style={{ color: "var(--gray-12)" }}>
-                          <Text as="div" size="medium" weight="medium">
-                            Environment override{pluralOverrides ? "s" : ""}
-                          </Text>
-                        </Box>
+                        <div className="font-weight-bold mb-2">
+                          Environment override{pluralOverrides ? "s" : ""}
+                        </div>
                         <Flex direction="column" gap="4">
                           {shown.map((o) => {
                             const unreachable = unreachableIds.has(o.id);
@@ -1685,11 +1711,7 @@ export default function FeaturesOverview({
                 );
               })()}
 
-              <Box
-                mt="6"
-                pt="4"
-                style={{ borderTop: "1px solid var(--gray-a4)" }}
-              >
+              <Box mt="6">
                 <Heading as="h4" size="small" mb="2">
                   Rules
                 </Heading>

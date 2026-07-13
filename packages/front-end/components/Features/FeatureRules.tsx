@@ -191,8 +191,8 @@ export default function FeatureRules({
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added yet</em>
+              <Box className="text-muted">
+                <em>No rules have been added yet.</em>
               </Box>
             )}
             {!isLocked && (
@@ -243,8 +243,8 @@ export default function FeatureRules({
                 draftRevision={draftRevision}
               />
             ) : (
-              <Box py="4" className="text-muted">
-                <em>No rules have been added to this environment yet</em>
+              <Box className="text-muted">
+                <em>No rules have been added to this environment yet.</em>
               </Box>
             )}
             {!isLocked && (
