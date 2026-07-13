@@ -97,7 +97,10 @@ export class ApiKeyModel extends BaseClass {
     };
   }
 
-  protected async customValidation(doc: ApiKeyInterface) {
+  protected async customValidation(
+    doc: ApiKeyInterface,
+    previousDoc?: ApiKeyInterface,
+  ) {
     if (doc.userId) {
       // PATs inherit permissions from their user — scoping fields must not be set
       if (doc.limitAccessByEnvironment) {
@@ -113,8 +116,10 @@ export class ApiKeyModel extends BaseClass {
     } else {
       // Org API keys — validate role, environments, project roles, and commercial features
       this.validateRole(doc.role);
+      // Only gate a role change so existing keys keep working
       if (
         doc.role &&
+        doc.role !== previousDoc?.role &&
         doc.role !== "admin" &&
         !this.context.limits.orgSupportsRoles()
       ) {
