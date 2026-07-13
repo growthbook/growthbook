@@ -11,7 +11,10 @@ import {
   findDimensionsByOrganization,
   updateDimension,
 } from "back-end/src/models/DimensionModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByOrganization,
+} from "back-end/src/models/DataSourceModel";
 
 // region GET /dimensions
 
@@ -32,11 +35,20 @@ export const getDimensions = async (
   req: GetDimensionsRequest,
   res: Response<GetDimensionsResponse | PrivateApiErrorResponse>,
 ) => {
-  const { org } = getContextFromReq(req);
-  const dimensions = await findDimensionsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const dimensions = await findDimensionsByOrganization(context.org.id);
+
+  // A dimension's project access is inherited from its datasource, so restrict
+  // to datasources the caller can read (already filtered by project access).
+  const readableDatasourceIds = new Set(
+    (await getDataSourcesByOrganization(context)).map((ds) => ds.id),
+  );
+
   res.status(200).json({
     status: 200,
-    dimensions,
+    dimensions: dimensions.filter((dimension) =>
+      readableDatasourceIds.has(dimension.datasource),
+    ),
   });
 };
 
