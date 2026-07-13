@@ -27,18 +27,21 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 
 /**
  * Cache lookup keys off query-defining fields (see AnalyticsExplorationModel.getConfigHashes)
- * and omits chartType. Reuse the cached rows but surface the client's requested visualization.
+ * and omits render-only settings. Reuse the cached rows but surface the
+ * client's requested visualization.
  */
-function withRequestedChartType(
+function withRequestedRenderSettings(
   existing: ProductAnalyticsExploration,
   requested: ExplorationConfig,
 ): ProductAnalyticsExploration {
-  if (existing.config.chartType === requested.chartType) {
-    return existing;
-  }
   return {
     ...existing,
-    config: { ...existing.config, chartType: requested.chartType },
+    config: {
+      ...existing.config,
+      chartType: requested.chartType,
+      showAs: requested.showAs,
+      chartSettings: requested.chartSettings,
+    },
   };
 }
 
@@ -53,7 +56,7 @@ export async function runProductAnalyticsExploration(
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config);
     if (existing) {
-      return withRequestedChartType(existing, config);
+      return withRequestedRenderSettings(existing, config);
     }
   }
 

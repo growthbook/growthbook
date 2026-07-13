@@ -3,6 +3,7 @@ import {
   ExplorationConfig,
   ApiAnalyticsExploration,
   ProductAnalyticsExploration,
+  ProductAnalyticsValue,
   productAnalyticsExplorationValidator,
 } from "shared/validators";
 import md5 from "md5";
@@ -27,6 +28,12 @@ import analyticsExplorationApiSpec, {
   postDataSourceExplorationEndpoint,
 } from "back-end/src/api/specs/analytics-exploration.spec";
 import { MakeModelClass } from "./BaseModel";
+
+function getValueHashPayload(value: ProductAnalyticsValue) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "name"),
+  );
+}
 
 function toApiInterface(
   exploration: ProductAnalyticsExploration,
@@ -136,7 +143,7 @@ export class AnalyticsExplorationModel extends BaseClass {
 
     // Value hashes
     const valueHashes = dataset.values.map((value) => {
-      return md5(JSON.stringify(value));
+      return md5(JSON.stringify(getValueHashPayload(value)));
     });
 
     return {
