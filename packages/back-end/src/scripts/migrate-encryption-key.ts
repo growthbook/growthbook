@@ -1,3 +1,6 @@
+// Must be first: sets env (cron off, stats pool off) before any imported module
+// reads it at load time.
+import "./migrate-encryption-key-env";
 // We need to import the aliases here to make the imports work.
 // eslint-disable-next-line no-restricted-imports
 import "../init/aliases";

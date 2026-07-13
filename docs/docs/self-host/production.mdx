@@ -28,7 +28,6 @@ If you change the `ENCRYPTION_KEY`, you will need to migrate any existing data s
 ```bash
 # If you didn't have an ENCRYPTION_KEY before, leave OLD_KEY blank below
 docker compose run --workdir /usr/local/src/app/packages/back-end \
-  -e GB_STATS_ENGINE_MIN_POOL_SIZE=0 -e CRON_ENABLED=false \
   growthbook node dist/scripts/migrate-encryption-key.js OLD_KEY
 ```
 
