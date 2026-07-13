@@ -1,5 +1,5 @@
 import React, { useEffect, useState, FC } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle, FaRegImage } from "react-icons/fa";
 import { SignedImageUrlResponse } from "shared/types/upload";
 import { useAuth } from "@/services/auth";
 import { getApiHost, getGcsDomain, getS3Domain } from "@/services/env";
@@ -131,6 +131,30 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   if (errorMsg) {
     if (onErrorMsg) {
       return onErrorMsg(errorMsg);
+    }
+    // On public pages, degrade gracefully: surrounding content still renders,
+    // and we don't surface internal error strings to anonymous viewers (e.g.
+    // local-storage installs can't serve images without auth). Show a subtle
+    // placeholder with the image's alt text instead.
+    if (isPublic) {
+      const altText =
+        typeof props.alt === "string" && props.alt ? props.alt : undefined;
+      return (
+        <span
+          {...props}
+          title={altText ?? "Image unavailable"}
+          style={{
+            ...props.style,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            color: "var(--color-text-mid)",
+          }}
+        >
+          <FaRegImage size={14} />
+          {altText ?? "Image unavailable"}
+        </span>
+      );
     }
     return (
       <span {...props} style={{ ...props.style, display: "inline-block" }}>
