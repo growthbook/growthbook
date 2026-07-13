@@ -86,8 +86,8 @@ export default function ClickhouseManagedWarehouseIdentifiers({
           <>
             {" "}
             Identifiers shown in gray were preserved from a past migration and
-            are no longer among your attributes&mdash;delete any you no longer
-            need.
+            are no longer among your attributes
+            {canEdit ? <>&mdash;delete any you no longer need</> : null}.
           </>
         ) : null}
       </Callout>
