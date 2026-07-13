@@ -1658,6 +1658,15 @@ export async function putOrganization(
         throw new Error(
           "Not supported: Updating namespaces not supported via this route.",
         );
+      } else if (k === "defaultRole") {
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
+        const newRole = settings.defaultRole?.role;
+        // Only gate a change so an existing non-admin default keeps working
+        if (newRole && newRole !== getDefaultRole(org).role) {
+          assertRoleAssignmentAllowed(org, newRole);
+        }
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();
