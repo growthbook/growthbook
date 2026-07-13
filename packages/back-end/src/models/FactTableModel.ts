@@ -457,6 +457,16 @@ export async function dangerouslySyncManagedWarehouseFactTable(
   factTable: FactTableInterface,
   changes: Pick<UpdateFactTableProps, "sql" | "columns" | "userIdTypes">,
 ) {
+  // No-op sync: skip the write entirely so we neither churn the definitions
+  // version nor drift dateUpdated (which is part of the definitions payload).
+  if (
+    (Object.keys(changes) as (keyof typeof changes)[]).every((k) =>
+      isEqual(factTable[k], changes[k]),
+    )
+  ) {
+    return;
+  }
+
   if (changes.columns) {
     const removedColumns = detectRemovedColumns(
       factTable.columns || [],

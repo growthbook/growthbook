@@ -182,8 +182,14 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     const version = await getDefinitionsVersion(orgId);
     const etag = buildDefinitionsEtag(
       version,
+      orgId,
       context.getPermissionsFingerprint(),
     );
+    // Make the browser behavior we rely on explicit: store, but always
+    // revalidate (private keeps shared caches out). Vary on the org header so
+    // the cache doesn't reuse one org's entry for another.
+    res.set("Cache-Control", "private, no-cache");
+    res.vary("X-Organization");
     res.set("ETag", etag);
     if (ifNoneMatchMatches(req.headers["if-none-match"], etag)) {
       return res.status(304).end();

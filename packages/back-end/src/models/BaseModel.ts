@@ -227,10 +227,10 @@ export interface ModelConfig<
   // When true, successful writes bump the org's definitions version (see
   // `touchDefinitionsVersion`) so the cached `/organization/definitions`
   // response is invalidated. Covers create/update/delete routed through the
-  // BaseModel write methods, including the `dangerous*BypassPermission`
-  // variants. Raw `_dangerousGetCollection()` writes and `bulkWrite` bypass
-  // this hook and need a manual `touchDefinitionsVersion` call (none of these
-  // models use `bulkWrite` today).
+  // BaseModel write methods (including the `dangerous*BypassPermission`
+  // variants) and `bulkWrite`. Raw `_dangerousGetCollection()` writes bypass
+  // this hook and need a manual `touchDefinitionsVersion` call;
+  // `_dangerousBulkWriteCrossOrganization` throws when this flag is set.
   affectsDefinitionsVersion?: boolean;
   skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
@@ -1195,13 +1195,21 @@ export abstract class BaseModel<
   protected async _dangerousBulkWriteCrossOrganization(
     operations: AnyBulkWriteOperation[],
   ) {
+    if (this.config.affectsDefinitionsVersion) {
+      // Tripwire: ops span orgs, so there is no single org whose definitions
+      // version we can bump. Call touchDefinitionsVersion for each affected
+      // org manually if a definitions model ever needs this.
+      throw new Error(
+        "_dangerousBulkWriteCrossOrganization is not supported on models with affectsDefinitionsVersion",
+      );
+    }
     return dbSafeBulkWrite(this._dangerousGetCollection(), operations, {
       ignoreUndefined: true,
     });
   }
 
   protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
-    return dbSafeBulkWrite(
+    const result = await dbSafeBulkWrite(
       this._dangerousGetCollection(),
       operations.map((op) => {
         if ("insertOne" in op) {
@@ -1242,6 +1250,10 @@ export abstract class BaseModel<
       }),
       { ignoreUndefined: true },
     );
+    if (this.config.affectsDefinitionsVersion) {
+      await touchDefinitionsVersion(this.context.org.id);
+    }
+    return result;
   }
 
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {

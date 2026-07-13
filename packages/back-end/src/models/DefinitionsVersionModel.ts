@@ -34,22 +34,30 @@ export async function ensureDefinitionsVersionIndex(): Promise<void> {
  *
  * A `$inc` counter is used rather than a timestamp so two writes in the same
  * millisecond can't collide into one version. Failures are logged but never
- * propagated — a touch failure must not fail the user's write.
+ * propagated — a touch failure must not fail the user's write. A failed bump
+ * is retried once: concurrent first-touch upserts can race the unique index
+ * (the loser throws E11000, and by the retry the doc exists so it's a plain
+ * `$inc`), and a double bump from a spurious retry is harmless.
  */
 export async function touchDefinitionsVersion(
   organization: string,
 ): Promise<void> {
-  try {
-    await getCollection<DefinitionsVersion>(COLLECTION).updateOne(
-      { organization },
-      { $inc: { version: 1 }, $set: { dateUpdated: new Date() } },
-      { upsert: true },
-    );
-  } catch (e) {
-    logger.error(
-      e,
-      `Failed to bump definitions version for organization ${organization}`,
-    );
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await getCollection<DefinitionsVersion>(COLLECTION).updateOne(
+        { organization },
+        { $inc: { version: 1 }, $set: { dateUpdated: new Date() } },
+        { upsert: true },
+      );
+      return;
+    } catch (e) {
+      if (attempt > 0) {
+        logger.error(
+          e,
+          `Failed to bump definitions version for organization ${organization}`,
+        );
+      }
+    }
   }
 }
 
