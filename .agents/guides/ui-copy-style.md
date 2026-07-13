@@ -17,7 +17,7 @@ Sentence case is the default for actions and labels. This matches modern product
 
 Error messages, validation messages, and any other string the back-end returns to a user or API caller are body copy: use **sentence case**, with named resources kept Title Case per the glossary below. There are no headings in this context, so the Title-Case-for-headings tier does not apply.
 
-- Right: `throw new Error("Feature key must be unique within the project");`
+- Right: `throw new Error("Feature key must be unique within the Project");`
 - Right: `context.permissions.throwPermissionError("You do not have permission to modify this Saved Group");`
 - Wrong: `throw new Error("Feature Key Must Be Unique");` (not a heading — use sentence case)
 - Wrong: `throw new Error("could not find data source");` (Data Source is a named resource → Title Case, and start with a capital)
@@ -30,26 +30,26 @@ There is one exception that overrides the rule above. A first-class GrowthBook r
 
 The glossary:
 
-| Term                          | Plural                         | Notes                                                                                                                        |
-| ----------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| GrowthBook                    | —                              | The product. Never "Growthbook" or "growthbook".                                                                             |
-| Visual Editor                 | —                              | The product feature.                                                                                                         |
-| North Star                    | North Stars                    | The metric concept.                                                                                                          |
-| Bandit                        | Bandits                        |                                                                                                                              |
-| Data Source                   | Data Sources                   |                                                                                                                              |
-| Fact Metric                   | Fact Metrics                   | Lowercase "metric" only when not referring to the Fact Metric resource.                                                      |
-| Feature Flag                  | Feature Flags                  | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                   |
-| Saved Group                   | Saved Groups                   |                                                                                                                              |
-| SDK Connection                | SDK Connections                |                                                                                                                              |
-| Experiment Template           | Experiment Templates           | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template").  |
-| Experiment Decision Framework | Experiment Decision Frameworks | Title Case. Abbreviated as "EDF".                                                                                            |
-| Metric Slices                 | —                              | The metric-slicing feature (overall).                                                                                        |
-| Auto Slice                    | Auto Slices                    | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.   |
-| All Projects                  | —                              | The scope label or option meaning every project. Title Case as a fixed phrase. Bare "project" stays a lowercase common noun. |
+| Term                          | Plural                         | Notes                                                                                                                       |
+| ----------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| GrowthBook                    | —                              | The product. Never "Growthbook" or "growthbook".                                                                            |
+| Visual Editor                 | —                              | The product feature.                                                                                                        |
+| North Star                    | North Stars                    | The metric concept.                                                                                                         |
+| Bandit                        | Bandits                        |                                                                                                                             |
+| Data Source                   | Data Sources                   |                                                                                                                             |
+| Fact Metric                   | Fact Metrics                   | Lowercase "metric" only when not referring to the Fact Metric resource.                                                     |
+| Feature Flag                  | Feature Flags                  | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                  |
+| Saved Group                   | Saved Groups                   |                                                                                                                             |
+| SDK Connection                | SDK Connections                |                                                                                                                             |
+| Experiment Template           | Experiment Templates           | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template"). |
+| Experiment Decision Framework | Experiment Decision Frameworks | Title Case. Abbreviated as "EDF".                                                                                           |
+| Metric Slices                 | —                              | The metric-slicing feature (overall).                                                                                       |
+| Auto Slice                    | Auto Slices                    | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
+| Project                       | Projects                       | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
 
 So a sentence-case label still reads "Require approval to modify Saved Groups", and body copy still reads "users will only be able to create Fact Metrics".
 
-A common noun that is not a named resource stays lowercase mid-sentence. "experiment", "metric", "dimension", "segment", "environment", "project". Only the terms in the glossary above are promoted to proper nouns. Note that "project" is lowercase as a common noun ("select a project") but the fixed scope label "All Projects" is Title Case.
+A common noun that is not a named resource stays lowercase mid-sentence. "experiment", "metric", "dimension", "segment", "environment". Only the terms in the glossary above are promoted to proper nouns. "Project" is a named resource and is Title Case everywhere ("Select a Project", "All Projects"), but a "project" belonging to another product (a BigQuery, GCP, or Amplitude project) is that product's common noun and stays lowercase. Hyphenated modifiers like "per-project" and "project-level" stay lowercase.
 
 Technical identifiers stay lowercase in prose — "experiment key", "experiment tracking key", "API key", "attribute", "token". These are technical concepts, not named resources, and follow the same convention as, e.g., a personal access token: lowercase unless a word starts the sentence.
 

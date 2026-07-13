@@ -27,8 +27,8 @@ export default function SDKConnectionSettings() {
               <Box mb="4" width="100%">
                 <Checkbox
                   id="toggle-requireProjectForSdkConnections"
-                  label="Require project for all new SDK Connections"
-                  description="If enabled, users must select at least one project when creating an SDK Connection. Existing project-less SDK Connections can still be updated until a project is set."
+                  label="Require Project for all new SDK Connections"
+                  description="If enabled, users must select at least one Project when creating an SDK Connection. Existing project-less SDK Connections can still be updated until a Project is set."
                   value={!!watch("requireProjectForSdkConnections")}
                   setValue={(value) =>
                     setValue("requireProjectForSdkConnections", value, {

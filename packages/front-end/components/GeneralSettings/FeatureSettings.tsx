@@ -153,8 +153,8 @@ export default function FeatureSettings() {
             <Box mb="6" width="100%">
               <Checkbox
                 id="toggle-requireProjectForFeatures"
-                label="Require project for all new Feature Flags"
-                description="If enabled, users will be required to select a project when creating a Feature Flag."
+                label="Require Project for all new Feature Flags"
+                description="If enabled, users will be required to select a Project when creating a Feature Flag."
                 value={!!form.watch("requireProjectForFeatures")}
                 setValue={(value) =>
                   form.setValue("requireProjectForFeatures", value, {

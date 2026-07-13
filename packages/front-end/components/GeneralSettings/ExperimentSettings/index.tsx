@@ -423,26 +423,29 @@ export default function ExperimentSettings({
                   <Text className="font-weight-semibold" size="2">
                     <label>Multiple exposures warning threshold</label>
                   </Text>
-                  <Flex>
+                  <Box className="form-inline">
                     <Field
                       type="number"
                       step="1"
                       min="0"
                       max="100"
-                      containerClassName="mb-3"
+                      containerClassName="mt-1 mb-1"
                       append="%"
                       style={{
                         width: "62px",
                       }}
                       disabled={hasFileConfig()}
-                      helpText="Warn when at least this percent of experiment users are in multiple variations."
                       {...form.register("multipleExposureMinPercent", {
                         valueAsNumber: true,
                         min: 0,
                         max: 100,
                       })}
                     />
-                  </Flex>
+                  </Box>
+                  <small className="form-text text-muted">
+                    Warn when at least this percent of experiment users are in
+                    multiple variations.
+                  </small>
                 </Box>
               </Box>
             </Box>
