@@ -105,7 +105,12 @@ function SingleDashboardPage() {
         },
       )) as { status: number; dashboard: DashboardInterface };
       if (res.status === 200) {
-        await mutate();
+        await mutate(
+          { dashboard: res.dashboard },
+          {
+            revalidate: false,
+          },
+        );
         return { dashboardId: res.dashboard.id };
       } else {
         throw new Error("Failed to save dashboard");
