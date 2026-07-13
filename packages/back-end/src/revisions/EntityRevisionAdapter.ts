@@ -1,6 +1,7 @@
 import { isEqual } from "lodash";
 import type { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
+import type { ArmAcknowledgments } from "back-end/src/services/armGuards";
 
 /**
  * Narrow a proposed-changes object to the fields an adapter may write, dropping
@@ -173,11 +174,12 @@ export interface EntityRevisionAdapter<
   assertSchedulable?(context: Context, entity: TSnapshot): Promise<void> | void;
 
   /**
-   * Capture an arm-time acknowledgment when a deferred publish is armed
-   * (scheduled or auto-publish-on-approval). Returns keys to snapshot on the
-   * revision and re-check at merge time; throws (e.g. SoftWarningError) when the
-   * armer must acknowledge a condition first. The config adapter uses this for
-   * the experiment guard; adapters without an arm-time precondition omit it.
+   * Capture arm-time acknowledgments when a deferred publish is armed (scheduled
+   * or auto-publish-on-approval). Returns a per-guard map of keys to snapshot on
+   * the revision and re-check at merge time; throws (e.g. SoftWarningError) when
+   * the armer must acknowledge a condition first. The config/constant adapters use
+   * this for the experiment / config-lock / schema-break guards; adapters without
+   * an arm-time precondition omit it.
    *
    * `proposedChanges` are the revision's staged ops, so an adapter can skip the
    * precondition for a change that can't trigger it (e.g. a metadata-only config
@@ -187,5 +189,5 @@ export interface EntityRevisionAdapter<
     context: Context,
     entity: TSnapshot,
     proposedChanges: unknown,
-  ): Promise<string[] | undefined>;
+  ): Promise<ArmAcknowledgments | undefined>;
 }

@@ -4,7 +4,6 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
-import { captureConfigExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
 
@@ -46,12 +45,13 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
       config as unknown as Record<string, unknown>,
     );
 
-  // Experiment guard: snapshot the acknowledged conflict keys (throws if arming
-  // over live conflicts without ignoreWarnings/bypass).
-  const experimentGuardAcknowledgedKeys = enableAutoPublish
-    ? await captureConfigExperimentGuardAcknowledgment(
+  // Deferred-publish guards: snapshot the acknowledged conflict keys per guard
+  // (throws if arming over live conflicts without ignoreWarnings/bypass). Routed
+  // through the adapter so every guard is captured uniformly.
+  const armAcknowledgments = enableAutoPublish
+    ? await getAdapter("config").captureArmAcknowledgment?.(
         req.context,
-        config,
+        config as unknown as Record<string, unknown>,
         revision.target.proposedChanges,
       )
     : undefined;
@@ -61,7 +61,7 @@ export const postConfigRevisionRequestReview = createApiRequestHandler(
     req.context.userId,
     {
       autoPublishOnApproval: enableAutoPublish,
-      experimentGuardAcknowledgedKeys,
+      armAcknowledgments,
     },
   );
 

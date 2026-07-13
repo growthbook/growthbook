@@ -319,7 +319,7 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       await assertConfigExperimentGuard(
         req.context,
         config,
-        { experimentGuardAcknowledgedKeys: undefined },
+        { armAcknowledgments: undefined },
         { armed: false },
       );
       // Direct REST update publishes live, so run the full publish gate

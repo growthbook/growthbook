@@ -15,6 +15,10 @@ import {
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
 import {
+  ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
+import {
   assertConstantExperimentGuard,
   captureConstantExperimentGuardAcknowledgment,
 } from "back-end/src/services/experimentGuard";
@@ -193,19 +197,21 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     );
   },
 
-  // Snapshot the experiment-guard fingerprint when arming a deferred publish
-  // (schedule / auto-publish-on-approval); throws (bypassably) on unacknowledged
+  // Snapshot the deferred-publish guard fingerprints when arming (schedule /
+  // auto-publish-on-approval); each guard throws (bypassably) on unacknowledged
   // live conflicts. Mirrors the config adapter.
-  captureArmAcknowledgment(
+  async captureArmAcknowledgment(
     context: Context,
     entity: ConstantInterface,
     proposedChanges: unknown,
-  ): Promise<string[] | undefined> {
-    return captureConstantExperimentGuardAcknowledgment(
-      context,
-      entity,
-      proposedChanges,
-    );
+  ): Promise<ArmAcknowledgments | undefined> {
+    return buildArmAcknowledgments({
+      experiment: await captureConstantExperimentGuardAcknowledgment(
+        context,
+        entity,
+        proposedChanges,
+      ),
+    });
   },
 
   // Pre-merge gate for deferred publishes (scheduled poller, auto-publish-on-

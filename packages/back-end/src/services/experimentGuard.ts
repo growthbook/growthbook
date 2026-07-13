@@ -19,6 +19,7 @@ import {
   TerminalPublishError,
 } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getArmAcknowledgment } from "back-end/src/services/armGuards";
 import { logger } from "back-end/src/util/logger";
 
 // Experiment guard: an opt-in, per-config, computed-live soft-block on publishing
@@ -198,13 +199,6 @@ export async function evaluateConfigExperimentGuardConflicts(
   );
 }
 
-// The acknowledged fingerprint captured on this revision at arm time, if any.
-export function getExperimentGuardAcknowledgedKeys(
-  revision: Pick<Revision, "experimentGuardAcknowledgedKeys">,
-): string[] | null {
-  return revision.experimentGuardAcknowledgedKeys ?? null;
-}
-
 // Enforce the experiment guard for a config publish. `armed` = a deferred merge
 // (scheduled publish or auto-publish-on-approval), whose override is the arm-time
 // fingerprint on the revision; unarmed = a direct manual publish, which honors an
@@ -214,7 +208,7 @@ export function getExperimentGuardAcknowledgedKeys(
 export async function assertConfigExperimentGuard(
   context: Context,
   config: ConfigInterface,
-  revision: Pick<Revision, "experimentGuardAcknowledgedKeys">,
+  revision: Pick<Revision, "armAcknowledgments">,
   { armed }: { armed: boolean },
 ): Promise<void> {
   // No early-out on `config.experimentGuard`: the conflict evaluation gates on
@@ -236,7 +230,7 @@ export async function assertConfigExperimentGuard(
     conflictKeys,
     armed,
     ignoreWarnings: synchronousOverride,
-    acknowledgedKeys: getExperimentGuardAcknowledgedKeys(revision),
+    acknowledgedKeys: getArmAcknowledgment(revision, "experiment"),
   });
 
   if (decision.action === "allow") {
@@ -395,7 +389,7 @@ function describeConstantConflictKeys(keys: string[]): string {
 export async function assertConstantExperimentGuard(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
-  revision: Pick<Revision, "experimentGuardAcknowledgedKeys">,
+  revision: Pick<Revision, "armAcknowledgments">,
   { armed }: { armed: boolean },
 ): Promise<void> {
   const conflictKeys = await evaluateConstantExperimentGuardConflicts(
@@ -414,7 +408,7 @@ export async function assertConstantExperimentGuard(
     conflictKeys,
     armed,
     ignoreWarnings: synchronousOverride,
-    acknowledgedKeys: getExperimentGuardAcknowledgedKeys(revision),
+    acknowledgedKeys: getArmAcknowledgment(revision, "experiment"),
   });
 
   if (decision.action === "allow") {

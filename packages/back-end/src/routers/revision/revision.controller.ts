@@ -16,6 +16,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiErrorResponse } from "back-end/types/api";
 import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ArmAcknowledgments } from "back-end/src/services/armGuards";
 import {
   getAdapter,
   getApprovalEnabledEntityTypes,
@@ -40,7 +41,7 @@ async function captureArmAcknowledgment(
   revision: Pick<Revision, "target">,
   // Reuse an already-loaded entity when the caller has one.
   prefetchedEntity?: Record<string, unknown> | null,
-): Promise<string[] | undefined> {
+): Promise<ArmAcknowledgments | undefined> {
   const adapter = getAdapter(revision.target.type);
   if (!adapter.captureArmAcknowledgment) return undefined;
   const entity =
@@ -472,13 +473,13 @@ export const postSubmit = async (
       existingRevision.target.snapshot as Record<string, unknown>,
     );
 
-  const experimentGuardAcknowledgedKeys = enableAutoPublish
+  const armAcknowledgments = enableAutoPublish
     ? await captureArmAcknowledgment(context, existingRevision)
     : undefined;
 
   const revision = await revisionModel.submitForReview(id, userId, {
     autoPublishOnApproval: enableAutoPublish,
-    experimentGuardAcknowledgedKeys,
+    armAcknowledgments,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
@@ -1250,7 +1251,7 @@ export const postToggleAutoPublish = async (
     context.permissions.throwPermissionError();
   }
 
-  const experimentGuardAcknowledgedKeys = enabled
+  const armAcknowledgments = enabled
     ? await captureArmAcknowledgment(context, existing)
     : undefined;
 
@@ -1258,7 +1259,7 @@ export const postToggleAutoPublish = async (
     id,
     userId,
     !!enabled,
-    { experimentGuardAcknowledgedKeys },
+    { armAcknowledgments },
   );
 
   // Arming an already-approved revision must publish now — otherwise it waits
@@ -1787,7 +1788,7 @@ export const postSchedulePublish = async (
   }
 
   // Reuses the already-fetched entity.
-  const experimentGuardAcknowledgedKeys = isCancel
+  const armAcknowledgments = isCancel
     ? undefined
     : await captureArmAcknowledgment(context, existingRevision, scheduleEntity);
 
@@ -1796,7 +1797,7 @@ export const postSchedulePublish = async (
     lockEdits,
     lockOthers,
     bypassApproval: wantsBypass,
-    experimentGuardAcknowledgedKeys,
+    armAcknowledgments,
   });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(

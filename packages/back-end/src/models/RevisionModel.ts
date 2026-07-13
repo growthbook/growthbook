@@ -14,6 +14,10 @@ import {
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  ArmAcknowledgments,
+  hasArmAcknowledgments,
+} from "back-end/src/services/armGuards";
 import { getAdapter } from "back-end/src/revisions/index";
 import {
   createWithVersionRetry,
@@ -49,9 +53,9 @@ const SCHEDULED_PUBLISH_UNSET = {
   scheduledPublishLockEdits: 1,
   scheduledPublishLockOthers: 1,
   scheduledPublishBypassApproval: 1,
-  // The experiment-guard acknowledgment is a per-arm snapshot — a re-arm/cancel
+  // The arm-time guard acknowledgments are a per-arm snapshot — a re-arm/cancel
   // must not leave a stale fingerprint that a later publish would compare against.
-  experimentGuardAcknowledgedKeys: 1,
+  armAcknowledgments: 1,
   ...SCHEDULED_PUBLISH_FAILURE_UNSET,
 } as const;
 
@@ -95,7 +99,7 @@ const BaseClass = MakeModelClass({
     "scheduledPublishLastError",
     "scheduledPublishNextAttemptAt",
     "scheduledPublishGaveUpAt",
-    "experimentGuardAcknowledgedKeys",
+    "armAcknowledgments",
   ],
   // Poller bookkeeping must not bump the user-facing "last update" time.
   skipDateUpdatedFields: [
@@ -103,7 +107,7 @@ const BaseClass = MakeModelClass({
     "scheduledPublishLastError",
     "scheduledPublishNextAttemptAt",
     "scheduledPublishGaveUpAt",
-    "experimentGuardAcknowledgedKeys",
+    "armAcknowledgments",
   ],
   additionalIndexes: [
     {
@@ -731,10 +735,10 @@ export class RevisionModel extends BaseClass {
     userId: string,
     {
       autoPublishOnApproval,
-      experimentGuardAcknowledgedKeys,
+      armAcknowledgments,
     }: {
       autoPublishOnApproval?: boolean;
-      experimentGuardAcknowledgedKeys?: string[];
+      armAcknowledgments?: ArmAcknowledgments;
     } = {},
   ) {
     const existing = await this.getById(id);
@@ -766,16 +770,13 @@ export class RevisionModel extends BaseClass {
       ...(autoPublishOnApproval && userId
         ? { autoPublishEnabledBy: userId }
         : {}),
-      // Arm-time experiment-guard fingerprint: set the new acknowledgment, or
-      // clear a stale one from a prior arm (to []) so a re-arm with no current
-      // conflicts can't be covered by an outdated fingerprint.
+      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+      // can't be covered by an outdated fingerprint.
       ...(autoPublishOnApproval &&
-      (experimentGuardAcknowledgedKeys?.length ||
-        existing.experimentGuardAcknowledgedKeys?.length)
-        ? {
-            experimentGuardAcknowledgedKeys:
-              experimentGuardAcknowledgedKeys ?? [],
-          }
+      (hasArmAcknowledgments(armAcknowledgments) ||
+        hasArmAcknowledgments(existing.armAcknowledgments))
+        ? { armAcknowledgments: armAcknowledgments ?? {} }
         : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
@@ -814,9 +815,7 @@ export class RevisionModel extends BaseClass {
     id: string,
     userId: string,
     enabled: boolean,
-    {
-      experimentGuardAcknowledgedKeys,
-    }: { experimentGuardAcknowledgedKeys?: string[] } = {},
+    { armAcknowledgments }: { armAcknowledgments?: ArmAcknowledgments } = {},
   ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
@@ -837,16 +836,13 @@ export class RevisionModel extends BaseClass {
     const updated = await this.update(existing, {
       autoPublishOnApproval: enabled,
       ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
-      // Arm-time experiment-guard fingerprint: set the new acknowledgment, or
-      // clear a stale one from a prior arm (to []) so a re-arm with no current
-      // conflicts can't be covered by an outdated fingerprint.
+      // Arm-time guard fingerprints: set the new acknowledgments, or clear a
+      // stale set from a prior arm (to {}) so a re-arm with no current conflicts
+      // can't be covered by an outdated fingerprint.
       ...(enabled &&
-      (experimentGuardAcknowledgedKeys?.length ||
-        existing.experimentGuardAcknowledgedKeys?.length)
-        ? {
-            experimentGuardAcknowledgedKeys:
-              experimentGuardAcknowledgedKeys ?? [],
-          }
+      (hasArmAcknowledgments(armAcknowledgments) ||
+        hasArmAcknowledgments(existing.armAcknowledgments))
+        ? { armAcknowledgments: armAcknowledgments ?? {} }
         : {}),
     } as UpdateProps<Revision>);
 
@@ -1406,11 +1402,8 @@ export class RevisionModel extends BaseClass {
       ...(prior.autoPublishEnabledBy
         ? { autoPublishEnabledBy: prior.autoPublishEnabledBy }
         : {}),
-      ...(prior.experimentGuardAcknowledgedKeys?.length
-        ? {
-            experimentGuardAcknowledgedKeys:
-              prior.experimentGuardAcknowledgedKeys,
-          }
+      ...(hasArmAcknowledgments(prior.armAcknowledgments)
+        ? { armAcknowledgments: prior.armAcknowledgments }
         : {}),
       // Restore the retry bookkeeping `merge()` scrubbed. Otherwise a persistent
       // apply-time failure (e.g. a cycle/composition conflict that only surfaces
@@ -1529,7 +1522,7 @@ export class RevisionModel extends BaseClass {
       lockEdits,
       lockOthers,
       bypassApproval,
-      experimentGuardAcknowledgedKeys,
+      armAcknowledgments,
     }: ScheduledPublishInput,
   ): Promise<Revision> {
     const existing = await this.getById(id);
@@ -1593,8 +1586,8 @@ export class RevisionModel extends BaseClass {
             dateUpdated: now,
             ...(bypassApproval ? { scheduledPublishBypassApproval: true } : {}),
             ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
-            ...(experimentGuardAcknowledgedKeys?.length
-              ? { experimentGuardAcknowledgedKeys }
+            ...(hasArmAcknowledgments(armAcknowledgments)
+              ? { armAcknowledgments }
               : {}),
           },
           // Clear prior poller-failure state so a reschedule doesn't keep the
@@ -1604,9 +1597,9 @@ export class RevisionModel extends BaseClass {
             ...SCHEDULED_PUBLISH_FAILURE_UNSET,
             ...(bypassApproval ? {} : { scheduledPublishBypassApproval: 1 }),
             ...(enabledBy === null ? { autoPublishEnabledBy: 1 } : {}),
-            ...(experimentGuardAcknowledgedKeys?.length
+            ...(hasArmAcknowledgments(armAcknowledgments)
               ? {}
-              : { experimentGuardAcknowledgedKeys: 1 }),
+              : { armAcknowledgments: 1 }),
           },
           $push: { activityLog: armEntry },
         },
@@ -1746,7 +1739,7 @@ export class RevisionModel extends BaseClass {
           scheduledPublishLockOthers: 1,
           scheduledPublishBypassApproval: 1,
           scheduledPublishNextAttemptAt: 1,
-          experimentGuardAcknowledgedKeys: 1,
+          armAcknowledgments: 1,
         },
       },
     );

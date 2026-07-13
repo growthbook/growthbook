@@ -4,7 +4,6 @@ import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { captureConstantExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -46,13 +45,14 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
       constant as unknown as Record<string, unknown>,
     );
 
-  // Snapshot the acknowledged experiment-guard conflict keys when arming auto-
-  // publish, so the later auto-publish-on-approval fire clears the armed guard.
-  // Throws (bypassably) on unacknowledged live conflicts. Mirrors the config twin.
-  const experimentGuardAcknowledgedKeys = enableAutoPublish
-    ? await captureConstantExperimentGuardAcknowledgment(
+  // Snapshot the deferred-publish guard fingerprints when arming auto-publish, so
+  // the later auto-publish-on-approval fire can clear the armed guards. Throws
+  // (bypassably) on unacknowledged live conflicts. Routed through the adapter so
+  // every guard (experiment / config-lock / schema-break) is captured uniformly.
+  const armAcknowledgments = enableAutoPublish
+    ? await getAdapter("constant").captureArmAcknowledgment?.(
         req.context,
-        constant,
+        constant as unknown as Record<string, unknown>,
         revision.target.proposedChanges,
       )
     : undefined;
@@ -62,7 +62,7 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
     req.context.userId,
     {
       autoPublishOnApproval: enableAutoPublish,
-      experimentGuardAcknowledgedKeys,
+      armAcknowledgments,
     },
   );
 

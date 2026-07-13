@@ -30,6 +30,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import {
+  ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
+import {
   assertConfigExperimentGuard,
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
@@ -267,18 +271,20 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     assertConfigNotLocked(entity);
   },
 
-  // Snapshot the experiment-guard fingerprint when arming a deferred publish;
-  // throws if live conflicts aren't acknowledged.
-  captureArmAcknowledgment(
+  // Snapshot the deferred-publish guard fingerprints when arming; each guard
+  // throws (bypassably) if its live conflicts aren't acknowledged.
+  async captureArmAcknowledgment(
     context: Context,
     entity: ConfigInterface,
     proposedChanges: unknown,
-  ): Promise<string[] | undefined> {
-    return captureConfigExperimentGuardAcknowledgment(
-      context,
-      entity,
-      proposedChanges,
-    );
+  ): Promise<ArmAcknowledgments | undefined> {
+    return buildArmAcknowledgments({
+      experiment: await captureConfigExperimentGuardAcknowledgment(
+        context,
+        entity,
+        proposedChanges,
+      ),
+    });
   },
 
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full

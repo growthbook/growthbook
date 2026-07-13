@@ -191,13 +191,15 @@ export const revisionValidator = z.object({
   // cleared and the draft left open; this timestamp marks it as abandoned so the
   // UI can flag it. Cleared when the schedule is re-armed or canceled.
   scheduledPublishGaveUpAt: z.union([z.null(), z.date()]).optional(),
-  // Config experiment-guard fingerprint: the set of conflicting config keys the
-  // armer acknowledged (bypassed) when arming this deferred publish. At merge
-  // time the live conflict set is recomputed and compared key-for-key; a
-  // divergence fails the publish so a human re-contends. Keys only (not values),
-  // so re-editing the shipped values doesn't change conflict identity. Config
-  // revisions only; cleared on re-arm/cancel.
-  experimentGuardAcknowledgedKeys: z.array(z.string()).optional(),
+  // Deferred-publish guard fingerprints: per-guard (experiment / config-lock /
+  // schema-break) sets of conflicting keys the armer acknowledged (bypassed) when
+  // arming this deferred publish. At merge time each guard recomputes its live
+  // conflict set and compares key-for-key; a divergence fails the publish so a
+  // human re-contends. Keys only (not values), so re-editing the shipped values
+  // doesn't change conflict identity. Keyed by guard id so the same key acknowledged
+  // for different guards never collides. Config/constant revisions; cleared on
+  // re-arm/cancel.
+  armAcknowledgments: z.record(z.string(), z.array(z.string())).optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({
@@ -221,10 +223,10 @@ export type ScheduledPublishInput = {
   lockEdits?: boolean;
   lockOthers?: boolean;
   bypassApproval?: boolean;
-  // Config experiment-guard fingerprint acknowledged at arm time (the conflicting
-  // config keys the armer bypassed). Stored on the revision for the merge-time
-  // recheck. Absent/empty clears any prior fingerprint on (re-)arm.
-  experimentGuardAcknowledgedKeys?: string[];
+  // Per-guard acknowledgment fingerprints captured at arm time (the conflicting
+  // keys the armer bypassed, keyed by guard id). Stored on the revision for the
+  // merge-time recheck. Absent/empty clears any prior fingerprint on (re-)arm.
+  armAcknowledgments?: Record<string, string[]>;
 };
 
 export const revisionCreateValidator = z.object({
