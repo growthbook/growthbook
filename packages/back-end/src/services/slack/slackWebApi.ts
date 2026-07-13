@@ -154,6 +154,41 @@ export async function postSlackMessage(args: {
 }
 
 /**
+ * Post an ephemeral message — visible only to `user` in the channel (optionally
+ * in a thread). Used for messages meant for one person (e.g. the account-link
+ * prompt), so a signed link/URL isn't exposed to everyone in the channel.
+ * Returns false on failure (never throws).
+ */
+export async function postSlackEphemeralMessage({
+  token,
+  channel,
+  user,
+  text,
+  blocks,
+  threadTs,
+}: {
+  token: string;
+  channel: string;
+  user: string;
+  text: string;
+  blocks?: SlackBlock[];
+  threadTs?: string;
+}): Promise<boolean> {
+  const res = await slackApiCall<SlackApiResponse>(
+    token,
+    "chat.postEphemeral",
+    {
+      channel,
+      user,
+      text,
+      ...(blocks ? { blocks } : {}),
+      ...(threadTs ? { thread_ts: threadTs } : {}),
+    },
+  );
+  return !!res?.ok;
+}
+
+/**
  * Replace an existing message in place (used to swap a "thinking…" placeholder
  * for the final answer).
  */

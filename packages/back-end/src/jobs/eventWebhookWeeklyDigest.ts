@@ -167,9 +167,7 @@ export default function addWeeklyScorecardJob(agenda: Agenda) {
     }).lean<EventWebHookInterface[]>();
 
     for (const webhook of webhooks) {
-      const experimentDigest = resolveExperimentDigest(webhook.slackOptions, {
-        dailyDigestHourUtc: webhook.dailyDigestHourUtc,
-      });
+      const experimentDigest = resolveExperimentDigest(webhook.slackOptions);
       if (isSlackDigestDue(experimentDigest, now)) {
         try {
           await deliverExperimentDigest(webhook, experimentDigest, now);

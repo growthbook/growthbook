@@ -431,9 +431,8 @@ const SlackIntegrationsPage: NextPage = () => {
                       slackIntegration.events,
                     );
                     const experimentDigestOn =
-                      resolveExperimentDigest(slackIntegration.slackOptions, {
-                        dailyDigestHourUtc: slackIntegration.dailyDigestHourUtc,
-                      }).frequency !== "off";
+                      resolveExperimentDigest(slackIntegration.slackOptions)
+                        .frequency !== "off";
                     const featureDigestOn =
                       resolveFeatureDigest(slackIntegration.slackOptions)
                         .frequency !== "off";

@@ -4,6 +4,7 @@ import { runAgentTurnToCompletion } from "back-end/src/enterprise/services/agent
 import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import {
   postSlackMessage,
+  postSlackEphemeralMessage,
   updateSlackMessage,
 } from "back-end/src/services/slack/slackWebApi";
 import { toSlackMrkdwn } from "back-end/src/services/slack/slackMarkdown";
@@ -81,9 +82,13 @@ export async function handleSlackAssistantMention(
     // Non-mention thread messages stay silent on any failure — don't nag.
     if (mention.requireActiveThread) return;
     if (target.botToken) {
-      await postSlackMessage({
+      // Ephemeral (visible only to the mentioning user): these messages are
+      // directed at them, and the "not linked" one carries a signed account-
+      // link URL that must not be exposed to everyone in the channel.
+      await postSlackEphemeralMessage({
         token: target.botToken,
         channel: channelId,
+        user: slackUserId,
         text: target.message,
         threadTs: rootTs,
       });
@@ -304,9 +309,10 @@ export async function handleSlackAssistantConfirmation({
   });
   if (!target.ok) {
     if (target.botToken) {
-      await postSlackMessage({
+      await postSlackEphemeralMessage({
         token: target.botToken,
         channel: channelId,
+        user: slackUserId,
         text: target.message,
         threadTs,
       });
@@ -315,13 +321,36 @@ export async function handleSlackAssistantConfirmation({
   }
   const token = target.botToken;
 
-  // Only the user who owns this conversation may confirm/cancel it.
+  // Only the user who owns this conversation may confirm/cancel it. The id is
+  // `conv_slack_{team}_{org}_{ts}_{userId}` (ts is alphanumeric-only, so the
+  // owner is everything after the first "_" past the prefix). getById below
+  // enforces the org scope; this enforces the specific owning user, so another
+  // linked member of the same org can't act on someone else's parked mutation.
+  const ownerPrefix = `conv_slack_${teamId}_${target.organizationId}_`;
+  const ownerRest = conversationId.startsWith(ownerPrefix)
+    ? conversationId.slice(ownerPrefix.length)
+    : "";
+  const ownerUserId = ownerRest.includes("_")
+    ? ownerRest.slice(ownerRest.indexOf("_") + 1)
+    : "";
+  if (ownerUserId !== target.userId) {
+    await postSlackEphemeralMessage({
+      token,
+      channel: channelId,
+      user: slackUserId,
+      text: "This action isn't yours to confirm.",
+      threadTs,
+    });
+    return;
+  }
+
   const existing =
     await target.context.models.aiConversations.getById(conversationId);
   if (!existing) {
-    await postSlackMessage({
+    await postSlackEphemeralMessage({
       token,
       channel: channelId,
+      user: slackUserId,
       text: "This action isn't yours to confirm.",
       threadTs,
     });

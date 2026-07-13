@@ -267,6 +267,10 @@ function DigestSubSection({
             </Select>
           </Grid>
 
+          <Text as="p" size="small" color="text-mid" mt="2" mb="0">
+            Scheduled in UTC.
+          </Text>
+
           {value.frequency === "quarterly" && (
             <Callout status="info" mb="0" mt="4">
               Delivered on your chosen day in January, April, July, and October.
@@ -426,11 +430,7 @@ const SlackIntegrationDetailPage = () => {
         : selectedSlackOptionIds(integration.events),
     );
     setCardFormat(integration.slackOptions?.experimentCardFormat ?? "compact");
-    setExperimentDigest(
-      resolveExperimentDigest(integration.slackOptions, {
-        dailyDigestHourUtc: integration.dailyDigestHourUtc,
-      }),
-    );
+    setExperimentDigest(resolveExperimentDigest(integration.slackOptions));
     setFeatureDigest(resolveFeatureDigest(integration.slackOptions));
     setFilterProjects(integration.projects || []);
     setFilterEnvironments(integration.environments || []);

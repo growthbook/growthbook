@@ -130,11 +130,15 @@ const resolveDigestConfig = (
     : null;
 
 // The effective experiment scorecard schedule. Prefers the new
-// `experimentDigest`, then the legacy single `digest`, then the older
-// weeklyDigest*/dailyDigestHourUtc fields.
+// `experimentDigest`, then the legacy single `digest`, then the legacy
+// weeklyDigest* opt-in.
+//
+// The legacy root `dailyDigestHourUtc` is intentionally NOT mapped here: it
+// configured the old daily *text* recap (a different feature), so honoring it
+// would silently start posting the new daily scorecard image to installs that
+// never opted into it. Those installs stay "off" until reconfigured in the UI.
 export const resolveExperimentDigest = (
   options: SlackEventWebHookOptions | undefined,
-  legacy?: { dailyDigestHourUtc?: number | null },
 ): ResolvedSlackDigest => {
   const fromNew =
     resolveDigestConfig(options?.experimentDigest) ??
@@ -146,13 +150,6 @@ export const resolveExperimentDigest = (
       frequency: "weekly",
       hourUtc: options.weeklyDigestHourUtc ?? DEFAULT_SLACK_DIGEST_HOUR_UTC,
       dayOfWeekUtc: options.weeklyDigestDayOfWeekUtc ?? 1,
-    };
-  }
-  if ((legacy?.dailyDigestHourUtc ?? null) !== null) {
-    return {
-      ...OFF_DIGEST,
-      frequency: "daily",
-      hourUtc: legacy?.dailyDigestHourUtc as number,
     };
   }
   return OFF_DIGEST;
@@ -202,11 +199,13 @@ export const isSlackDigestDue = (
   }
 };
 
-// The trailing aggregation window (in ms) a scorecard digest should cover for a
-// given frequency. Daily uses its own text-summary job, so this covers the
-// scorecard cadences (weekly and longer).
+// The trailing aggregation window (in ms) a digest should cover for a given
+// frequency — so a daily digest summarizes the last day, weekly the last week,
+// etc. (rather than every daily post re-reporting a full week).
 export const slackDigestWindowMs = (r: ResolvedSlackDigest): number => {
   switch (r.frequency) {
+    case "daily":
+      return MS_PER_DAY;
     case "weekly":
       return 7 * MS_PER_DAY;
     case "monthly":
