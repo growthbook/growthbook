@@ -80,7 +80,7 @@
       "@babel/core@7": "^7.29.7",
       "@babel/runtime@7": "^7.28.6",
       "@tootallnate/once@2": "^2.0.1",
-      "@growthbook/growthbook": "1.6.5",
+      "@growthbook/growthbook": "workspace:*",
       "@grpc/grpc-js@1.8": "1.8.22",
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
       "@octokit/request@8": "^8.4.1",

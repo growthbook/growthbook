@@ -570,6 +570,16 @@ export class GrowthBook<
     this._sessionReplayStop = stop;
   }
 
+  /** @internal — called by sessionReplayPlugin cleanup */
+  public _unregisterSessionReplay(start: () => void, stop: () => void) {
+    if (this._sessionReplayStart === start) {
+      this._sessionReplayStart = undefined;
+    }
+    if (this._sessionReplayStop === stop) {
+      this._sessionReplayStop = undefined;
+    }
+  }
+
   public startSessionReplay() {
     if (this._destroyed) return;
     this._sessionReplayStart?.();
