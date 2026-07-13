@@ -179,6 +179,12 @@ function getEventForwarderDraft(
   return null;
 }
 
+// Only validates what the browser's native `required` validation can't cover:
+// read-only/derived fields (Snowflake access URL), datasource connection params
+// that aren't inputs in this modal (account/username/auth method), and table
+// prefix *format*. Empty visible required fields (BigQuery project/dataset,
+// Snowflake database/schema) are handled by native `required` on the inputs, so
+// don't re-check them here — that would duplicate the per-field tooltip.
 function getEventForwarderValidationErrors(
   draft: EventForwarderDatasourceDraft,
 ): string[] {
@@ -188,8 +194,6 @@ function getEventForwarderValidationErrors(
   const errors: string[] = [];
 
   if (cfg.sinkType === "bigquery") {
-    if (!cfg.config.projectId.trim()) errors.push("Enter a BigQuery project.");
-    if (!cfg.config.dataset.trim()) errors.push("Enter a BigQuery dataset.");
     try {
       normalizeBigQueryTablePrefixForEventForwarder(cfg.config.tablePrefix);
     } catch (e) {
@@ -203,8 +207,6 @@ function getEventForwarderValidationErrors(
   if (cfg.sinkType === "snowflake") {
     const p = rawParams as Partial<SnowflakeConnectionParams>;
     const authMethod = p.authMethod ?? "password";
-    if (!cfg.config.database.trim()) errors.push("Enter a Snowflake database.");
-    if (!cfg.config.schema.trim()) errors.push("Enter a Snowflake schema.");
     if (!cfg.config.accessUrl?.trim())
       errors.push("Enter a Snowflake access URL.");
     if (!p.account?.trim()) errors.push("Enter a Snowflake account.");
