@@ -5,7 +5,11 @@ sidebar_label: Configs
 slug: /features/configs
 ---
 
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
 Configs are **typed, validated, composable objects** you define once and reuse across feature flags. Where a [constant](/features/constants) is a reusable _value_, a config is a reusable _shape_: it carries both a value **and** a schema, so every flag (and every child config) built on it is validated against that schema.
+
+<CommercialFeature feature="feature-configs" />
 
 The main reasons to reach for a config:
 
