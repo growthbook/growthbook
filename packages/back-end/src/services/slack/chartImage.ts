@@ -3074,6 +3074,39 @@ export function sampleScorecard(): ScorecardData {
   };
 }
 
+export function sampleFeatureDigest(): FeatureDigestData {
+  return {
+    period: "Jun 8 – Jul 8, 2026",
+    total: 19,
+    counts: {
+      published: 7,
+      reverted: 1,
+      safeRolloutShipped: 2,
+      safeRolloutRolledBack: 1,
+      safeRolloutUnhealthy: 1,
+      stale: 3,
+      reviewRequested: 2,
+      reviewApproved: 1,
+      changesRequested: 1,
+    },
+    publishedFlags: [
+      "checkout-banner",
+      "new-nav",
+      "pricing-v2",
+      "signup-cta",
+      "referral-widget",
+    ],
+    revertedFlags: ["legacy-search"],
+    needsAttentionFlags: [
+      { key: "promo-banner", reason: "unhealthy" },
+      { key: "cart-upsell", reason: "rollback" },
+      { key: "beta-dashboard", reason: "changes" },
+      { key: "onboarding-tour", reason: "review" },
+      { key: "old-experiment-flag", reason: "stale" },
+    ],
+  };
+}
+
 /** Warm the renderer (font + wasm) at startup rather than on first Slack use. */
 export async function warmChartImageRenderer(): Promise<void> {
   try {

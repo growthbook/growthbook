@@ -34,6 +34,39 @@ export const slackEventWebHookMetadata = z
 
 export const experimentCardFormats = ["none", "compact", "detailed"] as const;
 
+export const slackCardKinds = [
+  "started",
+  "significance",
+  "won",
+  "lost",
+  "stopped",
+  "warning",
+] as const;
+export type SlackCardKind = (typeof slackCardKinds)[number];
+
+// Experiment events that post a results CARD image (not a plain text message),
+// mapped to the card kind they announce. Any event not listed posts text only.
+// Source of truth for the settings UI (badging card vs text) and previews; keep
+// in sync with compactEventForNotification (back-end). experiment.stopped.*
+// resolve their real kind (won/lost/stopped) from the run's results at delivery
+// time, so "stopped" here is only a preview hint.
+export const SLACK_CARD_EVENT_KINDS: Record<string, SlackCardKind> = {
+  "experiment.started": "started",
+  "experiment.info.significance": "significance",
+  "experiment.decision.ship": "won",
+  "experiment.decision.rollback": "lost",
+  "experiment.warning": "warning",
+  "experiment.health.guardrailFailed": "warning",
+  "experiment.health.noData": "warning",
+  "experiment.health.queryFailed": "warning",
+  "experiment.stopped.shipped": "stopped",
+  "experiment.stopped.rolledback": "stopped",
+};
+
+export const slackCardKindForEvent = (
+  eventName: string,
+): SlackCardKind | undefined => SLACK_CARD_EVENT_KINDS[eventName];
+
 // Digest cadence. `custom` delivers like the others but signals the UI to
 // expose the full day/time editor.
 export const slackDigestFrequencies = [

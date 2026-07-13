@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import type { EventUser } from "shared/validators";
+import { slackCardKindForEvent, SlackCardKind } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   getEventWebHookById,
@@ -9,14 +10,34 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import {
   getSlackMessageForNotificationEvent,
-  renderExperimentCardForEvent,
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  sampleCard,
+  CardState,
+  sampleScorecard,
+  renderWeeklyScorecard,
+  sampleFeatureDigest,
+  renderFeatureDigest,
+} from "back-end/src/services/slack/chartImage";
+import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import {
   postSlackMessageResult,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
 import { cancellableFetch } from "back-end/src/util/http.util";
+
+// A test send has no real experiment, so card-worthy events render from the
+// same hardcoded sample the on-page preview uses (sampleCard) rather than a DB
+// lookup. Maps the event's card kind to the sample state to render.
+const TEST_CARD_STATE: Record<SlackCardKind, CardState> = {
+  started: "started",
+  significance: "running",
+  won: "winner",
+  lost: "loser",
+  stopped: "stopped",
+  warning: "warning",
+};
 
 export const slackEventWebhookTestEventNames = [
   "feature.created",
@@ -782,18 +803,24 @@ export const sendSlackEventWebhookTestEvent = async ({
   });
   const channelId = eventWebHook.slack?.channelId;
 
+  const format = eventWebHook.slackOptions?.experimentCardFormat ?? "compact";
+  const cardKind = slackCardKindForEvent(eventName);
+
   try {
     if (botToken && channelId) {
-      const card = await renderExperimentCardForEvent(
-        eventPayload,
-        context.org.id,
-        eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
-      );
-      if (card) {
+      if (format !== "none" && cardKind) {
+        // Render the sample card (no DB — the test experiment isn't real) and
+        // upload it privately, exactly as a real card-worthy event would.
+        const card = sampleCard(TEST_CARD_STATE[cardKind]);
+        card.event = cardKind;
+        const png = await renderExperimentCard(
+          card,
+          format === "detailed" ? "detailed" : "compact",
+        );
         const fileId = await uploadSlackImageFile({
           token: botToken,
-          png: card.png,
-          title: card.caption,
+          png,
+          title: `${card.name} — test`,
           filename: "experiment-card.png",
           channelId,
         });
@@ -845,4 +872,76 @@ export const sendSlackEventWebhookTestEvent = async ({
     eventName,
     slackMessage,
   };
+};
+
+export type SlackTestDigestKind = "scorecard" | "feature";
+
+export type SlackTestDigestResult = { ok: true } | { ok: false; error: string };
+
+// Post a sample digest (experiment scorecard or feature-flag summary) to the
+// channel. Digests are image-only, rendered from the same sample data as the
+// on-page preview, and uploaded privately — so a bot token + channel is
+// required (there's no text form to fall back to via the incoming-webhook URL).
+export const sendSlackEventWebhookTestDigest = async ({
+  context,
+  eventWebHookId,
+  digest,
+}: {
+  context: ReqContext;
+  eventWebHookId: string;
+  digest: SlackTestDigestKind;
+}): Promise<SlackTestDigestResult> => {
+  const eventWebHook = await getEventWebHookById(
+    eventWebHookId,
+    context.org.id,
+  );
+  if (!eventWebHook) {
+    return { ok: false, error: "Event webhook not found" };
+  }
+  if (eventWebHook.payloadType !== "slack") {
+    return {
+      ok: false,
+      error: "Select an Event Webhook with Slack payload type",
+    };
+  }
+
+  const botToken = await getSlackBotAccessTokenForWebhook({
+    eventWebHookId,
+    organizationId: context.org.id,
+  });
+  const channelId = eventWebHook.slack?.channelId;
+  if (!botToken || !channelId) {
+    return {
+      ok: false,
+      error:
+        "Reconnect this channel with a bot token to send digest previews — they post as an uploaded image.",
+    };
+  }
+
+  try {
+    const png =
+      digest === "scorecard"
+        ? await renderWeeklyScorecard(sampleScorecard())
+        : await renderFeatureDigest(sampleFeatureDigest());
+    const fileId = await uploadSlackImageFile({
+      token: botToken,
+      png,
+      title:
+        digest === "scorecard"
+          ? "Experiment scorecard — test"
+          : "Feature-flag digest — test",
+      filename: `${digest}-digest.png`,
+      channelId,
+    });
+    if (!fileId) {
+      return { ok: false, error: "Slack file upload failed" };
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to send digest",
+    };
+  }
+
+  return { ok: true };
 };

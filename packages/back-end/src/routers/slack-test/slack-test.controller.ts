@@ -7,6 +7,9 @@ import {
   SlackEventWebhookPreviewsResult,
   sendSlackEventWebhookTestEvent,
   SlackEventWebhookTestResult,
+  sendSlackEventWebhookTestDigest,
+  SlackTestDigestKind,
+  SlackTestDigestResult,
 } from "back-end/src/services/slackBot";
 import {
   EventWebHookModel,
@@ -16,6 +19,10 @@ import {
   sampleCard,
   CardState,
   CompactEvent,
+  sampleScorecard,
+  renderWeeklyScorecard,
+  sampleFeatureDigest,
+  renderFeatureDigest,
 } from "back-end/src/services/slack/chartImage";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
@@ -23,7 +30,8 @@ import { postExperimentCardImage } from "back-end/src/services/slack/cardDeliver
 
 type PostEventWebhookRequest = AuthRequest<{
   eventWebHookId: string;
-  eventName: string;
+  eventName?: string;
+  digest?: SlackTestDigestKind;
 }>;
 
 type GetEventWebhookPreviewsRequest = AuthRequest<
@@ -49,7 +57,9 @@ export const getEventWebhookPreviews = async (
 
 export const postEventWebhook = async (
   req: PostEventWebhookRequest,
-  res: Response<SlackEventWebhookTestResult | ApiErrorResponse>,
+  res: Response<
+    SlackEventWebhookTestResult | SlackTestDigestResult | ApiErrorResponse
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -57,10 +67,21 @@ export const postEventWebhook = async (
     context.permissions.throwPermissionError();
   }
 
+  // A digest test renders + uploads a sample digest image; an event test posts
+  // the sample notification. The router guarantees exactly one is provided.
+  if (req.body.digest) {
+    const result = await sendSlackEventWebhookTestDigest({
+      context,
+      eventWebHookId: req.body.eventWebHookId,
+      digest: req.body.digest,
+    });
+    return res.json(result);
+  }
+
   const result = await sendSlackEventWebhookTestEvent({
     context,
     eventWebHookId: req.body.eventWebHookId,
-    eventName: req.body.eventName,
+    eventName: req.body.eventName ?? "",
   });
 
   res.json(result);
@@ -74,6 +95,7 @@ type GetChartPreviewRequest = AuthRequest<
     experimentId?: string;
     style?: string;
     event?: string;
+    digest?: string;
   }
 >;
 
@@ -95,10 +117,11 @@ const COMPACT_EVENTS: CompactEvent[] = [
   "warning",
 ];
 
-// Render an experiment card to PNG for eyeballing in a browser.
+// Render an experiment card (or a digest) to PNG for eyeballing in a browser.
 //   ?experimentId=exp_...  real snapshot data (else ?state= picks a sample state)
 //   ?style=compact         the small notification card (default: detailed)
 //   ?event=significance    compact-card event (default: derived from state)
+//   ?digest=scorecard      a sample digest image (scorecard | feature)
 export const getChartPreview = async (
   req: GetChartPreviewRequest,
   res: Response<Buffer | ApiErrorResponse>,
@@ -107,6 +130,17 @@ export const getChartPreview = async (
 
   if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
+  }
+
+  const digest = req.query.digest;
+  if (digest === "scorecard" || digest === "feature") {
+    const png =
+      digest === "scorecard"
+        ? await renderWeeklyScorecard(sampleScorecard())
+        : await renderFeatureDigest(sampleFeatureDigest());
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(png);
   }
 
   const experimentId = req.query.experimentId;

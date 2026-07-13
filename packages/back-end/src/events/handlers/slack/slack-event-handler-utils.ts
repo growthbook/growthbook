@@ -336,7 +336,9 @@ export const getSlackMessageForNotificationEvent = async (
 
 // Map a notification event to the compact card's *event* (which drives its hero
 // layout). Returns undefined when it doesn't map cleanly; the card then derives
-// one from the experiment's state.
+// one from the experiment's state. The set of card events here mirrors
+// SLACK_CARD_EVENT_KINDS in shared (used by the settings UI to badge card vs
+// text) — keep the two in sync.
 const compactEventForNotification = (
   event: NotificationEvent,
 ): CompactEvent | undefined => {

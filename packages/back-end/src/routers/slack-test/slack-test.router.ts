@@ -16,12 +16,18 @@ router.get(
 router.post(
   "/event-webhook",
   validateRequestMiddleware({
+    // Exactly one of `eventName` (post a sample notification) or `digest`
+    // (post a sample digest image).
     body: z
       .object({
         eventWebHookId: z.string().min(1),
-        eventName: z.enum(slackEventWebhookTestEventNames),
+        eventName: z.enum(slackEventWebhookTestEventNames).optional(),
+        digest: z.enum(["scorecard", "feature"]).optional(),
       })
-      .strict(),
+      .strict()
+      .refine((b) => !!b.eventName !== !!b.digest, {
+        message: "Provide exactly one of eventName or digest",
+      }),
   }),
   slackTestController.postEventWebhook,
 );

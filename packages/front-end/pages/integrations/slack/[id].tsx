@@ -11,14 +11,17 @@ import {
   resolveExperimentDigest,
   resolveFeatureDigest,
   experimentCardFormats,
+  slackCardKindForEvent,
   DEFAULT_SLACK_DIGEST_HOUR_UTC,
   DEFAULT_SLACK_DIGEST_INTERVAL_DAYS,
   type SlackDigestFrequency,
+  type SlackCardKind,
   type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash, PiPaperPlaneTilt } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
+import { useExperiments } from "@/hooks/useExperiments";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useEnvironments } from "@/services/features";
@@ -26,7 +29,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import SlackMessagePreview from "@/components/SlackIntegrations/SlackMessagePreview";
 import Frame from "@/ui/Frame";
@@ -39,7 +41,8 @@ import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import { Select, SelectItem } from "@/ui/Select";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { Select, SelectItem, SelectGroup, SelectLabel } from "@/ui/Select";
 
 type SlackIntegrationsResponse = {
   slackIntegrations: SlackOAuthIntegrationInterface[];
@@ -103,6 +106,115 @@ const SUBJECT_META: Record<
 };
 
 const CATALOG_EVENTS = new Set(SLACK_EVENT_OPTIONS.flatMap((o) => o.events));
+
+const CATEGORY_LABEL: Record<SlackEventCategory, string> = {
+  experiment: "Experiments",
+  feature: "Feature flags",
+};
+
+// Card kind → sample chart-preview params (snapshot state + compact event) so
+// the preview renders the right hero for each card event.
+const CARD_KIND_PREVIEW: Record<
+  SlackCardKind,
+  { state: string; event: string }
+> = {
+  started: { state: "started", event: "started" },
+  significance: { state: "running", event: "significance" },
+  won: { state: "winner", event: "won" },
+  lost: { state: "loser", event: "lost" },
+  stopped: { state: "stopped", event: "stopped" },
+  warning: { state: "warning", event: "warning" },
+};
+
+// Digests aren't events — they're sentinel picker values that render a sample
+// scorecard / feature-flag summary image (always an image, so tagged as such).
+const digestKindForValue = (value: string): "scorecard" | "feature" | null =>
+  value === "digest:scorecard"
+    ? "scorecard"
+    : value === "digest:feature"
+      ? "feature"
+      : null;
+
+// Events + digests offered in the test-send + preview pickers, grouped like the
+// catalog. For events, value = the catalog option's representative event (all
+// are valid test events); the two digests are appended as their own group.
+type PreviewEventOption = {
+  value: string;
+  label: string;
+  tag: "card" | "text" | "image";
+};
+const PREVIEW_EVENT_GROUPS: {
+  key: string;
+  heading: string;
+  items: PreviewEventOption[];
+}[] = (() => {
+  const groups: {
+    key: string;
+    heading: string;
+    items: PreviewEventOption[];
+  }[] = [];
+  SLACK_EVENT_OPTIONS.forEach((o) => {
+    const event = o.events[0];
+    if (!event) return;
+    const key = `${o.category}:${o.group}`;
+    let g = groups.find((x) => x.key === key);
+    if (!g) {
+      g = {
+        key,
+        heading: `${CATEGORY_LABEL[o.category]} · ${o.group}`,
+        items: [],
+      };
+      groups.push(g);
+    }
+    g.items.push({
+      value: event,
+      label: o.label,
+      tag: slackCardKindForEvent(event) ? "card" : "text",
+    });
+  });
+  groups.push({
+    key: "digests",
+    heading: "Digests",
+    items: [
+      {
+        value: "digest:scorecard",
+        label: "Experiment scorecard",
+        tag: "image",
+      },
+      { value: "digest:feature", label: "Feature-flag digest", tag: "image" },
+    ],
+  });
+  return groups;
+})();
+
+const DEFAULT_PREVIEW_EVENT = "experiment.info.significance";
+
+// Grouped picker shared by the header test-send control and the preview area.
+// Each item is tagged (card) / (text) / (image) so it's clear what it posts.
+function EventSelect({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label?: string;
+}) {
+  return (
+    <Select size="2" label={label} value={value} setValue={onChange}>
+      {PREVIEW_EVENT_GROUPS.map((g) => (
+        <SelectGroup key={g.key}>
+          <SelectLabel>{g.heading}</SelectLabel>
+          {g.items.map((it) => (
+            <SelectItem key={it.value} value={it.value}>
+              {it.label} ({it.tag})
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </Select>
+  );
+}
 
 // Scopes added after the earliest installs; if a connection is missing any of
 // these we prompt the user to reconnect. Keep in sync with SLACK_OAUTH_SCOPE.
@@ -280,19 +392,38 @@ function DigestSubSection({
   );
 }
 
-// Live preview of the posted results card, rendered via the real card renderer
-// (no mock). "none" posts text only, so there's nothing to preview.
-function CardPreview({
+// Live preview of what a given selection posts: a sample digest image, the
+// real results card (via the card renderer) for card events, or the real text
+// message (via the previews endpoint) for everything else. Card events only
+// render an image when a card style is selected; otherwise they fall back to
+// their text message too.
+function EventPreview({
+  eventName,
   style,
 }: {
+  eventName: string;
   style: (typeof experimentCardFormats)[number];
 }) {
   const { apiCall } = useAuth();
   const [url, setUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const digestKind = digestKindForValue(eventName);
+  const cardKind = slackCardKindForEvent(eventName);
+  // The image to fetch, if any. Digests are always images; card events only
+  // when a card style is selected. Otherwise there's no image (text preview).
+  const imageSrc = digestKind
+    ? `/admin/slack-test/chart-preview?digest=${digestKind}`
+    : cardKind && style !== "none"
+      ? `/admin/slack-test/chart-preview?style=${
+          style === "compact" ? "compact" : "detailed"
+        }&state=${CARD_KIND_PREVIEW[cardKind].state}&event=${
+          CARD_KIND_PREVIEW[cardKind].event
+        }`
+      : null;
+
   useEffect(() => {
-    if (style === "none") {
+    if (!imageSrc) {
       setUrl(null);
       setErr(null);
       return;
@@ -303,11 +434,7 @@ function CardPreview({
     setErr(null);
     (async () => {
       try {
-        const blob = await apiCall<Blob>(
-          `/admin/slack-test/chart-preview?style=${
-            style === "compact" ? "compact" : "detailed"
-          }&state=winner`,
-        );
+        const blob = await apiCall<Blob>(imageSrc);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
@@ -321,15 +448,17 @@ function CardPreview({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [style, apiCall]);
+  }, [imageSrc, apiCall]);
 
-  if (style === "none") {
+  if (!imageSrc) {
     return (
       <>
         <Text as="p" color="text-mid" size="small" mb="2">
-          No card — a text-only message is posted. Example:
+          {cardKind
+            ? "Card style is off — this event posts a text-only message. Example:"
+            : "This event posts a text message (no card). Example:"}
         </Text>
-        <SlackMessagePreview />
+        <SlackMessagePreview eventName={eventName} />
       </>
     );
   }
@@ -344,11 +473,11 @@ function CardPreview({
   return (
     <img
       src={url}
-      alt="Results card preview"
+      alt={digestKind ? "Digest preview" : "Results card preview"}
       style={{
         display: "block",
         width: "100%",
-        maxWidth: style === "compact" ? 460 : 520,
+        maxWidth: digestKind ? 560 : style === "compact" ? 460 : 520,
         borderRadius: 10,
         boxShadow: "0 6px 20px -6px rgba(0,0,0,.35)",
       }}
@@ -356,18 +485,13 @@ function CardPreview({
   );
 }
 
-const parseCsvList = (value: string): string[] =>
-  value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
 const SlackIntegrationDetailPage = () => {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissionsUtils = usePermissionsUtil();
   const environments = useEnvironments().map((env) => env.id);
-  const { projects, tags } = useDefinitions();
+  const { projects, tags, metrics, factMetrics } = useDefinitions();
+  const { experiments } = useExperiments();
   const id = Array.isArray(router.query.id)
     ? router.query.id[0]
     : router.query.id;
@@ -384,6 +508,13 @@ const SlackIntegrationDetailPage = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cardFormat, setCardFormat] =
     useState<(typeof experimentCardFormats)[number]>("compact");
+  // Event shown in the right-hand preview area.
+  const [previewEvent, setPreviewEvent] = useState<string>(
+    DEFAULT_PREVIEW_EVENT,
+  );
+  // Send-test modal: whether it's open and which event it will post.
+  const [showSendTest, setShowSendTest] = useState(false);
+  const [testEvent, setTestEvent] = useState<string>(DEFAULT_PREVIEW_EVENT);
   const [experimentDigest, setExperimentDigest] =
     useState<ResolvedSlackDigest>(OFF_DIGEST_STATE);
   const [featureDigest, setFeatureDigest] =
@@ -396,7 +527,6 @@ const SlackIntegrationDetailPage = () => {
   const [saved, setSaved] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     message: string;
@@ -410,6 +540,33 @@ const SlackIntegrationDetailPage = () => {
   // Tag / experiment / metric filters live behind a "more" toggle; auto-open
   // when any are already set.
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  // Options for the searchable experiment/metric filters — human-readable names
+  // keyed by id. A previously-saved id that's since been archived/deleted (or
+  // out of the current project scope) won't be in the list, so keep it as a
+  // fallback option labeled by id rather than silently dropping it on save.
+  const experimentOptions = useMemo(() => {
+    const opts = experiments.map((e) => ({ label: e.name, value: e.id }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterExperiments
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [experiments, filterExperiments]);
+
+  const metricOptions = useMemo(() => {
+    const opts = [...metrics, ...factMetrics].map((m) => ({
+      label: m.name,
+      value: m.id,
+    }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterMetrics
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [metrics, factMetrics, filterMetrics]);
 
   // Hydrate form when the integration loads.
   useEffect(() => {
@@ -670,35 +827,37 @@ const SlackIntegrationDetailPage = () => {
     await router.push("/integrations/slack");
   };
 
+  // Posts the selected event to Slack. Throws on failure so the modal keeps it
+  // open and shows the error; on success the modal closes and the outcome shows
+  // in the page-level callout.
   const sendTest = async () => {
     if (!integration) return;
-    setSendingTest(true);
     setTestResult(null);
-    try {
-      const res = await apiCall<{ ok: boolean; error?: string }>(
-        "/admin/slack-test/event-webhook",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            eventWebHookId: integration.eventWebHookId,
-            eventName: "experiment.info.significance",
-          }),
-        },
-      );
-      if (!res.ok) throw new Error(res.error || "Failed to send test message.");
-      setTestResult({
-        ok: true,
-        message: `Test message sent to ${getChannelLabel(integration)}.`,
-      });
-    } catch (e) {
-      setTestResult({
-        ok: false,
-        message:
-          e instanceof Error ? e.message : "Failed to send test message.",
-      });
-    } finally {
-      setSendingTest(false);
-    }
+    const digestKind = digestKindForValue(testEvent);
+    const res = await apiCall<{ ok: boolean; error?: string }>(
+      "/admin/slack-test/event-webhook",
+      {
+        method: "POST",
+        body: JSON.stringify(
+          digestKind
+            ? { eventWebHookId: integration.eventWebHookId, digest: digestKind }
+            : {
+                eventWebHookId: integration.eventWebHookId,
+                eventName: testEvent,
+              },
+        ),
+      },
+    );
+    if (!res.ok) throw new Error(res.error || "Failed to send test message.");
+    const kindWord = digestKind
+      ? "digest"
+      : slackCardKindForEvent(testEvent) && cardFormat !== "none"
+        ? "card"
+        : "message";
+    setTestResult({
+      ok: true,
+      message: `Test ${kindWord} sent to ${getChannelLabel(integration)}.`,
+    });
   };
 
   if (!permissionsUtils.canManageIntegrations()) {
@@ -770,6 +929,34 @@ const SlackIntegrationDetailPage = () => {
         />
       )}
 
+      {showSendTest && (
+        <ModalStandard
+          trackingEventModalType="slack-send-test-message"
+          open={showSendTest}
+          header="Send a test message"
+          cta={`Send to ${getChannelLabel(integration)}`}
+          submit={sendTest}
+          close={() => setShowSendTest(false)}
+        >
+          <Text as="p" color="text-mid" mb="3">
+            Posts a sample notification to {getChannelLabel(integration)} so you
+            can see how it looks. Pick what to send — <em>(card)</em> posts a
+            results card, <em>(image)</em> posts a digest, the rest post text.
+          </Text>
+          <Box mb="4">
+            <EventSelect
+              label="Message type"
+              value={testEvent}
+              onChange={setTestEvent}
+            />
+          </Box>
+          <Text size="small" weight="medium" color="text-mid" as="div" mb="2">
+            Preview
+          </Text>
+          <EventPreview eventName={testEvent} style={cardFormat} />
+        </ModalStandard>
+      )}
+
       <Flex direction="column" gap="4">
         <Flex justify="between" align="start" gap="3">
           <Box>
@@ -783,8 +970,10 @@ const SlackIntegrationDetailPage = () => {
               variant="outline"
               color="gray"
               icon={<PiPaperPlaneTilt />}
-              loading={sendingTest}
-              onClick={sendTest}
+              onClick={() => {
+                setTestEvent(previewEvent);
+                setShowSendTest(true);
+              }}
             >
               Send test message
             </Button>
@@ -887,24 +1076,24 @@ const SlackIntegrationDetailPage = () => {
                   />
                 </Box>
 
-                <Field
+                <MultiSelectField
                   label="Experiments"
-                  placeholder="exp_123, exp_456"
-                  helpText="Comma-separated experiment IDs. Empty = all."
-                  value={filterExperiments.join(", ")}
-                  onChange={(e) => {
-                    setFilterExperiments(parseCsvList(e.target.value));
+                  placeholder="All experiments"
+                  value={filterExperiments}
+                  options={experimentOptions}
+                  onChange={(v) => {
+                    setFilterExperiments(v);
                     setSaved(false);
                   }}
                 />
 
-                <Field
+                <MultiSelectField
                   label="Metrics"
-                  placeholder="met_123, met_456"
-                  helpText="Comma-separated metric IDs. Empty = all."
-                  value={filterMetrics.join(", ")}
-                  onChange={(e) => {
-                    setFilterMetrics(parseCsvList(e.target.value));
+                  placeholder="All metrics"
+                  value={filterMetrics}
+                  options={metricOptions}
+                  onChange={(v) => {
+                    setFilterMetrics(v);
                     setSaved(false);
                   }}
                 />
@@ -952,45 +1141,42 @@ const SlackIntegrationDetailPage = () => {
             Results card
           </Heading>
           <Text as="p" color="text-mid" mb="4">
-            The image posted for experiment results (started, significance,
-            won/lost, stopped, health).
+            Experiment results (started, significance, won/lost, stopped,
+            health) post this card. Every other event posts a text message —
+            pick any event, or a digest, to preview it.
           </Text>
-          {/* Card style and live preview split the row evenly; stacks to one
-              column only when the container is too narrow. */}
+          {/* Card style on the left; event picker + live preview on the right.
+              Stacks to one column when the container is too narrow. */}
           <Grid
             columns={{ initial: "1", sm: "2" }}
             gapX="6"
             gapY="4"
             align="start"
           >
-            <Box>
-              <Select
-                size="2"
-                label="Card style"
-                value={cardFormat}
-                setValue={(v) =>
-                  setCardFormat(v as (typeof experimentCardFormats)[number])
-                }
-              >
-                {experimentCardFormats.map((f) => (
-                  <SelectItem key={f} value={f}>
-                    {CARD_FORMAT_LABELS[f]}
-                  </SelectItem>
-                ))}
-              </Select>
-            </Box>
+            <Select
+              size="2"
+              label="Card style"
+              value={cardFormat}
+              setValue={(v) =>
+                setCardFormat(v as (typeof experimentCardFormats)[number])
+              }
+            >
+              {experimentCardFormats.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {CARD_FORMAT_LABELS[f]}
+                </SelectItem>
+              ))}
+            </Select>
 
             <Box style={{ minWidth: 0 }}>
-              <Text
-                size="small"
-                weight="medium"
-                color="text-mid"
-                as="div"
-                mb="2"
-              >
-                Preview
-              </Text>
-              <CardPreview style={cardFormat} />
+              <Box mb="3">
+                <EventSelect
+                  label="Preview event"
+                  value={previewEvent}
+                  onChange={setPreviewEvent}
+                />
+              </Box>
+              <EventPreview eventName={previewEvent} style={cardFormat} />
             </Box>
           </Grid>
         </Frame>
