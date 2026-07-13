@@ -26920,6 +26920,12 @@ paths:
                                   - absolute
                                   - relative
                                   - scaled
+                              dimensionId:
+                                type: string
+                              dimensionValues:
+                                type: array
+                                items:
+                                  type: string
                               sliceTagsFilter:
                                 type: array
                                 items:
@@ -27771,6 +27777,12 @@ paths:
                                   - absolute
                                   - relative
                                   - scaled
+                              dimensionId:
+                                type: string
+                              dimensionValues:
+                                type: array
+                                items:
+                                  type: string
                               sliceTagsFilter:
                                 type: array
                                 items:
@@ -29505,6 +29517,12 @@ paths:
                               - absolute
                               - relative
                               - scaled
+                          dimensionId:
+                            type: string
+                          dimensionValues:
+                            type: array
+                            items:
+                              type: string
                           sliceTagsFilter:
                             type: array
                             items:
@@ -45282,6 +45300,12 @@ components:
                       - absolute
                       - relative
                       - scaled
+                  dimensionId:
+                    type: string
+                  dimensionValues:
+                    type: array
+                    items:
+                      type: string
                   sliceTagsFilter:
                     type: array
                     items:

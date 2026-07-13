@@ -57,6 +57,10 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
 }
 
+// Label for the dimension group containing precomputed dimensions. Shared so
+// consumers (e.g. dashboard blocks) can filter on it without hardcoding.
+export const PRECOMPUTED_DIMENSION_GROUP_LABEL = "Pre-computed";
+
 export function getDimensionOptions({
   incrementalRefresh,
   precomputedDimensions,
@@ -172,7 +176,7 @@ export function getDimensionOptions({
     ...(precomputedDimensionOptions.length > 0
       ? [
           {
-            label: "Pre-computed",
+            label: PRECOMPUTED_DIMENSION_GROUP_LABEL,
             options: precomputedDimensionOptions,
           },
         ]
