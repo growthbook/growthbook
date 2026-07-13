@@ -12,6 +12,7 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import {
+  getAllDatasourceIdsByOrganization,
   getDataSourceById,
   getDataSourcesByOrganization,
 } from "back-end/src/models/DataSourceModel";
@@ -38,16 +39,20 @@ export const getDimensions = async (
   const context = getContextFromReq(req);
   const dimensions = await findDimensionsByOrganization(context.org.id);
 
-  // A dimension's project access is inherited from its datasource, so restrict
-  // to datasources the caller can read (already filtered by project access).
+  // A dimension inherits project access from its datasource. Drop it only when
+  // the datasource exists but is inaccessible; orphaned dimensions whose
+  // datasource no longer exists stay in the list.
   const readableDatasourceIds = new Set(
     (await getDataSourcesByOrganization(context)).map((ds) => ds.id),
   );
+  const allDatasourceIds = await getAllDatasourceIdsByOrganization(context);
 
   res.status(200).json({
     status: 200,
-    dimensions: dimensions.filter((dimension) =>
-      readableDatasourceIds.has(dimension.datasource),
+    dimensions: dimensions.filter(
+      (dimension) =>
+        readableDatasourceIds.has(dimension.datasource) ||
+        !allDatasourceIds.has(dimension.datasource),
     ),
   });
 };
