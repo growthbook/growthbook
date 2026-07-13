@@ -1,6 +1,10 @@
 import { ConfigInterface } from "shared/types/config";
 import { ConstantInterface } from "shared/types/constant";
-import { Revision, normalizeProposedChanges } from "shared/enterprise";
+import {
+  Revision,
+  getConstantRevisionChange,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import { getConfigSubtree } from "shared/util";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -411,4 +415,47 @@ export async function assertConstantExperimentGuard(
   throw new TerminalPublishError(
     `Constant publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (config keys now: ${keyList}). Re-open the draft and re-confirm to publish.`,
   );
+}
+
+// Snapshot the constant experiment-guard fingerprint when ARMING a deferred
+// publish (schedule / auto-publish-on-approval), throwing (bypassably) if live
+// conflicts aren't acknowledged. Mirrors captureConfigExperimentGuardAcknowledgment;
+// the returned keys are stored on the revision so a later matching fire proceeds.
+export async function captureConstantExperimentGuardAcknowledgment(
+  context: Context,
+  constant: Pick<
+    ConstantInterface,
+    "key" | "project" | "value" | "environmentValues"
+  >,
+  proposedChanges?: unknown,
+): Promise<string[] | undefined> {
+  // A metadata-only revision can't rewrite a served value — nothing to ack.
+  if (proposedChanges !== undefined) {
+    const change = getConstantRevisionChange(constant, proposedChanges);
+    if (!change.valueChanged && change.changedEnvironments.length === 0) {
+      return undefined;
+    }
+  }
+
+  const conflictKeys = await evaluateConstantExperimentGuardConflicts(
+    context,
+    constant,
+  );
+  if (conflictKeys.size === 0) return undefined;
+
+  const sortedKeys = [...conflictKeys].sort();
+  const override =
+    context.ignoreWarnings ||
+    context.permissions.canBypassApprovalChecks({
+      project: constant.project || "",
+    });
+  if (!override) {
+    throw new SoftWarningError(
+      `Scheduling this publish will rewrite the live value served to a running experiment through a guarded config (config keys: ${sortedKeys.join(
+        ", ",
+      )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
+      sortedKeys,
+    );
+  }
+  return sortedKeys;
 }

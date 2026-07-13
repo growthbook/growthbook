@@ -14,6 +14,10 @@ import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  assertConstantExperimentGuard,
+  captureConstantExperimentGuardAcknowledgment,
+} from "back-end/src/services/experimentGuard";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
 // so the two can't drift. The snapshot validator runs in `.strict()` mode, so a
@@ -187,5 +191,44 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );
+  },
+
+  // Snapshot the experiment-guard fingerprint when arming a deferred publish
+  // (schedule / auto-publish-on-approval); throws (bypassably) on unacknowledged
+  // live conflicts. Mirrors the config adapter.
+  captureArmAcknowledgment(
+    context: Context,
+    entity: ConstantInterface,
+    proposedChanges: unknown,
+  ): Promise<string[] | undefined> {
+    return captureConstantExperimentGuardAcknowledgment(
+      context,
+      entity,
+      proposedChanges,
+    );
+  },
+
+  // Pre-merge gate for the shared publishRevision action (scheduled-publish
+  // poller, auto-publish-on-approval). Warns when this value change would rewrite
+  // the live value served to a running experiment through a guarded config; a
+  // deferred fire re-confirms against the arm-time acknowledgment. Metadata-only
+  // changes can't shift a served value, so they skip the check.
+  async assertPublishable(
+    context: Context,
+    entity: ConstantInterface,
+    desiredState: Record<string, unknown>,
+    revision: Revision,
+    options?: { isRevert?: boolean; deferred?: boolean },
+  ): Promise<void> {
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
+      await assertConstantExperimentGuard(context, entity, revision, {
+        armed: !!options?.deferred,
+      });
+    }
   },
 };
