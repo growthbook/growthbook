@@ -45,6 +45,7 @@ import {
   addMemberToOrg,
   addPendingMemberToOrg,
   assertRoleAssignmentAllowed,
+  assertRoleChangeAllowed,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
@@ -469,16 +470,14 @@ export async function putMemberRole(
       message: "Cannot find member",
     });
   }
-  // Only gate a role change so existing assignments keep working
-  if (existingMember.role !== role) {
-    try {
-      assertRoleAssignmentAllowed(org, role);
-    } catch (e) {
-      return res.status(400).json({
-        status: 400,
-        message: e.message,
-      });
-    }
+  try {
+    // Only gate a role change so existing assignments keep working
+    assertRoleChangeAllowed(org, existingMember.role, role);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 
   let found = false;
@@ -827,17 +826,21 @@ export async function putInviteRole(
     });
   }
 
-  // Only gate a role change so existing invites keep working
   const existingInvite = originalInvites.find((m) => m.key === key);
-  if (!existingInvite || existingInvite.role !== role) {
-    try {
-      assertRoleAssignmentAllowed(org, role);
-    } catch (e) {
-      return res.status(400).json({
-        status: 400,
-        message: e.message,
-      });
-    }
+  if (!existingInvite) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find member",
+    });
+  }
+  try {
+    // Only gate a role change so existing invites keep working
+    assertRoleChangeAllowed(org, existingInvite.role, role);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
   }
 
   let found = false;
@@ -1663,9 +1666,9 @@ export async function putOrganization(
           context.permissions.throwPermissionError();
         }
         const newRole = settings.defaultRole?.role;
-        // Only gate a change so an existing non-admin default keeps working
-        if (newRole && newRole !== getDefaultRole(org).role) {
-          assertRoleAssignmentAllowed(org, newRole);
+        if (newRole) {
+          // Only gate a change so an existing non-admin default keeps working
+          assertRoleChangeAllowed(org, getDefaultRole(org).role, newRole);
         }
       } else {
         if (!context.permissions.canManageOrgSettings()) {

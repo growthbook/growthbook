@@ -12,7 +12,7 @@ import {
   getLowestPlanPerFeature,
 } from "back-end/src/enterprise";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
-import { assertRoleAssignmentAllowed } from "back-end/src/services/organizations";
+import { assertRoleChangeAllowed } from "back-end/src/services/organizations";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -116,9 +116,7 @@ export const updateMemberRole = createApiRequestHandler(
   };
 
   // Only gate a role change so existing assignments keep working
-  if (updatedMember.role !== orgUser.role) {
-    assertRoleAssignmentAllowed(req.context.org, updatedMember.role);
-  }
+  assertRoleChangeAllowed(req.context.org, orgUser.role, updatedMember.role);
 
   // First, check the global role data
   const { memberIsValid, reason } = validateRoleAndEnvs(

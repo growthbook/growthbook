@@ -511,6 +511,17 @@ export function assertRoleAssignmentAllowed(
   );
 }
 
+// Gate a human role selection but only when the role actually changes, so
+// existing assignments keep working.
+export function assertRoleChangeAllowed(
+  organization: OrganizationInterface,
+  existingRole: string,
+  newRole: string,
+) {
+  if (existingRole === newRole) return;
+  assertRoleAssignmentAllowed(organization, newRole);
+}
+
 export async function addMemberToOrg({
   organization,
   userId,
