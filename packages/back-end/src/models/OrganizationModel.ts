@@ -256,7 +256,7 @@ export async function createOrganization({
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
     // Cloud stamps from the pricing-phase-1-limits flag; self-hosted uses defaults
     // so the limits for future orgs can be tuned without a deploy.
-    limits: getStampedOrgLimits(),
+    limits: await getStampedOrgLimits(),
   });
   return toInterface(doc);
 }

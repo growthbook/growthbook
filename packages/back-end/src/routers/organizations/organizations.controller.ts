@@ -480,14 +480,12 @@ export async function putMemberRole(
     });
   }
 
-  let found = false;
   org.members.forEach((m) => {
     if (m.id === id) {
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
   org?.pendingMembers?.forEach((m) => {
@@ -496,16 +494,8 @@ export async function putMemberRole(
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {
@@ -843,24 +833,14 @@ export async function putInviteRole(
     });
   }
 
-  let found = false;
-
   org.invites.forEach((m) => {
     if (m.key === key) {
       m.role = role;
       m.limitAccessByEnvironment = !!limitAccessByEnvironment;
       m.environments = environments || [];
       m.projectRoles = projectRoles || [];
-      found = true;
     }
   });
-
-  if (!found) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find member",
-    });
-  }
 
   try {
     await updateOrganization(org.id, {

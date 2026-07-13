@@ -11,14 +11,20 @@ import {
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { OrganizationInterface } from "shared/types/organization";
 import { getEffectiveAccountPlan, getOrgLimits } from "back-end/src/enterprise";
-import { getGrowthBookClient } from "back-end/src/services/growthbook";
+import {
+  getGrowthBookClient,
+  initializeGrowthBookClient,
+} from "back-end/src/services/growthbook";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Limits stamped onto a newly created org. Cloud reads the flag; self-hosted
 // always uses the hardcoded defaults.
-export function getStampedOrgLimits(): OrgLimits {
+export async function getStampedOrgLimits(): Promise<OrgLimits> {
   if (!IS_CLOUD) return { ...FREE_ORG_LIMITS };
 
+  // Bounded by the client's 3s init timeout — orgs created right after boot
+  // still stamp from the configured flag instead of the hardcoded defaults.
+  await initializeGrowthBookClient();
   const raw = getGrowthBookClient()?.evalFeature(PRICING_PHASE_1_FLAG_KEY, {
     attributes: {},
   }).value;
