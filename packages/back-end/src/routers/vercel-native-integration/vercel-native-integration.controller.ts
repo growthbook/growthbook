@@ -42,9 +42,15 @@ import {
   trackLoginForUser,
 } from "back-end/src/services/users";
 import {
+  licenseInit,
   postCancelSubscriptionToLicenseServer,
   postNewVercelSubscriptionToLicenseServer,
 } from "back-end/src/enterprise";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import { logger } from "back-end/src/util/logger";
 import { getLicenseByKey } from "back-end/src/enterprise/models/licenseModel";
 import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import {
@@ -188,6 +194,16 @@ const getOrgFromInstallationResource = async <T>(
   const org = await findOrganizationById(integration.organization);
 
   if (!org) throw new Error("Invalid installation!");
+
+  if (org.licenseKey) {
+    try {
+      // Vercel routes mount before the auth middleware that normally warms
+      // the license cache; without this, paid orgs resolve as starter.
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+    } catch (e) {
+      logger.error(e, "Failed to init license for Vercel request");
+    }
+  }
 
   return {
     org,
