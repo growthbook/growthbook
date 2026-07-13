@@ -275,6 +275,7 @@ export interface ExperimentCardData {
   daysToPower?: number; // "started" compact hero: est. days to reach power
   compactLine?: string; // one-line conclusion fallback for outcome events
   winningVariation?: string; // "won" state: the variation that was shipped
+  winningVariationIndex?: number; // its 0-based variation index (control = 0)
 }
 
 // A compact notification announces an EVENT (distinct from the experiment's
@@ -1781,12 +1782,16 @@ function compactHero(
     : exp.compactLine
       ? plainClamp(exp.compactLine, 200)
       : "";
-  // For a won test (esp. 3+ way) show the variation that shipped and use its
-  // numbers, not just the first treatment row.
+  // For a won test (esp. 3+ way) show the variation that shipped, matched by
+  // its variation index (names can collide). If the winner is control or has no
+  // goal row, outcomeRow is undefined and the hero shows just the word (no
+  // misattributed lift). lost/stopped use the first treatment row.
   const outcomeRow =
-    (event === "won" && exp.winningVariation
-      ? exp.rows.find((row) => row.v === exp.winningVariation)
-      : undefined) || r;
+    event === "won"
+      ? exp.winningVariationIndex != null
+        ? exp.rows.find((row) => row.i === exp.winningVariationIndex)
+        : r
+      : r;
   const word =
     event === "won"
       ? exp.winningVariation

@@ -334,17 +334,23 @@ export async function buildExperimentCardData(
       ? { text: experiment.analysis.trim() }
       : undefined;
 
-  // The winning variation (for "won" experiments) — from the recorded winner
-  // index, falling back to the released variation id. Named so the compact card
-  // can say which variation won (matters for 3+ way tests).
-  const winningVariation =
+  // The winning variation (for "won" experiments) — its 0-based index (control
+  // = 0), from the recorded winner index, falling back to the released
+  // variation id. The compact card matches the goal row by this index (not by
+  // name, which can collide) and names the winner (matters for 3+ way tests).
+  const winningVariationIndex =
     state === "winner"
-      ? experiment.variations[experiment.winner ?? -1]?.name ||
-        (experiment.releasedVariationId
-          ? experiment.variations.find(
+      ? typeof experiment.winner === "number"
+        ? experiment.winner
+        : experiment.releasedVariationId
+          ? experiment.variations.findIndex(
               (v) => v.id === experiment.releasedVariationId,
-            )?.name
-          : undefined)
+            )
+          : -1
+      : -1;
+  const winningVariation =
+    winningVariationIndex >= 0
+      ? experiment.variations[winningVariationIndex]?.name
       : undefined;
 
   return {
@@ -357,6 +363,7 @@ export async function buildExperimentCardData(
     days,
     dates,
     ...(winningVariation ? { winningVariation } : {}),
+    ...(winningVariationIndex >= 0 ? { winningVariationIndex } : {}),
     ...(experiment.hypothesis ? { hypothesis: experiment.hypothesis } : {}),
     ...(conclusion ? { conclusion } : {}),
     ...(healthIssues.length

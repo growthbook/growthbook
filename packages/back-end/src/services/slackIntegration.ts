@@ -333,12 +333,17 @@ export const getSlackOAuthIntegrations = async (
     .map(slackEventWebhookToIntegration);
 
   // Resolve each channel's live name (handles renames and installs where Slack
-  // didn't return a name). Best-effort and in parallel: failures (e.g. a legacy
-  // install without the channels:read scope) fall back to the stored name/id.
-  // When the live name differs, cache it back so digests and future loads use
-  // it without another API round-trip.
-  await Promise.all(
-    integrations.map(async (integration) => {
+  // didn't return a name). Best-effort; when the live name differs, cache it
+  // back so digests and future loads use it without another round-trip.
+  //
+  // Fully error-isolated — the entire per-item body (including the token DB
+  // lookup) is inside the try, so a single failure can never reject the batch
+  // and 500 the settings list. Bounded concurrency so a workspace with many
+  // channels doesn't burst conversations.info past Slack's rate limit.
+  const resolveChannelName = async (
+    integration: SlackOAuthIntegrationInterface,
+  ) => {
+    try {
       const channelId = integration.slack?.channelId;
       if (!channelId) return;
       const token = await getSlackBotAccessTokenForWebhook({
@@ -346,23 +351,30 @@ export const getSlackOAuthIntegrations = async (
         organizationId: context.org.id,
       });
       if (!token) return;
-      try {
-        const name = await getSlackConversationName({ token, channelId });
-        if (!name || name === integration.slack?.channelName) return;
-        if (integration.slack) integration.slack.channelName = name;
-        await updateSlackChannelName({
-          eventWebHookId: integration.eventWebHookId,
-          organizationId: context.org.id,
-          channelName: name,
-        });
-      } catch (e) {
-        logger.warn(
-          e,
-          `Failed resolving Slack channel name for webhook ${integration.eventWebHookId}`,
-        );
-      }
-    }),
-  );
+      const name = await getSlackConversationName({ token, channelId });
+      if (!name || name === integration.slack?.channelName) return;
+      if (integration.slack) integration.slack.channelName = name;
+      await updateSlackChannelName({
+        eventWebHookId: integration.eventWebHookId,
+        organizationId: context.org.id,
+        channelName: name,
+      });
+    } catch (e) {
+      logger.warn(
+        e,
+        `Failed resolving Slack channel name for webhook ${integration.eventWebHookId}`,
+      );
+    }
+  };
+
+  const CHANNEL_NAME_CONCURRENCY = 5;
+  for (let i = 0; i < integrations.length; i += CHANNEL_NAME_CONCURRENCY) {
+    await Promise.all(
+      integrations
+        .slice(i, i + CHANNEL_NAME_CONCURRENCY)
+        .map(resolveChannelName),
+    );
+  }
 
   return integrations;
 };

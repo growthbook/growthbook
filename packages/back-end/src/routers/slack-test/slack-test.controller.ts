@@ -38,7 +38,7 @@ export const getEventWebhookPreviews = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
 
@@ -53,7 +53,7 @@ export const postEventWebhook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
 
@@ -105,7 +105,7 @@ export const getChartPreview = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
 
@@ -148,7 +148,7 @@ export const postChartToSlack = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateEventWebhook()) {
+  if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
 

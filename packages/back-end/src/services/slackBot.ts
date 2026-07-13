@@ -1,16 +1,22 @@
 import { randomUUID } from "crypto";
-import { NotificationEventName } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import type { EventUser } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
-import { EventModel } from "back-end/src/models/EventModel";
-import { getEventWebHookById } from "back-end/src/models/EventWebhookModel";
-import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import {
+  getEventWebHookById,
+  getSlackBotAccessTokenForWebhook,
+} from "back-end/src/models/EventWebhookModel";
 import {
   getSlackMessageForNotificationEvent,
+  renderExperimentCardForEvent,
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
+import {
+  postSlackMessageResult,
+  uploadSlackImageFile,
+} from "back-end/src/services/slack/slackWebApi";
+import { cancellableFetch } from "back-end/src/util/http.util";
 
 export const slackEventWebhookTestEventNames = [
   "feature.created",
@@ -753,20 +759,8 @@ export const sendSlackEventWebhookTestEvent = async ({
     };
   }
 
-  const [object] = eventName.split(".") as ["feature" | "experiment"];
-  const eventId = `event-${randomUUID()}`;
+  const eventId = `slack-test-${randomUUID()}`;
   const eventPayload = getSampleEventPayload({ context, eventName });
-
-  await EventModel.create({
-    id: eventId,
-    version: 1,
-    event: eventName as NotificationEventName,
-    object,
-    objectId: object === "feature" ? "checkout-banner" : "exp_checkout_cta",
-    dateCreated: new Date(),
-    organizationId: context.org.id,
-    data: eventPayload,
-  });
 
   const slackMessage = await getSlackMessageForNotificationEvent(
     eventPayload,
@@ -778,10 +772,72 @@ export const sendSlackEventWebhookTestEvent = async ({
     return { ok: false, error: `Unable to preview Slack event: ${eventName}` };
   }
 
-  await new EventWebHookNotifier({
-    eventId,
+  // Deliver the sample straight to Slack WITHOUT persisting an Event. A test
+  // send is a preview, not a real notification — creating an Event would
+  // pollute the org's events feed and inflate digest activity counts. This
+  // mirrors the real delivery path (bot-token card upload, or text via the
+  // incoming-webhook URL) minus all the Event/notifier bookkeeping.
+  const botToken = await getSlackBotAccessTokenForWebhook({
     eventWebHookId,
-  }).enqueue();
+    organizationId: context.org.id,
+  });
+  const channelId = eventWebHook.slack?.channelId;
+
+  try {
+    if (botToken && channelId) {
+      const card = await renderExperimentCardForEvent(
+        eventPayload,
+        context.org.id,
+        eventWebHook.slackOptions?.experimentCardFormat ?? "compact",
+      );
+      if (card) {
+        const fileId = await uploadSlackImageFile({
+          token: botToken,
+          png: card.png,
+          title: card.caption,
+          filename: "experiment-card.png",
+          channelId,
+        });
+        if (!fileId) {
+          return { ok: false, error: "Slack file upload failed" };
+        }
+      } else {
+        const result = await postSlackMessageResult({
+          token: botToken,
+          channel: channelId,
+          text: slackMessage.text,
+          blocks: slackMessage.blocks as unknown as Record<string, unknown>[],
+          unfurl: false,
+        });
+        if (!result.ok) {
+          return { ok: false, error: `Slack delivery failed: ${result.error}` };
+        }
+      }
+    } else {
+      // No bot token — text-only via the incoming-webhook URL (never a public
+      // card image URL). Mirrors the generic non-bot-token Slack path.
+      const { responseWithoutBody } = await cancellableFetch(
+        eventWebHook.url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(slackMessage),
+        },
+        { maxTimeMs: 30000, maxContentSize: 1000 },
+      );
+      if (!responseWithoutBody.ok) {
+        return {
+          ok: false,
+          error: `Slack delivery failed: ${responseWithoutBody.statusText}`,
+        };
+      }
+    }
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to send test message",
+    };
+  }
 
   return {
     ok: true,
