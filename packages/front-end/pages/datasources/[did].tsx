@@ -474,7 +474,12 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       <ClickhouseManagedWarehouseIdentifiers
                         dataSource={d}
                         canEdit={canUpdateDataSourceSettings}
-                        mutate={mutateDefinitions}
+                        mutate={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
                       />
                     ) : (
                       <ClickhouseMaterializedColumns

@@ -2086,7 +2086,7 @@ export async function postRemoveManagedWarehouseLegacyIdentifier(
     context.permissions.throwPermissionError();
   }
 
-  await removeManagedWarehouseLegacyIdentifier(context, identifier);
+  await removeManagedWarehouseLegacyIdentifier(context, datasource, identifier);
 
   res.status(200).json({
     status: 200,

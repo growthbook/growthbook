@@ -14,6 +14,7 @@ import {
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
+  DataSourceInterface,
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
@@ -560,12 +561,11 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
 // rebuilds userIdTypes / exposure queries and drops the identifier's fact-table column.
 export async function removeManagedWarehouseLegacyIdentifier(
   context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
   identifier: string,
 ): Promise<void> {
-  const datasource =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-  if (!datasource || datasource.type !== "growthbook_clickhouse") {
-    throw new Error("No managed warehouse datasource found");
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error("Not a managed warehouse datasource");
   }
 
   const migrated = datasource.settings.migratedIdentifiers || [];
