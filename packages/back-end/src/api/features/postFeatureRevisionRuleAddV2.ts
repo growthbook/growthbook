@@ -194,9 +194,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
-    // Config backing comes only through the dedicated `config` field (recomposed
-    // below); a raw `@config:` embedded in a value is rejected. Runs on the built
-    // rule before recomposition, matching the bulk paths (mapV2ApiRuleToFeatureRule).
+    // Config backing comes only through the dedicated `config` field; a raw
+    // `@config:` embedded in a value is rejected (matches mapV2ApiRuleToFeatureRule).
     if (rule.type === "force" || rule.type === "rollout") {
       assertNoRawConfigExtends(rule.value, "Rule value");
     } else if (rule.type === "experiment-ref") {

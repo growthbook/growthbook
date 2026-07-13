@@ -1072,11 +1072,9 @@ export function getFeatureDefinition({
         if (r.type === "force") {
           rule.force = valueForSDK(r.value, r.sparse);
         } else if (r.type === "experiment") {
-          // Inline experiment values have no `sparse` flag; config-backed arms are
-          // authored as sparse patches through the same editor as the
-          // experiment-ref / contextual-bandit-ref twins, so resolve them the same
-          // way (sparse when config-backed, full value otherwise) — a bare resolve
-          // would drop the base config for a config-backed variation.
+          // Inline experiment values have no `sparse` flag, but config-backed arms
+          // are authored as sparse patches (like the experiment-ref twins), so a
+          // bare resolve would drop the base config. Resolve sparse when backed.
           rule.variations = r.values.map((v) =>
             valueForSDK(v.value, !!defaultConfigKey),
           );
@@ -1134,10 +1132,9 @@ export function getFeatureDefinition({
 
             rule.variations = [
               valueForSDK(r.value, r.sparse),
-              // Route through valueForSDK (not a bare resolve) so a config-backed
-              // default injects its config — the default is now a pure config
-              // (`{}` for the base), so a bare resolve would serve an empty object
-              // to the control arm. Matches def.defaultValue + the holdout arm.
+              // valueForSDK (not a bare resolve): a config-backed default is a pure
+              // config (`{}` for the base), so a bare resolve would serve an empty
+              // object to the control arm instead of the config's value.
               valueForSDK(defaultValue),
             ];
             rule.weights = [0.5, 0.5];

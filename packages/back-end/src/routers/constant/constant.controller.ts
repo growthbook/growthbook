@@ -446,10 +446,8 @@ export const putConstant = async (
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
 
-      // Experiment guard (direct publish → armed:false): warn (bypassably) when
-      // this value change would rewrite the live value served to a running
-      // experiment through a guarded config. Metadata-only edits can't shift a
-      // served value, so they skip the check.
+      // Warn (bypassably) when this value change would reach a running experiment
+      // through a guarded config. Metadata-only edits can't shift a served value.
       if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
         await assertConstantExperimentGuard(context, existing, revision, {
           armed: false,

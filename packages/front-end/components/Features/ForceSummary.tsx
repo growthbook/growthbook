@@ -23,8 +23,7 @@ export default function ForceSummary({
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
-  // flag's value is stripped at serve time, so it must not be previewed as
-  // backed. When backed, honor this value's own config ref, else the base.
+  // flag's value is stripped at serve time, so it must not be previewed as backed.
   const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
     baseConfigKey !== null

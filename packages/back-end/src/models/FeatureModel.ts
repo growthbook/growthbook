@@ -696,9 +696,8 @@ export async function createFeature(
     }
   }
 
-  // Structural lock: a config-backed default must be exactly a config. Enforced
-  // at this shared create choke point so every entry point (REST v1/v2, internal
-  // app, demo, generated-hypothesis) is covered, not just the REST handlers.
+  // A config-backed default must be exactly a config. Enforced at this shared
+  // create choke point so every entry point is covered, not just REST handlers.
   assertConfigBackedDefaultHasNoOverrides(
     featureToCreate,
     featureToCreate.defaultValue,
@@ -2376,11 +2375,9 @@ export async function prevalidatePublishRevision({
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
-  // Structural lock on the value that WILL be live post-publish: a config-backed
-  // default must be exactly a config. Enforced at this shared publish choke point
-  // (reached by every publish — REST v1/v2, internal app, scheduled, ramp,
-  // auto-publish-on-approval, revert) so the lock can't be circumvented by
-  // publishing a stale/crafted draft outside the REST layer.
+  // Re-check the value going live: a config-backed default must be exactly a
+  // config. This shared publish choke point can't be circumvented by publishing
+  // a stale/crafted draft outside the REST layer.
   assertConfigBackedDefaultHasNoOverrides(
     proposedFeature,
     proposedFeature.defaultValue,

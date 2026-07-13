@@ -316,11 +316,9 @@ export async function captureConfigExperimentGuardAcknowledgment(
 
 // Config keys whose live value would shift because publishing `constant` changes
 // what they resolve to, AND that a running experiment serves through a GUARDED
-// config. Publishing a constant is otherwise unguarded (the guard is config-
-// scoped), so this extends the same protection to the transitive constant path.
-// Every config that (transitively) references the constant is "affected" — the
-// resolvable graph unifies constant `@const:` chains and config lineage, so the
-// closure already includes descendant configs.
+// config. The guard is otherwise config-scoped; this extends it to the transitive
+// constant path. Every config that (transitively) references the constant counts —
+// the resolvable graph already folds in `@const:` chains and descendant lineage.
 export async function evaluateConstantExperimentGuardConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,

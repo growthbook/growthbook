@@ -387,11 +387,10 @@ export function assertConfigBackedDefaultHasNoOverrides(
   const defaultConfig =
     getConfigBackingKey(defaultValue) ?? feature.baseConfig ?? null;
   if (!defaultConfig) return;
-  // A config-backed default must contribute NOTHING of its own beyond the config
-  // ref — the only allowed residue is an empty object. Reject both a non-empty
-  // object patch AND any non-object value (array/scalar): the SDK serves the
-  // latter verbatim and drops the config entirely (features.ts valueForSDK
-  // "replace" branch), an even more extreme override than an object patch.
+  // A config-backed default must contribute nothing beyond the config ref; the
+  // only allowed residue is an empty object. Reject a non-empty object patch AND
+  // any non-object value — the SDK serves the latter verbatim and drops the config
+  // entirely (features.ts valueForSDK "replace" branch), a worse override still.
   const patchStr = getConfigBackingPatch(defaultValue).trim();
   const patch = parsePlainJSONObject(patchStr);
   const hasOverride = patch ? Object.keys(patch).length > 0 : patchStr !== "";

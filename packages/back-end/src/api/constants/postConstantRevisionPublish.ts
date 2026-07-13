@@ -128,11 +128,9 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     }
   }
 
-  // Experiment guard (direct publish → armed:false). A constant change is not
-  // config-scoped, but it rewrites the resolved value of every config that
-  // references it — so warn (bypassably) when a running experiment reads one of
-  // those configs. Only for value-affecting changes; a metadata-only edit can't
-  // shift a served value.
+  // A constant change isn't config-scoped, but it rewrites the resolved value of
+  // every config referencing it — so warn (bypassably) when a running experiment
+  // reads one. Value-affecting changes only; metadata edits can't shift a value.
   const constantChange = getConstantRevisionChange(
     constant,
     revision.target.proposedChanges,

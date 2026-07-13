@@ -208,11 +208,10 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     );
   },
 
-  // Pre-merge gate for the shared publishRevision action (scheduled-publish
-  // poller, auto-publish-on-approval). Warns when this value change would rewrite
-  // the live value served to a running experiment through a guarded config; a
-  // deferred fire re-confirms against the arm-time acknowledgment. Metadata-only
-  // changes can't shift a served value, so they skip the check.
+  // Pre-merge gate for deferred publishes (scheduled poller, auto-publish-on-
+  // approval). Warns when this value change would reach a running experiment
+  // through a guarded config; the deferred fire re-confirms against the arm-time
+  // acknowledgment. Metadata-only changes skip the check.
   async assertPublishable(
     context: Context,
     entity: ConstantInterface,

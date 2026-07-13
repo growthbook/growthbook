@@ -2332,9 +2332,7 @@ export function getApiFeatureObjV2({
     });
     featureEnvironments[env] = { enabled, defaultValue };
     if (definition) {
-      // Scrub the internal `@config:` directive so the `definition` matches the
-      // upsertable representation used by the top-level fields (config backing
-      // lives in `baseConfig`/`config`); `@const:` refs are left as-is.
+      // Scrub `@config:` so the `definition` matches the upsertable top-level fields.
       featureEnvironments[env].definition = JSON.stringify(
         scrubConfigExtends(definition),
       );
@@ -2418,8 +2416,7 @@ export function getApiFeatureObj({
   // response by accident and are intentionally NOT re-introduced here — the
   // SDK payload (`definition`) is unaffected and external consumers should
   // null-check sparse rule fields.
-  // Strip the internal `@config:` directive from a value string (config backing
-  // is conveyed by `baseConfig`); `@const:` refs pass through.
+  // Strip `@config:` from a rule value string; `@const:` refs pass through.
   const scrubValue = (v: string | undefined): string | undefined =>
     v === undefined ? v : (stripConfigExtends(v) ?? v);
   const normalizeRuleForFeatureEnv = (rule: FeatureRule): ApiFeatureRule =>

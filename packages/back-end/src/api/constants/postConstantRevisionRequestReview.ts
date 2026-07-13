@@ -46,11 +46,9 @@ export const postConstantRevisionRequestReview = createApiRequestHandler(
       constant as unknown as Record<string, unknown>,
     );
 
-  // Experiment guard: snapshot the acknowledged conflict keys when arming
-  // auto-publish (throws if arming over live conflicts without ignoreWarnings/
-  // bypass). Without this, a later auto-publish-on-approval fire would hit the
-  // adapter's armed guard with no acknowledgment and terminally fail. Mirrors
-  // the config request-review handler.
+  // Snapshot the acknowledged experiment-guard conflict keys when arming auto-
+  // publish, so the later auto-publish-on-approval fire clears the armed guard.
+  // Throws (bypassably) on unacknowledged live conflicts. Mirrors the config twin.
   const experimentGuardAcknowledgedKeys = enableAutoPublish
     ? await captureConstantExperimentGuardAcknowledgment(
         req.context,

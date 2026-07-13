@@ -98,9 +98,8 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       feature.baseConfig,
     );
 
-    // Config backing comes only through the dedicated `config` field (recomposed
-    // below); a raw `@config:` embedded in an incoming value is rejected, matching
-    // the bulk paths (mapV2ApiRuleToFeatureRule).
+    // Config backing comes only through the dedicated `config` field; a raw
+    // `@config:` embedded in a value is rejected (matches mapV2ApiRuleToFeatureRule).
     if (patch.value !== undefined) {
       assertNoRawConfigExtends(patch.value, "Rule value");
     }
