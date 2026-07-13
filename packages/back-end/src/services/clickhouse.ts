@@ -551,6 +551,45 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   }
 }
 
+// Drop a preserved legacy identifier from a managed warehouse. The JSON migration
+// keeps legacy join keys (identifiers present pre-migration but no longer in the
+// attribute schema) in `migratedIdentifiers` so historical experiments don't break —
+// but there was no way to remove one that's since gone dead (e.g. a renamed attribute).
+// Only entries in `migratedIdentifiers` are removable; builtins and current
+// hashAttribute identifiers are managed via the attribute schema, not here. The re-sync
+// rebuilds userIdTypes / exposure queries and drops the identifier's fact-table column.
+export async function removeManagedWarehouseLegacyIdentifier(
+  context: ReqContext | ApiReqContext,
+  identifier: string,
+): Promise<void> {
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (!datasource || datasource.type !== "growthbook_clickhouse") {
+    throw new Error("No managed warehouse datasource found");
+  }
+
+  const migrated = datasource.settings.migratedIdentifiers || [];
+  if (!migrated.includes(identifier)) {
+    throw new Error(
+      `"${identifier}" is not a removable legacy identifier. Only preserved legacy identifiers can be removed; current identifiers are managed through your attributes.`,
+    );
+  }
+
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        migratedIdentifiers: migrated.filter((t) => t !== identifier),
+      },
+    },
+    { skipExposureQueryValidation: true },
+  );
+
+  await syncManagedWarehouseIdentifiers(context);
+}
+
 // Kick off the async table rebuild. The license server acks and rebuilds in the
 // background, so this doesn't wait for the tables — a later run finalizes once the
 // rebuild's lock frees (see migrateManagedWarehouseToJson).

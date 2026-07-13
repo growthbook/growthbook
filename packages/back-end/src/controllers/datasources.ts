@@ -109,6 +109,7 @@ import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getReservedColumnNames,
+  removeManagedWarehouseLegacyIdentifier,
   updateMaterializedColumns,
 } from "back-end/src/services/clickhouse";
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
@@ -2054,6 +2055,38 @@ export async function postRecreateManagedWarehouse(
     });
     return;
   }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postRemoveManagedWarehouseLegacyIdentifier(
+  req: AuthRequest<{ identifier?: string }, { datasourceId: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { datasourceId } = req.params;
+  const { identifier } = req.body;
+
+  if (!identifier || typeof identifier !== "string") {
+    throw new Error("Must specify an identifier to remove");
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error(
+      "Can only manage identifiers on a Managed Warehouse datasource",
+    );
+  }
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeManagedWarehouseLegacyIdentifier(context, identifier);
 
   res.status(200).json({
     status: 200,
