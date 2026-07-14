@@ -25,6 +25,7 @@ import {
   findSiblingSchemaConflicts,
   findIncompatibleConfigValueKeys,
   resolveConfigChain,
+  selectScopedOverride,
   computeConfigReconciliationPreview,
   isConfigLocked,
   ConfigChainNode,
@@ -903,6 +904,34 @@ describe("resolveConfigChain — value merge precedence", () => {
       timeouts: { connect: 1000, read: 8000, write: 3000 },
     });
     expect(byKey.get("retry")!.source).toBe("child");
+  });
+
+  it("deep-merges a node's variantPatch as its own top layer", () => {
+    const byKey = valueByKey([
+      {
+        key: "base",
+        value: JSON.stringify({ timeout: 3, color: "red" }),
+        variantPatch: JSON.stringify({ timeout: 5 }),
+      },
+    ]);
+    // Variant patches the base's own value for this node.
+    expect(byKey.get("timeout")!.value).toBe(5);
+    expect(byKey.get("color")!.value).toBe("red");
+  });
+
+  it("lets a descendant node's value win over an ancestor's variantPatch", () => {
+    // base prod-variant sets timeout:5; child sets timeout:9 → child wins (leaf).
+    const byKey = valueByKey([
+      {
+        key: "base",
+        value: JSON.stringify({ timeout: 3, color: "red" }),
+        variantPatch: JSON.stringify({ timeout: 5 }),
+      },
+      { key: "child", value: JSON.stringify({ timeout: 9 }) },
+    ]);
+    expect(byKey.get("timeout")!.value).toBe(9);
+    expect(byKey.get("timeout")!.source).toBe("child");
+    expect(byKey.get("color")!.value).toBe("red");
   });
 
   it("accumulates the effective schema base → leaf (first definition wins)", () => {
@@ -1787,5 +1816,66 @@ describe("findUndeclaredInvariantRuleFields", () => {
         ),
       },
     ]);
+  });
+});
+
+describe("selectScopedOverride", () => {
+  it("returns null when there are no scoped overrides", () => {
+    expect(selectScopedOverride(undefined, { environment: "prod" })).toBeNull();
+    expect(selectScopedOverride([], { environment: "prod" })).toBeNull();
+  });
+
+  it("matches on environment", () => {
+    const list = [{ config: "f-prod", environments: ["production"] }];
+    expect(selectScopedOverride(list, { environment: "production" })).toBe(
+      "f-prod",
+    );
+    expect(selectScopedOverride(list, { environment: "dev" })).toBeNull();
+  });
+
+  it("is first-match-wins in array order", () => {
+    const list = [
+      { config: "f-a", environments: ["production"] },
+      { config: "f-b", environments: ["production"] },
+    ];
+    expect(selectScopedOverride(list, { environment: "production" })).toBe(
+      "f-a",
+    );
+  });
+
+  it("treats an empty/absent environments list as a wildcard", () => {
+    const list = [{ config: "f-any" }];
+    expect(selectScopedOverride(list, { environment: "anything" })).toBe(
+      "f-any",
+    );
+  });
+
+  it("requires BOTH environment and project to match when both are scoped", () => {
+    const list = [
+      { config: "f", environments: ["production"], projects: ["proj_1"] },
+    ];
+    expect(
+      selectScopedOverride(list, {
+        environment: "production",
+        project: "proj_1",
+      }),
+    ).toBe("f");
+    // env matches but project doesn't → no match.
+    expect(
+      selectScopedOverride(list, {
+        environment: "production",
+        project: "proj_2",
+      }),
+    ).toBeNull();
+  });
+
+  it("matches a project-only scope regardless of environment", () => {
+    const list = [{ config: "f-proj", projects: ["proj_1"] }];
+    expect(
+      selectScopedOverride(list, { environment: "dev", project: "proj_1" }),
+    ).toBe("f-proj");
+    expect(
+      selectScopedOverride(list, { environment: "dev", project: "proj_2" }),
+    ).toBeNull();
   });
 });

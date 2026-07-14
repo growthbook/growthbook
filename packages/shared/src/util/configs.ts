@@ -694,7 +694,40 @@ export type ConfigChainNode = {
   name?: string;
   value?: string;
   schema?: SimpleSchema;
+  // The scope-selected flavor's own patch for the target environment/project,
+  // already chosen by the caller (see selectScopedOverride), deep-merged on top of
+  // this node's own value. Absent = no variant applies for this node + context.
+  variantPatch?: string;
 };
+
+// One entry in a config's ordered scopedOverrides selection list. Structural (kept
+// free of a validator import); mirrors scopedOverrideValidator.
+export type ScopedOverrideEntry = {
+  config: string;
+  environments?: string[];
+  projects?: string[];
+};
+
+// The first scoped-override whose scope matches the (environment, project) context
+// — first-match-wins, array order = precedence. An empty/absent environments (or
+// projects) list is a wildcard for that dimension. Returns the matched flavor
+// config key, or null when nothing applies. Pure; shared by both resolvers.
+export function selectScopedOverride(
+  scopedOverrides: ScopedOverrideEntry[] | undefined,
+  context: { environment?: string; project?: string },
+): string | null {
+  for (const entry of scopedOverrides ?? []) {
+    const envMatch =
+      !entry.environments?.length ||
+      (context.environment != null &&
+        entry.environments.includes(context.environment));
+    const projMatch =
+      !entry.projects?.length ||
+      (context.project != null && entry.projects.includes(context.project));
+    if (envMatch && projMatch) return entry.config;
+  }
+  return null;
+}
 
 // One resolved field for the Configuration editor: its (effective) schema def,
 // the value that wins after walking the chain, and which config in the chain set
@@ -730,15 +763,22 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
   // the deepest node that touched the top-level key (nested provenance is a
   // future concern). `$extends` chunks stay atomic (see deepMergePatch).
   const valueByKey = new Map<string, { value: unknown; source: string }>();
-  for (const node of chain) {
-    const obj = parsePlainJSONObject(node.value ?? "") ?? {};
+  const applyOwnKeys = (obj: Record<string, unknown>, source: string) => {
     for (const [k, v] of Object.entries(obj)) {
       if (k === CONSTANT_EXTENDS_KEY) continue;
       const prev = valueByKey.get(k);
       valueByKey.set(k, {
         value: prev ? deepMergePatch(prev.value, v) : v,
-        source: node.key,
+        source,
       });
+    }
+  };
+  for (const node of chain) {
+    applyOwnKeys(parsePlainJSONObject(node.value ?? "") ?? {}, node.key);
+    // The scope-selected flavor patch is this node's own top layer, applied after
+    // its base value so a descendant node still wins over an ancestor's variant.
+    if (node.variantPatch) {
+      applyOwnKeys(parsePlainJSONObject(node.variantPatch) ?? {}, node.key);
     }
   }
 
