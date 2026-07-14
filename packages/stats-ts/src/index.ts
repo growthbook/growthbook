@@ -1,14 +1,7 @@
 export {
   computeContextualBanditWeights,
   type ContextualBanditWeightsInput,
-  type ContextualBanditSplitStrategy,
 } from "./contextualBanditWeights";
-export {
-  MultivariateKMeans,
-  ExhaustiveBinaryKMeans,
-  MAX_EXHAUSTIVE_CATEGORIES,
-  type kMeansResult,
-} from "./multivariateKMeans";
 export {
   thompsonSampler,
   updateVariationWeights,

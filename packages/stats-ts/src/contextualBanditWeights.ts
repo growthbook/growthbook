@@ -16,15 +16,28 @@ import {
   updateVariationWeights,
   type VariationWeightResult,
 } from "./banditWeights";
-import {
-  MAX_EXHAUSTIVE_CATEGORIES,
-  type kMeansResult,
-} from "./multivariateKMeans";
 import { SampleMeanStatistic } from "./statistics";
 
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
 
-export type ContextualBanditSplitStrategy = "onehot" | "kmeans";
+/**
+ * Most categories the exact binary splitter (`bestExhaustiveBinarySplit`) will
+ * enumerate. Above this the split falls back to the approximate k-means search
+ * (`approximateBinaryKMeans`).
+ */
+const MAX_EXHAUSTIVE_CATEGORIES = 15;
+
+/**
+ * Result of a two-group category split: the group id (0/1) for each category,
+ * the achieved total pooled within-group SSE, and whether the search converged.
+ * `initIdx` indicates which contexts serve as the initial centriods.
+ */
+interface kMeansResult {
+  labels: number[];
+  initIdx: number[];
+  sse: number;
+  converged: boolean;
+}
 
 /** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
 export type ContextualBanditWeightsInput = {
@@ -35,7 +48,6 @@ export type ContextualBanditWeightsInput = {
   metricSettings: MetricSettingsForStatsEngine;
   analysisWeights: number[];
   rows: ExperimentMetricQueryResponseRows;
-  splitStrategy: ContextualBanditSplitStrategy;
 };
 
 type ArmColumns = {
@@ -237,27 +249,6 @@ function partitionByContext(
   );
 }
 
-type Feature = { attrIndex: number; category: string };
-
-function buildFeatures(
-  contexts: ContextEntry[],
-  attrColumns: string[],
-): Feature[] {
-  const features: Feature[] = [];
-  for (let attrIndex = 0; attrIndex < attrColumns.length; attrIndex++) {
-    const categories = new Set<string>();
-    for (const ctx of contexts) categories.add(ctx.tuple[attrIndex]);
-    for (const category of [...categories].sort()) {
-      features.push({ attrIndex, category });
-    }
-  }
-  return features;
-}
-
-function featureValue(ctx: ContextEntry, feature: Feature): number {
-  return ctx.tuple[feature.attrIndex] === feature.category ? 1 : 0;
-}
-
 /**
  * Within-group SSE from each member's per-variation arm statistics: pool the
  * arms per variation, then sum `(n - 1) * variance` across variations.
@@ -304,6 +295,9 @@ function sumOfSquaredErrors(
  * three `ArmColumns` fields the SSE objective reads (`n`, `main_sum`,
  * `main_sum_squares`), laid out per variation as `[n, sum, sumSquares]` in a
  * single `Float64Array` of length `3 * numVariations`.
+ *
+ * For binomial metrics the `sumSquares` slot holds `main_sum` (since `x^2 = x`
+ * for 0/1 data), so `armSseDirect` needs no metric-type awareness.
  */
 type CompactCat = Float64Array;
 
@@ -321,28 +315,19 @@ function trailingZeros(x: number): number {
  * `(n - 1) * variance` for a single pooled variation arm, computed directly
  * from its sufficient statistics — the exact quantity summed by
  * `sumOfSquaredErrorsFromArms` (which multiplies a moment stat's variance by
- * `n - 1`), but without allocating a statistic object */
+ * `n - 1`), but without allocating a statistic object.
+ * */
 export function armSseDirect(
   n: number,
   sum: number,
   sumSquares: number,
-  isBinomial: boolean,
 ): number {
-  if (isBinomial) {
-    if (n === 0) return 0;
-    const p = sum / n;
-    return (n - 1) * p * (1 - p);
-  }
   if (n <= 1) return 0;
   return sumSquares - (sum * sum) / n;
 }
 
 /** Pooled within-group SSE over compact category stats (sums the direct formula). */
-function compactGroupSse(
-  cats: CompactCat[],
-  numVariations: number,
-  isBinomial: boolean,
-): number {
+function compactGroupSse(cats: CompactCat[], numVariations: number): number {
   let sse = 0;
   for (let v = 0; v < numVariations; v++) {
     const base = v * 3;
@@ -354,16 +339,16 @@ function compactGroupSse(
       sum += cat[base + CAT_SUM];
       sumSquares += cat[base + CAT_SUM_SQUARES];
     }
-    sse += armSseDirect(n, sum, sumSquares, isBinomial);
+    sse += armSseDirect(n, sum, sumSquares);
   }
   return sse;
 }
 
 /**
  * Exact optimal two-group partition of `cats` minimizing total pooled SSE,
- * returned in the same `kMeansResult` shape as the clusterers.
+ * returned in the same `kMeansResult` shape as `approximateBinaryKMeans`.
  *
- * Optimizations over the generic `ExhaustiveBinaryKMeans`:
+ * Optimizations that exploit the exact-two-group structure:
  *  - Category 0 is fixed to group 0, so only the `2^(n-1) - 1` non-empty
  *    subsets of the remaining categories are enumerated (each partition once).
  *    This also fixes the canonical orientation (category 0 always in group 0).
@@ -381,14 +366,13 @@ function compactGroupSse(
 function bestExhaustiveBinarySplit(
   cats: CompactCat[],
   numVariations: number,
-  isBinomial: boolean,
 ): kMeansResult {
   const numCat = cats.length;
   if (numCat < 2) {
     return {
       labels: new Array<number>(numCat).fill(0),
       initIdx: [],
-      sse: compactGroupSse(cats, numVariations, isBinomial),
+      sse: compactGroupSse(cats, numVariations),
       converged: true,
     };
   }
@@ -435,12 +419,11 @@ function bestExhaustiveBinarySplit(
     let sse = 0;
     for (let v = 0; v < numVariations; v++) {
       sse +=
-        armSseDirect(subN[v], subSum[v], subSq[v], isBinomial) +
+        armSseDirect(subN[v], subSum[v], subSq[v]) +
         armSseDirect(
           totalN[v] - subN[v],
           totalSum[v] - subSum[v],
           totalSq[v] - subSq[v],
-          isBinomial,
         );
     }
     if (sse < bestSse) {
@@ -464,8 +447,8 @@ function bestExhaustiveBinarySplit(
   // Recompute the winning SSE by pooling each side from scratch so the reported
   // value is free of the tiny drift the incremental add/subtract can accumulate.
   const sse =
-    compactGroupSse(bestSubset, numVariations, isBinomial) +
-    compactGroupSse(bestComplement, numVariations, isBinomial);
+    compactGroupSse(bestSubset, numVariations) +
+    compactGroupSse(bestComplement, numVariations);
 
   return { labels, initIdx: [], sse, converged: true };
 }
@@ -474,22 +457,15 @@ function bestExhaustiveBinarySplit(
  * Approximate optimal two-group partition via weighted k-means (Hartigan local
  * search), used when there are too many categories to enumerate exactly.
  *
- * Unlike the generic `MultivariateKMeans`, this keeps pooled sufficient stats
+ * Rather than re-scoring whole groups, this keeps pooled sufficient stats
  * per cluster and scores each candidate move by adding/removing a single
- * category's stats in O(V), so a full pass is O(n·k·V) instead of O(n^2·V) — the
- * generic clusterer re-pools whole clusters (and allocates fresh membership
- * arrays) on every candidate, which is worst exactly when the fallback engages
- * (many categories). The pooled `[n, sum, sumSquares]` representation makes
- * add/remove exact and allocation-free.
+ * category's stats in O(V), so a full pass is O(n·k·V) instead of O(n^2·V).
  *
- * Forgy initialization uses `Math.random` (matching `MultivariateKMeans`), so
- * the partition is not reproducible across runs; everything after the seed draw
- * is deterministic.
+ * Initializes centriods randomly from the categories (aka Forgy initialization).
  */
 function approximateBinaryKMeans(
   cats: CompactCat[],
   numVariations: number,
-  isBinomial: boolean,
   maxIterations: number,
 ): kMeansResult {
   const numItems = cats.length;
@@ -501,7 +477,7 @@ function approximateBinaryKMeans(
     return {
       labels: new Array<number>(numItems).fill(0),
       initIdx: [0],
-      sse: compactGroupSse(cats, numVariations, isBinomial),
+      sse: compactGroupSse(cats, numVariations),
       converged: true,
     };
   }
@@ -523,7 +499,6 @@ function approximateBinaryKMeans(
         total[base] + (delta ? d * delta[base] : 0),
         total[base + 1] + (delta ? d * delta[base + 1] : 0),
         total[base + 2] + (delta ? d * delta[base + 2] : 0),
-        isBinomial,
       );
     }
     return sse;
@@ -537,8 +512,7 @@ function approximateBinaryKMeans(
     for (let j = 0; j < stride; j++) dst[j] += sign * src[j];
   };
 
-  // Forgy seeds: k distinct random categories (partial Fisher-Yates), matching
-  // MultivariateKMeans.sampleIndices.
+  // Forgy seeds: k distinct random categories (partial Fisher-Yates).
   const pool = Array.from({ length: numItems }, (_, i) => i);
   for (let i = 0; i < k; i++) {
     const j = i + Math.floor(Math.random() * (numItems - i));
@@ -670,116 +644,6 @@ type BuildTreeResult = {
   sseTrajectory: number[];
 };
 
-function buildTree(
-  contexts: ContextEntry[],
-  features: Feature[],
-  attributes: string[],
-  metric: MetricSettingsForStatsEngine,
-  numVariations: number,
-  maxLeaves: number,
-  minUsersPerLeaf: number,
-): BuildTreeResult {
-  const currentLeaf = new Array<number>(contexts.length).fill(0);
-  if (contexts.length === 0) {
-    return { leafMap: [], sseTrajectory: [] };
-  }
-
-  const sideMeetsMinPerVariation = (ctxIdxs: number[]): boolean => {
-    for (let v = 0; v < numVariations; v++) {
-      let total = 0;
-      for (const idx of ctxIdxs) total += contexts[idx].arms[v].n;
-      if (total < minUsersPerLeaf) return false;
-    }
-    return true;
-  };
-
-  const totalSse = (): number => {
-    let total = 0;
-    for (const leafId of new Set(currentLeaf)) {
-      const inLeaf: ContextEntry[] = [];
-      for (let c = 0; c < contexts.length; c++) {
-        if (currentLeaf[c] === leafId) inLeaf.push(contexts[c]);
-      }
-      total += sumOfSquaredErrors(inLeaf, metric, numVariations);
-    }
-    return total;
-  };
-
-  const sseTrajectory: number[] = [totalSse()];
-
-  for (let iteration = 0; iteration < maxLeaves - 1; iteration++) {
-    const leafIds = [...new Set(currentLeaf)];
-    const numLeaves = leafIds.length;
-
-    let bestGain = -Infinity;
-    let bestFeature = -1;
-    let bestLeaf = -1;
-
-    for (let leafIndex = 0; leafIndex < numLeaves; leafIndex++) {
-      const inLeaf: number[] = [];
-      for (let c = 0; c < contexts.length; c++) {
-        if (currentLeaf[c] === leafIndex) inLeaf.push(c);
-      }
-      if (inLeaf.length === 0) continue;
-      const sseCurrent = sumOfSquaredErrors(
-        inLeaf.map((c) => contexts[c]),
-        metric,
-        numVariations,
-      );
-      for (let f = 0; f < features.length; f++) {
-        const side0: number[] = [];
-        const side1: number[] = [];
-        for (const c of inLeaf) {
-          if (featureValue(contexts[c], features[f]) === 1) side1.push(c);
-          else side0.push(c);
-        }
-        if (side0.length === 0 || side1.length === 0) continue;
-        if (
-          !sideMeetsMinPerVariation(side0) ||
-          !sideMeetsMinPerVariation(side1)
-        ) {
-          continue;
-        }
-        const sseSplit =
-          sumOfSquaredErrors(
-            side0.map((c) => contexts[c]),
-            metric,
-            numVariations,
-          ) +
-          sumOfSquaredErrors(
-            side1.map((c) => contexts[c]),
-            metric,
-            numVariations,
-          );
-        const gain = sseCurrent - sseSplit;
-        if (gain > bestGain) {
-          bestGain = gain;
-          bestFeature = f;
-          bestLeaf = leafIndex;
-        }
-      }
-    }
-
-    if (bestFeature < 0 || bestGain <= 0) break;
-
-    const newLeaf = iteration + 1;
-    for (let c = 0; c < contexts.length; c++) {
-      if (
-        currentLeaf[c] === bestLeaf &&
-        featureValue(contexts[c], features[bestFeature]) === 1
-      ) {
-        currentLeaf[c] = newLeaf;
-      }
-    }
-
-    sseTrajectory.push(totalSse());
-  }
-  return {
-    leafMap: buildLeafMap(contexts, attributes, currentLeaf),
-    sseTrajectory,
-  };
-}
-
 /** A leaf's best candidate split, cached across growth iterations. */
 type LeafSplit = {
   /** Attribute whose category partition yields this leaf's best split. */
@@ -804,9 +668,9 @@ type LeafSplit = {
  * category partition strictly reduces total SSE; there is no minimum-users-
  * per-leaf guard. For attributes with at most `MAX_EXHAUSTIVE_CATEGORIES`
  * categories the optimal partition is found exactly (via
- * `bestExhaustiveBinarySplit`); otherwise it falls back to `MultivariateKMeans`,
- * whose Forgy initialization uses `Math.random`, so those partitions (and hence
- * the tree) are not reproducible across runs.
+ * `bestExhaustiveBinarySplit`); otherwise it falls back to
+ * `approximateBinaryKMeans`, whose Forgy initialization uses `Math.random`, so
+ * those partitions (and hence the tree) are not reproducible across runs.
  *
  * Performance: each leaf's best split is cached and only the two leaves touched
  * by a split are re-evaluated per iteration; the exact split search enumerates
@@ -855,9 +719,9 @@ function buildTreeKMeans(
         const arm = contexts[c].arms[v];
         n += arm.n;
         sum += arm.main_sum;
-        sumSquares += arm.main_sum_squares;
+        sumSquares += isBinomial ? arm.main_sum : arm.main_sum_squares;
       }
-      sse += armSseDirect(n, sum, sumSquares, isBinomial);
+      sse += armSseDirect(n, sum, sumSquares);
     }
     return sse;
   };
@@ -867,8 +731,8 @@ function buildTreeKMeans(
   // weighted k-means (Hartigan local search) as an approximate fallback.
   const partitionCategories = (cats: CompactCat[]): kMeansResult =>
     cats.length <= MAX_EXHAUSTIVE_CATEGORIES
-      ? bestExhaustiveBinarySplit(cats, numVariations, isBinomial)
-      : approximateBinaryKMeans(cats, numVariations, isBinomial, 100);
+      ? bestExhaustiveBinarySplit(cats, numVariations)
+      : approximateBinaryKMeans(cats, numVariations, 100);
 
   // Best split for a single leaf, computed independently of every other leaf.
   // This independence is what makes the per-leaf cache below valid: a leaf's
@@ -900,7 +764,10 @@ function buildTreeKMeans(
           const base = v * 3;
           compact[base + CAT_N] += arms[v].n;
           compact[base + CAT_SUM] += arms[v].main_sum;
-          compact[base + CAT_SUM_SQUARES] += arms[v].main_sum_squares;
+          // Binomial (0/1) data: x^2 = x, so the true sum of squares is `sum`.
+          compact[base + CAT_SUM_SQUARES] += isBinomial
+            ? arms[v].main_sum
+            : arms[v].main_sum_squares;
         }
       }
       const categories = [...byCategory.keys()].sort();
@@ -1002,7 +869,6 @@ export function computeContextualBanditWeights(
     varIds,
     attributes,
     maxLeaves,
-    minUsersPerLeaf,
     metricSettings: metricSettingsInput,
     analysisWeights,
     rows,
@@ -1029,24 +895,13 @@ export function computeContextualBanditWeights(
     return { attributes, responses: [], leaf_map: [] };
   }
 
-  const { leafMap, sseTrajectory } =
-    input.splitStrategy === "onehot"
-      ? buildTree(
-          contexts,
-          buildFeatures(contexts, attrColumns),
-          attributes,
-          metricSettings,
-          numVariations,
-          maxLeaves,
-          minUsersPerLeaf,
-        )
-      : buildTreeKMeans(
-          contexts,
-          attributes,
-          metricSettings,
-          numVariations,
-          maxLeaves,
-        );
+  const { leafMap, sseTrajectory } = buildTreeKMeans(
+    contexts,
+    attributes,
+    metricSettings,
+    numVariations,
+    maxLeaves,
+  );
 
   const leafArms = new Map<number, ArmColumns[]>();
   for (let c = 0; c < contexts.length; c++) {

@@ -1,24 +1,20 @@
 import { armSseDirect } from "../src/contextualBanditWeights";
-import { SampleMeanStatistic, ProportionStatistic } from "../src/statistics";
+import { SampleMeanStatistic } from "../src/statistics";
 
 /**
- * The quantity `armSseDirect` computes inline is, by construction, exactly the
- * `(n - 1) * variance` that `sumOfSquaredErrorsFromArms` sums via the canonical
- * statistic classes. These tests pin that equivalence so the inline arithmetic
- * stays tied to `SampleMeanStatistic` / `ProportionStatistic` as the source of
- * truth.
+ * `armSseDirect(n, sum, sumSquares)` is the `(n - 1) * variance` that
+ * `sumOfSquaredErrorsFromArms` sums via `SampleMeanStatistic`, computed inline
+ * without allocating a statistic. These tests pin that equivalence.
+ *
+ * The function takes no metric-type flag: binomial metrics are handled by the
+ * pipeline recasting them to a sample mean with `sumSquares = sum` (valid
+ * because `x^2 = x` for 0/1 data), so the same call reproduces the binomial
+ * path in `armMomentStatForBandit`.
  */
 
 /** Reference value using the real statistic class (the path armSseDirect replaces). */
-function referenceSse(
-  n: number,
-  sum: number,
-  sumSquares: number,
-  isBinomial: boolean,
-): number {
-  const stat = isBinomial
-    ? new ProportionStatistic({ n, sum })
-    : new SampleMeanStatistic({ n, sum, sumSquares });
+function referenceSse(n: number, sum: number, sumSquares: number): number {
+  const stat = new SampleMeanStatistic({ n, sum, sumSquares });
   return (stat.n - 1) * stat.variance;
 }
 
@@ -44,19 +40,21 @@ describe("armSseDirect", () => {
       "matches (n-1)*SampleMeanStatistic.variance for n=$n",
       ({ n, sum, sumSquares }) => {
         expectClose(
-          armSseDirect(n, sum, sumSquares, false),
-          referenceSse(n, sum, sumSquares, false),
+          armSseDirect(n, sum, sumSquares),
+          referenceSse(n, sum, sumSquares),
         );
       },
     );
 
     it("returns exactly 0 when n <= 1 (no degrees of freedom)", () => {
-      expect(armSseDirect(0, 0, 0, false)).toBe(0);
-      expect(armSseDirect(1, 7, 49, false)).toBe(0);
+      expect(armSseDirect(0, 0, 0)).toBe(0);
+      expect(armSseDirect(1, 7, 49)).toBe(0);
     });
   });
 
-  describe("binomial / proportion metrics", () => {
+  describe("binomial / proportion metrics (sumSquares = sum)", () => {
+    // For 0/1 data the pipeline stores `sum` in the sumSquares slot, so the
+    // generic formula reproduces the SampleMean recast used for the weights.
     const cases: Array<{ n: number; sum: number }> = [
       { n: 0, sum: 0 },
       { n: 1, sum: 1 },
@@ -68,21 +66,11 @@ describe("armSseDirect", () => {
     ];
 
     it.each(cases)(
-      "matches (n-1)*ProportionStatistic.variance for n=$n, sum=$sum",
+      "matches the SampleMean recast for n=$n, sum=$sum",
       ({ n, sum }) => {
-        // sumSquares is unused for binomial; pass a garbage value to prove it.
-        expectClose(
-          armSseDirect(n, sum, 123456, true),
-          referenceSse(n, sum, 0, true),
-        );
+        expectClose(armSseDirect(n, sum, sum), referenceSse(n, sum, sum));
       },
     );
-
-    it("ignores sumSquares entirely", () => {
-      expect(armSseDirect(100, 30, 0, true)).toBe(
-        armSseDirect(100, 30, 999999, true),
-      );
-    });
   });
 
   it("matches the statistic-class path across a randomized sweep", () => {
@@ -94,22 +82,20 @@ describe("armSseDirect", () => {
     };
 
     for (let t = 0; t < 5000; t++) {
-      const isBinomial = rand() < 0.5;
+      const binomial = rand() < 0.5;
       const n = Math.floor(rand() * 5000);
-      if (isBinomial) {
+      if (binomial) {
         const sum = Math.floor(rand() * (n + 1)); // 0 <= successes <= n
-        expectClose(
-          armSseDirect(n, sum, 0, true),
-          referenceSse(n, sum, 0, true),
-        );
+        // Binomial arms carry sumSquares = sum.
+        expectClose(armSseDirect(n, sum, sum), referenceSse(n, sum, sum));
       } else {
         const mean = rand() * 100;
         const sum = mean * n;
         const variance = rand() * 50;
         const sumSquares = mean * mean * n + Math.max(0, n - 1) * variance;
         expectClose(
-          armSseDirect(n, sum, sumSquares, false),
-          referenceSse(n, sum, sumSquares, false),
+          armSseDirect(n, sum, sumSquares),
+          referenceSse(n, sum, sumSquares),
         );
       }
     }

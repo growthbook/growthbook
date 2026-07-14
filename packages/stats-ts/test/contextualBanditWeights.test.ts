@@ -145,7 +145,7 @@ describe("computeContextualBanditWeights", () => {
     expect(caW[0]).toBeGreaterThan(caW[1]);
   });
 
-  it("splits categories via k-means when splitStrategy is 'kmeans'", () => {
+  it("splits categories via k-means", () => {
     const data = rows([
       countRow("US", "v0", 200, 1),
       countRow("US", "v1", 200, 2),
@@ -154,10 +154,7 @@ describe("computeContextualBanditWeights", () => {
     ]);
 
     // Two categories => a 2-cluster k-means split separates them deterministically.
-    const result = computeContextualBanditWeights({
-      ...input(data),
-      splitStrategy: "kmeans",
-    });
+    const result = computeContextualBanditWeights(input(data));
 
     expect(result.responses).toHaveLength(2);
     const leafIds = result.leaf_map!.map((e) => e.leafId);
