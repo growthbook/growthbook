@@ -123,6 +123,40 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("fails closed (does not crash) when leaf selection throws", () => {
+    const trackingCallback = jest.fn();
+    // A condition that throws when evaluated (e.g. a malformed payload).
+    const throwingCondition = new Proxy(
+      {},
+      {
+        ownKeys() {
+          throw new Error("boom");
+        },
+      },
+    ) as Record<string, unknown>;
+    const bandits = cbMap();
+    bandits.cb_promo.contexts[0].condition = throwingCondition;
+
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      trackingCallback,
+      features: cbFeatures(),
+      contextualBandits: bandits,
+    });
+
+    // Should not throw; the rule is skipped and we fall through to the default.
+    let res: ReturnType<typeof gb.evalFeature>;
+    expect(() => {
+      res = gb.evalFeature("promo");
+    }).not.toThrow();
+    expect(res!.source).toEqual("defaultValue");
+    expect(res!.value).toEqual("default");
+    expect(res!.experimentResult).toBeUndefined();
+    expect(trackingCallback.mock.calls.length).toEqual(0);
+
+    gb.destroy();
+  });
+
   it("passes resolved attributes to the standard trackingCallback for CB exposures", () => {
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({

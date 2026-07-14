@@ -116,6 +116,8 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     const rule = def?.rules?.[0];
     expect(rule?.isContextualBandit).toEqual(true);
     expect(rule?.contextualBanditRef).toEqual("cb_1");
+    // Sticky bucketing must be disabled — CB weights retrain each epoch
+    expect(rule?.disableStickyBucketing).toEqual(true);
     // Nothing bulky on the rule — it all lives in the top-level map
     expect(rule).not.toHaveProperty("contexts");
     expect(rule).not.toHaveProperty("attributesRequired");
@@ -134,7 +136,7 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
       experimentMap,
       safeRolloutMap,
       cbMap: new Map([[cb.id, cb]]),
-      capabilities: ["bucketingV2"],
+      capabilities: ["bucketingV2", "stickyBucketing"],
     });
 
     const rule = def?.rules?.[0];
@@ -144,6 +146,9 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     // Degrades to a plain experiment rule with aggregate weights
     expect(rule?.variations).toEqual(["control", "treatment"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
+    // Sticky bucketing stays disabled even for the MAB fallback (weights still
+    // retrain each epoch), independent of the contextualBandits capability.
+    expect(rule?.disableStickyBucketing).toEqual(true);
   });
 });
 

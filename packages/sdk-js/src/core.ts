@@ -902,7 +902,21 @@ function buildContextualBanditExperiment<T>(
   // No leaf weights yet (e.g. explore stage): fall through to aggregate weights.
   if (!cbDefinition.contexts.length) return experiment;
 
-  const leaf = getContextualBanditLeaf(cbDefinition, ctx);
+  // Leaf selection evaluates user-supplied leaf conditions, so guard against a
+  // malformed condition throwing and taking down the whole feature evaluation.
+  // On any error, fail closed (skip the rule) like a missing required attribute.
+  let leaf: { leafId: number; weights: number[] } | null;
+  try {
+    leaf = getContextualBanditLeaf(cbDefinition, ctx);
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Skip contextual bandit rule (leaf selection threw)", {
+        id,
+        contextualBanditRef,
+        error: e,
+      });
+    return null;
+  }
   if (!leaf) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log(
