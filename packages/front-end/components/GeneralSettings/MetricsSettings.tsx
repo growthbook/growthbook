@@ -9,6 +9,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
@@ -53,9 +54,9 @@ export default function MetricsSettings() {
                 })}
               />
             </Box>
-            <small className="form-text text-muted">
+            <HelperText status="info" size="sm" mt="1">
               Amount of historical data to use on the metric analysis page.
-            </small>
+            </HelperText>
             {metricAnalysisDaysWarningMsg && (
               <Callout status="warning" mt="2">
                 {metricAnalysisDaysWarningMsg}
