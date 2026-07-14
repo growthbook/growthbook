@@ -8,37 +8,31 @@ import React, {
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
-import { ago } from "shared/dates";
 import {
   SLACK_EVENT_OPTIONS,
   SlackEventCategory,
   selectedSlackOptionIds,
-  isSlackSubscriptionCustomized,
   resolveExperimentDigest,
   resolveFeatureDigest,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { PiArrowsClockwise, PiGearSix, PiPlus, PiTrash } from "react-icons/pi";
+import { PiArrowsClockwise, PiPlus } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import SlackChannelSettings, {
+  getSlackChannelLabel,
+} from "@/components/SlackIntegrations/SlackChannelSettings";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import LinkButton from "@/ui/LinkButton";
 import Badge from "@/ui/Badge";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import { Select, SelectItem } from "@/ui/Select";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
 
 type SlackIntegrationsResponse = {
   slackIntegrations: SlackOAuthIntegrationInterface[];
@@ -65,33 +59,47 @@ const REQUIRED_WORKSPACE_SCOPES = [
 const getQueryStringValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
-const getSlackChannelLabel = (i: SlackOAuthIntegrationInterface) => {
-  const name = i.slack?.channelName;
-  // Prefix the resolved name with "#" (once) so it reads like Slack; leave the
-  // channel-id / webhook-name fallbacks as-is.
-  if (name) return name.startsWith("#") ? name : `#${name}`;
-  return i.slack?.channelId || i.name;
-};
+// One-line rail summary of what a channel hears: its project scope plus which
+// subjects (experiments / flags) are on — or "digest only" when no live events
+// are selected but a digest is scheduled.
+const useChannelScopeSummary = () => {
+  const { projects } = useDefinitions();
+  return useCallback(
+    (i: SlackOAuthIntegrationInterface): string => {
+      const projectPart = !i.projects?.length
+        ? "All projects"
+        : i.projects.length === 1
+          ? `${
+              projects.find((p) => p.id === i.projects[0])?.name ||
+              i.projects[0]
+            } only`
+          : `${i.projects.length} projects`;
 
-const getSlackWorkspaceLabel = (i: SlackOAuthIntegrationInterface) =>
-  i.slack?.teamName ||
-  i.slack?.teamId ||
-  i.slack?.enterpriseName ||
-  i.slack?.enterpriseId ||
-  "Unknown workspace";
+      const selected = selectedSlackOptionIds(i.events);
+      const cats = (["experiment", "feature"] as SlackEventCategory[]).filter(
+        (c) =>
+          SLACK_EVENT_OPTIONS.some(
+            (o) => o.category === c && selected.has(o.id),
+          ),
+      );
+      const digestOn =
+        resolveExperimentDigest(i.slackOptions).frequency !== "off" ||
+        resolveFeatureDigest(i.slackOptions).frequency !== "off";
 
-const CATEGORY_LABELS: Record<SlackEventCategory, string> = {
-  experiment: "Experiments",
-  feature: "Feature flags",
-};
+      const subjectPart =
+        cats.length === 2
+          ? "exp + flags"
+          : cats.length === 1
+            ? cats[0] === "experiment"
+              ? "experiments"
+              : "flags"
+            : digestOn
+              ? "digest only"
+              : "no events";
 
-// Which notification categories are on, for the compact list summary.
-const enabledCategories = (
-  i: SlackOAuthIntegrationInterface,
-): SlackEventCategory[] => {
-  const selected = selectedSlackOptionIds(i.events);
-  return (["experiment", "feature"] as SlackEventCategory[]).filter((c) =>
-    SLACK_EVENT_OPTIONS.some((o) => o.category === c && selected.has(o.id)),
+      return `${projectPart} · ${subjectPart}`;
+    },
+    [projects],
   );
 };
 
@@ -238,6 +246,7 @@ const SlackIntegrationsPage: NextPage = () => {
   const callbackProcessed = useRef(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const scopeSummary = useChannelScopeSummary();
 
   // Slack-initiated install (App Directory "Add to Slack"): `code` with no
   // GrowthBook `state`. We don't know which org the user means, so we hold the
@@ -251,6 +260,12 @@ const SlackIntegrationsPage: NextPage = () => {
 
   // Add-channel picker: which workspace (teamId) it's open for, if any.
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
+
+  // The channel shown in the detail pane. Synced with ?channel= so deep links
+  // (and the old /integrations/slack/[id] URLs) land on the right channel.
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
+    null,
+  );
 
   const {
     data,
@@ -274,6 +289,36 @@ const SlackIntegrationsPage: NextPage = () => {
     [slackIntegrations],
   );
   const loadingIntegrations = !data && !loadError;
+
+  // Resolve the selected channel: explicit selection when it still exists,
+  // else the first channel.
+  const selectedChannel = useMemo(
+    () =>
+      channelIntegrations.find((i) => i.id === selectedChannelId) ||
+      channelIntegrations[0],
+    [channelIntegrations, selectedChannelId],
+  );
+
+  const selectChannel = useCallback(
+    (id: string | null) => {
+      setSelectedChannelId(id);
+      router.replace(
+        id ? `/integrations/slack?channel=${id}` : "/integrations/slack",
+        undefined,
+        { shallow: true },
+      );
+    },
+    [router],
+  );
+
+  // Sync selection from ?channel= (deep links / [id] redirects). Re-selecting
+  // via the rail round-trips through the URL to the same value, so this is a
+  // no-op for in-page selection changes.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const channel = getQueryStringValue(router.query.channel);
+    if (channel) setSelectedChannelId(channel);
+  }, [router.isReady, router.query.channel]);
 
   useEffect(() => {
     if (!router.isReady || callbackProcessed.current) return;
@@ -390,27 +435,6 @@ const SlackIntegrationsPage: NextPage = () => {
     }
   }, [apiCall, installCode, mutate]);
 
-  const deleteIntegration = useCallback(
-    async (slackIntegration: SlackOAuthIntegrationInterface) => {
-      const isWorkspace = !slackIntegration.slack?.channelId;
-      const message = isWorkspace
-        ? `Disconnect the ${getSlackWorkspaceLabel(
-            slackIntegration,
-          )} Slack workspace? Existing channel connections keep working, but you won't be able to add new channels until you reconnect.`
-        : `Delete the Slack integration for ${getSlackChannelLabel(
-            slackIntegration,
-          )}?`;
-      if (!window.confirm(message)) {
-        return;
-      }
-      await apiCall(`/integrations/slack/${slackIntegration.id}`, {
-        method: "DELETE",
-      });
-      await mutate();
-    },
-    [apiCall, mutate],
-  );
-
   // Slack-initiated install: show the org-confirmation screen in place of the
   // management page until the user confirms (or it's done).
   if (installCode && installStatus !== "done") {
@@ -511,6 +535,16 @@ const SlackIntegrationsPage: NextPage = () => {
     );
   }
 
+  const connected = slackIntegrations.length > 0;
+  // A workspace missing newer scopes can't list/join channels — surface a
+  // reconnect hint by the connection status. (The Connect button reconnects.)
+  const workspaceNeedsReconnect = workspaces.some((w) => {
+    const granted = (w.slack?.scope || "").split(",").map((s) => s.trim());
+    return REQUIRED_WORKSPACE_SCOPES.some((s) => !granted.includes(s));
+  });
+  // Add-channel needs a workspace connection; default to the only/first one.
+  const addChannelTarget = workspaces[0]?.slack?.teamId || null;
+
   return (
     <div className="container-fluid pagecontents">
       {addChannelTeamId && (
@@ -519,7 +553,7 @@ const SlackIntegrationsPage: NextPage = () => {
           onClose={() => setAddChannelTeamId(null)}
           onAdded={async (integration) => {
             await mutate();
-            await router.push(`/integrations/slack/${integration.id}`);
+            selectChannel(integration.id);
           }}
         />
       )}
@@ -531,306 +565,280 @@ const SlackIntegrationsPage: NextPage = () => {
         </Callout>
       )}
 
-      <Flex direction="column" gap="5">
-        <Flex justify="between" align="start" gap="4" wrap="wrap">
-          <Box>
+      {connectError && (
+        <Callout status="error" mb="4">
+          {connectError}
+        </Callout>
+      )}
+
+      {connecting && (
+        <Callout status="info" mb="4">
+          Connecting Slack and creating the Event Webhook.
+        </Callout>
+      )}
+
+      {data && !data.oauthConfigured && (
+        <Callout status="warning" mb="4">
+          Slack OAuth is not configured. Set SLACK_CLIENT_ID and
+          SLACK_CLIENT_SECRET on the GrowthBook API server.
+        </Callout>
+      )}
+
+      {loadError && (
+        <Callout status="error" mb="4">
+          Failed to load Slack integrations: {loadError.message}
+        </Callout>
+      )}
+
+      <Box
+        style={{
+          border: "1px solid var(--gray-a4)",
+          borderRadius: 10,
+          background: "var(--color-panel-translucent)",
+        }}
+      >
+        {/* Integration header */}
+        <Flex
+          justify="between"
+          align="start"
+          gap="4"
+          wrap="wrap"
+          p="5"
+          style={{ borderBottom: "1px solid var(--gray-a4)" }}
+        >
+          <Box style={{ maxWidth: 640 }}>
             <Flex align="center" gap="2" mb="2">
               <Badge label="Beta" color="violet" variant="soft" />
-              <Heading as="h1" size="large">
+              <Heading as="h1" size="large" mb="0">
                 Slack
               </Heading>
             </Flex>
             <Text as="p" color="text-mid" mb="0">
-              Connect your Slack workspace, then add channels for GrowthBook
-              notifications and the assistant. Open a channel to configure what
-              it&rsquo;s notified about.
+              Connect Slack channels to GrowthBook notifications and the
+              assistant. Open a channel to configure what it&rsquo;s notified
+              about.
             </Text>
           </Box>
 
-          <Button
-            icon={<FaSlack />}
-            onClick={connectToSlack}
-            loading={connecting}
-            disabled={!data?.oauthConfigured}
-          >
-            {workspaces.length > 0
-              ? "Connect another workspace"
-              : "Connect to Slack"}
-          </Button>
-        </Flex>
-
-        {data && !data.oauthConfigured && (
-          <Callout status="warning">
-            Slack OAuth is not configured. Set SLACK_CLIENT_ID and
-            SLACK_CLIENT_SECRET on the GrowthBook API server.
-          </Callout>
-        )}
-
-        {connectError && <Callout status="error">{connectError}</Callout>}
-
-        {connecting && (
-          <Callout status="info">
-            Connecting Slack and creating the Event Webhook.
-          </Callout>
-        )}
-
-        {loadError && (
-          <Callout status="error">
-            Failed to load Slack integrations: {loadError.message}
-          </Callout>
-        )}
-
-        {loadingIntegrations && (
-          <Callout status="info">Loading Slack integrations.</Callout>
-        )}
-
-        {!loadingIntegrations && !loadError && (
-          <>
-            {/* Workspace connections: token holders + the add-channel entry
-                point. Channels below are configured individually. */}
-            {workspaces.length > 0 && (
-              <Flex direction="column" gap="3">
-                {workspaces.map((workspace) => {
-                  const grantedScopes = (workspace.slack?.scope || "")
-                    .split(",")
-                    .map((s) => s.trim());
-                  const needsReconnect = REQUIRED_WORKSPACE_SCOPES.some(
-                    (s) => !grantedScopes.includes(s),
-                  );
-                  return (
-                    <Flex
-                      key={workspace.id}
-                      justify="between"
-                      align="center"
-                      gap="3"
-                      wrap="wrap"
-                      p="4"
-                      style={{
-                        border: "1px solid var(--gray-a5)",
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Flex align="center" gap="3">
-                        <FaSlack size={20} />
-                        <Box>
-                          <Text weight="medium" as="div">
-                            {getSlackWorkspaceLabel(workspace)}
-                          </Text>
-                          <Text size="small" color="text-mid" as="div">
-                            Workspace connected
-                          </Text>
-                        </Box>
-                        {needsReconnect && (
-                          <Badge
-                            label="Reconnect needed"
-                            color="orange"
-                            variant="soft"
-                            title="This connection is missing newer Slack permissions used to list and join channels."
-                          />
-                        )}
-                      </Flex>
-                      <Flex gap="2" align="center">
-                        {needsReconnect && (
-                          <Button
-                            variant="outline"
-                            onClick={connectToSlack}
-                            loading={connecting}
-                          >
-                            Reconnect
-                          </Button>
-                        )}
-                        <Button
-                          icon={<PiPlus />}
-                          onClick={() =>
-                            setAddChannelTeamId(workspace.slack?.teamId || null)
-                          }
-                        >
-                          Add channel
-                        </Button>
-                        <Button
-                          variant="outline"
-                          color="red"
-                          icon={<PiTrash />}
-                          aria-label={`Disconnect ${getSlackWorkspaceLabel(
-                            workspace,
-                          )}`}
-                          onClick={() => deleteIntegration(workspace)}
-                        >
-                          Disconnect
-                        </Button>
-                      </Flex>
-                    </Flex>
-                  );
-                })}
+          <Flex align="center" gap="3" style={{ flexShrink: 0 }}>
+            {connected && (
+              <Flex align="center" gap="2">
+                <Box
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: workspaceNeedsReconnect
+                      ? "var(--amber-9)"
+                      : "var(--green-9)",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: workspaceNeedsReconnect
+                      ? "var(--amber-11)"
+                      : "var(--green-11)",
+                  }}
+                >
+                  {workspaceNeedsReconnect
+                    ? "Reconnect needed"
+                    : "Connected to Slack"}
+                </span>
               </Flex>
             )}
+            <Button
+              icon={<FaSlack />}
+              onClick={connectToSlack}
+              loading={connecting}
+              disabled={!data?.oauthConfigured}
+              variant={
+                connected && !workspaceNeedsReconnect ? "outline" : "solid"
+              }
+            >
+              {connected ? "Reconnect" : "Connect to Slack"}
+            </Button>
+          </Flex>
+        </Flex>
 
-            {slackIntegrations.length === 0 ? (
-              <Box p="4" style={{ border: "1px solid var(--gray-a5)" }}>
-                <Flex direction="column" gap="3" align="start">
-                  <Heading as="h2" size="small">
-                    No Slack workspace connected
-                  </Heading>
-                  <Text color="text-mid">
-                    Connect your Slack workspace, then add the channels
-                    GrowthBook should post to.
-                  </Text>
+        {/* Body: channel rail + detail */}
+        {loadingIntegrations ? (
+          <Box p="5">
+            <Text color="text-mid">Loading Slack integrations…</Text>
+          </Box>
+        ) : !connected ? (
+          <Flex direction="column" gap="3" align="center" p="8">
+            <Heading as="h2" size="small" mb="0">
+              No Slack workspace connected
+            </Heading>
+            <Text color="text-mid" align="center">
+              Connect your Slack workspace, then add the channels GrowthBook
+              should post to.
+            </Text>
+            <Button
+              icon={<FaSlack />}
+              onClick={connectToSlack}
+              loading={connecting}
+              disabled={!data?.oauthConfigured}
+            >
+              Connect to Slack
+            </Button>
+          </Flex>
+        ) : (
+          <Flex align="stretch">
+            {/* Channel rail */}
+            <Flex
+              direction="column"
+              gap="1"
+              p="3"
+              style={{
+                width: 250,
+                flex: "none",
+                borderRight: "1px solid var(--gray-a4)",
+              }}
+            >
+              <Flex justify="between" align="center" px="2" pb="2">
+                <span
+                  style={{
+                    textTransform: "uppercase",
+                    letterSpacing: ".09em",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: "var(--color-text-mid)",
+                  }}
+                >
+                  Channels · {channelIntegrations.length}
+                </span>
+                {addChannelTarget && (
                   <Button
-                    icon={<FaSlack />}
-                    onClick={connectToSlack}
-                    loading={connecting}
-                    disabled={!data?.oauthConfigured}
+                    variant="ghost"
+                    size="xs"
+                    aria-label="Add channel"
+                    onClick={() => setAddChannelTeamId(addChannelTarget)}
                   >
-                    Connect to Slack
+                    <PiPlus />
                   </Button>
-                </Flex>
-              </Box>
-            ) : channelIntegrations.length === 0 ? (
-              <Box p="4" style={{ border: "1px solid var(--gray-a5)" }}>
-                <Flex direction="column" gap="3" align="start">
-                  <Heading as="h2" size="small">
+                )}
+              </Flex>
+
+              {channelIntegrations.map((channel) => {
+                const isSelected = channel.id === selectedChannel?.id;
+                return (
+                  <Box
+                    key={channel.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectChannel(channel.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        selectChannel(channel.id);
+                      }
+                    }}
+                    px="3"
+                    py="2"
+                    style={{
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: isSelected ? "var(--violet-a3)" : undefined,
+                      opacity: channel.enabled ? 1 : 0.6,
+                    }}
+                  >
+                    <Flex align="center" gap="2">
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: isSelected ? 600 : 500,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          minWidth: 0,
+                        }}
+                      >
+                        {getSlackChannelLabel(channel)}
+                      </span>
+                      {!channel.enabled && (
+                        <Box ml="auto" style={{ flexShrink: 0 }}>
+                          <Badge label="Disabled" color="gray" variant="soft" />
+                        </Box>
+                      )}
+                    </Flex>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--color-text-mid)",
+                        paddingLeft: 14,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {scopeSummary(channel)}
+                    </div>
+                  </Box>
+                );
+              })}
+
+              {addChannelTarget && (
+                <Box mt="2">
+                  <Button
+                    variant="outline"
+                    color="violet"
+                    icon={<PiPlus />}
+                    style={{
+                      width: "100%",
+                      borderStyle: "dashed",
+                      justifyContent: "flex-start",
+                    }}
+                    onClick={() => setAddChannelTeamId(addChannelTarget)}
+                  >
+                    Add channel
+                  </Button>
+                </Box>
+              )}
+              {!addChannelTarget && (
+                <Text size="small" color="text-mid" mt="2" as="div">
+                  Reconnect to Slack to add channels from here.
+                </Text>
+              )}
+            </Flex>
+
+            {/* Channel detail */}
+            <Box p="5" style={{ flex: 1, minWidth: 0 }}>
+              {selectedChannel ? (
+                <SlackChannelSettings
+                  key={selectedChannel.id}
+                  integration={selectedChannel}
+                  onSaved={async () => {
+                    await mutate();
+                  }}
+                  onDeleted={async () => {
+                    await mutate();
+                    selectChannel(null);
+                  }}
+                />
+              ) : (
+                <Flex direction="column" gap="3" align="start" p="4">
+                  <Heading as="h2" size="small" mb="0">
                     No channels yet
                   </Heading>
                   <Text color="text-mid">
                     Add a channel to start receiving GrowthBook notifications.
                   </Text>
-                  {workspaces.length > 0 && (
+                  {addChannelTarget && (
                     <Button
                       icon={<PiPlus />}
-                      onClick={() =>
-                        setAddChannelTeamId(workspaces[0].slack?.teamId || null)
-                      }
+                      onClick={() => setAddChannelTeamId(addChannelTarget)}
                     >
                       Add channel
                     </Button>
                   )}
                 </Flex>
-              </Box>
-            ) : (
-              <Table variant="list">
-                <TableHeader>
-                  <TableRow>
-                    <TableColumnHeader>Channel</TableColumnHeader>
-                    <TableColumnHeader>Workspace</TableColumnHeader>
-                    <TableColumnHeader>Notifications</TableColumnHeader>
-                    <TableColumnHeader>Status</TableColumnHeader>
-                    <TableColumnHeader>Last run</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 170 }} />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {channelIntegrations.map((slackIntegration) => {
-                    const categories = enabledCategories(slackIntegration);
-                    const customized = isSlackSubscriptionCustomized(
-                      slackIntegration.events,
-                    );
-                    const experimentDigestOn =
-                      resolveExperimentDigest(slackIntegration.slackOptions)
-                        .frequency !== "off";
-                    const featureDigestOn =
-                      resolveFeatureDigest(slackIntegration.slackOptions)
-                        .frequency !== "off";
-                    return (
-                      <TableRow key={slackIntegration.id}>
-                        <TableCell>
-                          <LinkButton
-                            href={`/integrations/slack/${slackIntegration.id}`}
-                            variant="ghost"
-                          >
-                            {getSlackChannelLabel(slackIntegration)}
-                          </LinkButton>
-                        </TableCell>
-                        <TableCell>
-                          {getSlackWorkspaceLabel(slackIntegration)}
-                        </TableCell>
-                        <TableCell>
-                          <Flex gap="2" wrap="wrap">
-                            {categories.length === 0 ? (
-                              <Text color="text-mid" size="small">
-                                None
-                              </Text>
-                            ) : (
-                              categories.map((c) => (
-                                <Badge
-                                  key={c}
-                                  label={CATEGORY_LABELS[c]}
-                                  color="blue"
-                                  variant="soft"
-                                />
-                              ))
-                            )}
-                            {customized && (
-                              <Badge
-                                label="Customized"
-                                color="gray"
-                                variant="soft"
-                                title="Event list differs from the recommended defaults"
-                              />
-                            )}
-                            {experimentDigestOn && (
-                              <Badge
-                                label="Experiment digest"
-                                color="violet"
-                                variant="soft"
-                              />
-                            )}
-                            {featureDigestOn && (
-                              <Badge
-                                label="Feature digest"
-                                color="violet"
-                                variant="soft"
-                              />
-                            )}
-                          </Flex>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            label={
-                              slackIntegration.enabled ? "Enabled" : "Disabled"
-                            }
-                            color={slackIntegration.enabled ? "green" : "gray"}
-                            variant="soft"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {slackIntegration.lastRunAt
-                            ? ago(slackIntegration.lastRunAt)
-                            : "No runs"}
-                        </TableCell>
-                        <TableCell>
-                          <Flex gap="2" justify="end">
-                            <LinkButton
-                              href={`/integrations/slack/${slackIntegration.id}`}
-                              variant="outline"
-                              color="gray"
-                              icon={<PiGearSix />}
-                            >
-                              Manage
-                            </LinkButton>
-                            <Button
-                              variant="outline"
-                              color="red"
-                              icon={<PiTrash />}
-                              aria-label={`Delete ${getSlackChannelLabel(
-                                slackIntegration,
-                              )}`}
-                              onClick={() =>
-                                deleteIntegration(slackIntegration)
-                              }
-                            >
-                              Delete
-                            </Button>
-                          </Flex>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </>
+              )}
+            </Box>
+          </Flex>
         )}
-      </Flex>
+      </Box>
     </div>
   );
 };
