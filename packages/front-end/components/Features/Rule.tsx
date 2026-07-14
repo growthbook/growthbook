@@ -448,6 +448,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       safeRollout = safeRolloutsMap.get(rampSchedule.safeRolloutId);
     }
 
+    const hasPendingDetach =
+      isDraft &&
+      draftRevision?.rampActions?.some(
+        (action) => action.mode === "detach" && action.ruleId === rule.id,
+      );
+
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
@@ -455,6 +461,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       unreachable,
       conflictBanners,
       rampSchedule,
+      rampPendingDetach: !!hasPendingDetach,
     });
 
     if (hideInactive && isInactive) {
@@ -473,11 +480,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
-    const hasPendingDetach =
-      isDraft &&
-      draftRevision?.rampActions?.some(
-        (action) => action.mode === "detach" && action.ruleId === rule.id,
-      );
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
@@ -1721,6 +1723,7 @@ export function getRuleMetaInfo({
   unreachable,
   conflictBanners,
   rampSchedule,
+  rampPendingDetach,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -1728,6 +1731,8 @@ export function getRuleMetaInfo({
   unreachable?: boolean;
   conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
+  // The draft queues this rule's ramp for removal — so it won't enable on publish.
+  rampPendingDetach?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -1800,8 +1805,12 @@ export function getRuleMetaInfo({
     // A pre-start ramp with no start date and no approval gate (both handled
     // above) starts — and enables the rule — immediately on publish. Disabling
     // the rule here does NOT hold the rollout, so say so instead of a bare
-    // "Disabled" and point at the option that actually holds it.
+    // "Disabled" and point at the option that actually holds it. Only in a draft
+    // ("on publish" framing), and not when the ramp is queued for removal (then
+    // the rule really does stay disabled).
     const rampEnablesOnPublish =
+      isDraft &&
+      !rampPendingDetach &&
       !!rampSchedule &&
       (rampSchedule.status === "pending" || rampSchedule.status === "ready") &&
       !rampSchedule.startDate;
