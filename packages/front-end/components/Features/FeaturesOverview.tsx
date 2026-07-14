@@ -1663,9 +1663,7 @@ export default function FeaturesOverview({
                               <FeatureValueCard
                                 key={o.id}
                                 sideColor={
-                                  unreachable
-                                    ? "var(--orange-7)"
-                                    : "var(--green-9)"
+                                  unreachable ? "unreachable" : "active"
                                 }
                               >
                                 <Flex

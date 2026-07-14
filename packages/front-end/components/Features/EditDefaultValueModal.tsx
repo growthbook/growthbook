@@ -9,7 +9,8 @@ import {
   getUnreachableDefaultValueOverrideIds,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiPlus, PiTrash } from "react-icons/pi";
+import { PiTrash } from "react-icons/pi";
+import { RxPlus } from "react-icons/rx";
 import { RiDraggable } from "react-icons/ri";
 import {
   DndContext,
@@ -42,6 +43,8 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import FeatureValueField from "./FeatureValueField";
+import FeatureCardChrome from "./FeatureCardChrome";
+import { RuleCardSideColor } from "./RuleCard";
 
 export interface Props {
   feature: FeatureInterface;
@@ -247,21 +250,11 @@ export default function EditDefaultValueModal({
       {/* Base default value, wrapped in the same card chrome as the override
           rows (with empty grip/trash gutters) so its field lines up with them. */}
       <ModalValueCard
-        sideColor="var(--green-9)"
+        sideColor="active"
         left={<Box style={{ width: 14, flexShrink: 0 }} />}
-        right={
-          <IconButton
-            aria-hidden
-            tabIndex={-1}
-            variant="ghost"
-            color="red"
-            size="2"
-            radius="full"
-            style={{ marginRight: -4, flexShrink: 0, visibility: "hidden" }}
-          >
-            <PiTrash size={16} />
-          </IconButton>
-        }
+        // Reserve the delete-gutter width (IconButton size 2 = 32px) so the base
+        // field lines up with the override rows — no phantom interactive control.
+        right={<Box style={{ width: 32, marginRight: -4, flexShrink: 0 }} />}
       >
         <Box mb="-3">
           <FeatureValueField
@@ -286,10 +279,14 @@ export default function EditDefaultValueModal({
             </Text>
             {/* With items present, the add button moves below the list. */}
             {overrides.length === 0 && (
-              <Button variant="outline" size="sm" onClick={() => addOverride()}>
-                <Flex align="center" gap="1">
-                  <PiPlus /> Add override
-                </Flex>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<RxPlus />}
+                iconPosition="left"
+                onClick={() => addOverride()}
+              >
+                Add override
               </Button>
             )}
           </Flex>
@@ -356,11 +353,11 @@ export default function EditDefaultValueModal({
                 <Button
                   variant="outline"
                   size="sm"
+                  icon={<RxPlus />}
+                  iconPosition="left"
                   onClick={() => addOverride()}
                 >
-                  <Flex align="center" gap="1">
-                    <PiPlus /> Add override
-                  </Flex>
+                  Add override
                 </Button>
               </Flex>
             )}
@@ -398,7 +395,7 @@ function OverrideRowCard({
 }) {
   return (
     <ModalValueCard
-      sideColor={unreachable ? "var(--orange-7)" : "var(--green-9)"}
+      sideColor={unreachable ? "unreachable" : "active"}
       left={
         <Box style={{ width: 14, marginTop: 6, flexShrink: 0 }}>
           <div
@@ -477,43 +474,13 @@ function ModalValueCard({
   right,
   children,
 }: {
-  sideColor: string;
+  sideColor: RuleCardSideColor;
   left: ReactNode;
   right: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <Box
-      style={{
-        position: "relative",
-        borderRadius: "var(--radius-4)",
-        boxShadow: "inset 0 0 0 1px var(--gray-a5)",
-        background: "var(--color-panel-solid)",
-      }}
-    >
-      {/* Decorative clip layer: rounds the straight side bar to the card's
-          corners without clipping the content. A plain overflow:hidden on the
-          card would clip the env select's dropdown menu. */}
-      <Box
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "var(--radius-4)",
-          overflow: "hidden",
-          pointerEvents: "none",
-        }}
-      >
-        <Box
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 4,
-            backgroundColor: sideColor,
-          }}
-        />
-      </Box>
+    <FeatureCardChrome sideColor={sideColor}>
       <Flex align="start" justify="between" gap="4" p="3">
         {left}
         <Box flexGrow="1" style={{ maxWidth: "100%", minWidth: 0 }}>
@@ -521,7 +488,7 @@ function ModalValueCard({
         </Box>
         {right}
       </Flex>
-    </Box>
+    </FeatureCardChrome>
   );
 }
 
