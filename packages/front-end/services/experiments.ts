@@ -1,6 +1,7 @@
 import { SnapshotMetric } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
+  ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
@@ -47,6 +48,7 @@ import {
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ReactElement } from "react";
+import { NULL_DIMENSION_VALUE } from "shared/constants";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -155,6 +157,43 @@ export const compareRows = (
 
   return sortDirection === "desc" ? -comparisonResult : comparisonResult;
 };
+
+const ALWAYS_LAST_DIMENSION_VALUES = new Set(["(other)", NULL_DIMENSION_VALUE]);
+
+function dimensionSortKey(dimension: ExperimentReportResultDimension): string {
+  if (ALWAYS_LAST_DIMENSION_VALUES.has(dimension.name)) {
+    return "\uffff";
+  }
+  return dimension.name;
+}
+
+export function sortDimensionsByTraffic(
+  results: ExperimentReportResultDimension[],
+): ExperimentReportResultDimension[] {
+  return [...results].sort((a, b) => {
+    const aIsLast = dimensionSortKey(a) === "\uffff";
+    const bIsLast = dimensionSortKey(b) === "\uffff";
+    if (aIsLast && bIsLast) return 0;
+    if (aIsLast) return 1;
+    if (bIsLast) return -1;
+    const aUsers = a.variations.reduce((sum, v) => sum + v.users, 0);
+    const bUsers = b.variations.reduce((sum, v) => sum + v.users, 0);
+    return bUsers - aUsers;
+  });
+}
+
+export function sortDimensionsByAlpha(
+  results: ExperimentReportResultDimension[],
+): ExperimentReportResultDimension[] {
+  return [...results].sort((a, b) => {
+    const aIsLast = dimensionSortKey(a) === "\uffff";
+    const bIsLast = dimensionSortKey(b) === "\uffff";
+    if (aIsLast && bIsLast) return 0;
+    if (aIsLast) return 1;
+    if (bIsLast) return -1;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
+  });
+}
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
