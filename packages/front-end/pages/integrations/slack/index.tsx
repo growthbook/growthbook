@@ -590,13 +590,7 @@ const SlackIntegrationsPage: NextPage = () => {
         </Callout>
       )}
 
-      <Box
-        style={{
-          border: "1px solid var(--gray-a4)",
-          borderRadius: 10,
-          background: "var(--color-panel-translucent)",
-        }}
-      >
+      <Box className="appbox" mb="0">
         {/* Integration header */}
         <Flex
           justify="between"
