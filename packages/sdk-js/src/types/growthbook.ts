@@ -125,6 +125,10 @@ export type Experiment<T> = {
   minBucketVersion?: number;
   active?: boolean;
   persistQueryString?: boolean;
+  // Contextual bandit leaf selection metadata, set when an experiment is built
+  // from a contextual-bandit feature rule. Drives the leafId/variationWeights/
+  // banditVersion fields on the Result.
+  contextualBandit?: ContextualBanditInfo;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */

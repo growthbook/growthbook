@@ -8636,6 +8636,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -8731,6 +8736,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -8826,6 +8836,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 2,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -8933,6 +8948,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9040,6 +9060,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 2,
+            "variationWeights": [0, 1],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9143,6 +9168,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9497,6 +9527,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0, 0, 1],
+            "banditVersion": 7
+          },
           "variations": ["c0", "c1", "c2"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9615,6 +9650,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9701,6 +9741,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9787,6 +9832,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9873,6 +9923,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.5, 0.5],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -9959,6 +10014,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.1, 0.9],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -10045,6 +10105,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [0.1, 0.9],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -10328,6 +10393,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -10843,6 +10913,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": [
             {
               "color": "blue"
@@ -11004,6 +11079,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 1,
@@ -11102,6 +11182,11 @@
         "source": "experiment",
         "ruleId": "",
         "experiment": {
+          "contextualBandit": {
+            "leafId": 1,
+            "variationWeights": [1, 0],
+            "banditVersion": 7
+          },
           "variations": ["control", "treatment"],
           "key": "promo_bandit",
           "coverage": 0.5,

@@ -1,7 +1,6 @@
 import {
   EvalContext,
   ContextualBanditDefinition,
-  ContextualBanditInfo,
   FeatureDefinition,
   FeatureResult,
   Experiment,
@@ -356,39 +355,26 @@ export function evalFeature<V = unknown>(
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
 
-      let cbInfo: ContextualBanditInfo | undefined;
+      // For contextual-bandit rules, apply leaf selection to the experiment.
+      // A null result means fail closed (skip this rule).
       if (rule.isContextualBandit && rule.contextualBanditRef) {
-        const cbDefinition =
-          ctx.global.contextualBandits?.[rule.contextualBanditRef];
-        if (!cbDefinition) {
-          process.env.NODE_ENV !== "production" &&
-            ctx.global.log(
-              "Contextual bandit ref not found in payload, using aggregate weights",
-              { id, rule },
-            );
-        } else if (cbDefinition.contexts.length) {
-          // No leaf weights yet (e.g. explore stage) also falls through to the
-          // plain-experiment path above via the else branch.
-          const leaf = getContextualBanditLeaf(cbDefinition, ctx);
-          if (!leaf) {
-            process.env.NODE_ENV !== "production" &&
-              ctx.global.log(
-                "Skip contextual bandit rule (missing required attribute or no matching leaf)",
-                { id, rule },
-              );
-            continue;
-          }
-          exp.weights = leaf.weights;
-          cbInfo = {
-            leafId: leaf.leafId,
-            variationWeights: leaf.weights,
-            banditVersion: cbDefinition.banditVersion,
-          };
-        }
+        const built = buildContextualBanditExperiment(
+          exp,
+          rule.contextualBanditRef,
+          id,
+          ctx,
+        );
+        if (!built) continue;
       }
 
       // Only return a value if the user is part of the experiment
-      const { result } = runExperiment(exp, id, ctx, cbInfo);
+      const { result } = runExperiment(exp, id, ctx);
+      // Keep CB leaf metadata on the experiment consistent with the Result:
+      // only expose it for a genuine hash-bucketed assignment (not when the
+      // user was forced, in QA mode, or otherwise not enrolled via bucketing).
+      if (exp.contextualBandit && !(result.hashUsed && result.inExperiment)) {
+        delete exp.contextualBandit;
+      }
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(
@@ -423,7 +409,6 @@ export function runExperiment<T>(
   experiment: Experiment<T>,
   featureId: string | null,
   ctx: EvalContext,
-  cbInfo?: ContextualBanditInfo,
 ): {
   result: Result<T>;
   trackingCall?: Promise<void>;
@@ -760,7 +745,6 @@ export function runExperiment<T>(
     featureId,
     n,
     foundStickyBucket,
-    cbInfo,
   );
 
   // 13.5. Persist sticky bucket
@@ -891,6 +875,52 @@ function getContextualBanditLeaf(
   return null;
 }
 
+// Applies contextual bandit leaf selection to an experiment built from a
+// contextual-bandit feature rule. Mutates the experiment in place and returns
+// it, or returns null to signal the rule should be skipped (fail closed).
+//  - Dangling ref or a CB with no contexts yet (e.g. explore stage): leave the
+//    aggregate weights untouched (MAB fallback), no leaf metadata.
+//  - Leaf matched: override weights with the leaf weights and attach the leaf
+//    metadata (leafId / variationWeights / banditVersion) to the experiment.
+//  - Missing required attribute or no matching leaf: return null (skip rule).
+function buildContextualBanditExperiment<T>(
+  experiment: Experiment<T>,
+  contextualBanditRef: string,
+  id: string,
+  ctx: EvalContext,
+): Experiment<T> | null {
+  const cbDefinition = ctx.global.contextualBandits?.[contextualBanditRef];
+  if (!cbDefinition) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log(
+        "Contextual bandit ref not found in payload, using aggregate weights",
+        { id, contextualBanditRef },
+      );
+    return experiment;
+  }
+
+  // No leaf weights yet (e.g. explore stage): fall through to aggregate weights.
+  if (!cbDefinition.contexts.length) return experiment;
+
+  const leaf = getContextualBanditLeaf(cbDefinition, ctx);
+  if (!leaf) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log(
+        "Skip contextual bandit rule (missing required attribute or no matching leaf)",
+        { id, contextualBanditRef },
+      );
+    return null;
+  }
+
+  experiment.weights = leaf.weights;
+  experiment.contextualBandit = {
+    leafId: leaf.leafId,
+    variationWeights: leaf.weights,
+    banditVersion: cbDefinition.banditVersion,
+  };
+  return experiment;
+}
+
 function conditionPasses(
   condition: ConditionInterface,
   ctx: EvalContext,
@@ -948,7 +978,6 @@ export function getExperimentResult<T>(
   featureId: string | null,
   bucket?: number,
   stickyBucketUsed?: boolean,
-  cbInfo?: ContextualBanditInfo,
 ): Result<T> {
   let inExperiment = true;
   // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -984,11 +1013,13 @@ export function getExperimentResult<T>(
   if (meta.name) res.name = meta.name;
   if (bucket !== undefined) res.bucket = bucket;
   if (meta.passthrough) res.passthrough = meta.passthrough;
-  if (cbInfo && inExperiment) {
-    res.leafId = cbInfo.leafId;
-    res.variationWeights = cbInfo.variationWeights;
-    if (cbInfo.banditVersion !== undefined)
-      res.banditVersion = cbInfo.banditVersion;
+  // Only a genuine hash-bucketed assignment (not forced/QA/override) counts as
+  // a contextual bandit exposure, matching how the leaf metadata is surfaced.
+  const cb = experiment.contextualBandit;
+  if (cb && hashUsed && inExperiment) {
+    res.leafId = cb.leafId;
+    res.variationWeights = cb.variationWeights;
+    if (cb.banditVersion !== undefined) res.banditVersion = cb.banditVersion;
   }
 
   return res;

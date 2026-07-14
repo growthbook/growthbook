@@ -135,13 +135,13 @@ describe("contextual bandit feature rules", () => {
     gb.evalFeature("promo");
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
-    const [experiment, result, attributes] = trackingCallback.mock.calls[0];
+    const [experiment, result, user] = trackingCallback.mock.calls[0];
     expect(experiment.key).toEqual("promo_bandit");
     expect(result.leafId).toEqual(1);
     expect(result.variationId).toEqual(0);
     expect(result.variationWeights).toEqual([1, 0]);
     expect(result.banditVersion).toEqual(7);
-    expect(attributes).toEqual({ id: "u1", plan: "enterprise" });
+    expect(user.attributes).toEqual({ id: "u1", plan: "enterprise" });
 
     gb.destroy();
   });
@@ -175,10 +175,10 @@ describe("contextual bandit feature rules", () => {
     expect(res.experimentResult?.leafId).toBeUndefined();
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
-    const [, result, attributes] = trackingCallback.mock.calls[0];
+    const [, result, user] = trackingCallback.mock.calls[0];
     expect(result.leafId).toBeUndefined();
     expect(result.banditVersion).toBeUndefined();
-    expect(attributes).toEqual({ id: "u1" });
+    expect(user.attributes).toEqual({ id: "u1" });
 
     gb.destroy();
   });
@@ -230,7 +230,10 @@ describe("contextual bandit feature rules", () => {
 
     const deferred = gb.getDeferredTrackingCalls();
     expect(deferred.length).toEqual(1);
-    expect(deferred[0].attributes).toEqual({ id: "u1", plan: "enterprise" });
+    expect(deferred[0].user?.attributes).toEqual({
+      id: "u1",
+      plan: "enterprise",
+    });
     expect(deferred[0].result.leafId).toEqual(1);
     expect(deferred[0].result.banditVersion).toEqual(7);
 
@@ -239,9 +242,9 @@ describe("contextual bandit feature rules", () => {
     await gb.fireDeferredTrackingCalls();
 
     expect(trackingCallback.mock.calls.length).toEqual(1);
-    const [, result, attributes] = trackingCallback.mock.calls[0];
+    const [, result, user] = trackingCallback.mock.calls[0];
     expect(result.variationWeights).toEqual([1, 0]);
-    expect(attributes).toEqual({ id: "u1", plan: "enterprise" });
+    expect(user.attributes).toEqual({ id: "u1", plan: "enterprise" });
 
     gb.destroy();
   });
