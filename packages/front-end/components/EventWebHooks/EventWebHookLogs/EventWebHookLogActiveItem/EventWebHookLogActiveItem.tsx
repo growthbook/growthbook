@@ -50,7 +50,17 @@ export const EventWebHookLogActiveItem: FC<EventWebHookLogActiveItemProps> = ({
       <p>{log.responseCode || "None"}</p>
 
       <h4 className="mt-4">Response Body</h4>
-      <code className="text-main">{log.responseBody}</code>
+      <div
+        className="text-main border rounded p-3 bg-light"
+        style={{
+          maxHeight: 300,
+          overflowY: "auto",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        <code>{log.responseBody}</code>
+      </div>
     </div>
   );
 };

@@ -94,7 +94,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         <div>
           {/* List view */}
           {eventWebHooks.map((eventWebHook) => (
-            <div key={eventWebHook.id} className="mb-3">
+            <div key={eventWebHook.id} className="mb-3 appbox">
               <EventWebHookListItem
                 href={`/settings/webhooks/event/${eventWebHook.id}`}
                 eventWebHook={eventWebHook}
