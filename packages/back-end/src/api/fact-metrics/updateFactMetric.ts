@@ -81,7 +81,7 @@ export async function getUpdateFactMetricPropsFromBody(
     metricType &&
     !expectsDenominator(metricType)
   ) {
-    updates.denominator = undefined;
+    updates.denominator = null;
   }
   if (denominator) {
     updates.denominator = FactMetricModel.migrateColumnRef({

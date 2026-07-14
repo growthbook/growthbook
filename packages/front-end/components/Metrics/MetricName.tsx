@@ -1,6 +1,6 @@
 import { HiBadgeCheck } from "react-icons/hi";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -18,7 +18,7 @@ import HelperText from "@/ui/HelperText";
 export function PercentileLabel({
   metric,
 }: {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
 }) {
   if (
     isFactMetric(metric) &&
@@ -139,14 +139,14 @@ export default function MetricName({
   officialBadgeLeftGap = true,
 }: {
   id?: string;
-  metric?: ExperimentMetricInterface;
+  metric?: ExperimentMetricDefinition;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   showGroupIcon?: boolean;
-  metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";

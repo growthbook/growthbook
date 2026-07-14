@@ -7,6 +7,7 @@ import { datetime } from "shared/dates";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
@@ -162,7 +163,8 @@ const HistoryTable: FC<{
     | "feature"
     | "savedGroup"
     | "factTable"
-    | "datasource";
+    | "datasource"
+    | "apiKey";
   showName?: boolean;
   showType?: boolean;
   id?: string;
@@ -207,7 +209,7 @@ const HistoryTable: FC<{
   const hasMore = data ? currentPage < totalPages : false;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

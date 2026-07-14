@@ -7,7 +7,7 @@ import { Line } from "@visx/shape";
 import { ViolinPlot } from "@visx/stats";
 import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -31,7 +31,7 @@ interface Props
   axisOnly?: boolean;
   zeroLineWidth?: number;
   zeroLineOffset?: number;
-  metricForFormatting?: ExperimentMetricInterface | null;
+  metricForFormatting?: ExperimentMetricDefinition | null;
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
@@ -248,6 +248,7 @@ const AlignedGraph: FC<Props> = ({
               x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
+              fontWeight: "var(--font-weight-bold)",
             } as const;
           };
           return (

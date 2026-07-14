@@ -237,6 +237,7 @@ export default function FeatureModal({
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       size="lg"
@@ -386,6 +387,9 @@ export default function FeatureModal({
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
+            // The feature doesn't exist yet, so scope the constant picker to the
+            // selected project instead of passing a `feature`.
+            constantContext={{ project: selectedProject || undefined }}
             useCodeInput={true}
             showFullscreenButton={true}
           />

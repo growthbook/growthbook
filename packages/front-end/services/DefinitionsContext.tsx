@@ -1,6 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { SegmentInterface } from "shared/types/segment";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -16,10 +16,11 @@ import {
 import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
+import { ConstantWithoutValue } from "shared/types/constant";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CustomField } from "shared/types/custom-fields";
 import { DecisionCriteriaInterface } from "shared/types/experiment";
@@ -31,19 +32,21 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 type Definitions = {
-  metrics: MetricInterface[];
-  _metricsIncludingArchived: MetricInterface[];
+  metrics: MetricDefinitionInterface[];
+  _metricsIncludingArchived: MetricDefinitionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupWithoutValues[];
   _savedGroupsIncludingArchived: SavedGroupWithoutValues[];
+  constants: ConstantWithoutValue[];
+  _constantsIncludingArchived: ConstantWithoutValue[];
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
-  factTables: FactTableInterface[];
-  _factTablesIncludingArchived: FactTableInterface[];
+  factTables: FactTableDefinition[];
+  _factTablesIncludingArchived: FactTableDefinition[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
@@ -57,16 +60,18 @@ type DefinitionContextValue = Definitions & {
   setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
-  getMetricById: (id: string) => null | MetricInterface;
+  getMetricById: (id: string) => null | MetricDefinitionInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupWithoutValues;
+  getConstantById: (id: string) => null | ConstantWithoutValue;
+  getConstantByKey: (key: string) => null | ConstantWithoutValue;
   getTagById: (id: string) => null | TagInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };
@@ -91,6 +96,8 @@ const defaultValue: DefinitionContextValue = {
   tags: [],
   savedGroups: [],
   _savedGroupsIncludingArchived: [],
+  constants: [],
+  _constantsIncludingArchived: [],
   metricGroups: [],
   customFields: [],
   projects: [],
@@ -106,6 +113,8 @@ const defaultValue: DefinitionContextValue = {
   getSegmentById: () => null,
   getProjectById: () => null,
   getSavedGroupById: () => null,
+  getConstantById: () => null,
+  getConstantByKey: () => null,
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
@@ -273,6 +282,21 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.savedGroups;
   }, [data?.savedGroups]);
 
+  // `!data.constants` guard keeps older API responses (pre-constants) working.
+  const activeConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants.filter((c) => !c.archived);
+  }, [data?.constants]);
+
+  const allConstants = useMemo(() => {
+    if (!data || !data.constants) {
+      return [];
+    }
+    return data.constants;
+  }, [data?.constants]);
+
   const allTags = useMemo(() => {
     if (!data || !data.tags) {
       return [];
@@ -293,6 +317,12 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getSegmentById = useGetById(data?.segments);
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(allSavedGroups);
+  const getConstantById = useGetById(allConstants);
+  const getConstantByKey = useMemo(() => {
+    const m = new Map<string, ConstantWithoutValue>();
+    allConstants.forEach((c) => m.set(c.key, c));
+    return (key: string) => m.get(key) || null;
+  }, [allConstants]);
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
@@ -330,6 +360,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       tags: allTags,
       savedGroups: activeSavedGroups,
       _savedGroupsIncludingArchived: allSavedGroups,
+      constants: activeConstants,
+      _constantsIncludingArchived: allConstants,
       metricGroups: metricGroups,
       customFields: data.customFields,
       projects: data.projects,
@@ -347,6 +379,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSegmentById,
       getProjectById,
       getSavedGroupById,
+      getConstantById,
+      getConstantByKey,
       getTagById,
       getFactTableById,
       getFactMetricById,

@@ -328,6 +328,41 @@ export const getSlackMessageForNotificationEvent = async (
         eventId,
       );
 
+    case "constant.created":
+      return buildSlackMessageForConstantCreatedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "constant.updated":
+      return buildSlackMessageForConstantUpdatedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "constant.deleted":
+      return buildSlackMessageForConstantDeletedEvent(
+        event.data.object,
+        eventId,
+      );
+
+    case "constant.revision.created":
+    case "constant.revision.updated":
+    case "constant.revision.reviewRequested":
+    case "constant.revision.approved":
+    case "constant.revision.changesRequested":
+    case "constant.revision.commented":
+    case "constant.revision.discarded":
+    case "constant.revision.rebased":
+    case "constant.revision.published":
+    case "constant.revision.reverted":
+    case "constant.revision.reopened":
+      return buildSlackMessageForConstantRevisionEvent(
+        event.event,
+        event.data.object,
+        eventId,
+      );
+
     default:
       invalidEvent = event;
       throw `Invalid event: ${invalidEvent}`;
@@ -1127,6 +1162,189 @@ const buildSlackMessageForSavedGroupRevisionEvent = (
 
 // endregion Event-specific messages -> Saved Group
 
+// region Event-specific messages -> Constant
+
+// The detail page is addressed by the constant's `key`, not its internal id.
+export const getConstantUrlFormatted = (constantKey: string): string =>
+  `\n• <${APP_ORIGIN}/constants/${constantKey}|View Constant>`;
+
+const buildSlackMessageForConstantCreatedEvent = async (
+  constant: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The constant ${constant.name} has been created by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The constant *${constant.name}* has been created by ${eventUser}.` +
+            getConstantUrlFormatted(constant.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForConstantUpdatedEvent = async (
+  constant: { id: string; name: string; key: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+  if (event?.data?.data && "changes" in event.data.data) {
+    const formattedDiff = formatDiffForSlack(
+      event.data.data.changes as DiffResult,
+      {
+        itemLabelFields: [
+          "name",
+          "value",
+          "environmentValues",
+          "description",
+          "project",
+          "archived",
+        ],
+      },
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
+
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The constant ${constant.name} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: { type: "mrkdwn", text: "_Changes cannot be displayed here._" },
+      },
+    ];
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The constant *${constant.name}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
+            getConstantUrlFormatted(constant.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+      ...changeBlocks,
+    ],
+  };
+};
+
+const buildSlackMessageForConstantDeletedEvent = async (
+  constant: { id: string; name: string },
+  eventId: string,
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const text = `The constant ${constant.name} has been deleted by ${eventUser}.`;
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The constant *${constant.name}* has been deleted by ${eventUser}.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+type ConstantRevisionSlackData = {
+  version?: number;
+  baseConstant: { id: string; name: string; key: string };
+  change?: string;
+  reviewComment?: string | null;
+  reviewer?: { id?: string; name?: string; email?: string };
+  revertedToVersion?: number;
+};
+
+const buildSlackMessageForConstantRevisionEvent = (
+  eventType: string,
+  data: ConstantRevisionSlackData,
+  eventId: string,
+): SlackMessage => {
+  const name = `*${data.baseConstant.name}*`;
+  const version = `v${data.version ?? "?"}`;
+  const reviewerName = data.reviewer?.name || data.reviewer?.email || "someone";
+  const commentSuffix = data.reviewComment ? ` — _${data.reviewComment}_` : "";
+
+  let text: string;
+  switch (eventType) {
+    case "constant.revision.created":
+      text = `Draft revision ${version} created for constant ${name}`;
+      break;
+    case "constant.revision.updated":
+      text = `Draft revision ${version} of constant ${name} was updated${data.change ? ` (${data.change})` : ""}`;
+      break;
+    case "constant.revision.reviewRequested":
+      text = `Review requested for revision ${version} of constant ${name}`;
+      break;
+    case "constant.revision.approved":
+      text = `Revision ${version} of constant ${name} approved by ${reviewerName}${commentSuffix}`;
+      break;
+    case "constant.revision.changesRequested":
+      text = `Changes requested on revision ${version} of constant ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "constant.revision.commented":
+      text = `Comment on revision ${version} of constant ${name} by ${reviewerName}${commentSuffix}`;
+      break;
+    case "constant.revision.discarded":
+      text = `Draft revision ${version} of constant ${name} was discarded`;
+      break;
+    case "constant.revision.rebased":
+      text = `Draft revision ${version} of constant ${name} was rebased`;
+      break;
+    case "constant.revision.published":
+      text = `Revision ${version} of constant ${name} was published`;
+      break;
+    case "constant.revision.reverted":
+      text = `Constant ${name} was reverted${data.revertedToVersion ? ` to revision v${data.revertedToVersion}` : ""}`;
+      break;
+    case "constant.revision.reopened":
+      text = `Draft revision ${version} of constant ${name} was reopened`;
+      break;
+    default:
+      text = `Constant ${name} revision ${version}: ${eventType}`;
+  }
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text +
+            getConstantUrlFormatted(data.baseConstant.key) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Constant
+
 // region Event-specific messages -> Experiment
 
 export const getExperimentUrlFormatted = (experimentId: string): string =>
@@ -1756,7 +1974,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = (
   );
 };
 
-const buildSlackMessageForExperimentWarningEvent = (
+const buildSlackMessageForExperimentWarningEvent = async (
   data: ExperimentWarningNotificationPayload,
   eventId: string,
   renderContext?: SlackMessageRenderContext,
@@ -1886,6 +2104,26 @@ const buildSlackMessageForExperimentWarningEvent = (
         data,
         renderContext,
       );
+    }
+
+    case "underpowered": {
+      const text = (experimentName: string) =>
+        `Experiment ${experimentName} is underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
     }
 
     case "scheduled-status-update-failed": {

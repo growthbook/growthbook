@@ -1,4 +1,5 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
+import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import revalidateEventForwarderDataSourceQueries from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
@@ -29,12 +30,15 @@ import addEventWebhookDailyDigestJob from "back-end/src/jobs/eventWebhookDailyDi
 import addScheduledPublishJob from "back-end/src/jobs/updateScheduledPublishes";
 import addSlackAssistantJobs from "back-end/src/jobs/slackAssistantTasks";
 import addWeeklyScorecardJob from "back-end/src/jobs/eventWebhookWeeklyDigest";
+import addMigrateManagedWarehouseJob from "back-end/src/jobs/migrateManagedWarehouse";
+import addSweepManagedWarehouseMigrationsJob from "back-end/src/jobs/sweepManagedWarehouseMigrations";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);
@@ -59,6 +63,8 @@ export async function queueInit() {
   addScheduledPublishJob(agenda);
   addSlackAssistantJobs(agenda);
   addWeeklyScorecardJob(agenda);
+  addMigrateManagedWarehouseJob(agenda);
+  await addSweepManagedWarehouseMigrationsJob(agenda);
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection

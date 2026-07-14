@@ -5,6 +5,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
@@ -28,7 +29,7 @@ const OrphanedUsersList: FC<{
   if (isCloud()) return null;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!data) {
@@ -70,7 +71,7 @@ const OrphanedUsersList: FC<{
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
                   {(enableAdd && (
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <button
                         className="dropdown-item"
                         onClick={(e) => {
@@ -81,6 +82,7 @@ const OrphanedUsersList: FC<{
                         Add back to account
                       </button>
                       <DeleteButton
+                        useRadix={false}
                         link={true}
                         text="Permanently delete"
                         useIcon={false}
@@ -96,6 +98,7 @@ const OrphanedUsersList: FC<{
                     </MoreMenu>
                   )) || (
                     <DeleteButton
+                      useRadix={false}
                       link={true}
                       useIcon={true}
                       className="dropdown-item"
