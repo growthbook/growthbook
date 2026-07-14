@@ -33,6 +33,7 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import { assertScopedOverridesValid } from "back-end/src/services/constants";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -146,6 +147,17 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       if (normalizedValue !== config.value) {
         fieldsToUpdate.value = normalizedValue;
       }
+    }
+    if (
+      req.body.scopedOverrides !== undefined &&
+      !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
+    ) {
+      // Store as-is (incl. `[]` to clear); `undefined` would be dropped and no-op.
+      fieldsToUpdate.scopedOverrides = req.body.scopedOverrides;
+      await assertScopedOverridesValid(req.context, {
+        key: config.key,
+        scopedOverrides: fieldsToUpdate.scopedOverrides,
+      });
     }
     // Fold validation rules into the schema to persist:
     //  - `invariants` sent → they replace (an empty array clears them);

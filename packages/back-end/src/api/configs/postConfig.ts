@@ -17,7 +17,10 @@ import {
   BadRequestError,
   PlanDoesNotAllowError,
 } from "back-end/src/util/errors";
-import { assertKeyAvailable } from "back-end/src/services/constants";
+import {
+  assertKeyAvailable,
+  assertScopedOverridesValid,
+} from "back-end/src/services/constants";
 import {
   assertConfigValueValid,
   assertConfigValueValidForCreate,
@@ -33,6 +36,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
   const { key, name, description, project, owner, schema, extensible } =
     req.body;
   const extendsKeys = req.body.extends;
+  const scopedOverrides = req.body.scopedOverrides;
   // Value arrives as a native JSON object; stored/validated as a JSON string.
   const value =
     req.body.value !== undefined ? JSON.stringify(req.body.value) : undefined;
@@ -174,6 +178,8 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     original: null,
   });
 
+  await assertScopedOverridesValid(req.context, { key, scopedOverrides });
+
   // Creation never requires approval: a brand-new config has no dependents, so
   // it can't change any resolved value. Approvals apply to later changes.
   const config = await req.context.models.configs.create({
@@ -183,6 +189,7 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     parent: parent || undefined,
     extends: extendsKeys,
     value: stripConfigExtends(value),
+    scopedOverrides,
     description,
     project: project || "",
     schema: normalizedSchema,

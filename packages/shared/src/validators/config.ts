@@ -51,10 +51,30 @@ export const configLockSchema = z
 // Inline scope keeps precedence + membership in one place; the flavor is a plain
 // config. Empty environments+projects = a catch-all (applies to any scope).
 export const scopedOverrideValidator = z.object({
-  config: z.string(),
-  environments: z.array(z.string()).optional(),
-  projects: z.array(z.string()).optional(),
+  config: z
+    .string()
+    .describe(
+      "The `key` of the flavor config (a child config) whose value patches this config when the scope matches.",
+    ),
+  environments: z
+    .array(z.string())
+    .describe(
+      "Environment ids this entry applies to. Empty/omitted = any environment.",
+    )
+    .optional(),
+  projects: z
+    .array(z.string())
+    .describe("Project ids this entry applies to. Empty/omitted = any project.")
+    .optional(),
 });
+
+// API-facing description for the ordered selection list, shared by the response
+// shape and the create/update bodies.
+const apiScopedOverridesField = z
+  .array(scopedOverrideValidator)
+  .describe(
+    "Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry).",
+  );
 
 export const configValidator = z
   .object({
@@ -339,9 +359,10 @@ export const apiConfigValidator = namedSchema(
         .optional(),
       value: configValueObject
         .describe(
-          "This config's own value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Configs are environment-agnostic: there is no per-environment override (use a Constant for that).",
+          "This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here.",
         )
         .optional(),
+      scopedOverrides: apiScopedOverridesField.optional(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       project: z
         .string()
@@ -437,9 +458,10 @@ const postConfigApiBody = z
       .optional(),
     value: configValueObject
       .describe(
-        "This config's value as a JSON object. Configs are environment-agnostic — there is no per-environment override (use a Constant for that).",
+        "This config's base value as a JSON object. Per-environment/project variants are expressed via `scopedOverrides`.",
       )
       .optional(),
+    scopedOverrides: apiScopedOverridesField.optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     owner: optionalOwnerInputField,
@@ -488,7 +510,12 @@ const updateConfigApiBody = z
       .optional(),
     value: configValueObject
       .describe(
-        "This config's value as a JSON object. Configs are environment-agnostic — there is no per-environment override (use a Constant for that).",
+        "This config's base value as a JSON object. Per-environment/project variants are expressed via `scopedOverrides`.",
+      )
+      .optional(),
+    scopedOverrides: apiScopedOverridesField
+      .describe(
+        "Replace the ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches. Send the complete list; an empty array clears all overrides; omit to leave unchanged. Entries must reference existing configs, may not reference this config itself, and may not be unreachable.",
       )
       .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),

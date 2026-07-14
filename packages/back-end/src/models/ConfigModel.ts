@@ -403,8 +403,12 @@ export class ConfigModel extends BaseClass {
       // optional-array API field validates.
       extends: config.extends ?? undefined,
       // Stored as a JSON string; the external API exposes it as native JSON.
-      // Configs are environment-agnostic, so `environmentValues` is never exposed.
       value: config.value ? JSON.parse(config.value) : undefined,
+      // Ordered env/project variant selection (flavor configs). Omitted when the
+      // config has none.
+      scopedOverrides: config.scopedOverrides?.length
+        ? config.scopedOverrides
+        : undefined,
       description: config.description,
       project: config.project,
       archived: config.archived,
