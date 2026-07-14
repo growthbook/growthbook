@@ -37,8 +37,7 @@ const SnowflakeEventForwarderForm: FC<{
         value={snowflakeEventForwarderConfig.config.accessUrl || ""}
         onChange={(accessUrl) => updateConfig({ accessUrl })}
         placeholder="https://myorg-account123.snowflakecomputing.com"
-        tooltip="Derived from the Snowflake datasource connection (account or access URL). Update the datasource settings to change this value."
-        readOnly
+        tooltip="Enter the full Snowflake URL (e.g. https://myorg-account123.snowflakecomputing.com)."
       />
       <Field
         label="Database"
