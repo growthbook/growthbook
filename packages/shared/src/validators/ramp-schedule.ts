@@ -295,6 +295,29 @@ export const rampScheduleValidator = baseSchema
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
 
+// The start-approval gate is armed but not yet cleared for the current launch:
+// the schedule opted into requiresStartApproval and hasn't recorded an approval.
+// Status-independent — use this at the actual -1 → 0 crossing (where the status
+// is already "running") as the invariant. `isAwaitingStartApproval` layers the
+// pre-start status/step conditions on top for UI/notification display.
+export function startApprovalPending(schedule: {
+  requiresStartApproval?: boolean | null;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return !!schedule.requiresStartApproval && !schedule.startApprovedAt;
+}
+
+// Resolve the post-edit start-approval value from a pending action against a
+// base (live/existing) schedule. Tri-state: `true`/`false` = explicit set,
+// `null` = explicit off, `undefined` = leave the base value. Centralizes the
+// null-vs-undefined handling so serialization/merge sites can't drift.
+export function resolveStartApproval(
+  actionValue: boolean | null | undefined,
+  baseValue: boolean | null | undefined,
+): boolean {
+  return actionValue !== undefined ? !!actionValue : !!baseValue;
+}
+
 // Derives the "awaiting start approval" state: a pre-start schedule that
 // opted into requiresStartApproval and hasn't been approved for the
 // current launch yet. This is the one-time hold on the -1 → step 0 crossing;
@@ -308,8 +331,7 @@ export function isAwaitingStartApproval(schedule: {
   startApprovedAt?: Date | null;
 }): boolean {
   return (
-    !!schedule.requiresStartApproval &&
-    !schedule.startApprovedAt &&
+    startApprovalPending(schedule) &&
     schedule.currentStepIndex < 0 &&
     // "ready" is the live pre-start hold. "pending" is the same intent before
     // the activating revision publishes (including synthetic draft-preview

@@ -47,6 +47,7 @@ import {
   type RevisionRampUpdateAction,
   type StepHoldConditions,
   isReadyForApproval,
+  resolveStartApproval,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
@@ -4402,12 +4403,10 @@ export function updateActionToSectionState(
     linkedRampId: liveSchedule.id,
     // Fields not included in the update action fall back to the live schedule.
     name: action.name ?? liveSchedule.name,
-    // Tri-state: null = explicit off (don't fall back to live), undefined =
-    // unchanged (use live). `??` would treat an explicit clear as unchanged.
-    requiresStartApproval:
-      action.requiresStartApproval !== undefined
-        ? !!action.requiresStartApproval
-        : !!liveSchedule.requiresStartApproval,
+    requiresStartApproval: resolveStartApproval(
+      action.requiresStartApproval,
+      liveSchedule.requiresStartApproval,
+    ),
     startDate: action.startDate
       ? new Date(action.startDate).toISOString()
       : liveSchedule.startDate

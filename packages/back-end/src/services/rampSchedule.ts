@@ -15,6 +15,7 @@ import {
   RampStepAction,
   SafeRolloutInterface,
   isAwaitingStartApproval,
+  startApprovalPending,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
@@ -1104,6 +1105,19 @@ export async function advanceStep(
     return schedule;
   }
 
+  // Invariant tripwire: the rule only becomes enabled when the schedule first
+  // crosses out of the -1 hold (below). Refuse that crossing if a start approval
+  // is still pending — the approve flow records the approval BEFORE reaching here,
+  // so this only fires when some path tried to start/advance/jump past the gate
+  // without it. Entry-point handlers already return clean errors; this is the
+  // last-resort net that turns any missed path into a loud failure, not a silent
+  // enable.
+  if (schedule.currentStepIndex < 0 && startApprovalPending(schedule)) {
+    throw new Error(
+      `Ramp ${schedule.id} requires start approval before it can leave the pre-start hold`,
+    );
+  }
+
   const isJump = nextStepIndex > schedule.currentStepIndex + 1;
   const step = schedule.steps[nextStepIndex];
 
@@ -1888,6 +1902,14 @@ export async function jumpAheadToStep(
   schedule: RampScheduleInterface,
   jumpTarget: number,
 ): Promise<RampScheduleInterface> {
+  // Same invariant tripwire as advanceStep — a forward jump out of the -1 hold
+  // enables the rule, so it must not happen while a start approval is pending.
+  if (schedule.currentStepIndex < 0 && startApprovalPending(schedule)) {
+    throw new Error(
+      `Ramp ${schedule.id} requires start approval before it can leave the pre-start hold`,
+    );
+  }
+
   const effective = computeEffectivePatch(schedule, jumpTarget);
 
   // Mirror advanceStep: if the schedule hasn't started yet, inject enabled:true

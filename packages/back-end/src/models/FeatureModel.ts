@@ -21,6 +21,7 @@ import {
   RevisionRampCreateAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  resolveStartApproval,
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -2005,13 +2006,12 @@ async function createRampSchedulesForRevision(
       updateAction.monitoringConfig !== undefined
         ? updateAction.monitoringConfig
         : existingSchedule?.monitoringConfig;
-    // Resolve the post-edit approval strategy. Tri-state: `true` = on, `null` =
-    // explicitly off (switching to immediate/date), `undefined` = leave the
-    // existing value. When still on and unapproved, the ramp must NOT start now.
-    const nextRequiresApproval =
-      updateAction.requiresStartApproval !== undefined
-        ? !!updateAction.requiresStartApproval
-        : !!existingSchedule?.requiresStartApproval;
+    // Resolve the post-edit approval strategy (tri-state; see resolveStartApproval).
+    // When still on and unapproved, the ramp must NOT start now.
+    const nextRequiresApproval = resolveStartApproval(
+      updateAction.requiresStartApproval,
+      existingSchedule?.requiresStartApproval,
+    );
     const heldForApproval =
       nextRequiresApproval && !existingSchedule?.startApprovedAt;
     // "Start now": user explicitly cleared startDate on a not-yet-started

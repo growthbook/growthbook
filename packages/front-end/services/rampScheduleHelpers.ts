@@ -2,6 +2,7 @@ import {
   RampScheduleInterface,
   RampScheduleForDisplay,
   ACTIVE_DRAFT_STATUSES,
+  resolveStartApproval,
 } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
@@ -93,9 +94,10 @@ export function buildRuleRampScheduleMap({
           ...(action.lockdownConfig !== undefined
             ? { lockdownConfig: action.lockdownConfig }
             : {}),
-          ...(action.requiresStartApproval !== undefined
-            ? { requiresStartApproval: !!action.requiresStartApproval }
-            : {}),
+          requiresStartApproval: resolveStartApproval(
+            action.requiresStartApproval,
+            base.requiresStartApproval,
+          ),
         };
         map.set(action.ruleId, updated);
         continue;

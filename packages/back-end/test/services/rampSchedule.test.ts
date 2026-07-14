@@ -25,6 +25,8 @@ import {
   isAwaitingApproval,
   isReadyForApproval,
   isAwaitingStartApproval,
+  startApprovalPending,
+  resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
@@ -4360,6 +4362,69 @@ describe("isAwaitingStartApproval", () => {
     expect(
       isAwaitingStartApproval({ ...held, status: "running" as const }),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// startApprovalPending — the status-independent invariant used at the crossing
+// ---------------------------------------------------------------------------
+
+describe("startApprovalPending", () => {
+  it("is true when required and not yet approved (any status)", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: null,
+      }),
+    ).toBe(true);
+    // Status-independent: still pending even mid-transition to running.
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false once approved", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when approval isn't required", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: false,
+        startApprovedAt: null,
+      }),
+    ).toBe(false);
+    expect(startApprovalPending({})).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveStartApproval — tri-state (true/false/null = set, undefined = keep)
+// ---------------------------------------------------------------------------
+
+describe("resolveStartApproval", () => {
+  it("uses the action value when explicitly set", () => {
+    expect(resolveStartApproval(true, false)).toBe(true);
+    expect(resolveStartApproval(false, true)).toBe(false);
+  });
+
+  it("treats null as an explicit off (does not fall back to base)", () => {
+    expect(resolveStartApproval(null, true)).toBe(false);
+  });
+
+  it("falls back to the base value when the action omits it (undefined)", () => {
+    expect(resolveStartApproval(undefined, true)).toBe(true);
+    expect(resolveStartApproval(undefined, false)).toBe(false);
+    expect(resolveStartApproval(undefined, null)).toBe(false);
+    expect(resolveStartApproval(undefined, undefined)).toBe(false);
   });
 });
 
