@@ -139,9 +139,13 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     constantChange.valueChanged ||
     constantChange.changedEnvironments.length
   ) {
-    await assertConstantPublishGuards(req.context, constant, revision, {
-      armed: false,
-    });
+    await assertConstantPublishGuards(
+      req.context,
+      constant,
+      revision,
+      { armed: false },
+      (desiredState.value as string | undefined) ?? constant.value,
+    );
   }
 
   const hasChanges = Object.keys(desiredState).some((key) => {

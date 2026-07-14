@@ -449,9 +449,13 @@ export const putConstant = async (
       // Warn (bypassably) when this value change would reach a running experiment
       // through a guarded config. Metadata-only edits can't shift a served value.
       if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
-        await assertConstantPublishGuards(context, existing, revision, {
-          armed: false,
-        });
+        await assertConstantPublishGuards(
+          context,
+          existing,
+          revision,
+          { armed: false },
+          (fieldsToUpdate.value as string | undefined) ?? existing.value,
+        );
       }
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan

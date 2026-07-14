@@ -21,6 +21,7 @@ import {
   linearizeConfigDag,
   getConfigSpineRootKey,
   collectConfigInvariantViolations,
+  collectResolvedConfigValueViolations,
   collectDescendantInvariantViolations,
   findSiblingSchemaConflicts,
   findIncompatibleConfigValueKeys,
@@ -1063,6 +1064,108 @@ const noDebug = inv(
   { log_level: { $ne: "debug" } },
   "Production configs cannot run at debug verbosity.",
 );
+
+describe("collectResolvedConfigValueViolations", () => {
+  const numField = (key: string): SchemaField => ({
+    key,
+    type: "integer",
+    required: false,
+    default: "",
+    description: "",
+    enum: [],
+  });
+
+  it("returns [] for a concrete value that conforms to schema + invariants", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          type: "object",
+          fields: [numField("min"), numField("max")],
+          invariants: [
+            inv("order", { min: { $lte: { $ref: "max" } } }, "min > max"),
+          ],
+        },
+        value: "{}",
+      },
+    ]);
+    expect(
+      collectResolvedConfigValueViolations({
+        configKey: "base",
+        value: { min: 1, max: 5 },
+        byKey,
+        additionalProperties: true,
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a resolved value whose field type violates the effective schema", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: { type: "object", fields: [numField("limit")] },
+        value: "{}",
+      },
+    ]);
+    const errors = collectResolvedConfigValueViolations({
+      configKey: "base",
+      // A constant resolved a string into a numeric field.
+      value: { limit: "not-a-number" },
+      byKey,
+      additionalProperties: true,
+    });
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("flags a resolved value that violates an effective invariant", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          type: "object",
+          fields: [numField("min"), numField("max")],
+          invariants: [
+            inv("order", { min: { $lte: { $ref: "max" } } }, "min > max"),
+          ],
+        },
+        value: "{}",
+      },
+    ]);
+    expect(
+      collectResolvedConfigValueViolations({
+        configKey: "base",
+        value: { min: 9, max: 2 },
+        byKey,
+        additionalProperties: true,
+      }),
+    ).toEqual(["min > max"]);
+  });
+
+  it("applies a base config's invariant to a descendant's resolved value", () => {
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          type: "object",
+          fields: [numField("min"), numField("max")],
+          invariants: [
+            inv("order", { min: { $lte: { $ref: "max" } } }, "min > max"),
+          ],
+        },
+        value: "{}",
+      },
+      { key: "child", parent: "base", value: "{}" },
+    ]);
+    expect(
+      collectResolvedConfigValueViolations({
+        configKey: "child",
+        value: { min: 9, max: 2 },
+        byKey,
+        additionalProperties: true,
+      }),
+    ).toEqual(["min > max"]);
+  });
+});
 
 describe("collectConfigInvariantViolations", () => {
   it("evaluates rules accumulated base → leaf against the resolved value", () => {

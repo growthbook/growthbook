@@ -7,6 +7,7 @@ import {
   assertConstantExperimentGuard,
 } from "back-end/src/services/experimentGuard";
 import { assertConfigLockGuard } from "back-end/src/services/configLockGuard";
+import { assertConstantSchemaBreakGuard } from "back-end/src/services/schemaBreakGuard";
 
 // Every deferred-publish guard for a config/constant publish, orchestrated in one
 // place so each choke point (REST publish/update/revert handlers, the internal
@@ -36,12 +37,21 @@ export async function assertConstantPublishGuards(
   constant: ConstantInterface,
   revision: Pick<Revision, "armAcknowledgments">,
   opts: { armed: boolean },
+  // The constant's proposed (being-published) base value, for the schema-break
+  // guard. Omit when unknown — the guard then skips (fail-open, soft warning).
+  proposedValue?: string,
 ): Promise<void> {
   await assertConstantExperimentGuard(context, constant, revision, opts);
   await assertConfigLockGuard(
     context,
     { source: "constant", key: constant.key, project: constant.project },
     revision,
+    opts,
+  );
+  await assertConstantSchemaBreakGuard(
+    context,
+    { key: constant.key, project: constant.project },
+    proposedValue,
     opts,
   );
 }

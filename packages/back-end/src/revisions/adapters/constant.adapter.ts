@@ -240,9 +240,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       UPDATABLE_FIELDS,
     );
     if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
-      await assertConstantPublishGuards(context, entity, revision, {
-        armed: !!options?.deferred,
-      });
+      await assertConstantPublishGuards(
+        context,
+        entity,
+        revision,
+        { armed: !!options?.deferred },
+        (filteredChanges.value as string | undefined) ?? entity.value,
+      );
     }
   },
 };

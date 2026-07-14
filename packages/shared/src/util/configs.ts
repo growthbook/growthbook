@@ -8,6 +8,7 @@ import {
   invariantRuleFields,
   InvariantViolation,
   SchemaWarning,
+  validateConfigValue,
   valueHasReferenceToken,
 } from "./config-schema";
 import { deepMergePatch } from "./deep-merge";
@@ -849,6 +850,55 @@ export function collectConfigInvariantViolations(
   );
   if (!evaluable.length) return [];
   return evaluateInvariants(resolvedValue, evaluable);
+}
+
+// Validate a config's FULLY-RESOLVED, concrete value (an object with all
+// `@const:`/`@config:` references already substituted — no tokens left) against
+// its effective schema and effective (lineage-accumulated, leaf-wins) invariants.
+// Returns human-readable violation messages.
+//
+// This is the check the ordinary config-publish collectors can't do: they
+// deliberately EXEMPT reference-backed fields (which hold raw tokens at gate
+// time). The schema-break guard resolves the reference first, then hands the
+// concrete value here — so a constant change that makes a dependent config's
+// resolved value type-invalid or invariant-violating is finally caught. `value`
+// must already be constant-substituted by the caller.
+export function collectResolvedConfigValueViolations({
+  configKey,
+  value,
+  byKey,
+  additionalProperties,
+}: {
+  configKey: string;
+  value: Record<string, unknown>;
+  byKey: Map<string, ConfigDagNode>;
+  additionalProperties: boolean;
+}): string[] {
+  const chain = linearizeConfigDag(configKey, byKey);
+  const { effectiveSchema } = resolveConfigChain(chain);
+  const errors: string[] = [];
+
+  const res = validateConfigValue({
+    value,
+    fields: effectiveSchema,
+    additionalProperties,
+  });
+  if (!res.valid) errors.push(...res.errors);
+
+  // Effective invariants: base → leaf, leaf wins on name (same accumulation as
+  // collectConfigInvariantViolations), evaluated against the concrete value.
+  const invByName = new Map<
+    string,
+    NonNullable<SimpleSchema["invariants"]>[number]
+  >();
+  for (const node of chain) {
+    for (const inv of node.schema?.invariants ?? [])
+      invByName.set(inv.name, inv);
+  }
+  for (const vi of evaluateInvariants(value, [...invByName.values()])) {
+    errors.push(vi.message);
+  }
+  return errors;
 }
 
 // Descendants of `rootKey` (every base edge — parent + extends, transitively)
