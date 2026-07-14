@@ -293,6 +293,7 @@ export class ConfigModel extends BaseClass {
       updates.parent !== undefined ||
       updates.extends !== undefined ||
       updates.value !== undefined ||
+      updates.scopedOverrides !== undefined ||
       updates.project !== undefined ||
       updates.archived !== undefined
     ) {

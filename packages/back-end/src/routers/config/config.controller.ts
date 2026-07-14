@@ -519,6 +519,7 @@ export const postConfig = async (
     parent: parent || undefined,
     extends: extendsKeys,
     value: storedValue,
+    scopedOverrides: body.scopedOverrides,
     description: body.description,
     project: body.project,
     schema: normalizedSchema,
@@ -653,6 +654,14 @@ export const putConfig = async (
   }
   if (hasChanged(normalizedValue, comparisonBase.value)) {
     fieldsToUpdate.value = normalizedValue;
+  }
+  if (
+    req.body.scopedOverrides !== undefined &&
+    !isEqual(req.body.scopedOverrides, comparisonBase.scopedOverrides ?? [])
+  ) {
+    // Ordered env/project flavor selection. Store as-is (including `[]` to clear
+    // all overrides) — `undefined` would be dropped by the update layer.
+    fieldsToUpdate.scopedOverrides = req.body.scopedOverrides;
   }
   if (hasChanged(description, comparisonBase.description)) {
     fieldsToUpdate.description = description;
