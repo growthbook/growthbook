@@ -49,7 +49,7 @@ function getUserLabel(user?: EventUserType | null, bothNameAndEmail?: boolean) {
     );
   }
 
-  return <span>Unknown</span>;
+  return <span>{user?.type === "api_key" ? "API Key" : "Unknown"}</span>;
 }
 
 export default function EventUser({
