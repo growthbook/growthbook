@@ -280,7 +280,7 @@ export default function CustomFieldModal({
             <MultiSelectField
               label="Projects"
               value={form.watch("projects") ?? []}
-              placeholder="All projects"
+              placeholder="All Projects"
               options={availableProjects}
               onChange={(v) => {
                 form.setValue("projects", v);

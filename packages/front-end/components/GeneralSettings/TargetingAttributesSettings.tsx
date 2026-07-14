@@ -57,8 +57,8 @@ export default function TargetingAttributesSettings() {
                   <Box mb="2" width="100%" pl="5">
                     <Checkbox
                       id="toggle-requireProjectScoping"
-                      label="Require project match"
-                      description="Also block attributes that aren't scoped to the rule's project."
+                      label="Require Project match"
+                      description="Also block attributes that aren't scoped to the rule's Project."
                       value={requireProjectScoping}
                       setValue={(value) =>
                         update({ isOn, requireProjectScoping: !!value })
