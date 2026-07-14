@@ -1656,6 +1656,47 @@ function compactHero(
   }
 
   if (event === "warning") {
+    // Describe the actual health issue rather than assuming SRM. SRM is carried
+    // on exp.srm/exp.p; other data-quality issues (multiple exposures, unknown
+    // variations) live in exp.health.issues; operational alerts (guardrail
+    // failed / no data / query failed) have neither, so fall back to a generic
+    // line — the accompanying text message carries the specifics.
+    const issues = exp.health?.issues ?? [];
+    const bodyStyle = {
+      fontSize: 13,
+      lineHeight: 1.5,
+      color: P.text,
+      weight: 400,
+    } as const;
+    const lines: El[] = [];
+    if (exp.srm) {
+      lines.push(
+        renderMarkdown(
+          `Traffic isn't splitting as configured; fix the assignment before trusting results. (${exp.srm}${
+            exp.p ? ` · ${exp.p}` : ""
+          })`,
+          bodyStyle,
+        ),
+      );
+    }
+    issues.forEach(([label, detail]) =>
+      lines.push(renderMarkdown(`**${label}** — ${detail}`, bodyStyle)),
+    );
+    if (lines.length === 0) {
+      lines.push(
+        renderMarkdown(
+          "A health check flagged this experiment — review it before trusting results.",
+          bodyStyle,
+        ),
+      );
+    }
+    const title = exp.srm
+      ? "Sample Ratio Mismatch — results paused"
+      : issues.length === 1
+        ? issues[0][0]
+        : issues.length > 1
+          ? "Health warnings"
+          : "Health alert";
     return el(
       "div",
       {
@@ -1675,20 +1716,17 @@ function compactHero(
           {
             display: "flex",
             flexDirection: "column",
+            gap: 4,
             flexGrow: 1,
             minWidth: 0,
           },
           [
-            txt("Sample Ratio Mismatch — results paused", {
+            txt(title, {
               fontSize: 14,
               fontWeight: 700,
               color: P.st.amber,
-              marginBottom: 4,
             }),
-            renderMarkdown(
-              `${exp.srm ? `${exp.srm} · ${exp.p ?? ""}. ` : ""}Traffic isn't splitting as configured; fix the assignment before trusting results.`,
-              { fontSize: 13, lineHeight: 1.5, color: P.text, weight: 400 },
-            ),
+            ...lines,
           ],
         ),
       ],
