@@ -705,7 +705,9 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         );
       }
       if (freshApprovalPending && force) {
-        const linkedFeature = await getFeature(req.context, fresh.entityId);
+        const linkedFeature = await req.context.models.features.getById(
+          fresh.entityId,
+        );
         if (
           !linkedFeature ||
           !req.context.permissions.canBypassApprovalChecks(linkedFeature)
