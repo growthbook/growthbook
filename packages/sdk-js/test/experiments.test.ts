@@ -60,9 +60,9 @@ describe("experiments", () => {
     const res5 = growthbook.run(exp2);
 
     expect(mock.calls.length).toEqual(3);
-    expect(mock.calls[0]).toEqual([exp1, res1, { id: "1" }]);
-    expect(mock.calls[1]).toEqual([exp2, res4, { id: "1" }]);
-    expect(mock.calls[2]).toEqual([exp2, res5, { id: "2" }]);
+    expect(mock.calls[0]).toEqual([exp1, res1, { attributes: { id: "1" } }]);
+    expect(mock.calls[1]).toEqual([exp2, res4, { attributes: { id: "1" } }]);
+    expect(mock.calls[2]).toEqual([exp2, res5, { attributes: { id: "2" } }]);
 
     growthbook.destroy();
   });
@@ -92,9 +92,9 @@ describe("experiments", () => {
 
     await sleep(1000);
     expect(mock.calls.length).toEqual(3);
-    expect(mock.calls[0]).toEqual([exp1, res1, { id: "1" }]);
-    expect(mock.calls[1]).toEqual([exp2, res4, { id: "1" }]);
-    expect(mock.calls[2]).toEqual([exp2, res5, { id: "2" }]);
+    expect(mock.calls[0]).toEqual([exp1, res1, { attributes: { id: "1" } }]);
+    expect(mock.calls[1]).toEqual([exp2, res4, { attributes: { id: "1" } }]);
+    expect(mock.calls[2]).toEqual([exp2, res5, { attributes: { id: "2" } }]);
 
     growthbook.destroy();
   });
@@ -812,13 +812,15 @@ describe("experiments", () => {
       {
         experiment: exp,
         result,
-        attributes: { id: "1" },
+        user: { attributes: { id: "1" } },
       },
     ]);
     expect(gb.getCompletedChangeIds()).toEqual(["123"]);
     gb.setTrackingCallback(trackingCallback);
     expect(trackingCallback).toHaveBeenCalledTimes(1);
-    expect(trackingCallback).toHaveBeenCalledWith(exp, result, { id: "1" });
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result, {
+      attributes: { id: "1" },
+    });
 
     // Does not call trackingCallback again for the same experiment
     gb.run(exp);
@@ -841,8 +843,8 @@ describe("experiments", () => {
     expect(trackingCallback2).toHaveBeenCalledTimes(0);
     gb2.fireDeferredTrackingCalls();
     expect(trackingCallback2).toHaveBeenCalledTimes(1);
-    // These deferred calls were set manually without an attributes field, so
-    // the callback receives `undefined` for the optional attributes arg.
+    // These deferred calls were set manually without a user field, so
+    // the callback receives `undefined` for the optional user arg.
     expect(trackingCallback2).toHaveBeenCalledWith(exp, result, undefined);
     expect(gb2.getDeferredTrackingCalls()).toEqual([]);
 

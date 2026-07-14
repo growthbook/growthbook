@@ -17,6 +17,7 @@ import {
   FeatureApiResponse,
   Options,
   ClientOptions,
+  UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
 import { ConditionInterface } from "./types/mongrule";
@@ -102,7 +103,9 @@ function onExperimentViewed(
   }
   if (ctx.user.trackingCallback) {
     const cb = ctx.user.trackingCallback;
-    calls.push(safeCall(() => cb(experiment, result, getAttributes(ctx))));
+    calls.push(
+      safeCall(() => cb(experiment, result, getTrackingUserContext(ctx))),
+    );
   }
   if (ctx.global.eventLogger) {
     const cb = ctx.global.eventLogger;
@@ -309,7 +312,7 @@ export function evalFeature<V = unknown>(
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
-                attributes: getAttributes(ctx),
+                user: getTrackingUserContext(ctx),
               });
             }
           });
@@ -797,7 +800,7 @@ export function runExperiment<T>(
     ctx.global.saveDeferredTrack({
       experiment,
       result,
-      attributes: getAttributes(ctx),
+      user: getTrackingUserContext(ctx),
     });
   }
   const trackingCall = !trackingCalls.length
@@ -853,6 +856,14 @@ function getAttributes(ctx: EvalContext) {
     ...ctx.user.attributes,
     ...ctx.user.attributeOverrides,
   };
+}
+
+// A lean, serializable UserContext carrying only the user's (merged)
+// attributes. Used for the trackingCallback third argument and for deferred
+// tracking calls so we don't pass the full context (functions, sticky bucket
+// service, etc.) or invent a separate bare-attributes shape.
+function getTrackingUserContext(ctx: EvalContext): UserContext {
+  return { attributes: getAttributes(ctx) };
 }
 
 function getContextualBanditLeaf(
