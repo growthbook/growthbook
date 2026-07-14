@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { format } from "date-fns";
 import {
@@ -166,6 +166,22 @@ export default function BlockDateRangePicker({
 
   const showCompareCustom =
     comparisonEnabled && value.predefined === "customDateRange";
+
+  // Persist the Prior range we display instead of only showing a generated
+  // default, so the data hook reads the same stored value and the displayed and
+  // calculated previous windows can't diverge.
+  useEffect(() => {
+    if (showCompareCustom && !previousTimeFrame && onPreviousTimeFrameChange) {
+      onPreviousTimeFrameChange(defaultPriorRange(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    showCompareCustom,
+    previousTimeFrame,
+    value.predefined,
+    value.startDate,
+    value.endDate,
+  ]);
 
   return (
     <Flex direction="column" gap="2" width="100%">

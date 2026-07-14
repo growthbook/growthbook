@@ -45,7 +45,10 @@ export function useExperimentFilterCategories({
       map.set(m.id, {
         name: m.name,
         id: m.id,
-        searchValue: m.name,
+        // Serialize the metric id into the search string: the backend matches
+        // metric:<value> against metric IDs, and the client search matches both
+        // id and name, so the id works on both paths. Display uses `name`.
+        searchValue: m.id,
         disabled: true,
       });
     });

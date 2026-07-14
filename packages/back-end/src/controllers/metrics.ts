@@ -20,6 +20,7 @@ import {
 import {
   _getSnapshots,
   createMetric,
+  getExperimentMetricById,
   refreshMetric,
 } from "back-end/src/services/experiments";
 import {
@@ -548,6 +549,15 @@ export const getMetricExperimentResults = async (
 ) => {
   const context = getContextFromReq(req);
 
+  // Resolve and authorize the metric before fetching experiments or snapshots.
+  // Experiment read access and metric readData access can differ by project, so
+  // this prevents exposing metric snapshot values to a user who can read the
+  // experiment but not the metric. Returns null when it isn't readable.
+  const metric = await getExperimentMetricById(context, req.params.id);
+  if (!metric) {
+    throw new Error("Could not find metric with that id");
+  }
+
   const parseDate = (v?: string) => (v ? new Date(v) : undefined);
   // End-date window (phase end date).
   const startDate = parseDate(req.query.startDate);
@@ -571,7 +581,10 @@ export const getMetricExperimentResults = async (
     endDate,
     startedAfter,
     startedBefore,
-    limit: 500,
+    // Filters are applied in-memory after this fetch, so match the public
+    // endpoint's candidate cap (and the getExperimentsUsingMetric hard cap) so
+    // matches beyond the newest 500 aren't silently dropped.
+    limit: 1000,
   });
 
   const snapshots = await _getSnapshots(context, experiments, undefined, true, [

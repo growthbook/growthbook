@@ -280,6 +280,16 @@ function MetricExperimentResultTab({
     disableUrlSearchTerm: true,
   });
 
+  // Keep the current page valid when inputs change: reset on metric switch,
+  // clamp when a filter/sort shrinks the result set.
+  const totalPages = Math.max(1, Math.ceil(items.length / numPerPage));
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [metric.id]);
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   // Effective visible columns (order + visibility) after applying the stored
   // config. "Experiment" is always rendered first, outside this list.
   const visibleColumns = resolveMetricExperimentColumns(

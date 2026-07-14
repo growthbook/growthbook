@@ -273,6 +273,10 @@ const SidebarExperimentFilters: FC<Props> = ({
 
   const clearFilters = () => {
     setSearchValue(searchTerm);
+    // Also clear active extra (non-search-string) filters, e.g. date pickers.
+    extraFilters.forEach((f) => {
+      if (f.isActive) f.onRemove();
+    });
     setDraftField("");
     setActiveField("");
   };
@@ -751,7 +755,9 @@ const SidebarExperimentFilters: FC<Props> = ({
           content={categoryListView}
         />
 
-        {(chipFields.length > 0 || advancedFilters.length > 0) && (
+        {(chipFields.length > 0 ||
+          advancedFilters.length > 0 ||
+          extraFilters.some((f) => f.isActive)) && (
           <Link
             size="1"
             onClick={clearFilters}

@@ -67,15 +67,22 @@ export const listMetricExperiments = createApiRequestHandler(
     limit: 1000,
   });
 
+  // Paginate before loading snapshots so we only hydrate the page we return;
+  // pagination metadata still reflects the full filtered set.
+  const { filtered: pagedExperiments, returnFields } = applyPagination(
+    experiments,
+    req.query,
+  );
+
   const snapshots = await _getSnapshots(
     req.context,
-    experiments,
+    pagedExperiments,
     undefined,
     true,
     [metricId],
   );
 
-  const experimentResults = experiments.map((experiment) => {
+  const experimentResults = pagedExperiments.map((experiment) => {
     const snapshot = snapshots.find((s) => s.experiment === experiment.id);
     const analysis = snapshot?.analyses?.[0];
     const snapshotVariations = analysis?.results?.[0]?.variations ?? [];
@@ -114,13 +121,8 @@ export const listMetricExperiments = createApiRequestHandler(
     };
   });
 
-  const { filtered, returnFields } = applyPagination(
-    experimentResults,
-    req.query,
-  );
-
   return {
-    experimentResults: filtered,
+    experimentResults,
     ...returnFields,
   };
 });

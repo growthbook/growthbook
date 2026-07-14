@@ -190,8 +190,21 @@ export default function ExecExperimentImpact({
           startDate: startDate?.toISOString() || "",
           endDate: endDate?.toISOString() || "",
           adjusted,
+          // The embedded (dashboard block) input is already date-filtered by
+          // the shared result-date helper, so skip the redundant date filter
+          // here to stay consistent with Win Percentage / Team Velocity.
+          skipDateFilter: embedded,
         }),
-      [experiments, snapshots, metric, projects, startDate, endDate, adjusted],
+      [
+        experiments,
+        snapshots,
+        metric,
+        projects,
+        startDate,
+        endDate,
+        adjusted,
+        embedded,
+      ],
     );
 
   // top winning experiments by scaled impact:
