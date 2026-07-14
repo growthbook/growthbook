@@ -124,6 +124,11 @@ export function validateAggregationSpecification({
         `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' must have a numeric datatype (got '${pairedColumn.datatype || "unknown"}').`,
       );
     }
+    if (pairedColumn.isVirtual) {
+      throw new Error(
+        `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' cannot be a virtual column.`,
+      );
+    }
   } else if (
     quantileEventCountColumn !== undefined &&
     quantileEventCountColumn !== ""

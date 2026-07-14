@@ -5,7 +5,11 @@ export interface Props {
 }
 
 export default function FactTableSchema({ factTable }: Props) {
-  const columns = (factTable.columns || []).filter((col) => !col.deleted);
+  // Only show real (SQL-detected) columns. Virtual columns are computed
+  // expressions and can't be referenced inside raw SQL fragments.
+  const columns = (factTable.columns || []).filter(
+    (col) => !col.deleted && !col.isVirtual,
+  );
 
   return (
     <table className="table gbtable table-sm">

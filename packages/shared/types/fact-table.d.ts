@@ -11,6 +11,7 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   testFactFilterPropsValidator,
+  testVirtualColumnPropsValidator,
   conversionWindowUnitValidator,
   cappingSettingsValidator,
   windowSettingsValidator,
@@ -48,6 +49,20 @@ export interface ColumnInterface {
   isAutoSliceColumn?: boolean;
   autoSlices?: string[];
   lockedAutoSlices?: string[];
+  // Virtual (computed) columns are user-defined SQL expressions over other
+  // columns in the fact table, rather than columns detected from the SQL.
+  isVirtual?: boolean;
+  // The raw SQL expression for a virtual column, e.g. "price * quantity".
+  // Inlined into generated SQL by getColumnExpression.
+  sql?: string;
+  // Names of the columns referenced by `sql` (computed server-side). Used to
+  // qualify the expression with the table alias and to cascade invalidation
+  // when a referenced column is removed.
+  dependsOn?: string[];
+  // Set when a virtual column references a column that has been removed (or an
+  // invalid virtual column). Preserved rather than deleted so the user can fix it.
+  invalid?: boolean;
+  invalidReason?: string;
 }
 
 export interface FactFilterInterface {
@@ -172,6 +187,9 @@ export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
 export type TestFactFilterProps = z.infer<typeof testFactFilterPropsValidator>;
+export type TestVirtualColumnProps = z.infer<
+  typeof testVirtualColumnPropsValidator
+>;
 
 export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
 export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;

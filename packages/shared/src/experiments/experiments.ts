@@ -15,6 +15,7 @@ import {
   MetricInterface,
 } from "shared/types/metric";
 import {
+  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -129,6 +130,32 @@ export function canInlineFilterColumn(
   return true;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Rewrite bare column identifiers in a virtual column's expression to
+// `alias.<col>` so the expression is valid inside a CTE/join context. Only the
+// (server-computed) `dependsOn` columns are qualified, which keeps this safe
+// for arbitrary SQL — anything not in dependsOn (functions, keywords, literals)
+// is left untouched. Longer names are qualified first so a shorter name can't
+// partially match inside an already-qualified reference.
+export function qualifyVirtualColumnSql(
+  sql: string,
+  dependsOn: string[],
+  alias: string,
+): string {
+  if (!alias || !dependsOn?.length) return sql;
+  let result = sql;
+  [...dependsOn]
+    .sort((a, b) => b.length - a.length)
+    .forEach((col) => {
+      const re = new RegExp(`\\b${escapeRegExp(col)}\\b`, "g");
+      result = result.replace(re, `${alias}.${col}`);
+    });
+  return result;
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
@@ -136,6 +163,19 @@ export function getColumnExpression(
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   alias: string = "",
 ): string {
+  // Virtual (computed) columns inline their stored SQL expression wherever they
+  // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
+  const virtualCol = factTable.columns.find(
+    (c) => c.column === column && c.isVirtual && c.sql,
+  );
+  if (virtualCol?.sql) {
+    return `(${qualifyVirtualColumnSql(
+      virtualCol.sql,
+      virtualCol.dependsOn || [],
+      alias,
+    )})`;
+  }
+
   const parts = column.split(".");
   if (parts.length > 1) {
     const col = factTable.columns.find((c) => c.column === parts[0]);
@@ -154,6 +194,62 @@ export function getColumnExpression(
   }
 
   return alias ? `${alias}.${column}` : column;
+}
+
+// Compute which columns a virtual column's SQL expression references. Matches
+// bare column names (word-boundary) against the fact table's other columns.
+// Runs server-side on create/update so cascade invalidation works regardless of
+// whether the expression came from the guided builder or was free-form SQL.
+export function getVirtualColumnDependencies(
+  sql: string,
+  columns: Pick<ColumnInterface, "column">[],
+  selfColumn: string,
+): string[] {
+  const deps: string[] = [];
+  columns.forEach((c) => {
+    if (c.column === selfColumn) return;
+    const re = new RegExp(`\\b${escapeRegExp(c.column)}\\b`);
+    if (re.test(sql)) deps.push(c.column);
+  });
+  return deps;
+}
+
+// Recompute the `invalid`/`invalidReason` flags for every virtual column in the
+// list, mutating in place. A virtual column is invalid if any column it depends
+// on is missing, deleted, or itself an invalid virtual column. Iterates to a
+// fixpoint so invalidation cascades through dependency chains
+// (e.g. price removed -> margin invalid -> margin_pct invalid).
+export function revalidateVirtualColumns(columns: ColumnInterface[]): void {
+  const byName = new Map(columns.map((c) => [c.column, c]));
+
+  const invalidReasonFor = (col: ColumnInterface): string | null => {
+    for (const dep of col.dependsOn || []) {
+      const target = byName.get(dep);
+      if (!target || target.deleted) {
+        return `References removed column "${dep}"`;
+      }
+      if (target.isVirtual && target.invalid) {
+        return `Depends on invalid virtual column "${dep}"`;
+      }
+    }
+    return null;
+  };
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const col of columns) {
+      if (!col.isVirtual) continue;
+      const reason = invalidReasonFor(col);
+      const invalid = reason !== null;
+      const prevInvalid = !!col.invalid;
+      col.invalid = invalid;
+      col.invalidReason = reason || undefined;
+      if (invalid !== prevInvalid) {
+        changed = true;
+      }
+    }
+  }
 }
 
 export function getColumnRefWhereClause({

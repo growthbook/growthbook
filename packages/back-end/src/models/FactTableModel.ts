@@ -1,7 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { revalidateVirtualColumns } from "shared/experiments";
 import {
+  CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
   FactFilterInterface,
@@ -61,6 +63,11 @@ const factTableSchema = new mongoose.Schema({
       isAutoSliceColumn: Boolean,
       autoSlices: [String],
       lockedAutoSlices: [String],
+      isVirtual: Boolean,
+      sql: String,
+      dependsOn: [String],
+      invalid: Boolean,
+      invalidReason: String,
     },
   ],
   columnsError: String,
@@ -583,6 +590,10 @@ export async function updateColumn({
 
   factTable.columns[columnIndex] = updatedColumn;
 
+  // Recompute virtual column validity in case this change (a soft-delete, or an
+  // edit to a virtual column's expression) affects any dependent virtual column.
+  revalidateVirtualColumns(factTable.columns);
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -608,6 +619,100 @@ export async function updateColumn({
       removedColumns: [column],
     });
   }
+}
+
+export async function createColumn(
+  factTable: FactTableInterface,
+  data: CreateColumnProps,
+): Promise<ColumnInterface> {
+  if (factTable.columns.some((c) => c.column === data.column && !c.deleted)) {
+    throw new Error(
+      `A column with the id "${data.column}" already exists in this fact table`,
+    );
+  }
+
+  const column: ColumnInterface = {
+    ...data,
+    name: data.name ?? data.column,
+    description: data.description ?? "",
+    numberFormat: data.numberFormat ?? "",
+    datatype: data.datatype,
+    deleted: false,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  };
+
+  const columns = [...factTable.columns, column];
+  revalidateVirtualColumns(columns);
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns,
+      },
+    },
+  );
+
+  return column;
+}
+
+export async function deleteColumn(
+  context: ReqContext | ApiReqContext,
+  factTable: FactTableInterface,
+  columnName: string,
+): Promise<void> {
+  const col = factTable.columns.find((c) => c.column === columnName);
+  if (!col) {
+    throw new Error("Could not find that column");
+  }
+  // Only virtual columns can be hard-deleted. SQL-detected columns are managed
+  // by the column refresh (soft delete) and must not be removed here.
+  if (!col.isVirtual) {
+    throw new Error("Only virtual columns can be deleted");
+  }
+
+  // Block deletion if other virtual columns depend on this one.
+  const dependents = factTable.columns.filter(
+    (c) =>
+      c.isVirtual &&
+      c.column !== columnName &&
+      (c.dependsOn || []).includes(columnName),
+  );
+  if (dependents.length) {
+    throw new Error(
+      `Cannot delete: the following virtual columns depend on it:${dependents
+        .map((c) => `\n - ${c.name || c.column}`)
+        .join("")}`,
+    );
+  }
+
+  const columns = factTable.columns.filter((c) => c.column !== columnName);
+  revalidateVirtualColumns(columns);
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        columns,
+      },
+    },
+  );
+
+  // A virtual column may be referenced by metric auto-slices; remove those.
+  await cleanupMetricAutoSlices({
+    context,
+    factTableId: factTable.id,
+    removedColumns: [columnName],
+  });
 }
 
 export async function createFactFilter(

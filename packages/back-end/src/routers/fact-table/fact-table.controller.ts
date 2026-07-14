@@ -1,8 +1,13 @@
 import type { Response } from "express";
-import { canInlineFilterColumn } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  getVirtualColumnDependencies,
+  revalidateVirtualColumns,
+} from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
 import {
+  CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
   FactMetricInterface,
@@ -11,6 +16,7 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   TestFactFilterProps,
+  TestVirtualColumnProps,
   FactFilterTestResults,
   ColumnInterface,
   FactTableColumnType,
@@ -25,7 +31,9 @@ import {
   createFactTable,
   getAllFactTablesForOrganization,
   getFactTable,
+  createColumn,
   updateColumn,
+  deleteColumn as deleteColumnInDb,
   updateFactTable,
   updateFactTableColumns,
   deleteFactTable as deleteFactTableInDb,
@@ -139,6 +147,56 @@ async function testFilterQuery(
   }
 }
 
+async function testVirtualColumnQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  sql: string,
+): Promise<FactFilterTestResults> {
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const timestampColumn = "timestamp";
+
+  // Select the computed expression alongside the raw rows. The expression
+  // references bare column names, which resolve against the aliased subquery.
+  const testSql = integration.getTestQuery({
+    // Must have a newline after factTable sql in case it ends with a comment
+    query: `SELECT (${sql}) AS __virtual_column, * FROM (
+      ${factTable.sql}
+    ) f`,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
+    timestampColumn,
+  });
+
+  try {
+    const results = await integration.runTestQuery(
+      testSql,
+      [timestampColumn],
+      "factTableValidation",
+    );
+    return {
+      sql: testSql,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql: testSql,
+      error: e.message,
+    };
+  }
+}
+
 // Helper to merge existing columns with new type map from LIMIT 0
 function mergeColumnsWithTypeMap(
   existingColumns: ColumnInterface[],
@@ -148,6 +206,11 @@ function mergeColumnsWithTypeMap(
 
   // Update existing columns
   columns.forEach((col) => {
+    // Virtual columns are user-defined and never appear in the SQL output
+    // schema, so preserve them instead of marking them deleted.
+    if (col.isVirtual) {
+      return;
+    }
     const type = typeMap.get(col.column);
     if (type === undefined) {
       col.deleted = true;
@@ -180,6 +243,9 @@ function mergeColumnsWithTypeMap(
       });
     }
   });
+
+  // Flag any virtual columns whose referenced columns were removed.
+  revalidateVirtualColumns(columns);
 
   return columns;
 }
@@ -874,6 +940,19 @@ export const putColumn = async (
     data.name = col.column;
   }
 
+  // When a virtual column's expression changes, recompute its dependencies so
+  // cascade invalidation stays accurate.
+  if (col.isVirtual && data.sql !== undefined) {
+    if (!data.sql.trim()) {
+      throw new Error("Virtual columns require a SQL expression");
+    }
+    data.dependsOn = getVirtualColumnDependencies(
+      data.sql,
+      factTable.columns,
+      col.column,
+    );
+  }
+
   // Check enterprise feature access for dimension properties
   if (data.isAutoSliceColumn) {
     if (!context.hasPremiumFeature("metric-slices")) {
@@ -1049,6 +1128,114 @@ export const deleteFactFilter = async (
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+export const postColumn = async (
+  req: AuthRequest<CreateColumnProps, { id: string }>,
+  res: Response<{ status: 200; column: ColumnInterface }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  // This endpoint only creates virtual columns. SQL-detected columns are
+  // created by column auto-detection, not directly.
+  if (!data.isVirtual) {
+    throw new Error("Only virtual columns can be created directly");
+  }
+  if (!data.sql || !data.sql.trim()) {
+    throw new Error("Virtual columns require a SQL expression");
+  }
+  if (!data.column.match(/^vc_[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Virtual column ids must start with 'vc_' and contain only letters, numbers, underscores, and dashes",
+    );
+  }
+  if (!data.datatype) {
+    throw new Error("Virtual columns require a data type");
+  }
+
+  // Compute which columns the expression references (server-side, so it works
+  // for both guided-builder and free-form SQL).
+  data.dependsOn = getVirtualColumnDependencies(
+    data.sql,
+    factTable.columns,
+    data.column,
+  );
+
+  const column = await createColumn(factTable, data);
+
+  res.status(200).json({
+    status: 200,
+    column,
+  });
+};
+
+export const deleteColumn = async (
+  req: AuthRequest<null, { id: string; column: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await deleteColumnInDb(context, factTable, req.params.column);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const postVirtualColumnTest = async (
+  req: AuthRequest<TestVirtualColumnProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: FactFilterTestResults;
+  }>,
+) => {
+  const data = req.body;
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, { columns: [] })) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  const result = await testVirtualColumnQuery(
+    context,
+    datasource,
+    factTable,
+    data.sql,
+  );
+
+  res.status(200).json({
+    status: 200,
+    result,
   });
 };
 

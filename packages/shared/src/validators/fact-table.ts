@@ -62,6 +62,11 @@ export const createColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    isVirtual: z.boolean().optional(),
+    sql: z.string().optional(),
+    dependsOn: z.array(z.string()).optional(),
+    invalid: z.boolean().optional(),
+    invalidReason: z.string().optional(),
   })
   .strict();
 
@@ -78,6 +83,18 @@ export const updateColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    isVirtual: z.boolean().optional(),
+    sql: z.string().optional(),
+    dependsOn: z.array(z.string()).optional(),
+    invalid: z.boolean().optional(),
+    invalidReason: z.string().optional(),
+  })
+  .strict();
+
+export const testVirtualColumnPropsValidator = z
+  .object({
+    sql: z.string(),
+    datatype: factTableColumnTypeValidator,
   })
   .strict();
 
@@ -408,6 +425,33 @@ export const apiFactTableColumnValidator = namedSchema(
           "Locked slices that are protected from automatic updates. These will always be included in the slice levels even if they're not in the top values query results.",
         )
         .optional(),
+      isVirtual: z
+        .boolean()
+        .describe(
+          "Whether this is a virtual (computed) column defined by a SQL expression rather than detected from the fact table SQL. Read-only via the API.",
+        )
+        .optional()
+        .meta({ default: false }),
+      sql: z
+        .string()
+        .describe(
+          "For virtual columns, the SQL expression that computes the column value. Read-only via the API.",
+        )
+        .optional(),
+      dependsOn: z
+        .array(z.string())
+        .describe(
+          "For virtual columns, the columns referenced by the expression.",
+        )
+        .optional(),
+      invalid: z
+        .boolean()
+        .describe(
+          "For virtual columns, whether the expression references a column that no longer exists.",
+        )
+        .optional()
+        .meta({ default: false }),
+      invalidReason: z.string().optional(),
       dateCreated: z
         .string()
         .meta({ format: "date-time" })

@@ -96,6 +96,16 @@ function validateUserFilter({
       );
     }
 
+    // error if column is a virtual column
+    const aggregateFilterCol = factTable.columns.find(
+      (c) => c.column === numerator.aggregateFilterColumn,
+    );
+    if (aggregateFilterCol?.isVirtual) {
+      throw new Error(
+        `Aggregate filter column '${numerator.aggregateFilterColumn}' cannot be a virtual column.`,
+      );
+    }
+
     // error if filter is not valid
     getAggregateFilters({
       columnRef: numerator,
