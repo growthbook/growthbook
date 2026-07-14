@@ -261,6 +261,10 @@ const SlackIntegrationsPage: NextPage = () => {
   // Add-channel picker: which workspace (teamId) it's open for, if any.
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
 
+  // Slot at the bottom of the page card that the detail pane portals its
+  // sticky save bar into (so the bar spans the full card width).
+  const [saveBarHost, setSaveBarHost] = useState<HTMLDivElement | null>(null);
+
   // The channel shown in the detail pane. Synced with ?channel= so deep links
   // (and the old /integrations/slack/[id] URLs) land on the right channel.
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
@@ -810,6 +814,10 @@ const SlackIntegrationsPage: NextPage = () => {
                     await mutate();
                     selectChannel(null);
                   }}
+                  saveBarHost={saveBarHost}
+                  // Rail width (250) + the detail pane's own padding, so the
+                  // Save button lines up with the detail column's left edge.
+                  saveBarInsetLeft="calc(250px + var(--space-5))"
                 />
               ) : (
                 <Flex direction="column" gap="3" align="start" p="4">
@@ -832,6 +840,10 @@ const SlackIntegrationsPage: NextPage = () => {
             </Box>
           </Flex>
         )}
+
+        {/* Full-width slot the detail pane portals its sticky save bar into,
+            so the bar spans the rail + detail columns. */}
+        <div ref={setSaveBarHost} />
       </Box>
     </div>
   );

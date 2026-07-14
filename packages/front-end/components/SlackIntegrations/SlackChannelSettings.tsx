@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { ago } from "shared/dates";
 import {
@@ -488,12 +489,22 @@ export default function SlackChannelSettings({
   integration,
   onSaved,
   onDeleted,
+  saveBarHost,
+  saveBarInsetLeft,
 }: {
   integration: SlackOAuthIntegrationInterface;
   /** Called after a successful save (parent revalidates its list). */
   onSaved: () => Promise<void>;
   /** Called after a successful delete (parent revalidates + reselects). */
   onDeleted: () => Promise<void>;
+  /**
+   * Element to portal the sticky save bar into — a full-width slot at the
+   * bottom of the page card. Without it the bar renders inline at the bottom
+   * of the form.
+   */
+  saveBarHost?: HTMLElement | null;
+  /** Left padding for the portaled bar (aligns Save with the detail column). */
+  saveBarInsetLeft?: string;
 }) {
   const { apiCall } = useAuth();
   const environments = useEnvironments().map((env) => env.id);
@@ -1176,45 +1187,62 @@ export default function SlackChannelSettings({
           </Flex>
         </Frame>
 
-        {/* Sticky save bar with an unsaved-changes indicator. */}
-        <Box
-          style={{
-            position: "sticky",
-            bottom: 0,
-            zIndex: 1,
-            paddingTop: "var(--space-3)",
-            paddingBottom: "var(--space-3)",
-            borderTop: "1px solid var(--gray-a5)",
-            background: "var(--color-background)",
-          }}
-        >
-          <Flex gap="3" align="center">
-            <Button onClick={save} loading={saving} disabled={!dirty}>
-              Save settings
-            </Button>
-            {dirty && (
-              <Flex align="center" gap="2">
-                <Box
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: "var(--amber-9)",
-                  }}
-                />
-                <span style={{ fontSize: 12, color: "var(--amber-11)" }}>
-                  Unsaved changes
-                </span>
+        {/* Sticky save bar with an unsaved-changes indicator. Rendered into
+            `saveBarHost` (a full-width slot at the bottom of the page card)
+            when provided, so the bar spans the rail + detail columns while the
+            save state stays local to this form. `saveBarInsetLeft` lines the
+            button up with the detail column's left edge. */}
+        {(() => {
+          const bar = (
+            <Box
+              style={{
+                position: "sticky",
+                bottom: 0,
+                zIndex: 1,
+                padding: saveBarHost
+                  ? `var(--space-3) var(--space-5)`
+                  : "var(--space-3) 0",
+                paddingLeft: saveBarHost
+                  ? (saveBarInsetLeft ?? "var(--space-5)")
+                  : 0,
+                borderTop: "1px solid var(--gray-a5)",
+                background: "var(--color-panel-solid)",
+                // Match the appbox's rounded bottom corners.
+                borderRadius: saveBarHost ? "0 0 5px 5px" : undefined,
+              }}
+            >
+              <Flex gap="3" align="center">
+                <Button onClick={save} loading={saving} disabled={!dirty}>
+                  Save settings
+                </Button>
+                {dirty && (
+                  <Flex align="center" gap="2">
+                    <Box
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: "var(--amber-9)",
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: "var(--amber-11)" }}>
+                      Unsaved changes
+                    </span>
+                  </Flex>
+                )}
+                {saved && !dirty && (
+                  <Text color="text-mid" size="small">
+                    Saved.
+                  </Text>
+                )}
+                {saveError && (
+                  <HelperText status="error">{saveError}</HelperText>
+                )}
               </Flex>
-            )}
-            {saved && !dirty && (
-              <Text color="text-mid" size="small">
-                Saved.
-              </Text>
-            )}
-            {saveError && <HelperText status="error">{saveError}</HelperText>}
-          </Flex>
-        </Box>
+            </Box>
+          );
+          return saveBarHost ? createPortal(bar, saveBarHost) : bar;
+        })()}
       </Flex>
     </>
   );
