@@ -173,6 +173,7 @@ import {
 import {
   buildFeatureLookups,
   getEnabledEnvironments,
+  reconcileDefaultValueOverrideIds,
   validateEnvKeys,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
@@ -3956,7 +3957,7 @@ export async function postFeatureDefaultValue(
       orgEnvironments,
       defaultValueOverrides.flatMap((o) => o.environments ?? []),
     );
-    nextDefaultValueOverrides = defaultValueOverrides.map((o) => {
+    const normalizedOverrides = defaultValueOverrides.map((o) => {
       // MVP: an override must target at least one environment (empty = match-all
       // is reserved for the future project-scoping release).
       if (!o.environments?.length) {
@@ -3965,11 +3966,17 @@ export async function postFeatureDefaultValue(
         );
       }
       return {
-        id: o.id || generateId(),
         value: validateFeatureValue(feature, o.value, "Value"),
         environments: o.environments,
       };
     });
+    // Reuse ids by content against the draft's current overrides rather than
+    // trusting client-supplied ids, so an unchanged save doesn't churn ids or
+    // write a no-op draft diff (mirrors the REST update paths).
+    nextDefaultValueOverrides = reconcileDefaultValueOverrideIds(
+      normalizedOverrides,
+      revision.defaultValueOverrides,
+    );
   }
 
   // The base default value change affects every environment, so reset review
