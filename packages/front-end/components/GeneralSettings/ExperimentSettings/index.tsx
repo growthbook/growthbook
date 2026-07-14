@@ -424,7 +424,7 @@ export default function ExperimentSettings({
                   <Text className="font-weight-semibold" size="2">
                     <label>Multiple exposures warning threshold</label>
                   </Text>
-                  <Box className="form-inline">
+                  <Flex>
                     <Field
                       type="number"
                       step="1"
@@ -442,7 +442,7 @@ export default function ExperimentSettings({
                         max: 100,
                       })}
                     />
-                  </Box>
+                  </Flex>
                   <HelperText status="info" size="sm">
                     Warn when at least this percent of experiment users are in
                     multiple variations.

@@ -169,7 +169,7 @@ export default function MetricsSettings() {
                 />
               </div>
               <Box maxWidth="740px">
-                <small className="text-muted mb-3 max-w-md">
+                <small className="text-muted mb-3">
                   The percentage change that you want to be able to reliably
                   detect before ending your experiment. This is used to estimate
                   the &quot;Days Left&quot; for running experiments. Lower
