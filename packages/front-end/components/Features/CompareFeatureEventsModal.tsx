@@ -79,12 +79,9 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       render: renderFeatureDefaultValueSection,
     },
     {
-      // Per-environment default value overrides live under
-      // `environmentSettings[env].defaultValue`. The "Rules" section also
-      // claims `environmentSettings` (for enable toggles), but its renderer
-      // ignores the `defaultValue` sub-key, so a per-env override change would
-      // otherwise produce no visible row. This section renders one clearly
-      // labeled "Default value ({env})" row per changed override.
+      // Overrides live in the top-level ordered `defaultValueOverrides` list;
+      // `environmentSettings` is also claimed so the renderer has the env
+      // universe to resolve first-match per env. One row per changed env.
       label: "Environment default values",
       keys: ["environmentSettings", "defaultValueOverrides"],
       suppressCardLabel: true,

@@ -31,8 +31,7 @@ import {
   namespacesToMap,
   pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
-  validateFeatureValue,
-  getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -173,7 +172,7 @@ import {
 import {
   buildFeatureLookups,
   getEnabledEnvironments,
-  validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
 } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -963,11 +962,9 @@ export async function postFeatureRebase(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
-  // Default value overrides — complete ordered snapshot. The merge result, when
-  // present, IS the authoritative complete snapshot (full-replace); when absent
-  // the draft didn't touch overrides, so re-anchor onto the live feature (same
-  // as rules/defaultValue/prerequisites above) — NOT the draft's stale snapshot,
-  // which would revert overrides published since the draft was created.
+  // Full-replace from the merge result when present; else re-anchor onto the
+  // LIVE feature — NOT the draft's stale snapshot, which would revert overrides
+  // published since the draft was created.
   const newDefaultValueOverrides =
     mergeResult.result.defaultValueOverrides ??
     feature.defaultValueOverrides ??
@@ -1921,9 +1918,7 @@ export async function postFeaturePublish(
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules ?? [],
-        // `mergeResult.result.defaultValueOverrides`, when present, is the
-        // complete authoritative snapshot (full-replace); when absent, the
-        // overrides are unchanged from live.
+        // full-replace when the merge carries it; else unchanged from live.
         defaultValueOverrides:
           mergeResult.result.defaultValueOverrides ??
           filledLive.defaultValueOverrides,
@@ -2359,22 +2354,18 @@ export async function postFeatureRevert(
       }
     }
 
-    // Default value override — complete ordered snapshot. Track which envs
-    // resolve differently from live for permission gating; the actual
-    // full-replace is applied below. Only acts when the revision carries the
-    // field; truly legacy revisions that predate it are left untouched.
-    if (revision.defaultValueOverrides !== undefined) {
-      const revDefault = getDefaultValueOverrideForEnvironment(
+    // Track envs whose resolved override value differs from live, for
+    // permission gating; the full-replace is applied below.
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
         revision.defaultValueOverrides,
-        env,
-      );
-      const liveDefault = getDefaultValueOverrideForEnvironment(
         feature.defaultValueOverrides,
         env,
-      );
-      if (revDefault !== liveDefault) {
-        if (!changedEnvs.includes(env)) changedEnvs.push(env);
-      }
+      ) &&
+      !changedEnvs.includes(env)
+    ) {
+      changedEnvs.push(env);
     }
   });
   // Full-replace default value overrides: when the target snapshot differs from
@@ -3944,31 +3935,17 @@ export async function postFeatureDefaultValue(
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
-  // Validate and normalize the complete next override list when provided.
-  // Unknown envs are rejected so a typo can't silently store a dead override.
   let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
   if (defaultValueOverrides !== undefined) {
     if (!Array.isArray(defaultValueOverrides)) {
       throw new Error("`defaultValueOverrides` must be an array");
     }
-    const orgEnvironments = getEnvironmentIdsFromOrg(context.org);
-    validateEnvKeys(
-      orgEnvironments,
-      defaultValueOverrides.flatMap((o) => o.environments ?? []),
+    nextDefaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+      feature,
+      defaultValueOverrides,
+      getEnvironmentIdsFromOrg(context.org),
+      { requireEnv: true },
     );
-    nextDefaultValueOverrides = defaultValueOverrides.map((o) => {
-      // MVP: an override must target at least one environment (empty = match-all
-      // is reserved for the future project-scoping release).
-      if (!o.environments?.length) {
-        throw new Error(
-          "Each default value override must target at least one environment",
-        );
-      }
-      return {
-        value: validateFeatureValue(feature, o.value, "Value"),
-        environments: o.environments,
-      };
-    });
   }
 
   // The base default value change affects every environment, so reset review

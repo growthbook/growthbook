@@ -248,18 +248,11 @@ export const featureEnvironment = z
 
 export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 
-// An ordered, first-match-wins override of the feature's base `defaultValue`,
-// scoped by environment (and, in the future, tags / projects). Resolved at
-// payload-build time: the compiler walks the list and the first entry whose
-// scope matches the target payload supplies the default value (rules still take
-// precedence over it). An entry with an empty `environments` array matches every
-// environment. Serialized `value` mirrors the feature's base `defaultValue`
-// (string form, validated against `valueType`).
+// One entry in the ordered, first-match-wins override list for a feature's base
+// `defaultValue`. Empty `environments` matches all envs; rules still win over it.
 export const featureDefaultValueOverride = z
   .object({
     value: z.string(),
-    // Scope. Empty array = matches all environments. Future axes (tags,
-    // projects) will AND with this one.
     environments: z.array(z.string()),
   })
   .strict();
@@ -1459,8 +1452,7 @@ const postFeatureEnvironment = z.object({
     .optional(),
 });
 
-// Body shape for a single default value override on create/update requests
-// (no `id` — the server assigns one).
+// Body shape for a single default value override on create/update requests.
 export const postFeatureDefaultValueOverride = z.object({
   value: z
     .string()

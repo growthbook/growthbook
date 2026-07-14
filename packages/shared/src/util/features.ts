@@ -153,11 +153,9 @@ export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   } as T;
 }
 
-// Walk the ordered override list and return the value of the first entry whose
-// scope matches the target environment (an empty `environments` array matches
-// all). This is the "compiler walks the list, first match wins" resolution used
-// at payload-build time. Returns undefined when no override applies (inherit the
-// base default). Future scope axes (tags/projects) will AND into the match here.
+// First-match-wins resolution: the value of the first override whose scope
+// matches the environment (empty `environments` matches all), or undefined to
+// inherit the base default. Future scope axes (tags/projects) AND in here.
 export function getDefaultValueOverrideForEnvironment(
   overrides: FeatureDefaultValueOverride[] | undefined,
   environment: string,
@@ -169,6 +167,19 @@ export function getDefaultValueOverrideForEnvironment(
     }
   }
   return undefined;
+}
+
+// Whether two override lists serve a different value in the given environment —
+// the behavioral (payload-affecting) diff, ignoring ordering/scope-shape churn.
+export function defaultValueOverrideDiffersForEnv(
+  a: FeatureDefaultValueOverride[] | undefined,
+  b: FeatureDefaultValueOverride[] | undefined,
+  environment: string,
+): boolean {
+  return (
+    getDefaultValueOverrideForEnvironment(a, environment) !==
+    getDefaultValueOverrideForEnvironment(b, environment)
+  );
 }
 
 // Indexes of overrides that can never serve: walking top-to-bottom (first match
@@ -3000,19 +3011,14 @@ export function getDraftAffectedEnvironments(
     ) {
       envs.add(env);
     }
-    // Default value overrides. Resolve the first-match value for this env on
-    // both sides (the list is a COMPLETE snapshot) and mark the env when it
-    // changed. Only compare when the draft carries the field at all.
+    // Mark the env when the draft's resolved override value differs from base.
     if (
       revision.defaultValueOverrides !== undefined &&
-      getDefaultValueOverrideForEnvironment(
+      defaultValueOverrideDiffersForEnv(
         revision.defaultValueOverrides,
+        baseRevision.defaultValueOverrides,
         env,
-      ) !==
-        getDefaultValueOverrideForEnvironment(
-          baseRevision.defaultValueOverrides,
-          env,
-        )
+      )
     ) {
       envs.add(env);
     }
@@ -3177,19 +3183,15 @@ export function checkIfRevisionNeedsReview({
       normalizeRuleForDiff,
     );
     if (!isEqual(revRules, baseRules)) return true;
-    // A default value override is a served-value change, so it gates like a
-    // rule/value change (not like a kill switch). Resolve first-match per env on
-    // both sides. Only compare when the draft carries the field at all.
+    // A served-value change, so it gates like a rule/value change (not a kill
+    // switch).
     if (
       revision.defaultValueOverrides !== undefined &&
-      getDefaultValueOverrideForEnvironment(
+      defaultValueOverrideDiffersForEnv(
         revision.defaultValueOverrides,
+        baseRevision.defaultValueOverrides,
         env,
-      ) !==
-        getDefaultValueOverrideForEnvironment(
-          baseRevision.defaultValueOverrides,
-          env,
-        )
+      )
     )
       return true;
     return false;

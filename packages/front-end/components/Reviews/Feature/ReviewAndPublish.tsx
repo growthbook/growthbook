@@ -1521,9 +1521,7 @@ export default function ReviewAndPublish({
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
-        // `mergeResult.result.defaultValueOverrides`, when present, is the
-        // complete authoritative ordered snapshot; otherwise the overrides are
-        // unchanged from live.
+        // full-replace when the merge carries it; else unchanged from live.
         defaultValueOverrides:
           mergeResult.result.defaultValueOverrides ??
           filledLive.defaultValueOverrides,

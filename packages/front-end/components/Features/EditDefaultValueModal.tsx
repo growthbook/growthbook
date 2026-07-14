@@ -235,13 +235,11 @@ export default function EditDefaultValueModal({
         gatedEnvSet={gatedEnvSet}
       />
 
-      {/* Base default value, wrapped in the same card chrome as the override
-          rows (with empty grip/trash gutters) so its field lines up with them. */}
+      {/* Base value in the override card chrome, with empty grip/trash gutters
+          (14px / 32px) so its field lines up with the override rows. */}
       <ModalValueCard
         sideColor="active"
         left={<Box style={{ width: 14, flexShrink: 0 }} />}
-        // Reserve the delete-gutter width (IconButton size 2 = 32px) so the base
-        // field lines up with the override rows — no phantom interactive control.
         right={<Box style={{ width: 32, marginRight: -4, flexShrink: 0 }} />}
       >
         <Box mb="-3">
@@ -319,8 +317,6 @@ export default function EditDefaultValueModal({
                     />
                   ))}
                 </SortableContext>
-                {/* Full-opacity clone that follows the cursor while the source row
-                  stays ghosted in place — mirrors the feature rule list. */}
                 <DragOverlay>
                   {activeRow ? (
                     <OverrideRowCard
@@ -360,10 +356,9 @@ export default function EditDefaultValueModal({
   );
 }
 
-// Presentational card shared by the sortable editor row and the DragOverlay
-// clone so the two are pixel-identical (no size shift when a drag starts). The
-// overlay passes a distinct `valueId` to avoid a duplicate DOM id on the value
-// field, and no-op handlers (it's pointer-captured mid-drag).
+// Shared by the sortable editor row and the DragOverlay clone so the two are
+// pixel-identical. The overlay passes a distinct `valueId` to avoid a duplicate
+// DOM id.
 function OverrideRowCard({
   row,
   feature,
@@ -437,8 +432,6 @@ function OverrideRowCard({
           )}
         </Flex>
       </Box>
-      {/* The value field carries its own trailing margin; pull it back in
-          to tighten the card's bottom padding. */}
       <Box mt="3" mb="-3">
         <FeatureValueField
           label="Value When Enabled"
@@ -456,10 +449,8 @@ function OverrideRowCard({
   );
 }
 
-// Green/orange-edged card chrome shared by the base value and each override row
-// (not Radix Card, so nothing clips the env select's menu). `left`/`right` are
-// the grip and delete gutters; the base value passes empty/hidden placeholders
-// so its field lines up with the override rows.
+// Card chrome for the base value and each override row. `left`/`right` are the
+// grip and delete gutters (the base value passes empty spacers).
 function ModalValueCard({
   sideColor,
   left,
@@ -511,8 +502,7 @@ function OverrideRowEditor({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        // Ghost the source in place while its full-opacity clone is dragged
-        // (the DragOverlay renders the clone) — same as the rule list.
+        // Ghost the source while the DragOverlay clone is dragged.
         opacity: active?.id === row.key ? 0.3 : 1,
       }}
     >

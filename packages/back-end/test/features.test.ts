@@ -30,6 +30,7 @@ import {
   getSDKPayloadKeysByDiff,
   roundVariationWeight,
   validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
 } from "back-end/src/util/features";
 
 // Minimal constant fixture for payload-resolution tests.
@@ -1092,6 +1093,42 @@ describe("validateEnvKeys", () => {
 
   it("throws listing the unrecognized keys", () => {
     expect(() => validateEnvKeys(["prod"], ["prod", "nope"])).toThrow(/nope/);
+  });
+});
+
+describe("validateAndNormalizeDefaultValueOverrides", () => {
+  const feature = cloneDeep(baseFeature);
+  const orgEnvKeys = ["dev", "prod"];
+
+  it("sorts each override's environment scope (so reorders aren't changes)", () => {
+    expect(
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: ["prod", "dev"] }],
+        orgEnvKeys,
+      ),
+    ).toEqual([{ value: "false", environments: ["dev", "prod"] }]);
+  });
+
+  it("rejects unknown environment keys", () => {
+    expect(() =>
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: ["nope"] }],
+        orgEnvKeys,
+      ),
+    ).toThrow(/nope/);
+  });
+
+  it("with requireEnv, throws on an empty (match-all) scope", () => {
+    expect(() =>
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: [] }],
+        orgEnvKeys,
+        { requireEnv: true },
+      ),
+    ).toThrow(/at least one environment/);
   });
 });
 

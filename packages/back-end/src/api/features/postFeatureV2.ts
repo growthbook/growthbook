@@ -11,6 +11,7 @@ import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel"
 import {
   getEnabledEnvironments,
   validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
 } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
@@ -123,17 +124,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    // Default value overrides (ordered list); validate each value + assign ids.
     if (req.body.defaultValueOverrides !== undefined) {
-      validateEnvKeys(
+      feature.defaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+        feature,
+        req.body.defaultValueOverrides,
         orgEnvs.map((e) => e.id),
-        req.body.defaultValueOverrides.flatMap((o) => o.environments),
-      );
-      feature.defaultValueOverrides = req.body.defaultValueOverrides.map(
-        (o) => ({
-          value: validateFeatureValue(feature, o.value),
-          environments: o.environments ?? [],
-        }),
       );
     }
 

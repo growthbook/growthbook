@@ -93,12 +93,8 @@ const featureRevisionSchema = new mongoose.Schema({
   rules: {},
   // Revision envelopes — only present when explicitly changed
   environmentsEnabled: {},
-  // `defaultValueOverrides` is a COMPLETE ordered snapshot of default value
-  // overrides where an empty `[]` (all overrides cleared) is a MEANINGFUL value
-  // distinct from `undefined` (a legacy revision that predates the field — see
-  // buildFeatureRevisionInterface and the apply layer). `default: undefined`
-  // stops Mongoose from auto-initializing the array to `[]`, preserving the
-  // `[]` vs `undefined` distinction.
+  // Complete ordered snapshot. default: undefined keeps [] (all cleared)
+  // distinct from undefined (revision predates the field).
   defaultValueOverrides: { type: [{}], default: undefined },
   prerequisites: [{}],
   archived: Boolean,

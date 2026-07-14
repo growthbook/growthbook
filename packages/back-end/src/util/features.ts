@@ -21,6 +21,8 @@ import {
   ExperimentDependencyIndex,
   parsePlainJSONObject,
   getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
+  validateFeatureValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -51,6 +53,7 @@ import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
+  FeatureDefaultValueOverride,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import {
@@ -351,6 +354,34 @@ export const validateEnvKeys = (
   }
 };
 
+// Validate + canonicalize a client-supplied default-value override list (shared
+// by the REST create/update paths and the dashboard endpoint): reject unknown
+// env keys, validate each value against the feature's type, and sort each scope
+// so a reordered `environments` set never reads as a change. `requireEnv` blocks
+// the empty (match-all) scope reserved for a future release.
+export function validateAndNormalizeDefaultValueOverrides(
+  feature: FeatureInterface,
+  overrides: { value: string; environments?: string[] }[],
+  orgEnvKeys: string[],
+  { requireEnv = false }: { requireEnv?: boolean } = {},
+): FeatureDefaultValueOverride[] {
+  validateEnvKeys(
+    orgEnvKeys,
+    overrides.flatMap((o) => o.environments ?? []),
+  );
+  return overrides.map((o) => {
+    if (requireEnv && !o.environments?.length) {
+      throw new Error(
+        "Each default value override must target at least one environment",
+      );
+    }
+    return {
+      value: validateFeatureValue(feature, o.value),
+      environments: [...(o.environments ?? [])].sort(),
+    };
+  });
+}
+
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -455,15 +486,15 @@ export function getSDKPayloadKeysByDiff(
   ) {
     allEnvs.forEach((e) => {
       if (!envIsRelevant(e)) return;
-      const oldVal = getDefaultValueOverrideForEnvironment(
-        originalFeature.defaultValueOverrides,
-        e,
-      );
-      const newVal = getDefaultValueOverrideForEnvironment(
-        updatedFeature.defaultValueOverrides,
-        e,
-      );
-      if (oldVal !== newVal) environments.add(e);
+      if (
+        defaultValueOverrideDiffersForEnv(
+          originalFeature.defaultValueOverrides,
+          updatedFeature.defaultValueOverrides,
+          e,
+        )
+      ) {
+        environments.add(e);
+      }
     });
   }
 
@@ -633,23 +664,10 @@ export function getFeatureDefinition({
     return null;
   }
 
-  // Resolution precedence for the default value. Overrides are an ordered,
-  // first-match-wins list; the compiler walks it and takes the first entry whose
-  // scope matches this environment (empty scope matches all). Rules still win
-  // over the resolved default.
-  //
-  // When a `revision` carrying an override snapshot is passed (draft preview /
-  // "test this feature" / archetype eval), that snapshot is the AUTHORITATIVE
-  // complete picture for the revision — it must NOT fall back to the published
-  // overrides, otherwise a draft that CLEARED an override would still preview the
-  // stale published value.
-  //
-  //   revision WITH a snapshot (revision.defaultValueOverrides !== undefined):
-  //     1. first-match in revision.defaultValueOverrides
-  //     2. revision.defaultValue   3. feature.defaultValue
-  //   live serving (no revision) OR a legacy revision without the field:
-  //     1. first-match in feature.defaultValueOverrides
-  //     2. revision.defaultValue   3. feature.defaultValue
+  // Resolve the default value, preferring the first-match override for this env.
+  // A revision carrying an override snapshot is authoritative for that revision —
+  // resolve against it, NOT the published overrides, so a draft that cleared an
+  // override doesn't preview the stale published value.
   const defaultValue =
     revision?.defaultValueOverrides !== undefined
       ? (getDefaultValueOverrideForEnvironment(

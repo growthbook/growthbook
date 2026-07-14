@@ -1411,6 +1411,8 @@ export function renderFeatureEnvironmentDefaultsSection(
   const envs = new Set([
     ...Object.keys(pre?.environmentSettings ?? {}),
     ...Object.keys(post.environmentSettings ?? {}),
+    ...(pre?.defaultValueOverrides ?? []).flatMap((o) => o.environments),
+    ...(post.defaultValueOverrides ?? []).flatMap((o) => o.environments),
   ]);
 
   const rows: ReactNode[] = [];

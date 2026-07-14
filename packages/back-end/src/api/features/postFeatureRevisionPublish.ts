@@ -146,9 +146,7 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
-    // `mergeResult.result.defaultValueOverrides`, when present, is the complete
-    // authoritative snapshot (full-replace); when absent, the overrides are
-    // unchanged from live.
+    // full-replace when the merge carries it; else unchanged from live.
     defaultValueOverrides:
       mergeResult.result.defaultValueOverrides ??
       filledLive.defaultValueOverrides,

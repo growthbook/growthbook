@@ -50,6 +50,7 @@ import {
   draftHasChangesOutsideTargetRef,
   getUnreachableDefaultValueOverrideIndexes,
   getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -1032,6 +1033,35 @@ describe("getDefaultValueOverrideForEnvironment", () => {
     expect(
       getDefaultValueOverrideForEnvironment([o("", ["prod"])], "prod"),
     ).toBe("");
+  });
+});
+
+describe("defaultValueOverrideDiffersForEnv", () => {
+  const o = (value: string, environments: string[]) => ({
+    value,
+    environments,
+  });
+
+  it("true when the resolved value differs for the env", () => {
+    expect(
+      defaultValueOverrideDiffersForEnv([o("a", ["prod"])], [], "prod"),
+    ).toBe(true);
+  });
+
+  it("false when the same value resolves, even if the scope is reordered", () => {
+    expect(
+      defaultValueOverrideDiffersForEnv(
+        [o("a", ["prod", "dev"])],
+        [o("a", ["dev", "prod"])],
+        "prod",
+      ),
+    ).toBe(false);
+  });
+
+  it("false for an env neither side overrides", () => {
+    expect(
+      defaultValueOverrideDiffersForEnv([o("a", ["dev"])], undefined, "prod"),
+    ).toBe(false);
   });
 });
 

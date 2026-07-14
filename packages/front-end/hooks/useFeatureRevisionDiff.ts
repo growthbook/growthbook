@@ -464,9 +464,8 @@ export function mergeResultToDiffInput(
     ...(result.environmentsEnabled !== undefined
       ? { environmentsEnabled: result.environmentsEnabled }
       : {}),
-    // `result.defaultValueOverrides`, when present, is the complete authoritative
-    // ordered snapshot (full-replace). When absent the merge didn't touch
-    // overrides, so fall back to current — otherwise the diff reads as a removal.
+    // full-replace when present; else fall back to current so the diff doesn't
+    // read as a removal.
     defaultValueOverrides:
       result.defaultValueOverrides ?? current.defaultValueOverrides,
     ...(result.prerequisites !== undefined

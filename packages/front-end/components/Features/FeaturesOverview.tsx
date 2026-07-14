@@ -1585,15 +1585,11 @@ export default function FeaturesOverview({
                 )}
               </Flex>
               {(() => {
-                // Overrides that apply to the current view, in precedence order.
-                // "All environments" shows every override (full expansion);
-                // a single env shows only those whose scope matches it. The
-                // compiler serves the first match per env, so the top entry is
-                // the effective one; lower entries are shadowed but shown for
-                // transparency (mirrors how the rule list shows all rules).
+                // Overrides shown for the current view: all on "All
+                // environments", else those scoped to the selected env. Each is
+                // paired with its full-list index (the row's identity for
+                // reachability and React keys).
                 const allOverrides = feature.defaultValueOverrides ?? [];
-                // Keep each shown override's full-list index — it's the row's
-                // identity for reachability and React keys.
                 const shown = allOverrides
                   .map((o, index) => ({ o, index }))
                   .filter(
@@ -1602,20 +1598,13 @@ export default function FeaturesOverview({
                       o.environments.length === 0 ||
                       o.environments.includes(selectedEnv),
                   );
-                // On a specific env, a matching override always serves in place
-                // of the base (first match wins), so the base isn't the served
-                // value — hide it and show only the override(s). On "All
-                // environments" (or when nothing matches) the base IS the
-                // served/fallback value, so keep showing it.
+                // On a specific env a matching override always serves (first
+                // match wins), so hide the base; on "All environments" (or no
+                // match) the base is the served/fallback value, so show it.
                 const showBase = selectedEnv === null || shown.length === 0;
-                // Plural when there are multiple overrides, or a single override
-                // targeting multiple environments (empty scope = all envs).
                 const pluralOverrides =
                   shown.length > 1 ||
                   (shown.length === 1 && shown[0].o.environments.length !== 1);
-                // Reachability is computed over the full ordered list (saved
-                // data, so an empty scope matches all), then applied to whichever
-                // overrides are shown.
                 const unreachableIndexes =
                   getUnreachableDefaultValueOverrideIndexes(allOverrides, {
                     treatEmptyAsMatchAll: true,

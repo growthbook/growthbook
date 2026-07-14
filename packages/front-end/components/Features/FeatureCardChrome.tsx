@@ -2,16 +2,9 @@ import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
 import { RuleCardSideColor, sideColorVar } from "./RuleCard";
 
-// Box-based rule-card chrome: colored left edge + 1px border drawn via
-// box-shadow (not `border`, so it doesn't inset the layout box or clip inner
-// popovers/menus). Shared by the read-only overview card (FeatureValueCard) and
-// the editable modal card (ModalValueCard) — RuleCard keeps its Radix Card
-// container, but the side-color palette (sideColorVar) is the single shared
-// source so these can't drift from the rule cards they mirror.
-//
-// The side bar is rounded to the card's corners via a decorative clip layer
-// rather than `overflow: hidden` on the card itself, which would clip the env
-// select's dropdown menu in the editable card.
+// Rule-card chrome (colored left edge + border). Border is a box-shadow and the
+// side bar rounds via a decorative clip layer — not `border`/`overflow:hidden` —
+// so nothing clips the env select's dropdown menu.
 export default function FeatureCardChrome({
   sideColor,
   children,

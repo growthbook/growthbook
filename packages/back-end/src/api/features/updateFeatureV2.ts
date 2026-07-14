@@ -30,6 +30,7 @@ import {
 import {
   getEnabledEnvironments,
   validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
 } from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -169,18 +170,14 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  // Default value overrides (top-level, ordered list). When provided in the body
-  // it is a COMPLETE list (full-replace); validate each value.
+  // Default value overrides: a COMPLETE list (full-replace) when present.
   let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
   if (req.body.defaultValueOverrides !== undefined) {
-    validateEnvKeys(
+    nextDefaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+      feature,
+      req.body.defaultValueOverrides,
       orgEnvs,
-      req.body.defaultValueOverrides.flatMap((o) => o.environments),
     );
-    nextDefaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
-      value: validateFeatureValue(feature, o.value),
-      environments: o.environments ?? [],
-    }));
   }
   const hasEnvDefaultChanges =
     nextDefaultValueOverrides !== undefined &&

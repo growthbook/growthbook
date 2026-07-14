@@ -6,7 +6,7 @@ import {
   MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRulesForEnvironment,
-  getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -130,23 +130,18 @@ export async function revertFeatureRevision(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
 
-    // Default value override — complete ordered snapshot. Track which envs
-    // resolve differently from live for permission gating here; the full-replace
-    // snapshot is assembled via revisionChanges.defaultValueOverrides below.
-    // Only acts when the revision carries the field; legacy revisions predating
-    // it are left untouched.
-    if (targetRevision.defaultValueOverrides !== undefined) {
-      const revDefault = getDefaultValueOverrideForEnvironment(
+    // Track envs whose resolved override value differs from live, for
+    // permission gating; the full-replace snapshot is assembled below.
+    if (
+      targetRevision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
         targetRevision.defaultValueOverrides,
-        env,
-      );
-      const liveDefault = getDefaultValueOverrideForEnvironment(
         feature.defaultValueOverrides,
         env,
-      );
-      if (revDefault !== liveDefault) {
-        if (!changedEnvs.includes(env)) changedEnvs.push(env);
-      }
+      ) &&
+      !changedEnvs.includes(env)
+    ) {
+      changedEnvs.push(env);
     }
   });
   if (anyRulesChanged) {

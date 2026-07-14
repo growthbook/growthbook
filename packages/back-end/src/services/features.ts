@@ -29,6 +29,7 @@ import {
   namespacesToMap,
   stemRuleId,
   getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -3351,16 +3352,12 @@ export async function getMergeResultPublishEnvs({
   const changedDefaultEnvs: string[] =
     result.defaultValueOverrides === undefined
       ? []
-      : environmentIds.filter(
-          (env) =>
-            getDefaultValueOverrideForEnvironment(
-              result.defaultValueOverrides,
-              env,
-            ) !==
-            getDefaultValueOverrideForEnvironment(
-              feature.defaultValueOverrides,
-              env,
-            ),
+      : environmentIds.filter((env) =>
+          defaultValueOverrideDiffersForEnv(
+            result.defaultValueOverrides,
+            feature.defaultValueOverrides,
+            env,
+          ),
         );
   const holdoutEnvs = await collectHoldoutAffectedEnvs(
     context,

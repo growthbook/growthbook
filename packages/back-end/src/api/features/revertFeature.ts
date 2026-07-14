@@ -8,7 +8,7 @@ import {
   checkIfRevisionNeedsReview,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
-  getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
@@ -115,22 +115,18 @@ export async function revertFeatureCore(
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
 
-    // Default value override — complete ordered snapshot. Track which envs
-    // resolve differently from live for permission gating; the full-replace is
-    // assembled below. Only acts when the revision carries the field; legacy
-    // revisions that predate it are left untouched.
-    if (revision.defaultValueOverrides !== undefined) {
-      const revDefault = getDefaultValueOverrideForEnvironment(
+    // Track envs whose resolved override value differs from live, for
+    // permission gating; the full-replace is assembled below.
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
         revision.defaultValueOverrides,
-        env,
-      );
-      const liveDefault = getDefaultValueOverrideForEnvironment(
         feature.defaultValueOverrides,
         env,
-      );
-      if (revDefault !== liveDefault) {
-        if (!changedEnvs.includes(env)) changedEnvs.push(env);
-      }
+      ) &&
+      !changedEnvs.includes(env)
+    ) {
+      changedEnvs.push(env);
     }
   });
   // Full-replace default value overrides: when the target snapshot differs from

@@ -159,11 +159,9 @@ export async function rebaseFeatureRevision(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
-  // Default value overrides — complete ordered snapshot. The merge result, when
-  // present, IS the authoritative complete snapshot (full-replace); when absent
-  // the draft didn't touch overrides, so re-anchor onto the live feature (same
-  // as rules/defaultValue/prerequisites above) — NOT the draft's stale snapshot,
-  // which would revert overrides published since the draft was created.
+  // Full-replace from the merge result when present; else re-anchor onto the
+  // LIVE feature — NOT the draft's stale snapshot, which would revert overrides
+  // published since the draft was created.
   const newDefaultValueOverrides =
     mergeResult.result.defaultValueOverrides ??
     feature.defaultValueOverrides ??
