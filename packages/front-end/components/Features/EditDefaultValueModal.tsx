@@ -9,8 +9,7 @@ import {
   getUnreachableDefaultValueOverrideIds,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiTrash } from "react-icons/pi";
-import { RxPlus } from "react-icons/rx";
+import { PiPlusBold, PiTrash } from "react-icons/pi";
 import { RiDraggable } from "react-icons/ri";
 import {
   DndContext,
@@ -282,7 +281,7 @@ export default function EditDefaultValueModal({
               <Button
                 variant="outline"
                 size="sm"
-                icon={<RxPlus />}
+                icon={<PiPlusBold />}
                 iconPosition="left"
                 onClick={() => addOverride()}
               >
@@ -353,7 +352,7 @@ export default function EditDefaultValueModal({
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<RxPlus />}
+                  icon={<PiPlusBold />}
                   iconPosition="left"
                   onClick={() => addOverride()}
                 >
