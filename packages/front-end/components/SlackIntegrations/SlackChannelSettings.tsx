@@ -20,7 +20,7 @@ import {
   type ResolvedSlackDigest,
 } from "shared/validators";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiTrash, PiPaperPlaneTilt } from "react-icons/pi";
+import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
@@ -614,6 +614,14 @@ export default function SlackChannelSettings({
     setDirty(false);
   }, [integration]);
 
+  // Auto-dismiss the "test sent" confirmation after a few seconds (it's a
+  // transient toast, not a persistent state). Each new send resets the timer.
+  useEffect(() => {
+    if (!testResult) return;
+    const timer = setTimeout(() => setTestResult(null), 6000);
+    return () => clearTimeout(timer);
+  }, [testResult]);
+
   const setOptionSelected = (optionId: string, on: boolean) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -983,7 +991,18 @@ export default function SlackChannelSettings({
 
         {testResult && (
           <Callout status={testResult.ok ? "success" : "error"}>
-            {testResult.message}
+            <Flex align="center" justify="between" gap="3">
+              <span>{testResult.message}</span>
+              <Button
+                variant="ghost"
+                color="gray"
+                size="xs"
+                aria-label="Dismiss"
+                onClick={() => setTestResult(null)}
+              >
+                <PiX />
+              </Button>
+            </Flex>
           </Callout>
         )}
 
