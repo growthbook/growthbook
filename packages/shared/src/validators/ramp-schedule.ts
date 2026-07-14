@@ -370,7 +370,7 @@ export function isAwaitingApproval(schedule: {
  * the user is never asked to sign off on a step whose timer is still counting
  * down.
  *
- * This is a time-based check only. For monitored steps it approves the hold
+ * This is a time-based check only. For monitored steps it confirms the hold
  * interval has elapsed, but it cannot see whether fresh analysis is available —
  * that (and any failing guardrail/health signal) is enforced server-side by
  * the approve-step endpoint, which rejects premature approvals.

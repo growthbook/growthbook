@@ -129,6 +129,18 @@ function buildRampStartActionsFromRule(
     },
   ];
 }
+
+// A future-dated or approval-gated ramp publishes its rule disabled (zero
+// traffic) until the schedule activates or is approved.
+function shouldPublishRuleDisabled(
+  ramp: Record<string, unknown> | undefined,
+): boolean {
+  if (!ramp) return false;
+  return (
+    ("startDate" in ramp && !!ramp.startDate) ||
+    ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
+  );
+}
 export interface Props {
   close: () => void;
   // Merged feature (base + draft changes). Use baseFeature to check live/published state.
@@ -1486,16 +1498,7 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          // Future-dated or approval-gated schedule → publish the rule as
-          // disabled so it remains hidden (zero traffic) until the schedule
-          // activates or is approved.
-          if (
-            rampScheduleInline &&
-            (("startDate" in rampScheduleInline &&
-              rampScheduleInline.startDate) ||
-              ("requiresStartApproval" in rampScheduleInline &&
-                rampScheduleInline.requiresStartApproval))
-          ) {
+          if (shouldPublishRuleDisabled(rampScheduleInline)) {
             values = { ...values, enabled: false };
           }
 
@@ -1580,17 +1583,7 @@ export default function RuleModal({
           }
         }
 
-        // Schedule with a start date (or a approval hold) → create rule
-        // disabled; the backend enables it via onActivatingRevisionPublished
-        // when the draft is published (immediately if the date has passed, via
-        // poller if future) or when the start is approved.
-        if (
-          rampScheduleInline &&
-          (("startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate) ||
-            ("requiresStartApproval" in rampScheduleInline &&
-              rampScheduleInline.requiresStartApproval))
-        ) {
+        if (shouldPublishRuleDisabled(rampScheduleInline)) {
           values = { ...values, enabled: false };
         }
 

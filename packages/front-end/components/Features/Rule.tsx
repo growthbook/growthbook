@@ -510,7 +510,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !rampControlsLocked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
-      !isSimpleSchedule &&
+      // Simple (stepless) schedules have no step CTAs, but a stepless schedule
+      // genuinely awaiting start approval still needs its "Approve & start"
+      // button — otherwise the "awaiting approval" badge has no way to clear.
+      (!isSimpleSchedule || isAwaitingStartApproval(rampSchedule)) &&
       !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {

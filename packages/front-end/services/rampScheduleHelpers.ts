@@ -98,6 +98,12 @@ export function buildRuleRampScheduleMap({
             action.requiresStartApproval,
             base.requiresStartApproval,
           ),
+          // A draft that toggles the gate re-arms it, so don't show the live
+          // schedule's stale approval on the preview.
+          ...(action.requiresStartApproval !== undefined &&
+          !!action.requiresStartApproval !== !!base.requiresStartApproval
+            ? { startApprovedAt: null }
+            : {}),
         };
         map.set(action.ruleId, updated);
         continue;

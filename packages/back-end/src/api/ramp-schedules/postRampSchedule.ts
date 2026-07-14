@@ -8,6 +8,7 @@ import {
   RampScheduleTemplateInterface,
   RampStepAction,
   stepHoldConditions,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -15,6 +16,7 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import {
   dispatchRampEvent,
+  dispatchAwaitingStartApproval,
   getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
@@ -211,6 +213,17 @@ export const postRampSchedule = createApiRequestHandler(
       );
     }
 
+    // "Start on approval" promises zero traffic until approved, but this
+    // endpoint can't publish the rule disabled (no feature revision here). If
+    // the target rule is already serving, reject rather than silently leave it
+    // live while the schedule reports "awaiting approval".
+    if (body.requiresStartApproval && rule.enabled) {
+      throw new BadRequestError(
+        `Rule '${body.ruleId}' is currently enabled${envSuffix}. ` +
+          `Disable it before creating a start-approval ramp schedule, or it would keep serving traffic until approved.`,
+      );
+    }
+
     const conflicting = await req.context.models.rampSchedules.findByTargetRule(
       body.ruleId!,
       body.environment ?? undefined,
@@ -376,6 +389,12 @@ export const postRampSchedule = createApiRequestHandler(
       entityId: schedule.entityId,
     },
   });
+
+  // A schedule created directly into the pre-start hold emits the same
+  // awaiting-approval signal as the publish/rollback paths.
+  if (isAwaitingStartApproval(schedule)) {
+    await dispatchAwaitingStartApproval(req.context, schedule);
+  }
 
   return { rampSchedule: rampScheduleToApiInterface(schedule) };
 });

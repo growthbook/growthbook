@@ -772,7 +772,7 @@ export default function RampTimeline({
     if (i < doneCount) return "completed";
     if (status === "pending") return "future";
     if (status === "ready") {
-      // A approval hold parks the playhead at Start until approved.
+      // An approval hold parks the playhead at Start until approved.
       if (awaitingStartApproval) return i === 0 ? "active" : "future";
       if (startDate && i === 0) return "active";
       return "future";

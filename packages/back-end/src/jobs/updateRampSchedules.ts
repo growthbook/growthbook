@@ -123,6 +123,10 @@ export const advanceSingleRampSchedule = async (
   try {
     const screened = await context.models.rampSchedules.getById(rampScheduleId);
     if (!screened) return;
+    // A schedule held for start approval never advances from a poll (it waits
+    // for the approve action). Skip it here so a held schedule that still
+    // carries a past startDate isn't lock-cycled every tick.
+    if (isAwaitingStartApproval(screened)) return;
     if (screened.status === "pending") {
       const activatingVersion = getActivatingVersion(screened);
       if (activatingVersion === null) return;

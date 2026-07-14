@@ -2161,14 +2161,16 @@ async function createRampSchedulesForRevision(
               canEditStartActions &&
               updateAction.requiresStartApproval !== undefined
             ) {
-              // Store an explicit boolean (null/false → false) so turning the
-              // gate off reliably clears it rather than leaving the stale value.
-              set(
-                true,
-                "requiresStartApproval",
-                !!updateAction.requiresStartApproval,
-              );
-              patch.startApprovedAt = null;
+              set(true, "requiresStartApproval", nextRequiresApproval);
+              // Re-arm only when the gate actually toggles — preserve a granted
+              // approval across unrelated edits (the client re-sends the field
+              // on every edit).
+              if (
+                nextRequiresApproval !==
+                !!existingSchedule?.requiresStartApproval
+              ) {
+                patch.startApprovedAt = null;
+              }
             }
             if (startDateChanged) edited.push("startDate");
             if (startDateChanged && !startDeferredToScheduler) {
