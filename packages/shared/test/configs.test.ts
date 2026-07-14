@@ -410,6 +410,12 @@ describe("stripConfigExtends", () => {
   it("passes through undefined", () => {
     expect(stripConfigExtends(undefined)).toBeUndefined();
   });
+
+  it("leaves a non-array $extends data key intact (doesn't drop it)", () => {
+    expect(stripConfigExtends('{"$extends":"literal","a":1}')).toBe(
+      '{"$extends":"literal","a":1}',
+    );
+  });
 });
 
 describe("config-backed feature values", () => {

@@ -75,11 +75,15 @@ export function stripConfigExtends(
   if (value === undefined) return value;
   const obj = parsePlainJSONObject(value);
   if (!obj || !(CONSTANT_EXTENDS_KEY in obj)) return value;
-  const rest = { ...obj };
   const list = obj[CONSTANT_EXTENDS_KEY];
-  const kept = Array.isArray(list)
-    ? list.filter((r) => !(typeof r === "string" && r.startsWith("@config:")))
-    : [];
+  // Only an array `$extends` is a config-backing directive that could hold
+  // `@config:` refs. A non-array value under this key isn't ours to interpret,
+  // so leave the whole value intact rather than dropping the key.
+  if (!Array.isArray(list)) return value;
+  const rest = { ...obj };
+  const kept = list.filter(
+    (r) => !(typeof r === "string" && r.startsWith("@config:")),
+  );
   if (kept.length) rest[CONSTANT_EXTENDS_KEY] = kept;
   else delete rest[CONSTANT_EXTENDS_KEY];
   return JSON.stringify(rest);
