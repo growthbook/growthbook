@@ -1,18 +1,28 @@
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
-import { getConfigBaseKeys, withConfigExtends } from "shared/util";
+import {
+  getConfigBaseKeys,
+  withConfigExtends,
+  ScopedOverrideEntry,
+} from "shared/util";
 import { ConstantSource } from "shared/sdk-versioning";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
 // A constant or config flattened for reference resolution; `source` keeps the
-// `@const:`/`@config:` namespaces from matching each other.
-export type ResolvableValue = ConstantInterface & { source: ConstantSource };
+// `@const:`/`@config:` namespaces from matching each other. `scopedOverrides`
+// (configs only) carries the env/project variant selection through to the
+// payload resolver.
+export type ResolvableValue = ConstantInterface & {
+  source: ConstantSource;
+  scopedOverrides?: ScopedOverrideEntry[];
+};
 
 // Shapes a config as a `json` constant. Synthesizes the `$extends` directive
 // from the config's base keys (`parent` + `extends` mixins, in precedence
 // order) into the value, so resolution, cycle detection, and the reference graph
-// see the full composition. Configs are environment-agnostic — no env overrides.
+// see the full composition. Carries `scopedOverrides` so the resolver can apply
+// the matching env/project flavor patch.
 export function configToResolvable(config: ConfigInterface): ResolvableValue {
   const baseKeys = getConfigBaseKeys(config);
   return {

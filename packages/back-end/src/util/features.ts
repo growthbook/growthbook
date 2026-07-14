@@ -614,6 +614,7 @@ export function getFeatureDefinition({
           undefined,
           onConstantCycle,
           feature.project || "",
+          environment,
         )
       : val;
 

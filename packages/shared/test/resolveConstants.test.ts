@@ -919,3 +919,121 @@ describe("config chain ↔ payload resolution parity", () => {
     expect(payloadValue).toEqual(chainValue);
   });
 });
+
+describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => {
+  const cfg = (
+    value: string,
+    scopedOverrides?: ConstantValueMapEntry["scopedOverrides"],
+  ): ConstantValueMapEntry => ({
+    type: "json",
+    source: "config",
+    value,
+    parsed: JSON.parse(value),
+    ...(scopedOverrides ? { scopedOverrides } : {}),
+  });
+  // resolveConstantRefs(value, map, visited, onCycle, featureProject, environment)
+  const resolveFor = (
+    value: unknown,
+    map: ConstantValueMap,
+    environment?: string,
+    project?: string,
+  ) =>
+    resolveConstantRefs(
+      value,
+      map,
+      undefined,
+      undefined,
+      project ?? "",
+      environment,
+    );
+
+  it("applies the matching env flavor's patch on top of the base config", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3,"color":"red"}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      ["base-prod", cfg('{"$extends":["@config:base"],"timeout":5}')],
+    ]);
+    // prod → base deep-merged with the flavor patch
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 5, color: "red" });
+    // dev → no matching flavor → base only
+    expect(resolveFor({ $extends: ["@config:base"] }, map, "dev")).toEqual({
+      timeout: 3,
+      color: "red",
+    });
+    // no environment → base only (env-agnostic callers unaffected)
+    expect(resolveFor({ $extends: ["@config:base"] }, map)).toEqual({
+      timeout: 3,
+      color: "red",
+    });
+  });
+
+  it("cascades: a descendant's own value beats an ancestor's env flavor", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3,"color":"red"}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      ["base-prod", cfg('{"$extends":["@config:base"],"timeout":5}')],
+      ["child", cfg('{"$extends":["@config:base"],"timeout":9}')],
+    ]);
+    // child's own timeout:9 wins over base's prod-patch timeout:5; color cascades.
+    expect(
+      resolveFor({ $extends: ["@config:child"] }, map, "production"),
+    ).toEqual({ timeout: 9, color: "red" });
+  });
+
+  it("cascades an ancestor's env flavor into a child that doesn't override it", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3,"color":"red"}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      ["base-prod", cfg('{"$extends":["@config:base"],"timeout":5}')],
+      ["child", cfg('{"$extends":["@config:base"],"note":"x"}')],
+    ]);
+    // child leaves timeout alone → inherits base's prod flavor (5).
+    expect(
+      resolveFor({ $extends: ["@config:child"] }, map, "production"),
+    ).toEqual({ timeout: 5, color: "red", note: "x" });
+  });
+
+  it("selects the first matching flavor in scopedOverrides order", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"v":0}', [
+          { config: "f-a", environments: ["production"] },
+          { config: "f-b", environments: ["production"] },
+        ]),
+      ],
+      ["f-a", cfg('{"$extends":["@config:base"],"v":1}')],
+      ["f-b", cfg('{"$extends":["@config:base"],"v":2}')],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ v: 1 });
+  });
+
+  it("matches a project-scoped flavor by the feature's project", () => {
+    const map = nsMap([
+      ["base", cfg('{"v":0}', [{ config: "f-proj", projects: ["proj_1"] }])],
+      ["f-proj", cfg('{"$extends":["@config:base"],"v":7}')],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "dev", "proj_1"),
+    ).toEqual({ v: 7 });
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "dev", "proj_2"),
+    ).toEqual({ v: 0 });
+  });
+});

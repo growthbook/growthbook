@@ -700,34 +700,12 @@ export type ConfigChainNode = {
   variantPatch?: string;
 };
 
-// One entry in a config's ordered scopedOverrides selection list. Structural (kept
-// free of a validator import); mirrors scopedOverrideValidator.
-export type ScopedOverrideEntry = {
-  config: string;
-  environments?: string[];
-  projects?: string[];
-};
-
-// The first scoped-override whose scope matches the (environment, project) context
-// — first-match-wins, array order = precedence. An empty/absent environments (or
-// projects) list is a wildcard for that dimension. Returns the matched flavor
-// config key, or null when nothing applies. Pure; shared by both resolvers.
-export function selectScopedOverride(
-  scopedOverrides: ScopedOverrideEntry[] | undefined,
-  context: { environment?: string; project?: string },
-): string | null {
-  for (const entry of scopedOverrides ?? []) {
-    const envMatch =
-      !entry.environments?.length ||
-      (context.environment != null &&
-        entry.environments.includes(context.environment));
-    const projMatch =
-      !entry.projects?.length ||
-      (context.project != null && entry.projects.includes(context.project));
-    if (envMatch && projMatch) return entry.config;
-  }
-  return null;
-}
+// Flavor selection lives in a leaf module (cycle-safe; see scoped-overrides.ts);
+// re-exported here so config callers can keep importing it from util/configs.
+export {
+  selectScopedOverride,
+  type ScopedOverrideEntry,
+} from "./scoped-overrides";
 
 // One resolved field for the Configuration editor: its (effective) schema def,
 // the value that wins after walking the chain, and which config in the chain set

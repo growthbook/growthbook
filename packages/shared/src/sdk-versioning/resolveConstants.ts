@@ -1,6 +1,10 @@
 import { ConstantInterface } from "shared/types/constant";
 import { CONSTANT_EXTENDS_KEY } from "../constants";
 import { deepMergePatch, isUnsafeMergeKey } from "../util/deep-merge";
+import {
+  selectScopedOverride,
+  type ScopedOverrideEntry,
+} from "../util/scoped-overrides";
 
 // Which namespace an entry belongs to. References are namespaced (`@const:` vs
 // `@config:`) and the value map is keyed by `source:key`, so the two namespaces
@@ -30,6 +34,10 @@ export type ConstantValueMapEntry = {
   // `$extends` resolution. Only set for non-archived `json` entries whose value
   // parses; `undefined` otherwise (string constants, archived, or unparseable).
   parsed?: unknown;
+  // Config only: the ordered, first-match-wins environment/project-scoped variant
+  // selection. When set, resolving this config also deep-merges the matching
+  // flavor config's patch as a top layer (see resolveValue). Absent on constants.
+  scopedOverrides?: ScopedOverrideEntry[];
 };
 export type ConstantValueMap = Map<string, ConstantValueMapEntry>;
 
@@ -81,7 +89,10 @@ export function buildConstantValueMap(
   constants: (Pick<
     ConstantInterface,
     "key" | "type" | "value" | "environmentValues" | "archived" | "project"
-  > & { source?: ConstantSource })[],
+  > & {
+    source?: ConstantSource;
+    scopedOverrides?: ScopedOverrideEntry[];
+  })[],
   environment: string,
 ): ConstantValueMap {
   const map: ConstantValueMap = new Map();
@@ -114,6 +125,9 @@ export function buildConstantValueMap(
       value,
       project: c.project || "",
       parsed,
+      ...(c.scopedOverrides?.length
+        ? { scopedOverrides: c.scopedOverrides }
+        : {}),
     });
   }
   return map;
@@ -129,6 +143,9 @@ type ResolveContext = {
   map: ConstantValueMap;
   onCycle?: (key: string) => void;
   featureProject: string;
+  // The environment being baked, for scoped-override (env flavor) selection.
+  // Undefined = env-agnostic resolution (no env flavors apply; base value only).
+  environment?: string;
   cache: Map<string, unknown>;
   layerCache: Map<string, ConfigLayer | null>;
 };
@@ -407,15 +424,30 @@ function resolveValue(
             if (pr?.source === "config") configKeys.push(pr.key);
           }
           const layerKeys = linearizeConfigLayers(configKeys, visited, ctx);
-          for (const layerKey of layerKeys) {
-            const layer = buildConfigLayer(layerKey, visited, ctx);
-            if (!layer) continue;
+          const applyLayer = (layer: ConfigLayer) => {
             Object.assign(out, layer.assign);
             for (const e of layer.own) {
               out[e.key] = e.isChunk
                 ? e.value
                 : deepMergePatch(out[e.key], e.value);
             }
+          };
+          for (const layerKey of layerKeys) {
+            const layer = buildConfigLayer(layerKey, visited, ctx);
+            if (!layer) continue;
+            applyLayer(layer);
+            // Env/project-scoped flavor: after this config layer's own keys, the
+            // first matching flavor's patch is deep-merged on top. buildConfigLayer
+            // excludes the flavor's `@config` parent (this very layer), so the
+            // flavor contributes only its own patch — no double-apply, no loop.
+            const flavorKey = selectScopedOverride(
+              ctx.map.get(mapKey("config", layerKey))?.scopedOverrides,
+              { environment: ctx.environment, project: ctx.featureProject },
+            );
+            const flavor = flavorKey
+              ? buildConfigLayer(flavorKey, visited, ctx)
+              : null;
+            if (flavor) applyLayer(flavor);
           }
           continue;
         }
@@ -460,11 +492,13 @@ export function resolveConstantRefs(
   visited: Set<string> = new Set(),
   onCycle?: (key: string) => void,
   featureProject?: string,
+  environment?: string,
 ): unknown {
   return resolveValue(value, visited, {
     map,
     onCycle,
     featureProject: featureProject || "",
+    environment,
     cache: new Map(),
     layerCache: new Map(),
   });
