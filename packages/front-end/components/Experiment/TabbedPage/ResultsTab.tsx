@@ -74,6 +74,10 @@ export interface Props {
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
   setSortDirection: (d: "asc" | "desc" | null) => void;
+  dimensionSortBy: "dimension-traffic" | "dimension-alpha" | null;
+  setDimensionSortBy: (
+    s: "dimension-traffic" | "dimension-alpha" | null,
+  ) => void;
 }
 
 export default function ResultsTab({
@@ -99,6 +103,8 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  dimensionSortBy,
+  setDimensionSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -384,6 +390,8 @@ export default function ResultsTab({
             setSliceTagsFilter={setSliceTagsFilter}
             sortBy={sortBy}
             sortDirection={sortDirection}
+            dimensionSortBy={dimensionSortBy}
+            setDimensionSortBy={setDimensionSortBy}
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
@@ -447,6 +455,7 @@ export default function ResultsTab({
                   setSortBy={setSortBy}
                   sortDirection={sortDirection}
                   setSortDirection={setSortDirection}
+                  dimensionSortBy={dimensionSortBy}
                 />
               )}
             </>
