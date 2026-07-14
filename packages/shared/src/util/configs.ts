@@ -310,6 +310,7 @@ export function computeConfigReconciliationPreview(
     parentKey?: string | null;
     name?: string;
     fieldKeys?: string[];
+    extendsKeys?: string[];
   }[],
   configKey: string,
   ownSchemaKeys: string[],
@@ -317,9 +318,18 @@ export function computeConfigReconciliationPreview(
   if (!ownSchemaKeys.length) return [];
   const byKey = new Map(lineage.map((n) => [n.key, n]));
   const ownKeys = new Set(ownSchemaKeys);
-  const descendants = getConfigSpineSubtree(
+  // Match the server cascade (reconcileConfigDescendants), which reconciles via
+  // ANY base edge — walk the full subtree (parent spine + `extends` mixins), not
+  // the spine alone, so a mixin descendant's redundant field is previewed too.
+  // The walk self-restricts to descendants of `configKey`, so extra nodes (e.g.
+  // a composing family's own ancestors) can't produce false positives.
+  const descendants = getConfigSubtree(
     configKey,
-    lineage.map((n) => ({ key: n.key, parent: n.parentKey ?? undefined })),
+    lineage.map((n) => ({
+      key: n.key,
+      parent: n.parentKey ?? undefined,
+      extends: n.extendsKeys,
+    })),
   ).filter((k) => k !== configKey);
   const hits: { name: string; keys: string[] }[] = [];
   for (const k of descendants) {

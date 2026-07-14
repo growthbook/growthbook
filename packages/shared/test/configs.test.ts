@@ -972,7 +972,7 @@ describe("resolveConfigChain — value merge precedence", () => {
 });
 
 describe("computeConfigReconciliationPreview", () => {
-  // root → child → grandchild spine; `mixin` extends root but is off-spine.
+  // root → child → grandchild spine; `unrelated` shares no base edge with root.
   const lineage = [
     { key: "root", parentKey: null, name: "Root", fieldKeys: ["a"] },
     { key: "child", parentKey: "root", name: "Child", fieldKeys: ["a", "b"] },
@@ -982,7 +982,7 @@ describe("computeConfigReconciliationPreview", () => {
       name: "Grandchild",
       fieldKeys: ["a", "c"],
     },
-    { key: "mixin", parentKey: null, name: "Mixin", fieldKeys: ["a"] },
+    { key: "unrelated", parentKey: null, name: "Unrelated", fieldKeys: ["a"] },
   ];
 
   it("returns [] when the config declares no own fields", () => {
@@ -991,10 +991,30 @@ describe("computeConfigReconciliationPreview", () => {
 
   it("reports spine descendants that redeclare an own key, in BFS order", () => {
     const hits = computeConfigReconciliationPreview(lineage, "root", ["a"]);
-    // `mixin` is off the parent spine, so it's excluded; root itself excluded.
+    // `unrelated` shares no base edge with root, so it's excluded; root itself excluded.
     expect(hits).toEqual([
       { name: "Child", keys: ["a"] },
       { name: "Grandchild", keys: ["a"] },
+    ]);
+  });
+
+  it("reports mixin descendants (extends edge), matching the server cascade", () => {
+    const withMixin = [
+      { key: "root", parentKey: null, name: "Root", fieldKeys: ["a"] },
+      { key: "child", parentKey: "root", name: "Child", fieldKeys: ["a"] },
+      // Off-spine config in another family that composes root as a mixin.
+      {
+        key: "composer",
+        parentKey: null,
+        name: "Composer",
+        fieldKeys: ["a"],
+        extendsKeys: ["root"],
+      },
+    ];
+    const hits = computeConfigReconciliationPreview(withMixin, "root", ["a"]);
+    expect(hits).toEqual([
+      { name: "Child", keys: ["a"] },
+      { name: "Composer", keys: ["a"] },
     ]);
   });
 

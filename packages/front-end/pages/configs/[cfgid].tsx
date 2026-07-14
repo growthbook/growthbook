@@ -630,8 +630,15 @@ export default function ConfigDetailPage(): React.ReactElement {
     if (!data || !displayedConfig)
       return [] as { name: string; keys: string[] }[];
     const ownKeys = (displayedConfig.schema?.fields ?? []).map((sf) => sf.key);
+    // Include composing families so a mixin descendant's strip is previewed too
+    // (the cascade reconciles via `extends`, not just the `parent` spine). The
+    // helper walks the full subtree and self-restricts to real descendants.
+    const nodes = [
+      ...data.lineage,
+      ...(data.composerFamilies ?? []).flatMap((f) => f.lineage),
+    ];
     return computeConfigReconciliationPreview(
-      data.lineage,
+      nodes,
       displayedConfig.key,
       ownKeys,
     );
