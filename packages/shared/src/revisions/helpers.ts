@@ -105,6 +105,9 @@ const CONFIG_CONTENT_FIELDS: ReadonlySet<string> = new Set([
   "parent",
   "extends",
   "extensible",
+  // Changing which env/project flavors apply (or their order) changes the served
+  // value, so it's review content, not metadata.
+  "scopedOverrides",
 ]);
 
 /**

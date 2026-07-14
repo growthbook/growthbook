@@ -44,6 +44,18 @@ export const configLockSchema = z
   })
   .strict();
 
+// One entry in a config's ordered scopedOverrides list: an environment/project-
+// scoped "flavor" — a child config (referenced by key) whose value patches this
+// config's resolved value when the scope matches. Evaluated first-match-wins,
+// deep-merged per layer at resolution (see resolveConfigChain / resolveConstantRefs).
+// Inline scope keeps precedence + membership in one place; the flavor is a plain
+// config. Empty environments+projects = a catch-all (applies to any scope).
+export const scopedOverrideValidator = z.object({
+  config: z.string(),
+  environments: z.array(z.string()).optional(),
+  projects: z.array(z.string()).optional(),
+});
+
 export const configValidator = z
   .object({
     id: z.string(),
@@ -56,9 +68,13 @@ export const configValidator = z
     // Composition bases beyond `parent`, in precedence order (later wins; all override `parent`;
     // own keys win last). Synthesized into `$extends` at resolution, never stored in `value`.
     extends: z.array(z.string()).optional(),
-    // Configs are environment-agnostic: single `value`, NO per-environment overrides
-    // anywhere. For per-environment values, use a Constant as the value source.
+    // The base value (all environments/projects) as a JSON object string.
     value: z.string().optional(),
+    // Ordered, first-match-wins environment/project-scoped variant selection. Each
+    // entry references a "flavor" child config (by key) whose value patches this
+    // config's for the matching scope, deep-merged per layer at resolution. Absent
+    // = a plain, scope-agnostic config.
+    scopedOverrides: z.array(scopedOverrideValidator).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
@@ -90,6 +106,7 @@ export const configUpdatableFieldsSchema = configValidator.pick({
   parent: true,
   extends: true,
   value: true,
+  scopedOverrides: true,
   description: true,
   project: true,
   archived: true,
@@ -113,6 +130,7 @@ export const postConfigBodyValidator = z.object({
   parent: z.string().optional(),
   extends: z.array(z.string()).optional(),
   value: z.string().optional(),
+  scopedOverrides: z.array(scopedOverrideValidator).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
   schema: simpleSchemaValidator.optional(),
@@ -127,6 +145,7 @@ export const putConfigBodyValidator = z.object({
   parent: z.string().optional(),
   extends: z.array(z.string()).optional(),
   value: z.string().optional(),
+  scopedOverrides: z.array(scopedOverrideValidator).optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   project: z.string().optional(),
   archived: z.boolean().optional(),
