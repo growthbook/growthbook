@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
+import { useForm } from "react-hook-form";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -123,29 +124,20 @@ export default function NPSSurvey() {
   const [forceShow, setForceShow] = useState(false);
   const [closing, setClosing] = useState(false);
   const [panel, setPanel] = useState<Panel>("question");
-  const [score, setScore] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState("");
 
-  // Latest-value refs: the response is flushed from pagehide/visibilitychange/
-  // Escape listeners, which must stay subscribed once — not re-bind on every
-  // keystroke or context re-render — so they read current values through refs.
+  // Score + feedback live in react-hook-form, whose ref-backed store lets the
+  // pagehide/visibilitychange/Escape listeners read current values through the
+  // stable getValues() without re-subscribing on every keystroke.
+  const { register, setValue, getValues, watch } = useForm<{
+    score: number | null;
+    feedback: string;
+  }>({ defaultValues: { score: null, feedback: "" } });
+  const score = watch("score");
+
+  // Send-once latch; read and set synchronously inside unload-time listeners,
+  // where async state updates could double-fire the response.
   const sentRef = useRef(false);
-  const scoreRef = useRef<number | null>(null);
-  const feedbackRef = useRef("");
   const closeTimer = useRef<number | null>(null);
-  const apiCallRef = useRef(apiCall);
-  const updateUserRef = useRef(updateUser);
-
-  useEffect(() => {
-    scoreRef.current = score;
-  }, [score]);
-  useEffect(() => {
-    feedbackRef.current = feedback;
-  }, [feedback]);
-  useEffect(() => {
-    apiCallRef.current = apiCall;
-    updateUserRef.current = updateUser;
-  }, [apiCall, updateUser]);
 
   useEffect(() => {
     setForceShow(forceShowRequested(previewFlagOn));
@@ -177,18 +169,17 @@ export default function NPSSurvey() {
       status: "responded" | "dismissed",
       extra?: { score: number; feedback: string },
     ) => {
-      void apiCallRef
-        .current(`/user/nps-response`, {
-          method: "POST",
-          body: JSON.stringify({ status, ...extra }),
-          keepalive: true,
-        })
-        .then(() => updateUserRef.current())
+      void apiCall(`/user/nps-response`, {
+        method: "POST",
+        body: JSON.stringify({ status, ...extra }),
+        keepalive: true,
+      })
+        .then(() => updateUser())
         .catch(() => {
           // best-effort; localStorage still suppresses on this device
         });
     },
-    [],
+    [apiCall, updateUser],
   );
 
   // Report the chosen score exactly once. The comment text is only included
@@ -196,10 +187,10 @@ export default function NPSSurvey() {
   // still record the score, but never transmit a draft the user didn't send.
   const emitResponse = useCallback(
     (includeFeedback: boolean) => {
-      const s = scoreRef.current;
+      const { score: s, feedback } = getValues();
       if (sentRef.current || s === null) return;
       sentRef.current = true;
-      const feedbackText = includeFeedback ? feedbackRef.current.trim() : "";
+      const feedbackText = includeFeedback ? feedback.trim() : "";
       track("nps_response", {
         score: s,
         nps_value: npsValue(s),
@@ -217,7 +208,7 @@ export default function NPSSurvey() {
         feedback: feedbackText,
       });
     },
-    [persistServer],
+    [persistServer, getValues],
   );
 
   const dismissCard = useCallback(() => {
@@ -233,14 +224,14 @@ export default function NPSSurvey() {
   }, []);
 
   const handleClose = useCallback(() => {
-    if (scoreRef.current !== null) {
+    if (getValues("score") !== null) {
       emitResponse(false);
     } else {
       writeStored({ status: "dismissed", date: new Date().toISOString() });
       persistServer("dismissed");
     }
     dismissCard();
-  }, [emitResponse, dismissCard, persistServer]);
+  }, [emitResponse, dismissCard, persistServer, getValues]);
 
   const handleSubmit = useCallback(
     (includeFeedback: boolean) => {
@@ -257,7 +248,7 @@ export default function NPSSurvey() {
   useEffect(() => {
     if (!visible) return;
     const flush = () => {
-      if (scoreRef.current !== null && !sentRef.current) emitResponse(false);
+      if (getValues("score") !== null && !sentRef.current) emitResponse(false);
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -268,7 +259,7 @@ export default function NPSSurvey() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", flush);
     };
-  }, [visible, emitResponse]);
+  }, [visible, emitResponse, getValues]);
 
   useEffect(() => {
     if (!visible) return;
@@ -342,7 +333,7 @@ export default function NPSSurvey() {
                   data-score={s}
                   className={`${styles.cell} ${CAT_CLASS[categoryOf(s)]}`}
                   onClick={() => {
-                    setScore(s);
+                    setValue("score", s);
                     setPanel("feedback");
                   }}
                   onKeyDown={(e) => {
@@ -404,8 +395,7 @@ export default function NPSSurvey() {
               id="gb-nps-feedback"
               rows={3}
               placeholder="Optional — a sentence is plenty"
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
+              {...register("feedback")}
             />
             <Flex justify="between" align="center" mt="3">
               <Button
