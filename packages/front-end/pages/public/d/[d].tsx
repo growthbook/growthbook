@@ -7,7 +7,7 @@ import {
   DashboardPublicBlockData,
   DashboardBlockInterface,
 } from "shared/enterprise";
-import { truncateString } from "shared/util";
+import { stripMarkdown, truncateString } from "shared/util";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import { getApiHost } from "@/services/env";
@@ -33,10 +33,25 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
       context.res.statusCode = 404;
     }
 
+    // Build a link-preview description from the dashboard's markdown blocks
+    // (part of the shell, so no extra fetch). Unfurlers read the SSR'd <head>,
+    // so this must be computed server-side. Falls back to the title.
+    const markdownText = (
+      (dashboard?.blocks ?? []) as Array<{ type?: string; content?: string }>
+    )
+      .filter((b) => b.type === "markdown")
+      .map((b) => b.content || "")
+      .join("\n\n");
+    const strippedMarkdown = stripMarkdown(markdownText);
+    const description = strippedMarkdown
+      ? truncateString(strippedMarkdown, 200)
+      : dashboard?.title || "";
+
     return {
       props: {
         dashboard: dashboard || null,
         ssrData: data?.ssrData || null,
+        description,
       },
     };
   } catch (e) {
@@ -48,11 +63,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 interface PublicDashboardPageProps {
   dashboard: DashboardInterface | null;
   ssrData: DashboardSSRData | null;
+  description: string;
 }
 
 export default function PublicDashboardPage({
   dashboard,
   ssrData,
+  description,
 }: PublicDashboardPageProps) {
   const { userId, organization: userOrganization, superAdmin } = useUser();
   const ssrPolyfills = useSSRPolyfills(ssrData);
@@ -147,6 +164,7 @@ export default function PublicDashboardPage({
             ? `${dashboard.title} | GrowthBook`
             : "Dashboard not found | GrowthBook"}
         </title>
+        <meta property="og:type" content="website" />
         <meta
           property="og:title"
           content={
@@ -155,10 +173,17 @@ export default function PublicDashboardPage({
               : "Dashboard not found | GrowthBook"
           }
         />
+        <meta property="og:description" content={description} />
+        <meta name="twitter:card" content="summary" />
         <meta
-          property="og:description"
-          content={truncateString(dashboard?.title || "", 500)}
+          name="twitter:title"
+          content={
+            dashboard?.title
+              ? `Dashboard: ${dashboard.title} | GrowthBook`
+              : "Dashboard not found | GrowthBook"
+          }
         />
+        <meta name="twitter:description" content={description} />
       </Head>
 
       <PageHead
