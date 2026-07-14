@@ -992,7 +992,19 @@ export default function RampScheduleSection({
       lastSyncedMonitored.current = stateMonitored;
       const matchId = findMatchingTemplate(state, templates);
       if (matchId) {
-        setSelectedTemplateId(matchId);
+        // findMatchingTemplate compares a lossy projection (it ignores `force`
+        // and conditionally-dropped step fields), so a match doesn't guarantee
+        // the rendered steps equal the template. For a brand-new ramp, apply the
+        // matched template so the displayed steps actually reflect the preset
+        // (otherwise the dropdown shows it while the basic default steps remain).
+        // For an existing schedule, only reflect the selection — its
+        // reconstructed steps are the source of truth and must not be overwritten.
+        const matched = templates.find((t) => t.id === matchId);
+        if (matched && !ruleRampSchedule && !hideTemplateSave) {
+          applyTemplate(matched);
+        } else {
+          setSelectedTemplateId(matchId);
+        }
       } else if (!ruleRampSchedule && !hideTemplateSave) {
         const defaultTemplate = templates.find(
           (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
