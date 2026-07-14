@@ -471,7 +471,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                   <Frame>
                     {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                      <ClickhouseManagedWarehouseIdentifiers
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
+                      />
                     ) : (
                       <ClickhouseMaterializedColumns
                         dataSource={d}
