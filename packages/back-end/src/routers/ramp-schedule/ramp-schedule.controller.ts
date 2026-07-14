@@ -8,6 +8,7 @@ import {
   appendRampEvent,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   approveAndPublishStep,
+  approveScheduleStart,
   completeRampKeepCutoff,
   completeRollout,
   computeNextProcessAt,
@@ -229,6 +230,12 @@ export const putRampSchedule = async (
         startDate: ("startDate" in updates
           ? updates.startDate
           : fresh.startDate) as RampScheduleInterface["startDate"],
+        requiresStartApproval: ("requiresStartApproval" in updates
+          ? updates.requiresStartApproval
+          : fresh.requiresStartApproval) as boolean | undefined,
+        startApprovedAt: ("startApprovedAt" in updates
+          ? updates.startApprovedAt
+          : fresh.startApprovedAt) as Date | null | undefined,
       });
 
       const editedFields = Object.keys(updates).filter(
@@ -750,6 +757,44 @@ export const postRampScheduleAction = async (
       });
 
       return res.status(200).json({ status: 200 });
+    }
+
+    case "approve-start": {
+      if (schedule.status !== "ready" || !schedule.requiresStartApproval) {
+        return res.status(400).json({
+          status: 400,
+          message: `Cannot approve start: schedule is not awaiting approval (status "${schedule.status}")`,
+        });
+      }
+      const startApproveErr = await runLockedRampScheduleAction(
+        context,
+        schedule.id,
+        (fresh) => approveScheduleStart(context, fresh),
+      );
+      if (startApproveErr) {
+        const httpStatus =
+          startApproveErr.code === "permission_denied" ? 403 : 400;
+        const message =
+          startApproveErr.code === "permission_denied"
+            ? `Permission denied: ${startApproveErr.detail}`
+            : `Error: ${"detail" in startApproveErr ? startApproveErr.detail : startApproveErr.code}`;
+        return res.status(httpStatus).json({
+          status: httpStatus,
+          code: startApproveErr.code,
+          message,
+        });
+      }
+      const afterStartApprove = await context.models.rampSchedules.getById(
+        schedule.id,
+      );
+      if (!afterStartApprove) {
+        return res.status(404).json({
+          status: 404,
+          message: "Ramp schedule not found after approve",
+        });
+      }
+      updated = afterStartApprove;
+      break;
     }
 
     default:

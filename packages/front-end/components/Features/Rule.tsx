@@ -31,6 +31,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   isReadyForApproval,
+  isAwaitingStartApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -241,9 +242,12 @@ interface SortableProps {
   onMoveDown?: () => void;
   onMoveToTop?: () => void;
   onMoveToBottom?: () => void;
-  // True when the draft has this rule disabled but the live feature has it enabled.
-  // Surfaces a warning so users don't accidentally revert a schedule-driven enable.
-  liveEnabledDraftDisabled?: boolean;
+  // True when the draft intentionally disabled a rule that's enabled in live —
+  // publishing would revert a schedule-driven enable (aggressive warning).
+  willRevertScheduleEnable?: boolean;
+  // True when the draft is behind live and this rule's shown state differs from
+  // live for a reason a rebase would reconcile — a gentle "behind live" hint.
+  draftBehindLiveStale?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -312,7 +316,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       onMoveDown,
       onMoveToTop,
       onMoveToBottom,
-      liveEnabledDraftDisabled,
+      willRevertScheduleEnable,
+      draftBehindLiveStale,
       ...props
     },
     ref,
@@ -509,19 +514,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {
+        // An approval-gated hold uses the approve-start action (records the
+        // approval + arms a future startDate if set); a plain scheduled
+        // ready schedule uses start (start-early).
+        const awaitingStartApproval = isAwaitingStartApproval(rampSchedule);
         ruleCtas.push(
           <Button
             key="ramp-start"
             size="xs"
             variant="solid"
             onClick={async () => {
-              await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/start`, {
-                method: "POST",
-              });
+              await apiCall(
+                `/ramp-schedule/${rampSchedule.id}/actions/${
+                  awaitingStartApproval ? "approve-start" : "start"
+                }`,
+                { method: "POST" },
+              );
               await mutate();
             }}
           >
-            Start
+            {awaitingStartApproval ? "Approve & start" : "Start"}
           </Button>,
         );
       }
@@ -1357,13 +1369,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
-          {liveEnabledDraftDisabled && (
+          {willRevertScheduleEnable ? (
             <Callout status="warning" mt="3" size="sm">
               This rule is <strong>enabled</strong> in the live feature but{" "}
               <strong>disabled</strong> in this draft. Publishing may revert a
               schedule-driven enable.
             </Callout>
-          )}
+          ) : draftBehindLiveStale ? (
+            <Box mt="3">
+              <HelperText status="info" size="sm">
+                This draft is behind live — rebase (Review and Publish tab) to
+                compare
+              </HelperText>
+            </Box>
+          ) : null}
           {rampSchedule &&
             isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -1726,6 +1745,26 @@ export function getRuleMetaInfo({
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
   if (!rule.enabled) {
+    // An approval-gated ramp holds the rule off (zero traffic) until someone
+    // approves the start — surface that instead of a bare "Disabled" so it's
+    // clear the rule is staged, not turned off by hand.
+    if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title="This rule is staged and serving no traffic. It will go live when someone approves the ramp's start."
+            label={
+              <>
+                <RxCircleBackslash />
+                Disabled · awaiting approval
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
     const rampEnableDate = getRampEnableDate(rampSchedule);
     if (rampEnableDate) {
       // A pending draft schedule whose startDate has drifted into the past

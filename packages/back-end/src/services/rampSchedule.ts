@@ -737,6 +737,8 @@ export function computeNextProcessAt(schedule: {
   cutoffDate?: RampScheduleInterface["cutoffDate"];
   startDate?: RampScheduleInterface["startDate"];
   nextSnapshotAt?: Date | null;
+  requiresStartApproval?: boolean;
+  startApprovedAt?: Date | null;
 }): Date | null {
   const cutoff = schedule.cutoffDate ?? null;
 
@@ -750,6 +752,12 @@ export function computeNextProcessAt(schedule: {
       return earliest ?? null;
     }
     case "ready":
+      // Awaiting an explicit start approval: never auto-arm, even when a
+      // startDate is set (the "approve, then wait for date" compose case). The
+      // approve action clears the hold and recomputes this.
+      if (schedule.requiresStartApproval && !schedule.startApprovedAt) {
+        return null;
+      }
       return schedule.startDate ?? null;
     case "paused":
       return cutoff;
@@ -961,6 +969,26 @@ function buildEnableActions(schedule: RampScheduleInterface): RampStepAction[] {
       patch: {
         ruleId: t.ruleId ?? "",
         enabled: true as const,
+      },
+    }));
+}
+
+// Build the `enabled: false` patch for each active feature target. Symmetric to
+// buildEnableActions — used to force a rule genuinely off (zero traffic) when a
+// approval-gated schedule returns to the pre-start hold. The disable is an
+// explicit action, independent of the startActions snapshot, so the shared
+// rollback/patch machinery is untouched.
+function buildDisableActions(
+  schedule: RampScheduleInterface,
+): RampStepAction[] {
+  return schedule.targets
+    .filter((t) => t.status === "active" && t.entityType === "feature")
+    .map((t) => ({
+      targetType: "feature-rule" as const,
+      targetId: t.id,
+      patch: {
+        ruleId: t.ruleId ?? "",
+        enabled: false as const,
       },
     }));
 }
@@ -1235,7 +1263,13 @@ export async function rollbackToStep(
     syncSafeRollout?: boolean;
   } = {},
 ): Promise<RampScheduleInterface> {
-  const rollbackActions: RampStepAction[] =
+  const isFullRollback = targetStepIndex === -1;
+  // A approval-gated schedule returns to the pre-start hold on a full
+  // rollback (manual or auto) instead of terminating: it lands back at step -1
+  // awaiting a fresh approval. The -1 → 0 edge is always re-gated.
+  const reHoldForApproval = isFullRollback && !!schedule.requiresStartApproval;
+
+  let rollbackActions: RampStepAction[] =
     targetStepIndex === -1
       ? (schedule.startActions ?? [])
       : [...computeEffectivePatch(schedule, targetStepIndex).entries()].map(
@@ -1246,16 +1280,36 @@ export async function rollbackToStep(
           }),
         );
 
+  if (reHoldForApproval) {
+    // Force the rule genuinely off (zero traffic) in the same publish as the
+    // anchor restore — the enabled flip is owned here, not by the startActions
+    // snapshot (which may not carry `enabled`). The approve action re-enables
+    // via the step-0 apply.
+    const targetsCovered = new Set(rollbackActions.map((a) => a.targetId));
+    rollbackActions = rollbackActions.map((a) =>
+      a.targetType === "feature-rule"
+        ? { ...a, patch: { ...a.patch, enabled: false } }
+        : a,
+    );
+    for (const disable of buildDisableActions(schedule)) {
+      if (!targetsCovered.has(disable.targetId)) rollbackActions.push(disable);
+    }
+  }
+
   const now = new Date();
   if (rollbackActions.length > 0) {
     await executeStepActions(ctx, schedule, targetStepIndex, rollbackActions);
   }
 
-  const isFullRollback = targetStepIndex === -1;
-  const terminalRollback = options.terminal ?? isFullRollback;
   const emitEvent = options.emitEvent ?? true;
   const syncSafeRollout = options.syncSafeRollout ?? true;
-  const newStatus = terminalRollback ? "rolled-back" : "paused";
+  const terminalRollback =
+    !reHoldForApproval && (options.terminal ?? isFullRollback);
+  const newStatus = reHoldForApproval
+    ? "ready"
+    : terminalRollback
+      ? "rolled-back"
+      : "paused";
 
   const fullRollbackFields = terminalRollback
     ? {
@@ -1276,11 +1330,15 @@ export async function rollbackToStep(
     stepApproval: null,
     pausedAt: newStatus === "paused" ? now : null,
     nextProcessAt: null,
-    ...(terminalRollback
-      ? { monitoringStartDate: null }
-      : shouldResetMonitoringStart
-        ? { monitoringStartDate: now }
-        : {}),
+    // Re-arm the approval gate: clear the marker so the -1 → 0 crossing
+    // holds again, and drop the monitoring window (relaunch starts fresh).
+    ...(reHoldForApproval
+      ? { startApprovedAt: null, monitoringStartDate: null }
+      : terminalRollback
+        ? { monitoringStartDate: null }
+        : shouldResetMonitoringStart
+          ? { monitoringStartDate: now }
+          : {}),
     ...fullRollbackFields,
     ...(emitEvent
       ? {
@@ -2047,7 +2105,14 @@ export async function onActivatingRevisionPublished(
   if (schedule.status !== "pending") return;
 
   const now = new Date();
-  const isImmediate = !schedule.startDate || schedule.startDate <= now;
+  // A approval-gated launch never auto-starts on publish (even with a past
+  // startDate): it holds at step -1 with the rule disabled until approved. The
+  // rule is already published disabled by the rule edit, so no disable action
+  // is needed here — just hold.
+  const holdForApproval =
+    !!schedule.requiresStartApproval && !schedule.startApprovedAt;
+  const isImmediate =
+    !holdForApproval && (!schedule.startDate || schedule.startDate <= now);
 
   if (isImmediate) {
     const initialNextStepAt = schedule.steps.length > 0 ? now : null;
@@ -2089,10 +2154,35 @@ export async function onActivatingRevisionPublished(
       },
     });
   } else {
-    await ctx.models.rampSchedules.updateById(schedule.id, {
+    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
       status: "ready",
       nextProcessAt: computeNextProcessAt({ ...schedule, status: "ready" }),
+      ...(holdForApproval
+        ? {
+            eventHistory: appendRampEvent(schedule, "awaiting-start-approval", {
+              stepIndex: -1,
+              status: "ready",
+              previousStatus: schedule.status,
+            }),
+          }
+        : {}),
     });
+    if (holdForApproval) {
+      await dispatchRampEvent(
+        ctx,
+        updated,
+        "rampSchedule.actions.awaitingStartApproval",
+        {
+          object: {
+            rampScheduleId: updated.id,
+            rampName: updated.name,
+            orgId: ctx.org.id,
+            currentStepIndex: updated.currentStepIndex,
+            status: updated.status,
+          },
+        },
+      );
+    }
   }
 }
 
@@ -2518,6 +2608,128 @@ export async function approveAndPublishStep(
     await advanceUntilBlocked(ctx, afterApproval, now);
   }
 
+  return null;
+}
+
+type ApproveStartError =
+  | { code: "feature_not_found" }
+  | { code: "permission_denied"; detail: string }
+  | { code: "error"; detail: string };
+
+/**
+ * Approves the one-time "start on approval" hold on the -1 → step 0 edge.
+ * Sets the transient startApprovedAt marker, then either arms for a future
+ * startDate (the "approve, then wait for date" compose case) or starts now.
+ *
+ * Idempotent: a schedule that's already been approved (or already left the
+ * ready hold) returns null without side effects.
+ */
+export async function approveScheduleStart(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<ApproveStartError | null> {
+  const feature = await getFeature(ctx, schedule.entityId);
+  if (!feature) return { code: "feature_not_found" };
+
+  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
+    return { code: "permission_denied", detail: "Cannot update this feature" };
+  }
+  const allEnvironments = getEnvironments(ctx.org);
+  const environmentIds = filterEnvironmentsByFeature(
+    allEnvironments,
+    feature,
+  ).map((e) => e.id);
+  if (
+    environmentIds.length > 0 &&
+    !ctx.permissions.canPublishFeature(feature, environmentIds)
+  ) {
+    return {
+      code: "permission_denied",
+      detail: "Cannot publish to one or more affected environments",
+    };
+  }
+
+  if (!schedule.requiresStartApproval) {
+    return {
+      code: "error",
+      detail: "This schedule does not require start approval",
+    };
+  }
+  // Already approved, or already past the pre-start hold — nothing to do.
+  if (schedule.startApprovedAt || schedule.currentStepIndex >= 0) return null;
+  if (schedule.status !== "ready") {
+    return {
+      code: "error",
+      detail: `Cannot approve start on a schedule in status "${schedule.status}"`,
+    };
+  }
+
+  const now = new Date();
+  const startInFuture = !!schedule.startDate && schedule.startDate > now;
+
+  if (startInFuture) {
+    // Approve now but keep waiting for the scheduled date: record the marker and
+    // arm nextProcessAt (computeNextProcessAt now returns startDate since it's
+    // approved). The poller starts it when the date arrives.
+    const approvedSchedule = { ...schedule, startApprovedAt: now };
+    const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+      startApprovedAt: now,
+      nextProcessAt: computeNextProcessAt(approvedSchedule),
+      eventHistory: appendRampEvent(schedule, "start-approved", {
+        stepIndex: -1,
+        status: schedule.status,
+        previousStatus: schedule.status,
+        userId: ctx.userId,
+      }),
+    });
+    await dispatchRampEvent(
+      ctx,
+      updated,
+      "rampSchedule.actions.startApproved",
+      {
+        object: {
+          rampScheduleId: updated.id,
+          rampName: updated.name,
+          orgId: ctx.org.id,
+          currentStepIndex: updated.currentStepIndex,
+          status: updated.status,
+        },
+      },
+    );
+    return null;
+  }
+
+  // Start now. This function already runs INSIDE the advance lock (both the
+  // controller and the API wrap it in runLockedRampScheduleAction), so call the
+  // non-locking start body directly — using startReadyScheduleNow here would
+  // try to re-acquire the same lock, spin through the retry window, and fall
+  // back to deferring the start (the "stuck loading then starts a minute later"
+  // bug). Record the approval marker + event first, then cross -1 → 0.
+  const approved = await ctx.models.rampSchedules.updateById(schedule.id, {
+    startApprovedAt: now,
+    eventHistory: appendRampEvent(schedule, "start-approved", {
+      stepIndex: -1,
+      status: schedule.status,
+      previousStatus: schedule.status,
+      userId: ctx.userId,
+    }),
+  });
+  await startReadyScheduleNowLocked(ctx, approved);
+  const started = await ctx.models.rampSchedules.getById(schedule.id);
+  await dispatchRampEvent(
+    ctx,
+    started ?? schedule,
+    "rampSchedule.actions.startApproved",
+    {
+      object: {
+        rampScheduleId: schedule.id,
+        rampName: schedule.name,
+        orgId: ctx.org.id,
+        currentStepIndex: started?.currentStepIndex ?? -1,
+        status: started?.status ?? "running",
+      },
+    },
+  );
   return null;
 }
 

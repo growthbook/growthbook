@@ -4123,6 +4123,8 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      type: boolean
                   additionalProperties: false
                 schedule:
                   type: object
@@ -4721,6 +4723,8 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      type: boolean
                   additionalProperties: false
                 schedule:
                   type: object
@@ -5344,6 +5348,8 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                requiresStartApproval:
+                  type: boolean
                 environment:
                   deprecated: true
                   type: string
@@ -8697,6 +8703,8 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      type: boolean
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9297,6 +9305,8 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      type: boolean
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9930,6 +9940,8 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                requiresStartApproval:
+                  type: boolean
                 environment:
                   deprecated: true
                   type: string
@@ -23489,6 +23501,47 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/approve-step'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/{id}/actions/approve-start:
+    post:
+      operationId: approveStartRampSchedule
+      summary: Approve the start of a held ramp schedule
+      description: >
+        Releases a schedule created with `requiresStartApproval`. While held,
+        the schedule sits in `ready` at step -1 with its rule disabled (zero
+        traffic). Approving either starts the ramp immediately, or — when a
+        future `startDate` is also set — arms it to start on that date.
+
+
+        Requires update + publish permissions for the associated feature.
+      tags:
+        - ramp-schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    $ref: '#/components/schemas/RampSchedule'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/approve-start'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/ramp-schedules/{id}/actions/add-target:
@@ -37298,6 +37351,8 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    type: boolean
                 required:
                   - mode
                   - ruleId
@@ -37710,6 +37765,8 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    type: boolean
                   mode:
                     type: string
                     const: update
@@ -38486,6 +38543,8 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    type: boolean
                 required:
                   - mode
                   - ruleId
@@ -38898,6 +38957,8 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    type: boolean
                   mode:
                     type: string
                     const: update

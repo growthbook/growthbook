@@ -1353,6 +1353,8 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval:
+                    rampState.requiresStartApproval || undefined,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1418,6 +1420,8 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
+                  requiresStartApproval:
+                    rampState.requiresStartApproval || undefined,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1480,12 +1484,15 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          // Future-dated schedule → publish the rule as disabled so it
-          // remains hidden until the schedule activates.
+          // Future-dated or approval-gated schedule → publish the rule as
+          // disabled so it remains hidden (zero traffic) until the schedule
+          // activates or is approved.
           if (
             rampScheduleInline &&
-            "startDate" in rampScheduleInline &&
-            rampScheduleInline.startDate
+            (("startDate" in rampScheduleInline &&
+              rampScheduleInline.startDate) ||
+              ("requiresStartApproval" in rampScheduleInline &&
+                rampScheduleInline.requiresStartApproval))
           ) {
             values = { ...values, enabled: false };
           }
@@ -1561,6 +1568,8 @@ export default function RuleModal({
                 rampState.monitoring,
                 rampState.steps,
               ),
+              requiresStartApproval:
+                rampState.requiresStartApproval || undefined,
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),
@@ -1568,13 +1577,16 @@ export default function RuleModal({
           }
         }
 
-        // Schedule with a start date → create rule disabled; the backend
-        // enables it via onActivatingRevisionPublished when the draft is
-        // published (immediately if the date has passed, or via poller if future).
+        // Schedule with a start date (or a approval hold) → create rule
+        // disabled; the backend enables it via onActivatingRevisionPublished
+        // when the draft is published (immediately if the date has passed, via
+        // poller if future) or when the start is approved.
         if (
           rampScheduleInline &&
-          "startDate" in rampScheduleInline &&
-          rampScheduleInline.startDate
+          (("startDate" in rampScheduleInline &&
+            rampScheduleInline.startDate) ||
+            ("requiresStartApproval" in rampScheduleInline &&
+              rampScheduleInline.requiresStartApproval))
         ) {
           values = { ...values, enabled: false };
         }

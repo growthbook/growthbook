@@ -170,6 +170,10 @@ export interface RampSectionState {
   name: string;
   // ISO datetime string. Empty means start immediately.
   startDate: string;
+  // When true, the ramp holds at the start (rule disabled, zero traffic) until
+  // a human approves. Mutually exclusive with startDate in the UI (the Start
+  // selector is enum-like), but stored as a boolean so it can compose.
+  requiresStartApproval: boolean;
   steps: UIStep[];
   // Empty means no end date.
   endScheduleAt: string;
@@ -3693,18 +3697,32 @@ export default function RampScheduleSection({
         </Text>
       </Box>
       <SelectField
-        value={state.startDate ? "on-date" : "immediately"}
+        value={
+          state.requiresStartApproval
+            ? "on-approval"
+            : state.startDate
+              ? "on-date"
+              : "immediately"
+        }
         options={[
           { value: "immediately", label: "Immediately" },
           { value: "on-date", label: "On date" },
+          { value: "on-approval", label: "On approval" },
         ]}
         onChange={(v) => {
+          // Enum-like: each choice clears the other axis so the two never
+          // coexist from the UI (the model still allows composing them).
           if (v === "immediately") {
-            patchState({ startDate: "" });
+            patchState({ startDate: "", requiresStartApproval: false });
+          } else if (v === "on-approval") {
+            patchState({ startDate: "", requiresStartApproval: true });
           } else {
             const d = new Date();
             d.setSeconds(0, 0);
-            patchState({ startDate: d.toISOString() });
+            patchState({
+              startDate: d.toISOString(),
+              requiresStartApproval: false,
+            });
           }
         }}
         containerStyle={{ minHeight: 38, width: 150 }}
@@ -4230,6 +4248,7 @@ export function rampScheduleToSectionState(
     mode: "edit",
     name: rs.name,
     startDate: rs.startDate ? new Date(rs.startDate).toISOString() : "",
+    requiresStartApproval: !!rs.requiresStartApproval,
     steps: uiSteps,
     endScheduleAt: rs.cutoffDate ? new Date(rs.cutoffDate).toISOString() : "",
     endPatch,
@@ -4286,6 +4305,7 @@ export function defaultRampSectionState(
     mode: "off",
     name: `ramp-up ${formatDate(new Date())}`,
     startDate: "",
+    requiresStartApproval: false,
     steps: generateSimpleSteps(5, "days"),
     endScheduleAt: "",
     endPatch: { coverage: 100 },
@@ -4311,6 +4331,7 @@ export function createActionToSectionState(
     mode: "create",
     name: action.name ?? "",
     startDate: action.startDate ? new Date(action.startDate).toISOString() : "",
+    requiresStartApproval: !!action.requiresStartApproval,
     steps: uiSteps,
     endScheduleAt: action.cutoffDate
       ? new Date(action.cutoffDate).toISOString()
@@ -4381,6 +4402,8 @@ export function updateActionToSectionState(
     linkedRampId: liveSchedule.id,
     // Fields not included in the update action fall back to the live schedule.
     name: action.name ?? liveSchedule.name,
+    requiresStartApproval:
+      action.requiresStartApproval ?? !!liveSchedule.requiresStartApproval,
     startDate: action.startDate
       ? new Date(action.startDate).toISOString()
       : liveSchedule.startDate
@@ -4412,6 +4435,8 @@ export function templateToSectionState(
     mode,
     name: template.name,
     startDate: "",
+    // Start-gating is a per-launch decision, never stored on templates.
+    requiresStartApproval: false,
     steps: template.steps.map(reconstructUIStep),
     endScheduleAt: "",
     endPatch,

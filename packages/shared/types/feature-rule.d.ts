@@ -30,6 +30,9 @@ export type InlineRampScheduleCreate = {
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
   experimentHealthAction?: ExperimentHealthAction;
+  // When true, the ramp holds at the start (rule disabled, zero traffic) until a
+  // human approves via the approve-start action. Composes with startDate.
+  requiresStartApproval?: boolean;
 };
 
 // Detach a rule from a ramp schedule (removes it from the targets array).
@@ -61,6 +64,9 @@ export type InlineRampScheduleUpdate = {
   monitoringConfig?: RampMonitoringConfig;
   lockdownConfig?: LockdownConfig;
   experimentHealthAction?: ExperimentHealthAction;
+  // When true, the ramp holds at the start (rule disabled) until a human
+  // approves. Toggling this re-arms the approval gate.
+  requiresStartApproval?: boolean;
 };
 
 export type PostFeatureRuleBody = {

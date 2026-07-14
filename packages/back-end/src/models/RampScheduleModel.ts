@@ -579,6 +579,12 @@ export class RampScheduleModel extends BaseClass {
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
+      requiresStartApproval: ("requiresStartApproval" in updates
+        ? updates.requiresStartApproval
+        : schedule.requiresStartApproval) as boolean | undefined,
+      startApprovedAt: ("startApprovedAt" in updates
+        ? updates.startApprovedAt
+        : schedule.startApprovedAt) as Date | null | undefined,
     });
 
     const editedFields = Object.keys(updates).filter(

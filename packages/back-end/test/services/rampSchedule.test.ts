@@ -24,6 +24,7 @@ import type { FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
+  isAwaitingStartApproval,
 } from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
@@ -4316,6 +4317,53 @@ describe("isAwaitingApproval", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isAwaitingStartApproval
+// ---------------------------------------------------------------------------
+
+describe("isAwaitingStartApproval", () => {
+  const held = {
+    status: "ready" as const,
+    currentStepIndex: -1,
+    requiresStartApproval: true,
+    startApprovedAt: null,
+  };
+
+  it("returns true for a ready, unapproved, pre-start approval schedule", () => {
+    expect(isAwaitingStartApproval(held)).toBe(true);
+  });
+
+  it("returns false once approved", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the schedule does not require approval", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        requiresStartApproval: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false once past step -1 (already crossed into a step)", () => {
+    expect(isAwaitingStartApproval({ ...held, currentStepIndex: 0 })).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a running schedule (only the ready hold counts)", () => {
+    expect(
+      isAwaitingStartApproval({ ...held, status: "running" as const }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isReadyForApproval — approval is gated behind the step's interval
 // ---------------------------------------------------------------------------
 
@@ -4451,6 +4499,26 @@ describe("computeNextProcessAt", () => {
   it("ready: returns null when no startDate", () => {
     const result = computeNextProcessAt({ status: "ready" });
     expect(result).toBeNull();
+  });
+
+  it("ready: returns null while awaiting start approval, even with a startDate", () => {
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: new Date("2026-06-05T00:00:00Z"),
+      requiresStartApproval: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: arms for startDate once the start is approved", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+      requiresStartApproval: true,
+      startApprovedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    expect(result).toEqual(start);
   });
 
   it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {

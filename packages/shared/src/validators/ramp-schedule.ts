@@ -156,6 +156,8 @@ export const rampEventTypeArray = [
   "resumed",
   "approval-requested",
   "approval-granted",
+  "awaiting-start-approval",
+  "start-approved",
   "rollback",
   "reset",
   "restart",
@@ -193,6 +195,15 @@ export const rampScheduleValidator = baseSchema
     endActions: z.array(rampStepAction).optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
+    // Persistent config: when true, the -1 → step 0 crossing is gated behind an
+    // explicit human approval instead of firing on publish / at startDate.
+    // The rule stays disabled (zero traffic) until approved. Composes with
+    // startDate: "hold until approved, then arm for that date".
+    requiresStartApproval: z.boolean().optional(),
+    // Transient marker: set when the current launch is approved, cleared on
+    // every return to step -1 (publish, rollback). While requiresStartApproval
+    // is true and this is unset, the schedule is held awaiting approval.
+    startApprovedAt: z.date().nullish(),
     cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
@@ -284,6 +295,30 @@ export const rampScheduleValidator = baseSchema
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
 
+// Derives the "awaiting start approval" state: a pre-start schedule that
+// opted into requiresStartApproval and hasn't been approved for the
+// current launch yet. This is the one-time hold on the -1 → step 0 crossing;
+// it re-arms on every return to step -1 (publish, rollback) because
+// startApprovedAt is cleared there. Used by UI, notifications, and the
+// engine's start/advance gating in lieu of a stored status.
+export function isAwaitingStartApproval(schedule: {
+  status: string;
+  currentStepIndex: number;
+  requiresStartApproval?: boolean;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return (
+    !!schedule.requiresStartApproval &&
+    !schedule.startApprovedAt &&
+    schedule.currentStepIndex < 0 &&
+    // "ready" is the live pre-start hold. "pending" is the same intent before
+    // the activating revision publishes (including synthetic draft-preview
+    // schedules) — both surface as "awaiting approval". A running schedule
+    // at -1 is a transient mid-transition state, not a user-facing hold.
+    (schedule.status === "ready" || schedule.status === "pending")
+  );
+}
+
 // Derives the "awaiting approval" display state. A `running` schedule whose
 // current step has `holdConditions.requiresApproval` set and whose
 // `stepApproval.stepIndex` does not match `currentStepIndex` (i.e. not yet
@@ -313,7 +348,7 @@ export function isAwaitingApproval(schedule: {
  * the user is never asked to sign off on a step whose timer is still counting
  * down.
  *
- * This is a time-based check only. For monitored steps it confirms the hold
+ * This is a time-based check only. For monitored steps it approves the hold
  * interval has elapsed, but it cannot see whether fresh analysis is available —
  * that (and any failing guardrail/health signal) is enforced server-side by
  * the approve-step endpoint, which rejects premature approvals.

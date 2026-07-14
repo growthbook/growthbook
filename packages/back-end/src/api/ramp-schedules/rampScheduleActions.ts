@@ -18,6 +18,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
+  approveScheduleStart,
   completeRampKeepCutoff,
   completeRollout,
   ensureSafeRolloutForMonitoredRamp,
@@ -334,6 +335,57 @@ export const approveStepRampSchedule = createApiRequestHandler({
     details: JSON.stringify({
       stepIndex: updated.currentStepIndex,
       stepApproval: updated.stepApproval,
+    }),
+  });
+
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
+});
+
+export const approveStartRampSchedule = createApiRequestHandler({
+  paramsSchema: actionParamsSchema,
+  bodySchema: z.never(),
+  responseSchema: rampScheduleResponse,
+  method: "post" as const,
+  path: "/ramp-schedules/:id/actions/approve-start",
+  operationId: "approveStartRampSchedule",
+  summary: "Approve the start of a held ramp schedule",
+  description:
+    "Releases a schedule created with `requiresStartApproval`. While held, the schedule sits in `ready` at step -1 with its rule disabled (zero traffic). Approving either starts the ramp immediately, or — when a future `startDate` is also set — arms it to start on that date.\n\nRequires update + publish permissions for the associated feature.\n",
+  tags: ["ramp-schedules"],
+})(async (req) => {
+  const schedule = await req.context.models.rampSchedules.getById(
+    req.params.id,
+  );
+  if (!schedule) throw new Error("Ramp schedule not found");
+
+  if (schedule.status !== "ready" || !schedule.requiresStartApproval) {
+    throw new Error(
+      `Cannot approve start: schedule is not awaiting approval (currently "${schedule.status}")`,
+    );
+  }
+
+  const err = await runLockedRampScheduleAction(
+    req.context,
+    schedule.id,
+    (fresh) => approveScheduleStart(req.context, fresh),
+  );
+  if (err) {
+    const detail = "detail" in err ? err.detail : undefined;
+    if (err.code === "permission_denied") {
+      throw new PermissionError(`Permission denied: ${detail ?? err.code}`);
+    }
+    throw new Error(detail ?? err.code);
+  }
+
+  const updated =
+    (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
+
+  await req.audit({
+    event: "rampSchedule.start-approved",
+    entity: { object: "rampSchedule", id: schedule.id },
+    details: JSON.stringify({
+      status: updated.status,
+      startApprovedAt: updated.startApprovedAt,
     }),
   });
 

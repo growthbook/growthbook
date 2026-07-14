@@ -1973,6 +1973,9 @@ async function createRampSchedulesForRevision(
             : undefined,
         monitoringConfig: action.monitoringConfig ?? template?.monitoringConfig,
         lockdownConfig: action.lockdownConfig ?? template?.lockdownConfig,
+        // Per-launch decision — deliberately sourced only from the action, never
+        // from the template (templates capture reusable shape, not start-gating).
+        requiresStartApproval: action.requiresStartApproval || undefined,
         // Start as "pending" — onActivatingRevisionPublished handles the
         // immediate → "running" transition inline when the revision publishes.
         status: "pending",
@@ -2002,15 +2005,26 @@ async function createRampSchedulesForRevision(
       updateAction.monitoringConfig !== undefined
         ? updateAction.monitoringConfig
         : existingSchedule?.monitoringConfig;
+    // Resolve the post-edit approval strategy. Switching TO "on approval"
+    // sets this true (and clears startDate); switching to immediate/date sets it
+    // false. When still true and unapproved, the ramp must NOT start now.
+    const nextRequiresApproval =
+      updateAction.requiresStartApproval !== undefined
+        ? updateAction.requiresStartApproval
+        : !!existingSchedule?.requiresStartApproval;
+    const heldForApproval =
+      nextRequiresApproval && !existingSchedule?.startApprovedAt;
     // "Start now": user explicitly cleared startDate on a not-yet-started
     // schedule. Transition ready → running inline so the rule goes live on
     // publish instead of at the next poller tick. A ready schedule has all
     // fields editable (startActions included — the ramp hasn't fired), so no
-    // running-merge / paused-clamp handling is needed here.
+    // running-merge / paused-clamp handling is needed here. Excluded when the
+    // edit selects "on approval" — that holds, it doesn't start.
     let startDeferredToScheduler = false;
     if (
       updateAction.startDate === null &&
-      existingSchedule?.status === "ready"
+      existingSchedule?.status === "ready" &&
+      !heldForApproval
     ) {
       const contentUpdates: Parameters<typeof startReadyScheduleNow>[2] = {};
       const edited: string[] = [];
@@ -2139,6 +2153,21 @@ async function createRampSchedulesForRevision(
               "startActions",
               startActions.length > 0 ? startActions : undefined,
             );
+            // Start strategy is a pre-start decision — only editable while the
+            // ramp hasn't crossed into step 0. Toggling it on re-arms the
+            // approval gate (clear the marker); toggling off lets the
+            // immediate/date logic take over.
+            if (
+              canEditStartActions &&
+              updateAction.requiresStartApproval !== undefined
+            ) {
+              set(
+                true,
+                "requiresStartApproval",
+                updateAction.requiresStartApproval || undefined,
+              );
+              patch.startApprovedAt = null;
+            }
             if (startDateChanged) edited.push("startDate");
             if (startDateChanged && !startDeferredToScheduler) {
               patch.startDate = nextStartDate;
@@ -2176,6 +2205,11 @@ async function createRampSchedulesForRevision(
                 ? nextStartDate
                 : (fresh.startDate ?? null),
             nextSnapshotAt: fresh.nextSnapshotAt,
+            requiresStartApproval: nextRequiresApproval,
+            startApprovedAt:
+              "startApprovedAt" in patch
+                ? (patch.startApprovedAt as Date | null)
+                : fresh.startApprovedAt,
           });
 
           const updated = await context.models.rampSchedules.updateById(
