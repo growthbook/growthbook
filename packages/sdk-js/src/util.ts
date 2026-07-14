@@ -359,12 +359,13 @@ export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
     return newUrl;
   }
 
+  const redirectKeys = new Set<string>();
+  redirectUrl.searchParams.forEach((_, key) => redirectKeys.add(key));
+
   currUrl.searchParams.forEach((value, key) => {
-    // skip  if search param already exists in redirectUrl
-    if (redirectUrl.searchParams.has(key)) {
-      return;
+    if (!redirectKeys.has(key)) {
+      redirectUrl.searchParams.append(key, value);
     }
-    redirectUrl.searchParams.set(key, value);
   });
 
   return redirectUrl.toString();
