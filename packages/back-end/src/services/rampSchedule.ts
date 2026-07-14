@@ -1011,6 +1011,15 @@ export async function applyRampStartActions(
 ): Promise<void> {
   if (schedule.steps.length > 0) return;
 
+  // Same invariant tripwire as advanceStep/jumpAheadToStep, for the 0-step
+  // enable path (which never goes through those): refuse to enable the rule
+  // while a start approval is pending. The approve flow records approval first.
+  if (startApprovalPending(schedule)) {
+    throw new Error(
+      `Ramp ${schedule.id} requires start approval before it can leave the pre-start hold`,
+    );
+  }
+
   const enableActions = buildEnableActions(schedule);
   const actions = [...(schedule.startActions ?? []), ...enableActions];
   if (!actions.length) return;
