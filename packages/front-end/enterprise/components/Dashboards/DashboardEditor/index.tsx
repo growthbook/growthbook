@@ -104,6 +104,7 @@ export const BLOCK_TYPE_INFO: Record<
   "sql-explorer": {
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
+    deprecated: true,
   },
   "metric-explorer": {
     name: "Metric",
