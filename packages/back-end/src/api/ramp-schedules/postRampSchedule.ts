@@ -71,6 +71,12 @@ const postRampScheduleValidator = {
       endActions: z.array(postBodyAction).optional(),
       startDate: z.string().datetime().optional().nullable(),
       cutoffDate: z.string().datetime().optional().nullable(),
+      requiresStartApproval: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate.",
+        ),
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
@@ -348,10 +354,14 @@ export const postRampSchedule = createApiRequestHandler(
     ...(body.experimentHealthAction
       ? { experimentHealthAction: body.experimentHealthAction }
       : {}),
+    requiresStartApproval: body.requiresStartApproval || undefined,
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,
-    nextProcessAt: startDate ?? null,
+    // An approval-gated schedule must not auto-arm (even with a startDate) — it
+    // holds until /actions/approve-step. Leaving nextProcessAt null keeps the
+    // poller from picking it up until the approval sets it.
+    nextProcessAt: body.requiresStartApproval ? null : (startDate ?? null),
   } as Omit<
     RampScheduleInterface,
     "id" | "organization" | "dateCreated" | "dateUpdated"

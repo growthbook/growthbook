@@ -514,9 +514,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {
-        // An approval-gated hold uses the approve-start action (records the
-        // approval + arms a future startDate if set); a plain scheduled
-        // ready schedule uses start (start-early).
+        // An approval-gated hold uses the shared approve-step action (which
+        // clears whichever gate is pending — here the pre-start hold, starting
+        // the ramp); a plain scheduled ready schedule uses start (start-early).
         const awaitingStartApproval = isAwaitingStartApproval(rampSchedule);
         ruleCtas.push(
           <Button
@@ -526,7 +526,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             onClick={async () => {
               await apiCall(
                 `/ramp-schedule/${rampSchedule.id}/actions/${
-                  awaitingStartApproval ? "approve-start" : "start"
+                  awaitingStartApproval ? "approve-step" : "start"
                 }`,
                 { method: "POST" },
               );

@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { isAwaitingStartApproval } from "shared/validators";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -193,7 +194,9 @@ async function runRampScheduleTick(
     if (
       current.status === "ready" &&
       current.startDate &&
-      current.startDate <= now
+      current.startDate <= now &&
+      // An approval-gated schedule holds even past its startDate until approved.
+      !isAwaitingStartApproval(current)
     ) {
       const initialNextStepAt = current.steps.length > 0 ? now : null;
       current = await context.models.rampSchedules.updateById(current.id, {

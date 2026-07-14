@@ -525,6 +525,18 @@ export const apiRampScheduleInterface = namedSchema(
       .describe(
         "Rule-level kill date. When reached, the ramp is completed and the rule is disabled (enabled=false). Use for time-boxed rules that must stop serving on a fixed date regardless of ramp progress. Set to null to clear.",
       ),
+    requiresStartApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate ('hold until approved, then arm for that date').",
+      ),
+    startApprovedAt: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the current launch's start was approved. Cleared on every return to step -1 (publish, rollback), re-arming the approval gate.",
+      ),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z
       .number()

@@ -1,5 +1,8 @@
 import type { Response } from "express";
-import { RampScheduleInterface } from "shared/validators";
+import {
+  RampScheduleInterface,
+  isAwaitingStartApproval,
+} from "shared/validators";
 import { PermissionError } from "shared/util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -571,23 +574,31 @@ export const postRampScheduleAction = async (
       break;
     }
 
+    // Clears whichever approval gate is pending: the pre-start hold
+    // (requiresStartApproval, schedule sitting at step -1) or a running step's
+    // requiresApproval gate. Same "approve the pending hold" action either way.
     case "approve-step": {
+      const awaitingStart = isAwaitingStartApproval(schedule);
       const currentStep = schedule.steps[schedule.currentStepIndex];
-      const awaitingApproval =
+      const awaitingStepApproval =
         schedule.status === "running" &&
         currentStep?.holdConditions?.requiresApproval &&
         schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
-      if (!awaitingApproval) {
+      if (!awaitingStart && !awaitingStepApproval) {
         return res.status(400).json({
           status: 400,
-          message: `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
+          message: `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
         });
       }
       const approveErr = await runLockedRampScheduleAction(
         context,
         schedule.id,
         (fresh) => {
+          // Pre-start hold: approving starts the ramp (crosses -1 → 0).
+          if (isAwaitingStartApproval(fresh)) {
+            return approveScheduleStart(context, fresh);
+          }
           // Pin to the step the reviewer saw — a queued approval must not
           // land on a step that was never reviewed.
           if (fresh.currentStepIndex !== schedule.currentStepIndex) {
@@ -757,44 +768,6 @@ export const postRampScheduleAction = async (
       });
 
       return res.status(200).json({ status: 200 });
-    }
-
-    case "approve-start": {
-      if (schedule.status !== "ready" || !schedule.requiresStartApproval) {
-        return res.status(400).json({
-          status: 400,
-          message: `Cannot approve start: schedule is not awaiting approval (status "${schedule.status}")`,
-        });
-      }
-      const startApproveErr = await runLockedRampScheduleAction(
-        context,
-        schedule.id,
-        (fresh) => approveScheduleStart(context, fresh),
-      );
-      if (startApproveErr) {
-        const httpStatus =
-          startApproveErr.code === "permission_denied" ? 403 : 400;
-        const message =
-          startApproveErr.code === "permission_denied"
-            ? `Permission denied: ${startApproveErr.detail}`
-            : `Error: ${"detail" in startApproveErr ? startApproveErr.detail : startApproveErr.code}`;
-        return res.status(httpStatus).json({
-          status: httpStatus,
-          code: startApproveErr.code,
-          message,
-        });
-      }
-      const afterStartApprove = await context.models.rampSchedules.getById(
-        schedule.id,
-      );
-      if (!afterStartApprove) {
-        return res.status(404).json({
-          status: 404,
-          message: "Ramp schedule not found after approve",
-        });
-      }
-      updated = afterStartApprove;
-      break;
     }
 
     default:

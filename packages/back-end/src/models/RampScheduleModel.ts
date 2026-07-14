@@ -168,6 +168,8 @@ export function rampScheduleToApiInterface(
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
+    requiresStartApproval: doc.requiresStartApproval,
+    startApprovedAt: dateToIso(doc.startApprovedAt),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
