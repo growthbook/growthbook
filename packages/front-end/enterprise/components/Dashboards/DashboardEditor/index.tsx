@@ -35,7 +35,7 @@ import {
   getBlockSizeBounds,
 } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/nextjs";
 import {
@@ -70,6 +70,7 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 import DashboardBlock from "./DashboardBlock";
+import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -324,12 +325,14 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  globalControlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   id: string;
   uid: string;
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
+  globalControls?: DashboardInterface["globalControls"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -343,6 +346,14 @@ interface Props {
         block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
       ) => void);
   mutate: () => void;
+  onGlobalControlsChange?: (
+    globalControls: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
+  updateTemporaryDashboardResults?: (
+    globalControls?: DashboardInterface["globalControls"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
@@ -354,9 +365,11 @@ function DashboardEditor({
   isTabActive,
   title,
   blocks,
+  globalControlBlocks,
   isEditing,
   enableAutoUpdates,
   updateSchedule,
+  globalControls,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -368,6 +381,8 @@ function DashboardEditor({
   projects,
   setBlock,
   mutate,
+  onGlobalControlsChange,
+  updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
@@ -391,6 +406,7 @@ function DashboardEditor({
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const { apiCall } = useAuth();
   const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -423,7 +439,6 @@ function DashboardEditor({
 
   const error = snapshotError;
   const count = queryStrings.length + savedQueryIds.length;
-
   const handleViewQueries = () => {
     setQueriesModalOpen(true);
     setDropdownOpen(false);
@@ -448,6 +463,7 @@ function DashboardEditor({
       <DashboardBlock
         isTabActive={isTabActive}
         block={block}
+        dashboardGlobalControls={globalControls}
         blockIndex={i}
         isEditing={isEditing}
         isFocused={isFocused}
@@ -526,6 +542,7 @@ function DashboardEditor({
                 experimentId: "",
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
+                globalControls,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -560,7 +577,7 @@ function DashboardEditor({
         dashboardId={id}
         uid={uid}
       />
-      <div className="mb-3">
+      <Box mt={isEditing ? "1" : undefined} mb="3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
           {switchToExperimentView ? (
             <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
@@ -589,6 +606,9 @@ function DashboardEditor({
             dashboardLastUpdated={dashboardLastUpdated}
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
+            needsUpdate={needsUpdate}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            onUpdated={() => setNeedsUpdate(false)}
           />
           {isGeneralDashboard && setIsEditing && !isEditing ? (
             <Flex align="center" gap="4" ml="4" flexShrink="0">
@@ -734,7 +754,17 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
-      </div>
+        {isGeneralDashboard && onGlobalControlsChange ? (
+          <DashboardGlobalControlsBar
+            blocks={globalControlBlocks ?? blocks}
+            globalControls={globalControls}
+            canEdit={canEdit}
+            onGlobalControlsChange={onGlobalControlsChange}
+            updateTemporaryDashboardResults={updateTemporaryDashboardResults}
+            setNeedsUpdate={setNeedsUpdate}
+          />
+        ) : null}
+      </Box>
       <div>
         {blocks.length === 0 ? (
           <Flex

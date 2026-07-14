@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import Field from "@/components/Forms/Field";
@@ -14,16 +14,6 @@ const SnowflakeEventForwarderForm: FC<{
 }> = ({ eventForwarderConfig, setEventForwarderConfig }) => {
   const snowflakeEventForwarderConfig =
     eventForwarderConfig.sinkType === "snowflake" ? eventForwarderConfig : null;
-
-  // The access URL is normally derived from the datasource account and shown
-  // read-only. When it couldn't be derived (e.g. a bare account locator like
-  // "xy12345"), it arrives empty — let the user enter it directly instead.
-  // Decided once on mount so typing the first character doesn't re-lock it.
-  const [accessUrlReadOnly] = useState(
-    () =>
-      eventForwarderConfig.sinkType === "snowflake" &&
-      !!eventForwarderConfig.config.accessUrl?.trim(),
-  );
 
   if (!snowflakeEventForwarderConfig) return null;
 
@@ -47,12 +37,7 @@ const SnowflakeEventForwarderForm: FC<{
         value={snowflakeEventForwarderConfig.config.accessUrl || ""}
         onChange={(accessUrl) => updateConfig({ accessUrl })}
         placeholder="https://myorg-account123.snowflakecomputing.com"
-        tooltip={
-          accessUrlReadOnly
-            ? "Derived from the Snowflake datasource connection (account or access URL). Update the datasource settings to change this value."
-            : "Couldn't be derived from the datasource account. Enter the full Snowflake URL (e.g. https://myorg-account123.snowflakecomputing.com)."
-        }
-        readOnly={accessUrlReadOnly}
+        tooltip="Enter the full Snowflake URL (e.g. https://myorg-account123.snowflakecomputing.com)."
       />
       <Field
         label="Database"

@@ -13,7 +13,11 @@ import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import type { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import type { SavedQuery } from "../../validators/saved-queries";
-import type { ProductAnalyticsExploration } from "../../validators/product-analytics";
+import {
+  dateGranularity,
+  baseExplorationConfigValidator,
+  type ProductAnalyticsExploration,
+} from "../../validators/product-analytics";
 import { namedSchema } from "../../validators/openapi-helpers";
 
 import {
@@ -64,6 +68,16 @@ export const dashboardGridConfig = z
   .strict();
 export type DashboardGridConfig = z.infer<typeof dashboardGridConfig>;
 
+export const dashboardGlobalControlsValidator = z
+  .object({
+    dateRange: baseExplorationConfigValidator.shape.dateRange.optional(),
+    dateGranularity: z.enum(dateGranularity).optional(),
+  })
+  .strict();
+export type DashboardGlobalControls = z.infer<
+  typeof dashboardGlobalControlsValidator
+>;
+
 export const dashboardInterface = z
   .object({
     id: z.string(),
@@ -79,6 +93,7 @@ export const dashboardInterface = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    globalControls: dashboardGlobalControlsValidator.optional(),
     // Dashboard-wide period comparison. Currently set only per exploration
     // block; this is the seam for a future dashboard-level compare toggle
     // (see resolveBlockComparison) and is honored on refresh/render already.
@@ -148,6 +163,7 @@ export const apiCreateDashboardBody = z
         "General Dashboards only, Experiment Dashboards use the experiment's projects",
       )
       .optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
     blocks: z.array(apiCreateDashboardBlockInterface),
   })
   .strict();

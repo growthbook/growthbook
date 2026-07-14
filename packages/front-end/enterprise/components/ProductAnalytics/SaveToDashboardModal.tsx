@@ -5,6 +5,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardInterface,
   DashboardEditLevel,
   DashboardShareLevel,
@@ -156,6 +157,7 @@ export default function SaveToDashboardModal({
           projects: formValues.projects,
           experimentId: "",
           blocks: [newBlock],
+          globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
         }),
       });
       if (res.status !== 200) throw new Error("Failed to create dashboard");

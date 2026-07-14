@@ -16,19 +16,15 @@ import {
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   resolveExperimentBlockMetricIds,
+  getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
-  BlockComparison,
   resolveBlockComparison,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import {
-  ExplorationConfig,
-  ProductAnalyticsExploration,
-  SavedQuery,
-} from "shared/validators";
+import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -388,14 +384,14 @@ const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "data-source-exploration",
 ] as const;
 
+type ProductAnalyticsExplorationBlock = Extract<
+  DashboardInterface["blocks"][number],
+  { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
+>;
+
 function isProductAnalyticsExplorationBlock(
   block: DashboardInterface["blocks"][number],
-): block is DashboardInterface["blocks"][number] & {
-  explorerAnalysisId: string;
-  config: ExplorationConfig;
-  comparison?: BlockComparison;
-  comparisonExplorerAnalysisId?: string;
-} {
+): block is ProductAnalyticsExplorationBlock {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
@@ -415,7 +411,7 @@ export async function updateDashboardExplorations(
   blocks: DashboardInterface["blocks"],
   // Optional so the future dashboard-wide compare toggle can drive every block
   // through resolveBlockComparison without changing this signature again.
-  dashboard?: DashboardInterface,
+  dashboard?: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -426,20 +422,23 @@ export async function updateDashboardExplorations(
       // Re-resolve the comparison every refresh so predefined previous windows
       // roll forward with the primary range (custom windows stay fixed).
       const comparison = resolveBlockComparison(block, dashboard);
+      const primaryConfig = dashboard
+        ? getEffectiveExplorationConfig(block, dashboard)
+        : block.config;
       // allSettled (not all): a comparison failure (timeout, upstream schema
       // change, transient warehouse issue) must not block the primary refresh
       // and leave the whole block frozen at its last refresh.
       const [primaryResult, comparisonResult] = await Promise.allSettled([
-        runProductAnalyticsExploration(context, block.config, {
+        runProductAnalyticsExploration(context, primaryConfig, {
           cache: "never",
         }),
         comparison
           ? runProductAnalyticsExploration(
               context,
               {
-                ...block.config,
+                ...primaryConfig,
                 dateRange: resolveComparisonPreviousTimeFrame(
-                  block.config.dateRange,
+                  primaryConfig.dateRange,
                   comparison,
                 ),
               },

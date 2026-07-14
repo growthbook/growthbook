@@ -354,7 +354,10 @@ export function getSafeRolloutSnapshotSettings({
     phase: {
       index: "0",
     },
-    customFields,
+    // customFields originates from feature.customFields, a legacy Mongoose Mixed
+    // field that can be null. The settings validator's .optional() rejects null
+    // (accepts only undefined/record), so normalize to an empty record.
+    customFields: customFields ?? {},
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     // Honor the rolling floor so post-restart snapshots skip prior-run exposures.
