@@ -49,7 +49,7 @@ The glossary:
 
 So a sentence-case label still reads "Require approval to modify Saved Groups", and body copy still reads "users will only be able to create Fact Metrics".
 
-A common noun that is not a named resource stays lowercase mid-sentence. "experiment", "metric", "dimension", "segment", "environment". Only the terms in the glossary above are promoted to proper nouns. "Project" is a named resource and is Title Case everywhere ("Select a Project", "All Projects"), but a "project" belonging to another product (a BigQuery, GCP, or Amplitude project) is that product's common noun and stays lowercase. Hyphenated modifiers like "per-project" and "project-level" stay lowercase.
+A common noun that is not a named resource stays lowercase mid-sentence. "experiment", "metric", "dimension", "segment", "environment". Only the terms in the glossary above are promoted to proper nouns. "Project" is a named resource and is Title Case everywhere ("Select a Project", "All Projects"), but a "project" belonging to another product (a BigQuery, GCP, or Amplitude project) is that product's common noun and stays lowercase. Hyphenated modifiers like "per-project" and "project-level" stay lowercase. "All Environments" is a fixed scope label and uses Title Case, but bare "environment" or "environments" remains lowercase.
 
 Technical identifiers stay lowercase in prose — "experiment key", "experiment tracking key", "API key", "attribute", "token". These are technical concepts, not named resources, and follow the same convention as, e.g., a personal access token: lowercase unless a word starts the sentence.
 

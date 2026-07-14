@@ -235,7 +235,7 @@ export default function FeatureSettings() {
                   value: "",
                 },
                 {
-                  label: "All environments",
+                  label: "All Environments",
                   value: FEATURE_RULES_ALL_ENVS,
                 },
                 ...environments.map((env) => ({

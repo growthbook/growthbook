@@ -12,6 +12,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
@@ -162,10 +163,10 @@ export default function ExperimentSettings({
                   })}
                 />
               </Box>
-              <small className="form-text text-muted">
+              <HelperText status="info" size="sm" mt="1">
                 When importing past experiments from a Data Source, GrowthBook
                 skips any that ran for fewer than this many days.
-              </small>
+              </HelperText>
             </Box>
 
             {/* Pre-computed dimension breakdowns */}
@@ -442,10 +443,10 @@ export default function ExperimentSettings({
                       })}
                     />
                   </Box>
-                  <small className="form-text text-muted">
+                  <HelperText status="info" size="sm">
                     Warn when at least this percent of experiment users are in
                     multiple variations.
-                  </small>
+                  </HelperText>
                 </Box>
               </Box>
             </Box>
