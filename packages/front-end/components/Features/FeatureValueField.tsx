@@ -411,8 +411,18 @@ export default function FeatureValueField({
         lastComposedValueRef.current = composed;
         setValue(composed);
       };
+      // The current backing config may be archived (or out of scope), so it's
+      // absent from `eligibleConfigs` — fall back to the full list so an existing
+      // backing still displays instead of collapsing to "None". Flag the archived
+      // state so the degraded backing reads honestly.
       const selectedConfig =
-        eligibleConfigs.find((c) => c.key === configKey) ?? null;
+        eligibleConfigs.find((c) => c.key === configKey) ??
+        (configKey ? (configs.find((c) => c.key === configKey) ?? null) : null);
+      const selectedConfigLabel = selectedConfig
+        ? selectedConfig.archived
+          ? `${selectedConfig.name} (archived)`
+          : selectedConfig.name
+        : "None";
 
       return (
         <Box mb="4">
@@ -434,7 +444,7 @@ export default function FeatureValueField({
                 Based on config:
               </Text>
               {disabled ? (
-                <Text>{selectedConfig?.name ?? "None"}</Text>
+                <Text>{selectedConfigLabel}</Text>
               ) : (
                 <DropdownMenu
                   trigger={
@@ -443,7 +453,7 @@ export default function FeatureValueField({
                       style={{ color: "var(--color-text-high)" }}
                     >
                       <Flex as="span" align="center" gap="1">
-                        <Text>{selectedConfig?.name ?? "None"}</Text>
+                        <Text>{selectedConfigLabel}</Text>
                         <PiCaretDownFill />
                       </Flex>
                     </Link>

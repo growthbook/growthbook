@@ -513,7 +513,7 @@ export default function ConfigOverrideEditor({
               The current override isn&apos;t a plain JSON object. Edit it on
               the JSON tab.
             </Callout>
-          ) : rows.length === 0 ? (
+          ) : rows.length === 0 && !extensible ? (
             <Text color="text-low">This config defines no fields.</Text>
           ) : (
             <Box>
