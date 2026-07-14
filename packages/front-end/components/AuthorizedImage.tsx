@@ -1,5 +1,6 @@
 import React, { useEffect, useState, FC } from "react";
-import { FaExclamationTriangle, FaRegImage } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { PiImageBrokenLight } from "react-icons/pi";
 import { SignedImageUrlResponse } from "shared/types/upload";
 import { useAuth } from "@/services/auth";
 import { getApiHost, getGcsDomain, getS3Domain } from "@/services/env";
@@ -151,7 +152,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
             color: "var(--color-text-mid)",
           }}
         >
-          <FaRegImage size={14} />
+          <PiImageBrokenLight size={16} />
           {altText ?? "Image unavailable"}
         </span>
       );
