@@ -48,27 +48,33 @@ export async function submitRevisionReview(
   const { action = "comment", comment } = req.body;
   const review = actionToReviewType[action];
 
-  // Block the creator from any non-comment review action.
+  // `request-changes` by the author doesn't make sense. Author may approve
+  // their own revision when blockSelfApproval is off, and may always comment.
   if (
     revision.createdBy != null &&
     "id" in revision.createdBy &&
     revision.createdBy.id === req.context.userId &&
-    action !== "comment"
+    action === "request-changes"
   ) {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
 
-  // Block contributors from self-approving when `blockSelfApproval` is set.
-  // request-changes / comment are intentionally allowed.
+  // Block self-approval when `blockSelfApproval` is set at the org level.
+  // When the setting is off, authors may approve their own revisions.
+  // request-changes / comment are intentionally allowed for authors.
   if (action === "approve") {
     const requireReviews = req.context.org.settings?.requireReviews;
     const reviewSetting = Array.isArray(requireReviews)
       ? getReviewSetting(requireReviews, feature)
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
-      const isSelfApproval = (revision.contributors ?? []).some(
-        (id) => id === req.context.userId,
-      );
+      const createdByUser = revision.createdBy as
+        | { id: string }
+        | null
+        | undefined;
+      const isSelfApproval =
+        (revision.contributors ?? []).some((id) => id === req.context.userId) ||
+        createdByUser?.id === req.context.userId;
       if (isSelfApproval) {
         throw new BadRequestError(
           "You cannot approve a draft you contributed to.",
