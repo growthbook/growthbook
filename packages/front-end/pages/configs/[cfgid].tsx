@@ -828,9 +828,16 @@ export default function ConfigDetailPage(): React.ReactElement {
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
   const canDeleteNow =
     permissionsUtil.canDeleteConfig(config) && !!config.archived;
-  const canEditNow = canUpdate && (!selectedRevision || isDraft);
-  // Inline editing is draft-only; non-draft views show an "Edit" button that drops into a draft.
-  const canEditInline = canUpdate && isDraft;
+  // A locked config is frozen — no edit controls at all (unlock is a separate,
+  // bypass-gated control). Editing is otherwise allowed both in a draft and in
+  // the live view; a selected merged/discarded revision is a read-only history
+  // view (selectedRevision set + not a draft), so it stays non-editable.
+  const isLocked = !!config.lock;
+  const canEditNow = canUpdate && !isLocked && (!selectedRevision || isDraft);
+  // Inline editing works in a live context too — saving auto-creates a draft
+  // (saveValue's writeQuery falls back to ?forceCreateRevision=1). Kept in lockstep
+  // with canEditNow so locked/discarded contexts expose no edit controls.
+  const canEditInline = canEditNow;
   const canBypassApproval = permissionsUtil.canBypassApprovalChecks({
     project: config.project || "",
   });
@@ -852,7 +859,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const ownValue = (): Record<string, unknown> =>
     parsePlainJSONObject(displayedConfig.value ?? "") ?? {};
 
-  // forceCreateRevision is a defensive fallback, not normally reached (gated by canEditInline).
+  // Write to the open draft when one is selected; otherwise (editing from the
+  // live view) auto-create a draft. The forceCreateRevision path is now the
+  // normal route for a live-context edit, not just a fallback.
   const writeQuery = (): string =>
     selectedRevision && isDraft
       ? `?revisionId=${selectedRevision.id}`
@@ -1651,8 +1660,8 @@ export default function ConfigDetailPage(): React.ReactElement {
                   selectedRevision={selectedRevision}
                   entityNoun="config"
                   hasRevisions={allRevisions.length > 0}
-                  canEditTitle={canUpdate}
-                  canEditDescription={canUpdate}
+                  canEditTitle={canUpdate && !isLocked}
+                  canEditDescription={canUpdate && !isLocked}
                   fallbackOwnerId={config.owner}
                   fallbackDateCreated={config.dateCreated}
                   onSelectRevision={selectRevision}
@@ -1663,10 +1672,14 @@ export default function ConfigDetailPage(): React.ReactElement {
                     });
                     await mutateRevisions();
                   }}
-                  onNewDraft={canUpdate ? handleNewDraft : undefined}
+                  onNewDraft={
+                    canUpdate && !isLocked ? handleNewDraft : undefined
+                  }
                   onReviewPublish={() => setTabAndScroll("review")}
                   onEditDescription={
-                    canUpdate ? () => setEditDescriptionModal(true) : undefined
+                    canUpdate && !isLocked
+                      ? () => setEditDescriptionModal(true)
+                      : undefined
                   }
                   disablePinning
                 />
