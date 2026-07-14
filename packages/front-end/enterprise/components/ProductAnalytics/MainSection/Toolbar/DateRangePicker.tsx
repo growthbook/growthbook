@@ -2,22 +2,18 @@ import React, { ReactNode, useState, useRef, useEffect } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import type { ExplorationDateRange } from "shared/validators";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-
-const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
-  {
-    today: "Today",
-    last7Days: "Past 7 Days",
-    last30Days: "Past 30 Days",
-    last90Days: "Past 90 Days",
-    customLookback: "Custom Lookback",
-    customDateRange: "Custom Date Range",
-  };
+import {
+  DATE_RANGE_PREDEFINED_LABELS,
+  LOOKBACK_UNIT_LABELS,
+} from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
+import { useMergedDateRangeUpdates } from "./useMergedDateRangeUpdates";
 
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
@@ -29,14 +25,17 @@ function MicroLabel({ children }: { children: ReactNode }) {
 
 /** Preset dropdown ("Custom Date Range" etc.) plus the custom-lookback inputs. */
 function DateRangePresetSelect({
+  value,
+  onChange,
+  disabled,
   fullWidth = false,
 }: {
+  value: ExplorationDateRange;
+  onChange: (dateRange: ExplorationDateRange) => void;
+  disabled?: boolean;
   /** Stretch the preset dropdown to 100% and lay the lookback # + unit in a row. */
   fullWidth?: boolean;
 }) {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  const { dateRange } = draftExploreState;
-
   const [localLookbackValue, setLocalLookbackValue] = useState<string | null>(
     null,
   );
@@ -44,15 +43,15 @@ function DateRangePresetSelect({
   const skipBlurCommitRef = useRef(false);
 
   useEffect(() => {
-    if (dateRange.predefined !== "customLookback") {
+    if (value.predefined !== "customLookback") {
       setLocalLookbackValue(null);
       latestLookbackRef.current = "";
     }
-  }, [dateRange.predefined]);
+  }, [value.predefined]);
 
-  const commitLookbackValue = (value: string) => {
-    const parsed = value ? parseInt(value, 10) : null;
-    const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
+  const commitLookbackValue = (lookbackValue: string) => {
+    const parsed = lookbackValue ? parseInt(lookbackValue, 10) : null;
+    const isValid = parsed !== null && parsed >= 1 && !Number.isNaN(parsed);
 
     if (!isValid) {
       setLocalLookbackValue(null);
@@ -60,16 +59,19 @@ function DateRangePresetSelect({
       return;
     }
 
-    setDraftExploreState((prev) => ({
-      ...prev,
-      dateRange: { ...prev.dateRange, lookbackValue: parsed },
-    }));
+    onChange({
+      ...value,
+      lookbackValue: parsed,
+      lookbackUnit: value.lookbackUnit || "day",
+    });
     setLocalLookbackValue(null);
     latestLookbackRef.current = "";
   };
 
+  const activeDateRange = value;
   const lookbackNumberField = (
     <Field
+      type="number"
       style={{
         width: "55px",
         paddingTop: "0px",
@@ -78,13 +80,15 @@ function DateRangePresetSelect({
       }}
       placeholder="#"
       min="1"
+      disabled={disabled}
       value={
         localLookbackValue !== null
           ? localLookbackValue
-          : dateRange.lookbackValue?.toString() || ""
+          : activeDateRange.lookbackValue?.toString() || ""
       }
       onFocus={() => {
-        latestLookbackRef.current = dateRange.lookbackValue?.toString() || "";
+        latestLookbackRef.current =
+          activeDateRange.lookbackValue?.toString() || "";
       }}
       onChange={(e) => {
         const v = e.target.value;
@@ -104,7 +108,7 @@ function DateRangePresetSelect({
           e.preventDefault();
           const toCommit =
             latestLookbackRef.current ||
-            dateRange.lookbackValue?.toString() ||
+            activeDateRange.lookbackValue?.toString() ||
             "";
           commitLookbackValue(toCommit);
           skipBlurCommitRef.current = true;
@@ -118,20 +122,18 @@ function DateRangePresetSelect({
     <Select
       size="2"
       style={fullWidth ? { width: "100%" } : undefined}
-      value={dateRange.lookbackUnit || "day"}
+      value={activeDateRange.lookbackUnit || "day"}
+      disabled={disabled}
       setValue={(v) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dateRange: {
-            ...prev.dateRange,
-            lookbackUnit: v as (typeof lookbackUnit)[number],
-          },
-        }));
+        onChange({
+          ...activeDateRange,
+          lookbackUnit: v as (typeof lookbackUnit)[number],
+        });
       }}
     >
       {lookbackUnit.map((u) => (
         <SelectItem key={u} value={u}>
-          {u}(s)
+          {LOOKBACK_UNIT_LABELS[u]}
         </SelectItem>
       ))}
     </Select>
@@ -141,27 +143,40 @@ function DateRangePresetSelect({
     <Select
       size="2"
       style={fullWidth ? { width: "100%" } : undefined}
-      value={dateRange.predefined}
+      value={value.predefined}
       placeholder="Select range"
+      disabled={disabled}
       setValue={(v) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dateRange: {
-            ...prev.dateRange,
-            predefined: v as (typeof dateRangePredefined)[number],
-          },
-        }));
+        const predefined = v as (typeof dateRangePredefined)[number];
+        onChange({
+          ...activeDateRange,
+          predefined,
+          ...(predefined === "customLookback"
+            ? {
+                lookbackValue: activeDateRange.lookbackValue || 30,
+                lookbackUnit: activeDateRange.lookbackUnit || "day",
+              }
+            : {}),
+          ...(predefined === "customDateRange"
+            ? {
+                startDate:
+                  activeDateRange.startDate ?? format(new Date(), "yyyy-MM-dd"),
+                endDate:
+                  activeDateRange.endDate ?? format(new Date(), "yyyy-MM-dd"),
+              }
+            : {}),
+        });
       }}
     >
       {dateRangePredefined.map((option) => (
         <SelectItem key={option} value={option}>
-          {PREDEFINED_LABELS[option] || option}
+          {DATE_RANGE_PREDEFINED_LABELS[option]}
         </SelectItem>
       ))}
     </Select>
   );
 
-  const isCustomLookback = dateRange.predefined === "customLookback";
+  const isCustomLookback = value.predefined === "customLookback";
 
   if (fullWidth) {
     // Custom Lookback keeps the preset dropdown, number, and unit on one row
@@ -194,53 +209,45 @@ function DateRangePresetSelect({
 
 /** The "Current" custom date range field (label + range picker). */
 function CurrentCustomRangeField({
+  value,
+  onChange,
+  disabled,
   shouldWrap = false,
   label,
   fullWidth = false,
 }: {
+  value: ExplorationDateRange;
+  onChange: (dateRange: ExplorationDateRange) => void;
+  disabled?: boolean;
   shouldWrap?: boolean;
   /** Micro-label shown before the custom date range field (e.g. "Current"). */
   label?: ReactNode;
   /** Render as a single full-width range field (no label) that fills its cell. */
   fullWidth?: boolean;
 }) {
-  const { draftExploreState, setDraftExploreState } = useExplorerContext();
-  const { dateRange } = draftExploreState;
+  const updateDateRange = useMergedDateRangeUpdates(value, onChange);
 
-  if (dateRange.predefined !== "customDateRange") return null;
+  if (value.predefined !== "customDateRange") return null;
 
   const picker = (
     <DatePicker
       containerClassName="mb-0"
       compact
       wrapRangeInputs={fullWidth ? false : shouldWrap}
+      disabled={disabled}
       date={
-        dateRange.startDate
-          ? getValidDateOffsetByUTC(dateRange.startDate)
-          : undefined
+        value.startDate ? getValidDateOffsetByUTC(value.startDate) : undefined
       }
-      date2={
-        dateRange.endDate
-          ? getValidDateOffsetByUTC(dateRange.endDate)
-          : undefined
-      }
+      date2={value.endDate ? getValidDateOffsetByUTC(value.endDate) : undefined}
       setDate={(d) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dateRange: {
-            ...prev.dateRange,
-            startDate: d ? format(d, "yyyy-MM-dd") : null,
-          },
-        }));
+        updateDateRange({
+          startDate: d ? format(d, "yyyy-MM-dd") : null,
+        });
       }}
       setDate2={(d) => {
-        setDraftExploreState((prev) => ({
-          ...prev,
-          dateRange: {
-            ...prev.dateRange,
-            endDate: d ? format(d, "yyyy-MM-dd") : null,
-          },
-        }));
+        updateDateRange({
+          endDate: d ? format(d, "yyyy-MM-dd") : null,
+        });
       }}
       precision="date"
     />
@@ -262,22 +269,40 @@ function CurrentCustomRangeField({
   );
 }
 
-function DefaultDateRangePickerContent({
-  shouldWrap = false,
-  label,
-  fullWidth = false,
-}: {
+export interface ControlledDateRangePickerProps {
+  value: ExplorationDateRange;
+  onChange: (dateRange: ExplorationDateRange) => void;
+  disabled?: boolean;
   shouldWrap?: boolean;
   /** Micro-label shown before the custom date range field (e.g. "Current"). */
   label?: ReactNode;
   /** Stack the preset dropdown and date field vertically, each spanning 100%. */
   fullWidth?: boolean;
-}) {
+}
+
+export function ControlledDateRangePicker({
+  value,
+  onChange,
+  disabled,
+  shouldWrap = false,
+  label,
+  fullWidth = false,
+}: ControlledDateRangePickerProps) {
   if (fullWidth) {
     return (
       <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-        <DateRangePresetSelect fullWidth />
-        <CurrentCustomRangeField fullWidth />
+        <DateRangePresetSelect
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          fullWidth
+        />
+        <CurrentCustomRangeField
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          fullWidth
+        />
       </Flex>
     );
   }
@@ -289,9 +314,70 @@ function DefaultDateRangePickerContent({
       width={shouldWrap ? "100%" : undefined}
       style={shouldWrap ? { minWidth: 0 } : undefined}
     >
-      <DateRangePresetSelect />
-      <CurrentCustomRangeField shouldWrap={shouldWrap} label={label} />
+      <DateRangePresetSelect
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+      />
+      <CurrentCustomRangeField
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        shouldWrap={shouldWrap}
+        label={label}
+      />
     </Flex>
+  );
+}
+
+function ExplorerDateRangePresetSelect({
+  fullWidth = false,
+}: {
+  /** Stretch the preset dropdown to 100% and lay the lookback # + unit in a row. */
+  fullWidth?: boolean;
+}) {
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+
+  return (
+    <DateRangePresetSelect
+      value={draftExploreState.dateRange}
+      onChange={(dateRange) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange,
+        }));
+      }}
+      fullWidth={fullWidth}
+    />
+  );
+}
+
+function ExplorerCurrentCustomRangeField({
+  shouldWrap = false,
+  label,
+  fullWidth = false,
+}: {
+  shouldWrap?: boolean;
+  /** Micro-label shown before the custom date range field (e.g. "Current"). */
+  label?: ReactNode;
+  /** Render as a single full-width range field (no label) that fills its cell. */
+  fullWidth?: boolean;
+}) {
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+
+  return (
+    <CurrentCustomRangeField
+      value={draftExploreState.dateRange}
+      onChange={(dateRange) =>
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange,
+        }))
+      }
+      shouldWrap={shouldWrap}
+      label={label}
+      fullWidth={fullWidth}
+    />
   );
 }
 
@@ -394,8 +480,17 @@ export default function DateRangePicker({
   label,
   fullWidth = false,
 }: DateRangePickerProps = {}) {
+  const { draftExploreState, setDraftExploreState } = useExplorerContext();
+
   return (
-    <DefaultDateRangePickerContent
+    <ControlledDateRangePicker
+      value={draftExploreState.dateRange}
+      onChange={(dateRange) => {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          dateRange,
+        }));
+      }}
       shouldWrap={shouldWrap}
       label={label}
       fullWidth={fullWidth}
@@ -455,7 +550,7 @@ export function ComparisonDateControls({
     );
     return (
       <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-        <DateRangePresetSelect fullWidth />
+        <ExplorerDateRangePresetSelect fullWidth />
         <Flex direction="column" gap="1" width="100%" style={{ minWidth: 0 }}>
           {labeledRow("Prior", <ComparisonPreviousRangePicker fullWidth />)}
           {labeledRow(
@@ -464,7 +559,7 @@ export function ComparisonDateControls({
               vs
             </Text>,
           )}
-          {labeledRow("Current", <CurrentCustomRangeField fullWidth />)}
+          {labeledRow("Current", <ExplorerCurrentCustomRangeField fullWidth />)}
         </Flex>
         {groupBySlot}
       </Flex>
@@ -472,10 +567,10 @@ export function ComparisonDateControls({
   }
   return (
     <>
-      <DateRangePresetSelect />
+      <ExplorerDateRangePresetSelect />
       <Flex align="center" gap="2">
         <CompareFieldLabel>Current</CompareFieldLabel>
-        <CurrentCustomRangeField />
+        <ExplorerCurrentCustomRangeField />
       </Flex>
       <Text size="small" color="text-low" weight="medium">
         vs

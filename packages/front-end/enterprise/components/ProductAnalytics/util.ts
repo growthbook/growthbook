@@ -100,7 +100,7 @@ export function getValueTypeLabel(
  *  represented in the existing filters. Mirrors the behavior used when
  *  authoring fact metrics — keeps the explorer consistent with metrics UX. */
 export function getInitialInlineFilters(
-  factTable: FactTableInterface,
+  factTable: FactTableDefinition,
   existingRowFilters: RowFilter[] = [],
 ): RowFilter[] {
   const rowFilters = [...existingRowFilters];
@@ -187,7 +187,7 @@ function formatValuesOnly(filter: RowFilter): string {
  *  (e.g. `path=/search`); word operators keep the surrounding spaces. */
 export function formatFilterPreview(
   filter: RowFilter,
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): string {
   if (filter.operator === "sql_expr") return "SQL expr";
   if (filter.operator === "saved_filter") {
@@ -235,7 +235,7 @@ export function getFunnelStepPreview({
   allSteps,
 }: {
   step: FunnelStep;
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   showFactTable: boolean;
   maxFilters?: number;
   allSteps?: FunnelStep[];
@@ -282,7 +282,7 @@ export function getFunnelStepDisplayLabel({
   allSteps,
 }: {
   step: FunnelStep;
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   /** Zero-based step position; used to back-compute `Step N` when the name
    *  has been edited to something empty/whitespace. */
   fallbackIndex: number;
@@ -366,7 +366,7 @@ export function createEmptyFunnelStep({
  *  Empty if any step is missing a fact table or a table id cannot be resolved. */
 export function getFunnelUnitOptions(
   dataset: FunnelDataset,
-  factTables: FactTableInterface[],
+  factTables: FactTableDefinition[],
 ): string[] {
   const factTablesForSteps = dataset.steps
     .map((s) =>
@@ -374,7 +374,7 @@ export function getFunnelUnitOptions(
         ? (factTables.find((ft) => ft.id === s.factTable) ?? null)
         : null,
     )
-    .filter((ft): ft is FactTableInterface => !!ft);
+    .filter((ft): ft is FactTableDefinition => !!ft);
   if (
     !factTablesForSteps.length ||
     factTablesForSteps.length < dataset.steps.length
@@ -619,7 +619,7 @@ export function fillMissingUnits(
     if (!steps.length) return config;
     const factTables = steps
       .map((s) => (s.factTable ? getFactTableById(s.factTable) : null))
-      .filter((ft): ft is FactTableInterface => !!ft);
+      .filter((ft): ft is FactTableDefinition => !!ft);
     if (factTables.length !== steps.length) return config;
     const intersection = factTables.reduce<string[] | null>((acc, ft) => {
       const ids = ft.userIdTypes ?? [];
@@ -800,7 +800,7 @@ function toFetchKey(config: ExplorationConfig | ExplorerDraftConfig): unknown {
  *  filter that cleanRowFilters would otherwise strip before submission. */
 export function hasUnsatisfiedInlineFilters(
   rawConfig: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
 ): boolean {
   const dataset = rawConfig?.dataset;
   if (!dataset) return false;
@@ -848,7 +848,7 @@ export function hasUnsatisfiedInlineFilters(
  */
 export function isSubmittableConfig(
   cleanedConfig: ExplorationConfig,
-  getFactTableById?: (id: string) => FactTableInterface | null,
+  getFactTableById?: (id: string) => FactTableDefinition | null,
 ): boolean {
   if (!cleanedConfig?.dataset) return false;
 

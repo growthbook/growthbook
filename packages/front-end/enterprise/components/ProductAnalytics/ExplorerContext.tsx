@@ -130,6 +130,7 @@ export function useDefaultDataSourceId(): string | undefined {
 interface ExplorerProviderProps {
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
+  initialSubmittedConfig?: ExplorerDraftConfig;
   hasExistingResults?: boolean;
   onRunComplete?: (
     exploration: ProductAnalyticsExploration,
@@ -142,6 +143,7 @@ interface ExplorerProviderProps {
 export function ExplorerProvider({
   children,
   initialConfig,
+  initialSubmittedConfig,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -175,9 +177,19 @@ export function ExplorerProvider({
       withUnits,
       getFactMetricById,
     );
+    const normalizedSubmitted = initialSubmittedConfig
+      ? clearInapplicableShowAs(
+          fillMissingUnits(
+            initialSubmittedConfig,
+            getFactTableById,
+            getFactMetricById,
+          ),
+          getFactMetricById,
+        )
+      : normalizedInitial;
     return {
       draftState: normalizedInitial,
-      submittedState: hasExistingResults ? normalizedInitial : null,
+      submittedState: hasExistingResults ? normalizedSubmitted : null,
       exploration: null,
       error: null,
       query: null,
@@ -205,7 +217,7 @@ export function ExplorerProvider({
     customPrimaryBoundsKey(normalizedInitialDateRange),
   );
 
-  const hasEverFetchedRef = useRef(false);
+  const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
   const funnelAnalyzeCollapseRef = useRef<(() => void) | null>(null);

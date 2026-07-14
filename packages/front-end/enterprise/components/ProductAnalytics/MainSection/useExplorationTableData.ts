@@ -8,7 +8,7 @@ import {
   getDateGranularity,
   buildAlignedComparisonRowLookup,
 } from "shared/enterprise";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import type { HeaderStructure } from "@/components/Settings/DisplayTestQueryResults";
 import {
   sortExplorationRows,
@@ -125,7 +125,7 @@ function formatPct(value: number | null): string {
 function buildFunnelTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
 ): ExplorationTableData {
   if (submittedExploreState.dataset.type !== "funnel") {
     return {
