@@ -13,6 +13,7 @@ import {
   connectSlackOAuthIntegration,
   connectSlackOAuthInstallFromSession,
   deleteSlackOAuthIntegration,
+  disconnectSlackWorkspace,
   getSlackOAuthAuthorizeUrl,
   getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
@@ -263,6 +264,31 @@ export const postSlackChannel = async (
 };
 
 // endregion POST /integrations/slack/channels
+
+// region POST /integrations/slack/disconnect
+
+type PostSlackDisconnectRequest = AuthRequest<{ teamId?: string }>;
+
+// Disconnect a whole Slack workspace — removes its connection + every channel.
+export const postSlackDisconnect = async (
+  req: PostSlackDisconnectRequest,
+  res: Response<{ deleted: number } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await disconnectSlackWorkspace({
+    context,
+    teamId: req.body.teamId,
+  });
+
+  return res.json(result);
+};
+
+// endregion POST /integrations/slack/disconnect
 
 // region GET /integrations/slack/:id
 

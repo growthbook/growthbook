@@ -17,7 +17,7 @@ import {
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
-import { PiArrowsClockwise, PiPlus } from "react-icons/pi";
+import { PiArrowsClockwise, PiPlus, PiPlugsConnected } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -31,6 +31,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import { Select, SelectItem } from "@/ui/Select";
@@ -261,6 +262,7 @@ const SlackIntegrationsPage: NextPage = () => {
 
   // Add-channel picker: which workspace (teamId) it's open for, if any.
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
 
   // Slot at the bottom of the page card that the detail pane portals its
   // sticky save bar into (so the bar spans the full card width).
@@ -388,6 +390,22 @@ const SlackIntegrationsPage: NextPage = () => {
     );
     window.location.href = response.url;
   }, [apiCall]);
+
+  // Remove the whole workspace connection + all its channels. `teamId` scopes
+  // it to the workspace being disconnected (multi-workspace safe). Throws
+  // propagate to the confirm dialog's button, which surfaces the error.
+  const disconnectWorkspace = useCallback(
+    async (teamId: string | null) => {
+      await apiCall("/integrations/slack/disconnect", {
+        method: "POST",
+        body: JSON.stringify(teamId ? { teamId } : {}),
+      });
+      await mutate();
+      setSelectedChannelId(null);
+      setConfirmingDisconnect(false);
+    },
+    [apiCall, mutate],
+  );
 
   const installOrgOptions = useMemo(
     () =>
@@ -567,6 +585,25 @@ const SlackIntegrationsPage: NextPage = () => {
         />
       )}
 
+      {confirmingDisconnect && (
+        <ConfirmDialog
+          title="Disconnect Slack?"
+          content={
+            `This removes the Slack connection${
+              channelIntegrations.length
+                ? ` and ${channelIntegrations.length} channel connection${
+                    channelIntegrations.length === 1 ? "" : "s"
+                  }`
+                : ""
+            }. You can reconnect anytime. To fully revoke access, also remove ` +
+            "GrowthBook from your Slack workspace's Manage apps."
+          }
+          yesText="Disconnect"
+          onConfirm={() => disconnectWorkspace(addChannelTarget)}
+          onCancel={() => setConfirmingDisconnect(false)}
+        />
+      )}
+
       {installStatus === "done" && (
         <Callout status="success" mb="4">
           Your Slack workspace is now connected. Add a channel to choose what it
@@ -641,6 +678,16 @@ const SlackIntegrationsPage: NextPage = () => {
             >
               {connected ? "Reconnect" : "Connect to Slack"}
             </Button>
+            {connected && (
+              <Button
+                variant="outline"
+                color="red"
+                icon={<PiPlugsConnected />}
+                onClick={() => setConfirmingDisconnect(true)}
+              >
+                Disconnect
+              </Button>
+            )}
           </Flex>
         </Flex>
 

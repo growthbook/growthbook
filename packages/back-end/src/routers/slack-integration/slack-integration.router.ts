@@ -84,6 +84,15 @@ router.post(
   slackIntegrationController.postSlackChannel,
 );
 
+// Disconnect an entire workspace (its connection doc + all channel docs).
+router.post(
+  "/disconnect",
+  validateRequestMiddleware({
+    body: z.object({ teamId: z.string().optional() }).strict(),
+  }),
+  slackIntegrationController.postSlackDisconnect,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

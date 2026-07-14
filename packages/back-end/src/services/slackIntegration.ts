@@ -609,6 +609,38 @@ export const deleteSlackOAuthIntegration = async ({
   });
 };
 
+// Disconnect a whole Slack workspace: remove its channel-less connection doc
+// AND every channel doc for that team. GrowthBook-side only — to fully revoke
+// access the user also removes the app from Slack's "Manage apps".
+export const disconnectSlackWorkspace = async ({
+  context,
+  teamId,
+}: {
+  context: ReqContext;
+  teamId?: string;
+}): Promise<{ deleted: number }> => {
+  const slackDocs = (await getAllEventWebHooks(context.org.id)).filter(
+    (w) => w.payloadType === "slack",
+  );
+  const teams = new Set(
+    slackDocs.map((w) => w.slack?.teamId).filter((t): t is string => !!t),
+  );
+  const target = teamId ?? (teams.size === 1 ? [...teams][0] : undefined);
+  if (!target) {
+    throw new Error(
+      teams.size
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found.",
+    );
+  }
+
+  let deleted = 0;
+  for (const doc of slackDocs.filter((w) => w.slack?.teamId === target)) {
+    if (await deleteSlackOAuthIntegration({ context, id: doc.id })) deleted++;
+  }
+  return { deleted };
+};
+
 // Resolve the org's workspace connection (channel-less doc) and its bot token.
 // `teamId` selects between multiple connected workspaces; it may be omitted
 // when the org has exactly one.
