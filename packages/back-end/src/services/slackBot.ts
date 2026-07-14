@@ -2,7 +2,11 @@ import { randomUUID } from "crypto";
 import { DiffResult } from "shared/types/events/diff";
 import { NotificationEvent } from "shared/types/events/notification-events";
 import type { EventUser } from "shared/validators";
-import { slackCardKindForEvent, SlackCardKind } from "shared/validators";
+import {
+  slackCardKindForEvent,
+  SlackCardKind,
+  SLACK_EVENT_OPTIONS,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   getEventWebHookById,
@@ -31,6 +35,12 @@ import { cancellableFetch } from "back-end/src/util/http.util";
 // A test send has no real experiment, so card-worthy events render from the
 // same hardcoded sample the on-page preview uses (sampleCard) rather than a DB
 // lookup. Maps the event's card kind to the sample state to render.
+// Human-readable label for a test event, from the settings catalog (e.g.
+// "Decision ready", "Reached significance") — falls back to the raw event name.
+const friendlyTestEventLabel = (eventName: string): string =>
+  SLACK_EVENT_OPTIONS.find((o) => o.events.includes(eventName))?.label ??
+  eventName;
+
 const TEST_CARD_STATE: Record<SlackCardKind, CardState> = {
   started: "started",
   significance: "running",
@@ -808,9 +818,20 @@ export const sendSlackEventWebhookTestEvent = async ({
 
   const format = eventWebHook.slackOptions?.experimentCardFormat ?? "compact";
   const cardKind = slackCardKindForEvent(eventName);
+  // Preamble posted just before the sample, so it's obvious in-channel that
+  // the following card/message is a test (only on the test-send path).
+  const preamble = `Testing *${friendlyTestEventLabel(
+    eventName,
+  )}*. This is a test message.`;
 
   try {
     if (botToken && channelId) {
+      await postSlackMessageResult({
+        token: botToken,
+        channel: channelId,
+        text: preamble,
+        unfurl: false,
+      });
       if (format !== "none" && cardKind) {
         // Render the sample card (no DB — the test experiment isn't real) and
         // upload it privately, exactly as a real card-worthy event would.
@@ -853,6 +874,15 @@ export const sendSlackEventWebhookTestEvent = async ({
             "This Slack connection has no bot token. Reconnect the workspace from Settings → Slack.",
         };
       }
+      await cancellableFetch(
+        eventWebHook.url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: preamble }),
+        },
+        { maxTimeMs: 30000, maxContentSize: 1000 },
+      );
       const { responseWithoutBody } = await cancellableFetch(
         eventWebHook.url,
         {
@@ -929,7 +959,16 @@ export const sendSlackEventWebhookTestDigest = async ({
     };
   }
 
+  const label =
+    digest === "scorecard" ? "experiment scorecard" : "feature-flag";
+
   try {
+    await postSlackMessageResult({
+      token: botToken,
+      channel: channelId,
+      text: `Testing the *${label} digest*. This is a test message.`,
+      unfurl: false,
+    });
     const png =
       digest === "scorecard"
         ? await renderWeeklyScorecard(sampleScorecard())
