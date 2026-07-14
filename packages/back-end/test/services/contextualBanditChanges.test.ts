@@ -2,11 +2,11 @@ import { ContextualBanditInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeaturesByIds: jest.fn(),
+  getAllFeatures: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
@@ -22,8 +22,8 @@ jest.mock("back-end/src/services/experiment-feature", () => ({
   formatPendingDraftFailureMessage: jest.fn(),
 }));
 
-const getFeaturesByIdsMock = getFeaturesByIds as jest.MockedFunction<
-  typeof getFeaturesByIds
+const getAllFeaturesMock = getAllFeatures as jest.MockedFunction<
+  typeof getAllFeatures
 >;
 const queueSDKPayloadRefreshMock =
   queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
@@ -74,14 +74,14 @@ describe("refreshLinkedFeaturePayloads", () => {
     jest.clearAllMocks();
   });
 
-  it("queues a refresh with keys derived from the linked feature's enabled contextual-bandit-ref rule", async () => {
+  it("queues a refresh with keys derived from a feature's enabled contextual-bandit-ref rule", async () => {
     const context = makeContext();
     const cb = makeCb();
-    getFeaturesByIdsMock.mockResolvedValue([makeLinkedFeature()]);
+    getAllFeaturesMock.mockResolvedValue([makeLinkedFeature()]);
 
     await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
 
-    expect(getFeaturesByIdsMock).toHaveBeenCalledWith(context, ["feat_1"]);
+    expect(getAllFeaturesMock).toHaveBeenCalledWith(context);
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledTimes(1);
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith({
       context,
@@ -94,8 +94,33 @@ describe("refreshLinkedFeaturePayloads", () => {
     });
   });
 
-  it("does not queue a refresh when the CB has no linked features", async () => {
-    getFeaturesByIdsMock.mockResolvedValue([]);
+  it("refreshes a feature that references the CB even when it is missing from cb.linkedFeatures (drift)", async () => {
+    const context = makeContext();
+    // linkedFeatures is stale/empty, but a feature's rule still references the
+    // CB — the refresh must be derived from the rules, not linkedFeatures.
+    const cb = makeCb({ linkedFeatures: [] });
+    getAllFeaturesMock.mockResolvedValue([
+      makeLinkedFeature({
+        id: "feat_2",
+      } as unknown as Partial<FeatureInterface>),
+    ]);
+
+    await refreshLinkedFeaturePayloads(context, cb, "contextualBandit.refresh");
+
+    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledTimes(1);
+    expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith({
+      context,
+      payloadKeys: [{ environment: "production", project: "" }],
+      auditContext: {
+        event: "contextualBandit.refresh",
+        model: "contextualBandit",
+        id: "cb_1",
+      },
+    });
+  });
+
+  it("does not queue a refresh when the org has no features", async () => {
+    getAllFeaturesMock.mockResolvedValue([]);
 
     await refreshLinkedFeaturePayloads(
       makeContext(),
@@ -106,8 +131,8 @@ describe("refreshLinkedFeaturePayloads", () => {
     expect(queueSDKPayloadRefreshMock).not.toHaveBeenCalled();
   });
 
-  it("does not queue a refresh when the linked feature's rule points at a different CB", async () => {
-    getFeaturesByIdsMock.mockResolvedValue([
+  it("does not queue a refresh when the feature's rule points at a different CB", async () => {
+    getAllFeaturesMock.mockResolvedValue([
       makeLinkedFeature({
         rules: [
           {
@@ -132,7 +157,7 @@ describe("refreshLinkedFeaturePayloads", () => {
   });
 
   it("does not queue a refresh when the matching rule is disabled", async () => {
-    getFeaturesByIdsMock.mockResolvedValue([
+    getAllFeaturesMock.mockResolvedValue([
       makeLinkedFeature({
         rules: [
           {

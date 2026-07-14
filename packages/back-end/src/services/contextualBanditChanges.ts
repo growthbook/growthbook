@@ -5,7 +5,7 @@ import {
   ContextualBanditUpdate,
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -25,15 +25,17 @@ export async function refreshLinkedFeaturePayloads(
     | "contextualBandit.stop"
     | "contextualBandit.refresh",
 ): Promise<void> {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    cb.linkedFeatures ?? [],
-  );
-  if (!linkedFeatures.length) return;
+  // Refresh every feature whose rules actually reference this contextual
+  // bandit, derived from the rules themselves rather than the cached
+  // `cb.linkedFeatures` array (which can drift out of sync and leave SDKs on
+  // stale weights). getAffectedSDKPayloadKeys applies the reference filter
+  // below, so unrelated features contribute no payload keys.
+  const features = await getAllFeatures(context);
+  if (!features.length) return;
 
   const environments = getEnvironmentIdsFromOrg(context.org);
   const payloadKeys = getAffectedSDKPayloadKeys(
-    linkedFeatures,
+    features,
     environments,
     (rule) => {
       if (rule.enabled === false) return false;
