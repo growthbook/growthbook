@@ -1090,6 +1090,24 @@ export default function SlackChannelSettings({
                     markDirty();
                   }}
                 />
+
+                {/* Collapsible again only while empty — hiding fields with
+                    active values would hide what's actually filtering. */}
+                {filterTags.length +
+                  filterExperiments.length +
+                  filterMetrics.length ===
+                  0 && (
+                  <Box>
+                    <Button
+                      variant="ghost"
+                      color="gray"
+                      size="xs"
+                      onClick={() => setShowMoreFilters(false)}
+                    >
+                      − Hide these filters
+                    </Button>
+                  </Box>
+                )}
               </Flex>
             )}
           </Box>
