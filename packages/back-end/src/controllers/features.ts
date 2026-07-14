@@ -123,6 +123,7 @@ import {
   revisionRequiresReview,
 } from "back-end/src/services/features";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
@@ -3019,6 +3020,14 @@ export async function postFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
+  // A config-backed rule value must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the newly added rule
+  // so a pre-existing violation elsewhere can't block this edit. No-op unless
+  // the feature is config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [stampedRule],
+  });
+
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
   await prevalidateRevisionUpdate(
     context,
@@ -3401,6 +3410,13 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
+  // Experiment/MAB-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
   // autoPublish always starts from live so the merge stays clean.
   const targetVersion = autoPublish
     ? feature.version
@@ -3614,6 +3630,13 @@ export async function postFeatureContextualBanditRefRule(
   if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
     context.permissions.throwPermissionError();
   }
+
+  // Contextual-bandit-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
 
   const targetVersion = autoPublish
     ? feature.version
@@ -4359,6 +4382,18 @@ export async function putFeatureRule(
     }
     return merged;
   });
+
+  // A config-backed rule value (incl. running-experiment / bandit variations
+  // edited from the feature) must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the edited rule so a
+  // pre-existing violation elsewhere can't block this edit. No-op unless the
+  // feature is config-backed JSON.
+  const ruleToValidate = nextRules.find((r) => r.id === ruleId);
+  if (ruleToValidate) {
+    await assertConfigBackedFeatureValuesValid(context, feature, {
+      rules: [ruleToValidate],
+    });
+  }
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
