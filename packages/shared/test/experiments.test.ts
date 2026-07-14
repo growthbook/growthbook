@@ -10,7 +10,7 @@ import {
   canInlineFilterColumn,
   getAggregateFilters,
   getColumnExpression,
-  qualifyVirtualColumnSql,
+  expandVirtualColumnsInSql,
   getVirtualColumnDependencies,
   revalidateVirtualColumns,
   getSelectedColumnDatatype,
@@ -1816,29 +1816,59 @@ describe("Virtual Columns", () => {
         "(m.price * m.quantity)",
       );
     });
+
+    it("recursively inlines a virtual column that references another", () => {
+      const chained = {
+        columns: [
+          col({ column: "price", datatype: "number" }),
+          col({ column: "cost", datatype: "number" }),
+          col({
+            column: "margin_vc",
+            isVirtual: true,
+            sql: "price - cost",
+            dependsOn: ["price", "cost"],
+            datatype: "number",
+          }),
+          col({
+            column: "margin_pct_vc",
+            isVirtual: true,
+            sql: "margin_vc / price",
+            dependsOn: ["margin_vc", "price"],
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("margin_pct_vc", chained, jsonExtract, "m"),
+      ).toBe("((m.price - m.cost) / m.price)");
+    });
   });
 
-  describe("qualifyVirtualColumnSql", () => {
-    it("returns the expression unchanged when no alias is given", () => {
-      expect(
-        qualifyVirtualColumnSql("price * quantity", ["price", "quantity"], ""),
-      ).toBe("price * quantity");
+  describe("expandVirtualColumnsInSql", () => {
+    const factTable = {
+      columns: [
+        col({ column: "amount", datatype: "number" }),
+        col({ column: "qty", datatype: "number" }),
+        col({
+          column: "revenue_vc",
+          isVirtual: true,
+          sql: "amount * qty",
+          dependsOn: ["amount", "qty"],
+          datatype: "number",
+        }),
+      ],
+    };
+
+    it("expands a virtual column reference in a raw fragment (no alias)", () => {
+      expect(expandVirtualColumnsInSql("revenue_vc > 100", factTable)).toBe(
+        "(amount * qty) > 100",
+      );
     });
 
-    it("qualifies only the dependency columns", () => {
-      expect(
-        qualifyVirtualColumnSql("price * quantity", ["price", "quantity"], "m"),
-      ).toBe("m.price * m.quantity");
-    });
-
-    it("does not match column names inside other identifiers", () => {
-      expect(
-        qualifyVirtualColumnSql(
-          "unit_price + price",
-          ["price", "unit_price"],
-          "m",
-        ),
-      ).toBe("m.unit_price + m.price");
+    it("leaves fragments without virtual columns unchanged", () => {
+      expect(expandVirtualColumnsInSql("amount > 100", factTable)).toBe(
+        "amount > 100",
+      );
     });
   });
 

@@ -134,24 +134,68 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Rewrite bare column identifiers in a virtual column's expression to
-// `alias.<col>` so the expression is valid inside a CTE/join context. Only the
-// (server-computed) `dependsOn` columns are qualified, which keeps this safe
-// for arbitrary SQL — anything not in dependsOn (functions, keywords, literals)
-// is left untouched. Longer names are qualified first so a shorter name can't
-// partially match inside an already-qualified reference.
-export function qualifyVirtualColumnSql(
-  sql: string,
-  dependsOn: string[],
+// Resolve a virtual column's expression into valid SQL for the current query
+// context. Each referenced column (from the server-computed `dependsOn`) is
+// rewritten: a real column becomes `alias.<col>` (bare when no alias), and a
+// nested virtual column is expanded recursively — so chains
+// (margin -> margin_pct) produce fully-inlined SQL. Only known dependency names
+// are touched, which keeps this safe for arbitrary SQL (functions, keywords,
+// literals are left alone). Longer names are handled first so a shorter name
+// can't partially match inside an already-rewritten reference. `seen` guards
+// against cyclic definitions.
+function resolveVirtualColumnSql(
+  col: Pick<ColumnInterface, "column" | "sql" | "dependsOn">,
+  factTable: Pick<FactTableInterface, "columns">,
   alias: string,
+  seen: Set<string> = new Set(),
 ): string {
-  if (!alias || !dependsOn?.length) return sql;
+  const sql = col.sql || "";
+  if (seen.has(col.column)) return sql;
+  const nextSeen = new Set(seen).add(col.column);
+
+  const deps = [...(col.dependsOn || [])].sort((a, b) => b.length - a.length);
+  if (!deps.length) return sql;
+
+  // Single pass over the expression: each dependency token is replaced exactly
+  // once, and the replacement text is NOT re-scanned. This matters for chains —
+  // a nested virtual column that expands to `m.price` must not have its `price`
+  // re-qualified into `m.m.price` by a later dependency. Longer names come first
+  // so an alternation prefers the most specific identifier.
+  const pattern = new RegExp(
+    `\\b(${deps.map(escapeRegExp).join("|")})\\b`,
+    "g",
+  );
+  return sql.replace(pattern, (match) => {
+    const target = factTable.columns.find((c) => c.column === match);
+    if (target?.isVirtual && target.sql) {
+      return `(${resolveVirtualColumnSql(target, factTable, alias, nextSeen)})`;
+    }
+    return alias ? `${alias}.${match}` : match;
+  });
+}
+
+// Expand any virtual column references in a raw SQL fragment (e.g. a saved
+// filter or ad-hoc sql_expr row filter) by replacing each virtual column id
+// with its fully-resolved expression. Real-column-only fragments are returned
+// unchanged (fast path when the fact table has no virtual columns).
+export function expandVirtualColumnsInSql(
+  sql: string,
+  factTable: Pick<FactTableInterface, "columns">,
+): string {
+  const virtualCols = factTable.columns.filter(
+    (c) => c.isVirtual && c.sql && !c.deleted,
+  );
+  if (!virtualCols.length) return sql;
+
   let result = sql;
-  [...dependsOn]
-    .sort((a, b) => b.length - a.length)
-    .forEach((col) => {
-      const re = new RegExp(`\\b${escapeRegExp(col)}\\b`, "g");
-      result = result.replace(re, `${alias}.${col}`);
+  [...virtualCols]
+    .sort((a, b) => b.column.length - a.column.length)
+    .forEach((c) => {
+      const resolved = resolveVirtualColumnSql(c, factTable, "");
+      result = result.replace(
+        new RegExp(`\\b${escapeRegExp(c.column)}\\b`, "g"),
+        `(${resolved})`,
+      );
     });
   return result;
 }
@@ -169,11 +213,7 @@ export function getColumnExpression(
     (c) => c.column === column && c.isVirtual && c.sql,
   );
   if (virtualCol?.sql) {
-    return `(${qualifyVirtualColumnSql(
-      virtualCol.sql,
-      virtualCol.dependsOn || [],
-      alias,
-    )})`;
+    return `(${resolveVirtualColumnSql(virtualCol, factTable, alias)})`;
   }
 
   const parts = column.split(".");
@@ -366,7 +406,9 @@ export function getRowFilterSQL({
     );
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      return comment + `(${filter.value})`;
+      return (
+        comment + `(${expandVirtualColumnsInSql(filter.value, factTable)})`
+      );
     }
     return null;
   }
@@ -374,7 +416,7 @@ export function getRowFilterSQL({
     if (!rowFilter.values?.[0]) {
       return null;
     }
-    return `(${rowFilter.values?.[0] || ""})`;
+    return `(${expandVirtualColumnsInSql(rowFilter.values?.[0] || "", factTable)})`;
   }
 
   if (!rowFilter.column) {

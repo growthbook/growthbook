@@ -5,7 +5,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaPlay } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -16,7 +16,6 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FactTableSchema from "./FactTableSchema";
 
@@ -33,28 +32,15 @@ interface FormValues {
   sql: string;
 }
 
-// vc_<slug> keeps virtual column ids in their own namespace so they can never
-// collide with a column detected from the fact table SQL.
+// The <slug>_vc suffix keeps virtual column ids in their own namespace so they
+// can never collide with a column detected from the fact table SQL.
 function toColumnId(name: string): string {
   const slug = name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-  return slug ? `vc_${slug}` : "";
-}
-
-function operatorsForDatatype(datatype: FactTableColumnType): string[] {
-  switch (datatype) {
-    case "number":
-      return ["+", "-", "*", "/"];
-    case "string":
-      return ["||"];
-    case "date":
-      return ["-"];
-    default:
-      return [];
-  }
+  return slug ? `${slug}_vc` : "";
 }
 
 export default function VirtualColumnModal({
@@ -73,11 +59,6 @@ export default function VirtualColumnModal({
   );
 
   const [testBeforeSave, setTestBeforeSave] = useState(true);
-
-  // Guided expression builder state
-  const [builderColA, setBuilderColA] = useState("");
-  const [builderOp, setBuilderOp] = useState("");
-  const [builderColB, setBuilderColB] = useState("");
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -99,26 +80,10 @@ export default function VirtualColumnModal({
     );
   }, [isNew]);
 
-  // Columns that can be referenced: any non-deleted column other than the one
-  // being edited (a virtual column can reference other virtual columns too).
-  const availableColumns = useMemo(
-    () =>
-      (factTable.columns || []).filter(
-        (c) => !c.deleted && c.column !== existing?.column,
-      ),
-    [factTable.columns, existing?.column],
-  );
-  const columnByName = useMemo(
-    () => new Map(availableColumns.map((c) => [c.column, c])),
-    [availableColumns],
-  );
-
-  const builderColADatatype = builderColA
-    ? columnByName.get(builderColA)?.datatype
-    : undefined;
-  const builderOperators = builderColADatatype
-    ? operatorsForDatatype(builderColADatatype)
-    : [];
+  // The id used both as the saved column key and the SELECT alias in the test
+  // preview: the existing id when editing, or one derived from the name for a
+  // new column.
+  const columnId = existing?.column || toColumnId(form.watch("name"));
 
   const testQuery = async (sql: string) => {
     setTestResult(null);
@@ -126,11 +91,44 @@ export default function VirtualColumnModal({
       result: FactFilterTestResults;
     }>(`/fact-tables/${factTable.id}/test-virtual-column`, {
       method: "POST",
-      body: JSON.stringify({ sql, datatype: form.watch("datatype") }),
+      body: JSON.stringify({
+        sql,
+        datatype: form.watch("datatype"),
+        columnId,
+      }),
     });
     setTestResult(result.result);
     return result.result;
   };
+
+  // Ref to the SQL textarea so clicking a column inserts it at the cursor.
+  const sqlRef = useRef<HTMLTextAreaElement | null>(null);
+  const { ref: registerSqlRef, ...sqlField } = form.register("sql");
+
+  const insertColumn = (column: string) => {
+    const el = sqlRef.current;
+    const current = form.watch("sql");
+    if (el && typeof el.selectionStart === "number") {
+      const start = el.selectionStart;
+      const end = el.selectionEnd ?? start;
+      form.setValue(
+        "sql",
+        current.slice(0, start) + column + current.slice(end),
+      );
+      // Restore focus and place the cursor just after the inserted text.
+      window.requestAnimationFrame(() => {
+        el.focus();
+        const pos = start + column.length;
+        el.setSelectionRange(pos, pos);
+      });
+    } else {
+      form.setValue("sql", current ? `${current} ${column}` : column);
+    }
+  };
+
+  const hasReferenceableColumns = factTable.columns?.some(
+    (col) => !col.deleted && col.column !== existing?.column,
+  );
 
   return (
     <ModalStandard
@@ -175,7 +173,6 @@ export default function VirtualColumnModal({
           );
           track("Edit Virtual Column");
         } else {
-          const columnId = toColumnId(value.name);
           if (!columnId) {
             throw new Error(
               "Please enter a name with at least one letter or number",
@@ -250,74 +247,18 @@ export default function VirtualColumnModal({
             label="SQL Expression"
             required
             textarea
-            minRows={1}
+            minRows={2}
             helpText="This expression is inserted into the SELECT and WHERE clauses wherever the column is used. Reference other columns by name."
-            {...form.register("sql")}
+            {...sqlField}
+            ref={(el: HTMLTextAreaElement | null) => {
+              registerSqlRef(el);
+              sqlRef.current = el;
+            }}
           />
-
-          <Callout status="info">
-            <div className="mb-2">Build an expression from two columns:</div>
-            <div className="d-flex align-items-end" style={{ gap: 8 }}>
-              <SelectField
-                label="Column"
-                value={builderColA}
-                onChange={(v) => {
-                  setBuilderColA(v);
-                  setBuilderOp("");
-                  setBuilderColB("");
-                }}
-                options={availableColumns.map((c) => ({
-                  label: c.name || c.column,
-                  value: c.column,
-                }))}
-                style={{ minWidth: 140 }}
-              />
-              <SelectField
-                label="Operator"
-                value={builderOp}
-                onChange={setBuilderOp}
-                disabled={!builderColA}
-                sort={false}
-                options={builderOperators.map((o) => ({
-                  label: o,
-                  value: o,
-                }))}
-                style={{ minWidth: 90 }}
-              />
-              <SelectField
-                label="Column"
-                value={builderColB}
-                onChange={setBuilderColB}
-                disabled={!builderColA}
-                options={availableColumns
-                  .filter((c) => c.datatype === builderColADatatype)
-                  .map((c) => ({
-                    label: c.name || c.column,
-                    value: c.column,
-                  }))}
-                style={{ minWidth: 140 }}
-              />
-              <Button
-                color="outline-primary"
-                className="mb-3"
-                disabled={!builderColA || !builderOp || !builderColB}
-                onClick={async () => {
-                  const snippet = `${builderColA} ${builderOp} ${builderColB}`;
-                  const current = form.watch("sql");
-                  form.setValue(
-                    "sql",
-                    current ? `${current} ${snippet}` : snippet,
-                  );
-                }}
-              >
-                Insert
-              </Button>
-            </div>
-          </Callout>
 
           <Button
             color="primary"
-            className="btn-sm mr-4"
+            className="btn-sm"
             onClick={async () => {
               await testQuery(form.watch("sql"));
             }}
@@ -328,11 +269,15 @@ export default function VirtualColumnModal({
             Test Query
           </Button>
         </div>
-        {factTable.columns?.some((col) => !col.deleted && !col.isVirtual) ? (
+        {hasReferenceableColumns ? (
           <div className="col-auto border-left">
             <div className="mb-3">
               <label>Available Columns</label>
-              <FactTableSchema factTable={factTable} />
+              <FactTableSchema
+                factTable={factTable}
+                onColumnClick={insertColumn}
+                excludeColumn={existing?.column}
+              />
             </div>
           </div>
         ) : null}

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import {
   canInlineFilterColumn,
+  expandVirtualColumnsInSql,
   getVirtualColumnDependencies,
   revalidateVirtualColumns,
 } from "shared/experiments";
@@ -118,10 +119,11 @@ async function testFilterQuery(
   const timestampColumn = "timestamp";
 
   const sql = integration.getTestQuery({
-    // Must have a newline after factTable sql in case it ends with a comment
+    // Must have a newline after factTable sql in case it ends with a comment.
+    // Expand any virtual column references so the filter runs against real columns.
     query: `SELECT * FROM (
       ${factTable.sql}
-    ) f WHERE ${filter}`,
+    ) f WHERE ${expandVirtualColumnsInSql(filter, factTable)}`,
     templateVariables: {
       eventName: factTable.eventName,
     },
@@ -152,6 +154,7 @@ async function testVirtualColumnQuery(
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   sql: string,
+  columnId?: string,
 ): Promise<FactFilterTestResults> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -165,11 +168,16 @@ async function testVirtualColumnQuery(
 
   const timestampColumn = "timestamp";
 
+  // Alias the computed expression with the real column id (sanitized to a safe
+  // SQL identifier) so the preview matches what the saved column will be named.
+  const alias =
+    (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
+
   // Select the computed expression alongside the raw rows. The expression
   // references bare column names, which resolve against the aliased subquery.
   const testSql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
-    query: `SELECT (${sql}) AS __virtual_column, * FROM (
+    query: `SELECT (${sql}) AS ${alias}, * FROM (
       ${factTable.sql}
     ) f`,
     templateVariables: {
@@ -1155,9 +1163,9 @@ export const postColumn = async (
   if (!data.sql || !data.sql.trim()) {
     throw new Error("Virtual columns require a SQL expression");
   }
-  if (!data.column.match(/^vc_[-a-zA-Z0-9_]+$/)) {
+  if (!data.column.match(/^[a-zA-Z0-9_]+_vc$/)) {
     throw new Error(
-      "Virtual column ids must start with 'vc_' and contain only letters, numbers, underscores, and dashes",
+      "Virtual column ids must contain only letters, numbers, and underscores and end with '_vc'",
     );
   }
   if (!data.datatype) {
@@ -1231,6 +1239,7 @@ export const postVirtualColumnTest = async (
     datasource,
     factTable,
     data.sql,
+    data.columnId,
   );
 
   res.status(200).json({

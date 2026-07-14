@@ -95,6 +95,9 @@ export const testVirtualColumnPropsValidator = z
   .object({
     sql: z.string(),
     datatype: factTableColumnTypeValidator,
+    // The column id to use as the SELECT alias in the test query, so the
+    // preview matches the real column name. Sanitized server-side.
+    columnId: z.string().optional(),
   })
   .strict();
 

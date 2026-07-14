@@ -2,13 +2,21 @@ import { FactTableInterface } from "shared/types/fact-table";
 
 export interface Props {
   factTable: FactTableInterface;
+  // When provided, each column name becomes clickable and calls this with the
+  // column name (e.g. to insert it into a SQL expression at the cursor).
+  onColumnClick?: (column: string) => void;
+  // Optionally hide a column (e.g. the virtual column currently being edited,
+  // so it can't reference itself).
+  excludeColumn?: string;
 }
 
-export default function FactTableSchema({ factTable }: Props) {
-  // Only show real (SQL-detected) columns. Virtual columns are computed
-  // expressions and can't be referenced inside raw SQL fragments.
+export default function FactTableSchema({
+  factTable,
+  onColumnClick,
+  excludeColumn,
+}: Props) {
   const columns = (factTable.columns || []).filter(
-    (col) => !col.deleted && !col.isVirtual,
+    (col) => !col.deleted && col.column !== excludeColumn,
   );
 
   return (
@@ -16,7 +24,21 @@ export default function FactTableSchema({ factTable }: Props) {
       <tbody>
         {columns.map((col) => (
           <tr key={col.column}>
-            <td>{col.column}</td>
+            <td>
+              {onColumnClick ? (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onColumnClick(col.column);
+                  }}
+                >
+                  {col.column}
+                </a>
+              ) : (
+                col.column
+              )}
+            </td>
             <td>
               <em className="text-muted ml-1">
                 {col.datatype === "date"
@@ -24,6 +46,7 @@ export default function FactTableSchema({ factTable }: Props) {
                   : !col.datatype
                     ? "unknown"
                     : col.datatype}
+                {col.isVirtual ? " (virtual)" : ""}
               </em>
             </td>
           </tr>
