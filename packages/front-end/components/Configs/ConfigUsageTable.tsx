@@ -4,6 +4,7 @@ import { PiRadioButton, PiMagnifyingGlass } from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import VariationLabel from "@/ui/VariationLabel";
 import Table, {
   TableHeader,
@@ -251,46 +252,6 @@ function FlagRevisionBadge({
   return <Badge color="green" variant="soft" radius="full" label="Live" />;
 }
 
-// A @/ui/Link that truncates on the anchor itself (not a nested inline-block),
-// so its hover underline actually reaches the text. Title carries the full value.
-function TruncatedLink({
-  href,
-  maxWidth = "100%",
-  color,
-  children,
-  newTab = true,
-}: {
-  href: string;
-  // Number for fixed-width (Radix popover) cells; defaults to filling the cell,
-  // which is what the flexible grid columns below want.
-  maxWidth?: number | string;
-  color?: string;
-  children: string;
-  // Off-page destinations (features, experiments) open in a new tab; a config
-  // link stays in-app (plain NextLink) so cmd/ctrl-click still opens a new tab.
-  newTab?: boolean;
-}): React.ReactElement {
-  return (
-    <Link
-      href={href}
-      {...(newTab ? { target: "_blank", rel: "noreferrer" } : {})}
-      className="hover-underline"
-      title={children}
-      style={{
-        display: "inline-block",
-        maxWidth,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        verticalAlign: "bottom",
-        color,
-      }}
-    >
-      {children}
-    </Link>
-  );
-}
-
 // The backing config relative to the config being viewed — mirrors the main
 // config table's "source" column (this config / an ancestor / a descendant).
 function ConfigSourceCell({
@@ -324,14 +285,18 @@ function ConfigSourceCell({
       radius="full"
       title={name}
       label={
-        <TruncatedLink
+        <Link
           href={`/configs/${impl.configKey}`}
-          maxWidth={110}
-          color="var(--accent-11)"
-          newTab={false}
+          title={name}
+          style={{ color: "var(--accent-11)" }}
         >
-          {name}
-        </TruncatedLink>
+          {/* hover-underline on the span, not the anchor: text-decoration
+              doesn't cross an inline-block, so it must sit on the ellipsis'd
+              element to reach the text. Config links stay in-app (no target). */}
+          <OverflowText className="hover-underline" maxWidth={110}>
+            {name}
+          </OverflowText>
+        </Link>
       }
     />
   );
@@ -350,9 +315,11 @@ function FeatureLink({
       ? `/features/${impl.featureId}?v=${impl.revisionVersion}`
       : `/features/${impl.featureId}`;
   return (
-    <TruncatedLink href={href} maxWidth={maxWidth}>
-      {impl.featureId}
-    </TruncatedLink>
+    <Link href={href} title={impl.featureId} target="_blank" rel="noreferrer">
+      <OverflowText className="hover-underline" maxWidth={maxWidth}>
+        {impl.featureId}
+      </OverflowText>
+    </Link>
   );
 }
 
@@ -378,9 +345,11 @@ function ExperimentCell({
   const label =
     impl.experimentName ?? impl.experimentId ?? impl.contextualBanditId ?? href;
   return (
-    <TruncatedLink href={href} maxWidth={maxWidth}>
-      {label}
-    </TruncatedLink>
+    <Link href={href} title={label} target="_blank" rel="noreferrer">
+      <OverflowText className="hover-underline" maxWidth={maxWidth}>
+        {label}
+      </OverflowText>
+    </Link>
   );
 }
 
