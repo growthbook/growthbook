@@ -399,8 +399,10 @@ function EventForwarderModal({
               onClearError();
               await onRefresh();
               onCancel();
-            } catch {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+            } catch (e) {
+              throw e instanceof Error
+                ? e
+                : new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
             }
           }}
         >
