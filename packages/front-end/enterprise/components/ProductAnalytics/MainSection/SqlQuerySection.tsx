@@ -42,6 +42,7 @@ import {
   getInferredTimestampColumn,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { RadixTheme } from "@/services/RadixTheme";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 
 const PREVIEW_ROW_LIMIT = 100;
@@ -608,6 +609,6 @@ export default function SqlQuerySection({
   );
 
   return isFullscreen && typeof document !== "undefined"
-    ? createPortal(content, document.body)
+    ? createPortal(<RadixTheme>{content}</RadixTheme>, document.body)
     : content;
 }
