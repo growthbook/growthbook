@@ -609,12 +609,9 @@ const SlackIntegrationsPage: NextPage = () => {
           style={{ borderBottom: "1px solid var(--gray-a4)" }}
         >
           <Box style={{ maxWidth: 640 }}>
-            <Flex align="center" gap="2" mb="2">
-              <Badge label="Beta" color="violet" variant="soft" />
-              <Heading as="h1" size="large" mb="0">
-                Slack
-              </Heading>
-            </Flex>
+            <Heading as="h1" size="large" mb="2">
+              Slack
+            </Heading>
             <Text as="p" color="text-mid" mb="0">
               Connect Slack channels to GrowthBook notifications and the
               assistant. Open a channel to configure what it&rsquo;s notified
