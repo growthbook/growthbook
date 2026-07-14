@@ -14,6 +14,7 @@ import {
   RampStep,
   RampStepAction,
   SafeRolloutInterface,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import { ResourceEvents } from "shared/types/events/base-types";
 import { filterEnvironmentsByFeature, MergeResultChanges } from "shared/util";
@@ -1629,6 +1630,14 @@ export async function jumpSchedule(
   if (targetStepIndex < -1 || targetStepIndex >= schedule.steps.length) {
     throw new ConflictError(
       `Cannot jump: step ${targetStepIndex} does not exist on this schedule`,
+    );
+  }
+  // A schedule held for start approval must not be jumped forward into a live
+  // step — that crosses -1 → 0 (enabling the rule) without recording approval.
+  // Require the approve action instead. Jumping to -1 stays allowed (pre-start).
+  if (targetStepIndex >= 0 && isAwaitingStartApproval(schedule)) {
+    throw new ConflictError(
+      "This schedule requires start approval — approve it to begin, rather than jumping to a step.",
     );
   }
   const now = new Date();
