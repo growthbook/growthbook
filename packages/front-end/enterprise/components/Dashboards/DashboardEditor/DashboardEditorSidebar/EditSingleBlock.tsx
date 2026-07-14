@@ -3,6 +3,7 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
+  DashboardInterface,
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
@@ -129,6 +130,7 @@ interface Props {
   projects: string[];
   dashboardId: string;
   experiment: ExperimentInterfaceStringDates | null;
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -222,6 +224,7 @@ function toggleBlockConfigItem(
 export default function EditSingleBlock({
   dashboardId,
   experiment,
+  dashboardGlobalControls,
   cancel,
   submit,
   block,
@@ -1685,6 +1688,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1693,6 +1697,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />
@@ -1701,6 +1706,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />

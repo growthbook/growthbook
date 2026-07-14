@@ -1,9 +1,3 @@
----
-description: "Backend API patterns for both internal and external APIs"
-globs: ["packages/back-end/src/**/*.ts"]
-alwaysApply: false
----
-
 # Backend API Patterns
 
 The back-end serves **two distinct types of APIs** with different patterns and purposes:

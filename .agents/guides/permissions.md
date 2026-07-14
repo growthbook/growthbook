@@ -1,8 +1,3 @@
----
-description: "Permission system for access control across front-end and back-end"
-alwaysApply: true
----
-
 # Permission System
 
 ## Overview
