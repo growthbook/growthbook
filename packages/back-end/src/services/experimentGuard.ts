@@ -89,6 +89,8 @@ export const VALUE_AFFECTING_CONFIG_FIELDS = [
   "parent",
   "extends",
   "extensible",
+  // Which env/project flavors apply (and their order) changes served values.
+  "scopedOverrides",
 ] as const;
 const VALUE_AFFECTING_CONFIG_FIELD_SET = new Set<string>(
   VALUE_AFFECTING_CONFIG_FIELDS,

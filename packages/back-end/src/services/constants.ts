@@ -98,6 +98,12 @@ export function resolvableDependencyClosure(
 ): Set<string> {
   // Reverse edges: token -> resolvables that directly reference that token.
   const referencedBy = new Map<string, ResolvableRef[]>();
+  const addEdge = (token: string, r: ResolvableValue) => {
+    const ref: ResolvableRef = { source: r.source, key: r.key };
+    const list = referencedBy.get(token);
+    if (list) list.push(ref);
+    else referencedBy.set(token, [ref]);
+  };
   for (const r of resolvables) {
     for (const ns of ["constant", "config"] as const) {
       for (const refKey of getConstantReferenceKeys(
@@ -105,12 +111,14 @@ export function resolvableDependencyClosure(
         r.environmentValues,
         ns,
       )) {
-        const token = refToken(ns, refKey);
-        const entry: ResolvableRef = { source: r.source, key: r.key };
-        const list = referencedBy.get(token);
-        if (list) list.push(entry);
-        else referencedBy.set(token, [entry]);
+        addEdge(refToken(ns, refKey), r);
       }
+    }
+    // A config references its scope-selected flavor configs via `scopedOverrides`
+    // (not a `@config:` `$extends` ref), so add those edges explicitly — a flavor
+    // change must propagate to the parent, and thence to features that use it.
+    for (const entry of r.scopedOverrides ?? []) {
+      addEdge(refToken("config", entry.config), r);
     }
   }
 

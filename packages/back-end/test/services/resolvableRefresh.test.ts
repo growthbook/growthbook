@@ -53,6 +53,11 @@ function config(
     value?: string;
     environmentValues?: Record<string, string>;
     project?: string;
+    scopedOverrides?: {
+      config: string;
+      environments?: string[];
+      projects?: string[];
+    }[];
   } = {},
 ): ResolvableValue {
   return configToResolvable({
@@ -65,6 +70,7 @@ function config(
     value: opts.value,
     environmentValues: opts.environmentValues,
     project: opts.project ?? "",
+    scopedOverrides: opts.scopedOverrides,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   } as unknown as ConfigInterface);
@@ -260,6 +266,26 @@ describe("resolvableDependencyClosure", () => {
     expect(
       resolvableDependencyClosure(resolvables, "constant", "base"),
     ).toEqual(new Set(["constant:base", "constant:mid", "constant:top"]));
+  });
+
+  it("follows the scopedOverrides parent→flavor edge (a flavor change reaches its parent + descendants)", () => {
+    const resolvables = [
+      config("base", {
+        scopedOverrides: [
+          { config: "base-prod", environments: ["production"] },
+        ],
+      }),
+      config("base-prod", {
+        parent: "base",
+        value: JSON.stringify({ timeout: 5 }),
+      }),
+      config("child", { parent: "base" }),
+    ];
+    // Publishing the flavor must invalidate the parent (which serves it) and the
+    // parent's descendants — even though scopedOverrides isn't a @config: ref.
+    expect(
+      resolvableDependencyClosure(resolvables, "config", "base-prod"),
+    ).toEqual(new Set(["config:base-prod", "config:base", "config:child"]));
   });
 
   it("follows config lineage (parent + extends) as @config: edges", () => {
