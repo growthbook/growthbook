@@ -127,6 +127,8 @@ export default function ContextualBanditDetailPage({
     projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
 
+  const showResultsTab = cb.status !== "draft";
+
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
 
   const formatConversionWindow = (value: number, unit: string): string =>
@@ -359,7 +361,9 @@ export default function ContextualBanditDetailPage({
       <Tabs defaultValue="overview" persistInURL={true}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
+          {showResultsTab ? (
+            <TabsTrigger value="results">Results</TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="overview">
@@ -508,13 +512,15 @@ export default function ContextualBanditDetailPage({
           </Box>
         </TabsContent>
 
-        <TabsContent value="results">
-          <Box pt="4">
-            <Frame>
-              <ContextualBanditResultsTable cb={cb} mutate={mutate} />
-            </Frame>
-          </Box>
-        </TabsContent>
+        {showResultsTab ? (
+          <TabsContent value="results">
+            <Box pt="4">
+              <Frame>
+                <ContextualBanditResultsTable cb={cb} mutate={mutate} />
+              </Frame>
+            </Box>
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {showStart && cb.status === "draft" ? (
