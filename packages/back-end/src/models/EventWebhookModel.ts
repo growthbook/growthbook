@@ -195,12 +195,6 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
     min: 0,
   },
-  dailyDigestHourUtc: {
-    type: Number,
-    required: false,
-    min: 0,
-    max: 23,
-  },
   // Free-form object (validated by slackEventWebHookOptions) so new toggles
   // don't require a schema change.
   slackOptions: {
@@ -279,7 +273,6 @@ type CreateEventWebHookOptions = {
   headers: Record<string, string>;
   slack?: EventWebHookInterface["slack"];
   coalesceWindowMs?: number;
-  dailyDigestHourUtc?: number;
   slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
@@ -304,7 +297,6 @@ export const createEventWebHook = async ({
   headers,
   slack,
   coalesceWindowMs,
-  dailyDigestHourUtc,
   slackOptions,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
@@ -333,7 +325,6 @@ export const createEventWebHook = async ({
     lastState: "none",
     lastResponseBody: null,
     ...(coalesceWindowMs !== undefined ? { coalesceWindowMs } : {}),
-    ...(dailyDigestHourUtc !== undefined ? { dailyDigestHourUtc } : {}),
     ...(slackOptions !== undefined ? { slackOptions } : {}),
   });
 
@@ -410,7 +401,6 @@ export type UpdateEventWebHookAttributes = {
   headers?: Record<string, string>;
   slack?: EventWebHookInterface["slack"];
   coalesceWindowMs?: number;
-  dailyDigestHourUtc?: number | null;
   slackOptions?: EventWebHookInterface["slackOptions"];
 };
 
@@ -427,22 +417,13 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
-  const setUpdates = { ...updates };
-  const unsetUpdates: Record<string, ""> = {};
-
-  if (updates.dailyDigestHourUtc === null) {
-    delete setUpdates.dailyDigestHourUtc;
-    unsetUpdates.dailyDigestHourUtc = "";
-  }
-
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
       $set: {
-        ...setUpdates,
+        ...updates,
         dateUpdated: new Date(),
       },
-      ...(Object.keys(unsetUpdates).length ? { $unset: unsetUpdates } : {}),
     },
   );
 

@@ -41,7 +41,6 @@ const eventWebHookPayload = z
       .min(0)
       .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
       .optional(),
-    dailyDigestHourUtc: z.number().int().min(0).max(23).nullable().optional(),
     slackOptions: slackEventWebHookOptions.optional(),
   })
   .strict();

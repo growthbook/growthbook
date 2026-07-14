@@ -92,9 +92,9 @@ export const SLACK_DIGEST_LIVE_FREQUENCIES = new Set<SlackDigestFrequency>([
 export const DEFAULT_SLACK_DIGEST_HOUR_UTC = 14; // ~9am ET
 export const DEFAULT_SLACK_DIGEST_INTERVAL_DAYS = 14;
 
-// Unified digest config (supersedes the legacy weekly* / dailyDigestHourUtc
-// fields). `dayOfWeekUtc` applies to weekly, `dayOfMonth` to monthly/quarterly,
-// `intervalDays` to custom ("every N days").
+// Unified digest config (supersedes the legacy weekly* fields). `dayOfWeekUtc`
+// applies to weekly, `dayOfMonth` to monthly/quarterly, `intervalDays` to
+// custom ("every N days").
 export const slackDigestConfig = z
   .object({
     frequency: z.enum(slackDigestFrequencies),
@@ -158,11 +158,6 @@ const resolveDigestConfig = (
 
 // The effective experiment scorecard schedule: prefers `experimentDigest`,
 // then the legacy single `digest`, then the legacy weeklyDigest* opt-in.
-//
-// The legacy root `dailyDigestHourUtc` is intentionally NOT mapped: it drove
-// the old daily *text* recap (a different feature), so honoring it would
-// silently start posting the new daily scorecard image to installs that never
-// opted in. Those installs stay "off" until reconfigured in the UI.
 export const resolveExperimentDigest = (
   options: SlackEventWebHookOptions | undefined,
 ): ResolvedSlackDigest => {
@@ -684,7 +679,6 @@ export const eventWebHookInterface = z
       .min(0)
       .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
       .optional(),
-    dailyDigestHourUtc: z.number().int().min(0).max(23).optional(),
     // Slack bot display/digest options (flat keys so new toggles don't need
     // model/router/controller changes).
     slackOptions: slackEventWebHookOptions.optional(),

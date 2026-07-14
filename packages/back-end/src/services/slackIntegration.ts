@@ -332,7 +332,6 @@ export const slackEventWebhookToIntegration = (
   environments: eventWebHook.environments,
   tags: eventWebHook.tags,
   coalesceWindowMs: eventWebHook.coalesceWindowMs,
-  dailyDigestHourUtc: eventWebHook.dailyDigestHourUtc,
   slackOptions: eventWebHook.slackOptions,
   lastRunAt: eventWebHook.lastRunAt,
   lastState: eventWebHook.lastState,

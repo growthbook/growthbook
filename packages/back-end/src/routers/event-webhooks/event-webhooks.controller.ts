@@ -107,7 +107,6 @@ type PostEventWebHooksRequest = AuthRequest & {
     method: EventWebHookMethod;
     headers: Record<string, string>;
     coalesceWindowMs?: number;
-    dailyDigestHourUtc?: number;
     slackOptions?: EventWebHookInterface["slackOptions"];
   };
 };
@@ -139,7 +138,6 @@ export const createEventWebHook = async (
     method = "POST",
     headers = {},
     coalesceWindowMs,
-    dailyDigestHourUtc,
     slackOptions,
   } = req.body;
 
@@ -158,7 +156,6 @@ export const createEventWebHook = async (
     method,
     headers,
     coalesceWindowMs,
-    dailyDigestHourUtc,
     slackOptions,
   });
 
