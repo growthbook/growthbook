@@ -150,10 +150,10 @@ const RETRY_JITTER_MS = 500;
  * (JS strings are UTF-16) but a close-enough upper bound. Sized to keep the
  * gzipped chunk under fetch keepalive's 64KB body limit (~8-15x ratio for
  * rrweb data), so the pagehide/unload flush still uses keepalive and
- * delivers. 512KB uncompressed → typically ~35-51KB on the wire (worst-case
- * ~8x ≈ 64KB, right at the ceiling — do not raise without addressing the
- * keepalive limit; see sendChunk's useKeepalive fallback). Well under the
- * ingest endpoint's 10MB limit.
+ * delivers. 256KB uncompressed → typically ~17-32KB on the wire, comfortably
+ * under the keepalive ceiling (see sendChunk's useKeepalive fallback).
+ * (Temporarily reverted from a 512KB experiment pending a platform-team
+ * discussion on larger chunks / the ingest 10MB decompressed limit.)
  *
  * MAX_BUFFERED_EVENTS — hard cap on the in-memory event buffer (scaled with
  * FLUSH_BYTE_SIZE to keep ~512 bytes/event headroom). New events are dropped
@@ -166,8 +166,8 @@ const RETRY_JITTER_MS = 500;
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 30 * 60 * 1000;
 const FLUSH_INTERVAL_MS = 60_000;
-const FLUSH_BYTE_SIZE = 512 * 1024;
-const MAX_BUFFERED_EVENTS = 1000;
+const FLUSH_BYTE_SIZE = 256 * 1024;
+const MAX_BUFFERED_EVENTS = 500;
 const COMPRESS_REQUESTS = true;
 
 export function sessionReplayPlugin({
