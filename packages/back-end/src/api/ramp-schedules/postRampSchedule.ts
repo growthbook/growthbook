@@ -73,7 +73,7 @@ const postRampScheduleValidator = {
       cutoffDate: z.string().datetime().optional().nullable(),
       requiresStartApproval: z
         .boolean()
-        .optional()
+        .nullish()
         .describe(
           "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate.",
         ),

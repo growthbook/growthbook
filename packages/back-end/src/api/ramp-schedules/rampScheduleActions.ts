@@ -80,6 +80,13 @@ export const startRampSchedule = createApiRequestHandler({
       `Cannot start a ramp schedule in status "${schedule.status}" — must be "ready"`,
     );
   }
+  // An approval-gated schedule can only be launched via /actions/approve-step,
+  // so the approval is recorded and audited. `start` (start-early) is refused.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step to start it.",
+    );
+  }
 
   const current = await runLockedRampScheduleAction(
     req.context,
@@ -88,6 +95,11 @@ export const startRampSchedule = createApiRequestHandler({
       if (fresh.status !== "ready") {
         throw new ConflictError(
           `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step to start it.",
         );
       }
       return startSchedule(req.context, fresh, heartbeat);
@@ -302,8 +314,16 @@ export const approveStepRampSchedule = createApiRequestHandler({
     req.context,
     schedule.id,
     (fresh) => {
+      // Pin the gate to what the caller saw pre-lock. If it flipped under us
+      // (e.g. a concurrent rollback re-held a running step, or vice versa),
+      // refuse — a "approve step N" call must never become a full re-start.
+      if (isAwaitingStartApproval(fresh) !== awaitingStart) {
+        throw new ConflictError(
+          "The schedule's approval state changed while the request was in flight",
+        );
+      }
       // Pre-start hold: approving starts the ramp (crosses -1 → 0).
-      if (isAwaitingStartApproval(fresh)) {
+      if (awaitingStart) {
         return approveScheduleStart(req.context, fresh);
       }
       // Pin to the step the reviewer saw — a queued approval must not land

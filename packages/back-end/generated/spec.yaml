@@ -4124,7 +4124,9 @@ paths:
                         - mode
                       additionalProperties: false
                     requiresStartApproval:
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   type: object
@@ -4724,7 +4726,9 @@ paths:
                         - mode
                       additionalProperties: false
                     requiresStartApproval:
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   type: object
@@ -5349,7 +5353,9 @@ paths:
                     - mode
                   additionalProperties: false
                 requiresStartApproval:
-                  type: boolean
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 environment:
                   deprecated: true
                   type: string
@@ -8704,7 +8710,9 @@ paths:
                         - mode
                       additionalProperties: false
                     requiresStartApproval:
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9306,7 +9314,9 @@ paths:
                         - mode
                       additionalProperties: false
                     requiresStartApproval:
-                      type: boolean
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9941,7 +9951,9 @@ paths:
                     - mode
                   additionalProperties: false
                 requiresStartApproval:
-                  type: boolean
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 environment:
                   deprecated: true
                   type: string
@@ -22935,7 +22947,9 @@ paths:
                     When true, the ramp holds at step -1 with its rule disabled
                     (zero traffic) until a human approves the start via
                     /actions/approve-step. Composes with startDate.
-                  type: boolean
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 monitoringConfig:
                   anyOf:
                     - type: object
@@ -37362,7 +37376,9 @@ components:
                       - mode
                     additionalProperties: false
                   requiresStartApproval:
-                    type: boolean
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                 required:
                   - mode
                   - ruleId
@@ -37776,7 +37792,9 @@ components:
                       - mode
                     additionalProperties: false
                   requiresStartApproval:
-                    type: boolean
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                   mode:
                     type: string
                     const: update
@@ -38554,7 +38572,9 @@ components:
                       - mode
                     additionalProperties: false
                   requiresStartApproval:
-                    type: boolean
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                 required:
                   - mode
                   - ruleId
@@ -38968,7 +38988,9 @@ components:
                       - mode
                     additionalProperties: false
                   requiresStartApproval:
-                    type: boolean
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                   mode:
                     type: string
                     const: update

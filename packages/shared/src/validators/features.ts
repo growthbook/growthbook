@@ -474,7 +474,9 @@ export const revisionRampCreateAction = z.object({
   // When true, the ramp holds at step -1 (rule disabled, zero traffic) until a
   // human explicitly approves the start, instead of firing on publish / at
   // startDate. Per-launch decision — deliberately NOT sourced from templates.
-  requiresStartApproval: z.boolean().optional(),
+  // Tri-state on updates (mirrors startDate): true = on, null = explicitly off,
+  // undefined/absent = leave unchanged.
+  requiresStartApproval: z.boolean().nullish(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.

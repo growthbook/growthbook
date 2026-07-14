@@ -1557,6 +1557,8 @@ export async function restartSchedule(
     nextProcessAt: null,
     monitoringStartDate: null,
     stepApproval: null,
+    // Re-arm the start-approval gate — a relaunch must be re-approved.
+    startApprovedAt: null,
     // Clear rollback metadata written by the defensive rewind above so a
     // schedule restarted from "completed" does not surface a phantom rollback
     // reason via the /status endpoint.
@@ -1583,6 +1585,27 @@ export async function restartSchedule(
         pastNotifications: [],
       });
     }
+  }
+
+  // An approval-gated schedule must be re-approved before it relaunches: leave
+  // it held at step -1 (the rollback above disabled the rule) awaiting approval,
+  // rather than auto-starting. The user approves via approve-step to launch.
+  if (readied.requiresStartApproval) {
+    await dispatchRampEvent(
+      ctx,
+      readied,
+      "rampSchedule.actions.awaitingStartApproval",
+      {
+        object: {
+          rampScheduleId: readied.id,
+          rampName: readied.name,
+          orgId: ctx.org.id,
+          currentStepIndex: readied.currentStepIndex,
+          status: readied.status,
+        },
+      },
+    );
+    return readied;
   }
 
   await heartbeat?.();
@@ -1631,15 +1654,24 @@ export async function jumpSchedule(
         syncSafeRollout: false,
       },
     );
-    updated = await ctx.models.rampSchedules.updateById(rolled.id, {
-      status: "paused",
-      pausedAt: now,
-      phaseStartedAt: freshPhaseStartedAt,
-      nextStepAt: null,
-      nextSnapshotAt: null,
-      nextProcessAt: null,
-      stepApproval: null,
-    });
+    // A jump to -1 on an approval-gated schedule re-holds it awaiting approval:
+    // rollbackToStep put it in "ready", cleared startApprovedAt, and disabled
+    // the rule. Preserve that instead of forcing "paused" — otherwise the
+    // awaiting-approval state is hidden and resume/advance could cross -1 → 0
+    // without an approval.
+    if (targetStepIndex === -1 && rolled.requiresStartApproval) {
+      updated = rolled;
+    } else {
+      updated = await ctx.models.rampSchedules.updateById(rolled.id, {
+        status: "paused",
+        pausedAt: now,
+        phaseStartedAt: freshPhaseStartedAt,
+        nextStepAt: null,
+        nextSnapshotAt: null,
+        nextProcessAt: null,
+        stepApproval: null,
+      });
+    }
   } else if (targetStepIndex > schedule.currentStepIndex) {
     updated = await jumpAheadToStep(ctx, schedule, targetStepIndex);
   } else {

@@ -2005,12 +2005,12 @@ async function createRampSchedulesForRevision(
       updateAction.monitoringConfig !== undefined
         ? updateAction.monitoringConfig
         : existingSchedule?.monitoringConfig;
-    // Resolve the post-edit approval strategy. Switching TO "on approval"
-    // sets this true (and clears startDate); switching to immediate/date sets it
-    // false. When still true and unapproved, the ramp must NOT start now.
+    // Resolve the post-edit approval strategy. Tri-state: `true` = on, `null` =
+    // explicitly off (switching to immediate/date), `undefined` = leave the
+    // existing value. When still on and unapproved, the ramp must NOT start now.
     const nextRequiresApproval =
       updateAction.requiresStartApproval !== undefined
-        ? updateAction.requiresStartApproval
+        ? !!updateAction.requiresStartApproval
         : !!existingSchedule?.requiresStartApproval;
     const heldForApproval =
       nextRequiresApproval && !existingSchedule?.startApprovedAt;
@@ -2161,10 +2161,12 @@ async function createRampSchedulesForRevision(
               canEditStartActions &&
               updateAction.requiresStartApproval !== undefined
             ) {
+              // Store an explicit boolean (null/false → false) so turning the
+              // gate off reliably clears it rather than leaving the stale value.
               set(
                 true,
                 "requiresStartApproval",
-                updateAction.requiresStartApproval || undefined,
+                !!updateAction.requiresStartApproval,
               );
               patch.startApprovedAt = null;
             }

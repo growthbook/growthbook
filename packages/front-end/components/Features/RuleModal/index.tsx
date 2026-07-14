@@ -1353,8 +1353,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
-                  requiresStartApproval:
-                    rampState.requiresStartApproval || undefined,
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1420,8 +1421,9 @@ export default function RuleModal({
                     rampState.monitoring,
                     rampState.steps,
                   ),
-                  requiresStartApproval:
-                    rampState.requiresStartApproval || undefined,
+                  requiresStartApproval: rampState.requiresStartApproval
+                    ? true
+                    : null,
                   ...(rampState.lockFeature
                     ? { lockdownConfig: { mode: "locked" as const } }
                     : { lockdownConfig: { mode: "none" as const } }),
@@ -1568,8 +1570,9 @@ export default function RuleModal({
                 rampState.monitoring,
                 rampState.steps,
               ),
-              requiresStartApproval:
-                rampState.requiresStartApproval || undefined,
+              requiresStartApproval: rampState.requiresStartApproval
+                ? true
+                : null,
               ...(rampState.lockFeature
                 ? { lockdownConfig: { mode: "locked" as const } }
                 : { lockdownConfig: { mode: "none" as const } }),

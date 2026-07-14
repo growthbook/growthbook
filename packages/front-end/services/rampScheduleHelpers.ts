@@ -94,7 +94,7 @@ export function buildRuleRampScheduleMap({
             ? { lockdownConfig: action.lockdownConfig }
             : {}),
           ...(action.requiresStartApproval !== undefined
-            ? { requiresStartApproval: action.requiresStartApproval }
+            ? { requiresStartApproval: !!action.requiresStartApproval }
             : {}),
         };
         map.set(action.ruleId, updated);
@@ -130,7 +130,7 @@ export function buildRuleRampScheduleMap({
         startDate: action.startDate ? new Date(action.startDate) : undefined,
         cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
         lockdownConfig: action.lockdownConfig,
-        requiresStartApproval: action.requiresStartApproval,
+        requiresStartApproval: !!action.requiresStartApproval,
         status: "pending",
         currentStepIndex: -1,
         dateCreated: new Date(),

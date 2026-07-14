@@ -329,6 +329,15 @@ export const postRampScheduleAction = async (
           message: `Cannot start a schedule in status "${schedule.status}" — must be "ready"`,
         });
       }
+      // An approval-gated schedule can only be launched by approving it, so the
+      // approval is recorded and audited. `start` (start-early) is refused.
+      if (isAwaitingStartApproval(schedule)) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "This schedule requires start approval — use the approve action to start it.",
+        });
+      }
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
@@ -336,6 +345,11 @@ export const postRampScheduleAction = async (
           if (fresh.status !== "ready") {
             throw new ConflictError(
               `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          if (isAwaitingStartApproval(fresh)) {
+            throw new ConflictError(
+              "This schedule now requires start approval — use the approve action to start it.",
             );
           }
           return startSchedule(context, fresh, heartbeat);
@@ -595,8 +609,16 @@ export const postRampScheduleAction = async (
         context,
         schedule.id,
         (fresh) => {
+          // Pin the gate to what the caller saw pre-lock. If it flipped under us
+          // (e.g. a concurrent rollback re-held a running step, or vice versa),
+          // refuse — a "approve step N" click must never become a full re-start.
+          if (isAwaitingStartApproval(fresh) !== awaitingStart) {
+            throw new ConflictError(
+              "The schedule's approval state changed while the request was in flight",
+            );
+          }
           // Pre-start hold: approving starts the ramp (crosses -1 → 0).
-          if (isAwaitingStartApproval(fresh)) {
+          if (awaitingStart) {
             return approveScheduleStart(context, fresh);
           }
           // Pin to the step the reviewer saw — a queued approval must not
