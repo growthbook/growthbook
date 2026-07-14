@@ -20,18 +20,10 @@ import {
   MAX_EXHAUSTIVE_CATEGORIES,
   type kMeansResult,
 } from "./multivariateKMeans";
-import { SampleMeanStatistic, ProportionStatistic } from "./statistics";
+import { SampleMeanStatistic } from "./statistics";
 
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
 
-/**
- * Tree-growth split strategy.
- *  - `"kmeans"` (default): each split groups an attribute's categories into two
- *    sets via weighted k-means (`country in (US, CA)` vs not), porting gbstats
- *    `UpdateWeightsContextualTreeKMeans`.
- *  - `"onehot"`: greedy one-hot splits (`country == US` vs not), porting gbstats
- *    `UpdateWeightsContextualTree`.
- */
 export type ContextualBanditSplitStrategy = "onehot" | "kmeans";
 
 /** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
@@ -43,8 +35,7 @@ export type ContextualBanditWeightsInput = {
   metricSettings: MetricSettingsForStatsEngine;
   analysisWeights: number[];
   rows: ExperimentMetricQueryResponseRows;
-  /** Defaults to `"kmeans"`. */
-  splitStrategy?: ContextualBanditSplitStrategy;
+  splitStrategy: ContextualBanditSplitStrategy;
 };
 
 type ArmColumns = {
@@ -124,11 +115,6 @@ function addArms(a: ArmColumns, b: ArmColumns): ArmColumns {
   };
 }
 
-/**
- * Contextual bandits operate only on sample-mean (count) and proportion
- * (binomial) statistics. Ratio, regression-adjusted, and quantile statistics
- * are rejected so the entire pipeline only ever handles those two moment types.
- */
 function assertSupportedContextualBanditMetric(
   metric: MetricSettingsForStatsEngine,
 ): void {
@@ -146,26 +132,21 @@ function assertSupportedContextualBanditMetric(
 }
 
 /**
- * Mean/variance for a variation arm. Only sample-mean (count) and proportion
- * (binomial) metrics are supported; `forBandit` recasts binomial -> SampleMean
- * for Thompson sampling (matching gbstats `BanditsSimple`).
+ * Binomial metrics are recast to SampleMean for Thompson sampling.
  */
-function armMomentStat(
+function armMomentStatForBandit(
   arm: ArmColumns,
   metric: MetricSettingsForStatsEngine,
-  forBandit: boolean,
 ): MomentStat {
   assertSupportedContextualBanditMetric(metric);
   const n = arm.n;
-  let stat: SampleMeanStatistic | ProportionStatistic;
+  let stat: SampleMeanStatistic;
   if (metric.main_metric_type === "binomial") {
-    stat = forBandit
-      ? new SampleMeanStatistic({
-          n,
-          sum: arm.main_sum,
-          sumSquares: arm.main_sum,
-        })
-      : new ProportionStatistic({ n, sum: arm.main_sum });
+    stat = new SampleMeanStatistic({
+      n,
+      sum: arm.main_sum,
+      sumSquares: arm.main_sum,
+    });
   } else {
     stat = new SampleMeanStatistic({
       n,
@@ -187,7 +168,9 @@ function computeLeafWeights(
   metric: MetricSettingsForStatsEngine,
   currentWeights: number[],
 ): VariationWeightResult {
-  const stats = armsByVariation.map((arm) => armMomentStat(arm, metric, true));
+  const stats = armsByVariation.map((arm) =>
+    armMomentStatForBandit(arm, metric),
+  );
   return updateVariationWeights(stats, currentWeights, metric.inverse);
 }
 
@@ -278,12 +261,6 @@ function featureValue(ctx: ContextEntry, feature: Feature): number {
 /**
  * Within-group SSE from each member's per-variation arm statistics: pool the
  * arms per variation, then sum `(n - 1) * variance` across variations.
- *
- * Only the three fields the objective reads (`n`, `main_sum`,
- * `main_sum_squares`) are accumulated, into mutable locals, so pooling a group
- * costs three adds per member per variation with no per-step allocation (the
- * previous `addArms` created a fresh nine-field arm on every accumulation). The
- * statistic is still built via `armMomentStat`, so results are bit-identical.
  */
 function sumOfSquaredErrorsFromArms(
   armsPerMember: ArmColumns[][],
@@ -301,10 +278,9 @@ function sumOfSquaredErrorsFromArms(
       main_sum += arm.main_sum;
       main_sum_squares += arm.main_sum_squares;
     }
-    const stat = armMomentStat(
+    const stat = armMomentStatForBandit(
       { ...emptyArm(), n, main_sum, main_sum_squares },
       metric,
-      false,
     );
     sse += (stat.n - 1) * stat.variance;
   }
@@ -327,9 +303,7 @@ function sumOfSquaredErrors(
  * Compact per-category sufficient statistics for the split search: exactly the
  * three `ArmColumns` fields the SSE objective reads (`n`, `main_sum`,
  * `main_sum_squares`), laid out per variation as `[n, sum, sumSquares]` in a
- * single `Float64Array` of length `3 * numVariations`. The other six columns
- * are dead weight in the objective, so they are dropped to keep the innermost
- * enumeration loop allocation-free.
+ * single `Float64Array` of length `3 * numVariations`.
  */
 type CompactCat = Float64Array;
 
@@ -346,15 +320,8 @@ function trailingZeros(x: number): number {
 /**
  * `(n - 1) * variance` for a single pooled variation arm, computed directly
  * from its sufficient statistics — the exact quantity summed by
- * `sumOfSquaredErrorsFromArms` (which multiplies `armMomentStat`'s variance by
- * `n - 1`), but without allocating a statistic object:
- *  - count / sample-mean: `sumSquares - sum^2 / n` (0 when `n <= 1`).
- *  - binomial / proportion: `(n - 1) * p * (1 - p)`, `p = sum / n` (0 when `n === 0`).
- *
- * Values match `armMomentStat(..., forBandit=false)` up to floating-point
- * rounding (the reference path divides by `n - 1` inside `variance` and then
- * multiplies it back out).
- */
+ * `sumOfSquaredErrorsFromArms` (which multiplies a moment stat's variance by
+ * `n - 1`), but without allocating a statistic object */
 export function armSseDirect(
   n: number,
   sum: number,
@@ -1027,7 +994,7 @@ function buildTreeKMeans(
   };
 }
 
-/** Compute updated contextual-bandit weights, returning the Python-shape snapshot. */
+/** Compute updated contextual-bandit weights. */
 export function computeContextualBanditWeights(
   input: ContextualBanditWeightsInput,
 ): ContextualBanditSnapshot {
@@ -1046,8 +1013,6 @@ export function computeContextualBanditWeights(
     keep_theta: false,
   };
 
-  // Fail fast on unsupported metrics so we never partially process a run that
-  // uses anything other than a sample-mean (count) or proportion (binomial).
   assertSupportedContextualBanditMetric(metricSettings);
 
   const numVariations = varIds.length;
@@ -1109,7 +1074,7 @@ export function computeContextualBanditWeights(
   const leaf_stats: ContextualLeafStatsEntry[] = sortedLeafArms.map(
     ([leafId, arms]) => {
       const stats = arms.map((arm) =>
-        armMomentStat(arm, metricSettings, false),
+        armMomentStatForBandit(arm, metricSettings),
       );
       return {
         leafId,
@@ -1132,7 +1097,7 @@ export function computeContextualBanditWeights(
     const leaf = leafWeights.get(leafId);
 
     const contextStats = ctx.arms.map((arm) =>
-      armMomentStat(arm, metricSettings, false),
+      armMomentStatForBandit(arm, metricSettings),
     );
 
     responses.push({
