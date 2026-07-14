@@ -72,6 +72,8 @@ interface Props {
   setStagedBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >;
+  sqlBlockEditorTarget: HTMLDivElement | null;
+  sqlBlockEditorHeaderTarget: HTMLDivElement | null;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
   focusBlock: (index: number) => void;
   editBlock: (index: number) => void;
@@ -92,6 +94,8 @@ export default function DashboardEditorSidebar({
   stagedBlock,
   setBlocks,
   setStagedBlock,
+  sqlBlockEditorTarget,
+  sqlBlockEditorHeaderTarget,
   addBlockType,
   focusBlock,
   editBlock,
@@ -256,6 +260,8 @@ export default function DashboardEditorSidebar({
               submit={submit}
               block={stagedBlock}
               setBlock={setStagedBlock}
+              sqlBlockEditorTarget={sqlBlockEditorTarget}
+              sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
             />
           ) : (
             <div style={{ width: "440px", padding: "20px" }}>

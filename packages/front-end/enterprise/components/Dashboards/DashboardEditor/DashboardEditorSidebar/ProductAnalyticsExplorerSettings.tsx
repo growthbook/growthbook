@@ -10,6 +10,7 @@ import {
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
   restoreBlockLocalDateControls,
+  blockUsesDashboardDateControl,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import type {
@@ -39,6 +40,8 @@ interface Props {
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  sqlBlockEditorTarget?: HTMLDivElement | null;
+  sqlBlockEditorHeaderTarget?: HTMLDivElement | null;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
 }
@@ -47,6 +50,8 @@ export default function ProductAnalyticsExplorerSettings({
   block,
   setBlock,
   dashboardGlobalControls,
+  sqlBlockEditorTarget,
+  sqlBlockEditorHeaderTarget,
   saveAndCloseTrigger,
   onSaveAndClose,
 }: Props) {
@@ -73,15 +78,19 @@ export default function ProductAnalyticsExplorerSettings({
         config: baseInitialConfig,
       } as typeof block)
     : null;
+  const dateControlledBlock = blockUsesDashboardDateControl(block)
+    ? block
+    : null;
   const effectiveInitialConfig = blockForInitialConfig
-    ? dashboardGlobalControls
+    ? dashboardGlobalControls &&
+      blockUsesDashboardDateControl(blockForInitialConfig)
       ? getEffectiveExplorationConfig(blockForInitialConfig, {
           globalControls: dashboardGlobalControls,
         })
       : baseInitialConfig
     : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
+    dateControlledBlock?.globalControlSettings?.dateRange === true &&
     Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&
@@ -149,9 +158,13 @@ export default function ProductAnalyticsExplorerSettings({
                   "customDateRange" && { previousTimeFrame }),
               }
             : undefined;
-        const nextConfig = usesDashboardDateRange
-          ? restoreBlockLocalDateControls(exploration.config, block.config)
-          : exploration.config;
+        const nextConfig =
+          usesDashboardDateRange && dateControlledBlock
+            ? restoreBlockLocalDateControls(
+                exploration.config as typeof dateControlledBlock.config,
+                dateControlledBlock.config,
+              )
+            : exploration.config;
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
@@ -179,6 +192,8 @@ export default function ProductAnalyticsExplorerSettings({
         block={block}
         setBlock={setBlock}
         dashboardGlobalControls={dashboardGlobalControls}
+        sqlBlockEditorTarget={sqlBlockEditorTarget}
+        sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
         invalidateStaleResults={!hasStaleDashboardDateResults}
         saveAndCloseTrigger={saveAndCloseTrigger}
         onSaveAndClose={onSaveAndClose}

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -51,8 +52,12 @@ SELECT timestamp, user_id, event_name FROM events`;
 
 export default function SqlQuerySection({
   fullHeight = false,
+  showHeader = true,
+  onChartReadyChange,
 }: {
   fullHeight?: boolean;
+  showHeader?: boolean;
+  onChartReadyChange?: (ready: boolean) => void;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -126,6 +131,18 @@ export default function SqlQuerySection({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isFullscreen]);
+
+  const chartReady =
+    dataset !== null &&
+    localSql.trim().length > 0 &&
+    localSql === dataset.sql &&
+    dataset.timestampColumn.length > 0 &&
+    dataset.columnTypes[dataset.timestampColumn] === "date" &&
+    Object.keys(dataset.columnTypes).length > 0;
+
+  useEffect(() => {
+    onChartReadyChange?.(chartReady);
+  }, [chartReady, onChartReadyChange]);
 
   if (!dataset) return null;
 
@@ -245,8 +262,9 @@ export default function SqlQuerySection({
   const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
   const useFullHeight = fullHeight || isFullscreen;
+  const showSectionHeader = showHeader || isFullscreen;
 
-  return (
+  const content = (
     <AiSqlGenerator
       datasourceId={draftExploreState.datasource}
       onSqlGenerated={(sql) => {
@@ -258,11 +276,17 @@ export default function SqlQuerySection({
       {({ prompt, trigger }) => (
         <Box
           style={{
-            border: "1px solid var(--gray-a3)",
-            borderRadius: isFullscreen ? 0 : "var(--radius-4)",
+            border: showSectionHeader ? "1px solid var(--gray-a3)" : undefined,
+            borderRadius: isFullscreen
+              ? 0
+              : showHeader
+                ? "var(--radius-4)"
+                : undefined,
             backgroundColor: isFullscreen
               ? "var(--color-surface-solid)"
-              : "var(--color-panel-translucent)",
+              : showHeader
+                ? "var(--color-panel-translucent)"
+                : undefined,
             overflow: "hidden",
             flex: useFullHeight ? 1 : undefined,
             minHeight: useFullHeight ? 0 : undefined,
@@ -270,69 +294,73 @@ export default function SqlQuerySection({
             flexDirection: useFullHeight ? "column" : undefined,
             position: isFullscreen ? "fixed" : undefined,
             inset: isFullscreen ? 0 : undefined,
-            zIndex: isFullscreen ? 1050 : undefined,
+            zIndex: isFullscreen ? 9500 : undefined,
           }}
         >
-          <Flex
-            align="center"
-            justify="between"
-            p="3"
-            style={{
-              borderBottom: open ? "1px solid var(--gray-a3)" : undefined,
-            }}
-          >
-            {isFullscreen ? (
-              <Flex align="center" gap="2">
-                <Text weight="medium">Query</Text>
-              </Flex>
-            ) : (
-              <Button variant="ghost" onClick={() => setOpen(!open)}>
+          {showSectionHeader ? (
+            <Flex
+              align="center"
+              justify="between"
+              p="3"
+              style={{
+                borderBottom: open ? "1px solid var(--gray-a3)" : undefined,
+              }}
+            >
+              {isFullscreen ? (
                 <Flex align="center" gap="2">
-                  {open ? <PiCaretDown /> : <PiCaretRight />}
                   <Text weight="medium">Query</Text>
                 </Flex>
-              </Button>
-            )}
-            <Flex align="center" justify="between" gap="3" mr="1">
-              {sqlChanged ? (
-                <Text size="small" color="text-low">
-                  Unsaved query changes
-                </Text>
-              ) : null}
-              {open ? (
-                <Tooltip
-                  style={{ display: "flex", alignItems: "center" }}
-                  body={
-                    isFullscreen
-                      ? "Close full screen (ESC)"
-                      : "Open in full screen"
-                  }
-                >
-                  <IconButton
-                    size="2"
-                    variant="ghost"
-                    color="gray"
-                    aria-label={
-                      isFullscreen ? "Close full screen" : "Open in full screen"
+              ) : (
+                <Button variant="ghost" onClick={() => setOpen(!open)}>
+                  <Flex align="center" gap="2">
+                    {open ? <PiCaretDown /> : <PiCaretRight />}
+                    <Text weight="medium">Query</Text>
+                  </Flex>
+                </Button>
+              )}
+              <Flex align="center" justify="between" gap="3" mr="1">
+                {sqlChanged ? (
+                  <Text size="small" color="text-low">
+                    Unsaved query changes
+                  </Text>
+                ) : null}
+                {open ? (
+                  <Tooltip
+                    style={{ display: "flex", alignItems: "center" }}
+                    body={
+                      isFullscreen
+                        ? "Close full screen (ESC)"
+                        : "Open in full screen"
                     }
-                    onClick={() => {
-                      if (!isFullscreen) {
-                        setOpen(true);
-                      }
-                      setIsFullscreen(!isFullscreen);
-                    }}
                   >
-                    {isFullscreen ? <PiX /> : <PiArrowsOut />}
-                  </IconButton>
-                </Tooltip>
-              ) : null}
+                    <IconButton
+                      size="2"
+                      variant="ghost"
+                      color="gray"
+                      aria-label={
+                        isFullscreen
+                          ? "Close full screen"
+                          : "Open in full screen"
+                      }
+                      onClick={() => {
+                        if (!isFullscreen) {
+                          setOpen(true);
+                        }
+                        setIsFullscreen(!isFullscreen);
+                      }}
+                    >
+                      {isFullscreen ? <PiX /> : <PiArrowsOut />}
+                    </IconButton>
+                  </Tooltip>
+                ) : null}
+              </Flex>
             </Flex>
-          </Flex>
-          {open && (
+          ) : null}
+          {(open || !showHeader) && (
             <Flex
               direction="column"
               gap="3"
-              p="3"
+              p={showSectionHeader ? "3" : "0"}
               style={{
                 flex: useFullHeight ? 1 : undefined,
                 minHeight: useFullHeight ? 0 : undefined,
@@ -480,6 +508,22 @@ export default function SqlQuerySection({
                               >
                                 Run
                               </Button>
+                              {!showHeader && !isFullscreen ? (
+                                <Tooltip body="Open in full screen">
+                                  <IconButton
+                                    size="2"
+                                    variant="ghost"
+                                    color="gray"
+                                    aria-label="Open in full screen"
+                                    onClick={() => {
+                                      setOpen(true);
+                                      setIsFullscreen(true);
+                                    }}
+                                  >
+                                    <PiArrowsOut />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : null}
                               <DropdownMenu
                                 trigger={
                                   <IconButton
@@ -562,4 +606,8 @@ export default function SqlQuerySection({
       )}
     </AiSqlGenerator>
   );
+
+  return isFullscreen && typeof document !== "undefined"
+    ? createPortal(content, document.body)
+    : content;
 }

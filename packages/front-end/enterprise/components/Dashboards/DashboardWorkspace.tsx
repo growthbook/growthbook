@@ -241,6 +241,10 @@ export default function DashboardWorkspace({
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
+  const [sqlBlockEditorTarget, setSqlBlockEditorTarget] =
+    useState<HTMLDivElement | null>(null);
+  const [sqlBlockEditorHeaderTarget, setSqlBlockEditorHeaderTarget] =
+    useState<HTMLDivElement | null>(null);
 
   const clearEditingState = () => {
     setAddBlockIndex(undefined);
@@ -249,6 +253,8 @@ export default function DashboardWorkspace({
     setStagedEditBlock(undefined);
     setEditSidebarDirty(false);
     setFocusedBlockIndex(undefined);
+    setSqlBlockEditorTarget(null);
+    setSqlBlockEditorHeaderTarget(null);
   };
 
   const [focusedBlockIndex, setFocusedBlockIndex] = useState<
@@ -619,6 +625,9 @@ export default function DashboardWorkspace({
                 editBlock: editBlock,
                 duplicateBlock,
                 deleteBlock: deleteBlock,
+                onSqlBlockEditorTargetChange: setSqlBlockEditorTarget,
+                onSqlBlockEditorHeaderTargetChange:
+                  setSqlBlockEditorHeaderTarget,
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
@@ -703,6 +712,8 @@ export default function DashboardWorkspace({
                   : setStagedEditBlock(block);
                 setEditSidebarDirty(true);
               }}
+              sqlBlockEditorTarget={sqlBlockEditorTarget}
+              sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
               addBlockType={addBlockType}
               focusBlock={focusBlock}
               editBlock={editBlock}

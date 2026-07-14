@@ -113,6 +113,8 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   canEdit?: boolean;
   setIsEditing?: (value: boolean) => void;
   enterEditModeForBlock?: (blockIndex: number) => void;
+  onSqlBlockEditorTargetChange?: (target: HTMLDivElement | null) => void;
+  onSqlBlockEditorHeaderTargetChange?: (target: HTMLDivElement | null) => void;
 }
 
 const BLOCK_COMPONENTS: {
@@ -150,6 +152,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   canEdit,
   setIsEditing,
   enterEditModeForBlock,
+  onSqlBlockEditorTargetChange,
+  onSqlBlockEditorHeaderTargetChange,
 }: Props<T>) {
   const { experimentsMap, loading: experimentsLoading } = useExperiments();
   const {
@@ -526,6 +530,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </>
         )}
 
+        {editingBlock && block.type === "sql-exploration" ? (
+          <div ref={onSqlBlockEditorHeaderTargetChange} />
+        ) : null}
         {isEditing ? (
           <div>
             {!editingBlock && (
@@ -614,13 +621,18 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       </Flex>
       <Text>{block.description}</Text>
       {/* Check for possible error states to ensure block component has all necessary data */}
-      {!definitionsReady ||
-      experimentsLoading ||
-      dashboardSnapshotLoading ||
-      metricAnalysisLoading ||
-      dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ||
-      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
+      {editingBlock && block.type === "sql-exploration" ? (
+        <div
+          ref={onSqlBlockEditorTargetChange}
+          style={{ display: "flex", flex: 1, minHeight: 0 }}
+        />
+      ) : !definitionsReady ||
+        experimentsLoading ||
+        dashboardSnapshotLoading ||
+        metricAnalysisLoading ||
+        dashboardContextLoading ||
+        (blockHasSavedQuery && savedQueryLoading) ||
+        (blockHasMetricAnalysis && metricAnalysisLoading) ? (
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
         <BlockNeedsConfiguration block={block} />

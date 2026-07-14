@@ -137,6 +137,8 @@ interface Props {
   setBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >;
+  sqlBlockEditorTarget: HTMLDivElement | null;
+  sqlBlockEditorHeaderTarget: HTMLDivElement | null;
 }
 
 function isBlockConfigItemSelected(
@@ -230,6 +232,8 @@ export default function EditSingleBlock({
   block,
   setBlock,
   projects,
+  sqlBlockEditorTarget,
+  sqlBlockEditorHeaderTarget,
 }: Props) {
   const {
     dimensions,
@@ -1715,6 +1719,9 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
+                sqlBlockEditorTarget={sqlBlockEditorTarget}
+                sqlBlockEditorHeaderTarget={sqlBlockEditorHeaderTarget}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />

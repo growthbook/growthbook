@@ -9,6 +9,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  SqlExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
@@ -83,12 +84,14 @@ type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | SqlExplorationBlockInterface
 >;
 
 const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "sql-exploration",
 ]);
 
 export function getTemporaryDashboardBlockId(index: number): string {
@@ -199,7 +202,8 @@ type DateGranularity = (typeof dateGranularity)[number];
 type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
-  | DataSourceExplorationConfig;
+  | DataSourceExplorationConfig
+  | SqlExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
   config: T["config"],

@@ -12,15 +12,19 @@ import {
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
+import { Box } from "@radix-ui/themes";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
-import SqlQuerySection from "@/enterprise/components/ProductAnalytics/MainSection/SqlQuerySection";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalytics/util";
+import Callout from "@/ui/Callout";
+import SqlExplorationBlockEditor from "./SqlExplorationBlockEditor";
 
 export default function ProductAnalyticsExplorerSideBarWrapper({
   block,
   setBlock,
   dashboardGlobalControls,
+  sqlBlockEditorTarget,
+  sqlBlockEditorHeaderTarget,
   invalidateStaleResults = true,
   saveAndCloseTrigger,
   onSaveAndClose,
@@ -40,6 +44,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     >
   >;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
+  sqlBlockEditorTarget?: HTMLDivElement | null;
+  sqlBlockEditorHeaderTarget?: HTMLDivElement | null;
   invalidateStaleResults?: boolean;
   saveAndCloseTrigger?: number;
   onSaveAndClose?: () => void;
@@ -186,8 +192,23 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
 
   return (
     <>
-      {draftExploreState.type === "sql" && <SqlQuerySection />}
-      {!hideSidebar && (
+      {block.type === "sql-exploration" &&
+      sqlBlockEditorTarget &&
+      sqlBlockEditorHeaderTarget ? (
+        <SqlExplorationBlockEditor
+          block={block}
+          dashboardGlobalControls={dashboardGlobalControls}
+          target={sqlBlockEditorTarget}
+          headerTarget={sqlBlockEditorHeaderTarget}
+        />
+      ) : null}
+      {hideSidebar ? (
+        <Box p="3">
+          <Callout status="info">
+            Run the SQL query to configure the chart.
+          </Callout>
+        </Box>
+      ) : (
         <ExplorerSideBar
           renderingInDashboardSidebar
           dashboardDateRange={dashboardGlobalControls?.dateRange}
@@ -237,7 +258,8 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
             } as
               | MetricExplorationBlockInterface
               | FactTableExplorationBlockInterface
-              | DataSourceExplorationBlockInterface);
+              | DataSourceExplorationBlockInterface
+              | SqlExplorationBlockInterface);
           }}
         />
       )}
