@@ -1,6 +1,7 @@
 import {
   sampleCard,
   CardState,
+  CompactEvent,
   sampleScorecard,
   renderWeeklyScorecard,
   sampleFeatureDigest,
@@ -20,6 +21,18 @@ const STATES: CardState[] = [
   "warning",
 ];
 
+// Compact-card events driven by `card.event` (not derivable from state).
+const COMPACT_EVENTS: { event: CompactEvent; state: CardState }[] = [
+  { event: "started", state: "started" },
+  { event: "significance", state: "running" },
+  { event: "won", state: "winner" },
+  { event: "lost", state: "loser" },
+  { event: "stopped", state: "stopped" },
+  { event: "warning", state: "warning" },
+  { event: "decisionShip", state: "winner" },
+  { event: "decisionRollback", state: "loser" },
+];
+
 describe("renderExperimentCard (smoke)", () => {
   // Exercises the full Satori + resvg-wasm pipeline for every card state, incl.
   // loading the bundled fonts/logo and the resvg wasm — so it also guards
@@ -29,6 +42,20 @@ describe("renderExperimentCard (smoke)", () => {
     async (state) => {
       const png = await renderExperimentCard(sampleCard(state));
       // PNG magic bytes.
+      expect(isPng(png)).toBe(true);
+      expect(png.length).toBeGreaterThan(2000);
+    },
+    30000,
+  );
+
+  // Compact card per announced event — covers the decision-ready heroes, which
+  // render like significance (running) rather than the won/lost outcome cards.
+  it.each(COMPACT_EVENTS)(
+    "renders the compact card for the $event event",
+    async ({ event, state }) => {
+      const card = sampleCard(state);
+      card.event = event;
+      const png = await renderExperimentCard(card, "compact");
       expect(isPng(png)).toBe(true);
       expect(png.length).toBeGreaterThan(2000);
     },

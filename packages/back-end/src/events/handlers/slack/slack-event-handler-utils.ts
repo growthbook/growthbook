@@ -347,10 +347,13 @@ const compactEventForNotification = (
       return "started";
     case "experiment.info.significance":
       return "significance";
+    // Decision Framework recommendations — the experiment is still running, so
+    // these are "ship/rollback recommended", not the stopped "won"/"lost"
+    // outcome (that's experiment.stopped.*).
     case "experiment.decision.ship":
-      return "won";
+      return "decisionShip";
     case "experiment.decision.rollback":
-      return "lost";
+      return "decisionRollback";
     case "experiment.warning":
     case "experiment.health.guardrailFailed":
     case "experiment.health.noData":
@@ -381,6 +384,8 @@ const CARD_CAPTION: Record<CompactEvent, string> = {
   lost: "Rolled back",
   stopped: "Experiment stopped",
   warning: "Health alert",
+  decisionShip: "Ship recommended",
+  decisionRollback: "Rollback recommended",
 };
 
 // Render the compact results-card PNG for an experiment event (best-effort).

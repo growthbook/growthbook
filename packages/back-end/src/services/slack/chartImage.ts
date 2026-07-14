@@ -274,7 +274,9 @@ export type CompactEvent =
   | "won"
   | "lost"
   | "stopped"
-  | "warning";
+  | "warning"
+  | "decisionShip"
+  | "decisionRollback";
 
 // Element helpers (Satori "without JSX" object form).
 
@@ -1370,6 +1372,21 @@ const COMPACT_EVENT: Record<
     status: "running",
     icon: "warn",
   },
+  // Decision Framework recommendations — the experiment is still running, so
+  // these read like significance (running status, metric lift + chance) rather
+  // than the stopped "won"/"lost" outcome cards.
+  decisionShip: {
+    label: "Ship recommended",
+    hue: "green",
+    status: "running",
+    icon: "check",
+  },
+  decisionRollback: {
+    label: "Rollback recommended",
+    hue: "amber",
+    status: "running",
+    icon: "warn",
+  },
 };
 
 // Icons drawn in a 24x24 viewBox (svgImg scales to the requested px).
@@ -1678,7 +1695,12 @@ function compactHero(
     );
   }
 
-  if (event === "significance" && r) {
+  if (
+    (event === "significance" ||
+      event === "decisionShip" ||
+      event === "decisionRollback") &&
+    r
+  ) {
     return el(
       "div",
       { display: "flex", flexDirection: "column", gap: 10, width: "100%" },
@@ -1861,16 +1883,26 @@ function buildCompactCard(exp: ExperimentCardData): El {
   const event = compactEventFor(exp);
   const ev = COMPACT_EVENT[event];
   const r0 = exp.rows[0];
-  // Event hue drives the rail + eyebrow; win/significance tint by direction.
+  // Event hue drives the rail + eyebrow; win/significance/ship tint by
+  // direction (a "ship recommended" with a down metric goes red).
   let hue = ev.hue;
-  if ((event === "significance" || event === "won") && r0?.dir === "down") {
+  if (
+    (event === "significance" || event === "won" || event === "decisionShip") &&
+    r0?.dir === "down"
+  ) {
     hue = "red";
   }
 
+  // Running-state events (no end date) share the significance-style footer.
+  const runningEvent =
+    event === "warning" ||
+    event === "significance" ||
+    event === "decisionShip" ||
+    event === "decisionRollback";
   const footerItems =
     event === "started"
       ? [exp.variants.join(" · "), exp.dates, exp.ds]
-      : event === "warning" || event === "significance"
+      : runningEvent
         ? [exp.days, exp.users ? `${exp.users} users` : undefined, exp.ds]
         : [
             exp.days,

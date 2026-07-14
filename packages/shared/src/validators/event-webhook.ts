@@ -41,6 +41,8 @@ export const slackCardKinds = [
   "lost",
   "stopped",
   "warning",
+  "decisionShip", // Decision Framework recommends shipping (still running)
+  "decisionRollback", // Decision Framework recommends rolling back
 ] as const;
 export type SlackCardKind = (typeof slackCardKinds)[number];
 
@@ -53,8 +55,8 @@ export type SlackCardKind = (typeof slackCardKinds)[number];
 export const SLACK_CARD_EVENT_KINDS: Record<string, SlackCardKind> = {
   "experiment.started": "started",
   "experiment.info.significance": "significance",
-  "experiment.decision.ship": "won",
-  "experiment.decision.rollback": "lost",
+  "experiment.decision.ship": "decisionShip",
+  "experiment.decision.rollback": "decisionRollback",
   "experiment.warning": "warning",
   "experiment.health.guardrailFailed": "warning",
   "experiment.health.noData": "warning",

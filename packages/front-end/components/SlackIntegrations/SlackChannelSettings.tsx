@@ -116,6 +116,10 @@ const CARD_KIND_PREVIEW: Record<
   lost: { state: "loser", event: "lost" },
   stopped: { state: "stopped", event: "stopped" },
   warning: { state: "warning", event: "warning" },
+  // Decision recommendations preview like significance (running + lift), using
+  // a positive sample for ship and a negative one for rollback.
+  decisionShip: { state: "winner", event: "decisionShip" },
+  decisionRollback: { state: "loser", event: "decisionRollback" },
 };
 
 // Digests aren't events — they're sentinel picker values that render a sample

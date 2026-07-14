@@ -115,6 +115,8 @@ const COMPACT_EVENTS: CompactEvent[] = [
   "lost",
   "stopped",
   "warning",
+  "decisionShip",
+  "decisionRollback",
 ];
 
 // Render an experiment card (or a digest) to PNG for eyeballing in a browser.

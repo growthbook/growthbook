@@ -38,6 +38,8 @@ const TEST_CARD_STATE: Record<SlackCardKind, CardState> = {
   lost: "loser",
   stopped: "stopped",
   warning: "warning",
+  decisionShip: "winner",
+  decisionRollback: "loser",
 };
 
 export const slackEventWebhookTestEventNames = [
