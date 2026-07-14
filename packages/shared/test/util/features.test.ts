@@ -48,9 +48,8 @@ import {
   stripDefaultsForSparse,
   expandSparseToFull,
   draftHasChangesOutsideTargetRef,
-  getUnreachableDefaultValueOverrideIds,
+  getUnreachableDefaultValueOverrideIndexes,
   getDefaultValueOverrideForEnvironment,
-  getMatchingDefaultValueOverrides,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -786,8 +785,7 @@ describe("autoMerge", () => {
   });
 
   describe("defaultValueOverrides (ordered override list)", () => {
-    const ov = (id: string, value: string, environments: string[] = []) => ({
-      id,
+    const ov = (value: string, environments: string[] = []) => ({
       value,
       environments,
     });
@@ -800,18 +798,18 @@ describe("autoMerge", () => {
 
     it("emits the draft list when it differs from base (no divergence)", () => {
       const base = rf({ defaultValueOverrides: [] });
-      const revision = rf({ defaultValueOverrides: [ov("a", "x", ["prod"])] });
+      const revision = rf({ defaultValueOverrides: [ov("x", ["prod"])] });
       const result = autoMerge(base, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.result.defaultValueOverrides).toEqual([
-          ov("a", "x", ["prod"]),
+          ov("x", ["prod"]),
         ]);
       }
     });
 
     it("emits an empty list when all overrides are cleared", () => {
-      const base = rf({ defaultValueOverrides: [ov("a", "x", ["prod"])] });
+      const base = rf({ defaultValueOverrides: [ov("x", ["prod"])] });
       const revision = rf({ defaultValueOverrides: [] });
       const result = autoMerge(base, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
@@ -821,8 +819,8 @@ describe("autoMerge", () => {
     });
 
     it("emits nothing when the draft matches base", () => {
-      const base = rf({ defaultValueOverrides: [ov("a", "x", ["prod"])] });
-      const revision = rf({ defaultValueOverrides: [ov("a", "x", ["prod"])] });
+      const base = rf({ defaultValueOverrides: [ov("x", ["prod"])] });
+      const revision = rf({ defaultValueOverrides: [ov("x", ["prod"])] });
       const result = autoMerge(base, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
       if (result.success) {
@@ -834,14 +832,14 @@ describe("autoMerge", () => {
       const base = rf({ defaultValueOverrides: [] });
       const live = rf({ defaultValueOverrides: [], version: 6 });
       const revision = rf({
-        defaultValueOverrides: [ov("a", "x", ["prod"])],
+        defaultValueOverrides: [ov("x", ["prod"])],
         version: 5,
       });
       const result = autoMerge(live, base, revision, ["dev", "prod"], {});
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.result.defaultValueOverrides).toEqual([
-          ov("a", "x", ["prod"]),
+          ov("x", ["prod"]),
         ]);
       }
     });
@@ -849,11 +847,11 @@ describe("autoMerge", () => {
     it("emits nothing when the draft already matches live", () => {
       const base = rf({ defaultValueOverrides: [] });
       const live = rf({
-        defaultValueOverrides: [ov("a", "x", ["prod"])],
+        defaultValueOverrides: [ov("x", ["prod"])],
         version: 6,
       });
       const revision = rf({
-        defaultValueOverrides: [ov("a", "x", ["prod"])],
+        defaultValueOverrides: [ov("x", ["prod"])],
         version: 5,
       });
       const result = autoMerge(live, base, revision, ["dev", "prod"], {});
@@ -864,13 +862,13 @@ describe("autoMerge", () => {
     });
 
     it("conflicts when base, live, and draft all differ", () => {
-      const base = rf({ defaultValueOverrides: [ov("a", "base", ["prod"])] });
+      const base = rf({ defaultValueOverrides: [ov("base", ["prod"])] });
       const live = rf({
-        defaultValueOverrides: [ov("a", "live", ["prod"])],
+        defaultValueOverrides: [ov("live", ["prod"])],
         version: 6,
       });
       const revision = rf({
-        defaultValueOverrides: [ov("a", "draft", ["prod"])],
+        defaultValueOverrides: [ov("draft", ["prod"])],
         version: 5,
       });
       const result = autoMerge(live, base, revision, ["dev", "prod"], {});
@@ -888,13 +886,13 @@ describe("autoMerge", () => {
     });
 
     it("resolves a conflict in either direction", () => {
-      const base = rf({ defaultValueOverrides: [ov("a", "base", ["prod"])] });
+      const base = rf({ defaultValueOverrides: [ov("base", ["prod"])] });
       const live = rf({
-        defaultValueOverrides: [ov("a", "live", ["prod"])],
+        defaultValueOverrides: [ov("live", ["prod"])],
         version: 6,
       });
       const revision = rf({
-        defaultValueOverrides: [ov("a", "draft", ["prod"])],
+        defaultValueOverrides: [ov("draft", ["prod"])],
         version: 5,
       });
       const keepDraft = autoMerge(live, base, revision, ["dev", "prod"], {
@@ -903,7 +901,7 @@ describe("autoMerge", () => {
       expect(keepDraft.success).toBe(true);
       if (keepDraft.success) {
         expect(keepDraft.result.defaultValueOverrides).toEqual([
-          ov("a", "draft", ["prod"]),
+          ov("draft", ["prod"]),
         ]);
       }
       const keepLive = autoMerge(live, base, revision, ["dev", "prod"], {
@@ -952,8 +950,7 @@ describe("mergeRevision default value overrides", () => {
     ...over,
   });
 
-  const ov = (id: string, value: string, environments: string[] = []) => ({
-    id,
+  const ov = (value: string, environments: string[] = []) => ({
     value,
     environments,
   });
@@ -961,21 +958,19 @@ describe("mergeRevision default value overrides", () => {
   it("full-replaces the override list from the revision snapshot", () => {
     const feature: FeatureInterface = {
       ...baseFeature,
-      defaultValueOverrides: [ov("old", "old-dev", ["dev"])],
+      defaultValueOverrides: [ov("old-dev", ["dev"])],
     };
     const revision = makeRevision({
-      defaultValueOverrides: [ov("new", "new-prod", ["prod"])],
+      defaultValueOverrides: [ov("new-prod", ["prod"])],
     });
     const merged = mergeRevision(feature, revision, ["dev", "prod"]);
-    expect(merged.defaultValueOverrides).toEqual([
-      ov("new", "new-prod", ["prod"]),
-    ]);
+    expect(merged.defaultValueOverrides).toEqual([ov("new-prod", ["prod"])]);
   });
 
   it("clears all overrides for an empty snapshot", () => {
     const feature: FeatureInterface = {
       ...baseFeature,
-      defaultValueOverrides: [ov("a", "x", ["dev"]), ov("b", "y", ["prod"])],
+      defaultValueOverrides: [ov("x", ["dev"]), ov("y", ["prod"])],
     };
     const merged = mergeRevision(
       feature,
@@ -988,18 +983,15 @@ describe("mergeRevision default value overrides", () => {
   it("leaves overrides untouched when the revision omits the field (legacy)", () => {
     const feature: FeatureInterface = {
       ...baseFeature,
-      defaultValueOverrides: [ov("keep", "keep-dev", ["dev"])],
+      defaultValueOverrides: [ov("keep-dev", ["dev"])],
     };
     const merged = mergeRevision(feature, makeRevision({}), ["dev", "prod"]);
-    expect(merged.defaultValueOverrides).toEqual([
-      ov("keep", "keep-dev", ["dev"]),
-    ]);
+    expect(merged.defaultValueOverrides).toEqual([ov("keep-dev", ["dev"])]);
   });
 });
 
 describe("getDefaultValueOverrideForEnvironment", () => {
   const o = (value: string, environments: string[]) => ({
-    id: value,
     value,
     environments,
   });
@@ -1043,80 +1035,54 @@ describe("getDefaultValueOverrideForEnvironment", () => {
   });
 });
 
-describe("getMatchingDefaultValueOverrides", () => {
-  const o = (id: string, environments: string[]) => ({
-    id,
-    value: id,
-    environments,
-  });
-
-  it("returns [] for undefined/empty or no match", () => {
-    expect(getMatchingDefaultValueOverrides(undefined, "prod")).toEqual([]);
-    expect(getMatchingDefaultValueOverrides([], "prod")).toEqual([]);
-    expect(getMatchingDefaultValueOverrides([o("a", ["dev"])], "prod")).toEqual(
-      [],
-    );
-  });
-
-  it("returns all matching overrides in list order (including empty-scope)", () => {
-    const overrides = [
-      o("all", []),
-      o("prod-only", ["prod"]),
-      o("dev-only", ["dev"]),
-      o("prod-again", ["prod", "staging"]),
-    ];
-    expect(
-      getMatchingDefaultValueOverrides(overrides, "prod").map((x) => x.id),
-    ).toEqual(["all", "prod-only", "prod-again"]);
-  });
-});
-
-describe("getUnreachableDefaultValueOverrideIds", () => {
-  const mk = (id: string, environments: string[]) => ({ id, environments });
+describe("getUnreachableDefaultValueOverrideIndexes", () => {
+  const mk = (environments: string[]) => ({ environments });
 
   it("flags none when overrides target distinct environments", () => {
-    const res = getUnreachableDefaultValueOverrideIds([
-      mk("a", ["production"]),
-      mk("b", ["staging"]),
+    const res = getUnreachableDefaultValueOverrideIndexes([
+      mk(["production"]),
+      mk(["staging"]),
     ]);
     expect([...res]).toEqual([]);
   });
 
   it("flags an override whose envs are all claimed by earlier ones", () => {
-    const res = getUnreachableDefaultValueOverrideIds([
-      mk("a", ["production", "staging"]),
-      mk("b", ["production"]),
+    const res = getUnreachableDefaultValueOverrideIndexes([
+      mk(["production", "staging"]),
+      mk(["production"]),
     ]);
-    expect([...res]).toEqual(["b"]);
+    expect([...res]).toEqual([1]);
   });
 
   it("keeps an override reachable when it has at least one uncovered env", () => {
-    const res = getUnreachableDefaultValueOverrideIds([
-      mk("a", ["production"]),
-      mk("b", ["production", "dev"]),
+    const res = getUnreachableDefaultValueOverrideIndexes([
+      mk(["production"]),
+      mk(["production", "dev"]),
     ]);
     expect([...res]).toEqual([]);
   });
 
   it("skips empty-scope rows by default (incomplete drafts)", () => {
-    const res = getUnreachableDefaultValueOverrideIds([
-      mk("a", []),
-      mk("b", ["production"]),
+    const res = getUnreachableDefaultValueOverrideIndexes([
+      mk([]),
+      mk(["production"]),
     ]);
     expect([...res]).toEqual([]);
   });
 
   it("treats an empty scope as match-all when asked, shadowing rows below", () => {
-    const res = getUnreachableDefaultValueOverrideIds(
-      [mk("a", []), mk("b", ["production"])],
+    const res = getUnreachableDefaultValueOverrideIndexes(
+      [mk([]), mk(["production"])],
       { treatEmptyAsMatchAll: true },
     );
-    expect([...res]).toEqual(["b"]);
+    expect([...res]).toEqual([1]);
   });
 
   it("returns empty for undefined/empty input", () => {
-    expect([...getUnreachableDefaultValueOverrideIds(undefined)]).toEqual([]);
-    expect([...getUnreachableDefaultValueOverrideIds([])]).toEqual([]);
+    expect([...getUnreachableDefaultValueOverrideIndexes(undefined)]).toEqual(
+      [],
+    );
+    expect([...getUnreachableDefaultValueOverrideIndexes([])]).toEqual([]);
   });
 });
 

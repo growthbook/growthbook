@@ -10739,8 +10739,6 @@ paths:
                         items:
                           type: object
                           properties:
-                            id:
-                              type: string
                             value:
                               type: string
                             environments:
@@ -10748,7 +10746,6 @@ paths:
                               items:
                                 type: string
                           required:
-                            - id
                             - value
                             - environments
                           additionalProperties: false
@@ -10919,8 +10916,6 @@ paths:
                         items:
                           type: object
                           properties:
-                            id:
-                              type: string
                             value:
                               type: string
                             environments:
@@ -10928,7 +10923,6 @@ paths:
                               items:
                                 type: string
                           required:
-                            - id
                             - value
                             - environments
                           additionalProperties: false
@@ -36016,8 +36010,6 @@ components:
           items:
             type: object
             properties:
-              id:
-                type: string
               value:
                 description: Override value (string form, matching the feature's valueType)
                 type: string
@@ -36027,7 +36019,6 @@ components:
                 items:
                   type: string
             required:
-              - id
               - value
               - environments
             additionalProperties: false
@@ -36961,8 +36952,6 @@ components:
           items:
             type: object
             properties:
-              id:
-                type: string
               value:
                 description: Override value (string form, matching the feature's valueType)
                 type: string
@@ -36972,7 +36961,6 @@ components:
                 items:
                   type: string
             required:
-              - id
               - value
               - environments
             additionalProperties: false
@@ -38177,8 +38165,6 @@ components:
           items:
             type: object
             properties:
-              id:
-                type: string
               value:
                 description: Override value (string form, matching the feature's valueType)
                 type: string
@@ -38188,7 +38174,6 @@ components:
                 items:
                   type: string
             required:
-              - id
               - value
               - environments
             additionalProperties: false
@@ -49855,8 +49840,6 @@ components:
           items:
             type: object
             properties:
-              id:
-                type: string
               value:
                 type: string
               environments:
@@ -49864,7 +49847,6 @@ components:
                 items:
                   type: string
             required:
-              - id
               - value
               - environments
             additionalProperties: false

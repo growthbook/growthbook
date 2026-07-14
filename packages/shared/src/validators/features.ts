@@ -257,7 +257,6 @@ export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 // (string form, validated against `valueType`).
 export const featureDefaultValueOverride = z
   .object({
-    id: z.string(),
     value: z.string(),
     // Scope. Empty array = matches all environments. Future axes (tags,
     // projects) will AND with this one.
@@ -1123,7 +1122,6 @@ export const apiRevisionPrerequisite = z.object({
 
 // API shape of a single default value override (see featureDefaultValueOverride).
 export const apiFeatureDefaultValueOverride = z.object({
-  id: z.string(),
   value: z
     .string()
     .describe("Override value (string form, matching the feature's valueType)"),

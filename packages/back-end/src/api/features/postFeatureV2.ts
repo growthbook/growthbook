@@ -7,7 +7,6 @@ import {
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
-import { generateId } from "back-end/src/util/uuid";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   getEnabledEnvironments,
@@ -132,7 +131,6 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       );
       feature.defaultValueOverrides = req.body.defaultValueOverrides.map(
         (o) => ({
-          id: generateId(),
           value: validateFeatureValue(feature, o.value),
           environments: o.environments ?? [],
         }),

@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -6,7 +6,7 @@ import {
   validateFeatureValue,
   getReviewSetting,
   filterEnvironmentsByFeature,
-  getUnreachableDefaultValueOverrideIds,
+  getUnreachableDefaultValueOverrideIndexes,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPlusBold, PiTrash } from "react-icons/pi";
@@ -53,23 +53,18 @@ export interface Props {
   setVersion: (version: number) => void;
 }
 
-// A single override row in the form. `id` is a stable client key for drag/drop
-// (the server assigns its own id on save, so this is throwaway).
+// `key` is a client-only identity for drag/drop and React keys; it is never
+// persisted (overrides have no server id).
 type OverrideRow = {
-  id: string;
+  key: string;
   value: string;
   environments: string[];
 };
 
 type FormValues = {
   defaultValue: string;
-  // Ordered list of overrides. On save, the compiler walks this list top-to-
-  // bottom and serves the first entry whose scope matches the target env.
   overrides: OverrideRow[];
 };
-
-let rowCounter = 0;
-const nextRowId = () => `row_${rowCounter++}`;
 
 // Single editor for a feature's default value: the base value is primary, and
 // per-environment overrides are an ordered, first-match-wins list below it
@@ -98,11 +93,9 @@ export default function EditDefaultValueModal({
   const form = useForm<FormValues>({
     defaultValues: {
       defaultValue: getFeatureDefaultValue(feature),
-      // Preserve each override's server id so re-saving unchanged overrides
-      // doesn't churn ids (which would produce spurious diffs/revisions). New
-      // rows get a `new_`-prefixed temp id that the server replaces on save.
-      overrides: (feature.defaultValueOverrides ?? []).map((o) => ({
-        id: o.id,
+      // Seed each row's client key from its load-time index.
+      overrides: (feature.defaultValueOverrides ?? []).map((o, i) => ({
+        key: String(i),
         value: o.value,
         environments: o.environments,
       })),
@@ -110,14 +103,13 @@ export default function EditDefaultValueModal({
   });
 
   const overrides = form.watch("overrides");
-  // Id of the row currently being dragged; drives the ghosted source + overlay.
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const activeRow = overrides.find((o) => o.id === activeId) ?? null;
+  const nextKey = useRef(overrides.length);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const activeRow = overrides.find((o) => o.key === activeKey) ?? null;
 
-  // Overrides that can never serve (shadowed by earlier ones). Incomplete rows
-  // (no env selected yet) are treated as drafts — neither covering nor flagged.
-  const unreachableIds = useMemo(
-    () => getUnreachableDefaultValueOverrideIds(overrides),
+  // Positions of overrides shadowed by an earlier one (never served).
+  const unreachableIndexes = useMemo(
+    () => getUnreachableDefaultValueOverrideIndexes(overrides),
     [overrides],
   );
 
@@ -127,18 +119,18 @@ export default function EditDefaultValueModal({
     setOverrides([
       ...form.getValues("overrides"),
       {
-        id: `new_${nextRowId()}`,
+        key: String(nextKey.current++),
         value: getFeatureDefaultValue(feature),
         environments: [],
       },
     ]);
-  const removeOverride = (id: string) =>
-    setOverrides(form.getValues("overrides").filter((o) => o.id !== id));
-  const patchOverride = (id: string, patch: Partial<OverrideRow>) =>
+  const removeOverride = (key: string) =>
+    setOverrides(form.getValues("overrides").filter((o) => o.key !== key));
+  const patchOverride = (key: string, patch: Partial<OverrideRow>) =>
     setOverrides(
       form
         .getValues("overrides")
-        .map((o) => (o.id === id ? { ...o, ...patch } : o)),
+        .map((o) => (o.key === key ? { ...o, ...patch } : o)),
     );
 
   const sensors = useSensors(
@@ -219,9 +211,6 @@ export default function EditDefaultValueModal({
             body: JSON.stringify({
               defaultValue: normalizedDefault,
               defaultValueOverrides: normalizedOverrides.map((o) => ({
-                // Send the id for existing overrides so it stays stable; omit it
-                // for new rows so the server assigns a permanent one.
-                ...(o.id.startsWith("new_") ? {} : { id: o.id }),
                 value: o.value,
                 environments: o.environments,
               })),
@@ -299,32 +288,34 @@ export default function EditDefaultValueModal({
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragStart={({ active }) => setActiveId(active.id as string)}
-                onDragCancel={() => setActiveId(null)}
+                onDragStart={({ active }) => setActiveKey(active.id as string)}
+                onDragCancel={() => setActiveKey(null)}
                 onDragEnd={({ active, over }) => {
-                  setActiveId(null);
+                  setActiveKey(null);
                   if (!over || active.id === over.id) return;
                   const current = form.getValues("overrides");
-                  const oldIndex = current.findIndex((o) => o.id === active.id);
-                  const newIndex = current.findIndex((o) => o.id === over.id);
+                  const oldIndex = current.findIndex(
+                    (o) => o.key === active.id,
+                  );
+                  const newIndex = current.findIndex((o) => o.key === over.id);
                   if (oldIndex === -1 || newIndex === -1) return;
                   setOverrides(arrayMove(current, oldIndex, newIndex));
                 }}
               >
                 <SortableContext
-                  items={overrides.map((o) => o.id)}
+                  items={overrides.map((o) => o.key)}
                   strategy={verticalListSortingStrategy}
                 >
                   {overrides.map((o, i) => (
                     <OverrideRowEditor
-                      key={o.id}
+                      key={o.key}
                       row={o}
                       index={i}
                       feature={feature}
                       environmentOptions={environmentOptions}
-                      unreachable={unreachableIds.has(o.id)}
-                      onChange={(patch) => patchOverride(o.id, patch)}
-                      onRemove={() => removeOverride(o.id)}
+                      unreachable={unreachableIndexes.has(i)}
+                      onChange={(patch) => patchOverride(o.key, patch)}
+                      onRemove={() => removeOverride(o.key)}
                     />
                   ))}
                 </SortableContext>
@@ -336,9 +327,11 @@ export default function EditDefaultValueModal({
                       row={activeRow}
                       feature={feature}
                       environmentOptions={environmentOptions}
-                      valueId={`override-value-overlay-${activeRow.id}`}
+                      valueId={`override-value-overlay-${activeRow.key}`}
                       removeLabel="Remove override"
-                      unreachable={unreachableIds.has(activeRow.id)}
+                      unreachable={unreachableIndexes.has(
+                        overrides.findIndex((o) => o.key === activeRow.key),
+                      )}
                       dragHandleProps={{}}
                       onChange={() => {}}
                       onRemove={() => {}}
@@ -509,7 +502,7 @@ function OverrideRowEditor({
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, active } =
-    useSortable({ id: row.id });
+    useSortable({ id: row.key });
 
   return (
     <Box
@@ -520,14 +513,14 @@ function OverrideRowEditor({
         transition,
         // Ghost the source in place while its full-opacity clone is dragged
         // (the DragOverlay renders the clone) — same as the rule list.
-        opacity: active?.id === row.id ? 0.3 : 1,
+        opacity: active?.id === row.key ? 0.3 : 1,
       }}
     >
       <OverrideRowCard
         row={row}
         feature={feature}
         environmentOptions={environmentOptions}
-        valueId={`override-value-${row.id}`}
+        valueId={`override-value-${row.key}`}
         removeLabel={`Remove override ${index + 1}`}
         unreachable={unreachable}
         dragHandleProps={{ ...attributes, ...listeners }}

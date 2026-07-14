@@ -51,7 +51,6 @@ import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
-  FeatureDefaultValueOverride,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import {
@@ -60,7 +59,6 @@ import {
 } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
-import { generateId } from "back-end/src/util/uuid";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
@@ -352,40 +350,6 @@ export const validateEnvKeys = (
     );
   }
 };
-
-// An override's `environments` is a membership scope, not an ordered list:
-// ['dev','prod'] and ['prod','dev'] serve identical values. Compare as sets so a
-// reordered scope doesn't read as a change.
-const sameEnvironmentScope = (a: string[], b: string[]) => {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((e) => set.has(e));
-};
-
-// Reconcile a client-supplied override list (REST callers can't send ids)
-// against the feature's current overrides: reuse an existing entry when its
-// content (value + environment scope) matches. Keeps ids stable across edits and
-// stops content-identical re-submits from churning ids / spawning no-op
-// revisions. A set-equal match reuses the stored entry verbatim (including its
-// environment ordering) so a round-tripped scope reorder isn't treated as a
-// change. Unmatched entries get a fresh id.
-export function reconcileDefaultValueOverrideIds(
-  incoming: Omit<FeatureDefaultValueOverride, "id">[],
-  existing: FeatureDefaultValueOverride[] | undefined,
-): FeatureDefaultValueOverride[] {
-  const pool = [...(existing ?? [])];
-  return incoming.map((o) => {
-    const idx = pool.findIndex(
-      (e) =>
-        e.value === o.value &&
-        sameEnvironmentScope(e.environments, o.environments),
-    );
-    if (idx >= 0) {
-      return pool.splice(idx, 1)[0];
-    }
-    return { id: generateId(), value: o.value, environments: o.environments };
-  });
-}
 
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,

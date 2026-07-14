@@ -28,7 +28,6 @@ import {
   getJSONValue,
   getParsedCondition,
   getSDKPayloadKeysByDiff,
-  reconcileDefaultValueOverrideIds,
   roundVariationWeight,
   validateEnvKeys,
 } from "back-end/src/util/features";
@@ -1033,7 +1032,7 @@ describe("Detecting Feature Changes", () => {
     const feature = cloneDeep(baseFeature);
     const updatedFeature = cloneDeep(baseFeature);
     updatedFeature.defaultValueOverrides = [
-      { id: "o1", value: "false", environments: ["production"] },
+      { value: "false", environments: ["production"] },
     ];
     expect(
       getSDKPayloadKeysByDiff(feature, updatedFeature, [
@@ -1048,7 +1047,7 @@ describe("Detecting Feature Changes", () => {
     const feature = cloneDeep(baseFeature);
     const updatedFeature = cloneDeep(baseFeature);
     updatedFeature.defaultValueOverrides = [
-      { id: "o1", value: "false", environments: [] },
+      { value: "false", environments: [] },
     ];
     expect(
       getSDKPayloadKeysByDiff(feature, updatedFeature, [
@@ -1065,13 +1064,13 @@ describe("Detecting Feature Changes", () => {
   it("Reordering overrides that target disjoint envs invalidates nothing", () => {
     const feature = cloneDeep(baseFeature);
     feature.defaultValueOverrides = [
-      { id: "p", value: "false", environments: ["production"] },
-      { id: "d", value: "false", environments: ["dev"] },
+      { value: "false", environments: ["production"] },
+      { value: "true", environments: ["dev"] },
     ];
     const updatedFeature = cloneDeep(feature);
     updatedFeature.defaultValueOverrides = [
-      { id: "d", value: "false", environments: ["dev"] },
-      { id: "p", value: "false", environments: ["production"] },
+      { value: "true", environments: ["dev"] },
+      { value: "false", environments: ["production"] },
     ];
     expect(
       getSDKPayloadKeysByDiff(feature, updatedFeature, [
@@ -1093,61 +1092,6 @@ describe("validateEnvKeys", () => {
 
   it("throws listing the unrecognized keys", () => {
     expect(() => validateEnvKeys(["prod"], ["prod", "nope"])).toThrow(/nope/);
-  });
-});
-
-describe("reconcileDefaultValueOverrideIds", () => {
-  const existing = [
-    { id: "id_prod", value: "a", environments: ["production"] },
-    { id: "id_dev", value: "b", environments: ["dev"] },
-  ];
-
-  it("reuses ids when content is unchanged (no churn / no-op)", () => {
-    const result = reconcileDefaultValueOverrideIds(
-      [
-        { value: "a", environments: ["production"] },
-        { value: "b", environments: ["dev"] },
-      ],
-      existing,
-    );
-    expect(result).toEqual(existing);
-  });
-
-  it("keeps ids following content across a reorder", () => {
-    const result = reconcileDefaultValueOverrideIds(
-      [
-        { value: "b", environments: ["dev"] },
-        { value: "a", environments: ["production"] },
-      ],
-      existing,
-    );
-    expect(result.map((o) => o.id)).toEqual(["id_dev", "id_prod"]);
-  });
-
-  it("treats a reordered environment scope as unchanged (no churn)", () => {
-    const multiEnv = [
-      { id: "id_multi", value: "a", environments: ["dev", "production"] },
-    ];
-    const result = reconcileDefaultValueOverrideIds(
-      [{ value: "a", environments: ["production", "dev"] }],
-      multiEnv,
-    );
-    // Reuses the stored entry verbatim so the downstream isEqual change-check
-    // sees no diff.
-    expect(result).toEqual(multiEnv);
-  });
-
-  it("mints a fresh id only for genuinely changed/new entries", () => {
-    const result = reconcileDefaultValueOverrideIds(
-      [
-        { value: "a", environments: ["production"] }, // unchanged → reuse
-        { value: "c", environments: ["dev"] }, // value changed → new id
-      ],
-      existing,
-    );
-    expect(result[0].id).toBe("id_prod");
-    expect(result[1].id).not.toBe("id_dev");
-    expect(result[1].id).toBeTruthy();
   });
 });
 

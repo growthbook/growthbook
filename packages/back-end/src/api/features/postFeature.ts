@@ -8,7 +8,6 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
-import { generateId } from "back-end/src/util/uuid";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   getEnabledEnvironments,
@@ -138,14 +137,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // ensure default value matches value type
   feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-  // Default value overrides (ordered list); validate each value + assign ids.
+  // Default value overrides (ordered list); validate each value.
   if (req.body.defaultValueOverrides !== undefined) {
     validateEnvKeys(
       orgEnvs.map((e) => e.id),
       req.body.defaultValueOverrides.flatMap((o) => o.environments),
     );
     feature.defaultValueOverrides = req.body.defaultValueOverrides.map((o) => ({
-      id: generateId(),
       value: validateFeatureValue(feature, o.value),
       environments: o.environments ?? [],
     }));

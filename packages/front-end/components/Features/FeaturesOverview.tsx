@@ -29,8 +29,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
-  getMatchingDefaultValueOverrides,
-  getUnreachableDefaultValueOverrideIds,
+  getUnreachableDefaultValueOverrideIndexes,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
@@ -1592,13 +1591,17 @@ export default function FeaturesOverview({
                 // compiler serves the first match per env, so the top entry is
                 // the effective one; lower entries are shadowed but shown for
                 // transparency (mirrors how the rule list shows all rules).
-                const shown =
-                  selectedEnv === null
-                    ? (feature.defaultValueOverrides ?? [])
-                    : getMatchingDefaultValueOverrides(
-                        feature.defaultValueOverrides,
-                        selectedEnv,
-                      );
+                const allOverrides = feature.defaultValueOverrides ?? [];
+                // Keep each shown override's full-list index — it's the row's
+                // identity for reachability and React keys.
+                const shown = allOverrides
+                  .map((o, index) => ({ o, index }))
+                  .filter(
+                    ({ o }) =>
+                      selectedEnv === null ||
+                      o.environments.length === 0 ||
+                      o.environments.includes(selectedEnv),
+                  );
                 // On a specific env, a matching override always serves in place
                 // of the base (first match wins), so the base isn't the served
                 // value — hide it and show only the override(s). On "All
@@ -1609,14 +1612,14 @@ export default function FeaturesOverview({
                 // targeting multiple environments (empty scope = all envs).
                 const pluralOverrides =
                   shown.length > 1 ||
-                  (shown.length === 1 && shown[0].environments.length !== 1);
+                  (shown.length === 1 && shown[0].o.environments.length !== 1);
                 // Reachability is computed over the full ordered list (saved
                 // data, so an empty scope matches all), then applied to whichever
                 // overrides are shown.
-                const unreachableIds = getUnreachableDefaultValueOverrideIds(
-                  feature.defaultValueOverrides,
-                  { treatEmptyAsMatchAll: true },
-                );
+                const unreachableIndexes =
+                  getUnreachableDefaultValueOverrideIndexes(allOverrides, {
+                    treatEmptyAsMatchAll: true,
+                  });
                 return (
                   <>
                     {showBase ? (
@@ -1657,11 +1660,11 @@ export default function FeaturesOverview({
                           Environment override{pluralOverrides ? "s" : ""}
                         </div>
                         <Flex direction="column" gap="4">
-                          {shown.map((o) => {
-                            const unreachable = unreachableIds.has(o.id);
+                          {shown.map(({ o, index }) => {
+                            const unreachable = unreachableIndexes.has(index);
                             return (
                               <FeatureValueCard
-                                key={o.id}
+                                key={index}
                                 sideColor={
                                   unreachable ? "unreachable" : "active"
                                 }
