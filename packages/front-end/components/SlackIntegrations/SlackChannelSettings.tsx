@@ -122,6 +122,14 @@ const CARD_KIND_PREVIEW: Record<
   decisionRollback: { state: "loser", event: "decisionRollback" },
 };
 
+// A catalog option "posts a card" if any of its events renders a results card
+// (only experiment result/decision/health events do). Marked in the customize
+// list so it's clear which events post an image vs plain text.
+const optionPostsCard = (o: (typeof SLACK_EVENT_OPTIONS)[number]): boolean =>
+  o.events.some((e) => !!slackCardKindForEvent(e));
+
+const CARD_MARKER = "▪";
+
 // Digests aren't events — they're sentinel picker values that render a sample
 // scorecard / feature-flag summary image (always an image, so tagged as such).
 const digestKindForValue = (value: string): "scorecard" | "feature" | null =>
@@ -753,7 +761,24 @@ export default function SlackChannelSettings({
                     ).map((o) => (
                       <Checkbox
                         key={o.id}
-                        label={o.label}
+                        label={
+                          optionPostsCard(o) ? (
+                            <>
+                              {o.label}
+                              <span
+                                title="Posts a results card"
+                                style={{
+                                  marginLeft: 5,
+                                  color: "var(--violet-11)",
+                                }}
+                              >
+                                {CARD_MARKER}
+                              </span>
+                            </>
+                          ) : (
+                            o.label
+                          )
+                        }
                         description={o.description}
                         value={selected.has(o.id)}
                         setValue={(v) => setOptionSelected(o.id, v)}
@@ -762,6 +787,18 @@ export default function SlackChannelSettings({
                   </Grid>
                 </Box>
               ))}
+
+              {SLACK_EVENT_OPTIONS.some(
+                (o) => o.category === category && optionPostsCard(o),
+              ) && (
+                <Text size="small" color="text-mid" as="div">
+                  <span style={{ color: "var(--violet-11)" }}>
+                    {CARD_MARKER}
+                  </span>{" "}
+                  Posts a results-card image (when a card style is set); others
+                  post a text message.
+                </Text>
+              )}
             </Flex>
           </Box>
         )}
