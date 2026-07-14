@@ -74,79 +74,71 @@ function migrateContributors(raw: unknown[] | undefined): string[] | undefined {
   return ids.size > 0 ? [...ids] : undefined;
 }
 
-// `minimize: false` (vs Mongoose's default `true`) is retained so empty Mixed
-// `{}` envelopes are persisted as `{}` instead of being stripped. Every Mixed
-// `{}` field on this schema (createdBy, publishedBy, metadata, …) is always
-// written with a populated object on create, so disabling minimize does not
-// change their on-disk shape in practice.
-const featureRevisionSchema = new mongoose.Schema(
-  {
-    organization: String,
-    featureId: String,
-    createdBy: {},
-    version: Number,
-    baseVersion: Number,
-    // Live feature version captured when this revision was approved; used to
-    // detect approvals that have gone stale due to subsequent publishes.
-    approvedBaseVersion: Number,
-    dateCreated: Date,
-    dateUpdated: Date,
-    datePublished: Date,
-    publishedBy: {},
-    comment: String,
-    title: String,
-    defaultValue: String,
-    rules: {},
-    // Revision envelopes — only present when explicitly changed
-    environmentsEnabled: {},
-    // `defaultValueOverrides` is a COMPLETE ordered snapshot of default value
-    // overrides where an empty `[]` (all overrides cleared) is a MEANINGFUL value
-    // distinct from `undefined` (a legacy revision that predates the field — see
-    // buildFeatureRevisionInterface and the apply layer). `default: undefined`
-    // stops Mongoose from auto-initializing the array to `[]`, preserving the
-    // `[]` vs `undefined` distinction.
-    defaultValueOverrides: { type: [{}], default: undefined },
-    prerequisites: [{}],
-    archived: Boolean,
-    metadata: {},
-    holdout: {},
-    rampActions: [{}],
-    // Users who have made edits to this draft beyond the original author.
-    contributors: [{}],
-    // Active reviewer verdicts for the current review cycle. Maintained by the
-    // review lifecycle mutations; cleared when a new review cycle starts.
-    reviews: [
-      {
-        _id: false,
-        userId: String,
-        user: {},
-        status: String,
-        timestamp: Date,
-      },
-    ],
-    status: String,
-    requiresReview: Boolean,
-    autoPublishOnApproval: Boolean,
-    autoPublishEnabledBy: String,
-    scheduledPublishAt: Date,
-    scheduledPublishLockEdits: Boolean,
-    scheduledPublishLockOthers: Boolean,
-    scheduledPublishBypassApproval: Boolean,
-    scheduledPublishAttempts: Number,
-    scheduledPublishLastError: String,
-    log: [
-      {
-        _id: false,
-        user: {},
-        timestamp: Date,
-        action: String,
-        subject: String,
-        value: String,
-      },
-    ],
-  },
-  { minimize: false },
-);
+const featureRevisionSchema = new mongoose.Schema({
+  organization: String,
+  featureId: String,
+  createdBy: {},
+  version: Number,
+  baseVersion: Number,
+  // Live feature version captured when this revision was approved; used to
+  // detect approvals that have gone stale due to subsequent publishes.
+  approvedBaseVersion: Number,
+  dateCreated: Date,
+  dateUpdated: Date,
+  datePublished: Date,
+  publishedBy: {},
+  comment: String,
+  title: String,
+  defaultValue: String,
+  rules: {},
+  // Revision envelopes — only present when explicitly changed
+  environmentsEnabled: {},
+  // `defaultValueOverrides` is a COMPLETE ordered snapshot of default value
+  // overrides where an empty `[]` (all overrides cleared) is a MEANINGFUL value
+  // distinct from `undefined` (a legacy revision that predates the field — see
+  // buildFeatureRevisionInterface and the apply layer). `default: undefined`
+  // stops Mongoose from auto-initializing the array to `[]`, preserving the
+  // `[]` vs `undefined` distinction.
+  defaultValueOverrides: { type: [{}], default: undefined },
+  prerequisites: [{}],
+  archived: Boolean,
+  metadata: {},
+  holdout: {},
+  rampActions: [{}],
+  // Users who have made edits to this draft beyond the original author.
+  contributors: [{}],
+  // Active reviewer verdicts for the current review cycle. Maintained by the
+  // review lifecycle mutations; cleared when a new review cycle starts.
+  reviews: [
+    {
+      _id: false,
+      userId: String,
+      user: {},
+      status: String,
+      timestamp: Date,
+    },
+  ],
+  status: String,
+  requiresReview: Boolean,
+  autoPublishOnApproval: Boolean,
+  autoPublishEnabledBy: String,
+  scheduledPublishAt: Date,
+  scheduledPublishLockEdits: Boolean,
+  scheduledPublishLockOthers: Boolean,
+  scheduledPublishBypassApproval: Boolean,
+  scheduledPublishAttempts: Number,
+  scheduledPublishLastError: String,
+  log: [
+    {
+      _id: false,
+      user: {},
+      timestamp: Date,
+      action: String,
+      subject: String,
+      value: String,
+    },
+  ],
+});
 
 // Named so we can recognize its duplicate-key errors and translate them.
 const PUBLISH_LOCK_OTHERS_INDEX = "uniqueArmedPublishLockOthers";

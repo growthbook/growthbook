@@ -1562,6 +1562,16 @@ export function draftHasChangesOutsideTargetRef(
   const effective = buildEffectiveDraft(draftRevision, filledLive);
 
   if (effective.defaultValue !== filledLive.defaultValue) return true;
+  // A default-value override change alters the served payload, so it counts as
+  // an unrelated change (like `defaultValue`) and must block experiment-start
+  // auto-publish.
+  if (
+    !isEqual(
+      effective.defaultValueOverrides ?? [],
+      filledLive.defaultValueOverrides ?? [],
+    )
+  )
+    return true;
   if ((effective.archived ?? false) !== (filledLive.archived ?? false))
     return true;
   if (!isEqual(effective.prerequisites ?? [], filledLive.prerequisites ?? []))

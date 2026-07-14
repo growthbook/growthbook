@@ -1159,6 +1159,16 @@ describe("getLiveChangesSinceBase", () => {
     ]);
   });
 
+  it("detects a default value override change", () => {
+    const live = {
+      ...makeBase(),
+      defaultValueOverrides: [{ id: "o1", value: "x", environments: ["prod"] }],
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "defaultValueOverrides", name: "Default Value Overrides" },
+    ]);
+  });
+
   it("ignores rule array identity (same content, different reference)", () => {
     const base = makeBase();
     const live = { ...makeBase(), rules: [rule("a", "a")] };
@@ -1253,6 +1263,35 @@ describe("getLiveChangesSinceBase", () => {
     const result = getLiveChangesSinceBase(live, makeBase(), envs);
     expect(result.map((c) => c.key).sort()).toEqual(
       ["archived", "defaultValue", "environmentsEnabled.dev", "rules"].sort(),
+    );
+  });
+});
+
+describe("draftHasChangesOutsideTargetRef", () => {
+  const rf = (overrides?: Partial<RevisionFields>): RevisionFields => ({
+    version: 1,
+    defaultValue: "base",
+    rules: [],
+    environmentsEnabled: { prod: true },
+    prerequisites: [],
+    archived: false,
+    holdout: null,
+    metadata: { description: "", owner: "", project: "", tags: [] },
+    ...overrides,
+  });
+
+  it("returns false when the draft matches live (no unrelated changes)", () => {
+    expect(draftHasChangesOutsideTargetRef(rf(), rf(), () => false)).toBe(
+      false,
+    );
+  });
+
+  it("returns true when the draft changes a default value override", () => {
+    const draft = rf({
+      defaultValueOverrides: [{ id: "o1", value: "x", environments: ["prod"] }],
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, rf(), () => false)).toBe(
+      true,
     );
   });
 });

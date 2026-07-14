@@ -1172,10 +1172,9 @@ export function getFeatureDefinition({
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
 
-            const defaultValue = revision
-              ? (revision.defaultValue ?? feature.defaultValue)
-              : feature.defaultValue;
-
+            // Control arm serves the env's resolved default (`defaultValue`
+            // above already applies any default-value override), matching the
+            // non-monitored rollout path.
             rule.variations = [
               valueForSDK(r.value, r.sparse),
               getJSONValue(feature.valueType, defaultValue),
