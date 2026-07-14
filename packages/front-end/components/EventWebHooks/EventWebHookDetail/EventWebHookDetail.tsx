@@ -66,14 +66,10 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     enabled,
     environments = [],
     projects: projectIds,
-    experiments = [],
-    metrics = [],
     tags = [],
     events,
     name,
     signingKey,
-    coalesceWindowMs,
-    dailyDigestHourUtc,
   } = eventWebHook;
 
   const defined = <T,>(v: T): v is NonNullable<T> => !!v;
@@ -268,7 +264,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
         </Flex>
       )}
 
-      <Box className="appbox mt-3 p-3 p-4">
+      <Box className="card mt-3 p-3 p-4">
         <div className="row">
           <div className="col-xs-12 col-md-6">
             <Box mt="2">
@@ -351,71 +347,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
             </Box>
           </div>
         </div>
-
-        <div className="row mt-4">
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Experiments
-              </Text>
-              {experiments.length ? (
-                <Flex gap="2" wrap="wrap">
-                  {experiments.map((experiment) => (
-                    <Badge
-                      key={experiment}
-                      label={experiment}
-                      color="purple"
-                      variant="soft"
-                    />
-                  ))}
-                </Flex>
-              ) : (
-                <Text color="text-low" fontStyle="italic">
-                  All
-                </Text>
-              )}
-            </Box>
-          </div>
-
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Metrics
-              </Text>
-              {metrics.length ? (
-                <Flex gap="2" wrap="wrap">
-                  {metrics.map((metric) => (
-                    <Badge
-                      key={metric}
-                      label={metric}
-                      color="purple"
-                      variant="soft"
-                    />
-                  ))}
-                </Flex>
-              ) : (
-                <Text color="text-low" fontStyle="italic">
-                  All
-                </Text>
-              )}
-            </Box>
-          </div>
-
-          <div className="col mt-2 mt-md-0">
-            <Box mt="2">
-              <Text weight="semibold" as="div" mb="1">
-                Slack digest
-              </Text>
-              <Text color="text-low">
-                Burst:{" "}
-                {coalesceWindowMs ? `${coalesceWindowMs / 1000}s` : "Off"}
-                {dailyDigestHourUtc !== undefined
-                  ? `, daily at ${dailyDigestHourUtc}:00 UTC`
-                  : ""}
-              </Text>
-            </Box>
-          </div>
-        </div>
       </Box>
 
       {isModalOpen ? (
@@ -470,15 +401,10 @@ export const EventWebHookDetailContainer = ({
               "enabled",
               "payloadType",
               "projects",
-              "experiments",
-              "metrics",
               "tags",
               "environments",
               "method",
               "headers",
-              "coalesceWindowMs",
-              "dailyDigestHourUtc",
-              "slackOptions",
             ]),
           ),
         },

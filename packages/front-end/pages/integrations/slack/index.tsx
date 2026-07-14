@@ -27,6 +27,7 @@ import SlackChannelSettings, {
 } from "@/components/SlackIntegrations/SlackChannelSettings";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -621,31 +622,13 @@ const SlackIntegrationsPage: NextPage = () => {
 
           <Flex align="center" gap="3" style={{ flexShrink: 0 }}>
             {connected && (
-              <Flex align="center" gap="2">
-                <Box
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: "50%",
-                    background: workspaceNeedsReconnect
-                      ? "var(--amber-9)"
-                      : "var(--green-9)",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: workspaceNeedsReconnect
-                      ? "var(--amber-11)"
-                      : "var(--green-11)",
-                  }}
-                >
-                  {workspaceNeedsReconnect
-                    ? "Reconnect needed"
-                    : "Connected to Slack"}
-                </span>
-              </Flex>
+              <HelperText
+                status={workspaceNeedsReconnect ? "warning" : "success"}
+              >
+                {workspaceNeedsReconnect
+                  ? "Reconnect needed"
+                  : "Connected to Slack"}
+              </HelperText>
             )}
             <Button
               icon={<FaSlack />}
@@ -698,17 +681,14 @@ const SlackIntegrationsPage: NextPage = () => {
               }}
             >
               <Flex justify="between" align="center" px="2" pb="2">
-                <span
-                  style={{
-                    textTransform: "uppercase",
-                    letterSpacing: ".09em",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: "var(--color-text-mid)",
-                  }}
+                <Text
+                  size="small"
+                  weight="medium"
+                  color="text-mid"
+                  textTransform="uppercase"
                 >
                   Channels · {channelIntegrations.length}
-                </span>
+                </Text>
                 {addChannelTarget && (
                   <Button
                     variant="ghost"
@@ -744,36 +724,27 @@ const SlackIntegrationsPage: NextPage = () => {
                     }}
                   >
                     <Flex align="center" gap="2">
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontWeight: isSelected ? 600 : 500,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          minWidth: 0,
-                        }}
-                      >
-                        {getSlackChannelLabel(channel)}
-                      </span>
+                      <Box style={{ minWidth: 0 }}>
+                        <Text
+                          as="div"
+                          size="medium"
+                          weight={isSelected ? "semibold" : "medium"}
+                          truncate
+                        >
+                          {getSlackChannelLabel(channel)}
+                        </Text>
+                      </Box>
                       {!channel.enabled && (
                         <Box ml="auto" style={{ flexShrink: 0 }}>
                           <Badge label="Disabled" color="gray" variant="soft" />
                         </Box>
                       )}
                     </Flex>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "var(--color-text-mid)",
-                        paddingLeft: 14,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {scopeSummary(channel)}
-                    </div>
+                    <Box pl="4">
+                      <Text as="div" size="small" color="text-mid" truncate>
+                        {scopeSummary(channel)}
+                      </Text>
+                    </Box>
                   </Box>
                 );
               })}

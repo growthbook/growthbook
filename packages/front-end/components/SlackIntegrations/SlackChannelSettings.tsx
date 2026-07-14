@@ -1177,18 +1177,16 @@ export default function SlackChannelSettings({
             </Box>
 
             <Box style={{ flex: "none", width: 460, maxWidth: "100%" }}>
-              <div
-                style={{
-                  textTransform: "uppercase",
-                  letterSpacing: ".08em",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "var(--color-text-mid)",
-                  marginBottom: 8,
-                }}
+              <Text
+                as="div"
+                size="small"
+                weight="medium"
+                color="text-mid"
+                textTransform="uppercase"
+                mb="2"
               >
                 Preview
-              </div>
+              </Text>
               <EventPreview eventName={previewEvent} style={cardFormat} />
               <Box mt="3">
                 <EventSelect
@@ -1237,19 +1235,7 @@ export default function SlackChannelSettings({
                   Save settings
                 </Button>
                 {dirty && (
-                  <Flex align="center" gap="2">
-                    <Box
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "var(--amber-9)",
-                      }}
-                    />
-                    <span style={{ fontSize: 12, color: "var(--amber-11)" }}>
-                      Unsaved changes
-                    </span>
-                  </Flex>
+                  <HelperText status="warning">Unsaved changes</HelperText>
                 )}
                 {saved && !dirty && (
                   <Text color="text-mid" size="small">

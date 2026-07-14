@@ -129,11 +129,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/EventWebHooks/EventWebHookList/EventWebHookList.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs.tsx": {
     "local/no-alert-classname": {
       "count": 1

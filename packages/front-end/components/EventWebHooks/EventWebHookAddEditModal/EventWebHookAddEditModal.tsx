@@ -14,7 +14,6 @@ import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
-import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import {
   eventWebHookPayloadTypes,
@@ -43,11 +42,6 @@ type EventWebHookAddEditModalProps = {
 };
 
 const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
-const parseCsvList = (value: string): string[] =>
-  value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
@@ -186,8 +180,6 @@ const EventWebHookAddEditSettings = ({
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
-  const selectedExperiments = form.watch("experiments");
-  const selectedMetrics = form.watch("metrics");
 
   const isDetailedWebhook = detailedWebhook(selectedPayloadType);
 
@@ -265,7 +257,10 @@ const EventWebHookAddEditSettings = ({
               <>
                 Must accept <code>{form.watch("method")}</code> requests.
                 Supports{" "}
-                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
+                <DocLink useRadix={false} docSection="webhookSecrets">
+                  Webhook Secrets
+                </DocLink>
+                .
               </>
             )
           }
@@ -296,7 +291,7 @@ const EventWebHookAddEditSettings = ({
                 ) : (
                   <Text>
                     JSON format for headers. Supports{" "}
-                    <DocLink docSection="webhookSecrets">
+                    <DocLink useRadix={false} docSection="webhookSecrets">
                       Webhook Secrets
                     </DocLink>
                     .
@@ -416,208 +411,8 @@ const EventWebHookAddEditSettings = ({
               }}
             />
           </Box>
-
-          <Box
-            className={clsx("form-group", {
-              "select-all": !selectedExperiments.length,
-            })}
-          >
-            <Field
-              label={
-                <FilterLabel
-                  name="Experiments"
-                  allLabel="Receive notifications for all Experiments"
-                  isAll={!selectedExperiments.length}
-                  disabled={!selectedExperiments.length}
-                  onSelectAll={() => form.setValue("experiments", [])}
-                />
-              }
-              labelClassName="w-100"
-              placeholder="exp_123, exp_456"
-              value={selectedExperiments.join(", ")}
-              helpText="Optional comma-separated experiment IDs for per-experiment subscriptions."
-              onChange={(evt) => {
-                form.setValue("experiments", parseCsvList(evt.target.value));
-                handleFormValidation();
-              }}
-            />
-          </Box>
-
-          <Box
-            className={clsx("form-group", {
-              "select-all": !selectedMetrics.length,
-            })}
-          >
-            <Field
-              label={
-                <FilterLabel
-                  name="Metrics"
-                  allLabel="Receive notifications for all Metrics"
-                  isAll={!selectedMetrics.length}
-                  disabled={!selectedMetrics.length}
-                  onSelectAll={() => form.setValue("metrics", [])}
-                />
-              }
-              labelClassName="w-100"
-              placeholder="met_123, met_456"
-              value={selectedMetrics.join(", ")}
-              helpText="Optional comma-separated metric IDs for per-metric subscriptions."
-              onChange={(evt) => {
-                form.setValue("metrics", parseCsvList(evt.target.value));
-                handleFormValidation();
-              }}
-            />
-          </Box>
         </Box>
       </Box>
-
-      {["slack", "discord"].includes(selectedPayloadType) && (
-        <Box mt="4">
-          <Field
-            label="Burst digest window (seconds)"
-            type="number"
-            min="0"
-            max="300"
-            value={Math.round((form.watch("coalesceWindowMs") || 0) / 1000)}
-            helpText="Events touching the same object within this window are bundled into one chat message. Use 0 to disable."
-            onChange={(evt) => {
-              form.setValue(
-                "coalesceWindowMs",
-                Math.max(0, Number(evt.target.value || 0)) * 1000,
-              );
-              handleFormValidation();
-            }}
-          />
-        </Box>
-      )}
-
-      {selectedPayloadType === "slack" && (
-        <Box mt="4">
-          <Field
-            label="Daily digest hour (UTC)"
-            type="number"
-            min="0"
-            max="23"
-            value={form.watch("dailyDigestHourUtc") ?? ""}
-            helpText="Optional hour of day for a Slack daily digest. Leave blank to disable."
-            onChange={(evt) => {
-              const raw = evt.target.value;
-              form.setValue(
-                "dailyDigestHourUtc",
-                raw === "" ? undefined : Math.max(0, Math.min(23, Number(raw))),
-              );
-              handleFormValidation();
-            }}
-          />
-        </Box>
-      )}
-
-      {selectedPayloadType === "slack" && (
-        <Box mt="4">
-          <SelectField
-            label="Results card on notifications"
-            value={
-              form.watch("slackOptions")?.experimentCardFormat ?? "compact"
-            }
-            options={[
-              { value: "compact", label: "Compact card" },
-              { value: "detailed", label: "Detailed card" },
-              { value: "none", label: "No card (text only)" },
-            ]}
-            helpText="Which experiment results card (if any) to attach to experiment notifications."
-            onChange={(value) => {
-              form.setValue("slackOptions", {
-                ...form.watch("slackOptions"),
-                experimentCardFormat: value as "none" | "compact" | "detailed",
-              });
-              handleFormValidation();
-            }}
-          />
-
-          <Box mt="3">
-            <Switch
-              id="showFullChangeLog"
-              label="Show full change log"
-              value={!!form.watch("slackOptions")?.showFullChangeLog}
-              onChange={(enabled) => {
-                form.setValue("slackOptions", {
-                  ...form.watch("slackOptions"),
-                  showFullChangeLog: enabled,
-                });
-                handleFormValidation();
-              }}
-            />
-            <Text as="span" ml="2" color="text-low">
-              By default only important events are announced — started, reached
-              significance, ship / rollback decisions, stopped, and health
-              alerts. Turn this on to also post routine updates: edits, status
-              changes, ending-soon, and stale.
-            </Text>
-          </Box>
-
-          <Box mt="3">
-            <Switch
-              id="weeklyDigestEnabled"
-              label="Weekly scorecard"
-              value={!!form.watch("slackOptions")?.weeklyDigestEnabled}
-              onChange={(enabled) => {
-                form.setValue("slackOptions", {
-                  ...form.watch("slackOptions"),
-                  weeklyDigestEnabled: enabled,
-                });
-                handleFormValidation();
-              }}
-            />
-            <Text as="span" ml="2" color="text-low">
-              Post a once-a-week program summary to this channel.
-            </Text>
-          </Box>
-
-          {form.watch("slackOptions")?.weeklyDigestEnabled && (
-            <Flex gap="3" mt="3">
-              <SelectField
-                label="Day (UTC)"
-                value={String(
-                  form.watch("slackOptions")?.weeklyDigestDayOfWeekUtc ?? 1,
-                )}
-                options={[
-                  "Sunday",
-                  "Monday",
-                  "Tuesday",
-                  "Wednesday",
-                  "Thursday",
-                  "Friday",
-                  "Saturday",
-                ].map((label, value) => ({ value: String(value), label }))}
-                onChange={(value) => {
-                  form.setValue("slackOptions", {
-                    ...form.watch("slackOptions"),
-                    weeklyDigestDayOfWeekUtc: Number(value),
-                  });
-                  handleFormValidation();
-                }}
-              />
-              <Field
-                label="Hour (UTC)"
-                type="number"
-                min="0"
-                max="23"
-                value={form.watch("slackOptions")?.weeklyDigestHourUtc ?? 14}
-                onChange={(evt) => {
-                  form.setValue("slackOptions", {
-                    ...form.watch("slackOptions"),
-                    weeklyDigestHourUtc: Math.max(
-                      0,
-                      Math.min(23, Number(evt.target.value || 0)),
-                    ),
-                  });
-                  handleFormValidation();
-                }}
-              />
-            </Flex>
-          )}
-        </Box>
-      )}
     </>
   );
 };
@@ -689,12 +484,9 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             environments: [],
             projects: [],
             tags: [],
-            experiments: [],
-            metrics: [],
             payloadType: "json",
             method: "POST",
             headers: "{}",
-            coalesceWindowMs: 0,
           },
   });
 
@@ -746,12 +538,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       tags: z.array(z.string()),
       projects: z.array(z.string()),
       environments: z.array(z.string()),
-      experiments: z.array(z.string()),
-      metrics: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
-      coalesceWindowMs: z.number().int().min(0).optional(),
-      dailyDigestHourUtc: z.number().int().min(0).max(23).optional(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);
@@ -786,7 +574,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </Button>
         ) : undefined
       }
-      useRadixButton={true}
     >
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />
