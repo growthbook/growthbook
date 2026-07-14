@@ -386,7 +386,9 @@ function EventForwarderModal({
             // Unreachable once validation passes (a null config yields an
             // error above); the throw narrows the type for the request body.
             if (!eventForwarderConfig) {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+              throw new Error(
+                "Event Forwarder configuration is missing. Review the destination settings and try again.",
+              );
             }
             try {
               await testEventForwarderAccess();
@@ -396,14 +398,22 @@ function EventForwarderModal({
                   eventForwarderConfig,
                 }),
               });
-              onClearError();
-              await onRefresh();
-              onCancel();
             } catch (e) {
               throw e instanceof Error
                 ? e
                 : new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
             }
+
+            onClearError();
+            try {
+              await onRefresh();
+            } catch (e) {
+              const detail = e instanceof Error ? ` ${e.message}` : "";
+              throw new Error(
+                `Event Forwarder was saved, but the updated status could not be loaded.${detail}`,
+              );
+            }
+            onCancel();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
