@@ -1214,9 +1214,12 @@ export default function SlackChannelSettings({
           const bar = (
             <Box
               style={{
-                position: "sticky",
-                bottom: 0,
-                zIndex: 1,
+                // When portaled, stickiness comes from the host slot (its
+                // parent is tall enough to stick within); inline fallback
+                // sticks on its own.
+                ...(saveBarHost
+                  ? {}
+                  : { position: "sticky", bottom: 0, zIndex: 1 }),
                 padding: saveBarHost
                   ? `var(--space-3) var(--space-5)`
                   : "var(--space-3) 0",

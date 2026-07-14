@@ -625,14 +625,21 @@ const resolveSlackWorkspace = async ({
   const workspaceDocs = slackWebhooks.filter(
     (w) => w.slack?.teamId && !w.slack?.channelId,
   );
+  // Legacy installs predate the channel-less workspace doc — any same-team
+  // channel doc works as the team/credentials source (the bot token lookup
+  // falls back across the team's docs).
+  const teamDocs = workspaceDocs.length
+    ? workspaceDocs
+    : slackWebhooks.filter((w) => w.slack?.teamId);
+  const distinctTeams = new Set(teamDocs.map((w) => w.slack?.teamId));
   const workspace = teamId
-    ? workspaceDocs.find((w) => w.slack?.teamId === teamId)
-    : workspaceDocs.length === 1
-      ? workspaceDocs[0]
+    ? teamDocs.find((w) => w.slack?.teamId === teamId)
+    : distinctTeams.size === 1
+      ? teamDocs[0]
       : undefined;
   if (!workspace) {
     throw new Error(
-      workspaceDocs.length && !teamId
+      distinctTeams.size > 1 && !teamId
         ? "Multiple Slack workspaces are connected — specify which one."
         : "No Slack workspace connection found. Connect to Slack first.",
     );

@@ -540,14 +540,18 @@ const SlackIntegrationsPage: NextPage = () => {
   }
 
   const connected = slackIntegrations.length > 0;
-  // A workspace missing newer scopes can't list/join channels — surface a
+  // Docs representing the team: workspace connections when present, else the
+  // channel docs of a legacy (pre-workspace-install) org.
+  const teamDocs = workspaces.length ? workspaces : channelIntegrations;
+  // A connection missing newer scopes can't list/join channels — surface a
   // reconnect hint by the connection status. (The Connect button reconnects.)
-  const workspaceNeedsReconnect = workspaces.some((w) => {
+  const workspaceNeedsReconnect = teamDocs.some((w) => {
     const granted = (w.slack?.scope || "").split(",").map((s) => s.trim());
     return REQUIRED_WORKSPACE_SCOPES.some((s) => !granted.includes(s));
   });
-  // Add-channel needs a workspace connection; default to the only/first one.
-  const addChannelTarget = workspaces[0]?.slack?.teamId || null;
+  // Team the add-channel flow targets — the back-end accepts any same-team
+  // doc as the credentials source, so legacy installs work too.
+  const addChannelTarget = teamDocs[0]?.slack?.teamId || null;
 
   return (
     <div className="container-fluid pagecontents">
@@ -841,9 +845,14 @@ const SlackIntegrationsPage: NextPage = () => {
           </Flex>
         )}
 
-        {/* Full-width slot the detail pane portals its sticky save bar into,
-            so the bar spans the rail + detail columns. */}
-        <div ref={setSaveBarHost} />
+        {/* Full-width slot the detail pane portals its save bar into, so the
+            bar spans the rail + detail columns. Sticky lives HERE (this div's
+            parent, the card, is tall) — sticky on the bar itself would have no
+            room to move inside this bar-height slot. */}
+        <div
+          ref={setSaveBarHost}
+          style={{ position: "sticky", bottom: 0, zIndex: 1 }}
+        />
       </Box>
     </div>
   );
