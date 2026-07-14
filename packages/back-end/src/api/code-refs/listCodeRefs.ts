@@ -8,7 +8,6 @@ import {
   toApiInterface,
   uniqueId,
 } from "back-end/src/models/FeatureCodeRefs";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 
 export const listCodeRefs = createApiRequestHandler(listCodeRefsValidator)(
   async (req) => {
@@ -18,8 +17,7 @@ export const listCodeRefs = createApiRequestHandler(listCodeRefsValidator)(
     // caller can't read, so only refs for readable features survive the filter.
     const readableFeatures = new Set(
       (
-        await getFeaturesByIds(
-          req.context,
+        await req.context.models.features.getByIds(
           orgCodeRefs.map((r) => r.feature),
         )
       ).map((f) => f.id),

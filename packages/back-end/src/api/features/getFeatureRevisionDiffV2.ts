@@ -1,6 +1,5 @@
 import { buildFullJsonObject, buildMinimalJsonDiffObject } from "shared/util";
 import { getFeatureRevisionDiffV2Validator } from "shared/validators";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   getLiveRevisionForFeature,
@@ -23,7 +22,7 @@ export const getFeatureRevisionDiffV2 = createApiRequestHandler(
   const { id, version } = req.params;
   const { format = "minimal", base = "baseVersion" } = req.query;
 
-  const feature = await getFeature(req.context, id);
+  const feature = await req.context.models.features.getById(id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({

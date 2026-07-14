@@ -10,7 +10,6 @@ import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
@@ -30,7 +29,7 @@ import {
 } from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { createFeature } from "back-end/src/models/FeatureModel";
+import { CreateFeatureProps } from "back-end/src/models/FeatureModel";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
@@ -445,13 +444,10 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
     });
 
     // Create feature
-    const featureToCreate: FeatureInterface = {
+    const featureToCreate: CreateFeatureProps = {
       id: getDemoDataSourceFeatureId(),
       version: 1,
       project: project.id,
-      organization: org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
       description:
         "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
       owner: context.userId,
@@ -505,7 +501,11 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       },
     );
 
-    await createFeature(context, featureToCreate);
+    // Demo project creation is gated by the project/datasource permission
+    // checks above, not manageFeatures.
+    await context.models.features.dangerousCreateBypassPermission(
+      featureToCreate,
+    );
 
     // Use the same helper the runtime uses so the snapshot's analysis
     // settings line up with what the front-end will compute when checking

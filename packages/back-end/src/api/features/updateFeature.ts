@@ -7,16 +7,13 @@ import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { UpdateProps } from "shared/types/base-model";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-import {
-  getFeature,
-  updateFeature as updateFeatureToDb,
-  createAndPublishRevision,
-} from "back-end/src/models/FeatureModel";
+import { createAndPublishRevision } from "back-end/src/services/featureRevisions";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
@@ -54,7 +51,7 @@ import {
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req) => {
-    const feature = await getFeature(req.context, req.params.id);
+    const feature = await req.context.models.features.getById(req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
@@ -157,7 +154,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           )
         : null;
 
-    let updates: Partial<FeatureInterface> = {
+    let updates: UpdateProps<FeatureInterface> = {
       ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
       ...(archived != null ? { archived } : {}),
       ...(description != null ? { description } : {}),
@@ -480,8 +477,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
     }
 
-    const updatedFeature = await updateFeatureToDb(
-      req.context,
+    const updatedFeature = await req.context.models.features.update(
       feature,
       updates,
     );

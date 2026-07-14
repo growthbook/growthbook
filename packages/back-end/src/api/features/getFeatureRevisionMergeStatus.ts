@@ -7,9 +7,10 @@ import {
   liveRevisionFromFeature,
 } from "shared/util";
 import { getFeatureRevisionMergeStatusValidator } from "shared/validators";
+import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getEnvironments } from "back-end/src/util/organization.util";
@@ -17,11 +18,11 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 // Shared handler: v1 and v2 have identical request/response schemas and the
 // merge result contains internal rule shapes (not API-serialized).
 export const mergeStatusHandler = async (req: {
-  context: Parameters<typeof getFeature>[0];
+  context: ReqContext | ApiReqContext;
   organization: { id: string };
   params: { id: string; version: number };
 }) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const revision = await getRevision({

@@ -61,7 +61,7 @@ import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { FeatureModel } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
@@ -100,6 +100,7 @@ export type ModelName =
   | "aiPrompts"
   | "customFields"
   | "factMetrics"
+  | "features"
   | "featureRevisionLogs"
   | "projects"
   | "urlRedirects"
@@ -144,11 +145,16 @@ export type ModelName =
   | "sessionReplays"
   | "eventForwarderConfigs";
 
-export const modelClasses = {
+// Registry of model constructors, used ONLY to derive the ModelName/ModelClass/
+// ModelInstances types below (via ReturnType). Written as a never-called function
+// so the class bindings are not read at module-eval time — otherwise the
+// context <-> FeatureModel import cycle would TDZ on load (see PR #6306).
+export const modelClasses = () => ({
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
   customFields: CustomFieldModel,
   factMetrics: FactMetricModel,
+  features: FeatureModel,
   featureRevisionLogs: FeatureRevisionLogModel,
   projects: ProjectModel,
   urlRedirects: UrlRedirectModel,
@@ -192,18 +198,18 @@ export const modelClasses = {
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
-};
+});
 // ModelClass narrows to only BaseModel-derived model constructors (those
 // expose a static `getModelConfig`). Non-BaseModel context models — e.g.
 // SessionReplayModel, which is backed by ClickHouse + S3 rather than
 // Mongo — are still registered on the request context but excluded from
 // API_MODELS iteration in api.router.ts.
 export type ModelClass = Extract<
-  (typeof modelClasses)[ModelName],
+  ReturnType<typeof modelClasses>[ModelName],
   { getModelConfig: () => unknown }
 >;
 type ModelInstances = {
-  [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
+  [K in ModelName]: InstanceType<ReturnType<typeof modelClasses>[K]>;
 };
 
 export class ReqContextClass {
@@ -215,6 +221,7 @@ export class ReqContextClass {
       aiPrompts: new AiPromptModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
+      features: new FeatureModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
@@ -464,7 +471,7 @@ export class ReqContextClass {
       getExperimentMetricsByIds(this, ids),
     );
     await this.addMissingForeignRefs("feature", feature, (ids) =>
-      getFeaturesByIds(this, ids),
+      this.models.features.getByIds(ids),
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(

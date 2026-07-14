@@ -21,7 +21,6 @@ import {
   type SDKPayloadRawData,
   type ConnectionPayloadOptions,
 } from "back-end/src/services/features";
-import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -38,9 +37,6 @@ jest.mock("back-end/src/util/api-key.util", () => ({
 jest.mock("back-end/src/models/SdkConnectionCacheModel", () => ({
   ...jest.requireActual("back-end/src/models/SdkConnectionCacheModel"),
   getSDKPayloadCacheLocation: jest.fn(),
-}));
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getAllFeatures: jest.fn().mockResolvedValue([]),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getAllPayloadExperiments: jest.fn().mockResolvedValue(new Map()),
@@ -75,6 +71,9 @@ const findSDKConnectionsByOrganization = jest.requireMock(
 const triggerWebhookJobs = jest.requireMock("back-end/src/jobs/updateAllJobs")
   .triggerWebhookJobs as jest.Mock;
 
+// Feature listing now goes through context.models.features.getAll().
+const getAllFeaturesMock = jest.fn().mockResolvedValue([]);
+
 function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
   return {
     org: {
@@ -87,7 +86,9 @@ function minimalContext(overrides?: Partial<ApiReqContext>): ApiReqContext {
       invites: [],
       settings: { environments: [{ id: "production", projects: [] }] },
     },
-    models: {} as ApiReqContext["models"],
+    models: {
+      features: { getAll: getAllFeaturesMock },
+    } as unknown as ApiReqContext["models"],
     userId: "u1",
     email: "e@e.com",
     userName: "User",
@@ -199,7 +200,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         projects: [],
       } as SDKConnectionInterface;
       findSDKConnectionsByOrganization.mockResolvedValue([conn1, conn2]);
-      (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+      getAllFeaturesMock.mockResolvedValue([]);
       (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
         new Map(),
       );
@@ -211,6 +212,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       ).mockResolvedValue([]);
 
       const mockModels = {
+        features: { getAll: getAllFeaturesMock },
         sdkConnectionCache: {
           deleteAllLegacyCacheEntries: deleteAllLegacy,
           upsert,
@@ -242,7 +244,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       });
 
       expect(deleteAllLegacy).toHaveBeenCalled();
-      expect(FeatureModel.getAllFeatures).toHaveBeenCalled();
+      expect(getAllFeaturesMock).toHaveBeenCalled();
       expect(findSDKConnectionsByOrganization).toHaveBeenCalled();
       expect(upsert).toHaveBeenCalledTimes(2);
       expect(upsert).toHaveBeenCalledWith(
@@ -269,7 +271,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         projects: [],
       } as SDKConnectionInterface;
 
-      (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+      getAllFeaturesMock.mockResolvedValue([]);
       (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
         new Map(),
       );
@@ -281,6 +283,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
       ).mockResolvedValue([]);
 
       const mockModels = {
+        features: { getAll: getAllFeaturesMock },
         sdkConnectionCache: {
           deleteAllLegacyCacheEntries: deleteAllLegacy,
           upsert,
@@ -387,7 +390,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         projects: [],
       } as SDKConnectionInterface;
       findSDKConnectionsByOrganization.mockResolvedValue([conn]);
-      (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+      getAllFeaturesMock.mockResolvedValue([]);
       (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
         new Map(),
       );
@@ -398,6 +401,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         ExperimentModel.getAllURLRedirectExperiments as jest.Mock
       ).mockResolvedValue([]);
       const mockModels = {
+        features: { getAll: getAllFeaturesMock },
         sdkConnectionCache: {
           deleteAllLegacyCacheEntries: deleteAllLegacy,
           upsert,
@@ -447,7 +451,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         environment: "production",
         projects: [],
       } as SDKConnectionInterface;
-      (FeatureModel.getAllFeatures as jest.Mock).mockResolvedValue([]);
+      getAllFeaturesMock.mockResolvedValue([]);
       (ExperimentModel.getAllPayloadExperiments as jest.Mock).mockResolvedValue(
         new Map(),
       );
@@ -458,6 +462,7 @@ describe("SDK payload lifecycle (comprehensive)", () => {
         ExperimentModel.getAllURLRedirectExperiments as jest.Mock
       ).mockResolvedValue([]);
       const mockModels = {
+        features: { getAll: getAllFeaturesMock },
         sdkConnectionCache: {
           deleteAllLegacyCacheEntries: deleteAllLegacy,
           upsert,

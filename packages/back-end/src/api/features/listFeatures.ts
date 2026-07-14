@@ -4,11 +4,6 @@ import type { ApiReqContext } from "back-end/types/api";
 import { getFeatureRevisionsByFeaturesCurrentVersion } from "back-end/src/models/FeatureRevisionModel";
 import { getAllPayloadExperiments } from "back-end/src/models/ExperimentModel";
 import {
-  getAllFeatures,
-  getFeaturesPage,
-  countFeatures,
-} from "back-end/src/models/FeatureModel";
-import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "back-end/src/services/features";
@@ -53,7 +48,9 @@ export async function loadFeaturesPage(
   | { empty: true; response: ReturnType<typeof emptyListResponse> }
   | {
       empty: false;
-      filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
+      filtered: Awaited<
+        ReturnType<ApiReqContext["models"]["features"]["getPage"]>
+      >;
       groupMap: Awaited<ReturnType<typeof getSavedGroupMap>>;
       experimentMap: Awaited<ReturnType<typeof getAllPayloadExperiments>>;
       revisions: Awaited<
@@ -111,12 +108,14 @@ export async function loadFeaturesPage(
     getAllPayloadExperiments(context, experimentScope),
   ]);
 
-  let filtered: Awaited<ReturnType<typeof getFeaturesPage>>;
+  let filtered: Awaited<
+    ReturnType<ApiReqContext["models"]["features"]["getPage"]>
+  >;
   let total: number;
 
   if (query.clientKey) {
     // clientKey: filter by SDK payload, then paginate in memory (or skip)
-    const features = await getAllFeatures(context, {
+    const features = await context.models.features.getAll({
       projects: projectId ? [projectId] : undefined,
       includeArchived,
     });
@@ -145,7 +144,7 @@ export async function loadFeaturesPage(
     }
   } else if (projectId) {
     if (skipPagination) {
-      const features = await getAllFeatures(context, {
+      const features = await context.models.features.getAll({
         projects: [projectId],
         includeArchived,
       });
@@ -155,13 +154,13 @@ export async function loadFeaturesPage(
       filtered = sorted;
       total = sorted.length;
     } else {
-      filtered = await getFeaturesPage(context, {
+      filtered = await context.models.features.getPage({
         project: projectId,
         includeArchived,
         limit,
         offset,
       });
-      total = await countFeatures(context, {
+      total = await context.models.features.count({
         project: projectId,
         includeArchived,
       });
@@ -169,7 +168,7 @@ export async function loadFeaturesPage(
   } else {
     const projectsFilter = projectIds === null ? undefined : projectIds;
     if (skipPagination) {
-      const features = await getAllFeatures(context, {
+      const features = await context.models.features.getAll({
         projects: projectsFilter,
         includeArchived,
       });
@@ -179,13 +178,13 @@ export async function loadFeaturesPage(
       filtered = sorted;
       total = sorted.length;
     } else {
-      filtered = await getFeaturesPage(context, {
+      filtered = await context.models.features.getPage({
         projectIds: projectsFilter,
         includeArchived,
         limit,
         offset,
       });
-      total = await countFeatures(context, {
+      total = await context.models.features.count({
         projectIds: projectsFilter,
         includeArchived,
       });

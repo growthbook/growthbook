@@ -16,7 +16,6 @@ import {
   getUserByEmail,
   updateUser,
 } from "back-end/src/models/UserModel";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { findRecentAuditByUserIdAndOrganization } from "back-end/src/models/AuditModel";
 
@@ -154,7 +153,7 @@ export async function postWatchItem(
   }
 
   if (type === "feature") {
-    item = await getFeature(context, id);
+    item = await context.models.features.getById(id);
   } else if (type === "experiment") {
     item = await getExperimentById(context, id);
     if (item && item.organization !== org.id) {

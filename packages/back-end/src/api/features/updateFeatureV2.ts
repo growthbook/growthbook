@@ -3,16 +3,13 @@ import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { UpdateProps } from "shared/types/base-model";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
-import {
-  getFeature,
-  updateFeature as updateFeatureToDb,
-  createAndPublishRevision,
-} from "back-end/src/models/FeatureModel";
+import { createAndPublishRevision } from "back-end/src/services/featureRevisions";
 import {
   getExperimentMapForFeature,
   addLinkedFeatureToExperiment,
@@ -43,7 +40,7 @@ import {
 export const updateFeatureV2 = createApiRequestHandler(
   updateFeatureV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) {
     throw new Error(`Feature id '${req.params.id}' not found.`);
   }
@@ -163,7 +160,7 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  let updates: Partial<FeatureInterface> = {
+  let updates: UpdateProps<FeatureInterface> = {
     ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
@@ -299,7 +296,10 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  const updatedFeature = await updateFeatureToDb(req.context, feature, updates);
+  const updatedFeature = await req.context.models.features.update(
+    feature,
+    updates,
+  );
 
   await addTagsDiff(
     req.context.org.id,

@@ -16,7 +16,6 @@ import {
   evaluateCurrentStep,
 } from "back-end/src/services/rampScheduleEvaluator";
 import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 
 /**
@@ -126,7 +125,7 @@ export const advanceSingleRampSchedule = async (
       const activatingVersion = getActivatingVersion(screened);
       if (activatingVersion === null) return;
       const feature = screened.entityId
-        ? await getFeature(context, screened.entityId)
+        ? await context.models.features.getById(screened.entityId)
         : undefined;
       if ((feature?.version ?? -1) < activatingVersion) return;
     }
@@ -176,7 +175,7 @@ async function runRampScheduleTick(
       const activatingVersion = getActivatingVersion(current);
       if (activatingVersion !== null) {
         const feature = current.entityId
-          ? await getFeature(context, current.entityId)
+          ? await context.models.features.getById(current.entityId)
           : undefined;
         if ((feature?.version ?? -1) >= activatingVersion) {
           // Activation runs start actions + a catch-up publish — refresh the

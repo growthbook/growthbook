@@ -2,7 +2,6 @@ import { putFeatureRevisionPrerequisitesV2Validator } from "shared/validators";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { setRevisionPrerequisites } from "./putFeatureRevisionPrerequisites";
 
 export const putFeatureRevisionPrerequisitesV2 = createApiRequestHandler(
@@ -13,7 +12,7 @@ export const putFeatureRevisionPrerequisitesV2 = createApiRequestHandler(
   // feature-level prerequisites are always "boolean flag is on" gates.
   const normalized = await Promise.all(
     req.body.prerequisites.map(async ({ id }) => {
-      const prereqFeature = await getFeature(req.context, id);
+      const prereqFeature = await req.context.models.features.getById(id);
       if (!prereqFeature) {
         throw new BadRequestError(`Prerequisite feature "${id}" not found`);
       }

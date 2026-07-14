@@ -17,7 +17,7 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise/licenseUtil";
 import {
   editFeatureRule,
   publishRevision,
-} from "back-end/src/models/FeatureModel";
+} from "back-end/src/services/featureRevisions";
 import {
   createRevision,
   getRevision,

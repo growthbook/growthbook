@@ -1,11 +1,6 @@
 import request from "supertest";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  createFeature,
-  getFeature,
-  updateFeature,
-  createAndPublishRevision,
-} from "back-end/src/models/FeatureModel";
+import { createAndPublishRevision } from "back-end/src/services/featureRevisions";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
@@ -20,10 +15,7 @@ import {
 } from "back-end/src/services/features";
 import { setupApp } from "./api.setup";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
-  createFeature: jest.fn(),
-  updateFeature: jest.fn(),
+jest.mock("back-end/src/services/featureRevisions", () => ({
   createAndPublishRevision: jest.fn(),
 }));
 
@@ -112,11 +104,20 @@ describe("features API", () => {
     getCustomFieldsBySectionAndProject: jest.fn().mockResolvedValue([]),
   });
 
+  // Mock context-registered features model (context.models.features).
+  // Declared once so both setup and assertions can reference the same fns.
+  const featuresModel = {
+    getById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  };
+
   const defaultModels = () => ({
     safeRollout: {
       getAllPayloadSafeRollouts: jest.fn().mockResolvedValue(new Map()),
     },
     customFields: getEmptyCustomFieldsModel(),
+    features: featuresModel,
   });
 
   const defaultPermissions = (extra = {}) => ({
@@ -163,10 +164,10 @@ describe("features API", () => {
     );
 
     // Default write mocks — individual tests can override as needed.
-    (getFeature as jest.Mock).mockReturnValue(undefined);
+    featuresModel.getById.mockResolvedValue(undefined);
     (addTags as jest.Mock).mockReturnValue(undefined);
-    (createFeature as jest.Mock).mockImplementation((v) => v);
-    (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
+    featuresModel.create.mockImplementation((v) => Promise.resolve(v));
+    featuresModel.update.mockImplementation((f, updates) =>
       Promise.resolve({ ...f, ...updates }),
     );
     (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
@@ -365,7 +366,7 @@ describe("features API", () => {
     expect(response.body.message).toContain(
       'Custom field "Owning Team" is required.',
     );
-    expect(createFeature).not.toHaveBeenCalled();
+    expect(featuresModel.create).not.toHaveBeenCalled();
   });
 
   // ---------------------------------------------------------------------------
@@ -405,7 +406,7 @@ describe("features API", () => {
       requireProjectContext();
 
       const existingFeature = makeFeature({ project: "project" });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -419,7 +420,7 @@ describe("features API", () => {
       requireProjectContext();
 
       const existingFeature = makeFeature({ project: "" });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const newDescription = "This is an updated description";
       const response = await request(app)
@@ -460,14 +461,14 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({ description: "new description" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(featuresModel.update).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -492,14 +493,14 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({ description: "new description", customFields: {} });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(featuresModel.update).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -526,7 +527,7 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         customFields: { cfd_team: "growth" },
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -536,7 +537,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(featuresModel.update).not.toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).toHaveBeenCalled();
     });
 
@@ -562,14 +563,14 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
         .send({ description: "new description", project: "project" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
+      expect(featuresModel.update).toHaveBeenCalled();
       expect(getCustomFieldsBySectionAndProject).not.toHaveBeenCalled();
     });
 
@@ -601,7 +602,7 @@ describe("features API", () => {
       });
 
       const existingFeature = makeFeature({ customFields: {} });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -611,7 +612,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(featuresModel.update).not.toHaveBeenCalled();
     });
 
     it("revalidates and rejects when changing project and customFields payload is changed", async () => {
@@ -644,7 +645,7 @@ describe("features API", () => {
       const existingFeature = makeFeature({
         customFields: { cfd_team: "growth" },
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
 
       const response = await request(app)
         .post(`/api/v1/features/${existingFeature.id}`)
@@ -658,7 +659,7 @@ describe("features API", () => {
       expect(response.body.message).toContain(
         'Custom field "Owning Team" is required.',
       );
-      expect(updateFeature).not.toHaveBeenCalled();
+      expect(featuresModel.update).not.toHaveBeenCalled();
     });
   });
 
@@ -706,7 +707,7 @@ describe("features API", () => {
         environmentSettings: { production: { enabled: true, rules: [] } },
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
       (
         updateInterfaceEnvSettingsFromApiEnvSettings as jest.Mock
       ).mockReturnValue(updatedEnvironmentSettings);
@@ -743,8 +744,7 @@ describe("features API", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(featuresModel.update).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
           environmentSettings: updatedEnvironmentSettings,
@@ -780,7 +780,7 @@ describe("features API", () => {
         },
       });
 
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
       (getNextScheduledUpdate as jest.Mock).mockImplementation((envSettings) =>
         envSettings ? new Date("2026-02-20T08:00:00.000Z") : null,
       );
@@ -791,9 +791,9 @@ describe("features API", () => {
         .send({ project: "project_2" });
 
       expect(response.status).toBe(200);
-      expect(updateFeature).toHaveBeenCalled();
-      const updateFeatureCall = (updateFeature as jest.Mock).mock.calls[0];
-      const updatesArg = updateFeatureCall[2];
+      expect(featuresModel.update).toHaveBeenCalled();
+      const updateCall = featuresModel.update.mock.calls[0];
+      const updatesArg = updateCall[1];
       expect(updatesArg).toEqual({ version: originalVersion + 1 });
     });
   });
@@ -820,7 +820,7 @@ describe("features API", () => {
         org: { ...org, settings: { ...org.settings, ...orgSettings } },
         permissions: defaultPermissions(permissionsOverride),
       });
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
       return existingFeature;
     };
 
@@ -938,7 +938,7 @@ describe("features API", () => {
       setupUpdateTest();
       // Send a field that results in no revision-tracked delta
       const existingFeature = makeFeature();
-      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+      featuresModel.getById.mockResolvedValue(existingFeature);
       // defaultValue same as current — no change
       const response = await request(app)
         .post("/api/v1/features/myfeature")

@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import { ReqContextClass } from "back-end/src/services/context";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api.setup";
 
@@ -77,7 +76,7 @@ async function seedFeature({
 }
 
 async function seedPublishedRevisionFromFeature(context: ReqContextClass) {
-  const feature = await getFeature(context, FEATURE_ID);
+  const feature = await context.models.features.getById(FEATURE_ID);
   if (!feature) throw new Error("seed feature missing");
   await createInitialRevision(
     context,

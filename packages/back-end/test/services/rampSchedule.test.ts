@@ -57,8 +57,7 @@ import {
 // Module mocks (must be declared before imports that use them)
 // ---------------------------------------------------------------------------
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+jest.mock("back-end/src/services/featureRevisions", () => ({
   publishRevision: jest.fn(),
 }));
 
@@ -90,12 +89,14 @@ jest.mock("back-end/src/util/secrets", () => ({
 }));
 
 // Pull in mocked module references AFTER the mock declarations.
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { publishRevision } from "back-end/src/services/featureRevisions";
 import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
 import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 
-const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+// Feature lookups now go through ctx.models.features.getById; this standalone
+// mock is wired into each test context's models.features below.
+const mockGetFeature = jest.fn();
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -237,6 +238,7 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn(),
@@ -1489,6 +1491,9 @@ describe("featureEntityHandler.applyActions", () => {
     org: { id: ORG_ID, settings: {} },
     environments: [],
     auditUser: { type: "system" },
+    models: {
+      features: { getById: mockGetFeature },
+    },
   } as never;
 
   it("calls publishRevision with sparse-patched rules", async () => {
@@ -1950,6 +1955,7 @@ describe("advanceScheduleManually", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById: rampUpdateById,
           getById: jest.fn().mockImplementation(async () => current),
@@ -2354,6 +2360,7 @@ describe("resumeSchedule", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById,
@@ -2425,6 +2432,7 @@ describe("restartSchedule", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById },
         safeRollout: { getById: safeRolloutGetById, update: safeRolloutUpdate },
       },
@@ -2564,6 +2572,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn() },
       },
     };
@@ -2629,6 +2638,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn() },
       },
     };
@@ -2683,7 +2693,10 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: {
+        features: { getById: mockGetFeature },
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -2762,7 +2775,10 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: {
+        features: { getById: mockGetFeature },
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -2831,7 +2847,10 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: {
+        features: { getById: mockGetFeature },
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -2913,7 +2932,10 @@ describe("advanceUntilBlocked", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {},
-      models: { rampSchedules: { updateById, getById: jest.fn() } },
+      models: {
+        features: { getById: mockGetFeature },
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
     };
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
@@ -2950,6 +2972,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn(), deleteById },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
@@ -2981,6 +3004,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn(), deleteById },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
@@ -3016,6 +3040,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn(), deleteById },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
@@ -3057,6 +3082,7 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn(),
@@ -3438,6 +3464,7 @@ describe("startReadyScheduleNow", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById,
@@ -3715,6 +3742,7 @@ describe("startReadyScheduleNow", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           // First read is the lock wrapper's freshness check (must be ready);
@@ -3894,6 +3922,7 @@ describe("approveAndPublishStep", () => {
           canPublishFeature: jest.fn().mockReturnValue(true),
         },
         models: {
+          features: { getById: mockGetFeature },
           rampSchedules: { updateById, getById: jest.fn() },
         },
       },
@@ -4016,6 +4045,7 @@ describe("approveAndPublishStep", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn().mockImplementation(() => current),
@@ -4089,6 +4119,7 @@ describe("approveAndPublishStep", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn().mockImplementation(() => current),
@@ -4157,6 +4188,7 @@ describe("approveAndPublishStep", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn().mockImplementation(() => current),
@@ -4229,6 +4261,7 @@ describe("approveAndPublishStep", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: {
           updateById,
           getById: jest.fn().mockImplementation(() => current),
@@ -4580,6 +4613,7 @@ describe("pauseSchedule", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn() },
       },
     };
@@ -4615,6 +4649,7 @@ describe("pauseSchedule", () => {
         canUpdateFeature: jest.fn().mockReturnValue(true),
       },
       models: {
+        features: { getById: mockGetFeature },
         rampSchedules: { updateById, getById: jest.fn() },
       },
     };

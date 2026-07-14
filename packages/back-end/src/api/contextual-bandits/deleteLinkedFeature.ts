@@ -1,6 +1,5 @@
 import { deleteContextualBanditLinkedFeatureValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { unlinkFeatureFromContextualBandit } from "back-end/src/enterprise/services/contextualBandits";
 import { loadContextualBanditForRead } from "./_shared";
 
@@ -20,7 +19,9 @@ export const deleteContextualBanditLinkedFeature = createApiRequestHandler(
 
   // Also require feature-side edit rights — unlinking cancels a queued
   // autopublish that the feature team may be managing.
-  const feature = await getFeature(req.context, req.params.featureId);
+  const feature = await req.context.models.features.getById(
+    req.params.featureId,
+  );
   if (feature && !req.context.permissions.canUpdateFeature(feature, {})) {
     req.context.permissions.throwPermissionError();
   }

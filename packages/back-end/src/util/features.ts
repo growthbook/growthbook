@@ -462,6 +462,22 @@ export function getAffectedSDKPayloadKeys(
 
 export { getJSONValue };
 
+export function getLinkedExperiments(
+  feature: Pick<FeatureInterface, "rules" | "linkedExperiments">,
+): string[] {
+  // Keep existing links even when a rule is removed — past revisions need
+  // them to render correctly.
+  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
+
+  (feature.rules ?? []).forEach((rule) => {
+    if (rule?.type === "experiment-ref") {
+      expIds.add(rule.experimentId);
+    }
+  });
+
+  return [...expIds];
+}
+
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 10000) / 10000;
 }

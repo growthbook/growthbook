@@ -2,7 +2,7 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { MergeResultChanges } from "shared/util";
-import { computeRevisionMergeChanges } from "back-end/src/models/FeatureModel";
+import { computeRevisionMergeChanges } from "back-end/src/services/featureRevisions";
 import { ReqContext } from "back-end/types/request";
 
 const ORG_ENVS: Environment[] = [

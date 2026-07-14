@@ -28,10 +28,9 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   editFeatureRules,
-  getFeature,
   prevalidatePublishRevision,
   publishRevision,
-} from "back-end/src/models/FeatureModel";
+} from "back-end/src/services/featureRevisions";
 import {
   discardRevision,
   getRevision,
@@ -418,7 +417,10 @@ export async function publishPendingFeatureDraftsForExperiment(
   const featureCache = new Map<string, FeatureInterface | null>();
   const getCachedFeature = async (featureId: string) => {
     if (!featureCache.has(featureId)) {
-      featureCache.set(featureId, await getFeature(context, featureId));
+      featureCache.set(
+        featureId,
+        await context.models.features.getById(featureId),
+      );
     }
     return featureCache.get(featureId) ?? null;
   };
@@ -533,7 +535,7 @@ export async function publishPendingFeatureDraftsForExperiment(
     let { feature, revision, mergeResult } = entry;
 
     if (publishedFeatureIds.has(featureId)) {
-      const freshFeature = await getFeature(context, featureId);
+      const freshFeature = await context.models.features.getById(featureId);
       if (!freshFeature) continue;
       feature = freshFeature;
       const freshRevision = await getRevision({
@@ -649,7 +651,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   const cbModel = context.models.contextualBandits;
 
   for (const { featureId, revisionVersion } of drafts) {
-    const feature = await getFeature(context, featureId);
+    const feature = await context.models.features.getById(featureId);
     if (!feature) {
       await cbModel.removePendingFeatureDraft(
         cb.id,
@@ -717,7 +719,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   const published: ResolvedDraft[] = [];
 
   for (const { featureId, revisionVersion } of ready) {
-    const feature = await getFeature(context, featureId);
+    const feature = await context.models.features.getById(featureId);
     if (!feature) continue;
     const revision = await getRevision({
       context,

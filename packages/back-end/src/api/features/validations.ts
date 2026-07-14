@@ -15,7 +15,6 @@ import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
   discardRevision,
@@ -227,7 +226,7 @@ export async function validateRuleReferences(
   }
 
   for (const prereq of rule.prerequisites ?? []) {
-    const prereqFeature = await getFeature(context, prereq.id);
+    const prereqFeature = await context.models.features.getById(prereq.id);
     if (!prereqFeature) {
       throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
     }
@@ -254,7 +253,7 @@ export async function validatePrerequisiteReferences(
         );
       }
     }
-    const prereqFeature = await getFeature(context, prereq.id);
+    const prereqFeature = await context.models.features.getById(prereq.id);
     if (!prereqFeature) {
       throw new NotFoundError(`Prerequisite feature "${prereq.id}" not found`);
     }

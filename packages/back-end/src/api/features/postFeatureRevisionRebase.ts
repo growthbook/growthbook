@@ -16,7 +16,6 @@ import {
 } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
@@ -52,7 +51,7 @@ export async function computeRebaseMerge(
   params: { id: string; version: number },
   body: RebaseRequestBody,
 ) {
-  const feature = await getFeature(context, params.id);
+  const feature = await context.models.features.getById(params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   // The preview requires the same permission as the rebase itself: it is a

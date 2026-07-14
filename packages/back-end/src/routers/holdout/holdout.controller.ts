@@ -32,11 +32,6 @@ import {
   hasArchivedExperiments,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import {
-  getFeature,
-  getFeaturesByIds,
-  removeHoldoutFromFeature,
-} from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
 import {
   createExperimentSnapshot,
@@ -93,7 +88,8 @@ export const getHoldout = async (
   const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
   const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
 
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
     context,
     linkedExperimentIds,
@@ -696,7 +692,8 @@ export const deleteHoldout = async (
   // Remove holdout from linked features and linked experiments
   const linkedFeatureIds = Object.keys(holdout.linkedFeatures);
   const linkedExperimentIds = Object.keys(holdout.linkedExperiments);
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+  const linkedFeatures =
+    await context.models.features.getByIds(linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
     context,
     linkedExperimentIds,
@@ -704,7 +701,7 @@ export const deleteHoldout = async (
 
   // Remove holdout links from linked features and experiments
   await Promise.all(
-    linkedFeatures.map((f) => removeHoldoutFromFeature(context, f)),
+    linkedFeatures.map((f) => context.models.features.removeHoldout(f)),
   );
   await Promise.all(
     linkedExperiments.map((e) =>
@@ -750,7 +747,7 @@ export const deleteHoldoutFeature = async (
     return res.status(404).json({ status: 404, message: "Holdout not found" });
   }
 
-  const feature = await getFeature(context, req.params.featureId);
+  const feature = await context.models.features.getById(req.params.featureId);
 
   if (!feature) {
     return res.status(404).json({ status: 404, message: "Feature not found" });
@@ -769,7 +766,7 @@ export const deleteHoldoutFeature = async (
     context.permissions.throwPermissionError();
   }
 
-  await removeHoldoutFromFeature(context, feature);
+  await context.models.features.removeHoldout(feature);
 
   await context.models.holdout.update(holdout, {
     linkedFeatures: omit(holdout.linkedFeatures, feature.id),

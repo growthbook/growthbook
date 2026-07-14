@@ -5,7 +5,6 @@ import { toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
@@ -19,7 +18,7 @@ import {
 export const postFeatureRevisionRulesReorderV2 = createApiRequestHandler(
   postFeatureRevisionRulesReorderV2Validator,
 )(async (req) => {
-  const feature = await getFeature(req.context, req.params.id);
+  const feature = await req.context.models.features.getById(req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (

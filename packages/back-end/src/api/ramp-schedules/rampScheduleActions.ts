@@ -37,7 +37,6 @@ import {
   updateRampSteps,
 } from "back-end/src/services/rampSchedule";
 import { evaluateCurrentStep } from "back-end/src/services/rampScheduleEvaluator";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -453,7 +452,7 @@ export const addTargetRampSchedule = createApiRequestHandler({
   const { featureId, ruleId, environment } = req.body;
   const envSuffix = environment ? ` in environment '${environment}'` : "";
 
-  const feature = await getFeature(req.context, featureId);
+  const feature = await req.context.models.features.getById(featureId);
   if (!feature) throw new Error(`Feature '${featureId}' not found`);
   const rule = resolveRampTarget(
     { ruleId, environment: environment ?? null },
@@ -667,7 +666,9 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
     );
   }
   if (approvalPending && force) {
-    const feature = await getFeature(req.context, schedule.entityId);
+    const feature = await req.context.models.features.getById(
+      schedule.entityId,
+    );
     if (!feature || !req.context.permissions.canBypassApprovalChecks(feature)) {
       throw new PermissionError(
         "force: true requires canBypassApprovalChecks permission on the linked feature",
@@ -704,7 +705,9 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         );
       }
       if (freshApprovalPending && force) {
-        const linkedFeature = await getFeature(req.context, fresh.entityId);
+        const linkedFeature = await req.context.models.features.getById(
+          fresh.entityId,
+        );
         if (
           !linkedFeature ||
           !req.context.permissions.canBypassApprovalChecks(linkedFeature)
@@ -1446,7 +1449,7 @@ export const refreshMonitoringRampSchedule = createApiRequestHandler({
   }
 
   const feature = safeRollout.featureId
-    ? await getFeature(req.context, safeRollout.featureId)
+    ? await req.context.models.features.getById(safeRollout.featureId)
     : null;
 
   await createSafeRolloutSnapshot({

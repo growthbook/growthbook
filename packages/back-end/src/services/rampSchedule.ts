@@ -21,7 +21,7 @@ import uniqid from "uniqid";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import { publishRevision } from "back-end/src/services/featureRevisions";
 // NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
 // The cycle is safe: every cross-module reference is a hoisted function
 // declaration used only at call time, never at module top-level.
@@ -582,7 +582,7 @@ export const featureEntityHandler: EntityHandler = {
   async applyActions(ctx, entityId, actions, opts) {
     const { stepLabel, user, environment } = opts;
 
-    const feature = await getFeature(ctx, entityId);
+    const feature = await ctx.models.features.getById(entityId);
     if (!feature) throw new Error(`Feature not found: ${entityId}`);
 
     const updatedRules: FeatureRule[] = (feature.rules ?? []).map((r) => ({
@@ -2271,7 +2271,7 @@ export async function dispatchRampEvent<T extends RampFeatureEvent>(
     let environments: string[] = [];
     let tags: string[] = [];
     if ("targets" in schedule && schedule.entityType === "feature") {
-      const feature = await getFeature(ctx, schedule.entityId);
+      const feature = await ctx.models.features.getById(schedule.entityId);
       if (feature) {
         projects = feature.project ? [feature.project] : [];
         tags = feature.tags ?? [];
@@ -2407,7 +2407,7 @@ export async function approveAndPublishStep(
 ): Promise<ApproveStepError | null> {
   const stepIndex = schedule.currentStepIndex;
 
-  const feature = await getFeature(ctx, schedule.entityId);
+  const feature = await ctx.models.features.getById(schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
   if (!ctx.permissions.canUpdateFeature(feature, feature)) {

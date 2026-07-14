@@ -7,8 +7,7 @@ import {
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 
-jest.mock("back-end/src/models/FeatureModel", () => ({
-  getFeature: jest.fn(),
+jest.mock("back-end/src/services/featureRevisions", () => ({
   publishRevision: jest.fn(),
 }));
 
@@ -83,6 +82,7 @@ function makeContext(safeRollout: SafeRolloutInterface) {
           getById: jest.fn().mockResolvedValue(safeRollout),
           update,
         },
+        features: { getById: jest.fn() },
       },
     },
     update,
@@ -287,6 +287,7 @@ describe("restartSchedule SafeRollout floor reset", () => {
             getById: jest.fn().mockResolvedValue(safeRollout),
             update: updateSafeRollout,
           },
+          features: { getById: jest.fn() },
         },
       },
       updateSafeRollout,

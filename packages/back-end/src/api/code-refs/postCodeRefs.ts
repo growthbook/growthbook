@@ -7,7 +7,6 @@ import {
   getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
 } from "back-end/src/models/FeatureCodeRefs";
-import { getFeatureProjectsByIds } from "back-end/src/models/FeatureModel";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req) => {
@@ -41,10 +40,8 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     const affectedFeatureIds = [
       ...new Set([...requestedFeatures, ...featuresToRemove]),
     ];
-    const featureProjects = await getFeatureProjectsByIds(
-      req.context,
-      affectedFeatureIds,
-    );
+    const featureProjects =
+      await req.context.models.features.getProjectsByIds(affectedFeatureIds);
     const cannotWriteAll = affectedFeatureIds.some((featureId) => {
       if (featureProjects.has(featureId)) {
         // Existing feature: require write access to its project.

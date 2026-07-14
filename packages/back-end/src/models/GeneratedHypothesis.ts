@@ -6,7 +6,6 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { ReqContext } from "back-end/types/request";
 import { createExperiment } from "./ExperimentModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
-import { createFeature } from "./FeatureModel";
 
 type GeneratedHypothesisDocument = mongoose.Document &
   GeneratedHypothesisInterface;
@@ -41,7 +40,7 @@ export const findOrCreateGeneratedHypothesis = async (
   context: ReqContext,
   uuid: string,
 ): Promise<GeneratedHypothesisInterface> => {
-  const { org, userId } = context;
+  const { userId } = context;
   const existing = await GeneratedHypothesisModel.findOne({
     weblensUuid: uuid,
     organization: context.org.id,
@@ -173,14 +172,13 @@ export const findOrCreateGeneratedHypothesis = async (
   } else {
     // linked feature flag
     const featureId = `${slug}-feature-flag`;
-    await createFeature(context, {
+    // Hypothesis generation is authorized upstream; feature creation here is
+    // incidental, so skip the manageFeatures check like the legacy helper did.
+    await context.models.features.dangerousCreateBypassPermission({
       id: featureId,
       archived: false,
       description: `Feature flag for ${slug} experiment`,
-      organization: org.id,
       owner: userId,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
       valueType: "boolean",
       defaultValue: "false",
       version: 1,

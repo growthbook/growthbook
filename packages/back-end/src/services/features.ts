@@ -96,7 +96,6 @@ import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { ApiReqContext } from "back-end/types/api";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -807,7 +806,7 @@ export async function refreshSDKPayloadCache({
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
-  const allFeatures = await getAllFeatures(context);
+  const allFeatures = await context.models.features.getAll();
   const constants = await context.models.constants.getAll();
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
@@ -1445,7 +1444,7 @@ export async function getFeatureDefinitions(
   const { context, environment = "production", projects } = args;
   const projectFilter = projects && projects.length > 0 ? projects : undefined;
   const allSavedGroups = await context.models.savedGroups.getAll();
-  const allFeatures = await getAllFeatures(context, {
+  const allFeatures = await context.models.features.getAll({
     projects: projectFilter,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
@@ -1664,7 +1663,7 @@ export async function evaluateAllFeatures({
   const results: { [key: string]: FeatureTestResult }[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
 
-  const allFeaturesRaw = await getAllFeatures(context);
+  const allFeaturesRaw = await context.models.features.getAll();
   const constants = await context.models.constants.getAll();
   const allFeatures: Record<string, FeatureDefinition> = {};
   if (allFeaturesRaw.length) {

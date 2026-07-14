@@ -464,21 +464,27 @@ async function runApiObj(suffix: "v1" | "v2", args: string[]) {
     string,
     unknown
   >;
-  const { FeatureModel } = featureModelMod as {
-    FeatureModel: typeof import("../models/FeatureModel").FeatureModel;
-  };
   const { getApiFeatureObj } = await import("../services/features");
 
-  // origin/main: `toInterface` is a non-exported `const` and the v0→v1
-  // migration lives in a separate `upgradeFeatureInterface(toInterface(…))`
-  // wrapper at every callsite. We replicate both steps so run1 on main
-  // matches what production emits — otherwise run2 on this branch (where
-  // the migration is folded into the exported `toInterface` /
-  // `migrateRawFeatureToV2`) would diff against a pre-migration v0 doc and
-  // spuriously flag every legacy feature.
   type FeatureInterfaceT = import("shared/types/feature").FeatureInterface;
   type LegacyT = import("shared/types/feature").LegacyFeatureInterface;
-  type FeatureDoc = InstanceType<typeof FeatureModel>;
+
+  // Preferred path: the exported pure JIT migration (present on current main
+  // and on branches where FeatureModel is a BaseModel class). Falls back to
+  // the legacy mongoose-doc + toInterface path for older checkouts where
+  // `FeatureModel` is still a mongoose model and the migration lives in
+  // `upgradeFeatureInterface(toInterface(…))`.
+  const migrateRawFeature = featureModelMod.migrateRawFeatureToV2 as
+    | ((raw: LegacyT, context: ReqContext) => FeatureInterfaceT)
+    | undefined;
+
+  // Legacy mongoose model constructor (older checkouts only — on BaseModel
+  // branches this export is the model class and is never constructed here
+  // because `migrateRawFeature` takes precedence).
+  const LegacyMongooseFeatureModel = featureModelMod.FeatureModel as
+    | (new (raw: LegacyT) => { toJSON: () => Record<string, unknown> })
+    | undefined;
+  type FeatureDoc = { toJSON: () => Record<string, unknown> };
 
   const exportedToInterface = featureModelMod.toInterface as
     | ((doc: FeatureDoc, context: ReqContext) => FeatureInterfaceT)
@@ -600,7 +606,19 @@ async function runApiObj(suffix: "v1" | "v2", args: string[]) {
     const context = { org } as ReqContext;
 
     try {
-      let feature = toInterfaceFn(new FeatureModel(raw), context);
+      let feature: FeatureInterfaceT;
+      if (migrateRawFeature) {
+        const cleaned = { ...(raw as Record<string, unknown>) };
+        delete cleaned.__v;
+        delete cleaned._id;
+        feature = migrateRawFeature(cleaned as unknown as LegacyT, context);
+      } else if (LegacyMongooseFeatureModel) {
+        feature = toInterfaceFn(new LegacyMongooseFeatureModel(raw), context);
+      } else {
+        throw new Error(
+          "FeatureModel module exports neither migrateRawFeatureToV2 nor a mongoose model",
+        );
+      }
       if (upgradeFeatureInterface) {
         feature = upgradeFeatureInterface(feature);
       }

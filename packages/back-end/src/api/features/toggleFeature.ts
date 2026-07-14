@@ -13,10 +13,7 @@ import {
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import {
-  applyRevisionChanges,
-  getFeature,
-} from "back-end/src/models/FeatureModel";
+import { applyRevisionChanges } from "back-end/src/services/featureRevisions";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   getApiFeatureObj,
@@ -39,7 +36,7 @@ export async function toggleFeatureCore(
   audit: (input: AuditInterfaceInput) => Promise<void>,
   canUseRestApiBypass: boolean,
 ) {
-  const feature = await getFeature(context, params.id);
+  const feature = await context.models.features.getById(params.id);
   if (!feature) {
     throw new Error("Could not find a feature with that key");
   }

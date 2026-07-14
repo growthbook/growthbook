@@ -57,7 +57,6 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
@@ -413,7 +412,7 @@ export async function _createSafeRolloutSnapshot({
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
   const metricGroups = await context.models.metricGroups.getAll();
-  const feature = await getFeature(context, safeRollout.featureId);
+  const feature = await context.models.features.getById(safeRollout.featureId);
   if (!feature) {
     throw new Error("Could not load safe rollout feature");
   }
@@ -519,7 +518,9 @@ export async function createSafeRolloutSnapshot({
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     await getSettingsForSnapshotMetrics(context, safeRollout);
 
-  const srFeature = await getFeature(context, safeRollout.featureId);
+  const srFeature = await context.models.features.getById(
+    safeRollout.featureId,
+  );
   const srProjectId = srFeature?.project ?? undefined;
   const pValueThreshold = await getPValueThresholdForProject(
     context,
@@ -669,7 +670,9 @@ export async function notifySafeRolloutChange({
     healthSettings,
     daysLeft,
   });
-  const feature = await getFeature(context, updatedSafeRollout.featureId);
+  const feature = await context.models.features.getById(
+    updatedSafeRollout.featureId,
+  );
   if (!feature) {
     throw new Error("Could not find feature to fire event");
   }

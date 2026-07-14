@@ -6,7 +6,6 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
@@ -259,7 +258,7 @@ export const getAttributeReferences = async (
   const keySet = new Set(attributeKeys);
 
   const [allFeatures, allExperiments, allSavedGroups] = await Promise.all([
-    getAllFeatures(context, {}),
+    context.models.features.getAll({}),
     getAllExperiments(context, {}),
     context.models.savedGroups.getAll(),
   ]);

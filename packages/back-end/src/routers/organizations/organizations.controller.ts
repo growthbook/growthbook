@@ -67,10 +67,6 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
-import {
-  getAllFeatures,
-  hasNonDemoFeature,
-} from "back-end/src/models/FeatureModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import {
   ALLOW_SELF_ORG_CREATION,
@@ -1028,7 +1024,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
   const namespaces: NamespaceUsage = {};
 
   // Get active legacy experiment rules on features
-  const allFeatures = await getAllFeatures(context);
+  const allFeatures = await context.models.features.getAll();
   allFeatures.forEach((f) => {
     if (f.archived) return;
     environments.forEach((env) => {
@@ -2711,7 +2707,7 @@ export async function postAgreeToAgreement(
 
 export async function getFeatureExpUsage(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const hasFeatures = await hasNonDemoFeature(context);
+  const hasFeatures = await context.models.features.hasNonDemoFeature();
   const hasExperiments = await hasNonDemoExperiment(context);
 
   return res.status(200).json({
