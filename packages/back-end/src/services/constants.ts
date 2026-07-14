@@ -11,6 +11,8 @@ import {
   getConfigBackingKey,
   getFeatureBaseConfigKey,
   parsePlainJSONObject,
+  findScopedOverrideStructuralErrors,
+  ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ConstantSource } from "shared/sdk-versioning";
@@ -928,5 +930,63 @@ export async function assertConfigDeletable(
           ", ",
         )}). Re-parent or remove the mixin from them, or delete them first.`,
     );
+  }
+}
+
+// Validate a config's scopedOverrides selection list on write (create/update):
+// structural problems (self-reference, an entry an earlier one already subsumes)
+// plus dangling references (a `config` that isn't a real config). A flavor is an
+// ordinary child config, so entries must point at configs that already exist —
+// flavors are created first, then attached to the parent. Hard error: a malformed
+// selection list is a client mistake, not an impact warning.
+export async function assertScopedOverridesValid(
+  context: ReqContext | ApiReqContext,
+  config: { key: string; scopedOverrides?: ScopedOverrideEntry[] },
+): Promise<void> {
+  const overrides = config.scopedOverrides ?? [];
+  if (!overrides.length) return;
+
+  const errors = findScopedOverrideStructuralErrors(overrides, config.key);
+
+  const all = await context.models.configs.getAllForReconcile();
+  const existingKeys = new Set(all.map((c) => c.key));
+  const dangling = [
+    ...new Set(
+      overrides
+        .map((o) => o.config)
+        // Self-references are reported by the structural check; don't double-count.
+        .filter((k) => k !== config.key && !existingKeys.has(k)),
+    ),
+  ];
+  if (dangling.length) {
+    errors.push(
+      `Scoped override references unknown config(s): ${dangling
+        .map((k) => `"${k}"`)
+        .join(", ")}.`,
+    );
+  }
+
+  if (errors.length) throw new BadRequestError(errors.join(" "));
+}
+
+// After a config is deleted, drop any scopedOverrides entry on OTHER configs that
+// pointed at it, so a deleted flavor never leaves a dangling selection entry on
+// its parent. System write (bypasses per-config edit permission): the deleter
+// acted on the flavor, and the parent may live in a project they can't edit.
+export async function pruneScopedOverridesReferencing(
+  context: ReqContext | ApiReqContext,
+  deletedKey: string,
+): Promise<void> {
+  const all = await context.models.configs.getAllForReconcile();
+  const referencing = all.filter((c) =>
+    (c.scopedOverrides ?? []).some((o) => o.config === deletedKey),
+  );
+  for (const c of referencing) {
+    const pruned = (c.scopedOverrides ?? []).filter(
+      (o) => o.config !== deletedKey,
+    );
+    await context.models.configs.dangerousUpdateBypassPermission(c, {
+      scopedOverrides: pruned,
+    });
   }
 }

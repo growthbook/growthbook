@@ -50,6 +50,7 @@ import {
   assertConfigArchivable,
   assertConfigDeletable,
   assertKeyAvailable,
+  assertScopedOverridesValid,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -511,6 +512,11 @@ export const postConfig = async (
     context.org.settings?.configExperimentGuardDefault ??
     false;
 
+  await assertScopedOverridesValid(context, {
+    key: body.key,
+    scopedOverrides: body.scopedOverrides,
+  });
+
   // Permission is enforced by the model's canCreate.
   const config = await context.models.configs.create({
     key: body.key,
@@ -662,6 +668,10 @@ export const putConfig = async (
     // Ordered env/project flavor selection. Store as-is (including `[]` to clear
     // all overrides) — `undefined` would be dropped by the update layer.
     fieldsToUpdate.scopedOverrides = req.body.scopedOverrides;
+    await assertScopedOverridesValid(context, {
+      key: existing.key,
+      scopedOverrides: fieldsToUpdate.scopedOverrides,
+    });
   }
   if (hasChanged(description, comparisonBase.description)) {
     fieldsToUpdate.description = description;

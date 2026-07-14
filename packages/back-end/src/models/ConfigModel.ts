@@ -24,6 +24,7 @@ import {
   resolvableValueChanged,
   assertConfigDeletable,
   assertConfigArchivable,
+  pruneScopedOverridesReferencing,
 } from "back-end/src/services/constants";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
@@ -322,6 +323,10 @@ export class ConfigModel extends BaseClass {
 
   protected async afterDelete(doc: ConfigInterface) {
     this.reconcileSnapshot.invalidate();
+    // Drop any parent's scopedOverrides entry that pointed at this config, so a
+    // deleted flavor never dangles on its parent's selection list. Runs after
+    // the snapshot invalidate so it reads post-delete state.
+    await pruneScopedOverridesReferencing(this.context, doc.key);
     resolvableValueChanged(this.context, "deleted", "config", doc.key).catch(
       (e) => {
         this.context.logger.error(

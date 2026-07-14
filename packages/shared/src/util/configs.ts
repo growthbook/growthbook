@@ -704,6 +704,7 @@ export type ConfigChainNode = {
 // re-exported here so config callers can keep importing it from util/configs.
 export {
   selectScopedOverride,
+  findScopedOverrideStructuralErrors,
   type ScopedOverrideEntry,
 } from "./scoped-overrides";
 

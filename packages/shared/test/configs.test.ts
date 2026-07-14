@@ -26,6 +26,7 @@ import {
   findIncompatibleConfigValueKeys,
   resolveConfigChain,
   selectScopedOverride,
+  findScopedOverrideStructuralErrors,
   computeConfigReconciliationPreview,
   isConfigLocked,
   ConfigChainNode,
@@ -1877,5 +1878,115 @@ describe("selectScopedOverride", () => {
     expect(
       selectScopedOverride(list, { environment: "dev", project: "proj_2" }),
     ).toBeNull();
+  });
+});
+
+describe("findScopedOverrideStructuralErrors", () => {
+  it("returns no errors for an empty or well-formed list", () => {
+    expect(findScopedOverrideStructuralErrors(undefined, "base")).toEqual([]);
+    expect(findScopedOverrideStructuralErrors([], "base")).toEqual([]);
+    expect(
+      findScopedOverrideStructuralErrors(
+        [
+          { config: "prod_flavor", environments: ["production"] },
+          { config: "dev_flavor", environments: ["dev"] },
+          { config: "fallback_flavor" },
+        ],
+        "base",
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags a self-reference", () => {
+    const errors = findScopedOverrideStructuralErrors(
+      [{ config: "base", environments: ["production"] }],
+      "base",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("itself");
+  });
+
+  it("flags an exact-duplicate entry as unreachable", () => {
+    const errors = findScopedOverrideStructuralErrors(
+      [
+        { config: "a", environments: ["production"] },
+        { config: "b", environments: ["production"] },
+      ],
+      "base",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("unreachable");
+  });
+
+  it("flags an entry a wildcard predecessor subsumes", () => {
+    const errors = findScopedOverrideStructuralErrors(
+      [
+        { config: "catch_all" },
+        { config: "prod_flavor", environments: ["production"] },
+      ],
+      "base",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("unreachable");
+  });
+
+  it("flags an entry whose env set is a subset of an earlier entry", () => {
+    const errors = findScopedOverrideStructuralErrors(
+      [
+        { config: "wide", environments: ["production", "staging"] },
+        { config: "narrow", environments: ["production"] },
+      ],
+      "base",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("unreachable");
+  });
+
+  it("does not flag disjoint or narrowing-then-widening scopes", () => {
+    expect(
+      findScopedOverrideStructuralErrors(
+        [
+          { config: "prod", environments: ["production"] },
+          { config: "staging", environments: ["staging"] },
+        ],
+        "base",
+      ),
+    ).toEqual([]);
+    // A narrower entry first, then a wider one, is reachable (the wider one
+    // still matches contexts the narrower one misses).
+    expect(
+      findScopedOverrideStructuralErrors(
+        [
+          { config: "prod", environments: ["production"] },
+          { config: "any_env" },
+        ],
+        "base",
+      ),
+    ).toEqual([]);
+  });
+
+  it("treats project scope independently from environment scope", () => {
+    // Same env, but the earlier entry is project-scoped: it does NOT subsume a
+    // later entry that targets a different project.
+    expect(
+      findScopedOverrideStructuralErrors(
+        [
+          { config: "p1", environments: ["production"], projects: ["proj_1"] },
+          { config: "p2", environments: ["production"], projects: ["proj_2"] },
+        ],
+        "base",
+      ),
+    ).toEqual([]);
+    // Earlier entry is a project wildcard for the same env → subsumes the later
+    // project-scoped one.
+    const errors = findScopedOverrideStructuralErrors(
+      [
+        { config: "any_proj", environments: ["production"] },
+        { config: "p1", environments: ["production"], projects: ["proj_1"] },
+      ],
+      "base",
+    );
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("unreachable");
   });
 });
