@@ -12,6 +12,7 @@ import { slackAgentConfig } from "back-end/src/services/slack/slackAgent";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
 import { renderExperimentCard } from "back-end/src/services/slack/cards";
 import { postExperimentCardImage } from "back-end/src/services/slack/cardDelivery";
+import { getExperimentViewLink } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
 export interface SlackAssistantMention {
   teamId: string;
@@ -262,6 +263,7 @@ async function attachExperimentCards({
         channel,
         png,
         altText: `${card.name} — experiment results`,
+        viewLink: getExperimentViewLink(experimentId),
         threadTs,
       });
     } catch (e) {

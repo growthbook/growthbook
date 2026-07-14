@@ -14,6 +14,7 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import {
   getSlackMessageForNotificationEvent,
+  growthbookViewLink,
   SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import {
@@ -847,6 +848,11 @@ export const sendSlackEventWebhookTestEvent = async ({
           title: `${card.name} — test`,
           filename: "experiment-card.png",
           channelId,
+          // Sample card uses a fictional experiment, so link to the list.
+          initialComment: growthbookViewLink(
+            "/experiments",
+            "View experiments in GrowthBook",
+          ),
         });
         if (!fileId) {
           return { ok: false, error: "Slack file upload failed" };
@@ -982,6 +988,10 @@ export const sendSlackEventWebhookTestDigest = async ({
           : "Feature-flag digest — test",
       filename: `${digest}-digest.png`,
       channelId,
+      initialComment:
+        digest === "scorecard"
+          ? growthbookViewLink("/experiments", "View experiments in GrowthBook")
+          : growthbookViewLink("/features", "View feature flags in GrowthBook"),
     });
     if (!fileId) {
       return { ok: false, error: "Slack file upload failed" };

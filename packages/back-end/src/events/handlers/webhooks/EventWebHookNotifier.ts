@@ -23,6 +23,7 @@ import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
   buildCoalescedSlackMessage,
+  getExperimentViewLink,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
   renderExperimentCardForEvent,
@@ -366,8 +367,9 @@ export class EventWebHookNotifier implements Notifier {
     let error: string | null = null;
     let responseBody = "ok";
     if (card) {
-      // No caption: the card image is self-describing, so a caption would just
-      // duplicate it.
+      // No caption (the card image is self-describing), but a click-through
+      // link so the image isn't a dead end — it's the only way to open the
+      // experiment, since the card path drops the text message and buttons.
       const fileId = await uploadSlackImageFile({
         token: botToken,
         png: card.png,
@@ -376,6 +378,7 @@ export class EventWebHookNotifier implements Notifier {
         title: card.caption,
         filename: "experiment-card.png",
         channelId,
+        initialComment: getExperimentViewLink(card.experimentId),
       });
       ok = !!fileId;
       if (fileId) responseBody = fileId;

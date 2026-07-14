@@ -430,7 +430,12 @@ export const renderExperimentCardForEvent = async (
   event: NotificationEvent,
   organizationId: string,
   format: "none" | "compact" | "detailed" = "compact",
-): Promise<{ png: Buffer; altText: string; caption: string } | null> => {
+): Promise<{
+  png: Buffer;
+  altText: string;
+  caption: string;
+  experimentId: string;
+} | null> => {
   if (format === "none") return null;
   const compactEvent = compactEventForNotification(event);
   if (!compactEvent) return null; // not a card-worthy event
@@ -454,6 +459,7 @@ export const renderExperimentCardForEvent = async (
       png,
       altText: `${card.name} — experiment results`,
       caption: CARD_CAPTION[compactEvent],
+      experimentId,
     };
   } catch (e) {
     logger.warn(
@@ -1352,6 +1358,17 @@ export const getExperimentUrlFormatted = (experimentId: string): string =>
 
 const getExperimentUrl = (experimentId: string, hash?: string): string =>
   `${APP_ORIGIN}/experiment/${experimentId}${hash ? `#${hash}` : ""}`;
+
+// A Slack-mrkdwn click-through link ("<url|label>"). Used as the initial
+// comment on uploaded card/digest images, which are otherwise just a picture
+// with no way to open the experiment in GrowthBook.
+export const growthbookViewLink = (
+  path: string,
+  label = "View in GrowthBook",
+): string => `<${APP_ORIGIN}${path}|${label}>`;
+
+export const getExperimentViewLink = (experimentId: string): string =>
+  growthbookViewLink(`/experiment/${experimentId}`);
 
 export const getExperimentUrlAndNameFormatted = (
   experimentId: string,

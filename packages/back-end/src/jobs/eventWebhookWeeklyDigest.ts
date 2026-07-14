@@ -28,6 +28,7 @@ import {
   isSlackIncomingWebhookUrl,
   uploadSlackImageFile,
 } from "back-end/src/services/slack/slackWebApi";
+import { growthbookViewLink } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 
@@ -53,7 +54,10 @@ async function deliverScorecard(
   periodLabel: string,
 ): Promise<void> {
   const altText = `${periodLabel} experimentation scorecard`;
-  const text = `${periodLabel} experimentation scorecard · ${data.week}`;
+  const text = `${periodLabel} experimentation scorecard · ${data.week}\n${growthbookViewLink(
+    "/experiments",
+    "View experiments in GrowthBook",
+  )}`;
 
   const botToken = await getSlackBotAccessTokenForWebhook({
     eventWebHookId: webhook.id,
@@ -134,7 +138,10 @@ async function deliverFeatureDigest(
       filename: "feature-digest.png",
       title: "Feature flag digest",
       channelId,
-      initialComment: `Feature flag digest · ${data.period}`,
+      initialComment: `Feature flag digest · ${data.period}\n${growthbookViewLink(
+        "/features",
+        "View feature flags in GrowthBook",
+      )}`,
     });
     if (fileId) return;
     logger.warn(

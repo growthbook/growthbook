@@ -19,6 +19,7 @@ export async function postExperimentCardImage({
   channel,
   png,
   altText,
+  viewLink,
   fallbackText,
   threadTs,
 }: {
@@ -26,6 +27,9 @@ export async function postExperimentCardImage({
   channel: string;
   png: Buffer;
   altText: string;
+  // Optional Slack-mrkdwn click-through link ("<url|label>") appended to the
+  // leading comment, so the image isn't a dead end.
+  viewLink?: string;
   fallbackText?: string;
   threadTs?: string;
 }): Promise<boolean> {
@@ -36,7 +40,7 @@ export async function postExperimentCardImage({
     title: altText,
     channelId: channel,
     threadTs,
-    initialComment: altText,
+    initialComment: viewLink ? `${altText}\n${viewLink}` : altText,
   });
   if (!fileId) {
     if (fallbackText) {
