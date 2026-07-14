@@ -784,14 +784,8 @@ const SlackIntegrationsPage: NextPage = () => {
               {addChannelTarget && (
                 <Box mt="2">
                   <Button
-                    variant="outline"
-                    color="violet"
+                    variant="ghost"
                     icon={<PiPlus />}
-                    style={{
-                      width: "100%",
-                      borderStyle: "dashed",
-                      justifyContent: "flex-start",
-                    }}
                     onClick={() => setAddChannelTeamId(addChannelTarget)}
                   >
                     Add channel
