@@ -19,6 +19,7 @@ import {
   assertFeatureValuesValid,
   toApiRevisionV2,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -219,6 +220,12 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
     // config-backed values, whose schema lives on the config). Opt out with
     // ?skipSchemaValidation=true.
     assertFeatureValuesValid(req.context, feature, {
+      rules: [updatedRule as FeatureRule],
+    });
+    // Config-backed rule values additionally validate against the backing
+    // config's schema + invariants. Same check the publish path runs; a no-op
+    // for non-config values.
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
       rules: [updatedRule as FeatureRule],
     });
 

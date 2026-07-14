@@ -19,6 +19,7 @@ import {
   addIdsToFlatRules,
   assertFeatureValuesValid,
 } from "back-end/src/services/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -227,6 +228,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
     assertFeatureValuesValid(req.context, feature, {
+      rules: [rule as FeatureRule],
+    });
+    // Config-backed rule values additionally validate against the backing
+    // config's schema + invariants (assertFeatureValuesValid is a no-op for
+    // them). Same check the publish path runs; a no-op for non-config values.
+    await assertConfigBackedFeatureValuesValid(req.context, feature, {
       rules: [rule as FeatureRule],
     });
 
