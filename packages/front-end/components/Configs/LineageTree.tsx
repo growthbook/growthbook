@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -47,6 +48,21 @@ export default function LineageTree({
   extensible?: boolean;
 }): React.ReactElement {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const router = useRouter();
+
+  // The rows are clickable Flex containers (not anchors), so navigate in-app on a
+  // plain click but honor the browser's open-in-new-tab gestures (cmd/ctrl/shift
+  // or middle-click) the way a real link would, instead of always forcing a new
+  // tab. `onAuxClick` covers the middle-click case.
+  const openConfig = (key: string) => (e: React.MouseEvent) => {
+    const url = `/configs/${key}`;
+    if (e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey) {
+      e.preventDefault();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else if (e.button === 0) {
+      router.push(url);
+    }
+  };
 
   // Index children-by-parent and node-by-key once per `nodes` change so the
   // recursive render is O(N) rather than O(N²) (a filter/find per node visit).
@@ -125,12 +141,8 @@ export default function LineageTree({
           pr="3"
           className={styles.row}
           title={`Composes ${name}${isArchived ? " (archived)" : ""}`}
-          onClick={
-            isCurrent
-              ? undefined
-              : () =>
-                  window.open(`/configs/${mk}`, "_blank", "noopener,noreferrer")
-          }
+          onClick={isCurrent ? undefined : openConfig(mk)}
+          onAuxClick={isCurrent ? undefined : openConfig(mk)}
           style={{
             height: ROW_HEIGHT,
             borderRadius: "var(--radius-2)",
@@ -243,16 +255,8 @@ export default function LineageTree({
             pl="1"
             pr="3"
             className={styles.row}
-            onClick={
-              isCurrent
-                ? undefined
-                : () =>
-                    window.open(
-                      `/configs/${n.key}`,
-                      "_blank",
-                      "noopener,noreferrer",
-                    )
-            }
+            onClick={isCurrent ? undefined : openConfig(n.key)}
+            onAuxClick={isCurrent ? undefined : openConfig(n.key)}
             style={{
               height: ROW_HEIGHT,
               borderRadius: "var(--radius-2)",
