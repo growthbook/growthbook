@@ -1,11 +1,12 @@
-import React, { useContext, useMemo } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { useContext, useMemo, useState } from "react";
+import { Flex, Separator } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,10 +17,12 @@ function DashboardStatusSummary({
   enableAutoUpdates,
   nextUpdate,
   dashboardLastUpdated,
+  needsUpdate,
 }: {
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date; // Optional rather than Date | undefined as this doesn't apply to experiment dashboards
+  needsUpdate: boolean;
 }) {
   const {
     settings: { updateSchedule },
@@ -47,7 +50,11 @@ function DashboardStatusSummary({
   const metricAnalysis = metricAnalysisEntry?.[1];
 
   const textColor =
-    refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
+    refreshError || numFailed > 0 || snapshotError
+      ? "var(--red-11)"
+      : needsUpdate
+        ? "var(--amber-11)"
+        : "var(--color-text-mid)";
   const lastUpdateTime =
     metricAnalysis?.runStarted ??
     dashboardLastUpdated ??
@@ -59,14 +66,16 @@ function DashboardStatusSummary({
       ? "One or more queries failed"
       : snapshotError
         ? "Error running analysis"
-        : lastUpdateTime
-          ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
-          : "Not started yet";
+        : needsUpdate
+          ? "Filters changed"
+          : lastUpdateTime
+            ? `Updated ${ago(lastUpdateTime).replace("about ", "")}`
+            : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
     <Flex gap="1" align="center">
-      <Text size="1">
+      <Text size="small">
         {enableAutoUpdates && updateSchedule?.type !== "never" && (
           <Tooltip
             tipPosition="top"
@@ -80,8 +89,8 @@ function DashboardStatusSummary({
           </Tooltip>
         )}
       </Text>
-      <Text size="1" color={textColor}>
-        {content}
+      <Text size="small">
+        <span style={{ color: textColor }}>{content}</span>
       </Text>
       {tooltipBody && (
         <Tooltip
@@ -91,9 +100,9 @@ function DashboardStatusSummary({
           popperStyle={{ paddingRight: "16px" }}
         >
           <Flex align="center">
-            <Text color="red">
+            <span style={{ color: "var(--red-11)" }}>
               <PiInfo />
-            </Text>
+            </span>
           </Flex>
         </Tooltip>
       )}
@@ -108,6 +117,9 @@ interface Props {
   dashboardLastUpdated?: Date;
   disabled: boolean;
   isEditing: boolean;
+  needsUpdate?: boolean;
+  updateTemporaryDashboardResults?: () => Promise<void>;
+  onUpdated?: () => void;
 }
 
 export default function DashboardUpdateDisplay({
@@ -117,7 +129,12 @@ export default function DashboardUpdateDisplay({
   dashboardLastUpdated,
   disabled,
   isEditing,
+  needsUpdate = false,
+  updateTemporaryDashboardResults,
+  onUpdated,
 }: Props) {
+  const [updatingTemporaryDashboard, setUpdatingTemporaryDashboard] =
+    useState(false);
   const { datasources } = useDefinitions();
   const {
     projects,
@@ -127,7 +144,8 @@ export default function DashboardUpdateDisplay({
     savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
-  const refreshing = ["running", "queued"].includes(refreshStatus);
+  const refreshing =
+    updatingTemporaryDashboard || ["running", "queued"].includes(refreshStatus);
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
     const numFinished = allQueries.filter((q) =>
@@ -157,25 +175,17 @@ export default function DashboardUpdateDisplay({
 
   return (
     <Flex
-      gap="1"
+      gap="3"
       align="center"
       className={clsx({ "dashboard-disabled": disabled })}
-      style={{ minWidth: 250 }}
       justify={"end"}
     >
       <DashboardStatusSummary
         enableAutoUpdates={enableAutoUpdates}
         nextUpdate={nextUpdate}
         dashboardLastUpdated={dashboardLastUpdated}
+        needsUpdate={needsUpdate}
       />
-      {isEditing && (
-        <DashboardViewQueriesButton
-          size="1"
-          buttonProps={{ variant: "ghost" }}
-          hideQueryCount
-        />
-      )}
-
       <div className="position-relative">
         {canRefresh && (
           <Button
@@ -183,13 +193,26 @@ export default function DashboardUpdateDisplay({
             disabled={
               refreshing ||
               !dashboardId ||
-              dashboardId === "new" ||
-              (!allQueries.length && savedQueriesMap.size === 0)
+              (dashboardId === "new" && !updateTemporaryDashboardResults) ||
+              (!needsUpdate && !allQueries.length && savedQueriesMap.size === 0)
             }
             icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
             iconPosition="left"
-            variant="ghost"
-            onClick={updateAllSnapshots}
+            variant={!isEditing ? "ghost" : needsUpdate ? "solid" : "outline"}
+            onClick={async () => {
+              if (updateTemporaryDashboardResults) {
+                setUpdatingTemporaryDashboard(true);
+                try {
+                  await updateTemporaryDashboardResults();
+                  onUpdated?.();
+                } finally {
+                  setUpdatingTemporaryDashboard(false);
+                }
+              } else {
+                await updateAllSnapshots();
+                onUpdated?.();
+              }
+            }}
           >
             {refreshing ? "Refreshing" : "Update"}
           </Button>
@@ -206,6 +229,15 @@ export default function DashboardUpdateDisplay({
           />
         )}
       </div>
+      {isEditing && <Separator orientation="vertical" />}
+      {isEditing && (
+        <DashboardViewQueriesButton
+          size="small"
+          buttonProps={{ variant: "ghost" }}
+          hideQueryCount
+          iconOnly
+        />
+      )}
     </Flex>
   );
 }

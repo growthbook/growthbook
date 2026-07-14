@@ -101,6 +101,9 @@ const DataSourcePage: FC = () => {
   const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  // Only the never-provisioned state replaces the settings UI with the onboarding
+  // callout. A transient migration must NOT blank the config page — query sub-surfaces
+  // (SQL explorer, schema browser) gate themselves on the broader "unavailable" check.
   const managedWarehouseAwaitingProvisioning = d
     ? isManagedWarehouseAwaitingProvisioning(d)
     : false;
@@ -151,9 +154,9 @@ const DataSourcePage: FC = () => {
   if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           {error || currentDataSourceError?.message}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -163,9 +166,9 @@ const DataSourcePage: FC = () => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -184,16 +187,17 @@ const DataSourcePage: FC = () => {
       />
 
       {d.decryptionError && (
-        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
-          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink
-            useRadix={false}
-            docSection="env_prod"
-            className="btn btn-primary"
-          >
-            View instructions for fixing
-          </DocLink>
-        </div>
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <DocLink docSection="env_prod" useRadix>
+              View instructions for fixing
+            </DocLink>
+          }
+        >
+          <strong>Error Decrypting Data Source Credentials.</strong>
+        </Callout>
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
@@ -321,6 +325,16 @@ const DataSourcePage: FC = () => {
           </Flex>
         )}
       </Flex>
+      {d.type === "mixpanel" && (
+        <Callout status="warning" mt="3">
+          Using Mixpanel as a direct data source is deprecated and no longer
+          supported, because Mixpanel has placed their query language (JQL) in
+          maintenance mode. To keep using Mixpanel data in GrowthBook, export it
+          to a data warehouse (e.g. BigQuery or Snowflake) and connect that
+          warehouse instead.{" "}
+          <DocLink docSection="mixpanel">View migration guide</DocLink>
+        </Callout>
+      )}
       <Flex align="center" gap="4" my="2">
         <Text color="text-mid">
           <Text weight="medium">Type:</Text>{" "}
@@ -457,7 +471,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   </Frame>
                   <Frame>
                     {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
+                      <ClickhouseManagedWarehouseIdentifiers
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        mutate={async () => {
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
+                        }}
+                      />
                     ) : (
                       <ClickhouseMaterializedColumns
                         dataSource={d}

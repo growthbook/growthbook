@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import {
+  DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardInterface,
@@ -36,6 +37,7 @@ export function createTemporaryDashboard(
     enableAutoUpdates: false,
     title: "Untitled Dashboard",
     blocks: [],
+    globalControls: DEFAULT_DASHBOARD_GLOBAL_CONTROLS,
     projects: project ? [project] : [],
     dateCreated: now,
     dateUpdated: now,
@@ -76,6 +78,9 @@ export default function NewDashboardPage() {
                   experimentId: "",
                   projects: dashboard.projects || [],
                   blocks: args.data.blocks || dashboard.blocks,
+                  globalControls:
+                    args.data.globalControls ?? dashboard.globalControls,
+                  comparison: args.data.comparison ?? dashboard.comparison,
                   updateSchedule:
                     args.data.updateSchedule || dashboard.updateSchedule,
                   userId: args.data.userId || dashboard.userId,
@@ -90,6 +95,8 @@ export default function NewDashboardPage() {
                   updateSchedule:
                     args.data.updateSchedule ?? dashboard.updateSchedule,
                   userId: args.data.userId,
+                  globalControls: args.data.globalControls,
+                  comparison: args.data.comparison ?? undefined,
                 },
           ),
         });
@@ -121,7 +128,7 @@ export default function NewDashboardPage() {
       <div className="p-3 container-fluid pagecontents">
         <PremiumCallout
           id="product-analytics-new-dashboard"
-          dismissable={false}
+          dismissible={false}
           commercialFeature="product-analytics-dashboards"
         >
           Use of Product Analytics Dashboards requires a paid plan
@@ -146,12 +153,16 @@ export default function NewDashboardPage() {
         dashboardFirstSave={true}
         updateTemporaryDashboard={(update: {
           blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+          globalControls?: DashboardInterface["globalControls"];
         }) => {
           setDashboard((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
               ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+              ...(update.globalControls !== undefined
+                ? { globalControls: update.globalControls }
+                : {}),
             } as DashboardInterface;
           });
         }}

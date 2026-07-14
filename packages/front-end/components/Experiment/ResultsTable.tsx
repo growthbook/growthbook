@@ -30,7 +30,7 @@ import { getValidDate } from "shared/dates";
 import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
   isFactMetric,
@@ -97,7 +97,7 @@ export type ResultsTableProps = {
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
     numDimensions?: number;

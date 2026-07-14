@@ -7,7 +7,7 @@ import { MetricOverride } from "shared/types/experiment";
 import { PValueCorrection, StatsEngine } from "shared/types/stats";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   quantileMetricType,
   setAdjustedCIs,
@@ -54,7 +54,7 @@ export interface UseExperimentDimensionRowsParams {
 
 export interface UseExperimentDimensionRowsReturn {
   tables: Array<{
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     isGuardrail: boolean;
     rows: ExperimentTableRow[];
   }>;
@@ -282,7 +282,7 @@ export function useExperimentDimensionRows({
             ssrPolyfills?.getExperimentMetricById?.(metricId) ||
             getExperimentMetricById(metricId),
         )
-        .filter((m): m is ExperimentMetricInterface => !!m);
+        .filter((m): m is ExperimentMetricDefinition => !!m);
 
       // Apply tag filtering first (independent of sorting)
       const filteredMetricIds = filterMetricsByTags(
@@ -369,7 +369,7 @@ export function useExperimentDimensionRows({
           };
         })
         .filter((table) => table?.metric) as Array<{
-        metric: ExperimentMetricInterface;
+        metric: ExperimentMetricDefinition;
         isGuardrail: boolean;
         rows: ExperimentTableRow[];
       }>;
@@ -466,7 +466,7 @@ export function generateDimensionRowsForMetric({
   dimensionValuesFilter?: string[];
   overrideFields: string[];
   metricSnapshotSettings: MetricSnapshotSettings | undefined;
-  newMetric: ExperimentMetricInterface;
+  newMetric: ExperimentMetricDefinition;
 }): ExperimentTableRow[] {
   const filteredResults = includeVariation(results, dimensionValuesFilter);
 

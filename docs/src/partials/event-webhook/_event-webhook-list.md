@@ -14,7 +14,7 @@
 | **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
 | **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
 | **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
-| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually. |
 | **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
 | **[feature.revision.created](#featurerevisioncreated)** | Triggered when a new draft revision is created for a feature |
 | **[feature.revision.updated](#featurerevisionupdated)** | Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation. |
@@ -605,6 +605,7 @@ Triggered when a feature ramp schedule completes all steps
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {
@@ -730,7 +731,7 @@ Triggered when a feature ramp schedule is jumped to a specific step
 
 ### feature.rampSchedule.actions.step.advanced
 
-Triggered when a feature ramp schedule advances to the next step
+Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually.
 
 <details>
   <summary>Payload</summary>
@@ -748,6 +749,7 @@ Triggered when a feature ramp schedule advances to the next step
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {
@@ -2622,6 +2624,10 @@ Triggered when a warning condition is detected on an experiment
             maxAttempts: number;
             willRetry: boolean;
             reason: string;
+        } | {
+            type: "underpowered";
+            experimentName: string;
+            experimentId: string;
         };
     };
     user: {
