@@ -41,6 +41,8 @@ export type CreateDashboardArgs = {
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects?: string[];
+    globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   };
 };
 export type UpdateDashboardArgs = {
@@ -55,6 +57,8 @@ export type UpdateDashboardArgs = {
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects?: string[];
+    globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }>;
 };
 export type SubmitDashboard<
@@ -146,12 +150,16 @@ function DashboardsTab({
   const updateTemporaryDashboard = useCallback(
     (update: {
       blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+      globalControls?: DashboardInterface["globalControls"];
     }) => {
       setTemporaryDashboard((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
           ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
+          ...(update.globalControls !== undefined
+            ? { globalControls: update.globalControls }
+            : {}),
         } as DashboardInterface;
       });
     },
@@ -208,6 +216,8 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 userId: data.userId,
+                globalControls: data.globalControls,
+                comparison: data.comparison ?? undefined,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -216,6 +226,8 @@ function DashboardsTab({
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
                 experimentId: experiment.id,
+                globalControls: data.globalControls,
+                comparison: data.comparison ?? undefined,
               },
         ),
       });

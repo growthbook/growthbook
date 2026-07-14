@@ -70,15 +70,15 @@ Each monitored step splits its traffic 50/50 between the Rollout and the Control
 
 Once published, GrowthBook begins monitoring the guardrail metrics. The rule shows a status badge that updates automatically as results come in:
 
-| Status | Meaning |
-| --- | --- |
-| X days left | The rollout is running. Monitoring continues until the duration completes. |
-| Unhealthy | A health check failed, such as a sample ratio mismatch. Traffic may be imbalanced; check your implementation. |
-| Guardrails Failing | A guardrail metric is regressing. The rule shows a **Revert Now** button so you can roll back. |
-| Ready to ship | The duration finished with no failing guardrails. Safe to release to 100%. |
-| No Data | No traffic detected. Check your setup. |
-| Reverted | The rollout was rolled back to the control value. |
-| Released | The rollout was shipped to all users. |
+| Status             | Meaning                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| X days left        | The rollout is running. Monitoring continues until the duration completes.                                    |
+| Unhealthy          | A health check failed, such as a sample ratio mismatch. Traffic may be imbalanced; check your implementation. |
+| Guardrails Failing | A guardrail metric is regressing. The rule shows a **Revert Now** button so you can roll back.                |
+| Ready to ship      | The duration finished with no failing guardrails. Safe to release to 100%.                                    |
+| No Data            | No traffic detected. Check your setup.                                                                        |
+| Reverted           | The rollout was rolled back to the control value.                                                             |
+| Released           | The rollout was shipped to all users.                                                                         |
 
 :::info
 Guardrails are analyzed for failure using frequentist sequential testing, allowing you to roll back as soon as statistical significance is reached without fear of false positives. Your safe rollout is automatically monitored for implementation errors with sample ratio mismatch and multiple exposures checks.

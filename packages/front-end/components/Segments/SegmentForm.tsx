@@ -266,7 +266,7 @@ const SegmentForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects")}
               disabled={isReadOnly}
               options={projectOptions}

@@ -312,11 +312,13 @@ function EventForwarderModal({
   onCancel,
   onRefresh,
   onClearError,
+  onRefreshError,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
   onClearError: () => void;
+  onRefreshError: (message: string) => void;
 }) {
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
@@ -386,7 +388,9 @@ function EventForwarderModal({
             // Unreachable once validation passes (a null config yields an
             // error above); the throw narrows the type for the request body.
             if (!eventForwarderConfig) {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+              throw new Error(
+                "Event Forwarder configuration is missing. Review the destination settings and try again.",
+              );
             }
             try {
               await testEventForwarderAccess();
@@ -396,12 +400,22 @@ function EventForwarderModal({
                   eventForwarderConfig,
                 }),
               });
-              onClearError();
-              await onRefresh();
-              onCancel();
-            } catch {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+            } catch (e) {
+              throw e instanceof Error
+                ? e
+                : new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
             }
+
+            onClearError();
+            try {
+              await onRefresh();
+            } catch (e) {
+              const detail = e instanceof Error ? ` ${e.message}` : "";
+              onRefreshError(
+                `Event Forwarder was saved, but the updated status could not be loaded.${detail}`,
+              );
+            }
+            onCancel();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
@@ -608,6 +622,12 @@ export default function EventForwarder({
         </DocLink>
       </p>
 
+      {error && !eventForwarderConfig ? (
+        <Callout status="error" mb="3">
+          {error}
+        </Callout>
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -737,10 +757,8 @@ export default function EventForwarder({
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
           onClearError={() => setError(null)}
-          onRefresh={async () => {
-            await onRefresh();
-            setShowEditModal(false);
-          }}
+          onRefresh={onRefresh}
+          onRefreshError={setError}
         />
       ) : null}
     </Box>

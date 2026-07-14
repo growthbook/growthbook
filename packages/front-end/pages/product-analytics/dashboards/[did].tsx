@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import {
   DashboardInterface,
@@ -22,9 +22,12 @@ import PremiumCallout from "@/ui/PremiumCallout";
 function SingleDashboardPage() {
   const router = useRouter();
   const { did } = router.query;
+  const dashboardId = typeof did === "string" ? did : "";
   const { data, isLoading, error, mutate } = useApi<{
     dashboard: DashboardInterface;
-  }>(`/dashboards/${did}`);
+  }>(`/dashboards/${dashboardId}`, {
+    shouldRun: () => router.isReady && Boolean(dashboardId),
+  });
   const dashboard = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
   const [initialEditBlockIndex, setInitialEditBlockIndex] = useState<
@@ -47,11 +50,15 @@ function SingleDashboardPage() {
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
+  const [globalControls, setGlobalControls] =
+    useState<DashboardInterface["globalControls"]>();
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
+      setGlobalControls(dashboard.globalControls);
     } else {
       setBlocks([]);
+      setGlobalControls(undefined);
     }
   }, [dashboard]);
 
@@ -74,6 +81,8 @@ function SingleDashboardPage() {
         enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
         blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
         userId?: string;
+        globalControls?: DashboardInterface["globalControls"];
+        comparison?: DashboardInterface["comparison"];
       };
     }) => {
       const res = (await apiCall(
@@ -88,13 +97,20 @@ function SingleDashboardPage() {
                   editLevel: data.editLevel,
                   enableAutoUpdates: data.enableAutoUpdates,
                   userId: data.userId,
+                  globalControls: data.globalControls,
+                  comparison: data.comparison ?? undefined,
                 }
               : data,
           ),
         },
       )) as { status: number; dashboard: DashboardInterface };
       if (res.status === 200) {
-        await mutate();
+        await mutate(
+          { dashboard: res.dashboard },
+          {
+            revalidate: false,
+          },
+        );
         return { dashboardId: res.dashboard.id };
       } else {
         throw new Error("Failed to save dashboard");
@@ -195,7 +211,8 @@ function SingleDashboardPage() {
             isGeneralDashboard={true}
             isEditing={false}
             title={dashboard.title}
-            blocks={dashboard.blocks}
+            blocks={blocks}
+            globalControls={globalControls}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
@@ -205,6 +222,20 @@ function SingleDashboardPage() {
             dashboardLastUpdated={dashboard.lastUpdated}
             setIsEditing={setIsEditing}
             enterEditModeForBlock={enterEditModeForBlock}
+            onGlobalControlsChange={async (globalControls, controlBlocks) => {
+              setGlobalControls(globalControls);
+              if (controlBlocks) {
+                setBlocks(controlBlocks);
+              }
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  globalControls,
+                  ...(controlBlocks ? { blocks: controlBlocks } : {}),
+                },
+              });
+            }}
           />
         )}
       </DashboardSnapshotProvider>
