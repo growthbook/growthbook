@@ -68,6 +68,8 @@ export type ExperimentMetricDefinition =
 export type ExperimentSortBy =
   | "significance"
   | "change"
+  | "dimension-traffic"
+  | "dimension-alpha"
   | "metrics"
   | "metricTags"
   | null;
