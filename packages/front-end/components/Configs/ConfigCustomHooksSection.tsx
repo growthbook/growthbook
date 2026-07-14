@@ -352,11 +352,7 @@ function HooksTable({
                 {showSource && (
                   <TableCell>
                     {hook.entityId ? (
-                      <Link
-                        href={`/configs/${hook.entityId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
+                      <Link href={`/configs/${hook.entityId}`}>
                         {hook.entityId}
                       </Link>
                     ) : null}

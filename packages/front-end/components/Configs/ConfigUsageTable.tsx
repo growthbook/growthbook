@@ -258,6 +258,7 @@ function TruncatedLink({
   maxWidth = "100%",
   color,
   children,
+  newTab = true,
 }: {
   href: string;
   // Number for fixed-width (Radix popover) cells; defaults to filling the cell,
@@ -265,12 +266,14 @@ function TruncatedLink({
   maxWidth?: number | string;
   color?: string;
   children: string;
+  // Off-page destinations (features, experiments) open in a new tab; a config
+  // link stays in-app (plain NextLink) so cmd/ctrl-click still opens a new tab.
+  newTab?: boolean;
 }): React.ReactElement {
   return (
     <Link
       href={href}
-      target="_blank"
-      rel="noreferrer"
+      {...(newTab ? { target: "_blank", rel: "noreferrer" } : {})}
       className="hover-underline"
       title={children}
       style={{
@@ -325,6 +328,7 @@ function ConfigSourceCell({
           href={`/configs/${impl.configKey}`}
           maxWidth={110}
           color="var(--accent-11)"
+          newTab={false}
         >
           {name}
         </TruncatedLink>
