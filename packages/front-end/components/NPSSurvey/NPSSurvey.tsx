@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { IconButton, TextArea } from "@radix-ui/themes";
+import { Flex, IconButton, TextArea } from "@radix-ui/themes";
 import { PiArrowLeft, PiX } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Portal from "@/components/Modal/Portal";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -119,7 +119,6 @@ export default function NPSSurvey() {
   const { npsSurveyAt, updateUser } = useUser();
   const suppressed = withinCooldown(npsSurveyAt);
 
-  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [forceShow, setForceShow] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -127,6 +126,9 @@ export default function NPSSurvey() {
   const [score, setScore] = useState<number | null>(null);
   const [feedback, setFeedback] = useState("");
 
+  // Latest-value refs: the response is flushed from pagehide/visibilitychange/
+  // Escape listeners, which must stay subscribed once — not re-bind on every
+  // keystroke or context re-render — so they read current values through refs.
   const sentRef = useRef(false);
   const scoreRef = useRef<number | null>(null);
   const feedbackRef = useRef("");
@@ -144,10 +146,6 @@ export default function NPSSurvey() {
     apiCallRef.current = apiCall;
     updateUserRef.current = updateUser;
   }, [apiCall, updateUser]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     setForceShow(forceShowRequested(previewFlagOn));
@@ -278,7 +276,7 @@ export default function NPSSurvey() {
     [],
   );
 
-  if (!mounted || !visible) return null;
+  if (!visible) return null;
 
   const cat: Category | null = score !== null ? categoryOf(score) : null;
 
@@ -358,10 +356,14 @@ export default function NPSSurvey() {
                 </button>
               ))}
             </div>
-            <div className={styles.anchors}>
-              <span>Not at all likely</span>
-              <span>Extremely likely</span>
-            </div>
+            <Flex justify="between" mt="2">
+              <Text size="small" color="text-low">
+                Not at all likely
+              </Text>
+              <Text size="small" color="text-low">
+                Extremely likely
+              </Text>
+            </Flex>
           </div>
         )}
 
@@ -377,14 +379,14 @@ export default function NPSSurvey() {
             >
               Change score
             </Button>
-            <div className={styles.scoreline}>
+            <Flex align="center" gap="3" mb="4">
               <span className={`${styles.scorebox} ${CAT_CLASS[cat]}`}>
                 {score}
               </span>
               <span className={`${styles.category} ${CAT_CLASS[cat]}`}>
                 {CATEGORY_LABEL[cat]}
               </span>
-            </div>
+            </Flex>
             <label className={styles.prompt} htmlFor="gb-nps-feedback">
               {PROMPTS[cat]}
             </label>
@@ -395,12 +397,12 @@ export default function NPSSurvey() {
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
             />
-            <div className={styles.actions}>
+            <Flex justify="between" align="center" mt="3">
               <Button variant="ghost" color="gray" onClick={handleSubmit}>
                 Skip
               </Button>
               <Button onClick={handleSubmit}>Send feedback</Button>
-            </div>
+            </Flex>
           </div>
         )}
 
@@ -421,9 +423,7 @@ export default function NPSSurvey() {
     </div>
   );
 
-  // Portal into #portal-root (rendered inside <RadixTheme>) rather than document.body,
-  // so the Radix theme CSS variables (panel background, shadow, colors) resolve.
-  const portalTarget = document.getElementById("portal-root") ?? document.body;
-
-  return createPortal(card, portalTarget);
+  // Portal renders into #portal-root (inside <RadixTheme>), so the Radix
+  // theme CSS variables (panel background, shadow, colors) resolve.
+  return <Portal>{card}</Portal>;
 }

@@ -244,40 +244,34 @@ export async function postNpsResponse(
 
   const { userId } = getContextFromReq(req);
 
-  try {
-    await updateUser(userId, {
-      npsSurveyStatus: status,
-      npsSurveyAt: new Date(),
-    });
+  await updateUser(userId, {
+    npsSurveyStatus: status,
+    npsSurveyAt: new Date(),
+  });
 
-    // Internal-only: forward actual responses to GrowthBook's own Slack.
-    // Gated on a private webhook env var that only GrowthBook Cloud sets, so
-    // self-hosted and Cloud users never trigger or see this. Fire-and-forget —
-    // a Slack failure must never affect the user's request.
-    if (
-      status === "responded" &&
-      typeof score === "number" &&
-      Number.isInteger(score) &&
-      score >= 0 &&
-      score <= 10 &&
-      NPS_SLACK_WEBHOOK
-    ) {
-      void sendNpsResponseToSlack({
-        score,
-        feedback: feedback?.trim() || "",
-        email: req.email,
-      });
-    }
-
-    res.status(200).json({
-      status: 200,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message || "An error occurred",
+  // Internal-only: forward actual responses to GrowthBook's own Slack.
+  // Gated on IS_CLOUD plus a private webhook env var that only GrowthBook
+  // Cloud sets, so self-hosted and Cloud users never trigger or see this.
+  // Fire-and-forget — a Slack failure must never affect the user's request.
+  if (
+    IS_CLOUD &&
+    status === "responded" &&
+    typeof score === "number" &&
+    Number.isInteger(score) &&
+    score >= 0 &&
+    score <= 10 &&
+    NPS_SLACK_WEBHOOK
+  ) {
+    void sendNpsResponseToSlack({
+      score,
+      feedback: feedback?.trim() || "",
+      email: req.email,
     });
   }
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postWatchItem(

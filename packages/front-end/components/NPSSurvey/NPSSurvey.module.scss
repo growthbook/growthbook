@@ -97,24 +97,6 @@
   transform: translateY(-1px);
 }
 
-.anchors {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-}
-
-.anchors span {
-  font-size: 11px;
-  color: var(--gray-10);
-}
-
-.scoreline {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
 .scorebox {
   width: 42px;
   height: 42px;
@@ -143,13 +125,6 @@
   font-weight: 600;
   line-height: 1.4;
   color: var(--gray-12);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14px;
 }
 
 .thanks {
