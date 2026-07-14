@@ -312,11 +312,13 @@ function EventForwarderModal({
   onCancel,
   onRefresh,
   onClearError,
+  onRefreshError,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
   onClearError: () => void;
+  onRefreshError: (message: string) => void;
 }) {
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
@@ -409,7 +411,7 @@ function EventForwarderModal({
               await onRefresh();
             } catch (e) {
               const detail = e instanceof Error ? ` ${e.message}` : "";
-              throw new Error(
+              onRefreshError(
                 `Event Forwarder was saved, but the updated status could not be loaded.${detail}`,
               );
             }
@@ -620,6 +622,12 @@ export default function EventForwarder({
         </DocLink>
       </p>
 
+      {error && !eventForwarderConfig ? (
+        <Callout status="error" mb="3">
+          {error}
+        </Callout>
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -749,10 +757,8 @@ export default function EventForwarder({
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
           onClearError={() => setError(null)}
-          onRefresh={async () => {
-            await onRefresh();
-            setShowEditModal(false);
-          }}
+          onRefresh={onRefresh}
+          onRefreshError={setError}
         />
       ) : null}
     </Box>
