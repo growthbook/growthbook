@@ -18,7 +18,7 @@ import {
 } from "shared/enterprise";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { isDefined } from "shared/util";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -159,7 +159,7 @@ export default function PublicDashboardBlock({
       experiment: ExperimentInterfaceStringDates;
       snapshot: ExperimentSnapshotInterface;
       analysis: ExperimentSnapshotAnalysis;
-      metrics: ExperimentMetricInterface[];
+      metrics: ExperimentMetricDefinition[];
     }) => ReactNode,
   ): ReactNode => {
     const { experiment, snapshot, analysis, metrics } = resolved;
