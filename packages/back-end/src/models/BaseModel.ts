@@ -1034,11 +1034,14 @@ export abstract class BaseModel<
   ) {
     updates = this.updateValidator.parse(updates);
 
-    // Resolve owner from email to userId if needed
+    // Resolve owner from email to userId if needed. Skip when unchanged so
+    // callers echoing the stored owner (e.g. feature sync / revision publish)
+    // don't fail resolution for a userId whose member has since left the org.
     if (
       "owner" in updates &&
       typeof updates.owner === "string" &&
-      updates.owner
+      updates.owner &&
+      updates.owner !== (doc as { owner?: unknown }).owner
     ) {
       updates.owner = await resolveOwnerToUserId(updates.owner, this.context);
     }

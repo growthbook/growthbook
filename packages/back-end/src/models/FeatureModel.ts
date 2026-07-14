@@ -330,13 +330,21 @@ export function buildFeatureUpdate<
       (r): r is FeatureRule => r != null && typeof r === "object",
     );
     const normalized = filtered.map((r) => {
-      if (r.allEnvironments && Array.isArray(r.environments)) {
-        return {
-          ...omit(r, ["environments"]),
+      // Rules copied from revision docs carry explicit `null`s for absent
+      // optional fields (condition, scheduleRules, ...) which the strict
+      // update validator rejects; drop them here. Null-valued keys mean
+      // "absent" for every rule field, so this is lossless.
+      const nullKeys = Object.keys(r).filter(
+        (k) => (r as Record<string, unknown>)[k] === null,
+      );
+      let rule = nullKeys.length > 0 ? (omit(r, nullKeys) as FeatureRule) : r;
+      if (rule.allEnvironments && Array.isArray(rule.environments)) {
+        rule = {
+          ...omit(rule, ["environments"]),
           allEnvironments: true,
         } as FeatureRule;
       }
-      return r;
+      return rule;
     });
     const changed =
       filtered.length !== inputRules.length ||

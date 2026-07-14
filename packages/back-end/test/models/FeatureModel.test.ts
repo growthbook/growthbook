@@ -1529,6 +1529,41 @@ describe("buildFeatureUpdate", () => {
     const out = buildFeatureUpdate(input);
     expect((out as { rules: unknown }).rules).toBe(input.rules);
   });
+
+  it("drops null-valued keys from rules (revision docs store explicit nulls)", () => {
+    // Mirrors a rule as persisted by the v2 rule-add API into a revision doc:
+    // absent optional fields are stored as explicit nulls, which the strict
+    // update validator would reject at publish time.
+    const out = buildFeatureUpdate({
+      rules: [
+        {
+          id: "r1",
+          type: "force",
+          description: "",
+          value: "true",
+          enabled: true,
+          allEnvironments: false,
+          environments: ["production"],
+          condition: null,
+          savedGroups: null,
+          prerequisites: null,
+          scheduleRules: null,
+          scheduleType: null,
+        },
+      ],
+    } as Record<string, unknown>);
+
+    const rules = (out as { rules: Array<Record<string, unknown>> }).rules;
+    expect(rules[0]).toEqual({
+      id: "r1",
+      type: "force",
+      description: "",
+      value: "true",
+      enabled: true,
+      allEnvironments: false,
+      environments: ["production"],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
