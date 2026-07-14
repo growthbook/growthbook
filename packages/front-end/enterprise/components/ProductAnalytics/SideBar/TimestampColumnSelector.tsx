@@ -28,10 +28,11 @@ export default function TimestampColumnSelector({
         <DropdownMenu
           open={dropdownOpen}
           onOpenChange={setDropdownOpen}
+          disabled={!columns.length}
           trigger={
             <Button size="xs" variant="ghost">
               <Text weight="semibold" size="small">
-                {timestampColumn ? "change" : "select"}
+                {timestampColumn ? "Change" : "Select"}
               </Text>
             </Button>
           }

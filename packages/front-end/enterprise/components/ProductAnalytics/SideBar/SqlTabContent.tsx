@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
-import { PiCode, PiPlus } from "react-icons/pi";
+import { PiPlus } from "react-icons/pi";
 import type { SqlValue } from "shared/validators";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
@@ -51,30 +51,6 @@ export default function SqlTabContent() {
       }));
   }, [dataset?.columnTypes]);
 
-  if (!dataset?.sql.trim() || Object.keys(dataset.columnTypes).length === 0) {
-    return (
-      <Flex
-        justify="center"
-        align="center"
-        height="100%"
-        direction="column"
-        gap="2"
-        px="4"
-        style={{
-          border: "1px solid var(--gray-a3)",
-          borderRadius: "var(--radius-3)",
-          padding: "var(--space-3)",
-          backgroundColor: "var(--color-panel-translucent)",
-        }}
-      >
-        <PiCode size={18} />
-        <Text weight="medium" align="center">
-          Preview SQL columns to begin configuring values and filters
-        </Text>
-      </Flex>
-    );
-  }
-
   return (
     <Flex direction="column" gap="2">
       <Flex
@@ -88,7 +64,7 @@ export default function SqlTabContent() {
         }}
       >
         <TimestampColumnSelector
-          timestampColumn={dataset.timestampColumn}
+          timestampColumn={dataset?.timestampColumn ?? ""}
           columns={timestampOptions.map(({ value }) => value)}
           onChange={updateTimestampColumn}
         />
