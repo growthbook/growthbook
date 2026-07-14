@@ -353,11 +353,22 @@ export const validateEnvKeys = (
   }
 };
 
+// An override's `environments` is a membership scope, not an ordered list:
+// ['dev','prod'] and ['prod','dev'] serve identical values. Compare as sets so a
+// reordered scope doesn't read as a change.
+const sameEnvironmentScope = (a: string[], b: string[]) => {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((e) => set.has(e));
+};
+
 // Reconcile a client-supplied override list (REST callers can't send ids)
-// against the feature's current overrides: reuse an existing entry's id when its
-// content (value + environments) matches. Keeps ids stable across edits and
+// against the feature's current overrides: reuse an existing entry when its
+// content (value + environment scope) matches. Keeps ids stable across edits and
 // stops content-identical re-submits from churning ids / spawning no-op
-// revisions. Unmatched entries get a fresh id.
+// revisions. A set-equal match reuses the stored entry verbatim (including its
+// environment ordering) so a round-tripped scope reorder isn't treated as a
+// change. Unmatched entries get a fresh id.
 export function reconcileDefaultValueOverrideIds(
   incoming: Omit<FeatureDefaultValueOverride, "id">[],
   existing: FeatureDefaultValueOverride[] | undefined,
@@ -365,10 +376,14 @@ export function reconcileDefaultValueOverrideIds(
   const pool = [...(existing ?? [])];
   return incoming.map((o) => {
     const idx = pool.findIndex(
-      (e) => e.value === o.value && isEqual(e.environments, o.environments),
+      (e) =>
+        e.value === o.value &&
+        sameEnvironmentScope(e.environments, o.environments),
     );
-    const id = idx >= 0 ? pool.splice(idx, 1)[0].id : generateId();
-    return { id, value: o.value, environments: o.environments };
+    if (idx >= 0) {
+      return pool.splice(idx, 1)[0];
+    }
+    return { id: generateId(), value: o.value, environments: o.environments };
   });
 }
 

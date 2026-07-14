@@ -1124,6 +1124,19 @@ describe("reconcileDefaultValueOverrideIds", () => {
     expect(result.map((o) => o.id)).toEqual(["id_dev", "id_prod"]);
   });
 
+  it("treats a reordered environment scope as unchanged (no churn)", () => {
+    const multiEnv = [
+      { id: "id_multi", value: "a", environments: ["dev", "production"] },
+    ];
+    const result = reconcileDefaultValueOverrideIds(
+      [{ value: "a", environments: ["production", "dev"] }],
+      multiEnv,
+    );
+    // Reuses the stored entry verbatim so the downstream isEqual change-check
+    // sees no diff.
+    expect(result).toEqual(multiEnv);
+  });
+
   it("mints a fresh id only for genuinely changed/new entries", () => {
     const result = reconcileDefaultValueOverrideIds(
       [
