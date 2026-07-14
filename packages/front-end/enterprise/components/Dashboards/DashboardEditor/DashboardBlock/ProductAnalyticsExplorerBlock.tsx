@@ -20,6 +20,7 @@ import { BlockProps } from ".";
 export default function ProductAnalyticsExplorerBlock({
   block,
   hideSql,
+  ssrPolyfills,
   exploration: explorationProp,
   query: queryProp,
 }: BlockProps<
@@ -137,6 +138,7 @@ export default function ProductAnalyticsExplorerBlock({
           hasChart={false}
           query={query}
           hideSql={hideSql}
+          getFactMetricById={ssrPolyfills?.getFactMetricById}
         />
       ) : (
         <ExplorerChart
@@ -148,6 +150,7 @@ export default function ProductAnalyticsExplorerBlock({
           error={exploration.error || errorMessage}
           loading={loading}
           submittedExploreState={block.config ?? exploration.config}
+          getFactMetricById={ssrPolyfills?.getFactMetricById}
         />
       )}
     </Flex>

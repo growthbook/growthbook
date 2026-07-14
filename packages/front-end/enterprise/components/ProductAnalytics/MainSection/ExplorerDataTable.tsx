@@ -6,6 +6,7 @@ import type {
   ProductAnalyticsExploration,
 } from "shared/validators";
 import type { QueryInterface } from "shared/types/query";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { formatNumericLikeForDisplay } from "shared/util";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Text from "@/ui/Text";
@@ -23,6 +24,7 @@ export default function ExplorerDataTable({
   compareEnabled = false,
   comparisonExploration = null,
   serverTableTrendsByRow = null,
+  getFactMetricById,
 }: {
   exploration: ProductAnalyticsExploration | null;
   error: string | null;
@@ -35,6 +37,8 @@ export default function ExplorerDataTable({
   compareEnabled?: boolean;
   comparisonExploration?: ProductAnalyticsExploration | null;
   serverTableTrendsByRow?: Record<string, number | null>[] | null;
+  // Override for the public dashboard page; defaults to useDefinitions().
+  getFactMetricById?: (id: string) => FactMetricInterface | null;
 }) {
   const {
     rowData,
@@ -50,6 +54,7 @@ export default function ExplorerDataTable({
     compareEnabled,
     comparisonExploration,
     serverTableTrendsByRow,
+    getFactMetricById,
   });
 
   const renderCell = useCallback(

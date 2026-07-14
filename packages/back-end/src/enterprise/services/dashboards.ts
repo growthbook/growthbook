@@ -573,6 +573,11 @@ export async function generateDashboardSSRData({
   const experimentIds = new Set<string>();
   const referencedMetricIds = new Set<string>();
   const dimensionIds = new Set<string>();
+  // Fact metrics referenced by metric-exploration block configs. Collected
+  // separately so their (redacted) DEFINITIONS reach ssrData.metrics — needed
+  // so ratio metrics render correctly on the public page — WITHOUT pulling
+  // their fact tables into ssrData (which would widen SQL exposure).
+  const explorationFactMetricIds = new Set<string>();
 
   for (const block of dashboard.blocks) {
     if (
@@ -597,6 +602,11 @@ export async function generateDashboardSSRData({
       block.dimensionId
     ) {
       dimensionIds.add(block.dimensionId);
+    }
+    if (block.type === "metric-exploration") {
+      block.config?.dataset?.values?.forEach((v) => {
+        if (v?.metricId) explorationFactMetricIds.add(v.metricId);
+      });
     }
   }
 
@@ -649,8 +659,23 @@ export async function generateDashboardSSRData({
     denominatorMetricIds,
   );
 
+  // Fact metrics referenced only by metric-exploration configs. Merged into
+  // metricMap below but deliberately NOT fed into factTableIds, so their
+  // fact-table SQL is never exposed. Ids already fetched above are skipped.
+  const explorationOnlyFactMetricIds = [...explorationFactMetricIds].filter(
+    (id) => !metricIds.includes(id),
+  );
+  const explorationFactMetrics = await context.models.factMetrics.getByIds(
+    explorationOnlyFactMetricIds,
+  );
+
   const metricMap: Record<string, ExperimentMetricInterface> = {};
-  [...metrics, ...factMetrics, ...denominatorMetrics].forEach((metric) => {
+  [
+    ...metrics,
+    ...factMetrics,
+    ...denominatorMetrics,
+    ...explorationFactMetrics,
+  ].forEach((metric) => {
     metricMap[metric.id] = omit(
       metric,
       SENSITIVE_METRIC_FIELDS,

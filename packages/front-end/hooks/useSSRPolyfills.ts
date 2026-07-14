@@ -4,11 +4,14 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
 import { ExperimentReportSSRData } from "shared/types/report";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { CommercialFeature, DashboardSSRData } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { FactTableDefinition } from "shared/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableDefinition,
+} from "shared/types/fact-table";
 import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
 import { getScopedSettings } from "shared/settings";
@@ -28,6 +31,7 @@ export interface SSRPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableDefinition;
+  getFactMetricById: (id: string) => null | FactMetricInterface;
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
@@ -51,6 +55,7 @@ export default function useSSRPolyfills(
     getExperimentMetricById,
     getMetricGroupById,
     getFactTableById,
+    getFactMetricById,
     metricGroups,
     dimensions,
     getDimensionById,
@@ -78,6 +83,16 @@ export default function useSSRPolyfills(
   const getFactTableByIdSSR = useCallback(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables],
+  );
+  // ssrData.metrics includes fact metrics referenced by metric-exploration
+  // blocks; narrow to fact metrics so exploration ratio rendering works
+  // anonymously (only .metricType / .numerator.aggregation are read).
+  const getFactMetricByIdSSR = useCallback(
+    (id: string): FactMetricInterface | null => {
+      const metric = getFactMetricById(id) || ssrData?.metrics?.[id] || null;
+      return metric && isFactMetric(metric) ? metric : null;
+    },
+    [getFactMetricById, ssrData?.metrics],
   );
 
   const useOrgSettingsSSR = () => {
@@ -175,6 +190,7 @@ export default function useSSRPolyfills(
     metricGroups: metricGroupsSSR,
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
+    getFactMetricById: getFactMetricByIdSSR,
     useOrgSettings: useOrgSettingsSSR,
     getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,
