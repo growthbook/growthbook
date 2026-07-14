@@ -5,6 +5,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
@@ -101,12 +102,18 @@ export async function createDashboard(
     title,
     blocks,
     projects,
+    globalControls,
     userId,
   } = req.body;
 
   const createdBlocks = blocks.map((blockData) =>
     generateDashboardBlockIds(context.org.id, blockData),
   );
+  const blocksWithGlobalControls =
+    resolveGlobalControlsBlockEnrollment({
+      nextGlobalControls: globalControls,
+      nextBlocks: createdBlocks,
+    }) ?? createdBlocks;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -119,7 +126,8 @@ export async function createDashboard(
     experimentId: experimentId || undefined,
     title,
     projects,
-    blocks: createdBlocks,
+    globalControls,
+    blocks: blocksWithGlobalControls,
   });
 
   res.status(200).json({
@@ -153,7 +161,19 @@ export async function updateDashboard(
         ? blockData
         : generateDashboardBlockIds(context.org.id, blockData),
     );
-    updates.blocks = createdBlocks;
+    updates.blocks =
+      resolveGlobalControlsBlockEnrollment({
+        existingGlobalControls: dashboard.globalControls,
+        nextGlobalControls: updates.globalControls,
+        nextBlocks: createdBlocks,
+      }) ?? createdBlocks;
+  } else {
+    const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+      existingGlobalControls: dashboard.globalControls,
+      nextGlobalControls: updates.globalControls,
+      existingBlocks: dashboard.blocks,
+    });
+    if (enrolledBlocks) updates.blocks = enrolledBlocks;
   }
 
   const updatedDashboard = await context.models.dashboards.updateById(
@@ -340,23 +360,18 @@ export async function getDashboardSnapshots(
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks
-        .filter(
-          (
-            block,
-          ): block is DashboardBlockInterface & {
-            explorerAnalysisId: string;
-          } =>
-            (block.type === "metric-exploration" ||
-              block.type === "fact-table-exploration" ||
-              block.type === "data-source-exploration") &&
-            "explorerAnalysisId" in block &&
-            typeof (block as { explorerAnalysisId?: string })
-              .explorerAnalysisId === "string" &&
-            (block as { explorerAnalysisId: string }).explorerAnalysisId
-              .length > 0,
-        )
-        .map((block) => block.explorerAnalysisId),
+      dashboard.blocks.flatMap((block) => {
+        if (
+          block.type !== "metric-exploration" &&
+          block.type !== "fact-table-exploration" &&
+          block.type !== "data-source-exploration"
+        ) {
+          return [];
+        }
+        return [block.explorerAnalysisId, block.comparisonExplorerAnalysisId]
+          .filter((id): id is string => typeof id === "string")
+          .filter((id) => id.length > 0);
+      }),
     ),
   ];
   const explorations: ProductAnalyticsExploration[] =
