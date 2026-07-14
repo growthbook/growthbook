@@ -5,10 +5,12 @@ import {
   findSiblingSchemaConflicts,
   computeConfigSchemaChangeImpact,
   ConfigSchemaChangeImpact,
+  isConfigLocked,
 } from "shared/util";
 import { ConfigInterface } from "shared/types/config";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import type { Context } from "back-end/src/models/BaseModel";
+import { logger } from "back-end/src/util/logger";
 
 // Throw if any descendant of `rootKey` (via ANY base edge — `parent` or
 // `extends`) would inherit the same field from two sibling branches. A
@@ -179,6 +181,21 @@ export async function reconcileConfigDescendants(
     if (key === rootKey) continue;
     const node = byKey.get(key);
     if (!node) continue;
+
+    // A locked descendant is pinned at its published revision — never rewrite its
+    // stored schema as a side effect of an ancestor's publish (the lock is what
+    // makes the pin trustworthy for reproducible builds). Skipping, not erroring:
+    // this runs post-merge, so throwing would strand the root as published with a
+    // half-applied cascade; and base-wins resolution already serves the locked
+    // descendant correctly with its (now-redundant, identical-contract) declaration
+    // left in place. It re-normalizes on the descendant's own next publish.
+    if (isConfigLocked(node)) {
+      logger.info(
+        { rootKey, lockedDescendant: node.key },
+        "Config reconcile skipped a locked descendant (schema left pinned)",
+      );
+      continue;
+    }
 
     const ancestorKeys = getAncestorSchemaKeys(node, byKey);
     const kept = stripAncestorOwnedFields(node.schema, ancestorKeys);
