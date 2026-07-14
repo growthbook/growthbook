@@ -76,7 +76,7 @@ export default function ImportSettings({
       <div className="bg-white p-3 border position-relative my-3">
         <h3>Import from Another Service</h3>
         <p>
-          Import your data from another Feature Flag and/or experimentation
+          Import your data from another feature flag and/or experimentation
           service.
         </p>
         <Link href="/importing" className="btn btn-primary">

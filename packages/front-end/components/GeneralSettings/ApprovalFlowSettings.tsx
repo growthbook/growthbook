@@ -283,7 +283,7 @@ export default function ApprovalFlowSettings() {
                             <Checkbox
                               id="toggle-restApiBypassesReviews"
                               label="REST API always bypasses approval requirements"
-                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the feature's Project."
+                              description="When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants bypassApprovalChecks on the Feature Flag's Project."
                               value={
                                 form.watch("restApiBypassesReviews") !== false
                               }
@@ -418,8 +418,8 @@ export default function ApprovalFlowSettings() {
               </Heading>
 
               <Text as="p" size="medium" mb="4" color="text-low">
-                These settings apply to every approval flow (features and Saved
-                Groups).
+                These settings apply to every approval flow (Feature Flags and
+                Saved Groups).
               </Text>
 
               <Flex direction="column" gap="3" align="start">
