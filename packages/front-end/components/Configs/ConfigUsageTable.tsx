@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiRadioButton, PiMagnifyingGlass } from "react-icons/pi";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -197,17 +198,14 @@ function OverridePopoverTrigger({
         align="start"
         triggerAsChild
         trigger={
-          <IconButton
+          <Button
             variant="ghost"
             color="violet"
-            size="2"
-            radius="full"
+            icon={<PiMagnifyingGlass />}
             aria-label="View override values"
-            // Halve the ghost variant's -6px vertical margin (size-2 padding).
-            style={{ flexShrink: 0, marginTop: -3, marginBottom: -3 }}
           >
-            <PiMagnifyingGlass />
-          </IconButton>
+            Overrides
+          </Button>
         }
         content={
           <Box style={{ maxWidth: "min(92vw, 560px)" }}>
