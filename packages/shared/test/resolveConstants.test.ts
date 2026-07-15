@@ -973,6 +973,61 @@ describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => 
     });
   });
 
+  it("resolves a flavor's own @config: mixin (beyond the base) as a first-class layer", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3,"color":"red"}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      // The prod flavor extends the base (its parent — skipped, already applied)
+      // AND a `prod-mixin` config. The mixin must layer in below the flavor's own
+      // keys and above the base value.
+      [
+        "base-prod",
+        cfg('{"$extends":["@config:base","@config:prod-mixin"],"timeout":5}'),
+      ],
+      ["prod-mixin", cfg('{"region":"eu","color":"blue"}')],
+    ]);
+    // prod → base(color red) < mixin(region eu, color blue) < flavor own(timeout 5)
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 5, color: "blue", region: "eu" });
+    // dev → no matching flavor → base only (the mixin does not leak in)
+    expect(resolveFor({ $extends: ["@config:base"] }, map, "dev")).toEqual({
+      timeout: 3,
+      color: "red",
+    });
+  });
+
+  it("resolves a flavor's own @const: extends", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      [
+        "base-prod",
+        cfg('{"$extends":["@config:base","@const:prod-limits"],"timeout":5}'),
+      ],
+      [
+        "prod-limits",
+        {
+          type: "json",
+          source: "constant",
+          value: '{"maxRetries":10}',
+          parsed: { maxRetries: 10 },
+        } as ConstantValueMapEntry,
+      ],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 5, maxRetries: 10 });
+  });
+
   it("skips an archived flavor, serving the base value", () => {
     const map = nsMap([
       [

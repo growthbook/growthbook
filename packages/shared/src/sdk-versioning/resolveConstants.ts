@@ -424,6 +424,7 @@ function resolveValue(
             if (pr?.source === "config") configKeys.push(pr.key);
           }
           const layerKeys = linearizeConfigLayers(configKeys, visited, ctx);
+          const layerKeySet = new Set(layerKeys);
           const applyLayer = (layer: ConfigLayer) => {
             Object.assign(out, layer.assign);
             for (const e of layer.own) {
@@ -463,10 +464,25 @@ function resolveValue(
                     },
                   )
                 : null;
-            const flavor = flavorKey
-              ? buildConfigLayer(flavorKey, visited, ctx)
-              : null;
-            if (flavor) applyLayer(flavor);
+            // A flavor is itself a config, so give it first-class resolution:
+            // its own `$extends` `@config:` bases (ancestor-first) then its own
+            // layer (its `@const:`/inline extends already fold into that layer's
+            // `assign`). Skip the base being flavored (`layerKey`) and any config
+            // already contributed by the feature's own `@config:` chain, so a
+            // flavor extending one of them doesn't double-apply or reorder the
+            // existing layers — the flavor still adds its novel bases and its own
+            // patch, on top of the base value.
+            if (flavorKey) {
+              for (const fKey of linearizeConfigLayers(
+                [flavorKey],
+                visited,
+                ctx,
+              )) {
+                if (fKey === layerKey || layerKeySet.has(fKey)) continue;
+                const fLayer = buildConfigLayer(fKey, visited, ctx);
+                if (fLayer) applyLayer(fLayer);
+              }
+            }
           }
           continue;
         }

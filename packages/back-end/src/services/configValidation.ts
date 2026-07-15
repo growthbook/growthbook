@@ -12,7 +12,6 @@ import {
   getConfigBackingKey,
   getConfigBackingPatch,
   selectScopedOverride,
-  stripConfigExtends,
 } from "shared/util";
 import {
   FeatureInterface,
@@ -230,9 +229,14 @@ function collectFlavorInvariantViolations(
       );
       const flavor = flavorKey ? byKey.get(flavorKey) : undefined;
       if (!flavor) continue;
+      // Keep the flavor's own `$extends` intact: resolveConfigChain ignores it
+      // when applying the patch's concrete keys, but configChainDeclaresReference-
+      // Layer needs to see it so a flavor that extends its own `@const:`/`@config:`
+      // bases (resolved for real in the SDK payload) exempts — rather than falsely
+      // flags — fields those bases supply that the gate can't resolve here.
       withFlavors.set(key, {
         ...node,
-        variantPatch: stripConfigExtends(flavor.value),
+        variantPatch: flavor.value,
       } as ConfigInterface);
     }
     for (const vi of collectConfigInvariantViolations(leafKey, withFlavors)) {

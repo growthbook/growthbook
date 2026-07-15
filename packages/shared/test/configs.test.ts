@@ -1429,6 +1429,19 @@ describe("configChainDeclaresReferenceLayer", () => {
     ];
     expect(configChainDeclaresReferenceLayer(chain)).toBe(false);
   });
+
+  it("detects a reference layer declared by a node's variantPatch (env flavor)", () => {
+    const chain: ConfigChainNode[] = [
+      {
+        key: "base",
+        value: '{"a":1}',
+        // The flavor patch extends its own @config mixin — unresolvable at gate
+        // time, so the chain must count as declaring a reference layer.
+        variantPatch: '{"$extends":["@config:prod-mixin"],"a":2}',
+      },
+    ];
+    expect(configChainDeclaresReferenceLayer(chain)).toBe(true);
+  });
 });
 
 describe("collectDescendantInvariantViolations", () => {
