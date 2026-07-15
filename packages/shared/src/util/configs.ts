@@ -517,6 +517,10 @@ export function linearizeConfigDag(
       name: node.name,
       value: node.value,
       schema: node.schema,
+      // Preserve any pre-selected env/project flavor patch so callers can
+      // validate the per-environment resolved value (base ⊕ flavor ⊕ …), not
+      // just the env-agnostic base. Absent = no variant for this node/context.
+      variantPatch: node.variantPatch,
     });
   };
   visit(leafKey);

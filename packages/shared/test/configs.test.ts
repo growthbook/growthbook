@@ -1078,6 +1078,7 @@ type DagNode = {
   extends?: string[];
   value?: string;
   schema?: SimpleSchema;
+  variantPatch?: string;
 };
 const dagMap = (nodes: DagNode[]) => new Map(nodes.map((n) => [n.key, n]));
 
@@ -1205,6 +1206,42 @@ describe("collectConfigInvariantViolations", () => {
         name: "no-debug",
         message: "Production configs cannot run at debug verbosity.",
       },
+    ]);
+  });
+
+  it("evaluates a node's variantPatch (env flavor) against the invariant", () => {
+    const numF = (key: string): SchemaField => ({
+      key,
+      type: "integer",
+      required: false,
+      default: "",
+      description: "",
+      enum: [],
+    });
+    const byKey = dagMap([
+      {
+        key: "base",
+        schema: {
+          type: "object",
+          fields: [numF("target"), numF("max")],
+          invariants: [
+            inv("order", { target: { $lte: { $ref: "max" } } }, "target > max"),
+          ],
+        },
+        value: '{"target":5,"max":10}',
+      },
+    ]);
+    // Base alone satisfies the invariant (5 <= 10).
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([]);
+    // A prod flavor lowers max to 3 → the per-environment resolved value
+    // (target 5, max 3) violates. The variantPatch must flow through
+    // linearizeConfigDag → resolveConfigChain into the invariant evaluation.
+    byKey.set("base", {
+      ...byKey.get("base"),
+      variantPatch: '{"max":3}',
+    } as DagNode);
+    expect(collectConfigInvariantViolations("base", byKey)).toEqual([
+      { name: "order", message: "target > max" },
     ]);
   });
 

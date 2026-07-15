@@ -5,8 +5,8 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import {
-  constantRequiresReview,
-  constantResetReviewOnChange,
+  configRequiresReview,
+  configResetReviewOnChange,
   constantAutopublishOnApproval,
   formatAncestorFieldConflictMessage,
 } from "shared/util";
@@ -44,13 +44,15 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
-// scopedOverrides (env/project variant selection) + its derived scopedConfig
-// marker write IMMEDIATELY, never through a revision — so they must stay out of
-// the revision snapshot too, or a draft would carry a stale copy that clobbers
-// the live value on resolve/revert.
+// scopedOverrides (the env/project variant selection list) writes IMMEDIATELY,
+// never through a revision, so it stays out of the snapshot — a draft carrying a
+// stale copy must not be a write source. `scopedConfig` (the derived flavor
+// marker) is kept IN the snapshot read-only: it's never in `getUpdatableFields`
+// (configUpdatableFieldsSchema), so `buildMergeDesiredState` can't write it back,
+// but the approval check needs a flavor's environment scope at its (synchronous)
+// decision point to require review only for the environments the flavor targets.
 const SNAPSHOT_EXCLUDED_KEYS: ReadonlySet<string> = new Set([
   "scopedOverrides",
-  "scopedConfig",
 ]);
 const SNAPSHOT_ALLOWED_KEYS = (
   Object.keys(configValidator.shape) as Array<keyof ConfigInterface>
@@ -132,9 +134,16 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
     if (!context.hasPremiumFeature("require-approvals")) return false;
     const snapshot = revision.target.snapshot as ConfigInterface;
-    return constantRequiresReview(
+    // A flavor's value applies only to its scoped environments, so review is
+    // required per those environments (null = a base config → value change is
+    // all-environments, like a feature defaultValue).
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return configRequiresReview(
       { project: snapshot.project },
       getConstantRevisionChange(snapshot, revision.target.proposedChanges),
+      flavorEnvironments,
       context.org.settings,
     );
   },
@@ -150,9 +159,13 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       snapshot,
       revision.target.proposedChanges,
     );
-    return constantResetReviewOnChange(
+    const flavorEnvironments = snapshot.scopedConfig
+      ? (snapshot.scopedConfig.environments ?? [])
+      : null;
+    return configResetReviewOnChange(
       { project: snapshot.project },
       { valueChanged, changedEnvironments },
+      flavorEnvironments,
       context.org.settings,
     );
   },

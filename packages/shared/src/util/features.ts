@@ -2739,6 +2739,79 @@ export function constantResetReviewOnChange(
   );
 }
 
+// Configs borrow the same `requireReviews` model as features/constants, with one
+// wrinkle: an env/project override "flavor" applies only to its scoped
+// environments, so a flavor's value change should require review only when one of
+// those environments is in the matched rule's scope — not unconditionally the way
+// a base config's value change (which applies to every environment, like a
+// feature's defaultValue) does. `flavorEnvironments` is the flavor's environment
+// scope (`scopedConfig.environments`) or null for a base config; an empty array is
+// a catch-all flavor and is treated as all-environments. These re-express a
+// flavor's value change as an environment change and defer to the constant
+// helpers (the single source of truth for the rule matching).
+function toEnvScopedChange(
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+): {
+  valueChanged: boolean;
+  changedEnvironments: string[];
+  metadataOnly: boolean;
+} {
+  if (
+    flavorEnvironments !== null &&
+    change.valueChanged &&
+    flavorEnvironments.length > 0
+  ) {
+    return {
+      valueChanged: false,
+      changedEnvironments: flavorEnvironments,
+      metadataOnly: change.metadataOnly,
+    };
+  }
+  return change;
+}
+
+export function configRequiresReview(
+  config: { project?: string },
+  change: {
+    valueChanged: boolean;
+    changedEnvironments: string[];
+    metadataOnly: boolean;
+  },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  return constantRequiresReview(
+    config,
+    toEnvScopedChange(change, flavorEnvironments),
+    settings,
+  );
+}
+
+export function configResetReviewOnChange(
+  config: { project?: string },
+  change: { valueChanged: boolean; changedEnvironments: string[] },
+  flavorEnvironments: string[] | null,
+  settings?: OrganizationSettings,
+): boolean {
+  const scoped = toEnvScopedChange(
+    { ...change, metadataOnly: false },
+    flavorEnvironments,
+  );
+  return constantResetReviewOnChange(
+    config,
+    {
+      valueChanged: scoped.valueChanged,
+      changedEnvironments: scoped.changedEnvironments,
+    },
+    settings,
+  );
+}
+
 // Whether auto-publish-on-approval may be armed for a constant, per the matched
 // review rule. Constants share the feature `requireReviews` model, so this is a
 // thin wrapper over `getFeatureAutopublishOnApproval` (single source of truth).

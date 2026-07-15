@@ -11,6 +11,8 @@ import {
   collectDescendantInvariantViolations,
   getConfigBackingKey,
   getConfigBackingPatch,
+  selectScopedOverride,
+  stripConfigExtends,
 } from "shared/util";
 import {
   FeatureInterface,
@@ -185,6 +187,61 @@ async function collectMissingRequiredFields(
 // live family), so a pre-existing broken descendant — possibly in a project the
 // publisher can't edit — never blocks unrelated publishes. Snapshot-based, same
 // accepted TOCTOU race as assertConfigDescendantsReconcilable.
+// For every environment that a config in `leafKey`'s lineage overrides via a
+// flavor, re-collect invariant violations against the per-environment resolved
+// value (base ⊕ flavor ⊕ any leaf patch already modeled in `byKey`) — the shape
+// the SDK actually ships per environment. The plain env-agnostic pass validates
+// only base ⊕ patch; a cross-field invariant can pass there yet fail once a
+// flavor applies for a specific env (only invariants can differ per env — schema/
+// type conformance is env-agnostic). Envs with no flavor resolve to the base and
+// are already covered. Violations are tagged with their environment. `project`
+// scopes flavor selection (a project-scoped flavor only applies to a matching
+// feature/config project).
+function collectFlavorInvariantViolations(
+  leafKey: string,
+  byKey: Map<string, ConfigInterface>,
+  project: string,
+): { environment: string; message: string }[] {
+  const lineageKeys = linearizeConfigDag(leafKey, byKey).map((n) => n.key);
+  const environments = new Set<string>();
+  for (const key of lineageKeys) {
+    for (const o of byKey.get(key)?.scopedOverrides ?? []) {
+      (o.environments ?? []).forEach((e) => environments.add(e));
+    }
+  }
+  if (!environments.size) return [];
+
+  const out: { environment: string; message: string }[] = [];
+  for (const environment of environments) {
+    // Layer each lineage config's scope-selected flavor patch on top of its own
+    // value (via `variantPatch`), mirroring the SDK resolver. Skip archived/
+    // missing flavors, same as resolution.
+    const withFlavors = new Map<string, ConfigInterface>(byKey);
+    for (const key of lineageKeys) {
+      const node = byKey.get(key);
+      if (!node?.scopedOverrides?.length) continue;
+      const flavorKey = selectScopedOverride(
+        node.scopedOverrides,
+        { environment, project },
+        (k) => {
+          const f = byKey.get(k);
+          return !!f && !f.archived;
+        },
+      );
+      const flavor = flavorKey ? byKey.get(flavorKey) : undefined;
+      if (!flavor) continue;
+      withFlavors.set(key, {
+        ...node,
+        variantPatch: stripConfigExtends(flavor.value),
+      } as ConfigInterface);
+    }
+    for (const vi of collectConfigInvariantViolations(leafKey, withFlavors)) {
+      out.push({ environment, message: vi.message });
+    }
+  }
+  return out;
+}
+
 async function collectInvariantViolations(
   context: Context,
   leaf: ConfigLeaf,
@@ -200,6 +257,17 @@ async function collectInvariantViolations(
 
   const rootViolations = collectConfigInvariantViolations(leaf.key, proposed);
   const errors = rootViolations.map((vi) => vi.message);
+
+  // Also validate each per-environment resolved value (base ⊕ flavor): a value
+  // change can satisfy invariants at the base yet violate them once an env flavor
+  // applies. Tag by environment so the author knows which env fails.
+  for (const { environment, message } of collectFlavorInvariantViolations(
+    leaf.key,
+    proposed,
+    proposed.get(leaf.key)?.project ?? "",
+  )) {
+    errors.push(`[${environment}] ${message}`);
+  }
 
   const descendants = collectDescendantInvariantViolations(leaf.key, proposed);
   if (!descendants.length) return errors;
@@ -404,7 +472,7 @@ export function assertConfigBackedDefaultHasNoOverrides(
 
 export async function assertConfigBackedFeatureValuesValid(
   context: Context,
-  feature: Pick<FeatureInterface, "valueType" | "baseConfig">,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
 ): Promise<void> {
   assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
@@ -475,6 +543,16 @@ export async function assertConfigBackedFeatureValuesValid(
     } as ConfigInterface);
     for (const vi of collectConfigInvariantViolations(PATCH_KEY, withPatch)) {
       errors.push(`${label}: ${vi.message}`);
+    }
+    // Per-environment shipping shape: base ⊕ env-flavor ⊕ this value's patch. A
+    // cross-field invariant can pass the env-agnostic check above yet fail once a
+    // flavor applies for a specific environment.
+    for (const { environment, message } of collectFlavorInvariantViolations(
+      PATCH_KEY,
+      withPatch,
+      feature.project ?? "",
+    )) {
+      errors.push(`${label} [${environment}]: ${message}`);
     }
   }
   if (!errors.length) return;

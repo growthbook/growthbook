@@ -5,7 +5,10 @@ import {
   getCyclicConstantRefs,
   assertValidExtendsEntries,
 } from "../src/validators/constant";
-import { constantRequiresReview } from "../src/util/features";
+import {
+  constantRequiresReview,
+  configRequiresReview,
+} from "../src/util/features";
 import { getConstantRevisionChange } from "../src/revisions/helpers";
 
 const rule = (overrides = {}) => ({
@@ -321,6 +324,46 @@ describe("constantRequiresReview", () => {
     expect(
       constantRequiresReview({ project: "prj_b" }, valueChange, settings),
     ).toBe(false);
+  });
+});
+
+describe("configRequiresReview", () => {
+  const valueChange = {
+    valueChanged: true,
+    changedEnvironments: [],
+    metadataOnly: false,
+  };
+
+  it("treats a base config value change as all-environments (flavorEnvironments=null)", () => {
+    const settings = settingsWith([rule({ environments: ["production"] })]);
+    // Base value applies everywhere → always requires review, like a constant.
+    expect(configRequiresReview({}, valueChange, null, settings)).toBe(true);
+  });
+
+  it("requires review for a flavor only when its env is in the rule's scope", () => {
+    const prodRule = settingsWith([rule({ environments: ["production"] })]);
+    // A production flavor value change, prod-scoped rule → review.
+    expect(
+      configRequiresReview({}, valueChange, ["production"], prodRule),
+    ).toBe(true);
+    // A dev flavor value change, prod-scoped rule → NO review (the gap fixed:
+    // env-scoped granularity applies to flavors, not just an all-envs block).
+    expect(configRequiresReview({}, valueChange, ["dev"], prodRule)).toBe(
+      false,
+    );
+  });
+
+  it("treats a catch-all flavor (no environments) as all-environments", () => {
+    const prodRule = settingsWith([rule({ environments: ["production"] })]);
+    // Empty flavor env scope = applies to any env → always requires review.
+    expect(configRequiresReview({}, valueChange, [], prodRule)).toBe(true);
+  });
+
+  it("requires review for a flavor whose env matches an all-environments rule", () => {
+    const allEnvRule = settingsWith([rule({ environments: [] })]);
+    expect(
+      configRequiresReview({}, valueChange, ["production"], allEnvRule),
+    ).toBe(true);
   });
 });
 
