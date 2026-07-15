@@ -8,6 +8,7 @@ import {
   getConfigParentKey,
   getConfigSubtree,
   isScopedConfig,
+  orderConfigsByLineage,
 } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
@@ -119,9 +120,13 @@ export default function ConfigModal({
 
   // Env/project override flavors are variants of a specific base, never a
   // standalone base — exclude them so they can't be chosen as a parent or mixin.
-  const parentOptions = configs
-    .filter((c) => !c.archived && !isScopedConfig(c) && c.key !== existing?.key)
-    .map((c) => ({ label: c.name, value: c.key }));
+  // Ordered + depth-indented by lineage, matching the feature/rule config
+  // pickers.
+  const parentOptions = orderConfigsByLineage(
+    configs.filter(
+      (c) => !c.archived && !isScopedConfig(c) && c.key !== existing?.key,
+    ),
+  ).map(({ config: c, depth }) => ({ label: c.name, value: c.key, depth }));
   const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
 
   // Mixin candidates: any config except this one, its current `parent`, and its
@@ -286,18 +291,30 @@ export default function ConfigModal({
           onChange={(v) => form.setValue("parent", v)}
           options={parentOptions}
           initialOption="None (base config)"
-          formatOptionLabel={({ value, label }) =>
-            value ? (
-              <Flex as="span" align="center" gap="1" width="100%">
+          sort={false}
+          formatOptionLabel={(option, meta) => {
+            const { value, label } = option;
+            if (!value) return <span>{label}</span>;
+            const depth = (option as { depth?: number }).depth ?? 0;
+            return (
+              <Flex
+                as="span"
+                align="center"
+                gap="1"
+                width="100%"
+                style={
+                  meta.context === "menu" && depth
+                    ? { paddingLeft: depth * 16 }
+                    : undefined
+                }
+              >
                 <span>{label}</span>
                 <code style={{ marginLeft: "auto", color: "var(--slate-12)" }}>
                   {value}
                 </code>
               </Flex>
-            ) : (
-              <span>{label}</span>
-            )
-          }
+            );
+          }}
           helpText="A child inherits its parent's fields and overrides a subset."
         />
       )}
