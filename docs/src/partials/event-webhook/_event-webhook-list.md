@@ -6173,7 +6173,7 @@ Triggered when a config is created
             extends?: string[] | undefined;
             /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
             value?: Record<string, unknown> | undefined;
-            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
             scopedOverrides?: {
                 /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                 config: string;
@@ -6182,6 +6182,15 @@ Triggered when a config is created
                 /** Project ids this entry applies to. Empty/omitted = any project. */
                 projects?: string[] | undefined;
             }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
@@ -6273,7 +6282,7 @@ Triggered when a config is updated
             extends?: string[] | undefined;
             /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
             value?: Record<string, unknown> | undefined;
-            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
             scopedOverrides?: {
                 /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                 config: string;
@@ -6282,6 +6291,15 @@ Triggered when a config is updated
                 /** Project ids this entry applies to. Empty/omitted = any project. */
                 projects?: string[] | undefined;
             }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
@@ -6333,7 +6351,7 @@ Triggered when a config is updated
             extends?: string[] | undefined;
             /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
             value?: Record<string, unknown> | undefined;
-            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
             scopedOverrides?: {
                 /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                 config: string;
@@ -6342,6 +6360,15 @@ Triggered when a config is updated
                 /** Project ids this entry applies to. Empty/omitted = any project. */
                 projects?: string[] | undefined;
             }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
@@ -6438,7 +6465,7 @@ Triggered when a config is deleted
             extends?: string[] | undefined;
             /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
             value?: Record<string, unknown> | undefined;
-            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+            /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
             scopedOverrides?: {
                 /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                 config: string;
@@ -6447,6 +6474,15 @@ Triggered when a config is deleted
                 /** Project ids this entry applies to. Empty/omitted = any project. */
                 projects?: string[] | undefined;
             }[] | undefined;
+            /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+            scopedConfig?: {
+                /** The base config this one is a scoped override of. */
+                parent: string;
+                /** Environments this override applies to (empty/absent = every environment). */
+                environments?: string[] | undefined;
+                /** Projects this override applies to (empty/absent = every project). */
+                projects?: string[] | undefined;
+            } | undefined;
             description?: string | undefined;
             /** The project this config belongs to (empty = all projects) */
             project?: string | undefined;
@@ -6568,7 +6604,7 @@ Triggered when a new draft revision is created for a config
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -6577,6 +6613,15 @@ Triggered when a new draft revision is created for a config
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -6628,7 +6673,7 @@ Triggered when a new draft revision is created for a config
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -6637,6 +6682,15 @@ Triggered when a new draft revision is created for a config
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -6763,7 +6817,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -6772,6 +6826,15 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -6823,7 +6886,7 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -6832,6 +6895,15 @@ Triggered when a draft revision's proposed changes are modified (value, schema, 
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -6959,7 +7031,7 @@ Triggered when a draft revision is submitted for review
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -6968,6 +7040,15 @@ Triggered when a draft revision is submitted for review
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7019,7 +7100,7 @@ Triggered when a draft revision is submitted for review
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7028,6 +7109,15 @@ Triggered when a draft revision is submitted for review
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7154,7 +7244,7 @@ Triggered when a draft revision is approved by a reviewer
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7163,6 +7253,15 @@ Triggered when a draft revision is approved by a reviewer
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7214,7 +7313,7 @@ Triggered when a draft revision is approved by a reviewer
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7223,6 +7322,15 @@ Triggered when a draft revision is approved by a reviewer
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7355,7 +7463,7 @@ Triggered when a reviewer requests changes on a draft revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7364,6 +7472,15 @@ Triggered when a reviewer requests changes on a draft revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7415,7 +7532,7 @@ Triggered when a reviewer requests changes on a draft revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7424,6 +7541,15 @@ Triggered when a reviewer requests changes on a draft revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7556,7 +7682,7 @@ Triggered when a comment is added to a draft revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7565,6 +7691,15 @@ Triggered when a comment is added to a draft revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7616,7 +7751,7 @@ Triggered when a comment is added to a draft revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7625,6 +7760,15 @@ Triggered when a comment is added to a draft revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7757,7 +7901,7 @@ Triggered when a draft revision is discarded
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7766,6 +7910,15 @@ Triggered when a draft revision is discarded
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7817,7 +7970,7 @@ Triggered when a draft revision is discarded
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7826,6 +7979,15 @@ Triggered when a draft revision is discarded
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -7952,7 +8114,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -7961,6 +8123,15 @@ Triggered when a draft revision is rebased onto the latest live state
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8012,7 +8183,7 @@ Triggered when a draft revision is rebased onto the latest live state
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8021,6 +8192,15 @@ Triggered when a draft revision is rebased onto the latest live state
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8147,7 +8327,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8156,6 +8336,15 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8207,7 +8396,7 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8216,6 +8405,15 @@ Triggered when a draft revision is published. Overlaps with `config.updated` but
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8342,7 +8540,7 @@ Triggered when a config is reverted to a previous published revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8351,6 +8549,15 @@ Triggered when a config is reverted to a previous published revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8402,7 +8609,7 @@ Triggered when a config is reverted to a previous published revision
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8411,6 +8618,15 @@ Triggered when a config is reverted to a previous published revision
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8538,7 +8754,7 @@ Triggered when a discarded revision is reopened
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8547,6 +8763,15 @@ Triggered when a discarded revision is reopened
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8598,7 +8823,7 @@ Triggered when a discarded revision is reopened
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8607,6 +8832,15 @@ Triggered when a discarded revision is reopened
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8733,7 +8967,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8742,6 +8976,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
@@ -8793,7 +9036,7 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                 extends?: string[] | undefined;
                 /** This config's own base value as a JSON object (its declared fields only — inherited fields are layered in at resolution time, not stored here). Per-environment/project variants are expressed via `scopedOverrides`, not here. */
                 value?: Record<string, unknown> | undefined;
-                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
+                /** Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry). */
                 scopedOverrides?: {
                     /** The `key` of the flavor config (a child config) whose value patches this config when the scope matches. */
                     config: string;
@@ -8802,6 +9045,15 @@ Triggered when a deferred publish (scheduled publish or auto-publish-on-approval
                     /** Project ids this entry applies to. Empty/omitted = any project. */
                     projects?: string[] | undefined;
                 }[] | undefined;
+                /** Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config's `scopedOverrides`, never by setting this directly. */
+                scopedConfig?: {
+                    /** The base config this one is a scoped override of. */
+                    parent: string;
+                    /** Environments this override applies to (empty/absent = every environment). */
+                    environments?: string[] | undefined;
+                    /** Projects this override applies to (empty/absent = every project). */
+                    projects?: string[] | undefined;
+                } | undefined;
                 description?: string | undefined;
                 /** The project this config belongs to (empty = all projects) */
                 project?: string | undefined;
