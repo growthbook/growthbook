@@ -1,12 +1,12 @@
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { MetricAnalysisInterface } from "shared/types/metric-analysis";
+import { SavedQuery, ProductAnalyticsExploration } from "shared/validators";
 import {
   redactSnapshotForPublic,
   redactSavedQueryForPublic,
   redactMetricAnalysisForPublic,
   redactExplorationForPublic,
 } from "back-end/src/enterprise/services/dashboards";
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import { SavedQuery, ProductAnalyticsExploration } from "shared/validators";
 
 // These serializers are the authorization boundary for block data on the
 // unauthenticated public dashboard endpoint — verify they strip raw SQL and
@@ -20,11 +20,17 @@ describe("public dashboard block-data redaction", () => {
       settings: {
         queryFilter: "WHERE country = 'US'",
         metricSettings: [
-          { id: "met_1", settings: { sql: "SELECT * FROM events", type: "binomial" } },
+          {
+            id: "met_1",
+            settings: { sql: "SELECT * FROM events", type: "binomial" },
+          },
           { id: "met_2" }, // no settings — must not throw
         ],
         dimensions: [
-          { id: "dim_1", settings: { sql: "SELECT country", userIdType: "user" } },
+          {
+            id: "dim_1",
+            settings: { sql: "SELECT country", userIdType: "user" },
+          },
         ],
         goalMetrics: ["met_1"],
       },
