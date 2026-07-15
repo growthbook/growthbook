@@ -349,9 +349,25 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     // Skipped for a metadata-only publish (no served value changes → can't
     // disrupt an experiment), matching the direct-update path.
     if (configChangeAffectsServedValue(Object.keys(filteredChanges))) {
-      await assertConfigPublishGuards(context, entity, revision, {
-        armed: !!options?.deferred,
-      });
+      await assertConfigPublishGuards(
+        context,
+        entity,
+        revision,
+        { armed: !!options?.deferred },
+        {
+          value: (filteredChanges.value as string | undefined) ?? entity.value,
+          schema:
+            (filteredChanges.schema as ConfigInterface["schema"] | undefined) ??
+            entity.schema,
+          parent:
+            (filteredChanges.parent as string | undefined) ?? entity.parent,
+          extends:
+            (filteredChanges.extends as string[] | undefined) ?? entity.extends,
+          extensible:
+            (filteredChanges.extensible as boolean | undefined) ??
+            entity.extensible,
+        },
+      );
     }
 
     // Normalize BEFORE the descendant dry-run (otherwise it sees an

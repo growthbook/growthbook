@@ -7,7 +7,10 @@ import {
   assertConstantExperimentGuard,
 } from "back-end/src/services/experimentGuard";
 import { assertConfigLockGuard } from "back-end/src/services/configLockGuard";
-import { assertConstantSchemaBreakGuard } from "back-end/src/services/schemaBreakGuard";
+import {
+  assertConstantSchemaBreakGuard,
+  assertConfigSchemaBreakGuard,
+} from "back-end/src/services/schemaBreakGuard";
 
 // Every deferred-publish guard for a config/constant publish, orchestrated in one
 // place so each choke point (REST publish/update/revert handlers, the internal
@@ -22,6 +25,13 @@ export async function assertConfigPublishGuards(
   config: ConfigInterface,
   revision: Pick<Revision, "armAcknowledgments">,
   opts: { armed: boolean },
+  // The config's proposed (being-published) state, for the schema-break guard.
+  // Its own value/schema/lineage after the merge — resolved + checked across
+  // environments. Omit when unknown; the guard then skips (fail-open).
+  proposedConfig?: Pick<
+    ConfigInterface,
+    "value" | "schema" | "parent" | "extends" | "extensible"
+  >,
 ): Promise<void> {
   await assertConfigExperimentGuard(context, config, revision, opts);
   await assertConfigLockGuard(
@@ -30,6 +40,21 @@ export async function assertConfigPublishGuards(
     revision,
     opts,
   );
+  if (proposedConfig) {
+    await assertConfigSchemaBreakGuard(
+      context,
+      {
+        key: config.key,
+        project: config.project,
+        value: proposedConfig.value,
+        schema: proposedConfig.schema,
+        parent: proposedConfig.parent,
+        extends: proposedConfig.extends,
+        extensible: proposedConfig.extensible,
+      },
+      opts,
+    );
+  }
 }
 
 export async function assertConstantPublishGuards(

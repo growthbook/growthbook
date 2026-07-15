@@ -3,6 +3,8 @@ import {
   collectResolvedConfigValueViolations,
   configIsExtensible,
   getConfigSpineRootKey,
+  getConfigBaseKeys,
+  withConfigExtends,
   parsePlainJSONObject,
   deepMergePatch,
 } from "shared/util";
@@ -12,6 +14,7 @@ import {
   ConstantValueMap,
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -331,6 +334,141 @@ export async function assertConstantSchemaBreakGuard(
 
   throw new SoftWarningError(
     "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:\n" +
+      violations.join("\n"),
+    violations,
+  );
+}
+
+// The config-side counterpart: the violations a config's own PROPOSED value
+// would introduce in its resolved shape — the check the ordinary config
+// collectors skip, since they exempt `@const:`-backed fields (whose resolved
+// type is only known once substituted). Resolves the proposed value with the
+// CURRENT constants (this is a config publish, not a constant change), per
+// environment, and diffs against the live value so only breaks this publish
+// introduces are reported. Catches publishing a config whose `@const:` field
+// resolves to a schema-violating value in some environment.
+type ProposedConfig = Pick<
+  ConfigInterface,
+  "key" | "project" | "value" | "schema" | "parent" | "extends" | "extensible"
+>;
+
+export async function evaluateConfigOwnSchemaBreakConflicts(
+  context: Context,
+  proposed: ProposedConfig,
+): Promise<string[]> {
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const resolvables = await getResolvableValues(scanContext);
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  const byKeyLive = new Map(allConfigs.map((c) => [c.key, c]));
+  const live = byKeyLive.get(proposed.key);
+  // No live config (a create) — creation is validated on its own path, and there
+  // is no prior value to diff against. Skip.
+  if (!live) return [];
+
+  // Proposed schema/lineage drive the check; live drives the diff baseline.
+  const proposedNode = { ...live, ...proposed } as ConfigInterface;
+  const byKeyProposed = new Map(byKeyLive);
+  byKeyProposed.set(proposed.key, proposedNode);
+
+  // Swap the config's own value in the resolvable universe (bases synthesized as
+  // `@config:` `$extends`, matching configToResolvable) so resolution reflects
+  // the value being published.
+  const proposedResolvables = resolvables.map((r) =>
+    r.source === "config" && r.key === proposed.key
+      ? {
+          ...r,
+          value: withConfigExtends(
+            proposedNode.value,
+            getConfigBaseKeys(proposedNode),
+          ),
+        }
+      : r,
+  );
+
+  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
+  const project = proposedNode.project || "";
+  const liveAdditional = configIsExtensible(
+    byKeyLive.get(getConfigSpineRootKey(proposed.key, byKeyLive)),
+    extensibleDefault,
+  );
+  const proposedAdditional = configIsExtensible(
+    byKeyProposed.get(getConfigSpineRootKey(proposed.key, byKeyProposed)),
+    extensibleDefault,
+  );
+
+  const introducedFor = (env: string): string[] => {
+    const current = resolveConfigConcreteValue(
+      proposed.key,
+      buildConstantValueMap(resolvables, env),
+      project,
+    );
+    const next = resolveConfigConcreteValue(
+      proposed.key,
+      buildConstantValueMap(proposedResolvables, env),
+      project,
+    );
+    if (!next) return [];
+    const currentViolations = new Set(
+      current
+        ? collectResolvedConfigValueViolations({
+            configKey: proposed.key,
+            value: current,
+            byKey: byKeyLive,
+            additionalProperties: liveAdditional,
+          })
+        : [],
+    );
+    return collectResolvedConfigValueViolations({
+      configKey: proposed.key,
+      value: next,
+      byKey: byKeyProposed,
+      additionalProperties: proposedAdditional,
+    }).filter((v) => !currentViolations.has(v));
+  };
+
+  const introduced: string[] = [];
+  const baseViolations = new Set(introducedFor(""));
+  for (const v of baseViolations) introduced.push(v);
+  for (const env of getEnvironmentIdsFromOrg(context.org)) {
+    for (const v of introducedFor(env)) {
+      if (!baseViolations.has(v)) introduced.push(`[${env}] ${v}`);
+    }
+  }
+  return [...new Set(introduced)];
+}
+
+// Warn (bypassable) when publishing a config would make its own resolved value
+// violate its schema/invariants once `@const:` refs are substituted — the
+// config-side analog of assertConstantSchemaBreakGuard. Armed publishes skipped
+// (same first-cut rationale).
+export async function assertConfigSchemaBreakGuard(
+  context: Context,
+  proposed: ProposedConfig,
+  { armed }: { armed: boolean },
+): Promise<void> {
+  if (armed) return;
+
+  const violations = await evaluateConfigOwnSchemaBreakConflicts(
+    context,
+    proposed,
+  );
+  if (!violations.length) return;
+
+  const override =
+    context.ignoreWarnings ||
+    context.permissions.canBypassApprovalChecks({
+      project: proposed.project || "",
+    });
+  if (override) {
+    logger.info(
+      { configKey: proposed.key, userId: context.userId, violations },
+      "Config schema-break guard overridden on a direct publish",
+    );
+    return;
+  }
+
+  throw new SoftWarningError(
+    "Publishing this config would make its resolved value violate its schema or validation rules:\n" +
       violations.join("\n"),
     violations,
   );

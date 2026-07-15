@@ -976,9 +976,13 @@ export const putConfig = async (
       // Experiment guard (direct publish → armed:false). Skipped for a
       // metadata-only publish, which can't rewrite any served value.
       if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-        await assertConfigPublishGuards(context, existing, revision, {
-          armed: false,
-        });
+        await assertConfigPublishGuards(
+          context,
+          existing,
+          revision,
+          { armed: false },
+          proposedLeaf,
+        );
       }
 
       // Publish-time safety net (adds required-field enforcement on top of the

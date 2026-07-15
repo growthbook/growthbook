@@ -373,6 +373,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         config,
         { armAcknowledgments: undefined },
         { armed: false },
+        {
+          value: postValue,
+          schema: fieldsToUpdate.schema ?? config.schema,
+          parent: effectiveParent || undefined,
+          extends: effectiveExtends,
+          extensible: fieldsToUpdate.extensible ?? config.extensible,
+        },
       );
       // Direct REST update publishes live, so run the full publish gate
       // (schema + required fields + cross-field invariants + custom hooks),

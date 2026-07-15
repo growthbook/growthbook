@@ -165,9 +165,22 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   // Experiment guard (direct publish → armed:false). Skipped for a metadata-only
   // publish, which can't rewrite any served value.
   if (configChangeAffectsServedValue(changedFields)) {
-    await assertConfigPublishGuards(req.context, config, revision, {
-      armed: false,
-    });
+    await assertConfigPublishGuards(
+      req.context,
+      config,
+      revision,
+      { armed: false },
+      {
+        value: (desiredState.value as string | undefined) ?? config.value,
+        schema:
+          (desiredState.schema as SimpleSchema | undefined) ?? config.schema,
+        parent: (desiredState.parent as string | undefined) ?? config.parent,
+        extends:
+          (desiredState.extends as string[] | undefined) ?? config.extends,
+        extensible:
+          (desiredState.extensible as boolean | undefined) ?? config.extensible,
+      },
+    );
   }
 
   // Publish-time safety net: the post-publish value must still conform to its

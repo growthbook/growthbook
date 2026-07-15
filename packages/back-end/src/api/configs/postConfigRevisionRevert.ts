@@ -187,9 +187,19 @@ export const postConfigRevisionRevert = createApiRequestHandler(
   // Skipped for a metadata-only revert (can't rewrite a served value), matching
   // the other publish paths.
   if (configChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
-    await assertConfigPublishGuards(req.context, config, targetRevision, {
-      armed: false,
-    });
+    await assertConfigPublishGuards(
+      req.context,
+      config,
+      targetRevision,
+      { armed: false },
+      {
+        value: revertLeaf.value,
+        schema: revertLeaf.schema,
+        parent: revertLeaf.parent,
+        extends: revertLeaf.extends,
+        extensible: revertLeaf.extensible,
+      },
+    );
   }
 
   // Record the merged revision FIRST, then apply; roll it back if the apply
