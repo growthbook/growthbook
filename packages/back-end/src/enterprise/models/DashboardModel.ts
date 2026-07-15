@@ -206,6 +206,7 @@ export class DashboardModel extends BaseClass {
   protected canUpdate(
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
+    newDoc: DashboardInterface,
   ): boolean {
     const isOwner = this.context.userId === existing.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
@@ -234,7 +235,8 @@ export class DashboardModel extends BaseClass {
     }
 
     if (
-      (existing.shareLevel === "public" || updates.shareLevel === "public") &&
+      existing.shareLevel !== "public" &&
+      newDoc.shareLevel === "public" &&
       !this.context.hasPremiumFeature("share-product-analytics-dashboards")
     ) {
       throw new Error("Your plan does not support public dashboards.");
