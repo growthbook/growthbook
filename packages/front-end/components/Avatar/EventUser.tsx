@@ -126,15 +126,18 @@ export default function EventUser({
     );
   }
 
-  const apiBadge = isApi ? (
-    <Badge
-      variant="outline"
-      label="API"
-      size="xs"
-      ml="1"
-      title="via API Key or Personal Access Token"
-    />
-  ) : null;
+  // Only badge named actors; a nameless key already reads as "API Key" (see
+  // getUserLabel), so the badge would just double the "API" signal.
+  const apiBadge =
+    isApi && (name || email) ? (
+      <Badge
+        variant="outline"
+        label="API"
+        size="xs"
+        ml="1"
+        title="via API Key or Personal Access Token"
+      />
+    ) : null;
 
   const freshUser = { ...user, name, email } as EventUserType;
 
