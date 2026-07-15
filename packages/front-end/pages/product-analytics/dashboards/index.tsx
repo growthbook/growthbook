@@ -389,7 +389,9 @@ export default function DashboardsPage() {
                                   shareLevel={
                                     d.shareLevel === "published"
                                       ? "organization"
-                                      : "private"
+                                      : d.shareLevel === "public"
+                                        ? "public"
+                                        : "private"
                                   }
                                   editLevel={
                                     d.editLevel === "private"
