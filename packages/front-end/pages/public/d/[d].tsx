@@ -8,10 +8,12 @@ import {
   DashboardBlockInterface,
 } from "shared/enterprise";
 import { stripMarkdown, truncateString } from "shared/util";
+import { Box } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import { getApiHost } from "@/services/env";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { DashboardGrid } from "@/enterprise/components/Dashboards/DashboardEditor";
 import PublicDashboardBlock from "@/enterprise/components/Dashboards/Public/PublicDashboardBlock";
@@ -79,6 +81,12 @@ export default function PublicDashboardPage({
   const isOrgMember =
     (!!userId && dashboard?.organization === userOrganization.id) ||
     !!superAdmin;
+
+  const privateDashboardUrl = dashboard
+    ? dashboard.experimentId
+      ? `/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`
+      : `/product-analytics/dashboards/${dashboard.id}`
+    : "";
 
   const [blockData, setBlockData] = useState<DashboardPublicBlockData | null>(
     null,
@@ -167,6 +175,18 @@ export default function PublicDashboardPage({
         ]}
       />
 
+      {isOrgMember && dashboard ? (
+        <Box mb="3">
+          <Callout status="info" size="sm">
+            You&apos;re viewing the public version of this dashboard.{" "}
+            <Link href={privateDashboardUrl}>
+              Go to the editable version
+            </Link>
+            .
+          </Callout>
+        </Box>
+      ) : null}
+
       {dashboard ? (
         <DashboardSnapshotContext.Provider
           value={dashboardSnapshotContextValue}
@@ -195,13 +215,6 @@ export default function PublicDashboardPage({
       ) : (
         <Callout status="error">This dashboard was not found.</Callout>
       )}
-      {isOrgMember && dashboard ? (
-        <div className="mt-3">
-          <Callout status="info" size="sm">
-            You&apos;re viewing the public version of this dashboard.
-          </Callout>
-        </div>
-      ) : null}
     </div>
   );
 }
