@@ -48,7 +48,9 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
-  isContextualBandit?: boolean;
+  // Present only on contextual-bandit rules: the key into the payload's
+  // top-level `contextualBandits` map. Its presence is what identifies a rule
+  // as a contextual bandit (no separate boolean flag is needed).
   contextualBanditRef?: string;
   // Contextual bandit rules carry their variations here instead of under
   // `variations` so that older SDKs (which key off `variations` to detect an

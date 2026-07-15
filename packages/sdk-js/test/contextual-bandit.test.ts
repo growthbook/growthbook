@@ -12,7 +12,6 @@ function cbRule(overrides: Record<string, unknown> = {}) {
     contextualVariations: ["control", "treatment"],
     weights: [1, 0],
     meta: [{ key: "0" }, { key: "1" }],
-    isContextualBandit: true,
     contextualBanditRef: "cb_promo",
     ...overrides,
   };
@@ -62,10 +61,10 @@ describe("contextual bandit feature rules", () => {
   });
 
   it("skips a CB rule whose variations were stripped (old-SDK payload), no even-split fallback", () => {
-    // An SDK without the contextualBandits capability drops the
-    // `contextualVariations` key and never sees `variations`, so the rule must
-    // be skipped and fall through to the default rather than run as a plain
-    // 50/50 experiment.
+    // An SDK without the contextualBandits capability drops the CB-gated keys
+    // (`contextualVariations` and `contextualBanditRef`) and never sees
+    // `variations`, so the rule must be skipped and fall through to the default
+    // rather than run as a plain 50/50 experiment.
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "enterprise" },
       features: {
@@ -80,8 +79,6 @@ describe("contextual bandit feature rules", () => {
               coverage: 1,
               weights: [1, 0],
               meta: [{ key: "0" }, { key: "1" }],
-              isContextualBandit: true,
-              contextualBanditRef: "cb_promo",
             },
           ],
         },

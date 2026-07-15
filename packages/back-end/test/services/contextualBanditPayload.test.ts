@@ -114,7 +114,6 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
 
     expect(def).toBeTruthy();
     const rule = def?.rules?.[0];
-    expect(rule?.isContextualBandit).toEqual(true);
     expect(rule?.contextualBanditRef).toEqual("cb_1");
     // Sticky bucketing must be disabled — CB weights retrain each epoch
     expect(rule?.disableStickyBucketing).toEqual(true);
@@ -144,7 +143,6 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     const rule = def?.rules?.[0];
     expect(rule).toBeTruthy();
     expect(rule).not.toHaveProperty("contextualBanditRef");
-    expect(rule).not.toHaveProperty("isContextualBandit");
     // Non-capable SDKs get neither `contextualVariations` (stripped, CB-gated
     // key) nor `variations`, so they skip the rule instead of running a plain
     // experiment split. Weights remain but are never reached.
@@ -161,11 +159,11 @@ describe("filterUsedContextualBandits", () => {
   const featuresWithRef: Record<string, FeatureDefinition> = {
     feature_a: {
       defaultValue: "control",
-      rules: [{ isContextualBandit: true, contextualBanditRef: "cb_1" }],
+      rules: [{ contextualBanditRef: "cb_1" }],
     },
     feature_b: {
       defaultValue: "off",
-      rules: [{ isContextualBandit: true, contextualBanditRef: "cb_1" }],
+      rules: [{ contextualBanditRef: "cb_1" }],
     },
   };
 
@@ -260,20 +258,15 @@ describe("measureContextualBanditPayload", () => {
       {
         f1: {
           defaultValue: "x",
-          rules: [
-            { isContextualBandit: true, contextualBanditRef: "cb_small" },
-          ],
+          rules: [{ contextualBanditRef: "cb_small" }],
         },
         f2: {
           defaultValue: "y",
-          rules: [
-            { isContextualBandit: true, contextualBanditRef: "cb_big" },
-            { force: "z" },
-          ],
+          rules: [{ contextualBanditRef: "cb_big" }, { force: "z" }],
         },
         f3: {
           defaultValue: "z",
-          rules: [{ isContextualBandit: true, contextualBanditRef: "cb_big" }],
+          rules: [{ contextualBanditRef: "cb_big" }],
         },
       },
     );

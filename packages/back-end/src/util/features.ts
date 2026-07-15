@@ -963,7 +963,7 @@ export function getFeatureDefinition({
             capabilities === undefined ||
             capabilities.includes("contextualBandits");
           if (cbCapable) {
-            rule.isContextualBandit = true;
+            // Presence of contextualBanditRef is what marks this as a CB rule.
             rule.contextualBanditRef = cb.id;
           }
 

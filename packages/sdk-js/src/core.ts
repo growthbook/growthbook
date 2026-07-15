@@ -358,9 +358,10 @@ export function evalFeature<V = unknown>(
       if (rule.filters) exp.filters = rule.filters;
       if (rule.condition) exp.condition = rule.condition;
 
-      // For contextual-bandit rules, apply leaf selection to the experiment.
-      // A null result means fail closed (skip this rule).
-      if (rule.isContextualBandit && rule.contextualBanditRef) {
+      // A contextual-bandit rule is identified by the presence of
+      // `contextualBanditRef` (the key into the payload's contextualBandits
+      // map). Apply leaf selection; a null result means fail closed (skip).
+      if (rule.contextualBanditRef) {
         const built = buildContextualBanditExperiment(
           exp,
           rule.contextualBanditRef,

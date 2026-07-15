@@ -46,7 +46,8 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
-  "isContextualBandit",
+  // `contextualBanditRef` (presence identifies a CB rule) points into the
+  // top-level contextualBandits map.
   "contextualBanditRef",
   // CB rules store their variations here (not under `variations`) so that
   // SDKs without the contextualBandits capability drop this key and, seeing no

@@ -5455,7 +5455,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [1, 0],
                 "meta": [
                   {
@@ -5465,7 +5465,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5533,7 +5532,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [1, 0],
                 "meta": [
                   {
@@ -5543,7 +5542,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5611,7 +5609,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0, 1],
                 "meta": [
                   {
@@ -5621,7 +5619,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -5897,7 +5894,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -5907,7 +5904,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8598,7 +8594,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -8608,7 +8604,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8691,7 +8686,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -8701,7 +8696,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8791,7 +8785,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -8801,7 +8795,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -8892,7 +8885,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -8902,7 +8895,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9004,7 +8996,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9014,7 +9006,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9116,7 +9107,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9126,7 +9117,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9222,7 +9212,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9232,7 +9222,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9284,7 +9273,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9294,7 +9283,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               },
               {
@@ -9350,7 +9338,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9360,7 +9348,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "condition": {
                   "country": "US"
                 },
@@ -9416,7 +9403,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.01,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9426,7 +9413,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9479,7 +9465,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["c0", "c1", "c2"],
+                "contextualVariations": ["c0", "c1", "c2"],
                 "weights": [0.34, 0.33, 0.33],
                 "meta": [
                   {
@@ -9492,7 +9478,6 @@
                     "key": "2"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9605,7 +9590,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9615,7 +9600,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9704,7 +9688,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9714,7 +9698,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9795,7 +9778,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9805,7 +9788,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9886,7 +9868,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9896,7 +9878,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -9977,7 +9958,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -9987,7 +9968,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10068,7 +10048,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10078,7 +10058,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10160,7 +10139,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10170,7 +10149,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10223,7 +10201,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10233,7 +10211,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10285,7 +10262,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10295,7 +10272,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10348,7 +10324,7 @@
                 "hashAttribute": "anonId",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10358,7 +10334,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10451,7 +10426,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10461,7 +10436,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10543,7 +10517,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10553,7 +10527,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10635,7 +10608,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10645,7 +10618,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10702,7 +10674,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10712,7 +10684,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10794,7 +10765,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -10804,7 +10775,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10859,7 +10829,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": [
+                "contextualVariations": [
                   {
                     "color": "blue"
                   },
@@ -10876,7 +10846,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -10977,14 +10946,13 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control"],
+                "contextualVariations": ["control"],
                 "weights": [1],
                 "meta": [
                   {
                     "key": "0"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -11031,7 +10999,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 1,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -11041,7 +11009,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "condition": {
                   "country": "US"
                 },
@@ -11137,7 +11104,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.5,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -11147,7 +11114,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
@@ -11237,7 +11203,7 @@
                 "hashAttribute": "id",
                 "hashVersion": 2,
                 "coverage": 0.5,
-                "variations": ["control", "treatment"],
+                "contextualVariations": ["control", "treatment"],
                 "weights": [0.5, 0.5],
                 "meta": [
                   {
@@ -11247,7 +11213,6 @@
                     "key": "1"
                   }
                 ],
-                "isContextualBandit": true,
                 "contextualBanditRef": "cb_promo_bandit"
               }
             ]
