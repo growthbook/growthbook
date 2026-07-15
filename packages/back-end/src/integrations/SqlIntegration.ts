@@ -736,7 +736,7 @@ export default abstract class SqlIntegration
   }
 
   getTestQuery(params: TestQueryParams): string {
-    const { query, templateVariables, timestampColumn } = params;
+    const { query, templateVariables, timestampColumn, notNullColumn } = params;
     const limit = params.limit ?? 5;
     const testDays = params.testDays ?? DEFAULT_TEST_QUERY_DAYS;
     const startDate = new Date();
@@ -747,8 +747,20 @@ export default abstract class SqlIntegration
     if (timestampColumn && !/^[\w.]+$/.test(timestampColumn)) {
       throw new Error(`Invalid timestamp column: ${timestampColumn}`);
     }
-    const tableWhereClause = timestampColumn
-      ? `WHERE ${timestampColumn} >= ${dialect.toTimestamp(startDate)}`
+    if (notNullColumn && !/^[\w.]+$/.test(notNullColumn)) {
+      throw new Error(`Invalid column: ${notNullColumn}`);
+    }
+    const whereConditions: string[] = [];
+    if (timestampColumn) {
+      whereConditions.push(
+        `${timestampColumn} >= ${dialect.toTimestamp(startDate)}`,
+      );
+    }
+    if (notNullColumn) {
+      whereConditions.push(`${notNullColumn} IS NOT NULL`);
+    }
+    const tableWhereClause = whereConditions.length
+      ? `WHERE ${whereConditions.join(" AND ")}`
       : "";
 
     const limitedQuery = compileSqlTemplate(

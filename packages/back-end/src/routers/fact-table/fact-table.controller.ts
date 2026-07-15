@@ -183,6 +183,10 @@ async function testVirtualColumnQuery(
     },
     testDays: context.org.settings?.testQueryDays,
     timestampColumn,
+    // Only preview rows where the tested expression is non-null, so an empty
+    // result reliably means "no matching data" rather than an arbitrary sample
+    // of null rows.
+    notNullColumn: alias,
   });
 
   try {

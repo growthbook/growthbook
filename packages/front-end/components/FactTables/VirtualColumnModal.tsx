@@ -257,7 +257,7 @@ export default function VirtualColumnModal({
           />
 
           <Button
-            variant="soft"
+            variant="solid"
             size="sm"
             icon={<PiPlay />}
             onClick={async () => {
