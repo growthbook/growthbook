@@ -20,8 +20,13 @@ import {
   SimpleSchema,
 } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
+import {
+  buildConstantValueMap,
+  resolveConstantRefs,
+} from "shared/sdk-versioning";
 import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -542,6 +547,34 @@ export async function assertConfigBackedFeatureValuesValid(
   // config when modeling the patch as a lineage child for invariant evaluation.
   const PATCH_KEY = "__feature_patch__";
 
+  // A patch's own `@const:`/`@config:`-backed keys are exempt from the static
+  // type check below (their resolved type is unknown statically). When any patch
+  // actually carries a reference, resolve it against the live constants — per
+  // environment, since a constant's value can differ by env — and re-check the
+  // concrete resolved patch, so a feature value whose reference resolves to a
+  // schema-violating type is caught at publish. Only pay the resolvable load
+  // when a reference is present (the common literal-patch case skips it).
+  const REF_RE = /@(?:const|config):/;
+  const anyReferencePatch = backed.some((b) => REF_RE.test(b.patch));
+  const constantMapForEnv = anyReferencePatch
+    ? (() => {
+        const cache = new Map<
+          string,
+          ReturnType<typeof buildConstantValueMap>
+        >();
+        return async (env: string) => {
+          let m = cache.get(env);
+          if (!m) {
+            const resolvables = await getResolvableValues(context);
+            m = buildConstantValueMap(resolvables, env);
+            cache.set(env, m);
+          }
+          return m;
+        };
+      })()
+    : null;
+  const resolveEnvs = ["", ...getEnvironmentIdsFromOrg(context.org)];
+
   const errors: string[] = [];
   for (const { config, patch, label } of backed) {
     // The backing config no longer exists (deleted/renamed, or a stale
@@ -558,12 +591,47 @@ export async function assertConfigBackedFeatureValuesValid(
       linearizeConfigDag(config, byKey),
     );
     const spineRoot = byKey.get(getConfigSpineRootKey(config, byKey));
+    const additionalProperties = configIsExtensible(
+      spineRoot,
+      extensibleDefault,
+    );
     const res = validateConfigValue({
       value: patchObj,
       fields: effectiveSchema,
-      additionalProperties: configIsExtensible(spineRoot, extensibleDefault),
+      additionalProperties,
     });
     if (!res.valid) errors.push(`${label}: ${res.errors.join(", ")}`);
+
+    // Feature-own reference resolution: re-check the concrete resolved patch
+    // per environment when this value carries a `@const:`/`@config:` ref.
+    if (constantMapForEnv && REF_RE.test(patch)) {
+      const project = feature.project ?? "";
+      for (const env of resolveEnvs) {
+        const resolved = resolveConstantRefs(
+          patchObj,
+          await constantMapForEnv(env),
+          new Set(),
+          undefined,
+          project,
+          env || undefined,
+        );
+        if (
+          !resolved ||
+          typeof resolved !== "object" ||
+          Array.isArray(resolved)
+        )
+          continue;
+        const r = validateConfigValue({
+          value: resolved as Record<string, unknown>,
+          fields: effectiveSchema,
+          additionalProperties,
+        });
+        if (!r.valid) {
+          const tag = env ? ` [${env}]` : "";
+          errors.push(`${label}${tag}: ${r.errors.join(", ")}`);
+        }
+      }
+    }
 
     const withPatch = new Map(byKey);
     withPatch.set(PATCH_KEY, {
