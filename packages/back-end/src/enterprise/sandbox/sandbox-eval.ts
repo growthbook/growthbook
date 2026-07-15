@@ -1,11 +1,26 @@
 import { CustomHookInterface, CustomHookType } from "shared/validators";
-import { getConfigAncestorKeys, getConfigSubtree } from "shared/util";
+import {
+  getConfigAncestorKeys,
+  getConfigBaseKeys,
+  getConfigSubtree,
+  withConfigExtends,
+} from "shared/util";
+import { CONSTANT_EXTENDS_KEY } from "shared/constants";
+import {
+  buildConstantValueMap,
+  resolveConstantRefs,
+} from "shared/sdk-versioning";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ConfigInterface } from "shared/types/config";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import {
+  configToResolvable,
+  ResolvableValue,
+} from "back-end/src/services/resolvableValues";
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
@@ -87,6 +102,14 @@ type ConfigHookInput = {
   extends?: string[];
   lineage?: ConfigLineage;
   scopedConfig?: ScopedConfigHookInfo;
+  // The config's fully-resolved (lineage + `@const:`/`@config:` substituted)
+  // shipping shape, so a hook can validate the real value, not just the raw
+  // patch. `resolved` is env-agnostic (the base value); `perEnvironment` carries
+  // one entry per environment for which the lineage declares a flavor override,
+  // resolved as `base ⊕ flavor` for that env. Present only on the config being
+  // validated (not `original`), and only when hooks will actually run.
+  resolved?: unknown;
+  perEnvironment?: { environment: string; value: unknown }[];
 } & Record<string, unknown>;
 
 // Configs store `value` as a JSON string; hooks get it parsed. A non-JSON /
@@ -98,6 +121,81 @@ function parseConfigValue(value: unknown): unknown {
   } catch {
     return value;
   }
+}
+
+// Resolve the config's fully-substituted shipping shape (env-agnostic + one
+// value per flavor-overridden environment), so a hook can validate the value the
+// SDK actually ships — not just the raw patch it's editing. The STAGED value is
+// substituted into the reference universe (mirroring schemaBreakGuard's proposed
+// map) so the resolved shape reflects the change under validation, not the stored
+// one. Configs + constants are read unfiltered (an admin scan context) since
+// lineage/refs can span projects the acting user can't read.
+async function computeConfigResolvedShapes(
+  context: Context,
+  all: ConfigInterface[],
+  byKey: Map<string, ConfigInterface>,
+  config: ConfigHookInput,
+): Promise<{
+  resolved: unknown;
+  perEnvironment: { environment: string; value: unknown }[];
+}> {
+  const project = config.project ?? byKey.get(config.key)?.project ?? "";
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const constants = await scanContext.models.constants.getAll();
+
+  const stored = byKey.get(config.key);
+  const rawValue =
+    typeof config.value === "string"
+      ? config.value
+      : JSON.stringify(config.value ?? {});
+  const stagedResolvable = {
+    ...(stored ?? {}),
+    key: config.key,
+    project,
+    type: "json",
+    source: "config",
+    value: withConfigExtends(
+      rawValue,
+      getConfigBaseKeys({ parent: config.parent, extends: config.extends }),
+    ),
+    scopedOverrides: stored?.scopedOverrides,
+  } as ResolvableValue;
+
+  const resolvables: ResolvableValue[] = [
+    ...constants.map((c): ResolvableValue => ({ ...c, source: "constant" })),
+    ...all.map((c) =>
+      c.key === config.key ? stagedResolvable : configToResolvable(c),
+    ),
+  ];
+  if (!stored) resolvables.push(stagedResolvable);
+
+  const resolveFor = (environment: string | undefined): unknown =>
+    resolveConstantRefs(
+      { [CONSTANT_EXTENDS_KEY]: [`@config:${config.key}`] },
+      buildConstantValueMap(resolvables, environment ?? ""),
+      new Set(),
+      undefined,
+      project,
+      environment,
+    );
+
+  // Only environments the lineage overrides via a flavor can differ from the
+  // base value, so resolve just those (plus the env-agnostic base).
+  const lineageKeys = [config.key, ...getConfigAncestorKeys(config, byKey)];
+  const environments = new Set<string>();
+  for (const key of lineageKeys) {
+    for (const o of byKey.get(key)?.scopedOverrides ?? []) {
+      (o.environments ?? []).forEach((e) => environments.add(e));
+    }
+  }
+
+  return {
+    resolved: resolveFor(undefined),
+    perEnvironment: [...environments].map((environment) => ({
+      environment,
+      value: resolveFor(environment),
+    })),
+  };
 }
 
 // Shape the config args for hooks: parse `value` and attach lineage facts.
@@ -150,8 +248,18 @@ async function prepareConfigHookArgs(
       ...(scopedConfig ? { scopedConfig } : {}),
     };
   };
+  const { resolved, perEnvironment } = await computeConfigResolvedShapes(
+    context,
+    all,
+    byKey,
+    config,
+  );
   return {
-    config: shape(config),
+    config: {
+      ...shape(config),
+      resolved,
+      ...(perEnvironment.length ? { perEnvironment } : {}),
+    },
     original: original ? shape(original) : original,
   };
 }
