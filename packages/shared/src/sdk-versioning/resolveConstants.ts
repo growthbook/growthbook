@@ -443,6 +443,12 @@ function resolveValue(
             const flavorKey = selectScopedOverride(
               ctx.map.get(mapKey("config", layerKey))?.scopedOverrides,
               { environment: ctx.environment, project: ctx.featureProject },
+              // Skip an archived (or absent) flavor so its env falls back to the
+              // next matching override, else the base — never a stale patch.
+              (k) => {
+                const e = ctx.map.get(mapKey("config", k));
+                return !!e && !e.archived;
+              },
             );
             const flavor = flavorKey
               ? buildConfigLayer(flavorKey, visited, ctx)

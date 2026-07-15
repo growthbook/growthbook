@@ -19,6 +19,9 @@ type Props = {
   currentConfigId: string;
   lineage: LineageNode[];
   configNames?: Record<string, string>;
+  // Archived flag per config key — an archived override still shows a tab (so
+  // you can open it to unarchive), struck through, but no longer serves a value.
+  archivedByKey?: Record<string, boolean>;
   canCreate: boolean;
   mutate: () => Promise<unknown>;
 };
@@ -54,6 +57,7 @@ export default function ConfigEnvTabs({
   currentConfigId,
   lineage,
   configNames,
+  archivedByKey,
   canCreate,
   mutate,
 }: Props) {
@@ -137,7 +141,7 @@ export default function ConfigEnvTabs({
 
   return (
     <>
-      <Box mb="3">
+      <Box mb="5">
         <Tabs
           value={currentKey}
           onValueChange={(v) => {
@@ -147,7 +151,16 @@ export default function ConfigEnvTabs({
           <TabsList>
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
-                {t.label}
+                {archivedByKey?.[t.key] ? (
+                  <span
+                    style={{ textDecoration: "line-through" }}
+                    title="Archived — this override no longer serves a value"
+                  >
+                    {t.label}
+                  </span>
+                ) : (
+                  t.label
+                )}
               </TabsTrigger>
             ))}
             {showCreate && (
@@ -176,9 +189,8 @@ export default function ConfigEnvTabs({
           submit={createOverride}
         >
           <Text as="p" color="text-low" mb="3">
-            Creates a flavor of <strong>{nameFor(baseKey)}</strong> that applies
-            only in the selected environment. Its value is an override patch
-            deep-merged onto the base at build time.
+            Creates a version of <strong>{nameFor(baseKey)}</strong> that
+            overrides the base value in the selected environment only.
           </Text>
           <SelectField
             label="Environment"

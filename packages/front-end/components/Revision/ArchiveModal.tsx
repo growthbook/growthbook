@@ -40,6 +40,10 @@ export interface Props {
   referencesError?: boolean;
   // The entity's reference list node, rendered when archiving is blocked.
   referencesList: ReactNode;
+  // "hard" (default): references hard-block the archive client-side. "soft": the
+  // server decides (it may allow, or return a soft warning the user confirms via
+  // the shared apiCall handler) — references render only as informational context.
+  referenceBlockMode?: "hard" | "soft";
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker), reusing the same control the edit modals use.
   renderDraftSelector: (opts: {
@@ -75,6 +79,7 @@ export default function ArchiveModal({
   referencesLoading,
   referencesError = false,
   referencesList,
+  referenceBlockMode = "hard",
   renderDraftSelector,
   trackingEventModalType,
   close,
@@ -101,9 +106,16 @@ export default function ArchiveModal({
   // Reference-blocking policy is archive-only: archiving a still-referenced
   // entity would silently drop its config from every referencing item.
   // Unarchiving a referenced entity is safe and always allowed.
-  const blockedByReferences = !isArchived && referenceCount > 0;
+  // Soft mode: the server is the source of truth — it allows a no-op/unused
+  // archive outright and returns a soft warning (which the shared apiCall
+  // handler asks the user to confirm) only when the entity is actually serving a
+  // value. So don't pre-warn or block on references here; that would nag on the
+  // common harmless case.
+  const soft = referenceBlockMode === "soft";
+  const blockedByReferences = !isArchived && referenceCount > 0 && !soft;
   const canSubmit =
     isArchived ||
+    soft ||
     (!referencesLoading && !referencesError && referenceCount === 0);
   const lowerNoun = entityNoun.toLowerCase();
 
@@ -176,11 +188,11 @@ export default function ArchiveModal({
           Are you sure you want to continue? This will make the {lowerNoun}{" "}
           active again.
         </p>
-      ) : referencesLoading ? (
+      ) : referencesLoading && !soft ? (
         <Text color="text-disabled">
           <LoadingSpinner /> Checking {lowerNoun} references...
         </Text>
-      ) : referencesError ? (
+      ) : referencesError && !soft ? (
         <Callout status="error" mb="4">
           Could not check {lowerNoun} references. Archiving is blocked until
           references can be verified — try again later.

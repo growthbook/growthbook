@@ -8,8 +8,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/ui/Link";
 
 // Thin wrapper around the entity-agnostic ArchiveModal for configs (mirrors
-// ConstantArchiveModal). Archiving is blocked while features still reference the
-// config family; unarchiving is always allowed.
+// ConstantArchiveModal). References are informational, not a hard block: the
+// server allows archiving a child/env-override whose live patch is empty or
+// unused, and soft-warns (confirm to proceed) when it's actively serving a
+// value. Unarchiving is always allowed.
 export default function ConfigArchiveModal({
   config,
   revisionCtx,
@@ -45,6 +47,10 @@ export default function ConfigArchiveModal({
       referenceCount={features.length}
       referencesLoading={loading}
       referencesError={(error ?? null) !== null}
+      // The server decides archivability for configs (a child/env-override with
+      // an empty or unused patch archives outright; a live-serving one returns a
+      // soft warning to confirm), so references are informational, not a block.
+      referenceBlockMode="soft"
       referencesList={
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {features.map((f) => (

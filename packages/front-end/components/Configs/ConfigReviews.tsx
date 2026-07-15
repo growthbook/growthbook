@@ -321,6 +321,7 @@ const ConfigReviews: FC = () => {
                 >
                   <TableCell style={{ padding: "var(--space-0)" }}>
                     <Link
+                      color="dark"
                       href={row.url}
                       onClick={(e) => e.stopPropagation()}
                       style={{

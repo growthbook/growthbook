@@ -209,6 +209,28 @@ describe("orderConfigsByLineage", () => {
     expect(result.map(([key]) => key).sort()).toEqual(["a", "b"]);
     expect(result).toHaveLength(2);
   });
+
+  it("preserveRootOrder keeps roots in input order but still name-sorts children", () => {
+    expect(
+      orderConfigsByLineage(
+        [
+          // Roots arrive in a caller-chosen order (e.g. an active table sort),
+          // NOT alphabetical.
+          { key: "b-root", name: "B root" },
+          { key: "b-z", name: "Z", parent: "b-root" },
+          { key: "b-a", name: "A", parent: "b-root" },
+          { key: "a-root", name: "A root" },
+        ],
+        { preserveRootOrder: true },
+      ).map(({ config, depth }) => [config.key, depth]),
+    ).toEqual([
+      // b-root before a-root (input order preserved), children A before Z.
+      ["b-root", 0],
+      ["b-a", 1],
+      ["b-z", 1],
+      ["a-root", 0],
+    ]);
+  });
 });
 
 describe("getFeatureBaseConfigKey", () => {
@@ -2006,6 +2028,33 @@ describe("selectScopedOverride", () => {
     ).toBe("f-proj");
     expect(
       selectScopedOverride(list, { environment: "dev", project: "proj_2" }),
+    ).toBeNull();
+  });
+
+  it("skips an ineligible (e.g. archived) match so a later entry can win", () => {
+    const list = [
+      { config: "f-archived", environments: ["production"] },
+      { config: "f-live", environments: ["production"] },
+    ];
+    const eligible = (k: string) => k !== "f-archived";
+    // Without the gate, first-match wins (even though it's archived).
+    expect(selectScopedOverride(list, { environment: "production" })).toBe(
+      "f-archived",
+    );
+    // With the gate, the archived first match is skipped for the live one.
+    expect(
+      selectScopedOverride(list, { environment: "production" }, eligible),
+    ).toBe("f-live");
+  });
+
+  it("falls back to null when the only match is ineligible", () => {
+    const list = [{ config: "f-archived", environments: ["production"] }];
+    expect(
+      selectScopedOverride(
+        list,
+        { environment: "production" },
+        (k) => k !== "f-archived",
+      ),
     ).toBeNull();
   });
 });

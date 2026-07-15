@@ -6,6 +6,7 @@ import {
   featuresAffectedByResolvable,
   computeConfigKeyImplementations,
   experimentRefsReferencingConstant,
+  isEmptyConfigPatch,
   FeatureValueSource,
 } from "back-end/src/services/constants";
 import {
@@ -840,5 +841,30 @@ describe("experimentRefsReferencingConstant", () => {
       experimentIds: ["exp_1"],
       banditIds: [],
     });
+  });
+});
+
+describe("isEmptyConfigPatch", () => {
+  it("treats an empty object, undefined, and empty string as empty", () => {
+    expect(isEmptyConfigPatch("{}")).toBe(true);
+    expect(isEmptyConfigPatch(undefined)).toBe(true);
+    expect(isEmptyConfigPatch("")).toBe(true);
+    // Whitespace-only object still parses to no keys.
+    expect(isEmptyConfigPatch("{ }")).toBe(true);
+  });
+
+  it("treats any own key as a non-empty patch", () => {
+    expect(isEmptyConfigPatch('{"a":1}')).toBe(false);
+    expect(isEmptyConfigPatch('{"a":null}')).toBe(false);
+  });
+
+  it("treats non-object JSON (array, scalar) as non-empty (not a bare patch)", () => {
+    expect(isEmptyConfigPatch("[]")).toBe(false);
+    expect(isEmptyConfigPatch("0")).toBe(false);
+    expect(isEmptyConfigPatch("null")).toBe(false);
+  });
+
+  it("treats unparseable JSON as non-empty (can't prove it's a no-op)", () => {
+    expect(isEmptyConfigPatch("{not json")).toBe(false);
   });
 });

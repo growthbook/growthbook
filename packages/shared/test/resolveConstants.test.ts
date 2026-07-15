@@ -973,6 +973,58 @@ describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => 
     });
   });
 
+  it("skips an archived flavor, serving the base value", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3,"color":"red"}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      // The prod flavor still exists (kept in the base's lineage) but is
+      // archived → its patch must not apply.
+      [
+        "base-prod",
+        {
+          type: "json",
+          source: "config",
+          value: "",
+          archived: true,
+        } as ConstantValueMapEntry,
+      ],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 3, color: "red" });
+  });
+
+  it("skips an archived flavor, falling through to a catch-all override", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3}', [
+          { config: "base-prod", environments: ["production"] },
+          { config: "base-any" },
+        ]),
+      ],
+      [
+        "base-prod",
+        {
+          type: "json",
+          source: "config",
+          value: "",
+          archived: true,
+        } as ConstantValueMapEntry,
+      ],
+      ["base-any", cfg('{"$extends":["@config:base"],"timeout":9}')],
+    ]);
+    // prod's specific flavor is archived → selection falls through to the
+    // still-live catch-all rather than stalling on the archived match.
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 9 });
+  });
+
   it("cascades: a descendant's own value beats an ancestor's env flavor", () => {
     const map = nsMap([
       [

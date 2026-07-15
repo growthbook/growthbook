@@ -271,11 +271,19 @@ export function getConfigSpineSubtree(
 // reads top-down. `depth` is the spine depth WITHIN the supplied set — a config
 // whose parent isn't in the set is a root (depth 0). Cycle-safe; any config not
 // reached is appended alphabetically. Mixins (`extends`) don't affect ordering.
+//
+// `preserveRootOrder` keeps the roots in the order they arrive (rather than
+// sorting them by name), so a caller that already sorted the input by some
+// key/direction can keep that ordering for the top level while children stay
+// grouped under each parent in their own fixed (name) order.
 const configNameCollator = new Intl.Collator();
 
 export function orderConfigsByLineage<
   T extends { key: string; name?: string; parent?: string },
->(configs: T[]): { config: T; depth: number }[] {
+>(
+  configs: T[],
+  opts?: { preserveRootOrder?: boolean },
+): { config: T; depth: number }[] {
   const byKey = new Map(configs.map((c) => [c.key, c]));
   const childrenOf = new Map<string, T[]>();
   const roots: T[] = [];
@@ -301,12 +309,18 @@ export function orderConfigsByLineage<
       visit(kid, depth + 1);
     }
   };
-  for (const root of roots.slice().sort(byName)) visit(root, 0);
+  const rootOrder = opts?.preserveRootOrder
+    ? roots
+    : roots.slice().sort(byName);
+  for (const root of rootOrder) visit(root, 0);
   // Recover any configs left unreached by a parent cycle (never happens in a
   // valid DAG — cycles are rejected at write time). Guarded so the common case
-  // doesn't pay for a second full sort.
+  // doesn't pay for a second pass.
   if (seen.size < configs.length) {
-    for (const c of configs.slice().sort(byName)) {
+    const rest = opts?.preserveRootOrder
+      ? configs
+      : configs.slice().sort(byName);
+    for (const c of rest) {
       if (!seen.has(c.key)) {
         seen.add(c.key);
         out.push({ config: c, depth: 0 });

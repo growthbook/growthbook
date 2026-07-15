@@ -18,6 +18,12 @@ export type ScopedOverrideEntry = {
 export function selectScopedOverride(
   scopedOverrides: ScopedOverrideEntry[] | undefined,
   context: { environment?: string; project?: string },
+  // Optional gate on the matched flavor config. An entry that matches scope but
+  // whose flavor is ineligible (archived, or missing from the resolvable set) is
+  // skipped so a later matching entry can win — and an archived override cleanly
+  // falls back to the next match / base instead of blocking the chain. Absent =
+  // every matched entry is eligible.
+  isEligible?: (configKey: string) => boolean,
 ): string | null {
   for (const entry of scopedOverrides ?? []) {
     const envMatch =
@@ -27,7 +33,10 @@ export function selectScopedOverride(
     const projMatch =
       !entry.projects?.length ||
       (context.project != null && entry.projects.includes(context.project));
-    if (envMatch && projMatch) return entry.config;
+    if (envMatch && projMatch) {
+      if (isEligible && !isEligible(entry.config)) continue;
+      return entry.config;
+    }
   }
   return null;
 }

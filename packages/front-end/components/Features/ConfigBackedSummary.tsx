@@ -236,10 +236,16 @@ export default function ConfigBackedSummary({
   // scoped override still serve the base value, so they stay untagged.
   const activeEnvFlavor =
     environment != null
-      ? selectScopedOverride(configScopedOverrides, {
-          environment,
-          project: feature.project || "",
-        })
+      ? selectScopedOverride(
+          configScopedOverrides,
+          { environment, project: feature.project || "" },
+          // Match the resolver: an archived (or absent) flavor doesn't apply, so
+          // it shouldn't drive the "(env)" tag either.
+          (k) =>
+            (data?.constants ?? []).some(
+              (c) => c.source === "config" && c.key === k && !c.archived,
+            ),
+        )
       : null;
 
   const fullStyle = {

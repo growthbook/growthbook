@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowElbowDownRight } from "react-icons/pi";
 import {
   isProjectListValidForProject,
   isScopedConfig,
+  orderConfigsByLineage,
   truncateString,
 } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -188,6 +190,18 @@ export default function ConfigsPage(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, hasDraftFilter]);
 
+  // Rows to render, memoized on the search result (useSearch returns a stable
+  // `items` reference until the query/sort/page changes). Browse view nests by
+  // lineage — roots in the active sort's order, children grouped under each
+  // parent — while a search/facet shows the flat, relevance-ordered results.
+  const displayRows = useMemo(
+    () =>
+      isFiltered
+        ? items.map((config) => ({ config, depth: 0 }))
+        : orderConfigsByLineage(items, { preserveRootOrder: true }),
+    [items, isFiltered],
+  );
+
   // Project-scoped: the archived facet/badge must reflect the configs in scope
   // for the current project, not the org-wide list.
   const hasArchived = visibleConfigs.some((c) => c.archived);
@@ -317,7 +331,7 @@ export default function ConfigsPage(): React.ReactElement {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((c) => {
+                    {displayRows.map(({ config: c, depth }) => {
                       const draftEntry = draftHook.draftStates[c.id];
                       return (
                         <TableRow
@@ -327,12 +341,32 @@ export default function ConfigsPage(): React.ReactElement {
                           }}
                         >
                           <TableCell style={{ padding: "var(--space-0)" }}>
-                            <Flex align="center" gap="2">
+                            <Flex
+                              align="center"
+                              gap="1"
+                              style={
+                                depth
+                                  ? { paddingLeft: (depth - 1) * 16 }
+                                  : undefined
+                              }
+                            >
+                              {depth > 0 && (
+                                <PiArrowElbowDownRight
+                                  style={{
+                                    flexShrink: 0,
+                                    marginLeft: "var(--space-3)",
+                                    color: "var(--slate-9)",
+                                  }}
+                                />
+                              )}
                               <Link
                                 color="dark"
                                 style={{
                                   display: "block",
                                   padding: "var(--space-3)",
+                                  paddingLeft: depth
+                                    ? "var(--space-1)"
+                                    : "var(--space-3)",
                                 }}
                                 href={`/configs/${c.key}`}
                               >

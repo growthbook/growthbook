@@ -46,6 +46,7 @@ import {
 import useApi from "@/hooks/useApi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import SplitButton from "@/ui/SplitButton";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -210,7 +211,7 @@ function ConfigExportMenu({ payloads }: { payloads: ConfigExportPayloads }) {
       variant="soft"
       color="violet"
       trigger={
-        <Button variant="ghost" size="sm">
+        <Button variant="outline" size="sm">
           <Flex align="center" gap="1">
             {copySuccess ? <PiCheckBold /> : <PiCopy />}
             {/* Fixed width so the "Copied!" swap doesn't shift layout. */}
@@ -846,8 +847,21 @@ export default function ConfigDetailPage(): React.ReactElement {
   };
 
   const canUpdate = permissionsUtil.canUpdateConfig(config, config);
+  // Delete leaf-up: a config that others still derive from (parent-spine
+  // children, composition mixins, or env/project overrides) can't be deleted
+  // until those are gone. Mirrors the server's assertConfigDeletable so the UI
+  // doesn't offer a delete that would fail; deleting the descendants first (each
+  // lands you back on this parent) eventually makes it a deletable leaf.
+  const hasDescendants = (data?.lineage ?? []).some(
+    (n) =>
+      n.key !== config.key &&
+      (n.parentKey === config.key ||
+        (n.extendsKeys ?? []).includes(config.key)),
+  );
   const canDeleteNow =
-    permissionsUtil.canDeleteConfig(config) && !!config.archived;
+    permissionsUtil.canDeleteConfig(config) &&
+    !!config.archived &&
+    !hasDescendants;
   // A locked config is frozen — no edit controls at all (unlock is a separate,
   // bypass-gated control). Editing is otherwise allowed both in a draft and in
   // the live view; a selected merged/discarded revision is a read-only history
@@ -1704,21 +1718,21 @@ export default function ConfigDetailPage(): React.ReactElement {
                   disablePinning
                 />
 
-                <ConfigEnvTabs
-                  currentKey={config.key}
-                  currentConfigId={config.id}
-                  lineage={data.lineage}
-                  configNames={data.configNames}
-                  canCreate={
-                    hasConfigsFeature &&
-                    permissionsUtil.canCreateConfig({
-                      project: config.project || "",
-                    })
-                  }
-                  mutate={mutate}
-                />
-
-                <Box mb="4" pb="5" px="6" className="appbox">
+                <Box mb="4" pt="4" pb="5" px="6" className="appbox">
+                  <ConfigEnvTabs
+                    currentKey={config.key}
+                    currentConfigId={config.id}
+                    lineage={data.lineage}
+                    configNames={data.configNames}
+                    archivedByKey={data.archivedByKey}
+                    canCreate={
+                      hasConfigsFeature &&
+                      permissionsUtil.canCreateConfig({
+                        project: config.project || "",
+                      })
+                    }
+                    mutate={mutate}
+                  />
                   <Tabs
                     value={activeTab}
                     onValueChange={(v) => {
@@ -1732,24 +1746,34 @@ export default function ConfigDetailPage(): React.ReactElement {
                       );
                     }}
                   >
-                    {/* Right-hand controls live inside the full-width TabsList so its
-                    underline runs the whole width and sits under them too. */}
-                    <Box pt="4" mb="4">
-                      <TabsList style={{ width: "100%" }}>
-                        <TabsTrigger value="form">Form</TabsTrigger>
-                        <TabsTrigger value="json">JSON</TabsTrigger>
-                        <TabsTrigger value="resolved">Resolved</TabsTrigger>
-                        {/* stopPropagation so these controls don't feed the TabsList's roving focus. */}
-                        <Flex
-                          align="center"
-                          gap="5"
-                          ml="auto"
-                          pl="4"
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
+                    {/* Prototype: outline split button as a segmented control in
+                    place of the Form | JSON | Resolved tabs. */}
+                    <Box mb="4">
+                      <Flex align="center" justify="between" width="100%">
+                        <SplitButton variant="outline">
+                          {(["form", "json", "resolved"] as const).map((t) => (
+                            <Button
+                              key={t}
+                              color="violet"
+                              variant={activeTab === t ? "solid" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                cancelEdits();
+                                setActiveTab(t);
+                              }}
+                            >
+                              {t === "form"
+                                ? "Form"
+                                : t === "json"
+                                  ? "JSON"
+                                  : "Resolved"}
+                            </Button>
+                          ))}
+                        </SplitButton>
+                        <Flex align="center" gap="5" pl="4">
                           <ConfigExportMenu payloads={exportPayloads} />
                         </Flex>
-                      </TabsList>
+                      </Flex>
                     </Box>
 
                     <TabsContent value="form">
@@ -2226,9 +2250,14 @@ export default function ConfigDetailPage(): React.ReactElement {
           content="This permanently deletes the config. This cannot be undone."
           yesText="Delete"
           onConfirm={async () => {
+            // After deleting, land on the nearest config still in this lineage
+            // (parent spine, else a mixin base) rather than the list — only the
+            // root has nowhere left to go.
+            const node = data.lineage.find((n) => n.key === config.key);
+            const parentKey = node?.parentKey ?? node?.extendsKeys?.[0] ?? null;
             await apiCall(`/configs/${config.id}`, { method: "DELETE" });
             await mutateDefinitions();
-            router.push("/configs");
+            router.push(parentKey ? `/configs/${parentKey}` : "/configs");
           }}
           onCancel={() => setConfirmDelete(false)}
         />
