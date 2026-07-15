@@ -255,7 +255,15 @@ function resolveExtendsRef(
   }
   const parsed = parsedEntryValue(entry);
   if (parsed === undefined) return null;
-  const resolved = resolveValue(parsed, new Set([...visited, mk]), ctx);
+  // A constant's own keys REPLACE their `$extends` bases (a constant's object
+  // value is authoritative wholesale); a config deep-merges (and resolves via
+  // buildConfigLayer, not here). resolveExtendsRef only ever resolves constants.
+  const resolved = resolveValue(
+    parsed,
+    new Set([...visited, mk]),
+    ctx,
+    source === "constant",
+  );
   // Memoize per pass. Caveat: if this node is first resolved while sitting
   // beneath a cycle edge, the back-reference was cut (→ null) and the cached
   // value is truncated; an independent, non-cyclic referrer in the same pass
@@ -382,12 +390,19 @@ function resolveValue(
   value: unknown,
   visited: Set<string>,
   ctx: ResolveContext,
+  // Own-key merge mode. Constants REPLACE: an own key overwrites whatever its
+  // `$extends` bases resolved to (a constant's object value is authoritative
+  // wholesale). Configs (and feature patches) DEEP-MERGE: an own key restates
+  // only the leaves it changes. Configs resolve through buildConfigLayer, so
+  // only the constant path (resolveExtendsRef) turns this on; it propagates
+  // through a constant's nested structure.
+  replaceOwnKeys = false,
 ): unknown {
   if (typeof value === "string") {
     return resolveStringRefs(value, visited, ctx);
   }
   if (Array.isArray(value)) {
-    return value.map((v) => resolveValue(v, visited, ctx));
+    return value.map((v) => resolveValue(v, visited, ctx, replaceOwnKeys));
   }
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
@@ -409,7 +424,12 @@ function resolveValue(
         // can override it — something own keys, which always win, can't do).
         // Resolved recursively so nested references/`$extends` inside it work.
         if (isPlainObject(ref)) {
-          const resolvedInline = resolveValue(ref, visited, ctx);
+          const resolvedInline = resolveValue(
+            ref,
+            visited,
+            ctx,
+            replaceOwnKeys,
+          );
           if (isPlainObject(resolvedInline)) Object.assign(out, resolvedInline);
           continue;
         }
@@ -489,17 +509,21 @@ function resolveValue(
       }
     }
 
-    // Own keys deep-merge (targeted patch) onto the merged base — a value
-    // restates only the leaves it changes. Skip `$extends` itself when used as
-    // a merge directive (an array); otherwise treat it as a normal key. An own
-    // key whose value is itself a `$extends` chunk is applied wholesale (atomic).
+    // Own keys win over the merged base. Configs (and feature patches) deep-
+    // merge — a value restates only the leaves it changes; constants replace —
+    // the own value is authoritative wholesale (`replaceOwnKeys`). Skip
+    // `$extends` itself when used as a merge directive; an own key whose value
+    // is itself a `$extends` chunk is always applied wholesale (atomic).
     for (const [k, v] of Object.entries(obj)) {
       if (k === EXTENDS_KEY && Array.isArray(extendsList)) continue;
       const outKey = k === ESCAPED_EXTENDS_KEY ? EXTENDS_KEY : k;
       if (isUnsafeMergeKey(outKey)) continue;
-      const resolved = resolveValue(v, visited, ctx);
+      const resolved = resolveValue(v, visited, ctx, replaceOwnKeys);
       const isChunk = isPlainObject(v) && EXTENDS_KEY in v;
-      out[outKey] = isChunk ? resolved : deepMergePatch(out[outKey], resolved);
+      out[outKey] =
+        replaceOwnKeys || isChunk
+          ? resolved
+          : deepMergePatch(out[outKey], resolved);
     }
     return out;
   }

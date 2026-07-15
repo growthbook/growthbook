@@ -729,6 +729,32 @@ describe("resolveConstantRefs — config DAG linearization (chain parity)", () =
     ).toEqual({ cfg: { x: 1, y: 2 } });
   });
 
+  it("REPLACES a constant's own object key over its @const: base (not merge)", () => {
+    const map = nsMap([
+      ["base", cst('{"timeouts":{"read":30,"write":60}}')],
+      ["child", cst('{"$extends":["@const:base"],"timeouts":{"read":10}}')],
+    ]);
+    // A constant's object value is authoritative wholesale — child's `timeouts`
+    // replaces the base's (write:60 dropped), unlike a config which would merge.
+    expect(resolveConstantRefs({ $extends: ["@const:child"] }, map)).toEqual({
+      timeouts: { read: 10 },
+    });
+  });
+
+  it("a constant mixin on a config replaces its portion; config-only keys merge", () => {
+    const map = nsMap([
+      ["k", cst('{"feature":{"a":99}}')],
+      ["parent", cfg('{"feature":{"a":1,"b":2},"other":{"y":0}}')],
+      ["c", cfg('{"$extends":["@config:parent","@const:k"],"other":{"x":1}}')],
+    ]);
+    // k (a constant) replaces `feature` wholesale (b:2 dropped); the config-only
+    // key `other` still deep-merges parent + c.
+    expect(resolveConstantRefs({ $extends: ["@config:c"] }, map)).toEqual({
+      feature: { a: 99 },
+      other: { y: 0, x: 1 },
+    });
+  });
+
   it("keeps a sibling config's $extends chunk atomic (replaces, no per-key merge)", () => {
     const map = nsMap([
       ["chunk", cst('{"x":9}')],
