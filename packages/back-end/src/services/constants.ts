@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { ConfigInterface } from "shared/types/config";
 import {
@@ -973,6 +974,52 @@ export async function assertScopedOverridesValid(
 // pointed at it, so a deleted flavor never leaves a dangling selection entry on
 // its parent. System write (bypasses per-config edit permission): the deleter
 // acted on the flavor, and the parent may live in a project they can't edit.
+// Stamp/refresh the self-describing `scopedConfig` marker on each flavor a
+// parent now selects, and clear it on any flavor it no longer selects. Called
+// immediately after a parent's scopedOverrides is written (not revision-managed),
+// so a flavor always carries a live mirror of its scope — the parent's
+// scopedOverrides stays the source of truth for resolution. System writes (a
+// flavor may live in a project the editor can't touch).
+export async function syncScopedConfigMarkers(
+  context: ReqContext | ApiReqContext,
+  parentKey: string,
+  prevOverrides: ScopedOverrideEntry[],
+  nextOverrides: ScopedOverrideEntry[],
+): Promise<void> {
+  const nextByKey = new Map(nextOverrides.map((o) => [o.config, o]));
+
+  // Clear the marker on flavors this parent no longer selects.
+  for (const prev of prevOverrides) {
+    if (nextByKey.has(prev.config)) continue;
+    const flavor = await context.models.configs.getByKey(prev.config);
+    // Only clear a marker that points at THIS parent — don't stomp a flavor
+    // that another parent legitimately owns.
+    if (flavor && flavor.scopedConfig?.parent === parentKey) {
+      await context.models.configs.dangerousUpdateBypassPermission(flavor, {
+        scopedConfig: null,
+      });
+    }
+  }
+
+  // Stamp/refresh the marker on currently-selected flavors.
+  for (const entry of nextByKey.values()) {
+    const flavor = await context.models.configs.getByKey(entry.config);
+    if (!flavor) continue;
+    const marker = {
+      parent: parentKey,
+      ...(entry.environments?.length
+        ? { environments: entry.environments }
+        : {}),
+      ...(entry.projects?.length ? { projects: entry.projects } : {}),
+    };
+    if (!isEqual(flavor.scopedConfig ?? null, marker)) {
+      await context.models.configs.dangerousUpdateBypassPermission(flavor, {
+        scopedConfig: marker,
+      });
+    }
+  }
+}
+
 export async function pruneScopedOverridesReferencing(
   context: ReqContext | ApiReqContext,
   deletedKey: string,

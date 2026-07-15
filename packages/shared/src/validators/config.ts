@@ -95,6 +95,21 @@ export const configValidator = z
     // config's for the matching scope, deep-merged per layer at resolution. Absent
     // = a plain, scope-agnostic config.
     scopedOverrides: z.array(scopedOverrideValidator).optional(),
+    // Present ONLY on a flavor (a config selected by some parent's
+    // scopedOverrides): a self-describing marker + mirror of its scope, so a
+    // flavor can be filtered out of list views / feature `baseConfig` selectors
+    // without reverse-scanning every parent. NOT the source of truth for
+    // resolution (the parent's scopedOverrides is) and NOT revision-controlled —
+    // it's stamped/cleared immediately when scopedOverrides is written. `null`/
+    // absent = a normal (non-flavor) config.
+    scopedConfig: z
+      .object({
+        parent: z.string(),
+        environments: z.array(z.string()).optional(),
+        projects: z.array(z.string()).optional(),
+      })
+      .nullable()
+      .optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
@@ -120,13 +135,16 @@ export const configValidator = z
   .strict();
 
 // Fields revision-aware paths (revert, applyChanges) may mutate.
+// NOTE: `scopedOverrides` is deliberately absent — the env/project variant
+// selection writes IMMEDIATELY via its own endpoint (setConfigScopedOverrides),
+// never through the revision merge, so the env-tab UI can always resolve the
+// family from the live config.
 export const configUpdatableFieldsSchema = configValidator.pick({
   name: true,
   owner: true,
   parent: true,
   extends: true,
   value: true,
-  scopedOverrides: true,
   description: true,
   project: true,
   archived: true,

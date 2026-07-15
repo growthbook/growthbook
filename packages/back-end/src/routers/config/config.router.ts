@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   postConfigBodyValidator,
   putConfigBodyValidator,
+  scopedOverrideValidator,
 } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
@@ -88,6 +89,19 @@ router.post(
     body: z.object({ enabled: z.boolean() }).strict(),
   }),
   configController.setConfigExperimentGuard,
+);
+
+// Structural env/project variant selection — written immediately, not through
+// the revision flow (see setConfigScopedOverrides).
+router.put(
+  "/:id/scoped-overrides",
+  validateRequestMiddleware({
+    params: idParams,
+    body: z
+      .object({ scopedOverrides: z.array(scopedOverrideValidator) })
+      .strict(),
+  }),
+  configController.setConfigScopedOverrides,
 );
 
 router.delete(

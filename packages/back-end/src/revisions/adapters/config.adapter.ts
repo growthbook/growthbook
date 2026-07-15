@@ -44,9 +44,17 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
 // Mirrors constant.adapter.ts (see it for rationale); only model + permissions differ.
-const SNAPSHOT_ALLOWED_KEYS = Object.keys(configValidator.shape) as Array<
-  keyof ConfigInterface
->;
+// scopedOverrides (env/project variant selection) + its derived scopedConfig
+// marker write IMMEDIATELY, never through a revision — so they must stay out of
+// the revision snapshot too, or a draft would carry a stale copy that clobbers
+// the live value on resolve/revert.
+const SNAPSHOT_EXCLUDED_KEYS: ReadonlySet<string> = new Set([
+  "scopedOverrides",
+  "scopedConfig",
+]);
+const SNAPSHOT_ALLOWED_KEYS = (
+  Object.keys(configValidator.shape) as Array<keyof ConfigInterface>
+).filter((k) => !SNAPSHOT_EXCLUDED_KEYS.has(k));
 
 const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(configUpdatableFieldsSchema.shape),

@@ -1234,6 +1234,121 @@ describe("SDK Payloads", () => {
     expect(def?.rules).toEqual([{ force: { a: 1, b: 99 } }]);
   });
 
+  it("applies an environment-scoped config flavor (scopedOverrides) per environment", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // Base config { beanType: jelly } with a `dev`-scoped flavor that patches
+    // beanType → fava. The flavor is a child config (its own value carries the
+    // parent `@config:base` ref, which the resolver excludes to avoid a loop).
+    const constantMap = new Map([
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ beanType: "jelly" }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    // dev: the flavor patch is deep-merged onto the base → beanType: fava.
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    // production: no matching flavor → the base value.
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
+  });
+
+  it("applies the env flavor ON TOP of a composition mixin (flavor wins)", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.valueType = "json";
+    feature.baseConfig = "base";
+    feature.defaultValue = JSON.stringify({ $extends: ["@config:base"] });
+
+    // `base` composes a `mixin` (which supplies beanType: jelly) and has no own
+    // beanType. A `dev` flavor patches beanType → fava. The mixin is a base layer
+    // (applied before `base`), and the flavor applies after `base` — so at every
+    // env the mixin resolves first and the flavor lands on top for dev.
+    const constantMap = new Map([
+      [
+        "config:mixin",
+        { type: "json" as const, value: JSON.stringify({ beanType: "jelly" }) },
+      ],
+      [
+        "config:base",
+        {
+          type: "json" as const,
+          value: JSON.stringify({ $extends: ["@config:mixin"] }),
+          scopedOverrides: [{ config: "base_dev", environments: ["dev"] }],
+        },
+      ],
+      [
+        "config:base_dev",
+        {
+          type: "json" as const,
+          value: JSON.stringify({
+            $extends: ["@config:base"],
+            beanType: "fava",
+          }),
+        },
+      ],
+    ]);
+
+    const devDef = getFeatureDefinition({
+      feature,
+      environment: "dev",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // dev: the flavor's beanType wins over the mixin's.
+    expect(devDef?.defaultValue).toEqual({ beanType: "fava" });
+
+    const prodDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      constantMap,
+    });
+    // production: no flavor → the mixin's value.
+    expect(prodDef?.defaultValue).toEqual({ beanType: "jelly" });
+  });
+
   it("spreads constants in both the default and a sparse patch, patch winning", () => {
     const feature = cloneDeep(baseFeature);
     feature.valueType = "json";

@@ -34,6 +34,18 @@ export function isConfigLocked(config: {
   return (config.lock ?? null) !== null;
 }
 
+// Whether a config is an environment/project "flavor" — a variant selected by
+// some parent's scopedOverrides. Reads the self-describing `scopedConfig` marker
+// (stamped when the parent's scopedOverrides is written), so callers can filter
+// flavors out of list views / feature `baseConfig` selectors / the lineage tree
+// without reverse-scanning every config. Typed structurally to stay validator-
+// import-free (shared by FE + BE).
+export function isScopedConfig(config: {
+  scopedConfig?: { parent: string } | null;
+}): boolean {
+  return (config.scopedConfig ?? null) !== null;
+}
+
 // Every base config key for a config, in precedence order: the `parent` spine
 // first, then each `extends` mixin in array order. Deduped, order-preserving.
 // These become the `@config:` `$extends` entries — later overrides earlier, and

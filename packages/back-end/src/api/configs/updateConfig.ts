@@ -33,7 +33,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
-import { assertScopedOverridesValid } from "back-end/src/services/constants";
+import {
+  assertScopedOverridesValid,
+  syncScopedConfigMarkers,
+} from "back-end/src/services/constants";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { resolveConfigSchemaSource } from "./validations";
@@ -152,12 +155,23 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       req.body.scopedOverrides !== undefined &&
       !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
     ) {
-      // Store as-is (incl. `[]` to clear); `undefined` would be dropped and no-op.
-      fieldsToUpdate.scopedOverrides = req.body.scopedOverrides;
+      // The env/project variant selection is structural — written IMMEDIATELY,
+      // never through the revision flow (matches the internal
+      // PUT /configs/:id/scoped-overrides). The flavor's value carries any
+      // served-value change, under the flavor's own review.
       await assertScopedOverridesValid(req.context, {
         key: config.key,
-        scopedOverrides: fieldsToUpdate.scopedOverrides,
+        scopedOverrides: req.body.scopedOverrides,
       });
+      await req.context.models.configs.dangerousUpdateBypassPermission(config, {
+        scopedOverrides: req.body.scopedOverrides,
+      });
+      await syncScopedConfigMarkers(
+        req.context,
+        config.key,
+        config.scopedOverrides ?? [],
+        req.body.scopedOverrides,
+      );
     }
     // Fold validation rules into the schema to persist:
     //  - `invariants` sent → they replace (an empty array clears them);

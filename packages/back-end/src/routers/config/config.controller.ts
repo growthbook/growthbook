@@ -28,6 +28,7 @@ import {
   formatAncestorFieldConflictMessage,
   collectConfigInvariantViolations,
   stripConfigExtends,
+  ScopedOverrideEntry,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -51,6 +52,7 @@ import {
   assertConfigDeletable,
   assertKeyAvailable,
   assertScopedOverridesValid,
+  syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
@@ -247,6 +249,11 @@ export const getConfigResolved = async (
           rev.target.snapshot as ConfigInterface,
           normalizeProposedChanges(rev.target.proposedChanges),
         ),
+        // scopedOverrides/scopedConfig write immediately, not through revisions —
+        // keep the LIVE values so a draft's (possibly stale) snapshot copy can't
+        // clobber them and hide the env tabs while a draft is open.
+        scopedOverrides: config.scopedOverrides,
+        scopedConfig: config.scopedConfig,
       };
     }
   }
@@ -285,6 +292,12 @@ export const getConfigResolved = async (
       value: c.value,
       project: c.project,
       archived: c.archived,
+      // Carry a config's env/project flavor selection so the client can resolve
+      // per-environment (swap in the matching flavor) without a second fetch —
+      // the flavor configs themselves are already in this resolvable set.
+      ...(c.scopedOverrides?.length
+        ? { scopedOverrides: c.scopedOverrides }
+        : {}),
     }));
 
   // Own value keys that no longer conform to a node's effective schema (the
@@ -345,6 +358,14 @@ export const getConfigResolved = async (
           // reconciliation (a descendant's field is stripped when an ancestor
           // declares the same key).
           fieldKeys: (node.schema?.fields ?? []).map((f) => f.key),
+          // Ordered env/project variant selection (only on a base config), so the
+          // editor can render the env-selector tab group + locate each flavor.
+          ...(node.scopedOverrides?.length
+            ? { scopedOverrides: node.scopedOverrides }
+            : {}),
+          // Self-describing flavor marker (only on a flavor), so the tree can
+          // group env overrides under an "Environments" label under their parent.
+          ...(node.scopedConfig ? { scopedConfig: node.scopedConfig } : {}),
           incompatibleFields,
           orphanedFields,
           // Failing effective invariants per node (draft leaf substituted), so
@@ -540,6 +561,16 @@ export const postConfig = async (
     config as unknown as RevisionEntityArg,
   );
 
+  // Stamp the scopedConfig marker on any flavors this base selects at creation.
+  if (body.scopedOverrides?.length) {
+    await syncScopedConfigMarkers(
+      context,
+      config.key,
+      [],
+      body.scopedOverrides,
+    );
+  }
+
   return res.status(200).json({ status: 200, config });
 };
 
@@ -661,18 +692,9 @@ export const putConfig = async (
   if (hasChanged(normalizedValue, comparisonBase.value)) {
     fieldsToUpdate.value = normalizedValue;
   }
-  if (
-    req.body.scopedOverrides !== undefined &&
-    !isEqual(req.body.scopedOverrides, comparisonBase.scopedOverrides ?? [])
-  ) {
-    // Ordered env/project flavor selection. Store as-is (including `[]` to clear
-    // all overrides) — `undefined` would be dropped by the update layer.
-    fieldsToUpdate.scopedOverrides = req.body.scopedOverrides;
-    await assertScopedOverridesValid(context, {
-      key: existing.key,
-      scopedOverrides: fieldsToUpdate.scopedOverrides,
-    });
-  }
+  // `scopedOverrides` is NOT handled here — it writes immediately via
+  // PUT /configs/:id/scoped-overrides (setConfigScopedOverrides), never through
+  // this revision flow. Any value in the body is ignored.
   if (hasChanged(description, comparisonBase.description)) {
     fieldsToUpdate.description = description;
   }
@@ -1142,5 +1164,44 @@ export const setConfigExperimentGuard = async (
       { experimentGuard: enabled },
     );
   }
+  return res.status(200).json({ status: 200, config: result });
+};
+
+// The env/project variant selection is a structural fact about the config, not
+// reviewable value content — it writes IMMEDIATELY (like lock/experimentGuard),
+// never through the revision flow. Attaching/detaching a flavor changes no
+// served value on its own (the flavor's value carries that, under the flavor's
+// own review); keeping the selection live is what lets the env-tab UI resolve
+// the family from any view. Validity (refs resolve, no self-ref/unreachable
+// entries) is enforced here; afterUpdate refreshes affected SDK payloads.
+export const setConfigScopedOverrides = async (
+  req: AuthRequest<{ scopedOverrides: ScopedOverrideEntry[] }, { id: string }>,
+  res: Response<{ status: 200; config: ConfigInterface }>,
+) => {
+  const context = getContextFromReq(req);
+  const config = await context.models.configs.getById(req.params.id);
+  if (!config) {
+    return context.throwNotFoundError("Config not found");
+  }
+  if (!context.permissions.canUpdateConfig(config, config)) {
+    context.permissions.throwPermissionError();
+  }
+  const scopedOverrides = req.body?.scopedOverrides ?? [];
+  await assertScopedOverridesValid(context, {
+    key: config.key,
+    scopedOverrides,
+  });
+  const result = await context.models.configs.dangerousUpdateBypassPermission(
+    config,
+    { scopedOverrides },
+  );
+  // Keep each flavor's self-describing `scopedConfig` marker in sync (immediate,
+  // not revision-managed — same as the selection list itself).
+  await syncScopedConfigMarkers(
+    context,
+    config.key,
+    config.scopedOverrides ?? [],
+    scopedOverrides,
+  );
   return res.status(200).json({ status: 200, config: result });
 };
