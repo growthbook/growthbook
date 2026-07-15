@@ -222,6 +222,14 @@ export default function ConfigBackedSummary({
     return errors;
   }, [hasJsonValidator, resolved, data?.effectiveSchema, data?.extensible]);
 
+  // In an ambiguous (all-environments) view we show the base value, so flag when
+  // the config has env flavors — a cue that the served value can differ per env.
+  // (When a specific `environment` is set the value is already resolved for it.)
+  const hasEnvOverrides =
+    ((data?.constants ?? []).find(
+      (c) => c.source === "config" && c.key === configKey,
+    )?.scopedOverrides?.length ?? 0) > 0;
+
   const fullStyle = {
     maxHeight: maxHeight ?? 150,
     overflowY: "auto" as const,
@@ -234,7 +242,14 @@ export default function ConfigBackedSummary({
         configKey={configKey}
         name={config?.name ?? configKey}
         suffix={
-          !isDefault && resolved?.hasOverrides ? "with overrides" : undefined
+          [
+            !isDefault && resolved?.hasOverrides ? "with overrides" : null,
+            !environment && hasEnvOverrides
+              ? "(has environment overrides)"
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" ") || undefined
         }
       />
       {resolved !== null && (
