@@ -287,12 +287,14 @@ export default function ConfigBackedSummary({
         configKey={configKey}
         name={config?.name ?? configKey}
         suffix={
+          // Env qualifier binds to the config name, so it reads
+          // "Name (dev) with overrides" — not "Name with overrides (dev)".
           [
-            !isDefault && resolved?.hasOverrides ? "with overrides" : null,
+            activeEnvFlavor ? `(${environment})` : null,
             !environment && hasEnvOverrides
               ? "(has environment overrides)"
               : null,
-            activeEnvFlavor ? `(${environment})` : null,
+            !isDefault && resolved?.hasOverrides ? "with overrides" : null,
           ]
             .filter(Boolean)
             .join(" ") || undefined
