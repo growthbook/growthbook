@@ -158,7 +158,7 @@ export function renderConstantSettings(pre: Pre, post: Post): ReactNode | null {
 
   if (!isEqual(pre?.project, post.project)) {
     const node = (id: string | undefined) =>
-      id ? <ProjectName id={id} /> : <em>All projects</em>;
+      id ? <ProjectName id={id} /> : <em>All Projects</em>;
     rows.push(
       <ChangeField
         key="project"

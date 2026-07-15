@@ -1045,7 +1045,7 @@ export default function ImportFromStatsig() {
   // Function to create or find project
   const getOrCreateProject = async (projectName: string): Promise<string> => {
     if (!projectName.trim()) {
-      return ""; // Empty string means "All projects"
+      return ""; // Empty string means "All Projects"
     }
 
     // Check if project already exists
@@ -1161,7 +1161,7 @@ export default function ImportFromStatsig() {
                   label="GrowthBook Project"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="All projects"
+                  placeholder="All Projects"
                   helpText="Import into a specific project. Leave blank for no project"
                 />
               </div>

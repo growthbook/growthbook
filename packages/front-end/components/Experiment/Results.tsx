@@ -344,6 +344,7 @@ const Results: FC<{
                     key: ids[i] ?? v.key,
                   };
                 }),
+                isVariationKeyReconciliation: true,
               }),
             });
 

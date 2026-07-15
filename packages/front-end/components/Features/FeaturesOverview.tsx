@@ -1594,6 +1594,7 @@ export default function FeaturesOverview({
                       draftRevision={revision}
                       rulesEnv={rulesEnv}
                       setRulesEnv={setRulesEnv}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (

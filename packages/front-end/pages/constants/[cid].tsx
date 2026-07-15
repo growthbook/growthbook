@@ -418,7 +418,7 @@ export default function ConstantDetailPage(): React.ReactElement {
           <Flex gap="4" align="center" wrap="wrap">
             <Metadata label="Key" value={constant.key} />
             <Metadata label="Type" value={TYPE_LABEL[constant.type]} />
-            <Metadata label="Project" value={projectName || "All projects"} />
+            <Metadata label="Project" value={projectName || "All Projects"} />
             <Box>
               <Text weight="medium">Owner: </Text>
               <Owner ownerId={displayedConstant.owner} gap="1" />

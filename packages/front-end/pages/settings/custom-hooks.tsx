@@ -246,7 +246,7 @@ export default function CustomHooksPage() {
                         {hook.projects.length ? (
                           hook.projects.join(", ")
                         ) : (
-                          <em>All projects</em>
+                          <em>All Projects</em>
                         )}
                       </TableCell>
                       <TableCell>

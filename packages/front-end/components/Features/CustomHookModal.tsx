@@ -443,7 +443,7 @@ export default function CustomHookModal({
           {!scope && (
             <MultiSelectField
               label={"Projects"}
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects") || []}
               options={projectOptions}
               onChange={(v) => form.setValue("projects", v)}

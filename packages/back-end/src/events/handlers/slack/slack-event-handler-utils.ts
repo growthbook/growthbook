@@ -133,6 +133,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.jumped":
     case "feature.rampSchedule.actions.step.advanced":
     case "feature.rampSchedule.actions.step.approvalRequired":
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+    case "feature.rampSchedule.actions.startApproved":
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
@@ -618,6 +620,12 @@ const buildSlackMessageForRampScheduleEvent = (
       break;
     case "feature.rampSchedule.actions.step.approvalRequired":
       text = `Ramp schedule ${name} step ${step} requires approval`;
+      break;
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+      text = `Ramp schedule ${name} is awaiting start approval`;
+      break;
+    case "feature.rampSchedule.actions.startApproved":
+      text = `Ramp schedule ${name} start was approved`;
       break;
     default:
       text = `Ramp schedule ${name}: ${eventType}`;

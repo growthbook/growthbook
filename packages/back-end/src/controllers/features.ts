@@ -2971,6 +2971,7 @@ export async function postFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -4310,6 +4311,7 @@ export async function putFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -4361,6 +4363,7 @@ export async function putFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId,
       };
       rampActionsUpdate = updateAction;
