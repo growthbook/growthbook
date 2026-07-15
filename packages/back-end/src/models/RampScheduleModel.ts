@@ -189,12 +189,19 @@ export function rampScheduleToApiInterface(
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
-    // Reads bypass zod validation (only migrate() runs), so guard against
+    // The record is only meaningful for the current step (see the field's
+    // "Valid only while stepApproval.stepIndex === currentStepIndex" contract).
+    // The service nulls stepApproval on every step transition, so a mismatch
+    // shouldn't occur, but guard defensively so we never surface a prior step's
+    // approver against the current step — matching how isAwaitingApproval treats
+    // it internally.
+    // Reads also bypass zod validation (only migrate() runs), so guard against
     // legacy docs whose approvedAt is a string or an Invalid Date — the field
     // was silently dropped before this mapping existed, so bad values were
     // harmless and may still exist.
     stepApproval:
       doc.stepApproval &&
+      doc.stepApproval.stepIndex === doc.currentStepIndex &&
       doc.stepApproval.approvedAt instanceof Date &&
       !isNaN(doc.stepApproval.approvedAt.getTime())
         ? {

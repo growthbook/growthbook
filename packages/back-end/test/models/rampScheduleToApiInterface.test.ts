@@ -89,4 +89,28 @@ describe("rampScheduleToApiInterface approval fields", () => {
       context: "api",
     });
   });
+
+  it("omits stepApproval when it belongs to a step other than the current one", () => {
+    const api = rampScheduleToApiInterface(
+      makeSchedule({
+        currentStepIndex: 1,
+        steps: [
+          { interval: null, actions: [], holdConditions: {} },
+          {
+            interval: null,
+            actions: [],
+            holdConditions: { requiresApproval: true },
+          },
+        ] as unknown as RampScheduleInterface["steps"],
+        stepApproval: {
+          stepIndex: 0,
+          approvedAt: new Date("2024-01-02T03:04:05Z"),
+          approvedBy: "u_1",
+          context: "api",
+        },
+      }),
+    );
+    expect(api.stepApproval).toBeUndefined();
+    expect(api.awaitingApproval).toBe(true);
+  });
 });
