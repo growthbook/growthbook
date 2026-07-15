@@ -28,6 +28,7 @@ import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
   compareConfig,
+  explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
   ExplorerDraftConfig,
@@ -148,7 +149,7 @@ export function ExplorerProvider({
   onRunComplete,
   trackingSource,
 }: ExplorerProviderProps) {
-  const { loading, fetchData } = useExploreData();
+  const { loading, fetchData, fetchExplorationById } = useExploreData();
   const {
     getFactTableById,
     getFactMetricById,
@@ -196,6 +197,16 @@ export function ExplorerProvider({
     };
   });
   const [isStale, setIsStale] = useState(false);
+  // True while polling a still-running exploration for completion (B4). Folded
+  // into the exposed `loading` so the UI keeps showing a loading state.
+  const [polling, setPolling] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stop polling if the provider unmounts mid-flight.
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
   const [comparisonExploration, setComparisonExploration] =
     useState<ProductAnalyticsExploration | null>(null);
   const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
@@ -455,7 +466,6 @@ export function ExplorerProvider({
           ? { previousTimeFrame: previousForRequest }
           : {}),
       });
-      const durationMs = Date.now() - startTime;
 
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
@@ -484,67 +494,124 @@ export function ExplorerProvider({
         ? { ...configToSubmit, previousTimeFrame: previousForRequest }
         : configToSubmit;
 
-      // Clear staleness when there is an error
-      if (fetchError) {
-        setIsStale(false);
-        setSubmittedExploreState(submittedConfig);
-      }
-
-      // Set staleness to false and update submitted state when there is a result
-      if (fetchResult) {
-        setSubmittedExploreState(submittedConfig);
-        setIsStale(false);
-      }
-
-      setExplorerState((prev) => ({
-        ...prev,
-        exploration: fetchResult,
-        query,
-        error: fetchError || fetchResult?.error || null,
-      }));
-      if (fetchResult) {
-        onRunComplete?.(
-          fetchResult,
-          comparison?.exploration ?? null,
-          previousForRequest,
-        );
-      }
-
-      if (trackingSource) {
-        const datasourceType =
-          getDatasourceById(configToSubmit.datasource)?.type ?? null;
-        const errorMessage = fetchError || fetchResult?.error || null;
-        const baseProps = {
-          source: trackingSource,
-          type: configToSubmit.type,
-          chart_type: configToSubmit.chartType,
-          datasource_type: datasourceType,
-          duration_ms: durationMs,
-          cache,
-          num_values:
-            configToSubmit.dataset?.type === "funnel"
-              ? (configToSubmit.dataset.steps?.length ?? 0)
-              : (configToSubmit.dataset?.values?.length ?? 0),
-          num_dimensions: configToSubmit.dimensions?.length ?? 0,
-        };
-        if (errorMessage) {
-          track("Product Analytics Explorer: Refresh Failure", {
-            ...baseProps,
-            error_message: errorMessage.slice(0, MAX_TRACKED_ERROR_LENGTH),
-          });
-        } else if (fetchResult) {
-          track("Product Analytics Explorer: Refresh Success", {
-            ...baseProps,
-            row_count: fetchResult.result?.rows?.length ?? 0,
-          });
+      // Apply a terminal (success or error) result: update state, fire the
+      // completion callback, and emit analytics. Shared by the synchronous
+      // response and the async poll below so both behave identically.
+      const finalize = (
+        result: ProductAnalyticsExploration | null,
+        resultQuery: QueryInterface | null,
+        resultError: string | null,
+      ) => {
+        if (requestId !== submitRequestIdRef.current) return;
+        setPolling(false);
+        if (result || resultError) {
+          setSubmittedExploreState(submittedConfig);
+          setIsStale(false);
         }
+        setExplorerState((prev) => ({
+          ...prev,
+          exploration: result,
+          query: resultQuery,
+          error: resultError || result?.error || null,
+        }));
+        if (result && !resultError) {
+          onRunComplete?.(
+            result,
+            comparison?.exploration ?? null,
+            previousForRequest,
+          );
+        }
+        if (trackingSource) {
+          const datasourceType =
+            getDatasourceById(configToSubmit.datasource)?.type ?? null;
+          const errorMessage = resultError || result?.error || null;
+          const baseProps = {
+            source: trackingSource,
+            type: configToSubmit.type,
+            chart_type: configToSubmit.chartType,
+            datasource_type: datasourceType,
+            duration_ms: Date.now() - startTime,
+            cache,
+            num_values:
+              configToSubmit.dataset?.type === "funnel"
+                ? (configToSubmit.dataset.steps?.length ?? 0)
+                : (configToSubmit.dataset?.values?.length ?? 0),
+            num_dimensions: configToSubmit.dimensions?.length ?? 0,
+          };
+          if (errorMessage) {
+            track("Product Analytics Explorer: Refresh Failure", {
+              ...baseProps,
+              error_message: errorMessage.slice(0, MAX_TRACKED_ERROR_LENGTH),
+            });
+          } else if (result) {
+            track("Product Analytics Explorer: Refresh Success", {
+              ...baseProps,
+              row_count: result.result?.rows?.length ?? 0,
+            });
+          }
+        }
+      };
+
+      // Cancel any in-flight poll from a previous submit.
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
       }
+
+      // If the backend returned a still-running exploration (query exceeded the
+      // ~5s sync budget), don't treat the empty in-progress model as final —
+      // keep the loading state and poll by id until it reaches a terminal
+      // state. The warehouse query keeps running server-side regardless.
+      if (!fetchError && fetchResult?.status === "running" && fetchResult.id) {
+        setSubmittedExploreState(submittedConfig);
+        setIsStale(false);
+        // Clear any prior result so the chart shows loading, not stale data.
+        setExplorerState((prev) => ({
+          ...prev,
+          exploration: null,
+          query: null,
+          error: null,
+        }));
+        setPolling(true);
+        const explorationId = fetchResult.id;
+        const poll = async () => {
+          pollTimerRef.current = null;
+          if (requestId !== submitRequestIdRef.current) return;
+          const {
+            data: polled,
+            query: polledQuery,
+            error: polledError,
+          } = await fetchExplorationById(explorationId);
+          if (requestId !== submitRequestIdRef.current) return;
+          if (!polledError && polled?.status === "running") {
+            const delay = explorationPollDelayMs(
+              Math.floor((Date.now() - startTime) / 1000),
+            );
+            if (delay <= 0) {
+              finalize(
+                null,
+                polledQuery,
+                "This query is taking longer than expected. Try a shorter date range or fewer steps, then run again.",
+              );
+              return;
+            }
+            pollTimerRef.current = setTimeout(poll, delay);
+            return;
+          }
+          finalize(polled, polledQuery, polledError);
+        };
+        pollTimerRef.current = setTimeout(poll, explorationPollDelayMs(0));
+        return;
+      }
+
+      finalize(fetchResult, query, fetchError);
     },
     [
       draftExploreState,
       submittedPreviousTimeFrame,
       setSubmittedExploreState,
       fetchData,
+      fetchExplorationById,
       onRunComplete,
       isManagedWarehouse,
       managedWarehouseUnavailable,
@@ -873,7 +940,7 @@ export function ExplorerProvider({
       draftExploreState,
       submittedExploreState,
       exploration: data,
-      loading,
+      loading: loading || polling,
       error,
       commonColumns,
       setDraftExploreState,
@@ -917,6 +984,7 @@ export function ExplorerProvider({
       isStale,
       isSubmittable,
       loading,
+      polling,
       managedWarehouseUnavailable,
       needsFetch,
       needsUpdate,

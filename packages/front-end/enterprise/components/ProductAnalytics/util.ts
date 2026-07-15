@@ -65,6 +65,18 @@ export { mapDatabaseTypeToEnum };
 export const PA_AI_CHAT_INITIAL_MESSAGE_KEY = "pa-ai-chat-initial-message";
 export const PA_AI_CHAT_INITIAL_MODEL_KEY = "pa-ai-chat-initial-model";
 
+// Backoff (ms) for polling a still-running exploration, mirroring the shared
+// RunQueriesButton cadence (2s → 20s). Returns 0 to stop after ~10 min.
+// Shared by the Explorer (ExplorerContext) and dashboard tiles.
+export function explorationPollDelayMs(elapsedSec: number): number {
+  if (elapsedSec < 10) return 2000;
+  if (elapsedSec < 30) return 3000;
+  if (elapsedSec < 60) return 5000;
+  if (elapsedSec < 300) return 10000;
+  if (elapsedSec < 600) return 20000;
+  return 0;
+}
+
 export const VALUE_TYPE_OPTIONS: {
   value: "unit_count" | "count" | "sum";
   label: string;

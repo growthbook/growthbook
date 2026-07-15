@@ -1,5 +1,11 @@
-import { buildFunnelSql, transformFunnelRowsToResult } from "shared/enterprise";
+import {
+  buildFunnelSql,
+  transformFunnelRowsToResult,
+  isFunnelSupportedDatasourceType,
+  FUNNEL_SUPPORTED_DATASOURCE_TYPES,
+} from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
+import { DataSourceType } from "shared/types/datasource";
 import { SqlDialect } from "shared/types/sql";
 import { FactTableInterface } from "shared/types/fact-table";
 
@@ -390,5 +396,41 @@ describe("transformFunnelRowsToResult", () => {
     const result = transformFunnelRowsToResult(config, rows);
     expect(result.rows[0].dimensions).toEqual(["US"]);
     expect(result.rows[0].steps?.[1].count).toBe(20);
+  });
+});
+
+describe("isFunnelSupportedDatasourceType (D-PA2 allowlist)", () => {
+  it("enables the code-ready dialects", () => {
+    const supported: DataSourceType[] = [
+      "postgres",
+      "clickhouse",
+      "growthbook_clickhouse",
+      "bigquery",
+      "snowflake",
+      "athena",
+      "presto",
+      "databricks",
+    ];
+    supported.forEach((t) =>
+      expect(isFunnelSupportedDatasourceType(t)).toBe(true),
+    );
+    // The allowlist is exactly this set (guards accidental additions).
+    expect([...FUNNEL_SUPPORTED_DATASOURCE_TYPES].sort()).toEqual(
+      [...supported].sort(),
+    );
+  });
+
+  it("rejects dialects that aren't funnel-ready", () => {
+    const unsupported: DataSourceType[] = [
+      "redshift",
+      "vertica",
+      "mysql",
+      "mssql",
+      "mixpanel",
+      "google_analytics",
+    ];
+    unsupported.forEach((t) =>
+      expect(isFunnelSupportedDatasourceType(t)).toBe(false),
+    );
   });
 });

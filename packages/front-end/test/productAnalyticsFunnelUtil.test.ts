@@ -8,6 +8,7 @@ import {
   removeIncompleteInputs,
   hasSubmittablePayload,
   formatDurationMs,
+  explorationPollDelayMs,
 } from "@/enterprise/components/ProductAnalytics/util";
 
 function makeFactTable(
@@ -210,6 +211,25 @@ describe("ProductAnalytics util — funnel branches", () => {
     it("returns em-dash for nullish input", () => {
       expect(formatDurationMs(null)).toBe("—");
       expect(formatDurationMs(undefined)).toBe("—");
+    });
+  });
+
+  describe("explorationPollDelayMs", () => {
+    it("backs off as elapsed time grows", () => {
+      expect(explorationPollDelayMs(0)).toBe(2000);
+      expect(explorationPollDelayMs(9)).toBe(2000);
+      expect(explorationPollDelayMs(10)).toBe(3000);
+      expect(explorationPollDelayMs(29)).toBe(3000);
+      expect(explorationPollDelayMs(30)).toBe(5000);
+      expect(explorationPollDelayMs(59)).toBe(5000);
+      expect(explorationPollDelayMs(60)).toBe(10000);
+      expect(explorationPollDelayMs(299)).toBe(10000);
+      expect(explorationPollDelayMs(300)).toBe(20000);
+      expect(explorationPollDelayMs(599)).toBe(20000);
+    });
+    it("returns 0 (stop polling) after ~10 minutes", () => {
+      expect(explorationPollDelayMs(600)).toBe(0);
+      expect(explorationPollDelayMs(100000)).toBe(0);
     });
   });
 });
