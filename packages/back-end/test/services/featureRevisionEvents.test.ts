@@ -274,20 +274,21 @@ describe("getPublishedRevisionForEvents", () => {
     });
   });
 
-  it("returns the fallback when the read finds nothing", async () => {
+  it("returns the fallback with a corrected published status when the read finds nothing", async () => {
     mockGetRevision.mockResolvedValue(null);
 
     const result = await getPublishedRevisionForEvents(ctx, feature, fallback);
 
-    expect(result).toBe(fallback);
+    // Publication already succeeded, so the fallback is reported as published.
+    expect(result).toEqual({ ...fallback, status: "published" });
   });
 
-  it("returns the fallback and logs instead of throwing when the read fails", async () => {
+  it("returns the fallback with a corrected published status and logs instead of throwing when the read fails", async () => {
     mockGetRevision.mockRejectedValue(new Error("mongo unavailable"));
 
     const result = await getPublishedRevisionForEvents(ctx, feature, fallback);
 
-    expect(result).toBe(fallback);
+    expect(result).toEqual({ ...fallback, status: "published" });
     expect(logger.error).toHaveBeenCalled();
   });
 });

@@ -42,12 +42,18 @@ type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
 // status (publishRevision updates the stored document, not the in-memory
 // object). Never throws: by the time this runs the publish has already
 // committed, so a failed read must not fail the request — fall back to the
-// caller's in-memory revision instead.
+// caller's in-memory revision instead. The in-memory object is still a draft,
+// so correct its status on the fallback since publication already succeeded —
+// a `revision.published` event that reported "draft" would misinform consumers.
 export async function getPublishedRevisionForEvents(
   ctx: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   fallback: FeatureRevisionInterface,
 ): Promise<FeatureRevisionInterface> {
+  const publishedFallback: FeatureRevisionInterface = {
+    ...fallback,
+    status: "published",
+  };
   try {
     const updated = await getRevision({
       context: ctx,
@@ -56,10 +62,10 @@ export async function getPublishedRevisionForEvents(
       feature,
       version: fallback.version,
     });
-    return updated ?? fallback;
+    return updated ?? publishedFallback;
   } catch (e) {
     logger.error(e, "Error re-reading revision after publish for events");
-    return fallback;
+    return publishedFallback;
   }
 }
 

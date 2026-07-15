@@ -231,7 +231,7 @@ describe("revertFeatureCore revision events", () => {
     expect(publishedCall[3]).toBe("revision.published");
   });
 
-  it("falls back to the in-memory revision when the post-publish read returns nothing", async () => {
+  it("falls back to the in-memory revision with a corrected published status when the post-publish read returns nothing", async () => {
     const { targetRevision } = setupSuccessfulRevert();
     mockGetRevision
       .mockResolvedValueOnce(targetRevision)
@@ -247,14 +247,16 @@ describe("revertFeatureCore revision events", () => {
       false,
     );
 
+    // Publication succeeded, so the fallback reports published — a
+    // revision.published event that said "draft" would misinform consumers.
     expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
     expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
       version: 6,
-      status: "draft",
+      status: "published",
     });
     expect(mockDispatchEvent.mock.calls[1][2]).toEqual({
       version: 6,
-      status: "draft",
+      status: "published",
     });
   });
 
@@ -278,7 +280,7 @@ describe("revertFeatureCore revision events", () => {
     expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
     expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
       version: 6,
-      status: "draft",
+      status: "published",
     });
   });
 
