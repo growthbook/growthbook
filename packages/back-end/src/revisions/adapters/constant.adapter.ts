@@ -213,15 +213,15 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     const change = getConstantRevisionChange(entity, proposedChanges);
     const valueAffecting =
       change.valueChanged || change.changedEnvironments.length > 0;
-    // The base value this schedule would publish, for the schema-break
-    // fingerprint (dependent config + config-backed feature values).
-    const proposedValue =
-      (
-        applyPatchToSnapshot(
-          entity as unknown as Record<string, unknown>,
-          normalizeProposedChanges(proposedChanges),
-        ) as { value?: string }
-      ).value ?? entity.value;
+    // The base + per-environment values this schedule would publish, for the
+    // schema-break fingerprint (must match what the deferred fire re-checks).
+    const proposedSnapshot = applyPatchToSnapshot(
+      entity as unknown as Record<string, unknown>,
+      normalizeProposedChanges(proposedChanges),
+    ) as { value?: string; environmentValues?: Record<string, string> };
+    const proposedValue = proposedSnapshot.value ?? entity.value;
+    const proposedEnvironmentValues =
+      proposedSnapshot.environmentValues ?? entity.environmentValues;
     return buildArmAcknowledgments({
       experiment: await captureConstantExperimentGuardAcknowledgment(
         context,
@@ -240,6 +240,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
             context,
             { key: entity.key, project: entity.project },
             proposedValue,
+            proposedEnvironmentValues,
           )
         : undefined,
     });
@@ -268,6 +269,11 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         revision,
         { armed: !!options?.deferred },
         (filteredChanges.value as string | undefined) ?? entity.value,
+        "environmentValues" in filteredChanges
+          ? (filteredChanges.environmentValues as
+              | Record<string, string>
+              | undefined)
+          : entity.environmentValues,
       );
     }
   },

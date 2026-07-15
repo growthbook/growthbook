@@ -63,9 +63,12 @@ export async function assertConstantPublishGuards(
   constant: ConstantInterface,
   revision: Pick<Revision, "armAcknowledgments">,
   opts: { armed: boolean },
-  // The constant's proposed (being-published) base value, for the schema-break
-  // guard. Omit when unknown — the guard then skips (fail-open, soft warning).
+  // The constant's proposed (being-published) base value + per-environment
+  // values, for the schema-break guard (a per-env value change breaks a
+  // dependent config only in that environment). Omit when unknown — the guard
+  // then skips (fail-open, soft warning).
   proposedValue?: string,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<void> {
   await assertConstantExperimentGuard(context, constant, revision, opts);
   await assertConfigLockGuard(
@@ -80,5 +83,6 @@ export async function assertConstantPublishGuards(
     proposedValue,
     opts,
     revision,
+    proposedEnvironmentValues,
   );
 }

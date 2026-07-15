@@ -455,6 +455,11 @@ export const putConstant = async (
           revision,
           { armed: false },
           (fieldsToUpdate.value as string | undefined) ?? existing.value,
+          "environmentValues" in fieldsToUpdate
+            ? (fieldsToUpdate.environmentValues as
+                | Record<string, string>
+                | undefined)
+            : existing.environmentValues,
         );
       }
 

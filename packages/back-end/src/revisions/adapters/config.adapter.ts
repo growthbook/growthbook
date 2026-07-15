@@ -381,10 +381,17 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           schema:
             (filteredChanges.schema as ConfigInterface["schema"] | undefined) ??
             entity.schema,
+          // Presence-aware for the clearable lineage fields: `?? entity` can't
+          // tell "unchanged" from "cleared", which would desync this fire's
+          // lineage from the arm-time capture (applyPatchToSnapshot).
           parent:
-            (filteredChanges.parent as string | undefined) ?? entity.parent,
+            "parent" in filteredChanges
+              ? (filteredChanges.parent as string | undefined)
+              : entity.parent,
           extends:
-            (filteredChanges.extends as string[] | undefined) ?? entity.extends,
+            "extends" in filteredChanges
+              ? (filteredChanges.extends as string[] | undefined)
+              : entity.extends,
           extensible:
             (filteredChanges.extensible as boolean | undefined) ??
             entity.extensible,

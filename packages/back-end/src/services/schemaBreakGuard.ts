@@ -17,7 +17,10 @@ import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
-import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getResolvableValues,
+  ResolvableValue,
+} from "back-end/src/services/resolvableValues";
 import {
   getArmAcknowledgment,
   type ArmGuardId,
@@ -66,19 +69,30 @@ function resolveDirectSchemaBreak(
   );
 }
 
+// The breaks present at a deferred fire that weren't acknowledged when the
+// publish was scheduled — i.e. NEW breaks introduced since arming. Membership,
+// so order/dedup of the two lists doesn't matter. Pure (exported for tests).
+export function unacknowledgedSchemaBreakViolations(
+  currentViolations: string[],
+  acknowledged: string[] | null | undefined,
+): string[] {
+  const ack = new Set(acknowledged ?? []);
+  return currentViolations.filter((v) => !ack.has(v));
+}
+
 // Decide an ARMED (deferred) fire against the arm-time fingerprint: a violation
-// that wasn't acknowledged when the publish was scheduled is a NEW break
-// introduced since — the deferred publish is terminal (re-open + re-confirm).
-// Acknowledged breaks stand (the armer already accepted them). Order-independent.
+// not acknowledged when the publish was scheduled is a NEW break introduced
+// since — the deferred publish is terminal (re-open + re-confirm). Acknowledged
+// breaks stand (the armer already accepted them).
 function assertArmedSchemaBreakAcknowledged(
   violations: string[],
   revision: Pick<Revision, "armAcknowledgments"> | undefined,
   entityMessage: string,
 ): void {
-  const acknowledged = new Set(
-    (revision && getArmAcknowledgment(revision, SCHEMA_BREAK)) ?? [],
+  const unacknowledged = unacknowledgedSchemaBreakViolations(
+    violations,
+    revision && getArmAcknowledgment(revision, SCHEMA_BREAK),
   );
-  const unacknowledged = violations.filter((v) => !acknowledged.has(v));
   if (!unacknowledged.length) return;
   throw new TerminalPublishError(
     `${entityMessage} since this publish was scheduled:\n${unacknowledged.join(
@@ -128,30 +142,65 @@ export async function evaluateConstantSchemaBreakConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string | undefined,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<string[]> {
   // Org-wide scan (mirrors the other constant guards): a dependent config in any
   // project must be seen, even one the acting user can't read.
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
   const resolvables = await getResolvableValues(scanContext);
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  return collectConstantConfigBreaks({
+    resolvables,
+    allConfigs,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
+    constantKey: constant.key,
+    proposedValue,
+    proposedEnvironmentValues,
+  });
+}
 
+// Pure core of evaluateConstantSchemaBreakConflicts (loaded data in, violations
+// out) — exported for unit testing. See the wrapper above for semantics.
+export function collectConstantConfigBreaks({
+  resolvables,
+  allConfigs,
+  environments,
+  extensibleDefault,
+  constantKey,
+  proposedValue,
+  proposedEnvironmentValues,
+}: {
+  resolvables: ResolvableValue[];
+  allConfigs: ConfigInterface[];
+  environments: string[];
+  extensibleDefault: boolean | undefined;
+  constantKey: string;
+  proposedValue: string | undefined;
+  proposedEnvironmentValues?: Record<string, string>;
+}): string[] {
   const affectedConfigKeys = [
-    ...resolvableDependencyClosure(resolvables, "constant", constant.key),
+    ...resolvableDependencyClosure(resolvables, "constant", constantKey),
   ]
     .filter((t) => t.startsWith(CONFIG_PREFIX))
     .map((t) => t.slice(CONFIG_PREFIX.length));
   if (!affectedConfigKeys.length) return [];
 
-  const allConfigs = await scanContext.models.configs.getAllForReconcile();
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
 
   // The proposed universe swaps only the changed constant's value; everything
   // else resolves identically, so the diff isolates violations this change
   // introduces. Per environment, buildConstantValueMap picks that env's constant
   // values, so resolution reflects what actually ships there.
   const proposedResolvables = resolvables.map((r) =>
-    r.source === "constant" && r.key === constant.key
-      ? { ...r, value: proposedValue ?? "" }
+    r.source === "constant" && r.key === constantKey
+      ? {
+          ...r,
+          value: proposedValue ?? "",
+          // A per-environment value change lives here, not in the base value —
+          // swap the whole map so env-specific resolution reflects it.
+          environmentValues: proposedEnvironmentValues ?? r.environmentValues,
+        }
       : r,
   );
 
@@ -191,7 +240,6 @@ export async function evaluateConstantSchemaBreakConflicts(
     }).filter((v) => !currentViolations.has(v));
   };
 
-  const environments = getEnvironmentIdsFromOrg(context.org);
   const introduced: string[] = [];
   for (const key of affectedConfigKeys) {
     const cfg = byKey.get(key);
@@ -231,6 +279,7 @@ async function evaluateConstantFeatureSchemaBreakConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string | undefined,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<string[]> {
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
   const [resolvables, features] = await Promise.all([
@@ -251,7 +300,13 @@ async function evaluateConstantFeatureSchemaBreakConflicts(
   const environments = getEnvironmentIdsFromOrg(context.org);
   const proposedResolvables = resolvables.map((r) =>
     r.source === "constant" && r.key === constant.key
-      ? { ...r, value: proposedValue ?? "" }
+      ? {
+          ...r,
+          value: proposedValue ?? "",
+          // A per-environment value change lives here, not in the base value —
+          // swap the whole map so env-specific resolution reflects it.
+          environmentValues: proposedEnvironmentValues ?? r.environmentValues,
+        }
       : r,
   );
 
@@ -356,13 +411,20 @@ async function constantSchemaBreakViolations(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<string[]> {
   const [configViolations, featureViolations] = await Promise.all([
-    evaluateConstantSchemaBreakConflicts(context, constant, proposedValue),
+    evaluateConstantSchemaBreakConflicts(
+      context,
+      constant,
+      proposedValue,
+      proposedEnvironmentValues,
+    ),
     evaluateConstantFeatureSchemaBreakConflicts(
       context,
       constant,
       proposedValue,
+      proposedEnvironmentValues,
     ),
   ]);
   return [...configViolations, ...featureViolations];
@@ -381,6 +443,7 @@ export async function assertConstantSchemaBreakGuard(
   proposedValue: string | undefined,
   { armed }: { armed: boolean },
   revision?: Pick<Revision, "armAcknowledgments">,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<void> {
   // Without the proposed value there's nothing to resolve-and-check; fail open
   // (this is a soft advisory, not a correctness gate).
@@ -390,6 +453,7 @@ export async function assertConstantSchemaBreakGuard(
     context,
     constant,
     proposedValue,
+    proposedEnvironmentValues,
   );
 
   if (armed) {
@@ -417,12 +481,14 @@ export async function captureConstantSchemaBreakAcknowledgment(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string | undefined,
+  proposedEnvironmentValues?: Record<string, string>,
 ): Promise<string[] | undefined> {
   if (proposedValue === undefined) return undefined;
   const violations = await constantSchemaBreakViolations(
     context,
     constant,
     proposedValue,
+    proposedEnvironmentValues,
   );
   if (!violations.length) return undefined;
 
@@ -462,6 +528,30 @@ export async function evaluateConfigOwnSchemaBreakConflicts(
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
   const resolvables = await getResolvableValues(scanContext);
   const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  return collectConfigOwnBreaks({
+    resolvables,
+    allConfigs,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
+    proposed,
+  });
+}
+
+// Pure core of evaluateConfigOwnSchemaBreakConflicts (loaded data in, violations
+// out) — exported for unit testing. See the wrapper above for semantics.
+export function collectConfigOwnBreaks({
+  resolvables,
+  allConfigs,
+  environments,
+  extensibleDefault,
+  proposed,
+}: {
+  resolvables: ResolvableValue[];
+  allConfigs: ConfigInterface[];
+  environments: string[];
+  extensibleDefault: boolean | undefined;
+  proposed: ProposedConfig;
+}): string[] {
   const byKeyLive = new Map(allConfigs.map((c) => [c.key, c]));
   const live = byKeyLive.get(proposed.key);
   // No live config (a create) — creation is validated on its own path, and there
@@ -488,7 +578,6 @@ export async function evaluateConfigOwnSchemaBreakConflicts(
       : r,
   );
 
-  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
   const project = proposedNode.project || "";
   const liveAdditional = configIsExtensible(
     byKeyLive.get(getConfigSpineRootKey(proposed.key, byKeyLive)),
@@ -532,7 +621,7 @@ export async function evaluateConfigOwnSchemaBreakConflicts(
   const introduced: string[] = [];
   const baseViolations = new Set(introducedFor(""));
   for (const v of baseViolations) introduced.push(v);
-  for (const env of getEnvironmentIdsFromOrg(context.org)) {
+  for (const env of environments) {
     for (const v of introducedFor(env)) {
       if (!baseViolations.has(v)) introduced.push(`[${env}] ${v}`);
     }

@@ -145,6 +145,9 @@ export const postConstantRevisionPublish = createApiRequestHandler(
       revision,
       { armed: false },
       (desiredState.value as string | undefined) ?? constant.value,
+      "environmentValues" in desiredState
+        ? (desiredState.environmentValues as Record<string, string> | undefined)
+        : constant.environmentValues,
     );
   }
 
