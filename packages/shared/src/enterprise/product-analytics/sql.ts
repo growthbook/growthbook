@@ -999,10 +999,13 @@ function generateUnitAggregationRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
+    const valueAlias = alias.endsWith("_denominator")
+      ? alias
+      : `${alias}_numerator`;
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
@@ -1010,7 +1013,7 @@ function generateUnitAggregationRollupCTE(
         );
       }
     } else {
-      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
@@ -1049,9 +1052,12 @@ function generateEventRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
+    const valueAlias = alias.endsWith("_denominator")
+      ? alias
+      : `${alias}_numerator`;
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
-        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${metricData.alias}_numerator`,
+        `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
       if (aliasesWithDenominator.has(alias)) {
         selects.push(
@@ -1059,7 +1065,7 @@ function generateEventRollupCTE(
         );
       }
     } else {
-      selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_numerator`);
+      selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
       }
@@ -1099,10 +1105,13 @@ function generateFinalSelect(
     }
   });
   allMetrics.forEach((m) => {
+    const valueAlias = m.alias.endsWith("_denominator")
+      ? m.alias
+      : `${m.alias}_numerator`;
     selects.push(
       needsReaggregation
-        ? `MAX(${m.alias}_numerator) AS ${m.alias}_numerator`
-        : `${m.alias}_numerator AS ${m.alias}_numerator`,
+        ? `MAX(${valueAlias}) AS ${valueAlias}`
+        : `${valueAlias} AS ${valueAlias}`,
     );
     if (m.rollupCountExpr) {
       selects.push(

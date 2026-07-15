@@ -285,6 +285,7 @@ export const entityEvents = {
     "delete",
     "step-approved",
     "approval-bypassed",
+    "start-approved",
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],

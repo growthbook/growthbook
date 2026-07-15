@@ -692,10 +692,18 @@ export async function putEventForwarderForDataSource(
       ),
     });
   } catch (e) {
-    req.log.error(e, "Failed to update event forwarder");
+    const error = e instanceof Error ? e : new Error(String(e));
+    logger.error(
+      {
+        err: error,
+        datasourceId: datasource.id,
+        organizationId: context.org.id,
+      },
+      "Failed to update event forwarder",
+    );
     res.status(400).json({
       status: 400,
-      message: e.message || "An error occurred",
+      message: error.message || "An error occurred",
     });
   }
 }
