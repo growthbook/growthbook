@@ -1649,14 +1649,19 @@ export default function FeaturesOverview({
                           Environment override{pluralOverrides ? "s" : ""}
                         </div>
                         <Flex direction="column" gap="4">
-                          {shown.map(({ o, index }) => {
-                            const unreachable = unreachableIndexes.has(index);
+                          {shown.map(({ o, index }, shownPos) => {
+                            // On "All environments", global reachability applies;
+                            // on a specific env only the first match serves, so
+                            // later matches are shadowed for that env even if
+                            // they serve elsewhere.
+                            const shadowed =
+                              selectedEnv === null
+                                ? unreachableIndexes.has(index)
+                                : shownPos > 0;
                             return (
                               <FeatureValueCard
                                 key={index}
-                                sideColor={
-                                  unreachable ? "unreachable" : "active"
-                                }
+                                sideColor={shadowed ? "unreachable" : "active"}
                               >
                                 <Flex
                                   align="start"
@@ -1675,10 +1680,20 @@ export default function FeaturesOverview({
                                       my="0"
                                     />
                                   </Box>
-                                  {unreachable && (
-                                    <Tooltip body="Every environment this override targets is already served by an earlier override, so this one is never used.">
+                                  {shadowed && (
+                                    <Tooltip
+                                      body={
+                                        selectedEnv === null
+                                          ? "Every environment this override targets is already served by an earlier override, so this one is never used."
+                                          : "An earlier override already serves this environment, so this one isn't used here."
+                                      }
+                                    >
                                       <Badge
-                                        label="Unreachable"
+                                        label={
+                                          selectedEnv === null
+                                            ? "Unreachable"
+                                            : "Shadowed"
+                                        }
                                         color="orange"
                                         variant="soft"
                                         radius="full"

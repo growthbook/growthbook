@@ -120,7 +120,7 @@ export default function EditDefaultValueModal({
       ...form.getValues("overrides"),
       {
         key: String(nextKey.current++),
-        value: getFeatureDefaultValue(feature),
+        value: form.getValues("defaultValue"),
         environments: [],
       },
     ]);

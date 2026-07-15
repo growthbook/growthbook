@@ -1405,9 +1405,6 @@ export function renderFeatureEnvironmentDefaultsSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
 ): ReactNode | null {
-  const toStr = (v: unknown): string | null =>
-    v == null ? null : typeof v === "string" ? v : JSON.stringify(v);
-
   const envs = new Set([
     ...Object.keys(pre?.environmentSettings ?? {}),
     ...Object.keys(post.environmentSettings ?? {}),
@@ -1417,25 +1414,31 @@ export function renderFeatureEnvironmentDefaultsSection(
 
   const rows: ReactNode[] = [];
   for (const env of envs) {
-    const preStr = (
-      toStr(
-        getDefaultValueOverrideForEnvironment(pre?.defaultValueOverrides, env),
-      ) ?? ""
-    ).trim();
-    const postStr = (
-      toStr(
-        getDefaultValueOverrideForEnvironment(post.defaultValueOverrides, env),
-      ) ?? ""
-    ).trim();
-    if (preStr === postStr) continue;
+    const preOverride = getDefaultValueOverrideForEnvironment(
+      pre?.defaultValueOverrides,
+      env,
+    );
+    const postOverride = getDefaultValueOverrideForEnvironment(
+      post.defaultValueOverrides,
+      env,
+    );
+    // Only surface envs whose override changed; base-value-only changes are
+    // covered by the default-value section.
+    if (preOverride === postOverride) continue;
+    // Show what the env actually served each side: its override, else the base
+    // default it falls back to (so a removed override reads as "→ base", not
+    // "→ unset").
+    const preServed = preOverride ?? pre?.defaultValue ?? "";
+    const postServed = postOverride ?? post.defaultValue ?? "";
+    if (preServed === postServed) continue;
     rows.push(
       <div key={`env-default-${env}`} className="mb-2">
         <Heading as="h6" size="small" color="text-mid" mb="2">
           {`Default value (${env})`}
         </Heading>
         <ValueChangedField
-          pre={preStr ? formatValue(preStr) : null}
-          post={postStr ? formatValue(postStr) : null}
+          pre={preServed ? formatValue(preServed) : null}
+          post={postServed ? formatValue(postServed) : null}
         />
       </div>,
     );

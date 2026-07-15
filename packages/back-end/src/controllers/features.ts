@@ -793,6 +793,17 @@ export async function postFeatures(
     ),
   );
 
+  // Validate overrides on the internal create path too (the REST API validates
+  // its own body); the field arrives via the spread above.
+  if (feature.defaultValueOverrides !== undefined) {
+    feature.defaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+      feature,
+      feature.defaultValueOverrides,
+      environmentIds,
+      { requireEnv: true },
+    );
+  }
+
   if (
     !context.permissions.canPublishFeature(
       feature,
@@ -2609,7 +2620,7 @@ export async function postFeatureRevertDraft(
     changes.environmentsEnabled = revision.environmentsEnabled;
   }
   if (revision.defaultValueOverrides !== undefined) {
-    changes.defaultValueOverrides = revision.defaultValueOverrides;
+    changes.defaultValueOverrides = [...revision.defaultValueOverrides];
   }
   if (revision.prerequisites !== undefined) {
     changes.prerequisites = revision.prerequisites;
@@ -3948,12 +3959,23 @@ export async function postFeatureDefaultValue(
     );
   }
 
-  // The base default value change affects every environment, so reset review
-  // across all envs regardless of which overrides changed.
+  // A base value change affects every environment; an override-only change is
+  // scoped to the envs whose resolved value actually changed.
+  const baseValueChanged = defaultValue !== revision.defaultValue;
+  const changedEnvironments =
+    nextDefaultValueOverrides !== undefined
+      ? environments.filter((env) =>
+          defaultValueOverrideDiffersForEnv(
+            nextDefaultValueOverrides,
+            revision.defaultValueOverrides,
+            env,
+          ),
+        )
+      : [];
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: environments,
-    defaultValueChanged: true,
+    changedEnvironments,
+    defaultValueChanged: baseValueChanged,
     settings: org?.settings,
   });
 

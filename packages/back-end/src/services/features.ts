@@ -1547,7 +1547,11 @@ export function evaluateFeature({
       env: env.id,
       result: null,
       enabled: false,
-      defaultValue: revision.defaultValue,
+      defaultValue:
+        getDefaultValueOverrideForEnvironment(
+          revision.defaultValueOverrides,
+          env.id,
+        ) ?? revision.defaultValue,
     };
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
@@ -1746,7 +1750,11 @@ export async function evaluateAllFeatures({
         env: env.id,
         result: null,
         enabled: false,
-        defaultValue: revision.defaultValue,
+        defaultValue:
+          getDefaultValueOverrideForEnvironment(
+            revision.defaultValueOverrides,
+            env.id,
+          ) ?? revision.defaultValue,
       };
       if (featureDefinitions[feature.id]) {
         const settings = feature.environmentSettings[env.id] ?? null;
