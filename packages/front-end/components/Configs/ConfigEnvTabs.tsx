@@ -64,7 +64,7 @@ export default function ConfigEnvTabs({
 }: Props) {
   const router = useRouter();
   const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, getConfigByKey } = useDefinitions();
   const environments = useEnvironments();
 
   // If the open config is a flavor, the base is the parent that lists it —
@@ -81,7 +81,6 @@ export default function ConfigEnvTabs({
     () => lineage.find((n) => n.key === currentKey),
     [lineage, currentKey],
   );
-  const isFlavor = !!flavorParent || !!currentNode?.scopedConfig;
   const baseKey =
     flavorParent?.key ?? currentNode?.scopedConfig?.parent ?? currentKey;
   const baseNode = useMemo(
@@ -117,6 +116,9 @@ export default function ConfigEnvTabs({
     if (!createEnv || !availableEnvs.some((e) => e.id === createEnv)) {
       throw new Error("Select an environment");
     }
+    // The override always attaches to the BASE config, even when a flavor tab
+    // is open (the new override overrides the parent, not the viewed flavor).
+    const baseConfigId = getConfigByKey(baseKey)?.id ?? currentConfigId;
     const flavorKey = newFlavorKey(baseKey, createEnv);
     // Create the flavor (empty patch), then attach it to the base's selection
     // list — an immediate write (not revision-controlled) so the tab appears
@@ -130,7 +132,7 @@ export default function ConfigEnvTabs({
         value: "{}",
       }),
     });
-    await apiCall(`/configs/${currentConfigId}/scoped-overrides`, {
+    await apiCall(`/configs/${baseConfigId}/scoped-overrides`, {
       method: "PUT",
       body: JSON.stringify({
         scopedOverrides: [
@@ -145,7 +147,9 @@ export default function ConfigEnvTabs({
     await router.push(`/configs/${flavorKey}`);
   };
 
-  const showCreate = canCreate && !isFlavor && availableEnvs.length > 0;
+  // Offered from any tab (base or a flavor) — the override always attaches to
+  // the base, so the viewing context doesn't matter.
+  const showCreate = canCreate && availableEnvs.length > 0;
   if (overrides.length === 0 && !showCreate) return null;
 
   return (
