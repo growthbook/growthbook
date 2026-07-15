@@ -973,12 +973,20 @@ export default function RampScheduleSection({
     () => selectedDatasource?.settings?.queries?.exposure ?? [],
     [selectedDatasource],
   );
-  const { data: templatesData, mutate: mutateTemplates } = useApi<{
+  const {
+    data: templatesData,
+    error: templatesError,
+    mutate: mutateTemplates,
+  } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  // Prefer the parent's prefetched list; fall back to the local request.
+  // Prefer the parent's prefetched list; fall back to the local request. Treat a
+  // fetch error as "loaded" (with no templates) so auto-select settles and the
+  // editor still renders — otherwise a failed request leaves it spinning forever.
   const templatesLoaded =
-    preloadedTemplates !== undefined || templatesData !== undefined;
+    preloadedTemplates !== undefined ||
+    templatesData !== undefined ||
+    templatesError !== undefined;
   const templates =
     templatesData?.rampScheduleTemplates ?? preloadedTemplates ?? [];
 
@@ -1004,21 +1012,26 @@ export default function RampScheduleSection({
       hasAutoSelected.current = true;
       lastSyncedMonitored.current = stateMonitored;
       const matchId = findMatchingTemplate(state, templates);
+      // Only auto-APPLY a preset's steps when the ramp is still the pristine
+      // simple default. PagedModal unmounts inactive pages, so returning to the
+      // ramp page remounts this and re-runs auto-select against the persisted —
+      // possibly customized — state; applying then would clobber those edits.
+      // A non-pristine state just reflects the matching selection (if any).
+      const canApplyPreset =
+        !ruleRampSchedule &&
+        !hideTemplateSave &&
+        stepsMatchSimplePattern(state.steps, state.endPatch);
       if (matchId) {
-        // findMatchingTemplate compares a lossy projection (it ignores `force`
-        // and conditionally-dropped step fields), so a match doesn't guarantee
-        // the rendered steps equal the template. For a brand-new ramp, apply the
-        // matched template so the displayed steps actually reflect the preset
-        // (otherwise the dropdown shows it while the basic default steps remain).
-        // For an existing schedule, only reflect the selection — its
-        // reconstructed steps are the source of truth and must not be overwritten.
+        // A lossy match doesn't guarantee the rendered steps equal the template,
+        // so on a pristine ramp apply it to make the steps reflect the preset;
+        // otherwise just reflect the selection without overwriting the steps.
         const matched = templates.find((t) => t.id === matchId);
-        if (matched && !ruleRampSchedule && !hideTemplateSave) {
+        if (matched && canApplyPreset) {
           applyTemplate(matched);
         } else {
           setSelectedTemplateId(matchId);
         }
-      } else if (!ruleRampSchedule && !hideTemplateSave) {
+      } else if (canApplyPreset) {
         const defaultTemplate = templates.find(
           (t) => t.official && isMonitoredTemplate(t) === stateMonitored,
         );
