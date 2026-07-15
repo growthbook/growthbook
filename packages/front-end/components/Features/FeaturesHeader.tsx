@@ -552,7 +552,7 @@ export default function FeaturesHeader({
                 <TabsList size="3" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
-                    Review and Publish
+                    Review &amp; Publish
                     {activeDraftCount > 0 && (
                       <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
                         <Badge

@@ -113,7 +113,7 @@ export default function RevisionSummaryCard({
     [disablePinning],
   );
 
-  // The "Review and Publish" CTA portals between the card slot and the banner
+  // The "Review & Publish" CTA portals between the card slot and the banner
   // slot so it stays reachable when pinned (mirrors the feature flow).
   const ctaSlotRef = useRef<HTMLDivElement>(null);
   const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
@@ -316,7 +316,7 @@ export default function RevisionSummaryCard({
           onClick={onReviewPublish}
           style={{ whiteSpace: "nowrap" }}
         >
-          Review and Publish
+          Review &amp; Publish
         </Button>
       </Box>
     ) : null;

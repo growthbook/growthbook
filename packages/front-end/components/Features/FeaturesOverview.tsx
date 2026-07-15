@@ -552,7 +552,7 @@ export default function FeaturesOverview({
         onClick={() => setTab("review")}
         style={{ whiteSpace: "nowrap" as const }}
       >
-        Review and Publish
+        Review &amp; Publish
       </Button>
     </Box>
   ) : null;
@@ -930,7 +930,7 @@ export default function FeaturesOverview({
 
               <Flex align="center" justify="end" gap="4" flexGrow="1">
                 {/* Lifecycle actions (revert, discard, publish) live in the
-                    Review and Publish tab — the card only offers "New Draft"
+                    Review & Publish tab — the card only offers "New Draft"
                     and navigation into the review surface. */}
                 {canEditDrafts && !isDraft && (
                   <Box position="relative">
