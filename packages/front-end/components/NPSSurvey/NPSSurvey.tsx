@@ -395,12 +395,19 @@ export default function NPSSurvey() {
                 {CATEGORY_LABEL[cat]}
               </span>
             </Flex>
-            <label className={styles.prompt} htmlFor="gb-nps-feedback">
+            <Text
+              as="label"
+              htmlFor="gb-nps-feedback"
+              size="medium"
+              weight="semibold"
+              color="text-high"
+            >
               {PROMPTS[cat]}
-            </label>
+            </Text>
             <TextArea
               id="gb-nps-feedback"
               rows={3}
+              mt="2"
               placeholder="Optional — a sentence is plenty"
               {...register("feedback")}
             />
