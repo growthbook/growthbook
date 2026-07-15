@@ -705,12 +705,6 @@ export function filterAndGroupExperimentMetrics({
   };
 }
 
-// Resolves the ordered, expanded list of metric ids an experiment-result block
-// should display: handles the experiment-goal / -secondary / -guardrail selector
-// tokens and the "no selector = all" default, expands metric groups, and filters
-// to any explicitly-listed metric ids. Callers map the ids to metric objects via
-// their own getExperimentMetricById. Used by both the authenticated and public
-// dashboard block dispatchers.
 export function resolveExperimentBlockMetricIds({
   blockMetricIds,
   experiment,

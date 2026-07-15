@@ -517,31 +517,18 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
-// Best-effort conversion of Markdown to plain text for previews (e.g. link
-// unfurl descriptions). Not a full parser — strips the common syntax and
-// collapses whitespace. Links/images become their visible text (alt/label).
+// Converts common Markdown syntax to plain text for previews.
 export function stripMarkdown(md: string): string {
-  return (
-    md
-      // Fenced code blocks -> drop the fences, keep the code text
-      .replace(/```[^\n]*\n?/g, "")
-      // Images ![alt](url) -> removed entirely (alt is often an auto-generated
-      // filename, which is noise in a preview). Must run before the link rule.
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-      // Links [text](url) -> text
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-      // Inline code `code` -> code
-      .replace(/`([^`]*)`/g, "$1")
-      // Bold/italic/strikethrough markers
-      .replace(/(\*\*|__|\*|_|~~)/g, "")
-      // Leading heading (#), blockquote (>), and list markers per line
-      .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "")
-      // Horizontal rules
-      .replace(/^\s{0,3}([-*_])(\s*\1){2,}\s*$/gm, "")
-      // Collapse all whitespace (incl. newlines) to single spaces
-      .replace(/\s+/g, " ")
-      .trim()
-  );
+  return md
+    .replace(/```[^\n]*\n?/g, "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/(\*\*|__|\*|_|~~)/g, "")
+    .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "")
+    .replace(/^\s{0,3}([-*_])(\s*\1){2,}\s*$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function getNumberFormatDigits(

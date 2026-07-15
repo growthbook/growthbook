@@ -520,8 +520,6 @@ export async function updateDashboardSavedQueries(
   );
 }
 
-// Org settings exposed to the public dashboard page (stat config needed to
-// render results). Mirrors the allow-list used by generateExperimentReportSSRData.
 const PUBLIC_SSR_SETTINGS_KEYS: Array<keyof OrganizationSettings> = [
   "confidenceLevel",
   "metricDefaults",
@@ -536,12 +534,9 @@ const PUBLIC_SSR_SETTINGS_KEYS: Array<keyof OrganizationSettings> = [
   "sequentialTestingEnabled",
   "sequentialTestingTuningParameter",
   "displayCurrency",
-  // Needed by ExperimentTrafficBlock's health timeseries gate on the public page.
   "runHealthTrafficQuery",
 ];
 
-// Metric fields that carry query/SQL/schema details. Stripped before a metric
-// is exposed to anonymous viewers. Matches generateExperimentReportSSRData.
 const SENSITIVE_METRIC_FIELDS = [
   "queries",
   "runStarted",
@@ -554,14 +549,6 @@ const SENSITIVE_METRIC_FIELDS = [
   "queryFormat",
 ] as const;
 
-// Builds the definitions/labels polyfill for the unauthenticated public
-// dashboard page (which has no DefinitionsContext), collected across all of a
-// dashboard's blocks. Values are redacted via allow-list (settings/projects)
-// or by stripping sensitive fields (metrics). This is NOT block result data.
-//
-// NOTE: factMetricSlices is deferred (returned empty) for the first cut — it's
-// a display enhancement, not a leak vector. See generateExperimentReportSSRData
-// for the slice-generation logic to port if/when needed.
 export async function generateDashboardSSRData({
   context,
   dashboard,
@@ -572,10 +559,7 @@ export async function generateDashboardSSRData({
   const experimentIds = new Set<string>();
   const referencedMetricIds = new Set<string>();
   const dimensionIds = new Set<string>();
-  // Fact metrics referenced by metric-exploration block configs. Collected
-  // separately so their (redacted) DEFINITIONS reach ssrData.metrics — needed
-  // so ratio metrics render correctly on the public page — WITHOUT pulling
-  // their fact tables into ssrData (which would widen SQL exposure).
+  // These metrics are exposed without their Fact Tables to avoid leaking SQL.
   const explorationFactMetricIds = new Set<string>();
 
   for (const block of dashboard.blocks) {
@@ -611,18 +595,12 @@ export async function generateDashboardSSRData({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Fetch referenced experiments up front: needed both for the experiments map
-  // (below) and to resolve selector-based metric blocks into the actual metrics
-  // that must appear in ssrData.metrics.
   const experimentsById = new Map<string, ExperimentInterface>();
   for (const experimentId of experimentIds) {
     const experiment = await getExperimentById(context, experimentId);
     if (experiment) experimentsById.set(experimentId, experiment);
   }
 
-  // A metric block's metricIds may be selector tokens (experiment-goal etc.)
-  // rather than real ids; resolve them via the experiment's metric lists so the
-  // metrics behind the selectors are included in ssrData.metrics.
   for (const block of dashboard.blocks) {
     if (
       "metricIds" in block &&
@@ -647,7 +625,6 @@ export async function generateDashboardSSRData({
     metricIds.filter((m) => m.startsWith("fact__")),
   );
 
-  // Pull in denominator metrics referenced by ratio metrics (mirrors report SSR)
   const denominatorMetricIds = uniq(
     metrics
       .map((m) => m.denominator)
@@ -658,9 +635,7 @@ export async function generateDashboardSSRData({
     denominatorMetricIds,
   );
 
-  // Fact metrics referenced only by metric-exploration configs. Merged into
-  // metricMap below but deliberately NOT fed into factTableIds, so their
-  // fact-table SQL is never exposed. Ids already fetched above are skipped.
+  // Do not include the Fact Tables for exploration-only metrics.
   const explorationOnlyFactMetricIds = [...explorationFactMetricIds].filter(
     (id) => !metricIds.includes(id),
   );
@@ -697,7 +672,6 @@ export async function generateDashboardSSRData({
   const allDimensions = await findDimensionsByOrganization(context.org.id);
   const dimensions = allDimensions.filter((d) => dimensionIds.has(d.id));
 
-  // Experiments: expose only display fields, matching the public experiment page
   const experiments: Record<
     string,
     Partial<ExperimentInterfaceStringDates>
@@ -705,6 +679,7 @@ export async function generateDashboardSSRData({
   const projectIds = new Set<string>(dashboard.projects ?? []);
   for (const [experimentId, experiment] of experimentsById) {
     if (experiment.project) projectIds.add(experiment.project);
+    // Express serializes the dates before this reaches the client.
     experiments[experimentId] = pick(experiment, [
       "id",
       "name",
@@ -715,18 +690,12 @@ export async function generateDashboardSSRData({
       "phases",
       "status",
       "project",
-      // Metric-result blocks resolve their metrics from the experiment's metric
-      // lists + per-metric overrides/slices.
       "goalMetrics",
       "secondaryMetrics",
       "guardrailMetrics",
       "metricOverrides",
       "customMetricSlices",
-      // Lets the public page fall back to the experiment's default snapshot for
-      // blocks with no per-block snapshotId (mirrors useDashboardSnapshot).
       "analysisSummary",
-      // Dates (phases) are serialized to ISO strings by res.json before reaching
-      // the client, matching ExperimentInterfaceStringDates on the wire.
     ]) as unknown as Partial<ExperimentInterfaceStringDates>;
   }
 
@@ -747,7 +716,6 @@ export async function generateDashboardSSRData({
     PUBLIC_SSR_SETTINGS_KEYS,
   );
 
-  // Check commercial features against the org (not a user) for public pages
   const publicRelevantFeatures: CommercialFeature[] = ["metric-slices"];
   const allFeatures = accountFeatures[getEffectiveAccountPlan(context.org)];
   const commercialFeatures = publicRelevantFeatures.filter((f) =>
@@ -767,16 +735,7 @@ export async function generateDashboardSSRData({
   };
 }
 
-// ---------------------------------------------------------------------------
-// Public block result data + redaction
-//
-// Resolves the data referenced by a public dashboard's blocks (snapshots,
-// saved-query results, metric analyses, explorations) and redacts each through
-// per-type serializers before it leaves for an anonymous viewer. Every fetch
-// here bypasses per-resource permission checks (agenda-job context), so these
-// serializers ARE the authorization boundary for block data.
-// ---------------------------------------------------------------------------
-
+// These serializers are the authorization boundary for anonymous block data.
 // Snapshots embed raw SQL inside `settings` (metric SQL, dimension SQL, and the
 // authored queryFilter). Blank those while keeping the analyses/results the UI
 // renders. Targeted strip rather than a full allow-list: settings has ~40
@@ -825,16 +784,6 @@ export function redactMetricAnalysisForPublic(
   };
 }
 
-// Explorations are structured builder specs (no raw SQL, no credentials;
-// datasource is an id) that the author intentionally publishes, so config +
-// result are returned as-is. NOTE: this does expose the analytics query
-// structure (dimensions, filter values). Tighten here if that's not desired.
-export function redactExplorationForPublic(
-  exploration: ProductAnalyticsExploration,
-): ProductAnalyticsExploration {
-  return exploration;
-}
-
 export async function getPublicDashboardBlockData({
   context,
   dashboard,
@@ -842,7 +791,6 @@ export async function getPublicDashboardBlockData({
   context: ReqContext;
   dashboard: DashboardInterface;
 }): Promise<DashboardPublicBlockData> {
-  // Snapshots only exist for experiment dashboards
   let snapshots: ExperimentSnapshotInterface[] = [];
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);
@@ -905,11 +853,8 @@ export async function getPublicDashboardBlockData({
             (block.type === "metric-exploration" ||
               block.type === "fact-table-exploration" ||
               block.type === "data-source-exploration") &&
-            "explorerAnalysisId" in block &&
-            typeof (block as { explorerAnalysisId?: string })
-              .explorerAnalysisId === "string" &&
-            (block as { explorerAnalysisId: string }).explorerAnalysisId
-              .length > 0,
+            blockHasFieldOfType(block, "explorerAnalysisId", isString) &&
+            block.explorerAnalysisId.length > 0,
         )
         .map((block) => block.explorerAnalysisId),
     ),
@@ -927,6 +872,6 @@ export async function getPublicDashboardBlockData({
     snapshots: snapshots.map(redactSnapshotForPublic),
     savedQueries: savedQueries.map(redactSavedQueryForPublic),
     metricAnalyses: metricAnalyses.map(redactMetricAnalysisForPublic),
-    explorations: explorations.map(redactExplorationForPublic),
+    explorations,
   };
 }

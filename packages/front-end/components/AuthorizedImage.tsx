@@ -133,10 +133,6 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
     if (onErrorMsg) {
       return onErrorMsg(errorMsg);
     }
-    // On public pages, degrade gracefully: surrounding content still renders,
-    // and we don't surface internal error strings to anonymous viewers (e.g.
-    // local-storage installs can't serve images without auth). Show a subtle
-    // placeholder with the image's alt text instead.
     if (isPublic) {
       const altText =
         typeof props.alt === "string" && props.alt ? props.alt : undefined;

@@ -56,8 +56,6 @@ export type Props = {
   ) => ReactNode | undefined;
   paddingTop?: number;
   showNoRowsWarning?: boolean;
-  // Hides the rendered-SQL tab entirely (e.g. the public dashboard page, where
-  // the SQL is stripped server-side). Also suppresses forcing the SQL tab.
   hideSql?: boolean;
 };
 

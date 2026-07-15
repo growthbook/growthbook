@@ -1,16 +1,12 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
-import { SavedQuery, ProductAnalyticsExploration } from "shared/validators";
+import { SavedQuery } from "shared/validators";
 import {
   redactSnapshotForPublic,
   redactSavedQueryForPublic,
   redactMetricAnalysisForPublic,
-  redactExplorationForPublic,
 } from "back-end/src/enterprise/services/dashboards";
 
-// These serializers are the authorization boundary for block data on the
-// unauthenticated public dashboard endpoint — verify they strip raw SQL and
-// adhoc filters while preserving the result data the page renders.
 describe("public dashboard block-data redaction", () => {
   describe("redactSnapshotForPublic", () => {
     const snapshot = {
@@ -24,7 +20,7 @@ describe("public dashboard block-data redaction", () => {
             id: "met_1",
             settings: { sql: "SELECT * FROM events", type: "binomial" },
           },
-          { id: "met_2" }, // no settings — must not throw
+          { id: "met_2" },
         ],
         dimensions: [
           {
@@ -49,7 +45,6 @@ describe("public dashboard block-data redaction", () => {
       expect(result.settings.goalMetrics).toEqual(["met_1"]);
       expect(result.settings.metricSettings[0].settings?.type).toBe("binomial");
       expect(result.settings.dimensions[0].settings?.userIdType).toBe("user");
-      // queries are id pointers, not SQL — left intact
       expect(result.queries).toEqual(snapshot.queries);
     });
 
@@ -121,18 +116,6 @@ describe("public dashboard block-data redaction", () => {
       expect(analysis.settings.additionalNumeratorFilters).toEqual([
         "amount > 0",
       ]);
-    });
-  });
-
-  describe("redactExplorationForPublic", () => {
-    it("returns the exploration unchanged (no raw SQL / credentials present)", () => {
-      const exploration = {
-        id: "exp_1",
-        datasource: "ds_1",
-        result: { rows: [] },
-        config: { type: "metric" },
-      } as unknown as ProductAnalyticsExploration;
-      expect(redactExplorationForPublic(exploration)).toEqual(exploration);
     });
   });
 });

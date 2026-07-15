@@ -29,11 +29,7 @@ import {
 } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
-// NOTE: "published" and "public" are distinct and easy to confuse.
-//   - "published" = visible to organization members (with read access)
-//   - "public"    = visible to ANYONE with the share URL, no authentication
-//   - "private"   = visible to the owner only
-// Treat any `shareLevel === "public"` check as a public-exposure boundary.
+// "public" is unauthenticated; "published" is organization-visible.
 export const dashboardShareLevel = z.enum(["published", "private", "public"]);
 export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
   z
@@ -195,11 +191,6 @@ export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
 export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;
 
-// Definitions/labels polyfill for the unauthenticated public dashboard page,
-// which has no DefinitionsContext. Mirrors ExperimentReportSSRData but is
-// collected across all of a dashboard's blocks, plus an `experiments` map for
-// experiment-block labels. Values are server-redacted before being sent (see
-// generateDashboardSSRData). This is NOT block result data.
 export type DashboardSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
@@ -222,10 +213,6 @@ export type DashboardSSRData = {
   commercialFeatures?: CommercialFeature[];
 };
 
-// Block result data for the public dashboard page, AFTER server-side redaction
-// (raw SQL stripped from snapshots + saved queries, adhoc SQL filters stripped
-// from metric analyses). Same shapes as the authenticated endpoint with the
-// sensitive fields blanked — see getPublicDashboardBlockData.
 export type DashboardPublicBlockData = {
   snapshots: ExperimentSnapshotInterface[];
   savedQueries: SavedQuery[];

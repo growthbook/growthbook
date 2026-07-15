@@ -33,8 +33,6 @@ export default function MetricExplorerBlock({
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const { loading, error, comparisonMetricAnalysis, compareEnabled } =
     useDashboardMetricAnalysis(block, setBlock);
-  // Anonymous public view has no currency hook context; fall back to the
-  // ssrPolyfills currency (both hooks are called unconditionally per hooks rules).
   const _displayCurrency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
   const { theme } = useAppearanceUITheme();

@@ -41,8 +41,6 @@ export interface SSRPolyfills {
   dimensions: DimensionInterface[];
   getDimensionById: (id: string) => null | DimensionInterface;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
-  // Dashboard SSR only: experiments referenced by blocks. Reports/experiments
-  // pass their single experiment as a separate prop, so this is null there.
   getExperimentById: (
     id: string,
   ) => null | Partial<ExperimentInterfaceStringDates>;
@@ -84,9 +82,6 @@ export default function useSSRPolyfills(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables],
   );
-  // ssrData.metrics includes fact metrics referenced by metric-exploration
-  // blocks; narrow to fact metrics so exploration ratio rendering works
-  // anonymously (only .metricType / .numerator.aggregation are read).
   const getFactMetricByIdSSR = useCallback(
     (id: string): FactMetricInterface | null => {
       const metric = getFactMetricById(id) || ssrData?.metrics?.[id] || null;
@@ -97,10 +92,7 @@ export default function useSSRPolyfills(
 
   const useOrgSettingsSSR = () => {
     const orgSettings = useOrgSettings();
-    // Merge ssrData as the base so SSR-provided org settings survive even when
-    // an anonymous viewer has a non-empty stub (useOrgSettings returns e.g.
-    // { requireReviews: [] }) that trips the hasCsrSettings check. Real
-    // client-side settings still take precedence when present.
+    // Anonymous viewers can have non-empty stub settings.
     return hasCsrSettings
       ? { ...(ssrData?.settings || {}), ...orgSettings }
       : ssrData?.settings || {};

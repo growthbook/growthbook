@@ -156,8 +156,6 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
-    // Public sharing (anyone with the URL, no auth) is gated for both
-    // experiment and general dashboards.
     if (
       doc.shareLevel === "public" &&
       !this.context.hasPremiumFeature("share-product-analytics-dashboards")
@@ -235,9 +233,6 @@ export class DashboardModel extends BaseClass {
       }
     }
 
-    // Public sharing (anyone with the URL, no auth) is gated for both
-    // experiment and general dashboards. Mirrors the editLevel gating below:
-    // gate while the dashboard is (or is becoming) public.
     if (
       (existing.shareLevel === "public" || updates.shareLevel === "public") &&
       !this.context.hasPremiumFeature("share-product-analytics-dashboards")
@@ -316,9 +311,7 @@ export class DashboardModel extends BaseClass {
     return DashboardModel.migrateDoc(orig);
   }
 
-  // Cross-org lookup by globally-unique uid. This bypasses org scoping and
-  // permission checks entirely, so it is private and only reachable through
-  // getPublicByUid, which enforces the shareLevel === "public" gate.
+  // Bypasses organization scoping and must remain private.
   private static async dangerousGetByUid(
     uid: string,
   ): Promise<DashboardInterface | null> {
@@ -331,9 +324,6 @@ export class DashboardModel extends BaseClass {
     return DashboardModel.migrateDoc(doc as unknown as LegacyDashboardDocument);
   }
 
-  // Safe cross-org lookup for the unauthenticated public dashboard endpoints.
-  // Returns null for both missing and non-public dashboards so private,
-  // cross-org data can never leak, regardless of what the caller does.
   public static async getPublicByUid(
     uid: string,
   ): Promise<DashboardInterface | null> {

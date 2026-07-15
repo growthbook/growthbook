@@ -154,8 +154,6 @@ export default function DashboardModal({
           label: form.watch("userId") === userId ? "Only me" : "Owner only",
           value: "private",
         },
-        // Public sharing is gated on the same feature the back-end enforces in
-        // canCreate/canUpdate, so users can't pick an option that fails on save.
         ...(hasGeneralDashboardSharing
           ? [{ label: "Anyone with the link", value: "public" }]
           : []),

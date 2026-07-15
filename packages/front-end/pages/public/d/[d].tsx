@@ -17,9 +17,13 @@ import { DashboardGrid } from "@/enterprise/components/Dashboards/DashboardEdito
 import PublicDashboardBlock from "@/enterprise/components/Dashboards/Public/PublicDashboardBlock";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 
-// Only the lightweight shell (dashboard config + ssrData) is server-rendered.
-// The heavy block result data is fetched client-side (see below) so it never
-// bloats the page document.
+const EMPTY_BLOCK_DATA: DashboardPublicBlockData = {
+  snapshots: [],
+  savedQueries: [],
+  metricAnalyses: [],
+  explorations: [],
+};
+
 export async function getServerSideProps(context: GetServerSidePropsContext) {
   const { d } = context.params as { d: string };
   const apiHost =
@@ -27,20 +31,18 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
 
   try {
     const resp = await fetch(apiHost + `/api/dashboard/public/${d}`);
-    const data = await resp.json();
+    const data: {
+      dashboard?: DashboardInterface;
+      ssrData?: DashboardSSRData;
+    } = await resp.json();
     const dashboard = data?.dashboard;
     if (!dashboard) {
       context.res.statusCode = 404;
     }
 
-    // Build a link-preview description from the dashboard's markdown blocks
-    // (part of the shell, so no extra fetch). Unfurlers read the SSR'd <head>,
-    // so this must be computed server-side. Falls back to the title.
-    const markdownText = (
-      (dashboard?.blocks ?? []) as Array<{ type?: string; content?: string }>
-    )
-      .filter((b) => b.type === "markdown")
-      .map((b) => b.content || "")
+    const markdownText = (dashboard?.blocks ?? [])
+      .filter((block) => block.type === "markdown")
+      .map((block) => block.content)
       .join("\n\n");
     const strippedMarkdown = stripMarkdown(markdownText);
     const description = strippedMarkdown
@@ -74,14 +76,10 @@ export default function PublicDashboardPage({
   const { userId, organization: userOrganization, superAdmin } = useUser();
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
-  // Org members get the in-app affordances; everyone else sees the public view.
   const isOrgMember =
     (!!userId && dashboard?.organization === userOrganization.id) ||
     !!superAdmin;
 
-  // Block result data is heavy (snapshots, query result rows), so it's fetched
-  // client-side from the public /blocks endpoint rather than serialized into the
-  // page. Blocks show a loading state until it arrives.
   const [blockData, setBlockData] = useState<DashboardPublicBlockData | null>(
     null,
   );
@@ -94,23 +92,11 @@ export default function PublicDashboardPage({
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        setBlockData(
-          d?.blockData ?? {
-            snapshots: [],
-            savedQueries: [],
-            metricAnalyses: [],
-            explorations: [],
-          },
-        );
+        setBlockData(d?.blockData ?? EMPTY_BLOCK_DATA);
       })
       .catch(() => {
         if (!cancelled) {
-          setBlockData({
-            snapshots: [],
-            savedQueries: [],
-            metricAnalyses: [],
-            explorations: [],
-          });
+          setBlockData(EMPTY_BLOCK_DATA);
         }
       });
     return () => {
@@ -137,10 +123,6 @@ export default function PublicDashboardPage({
     [blockData?.explorations],
   );
 
-  // Seed the dashboard snapshot context with the public block data so blocks
-  // that resolve their own data via context hooks (e.g. metric-explorer's
-  // useDashboardMetricAnalysis) find it in these maps and never fire an
-  // authenticated fetch, which would 401 for an anonymous viewer.
   const dashboardSnapshotContextValue = useMemo(
     () => ({
       snapshotsMap,

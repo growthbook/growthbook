@@ -207,8 +207,6 @@ export async function getSignedUploadToken(
   });
 }
 
-// Does an experiment variation screenshot reference the given org-scoped path?
-// Screenshots may be stored as a full URL or a bare path.
 function screenshotMatchesPath(
   screenshotUrl: string,
   fullPath: string,
@@ -315,9 +313,6 @@ export async function getSignedPublicImageToken(
     // Note: We check the report description below, but we don't load the experiment
     // variation screenshots for reports since those are not included in reports
   } else {
-    // shareType === "dashboard"
-    // getPublicByUid returns null for both missing and non-public dashboards,
-    // so a private dashboard's existence can't be probed via this endpoint.
     dashboard = await DashboardModel.getPublicByUid(shareUid);
 
     if (!dashboard) {
@@ -373,27 +368,7 @@ export async function getSignedPublicImageToken(
     for (const variation of getAllVariations(experiment)) {
       if (variation.screenshots) {
         for (const screenshot of variation.screenshots) {
-          // Extract the path from the screenshot URL if it's a full URL
-          let screenshotPath = screenshot.path;
-          try {
-            const url = new URL(screenshot.path);
-            screenshotPath = url.pathname;
-            // Remove leading slash if present
-            if (screenshotPath.startsWith("/")) {
-              screenshotPath = screenshotPath.substring(1);
-            }
-            // Remove /upload/ prefix if present
-            if (screenshotPath.startsWith("upload/")) {
-              screenshotPath = screenshotPath.substring(7);
-            }
-          } catch {
-            // Not a full URL, use as-is
-          }
-
-          if (
-            screenshotPath === fullPath ||
-            screenshot.path.includes(fullPath)
-          ) {
+          if (screenshotMatchesPath(screenshot.path, fullPath)) {
             imageFound = true;
             break;
           }
@@ -435,9 +410,6 @@ export async function getSignedPublicImageToken(
       imageFound = true;
     }
   } else if (shareType === "dashboard" && dashboard) {
-    // Only sign paths the dashboard actually references: markdown block content,
-    // plus the linked experiment's variation screenshots + description (rendered
-    // by experiment-metadata blocks). Same anti-exfiltration discipline as above.
     imageFound = dashboard.blocks.some(
       (block) =>
         block.type === "markdown" &&

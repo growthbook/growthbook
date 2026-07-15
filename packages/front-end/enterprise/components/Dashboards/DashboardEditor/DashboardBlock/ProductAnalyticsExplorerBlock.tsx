@@ -33,8 +33,6 @@ export default function ProductAnalyticsExplorerBlock({
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
 > & {
-  // When supplied directly (public dashboard page), render from these and skip
-  // the authenticated fetch, which would 401 for an anonymous viewer.
   exploration?: ProductAnalyticsExploration;
   query?: QueryInterface | null;
 }) {
@@ -54,8 +52,7 @@ export default function ProductAnalyticsExplorerBlock({
 
   // Comparison is resolved through the shared seam so a future dashboard-wide
   // compare toggle drives this the same way. The previous-period exploration is
-  // a separate entity produced on refresh; fetch it when present. Skipped on the
-  // public page (explorationProp provided) since it would fire an authed request.
+  // a separate entity produced on refresh; fetch it when present.
   const comparison = resolveBlockComparison(block);
   const compareEnabled = !!comparison?.enabled;
   const { data: comparisonData } = useApi<{

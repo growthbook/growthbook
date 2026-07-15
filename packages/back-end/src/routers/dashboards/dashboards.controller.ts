@@ -55,11 +55,6 @@ interface MultiDashboardResponse {
   dashboards: DashboardInterface[];
 }
 
-// Looks up a public dashboard by uid, sending the 404 response itself. Missing
-// and non-public dashboards are indistinguishable here (both 404) so an
-// anonymous caller can't probe for the existence of private dashboards.
-// Returns null when it has already responded, so callers should
-// `if (!dashboard) return;`.
 async function loadPublicDashboardOrRespond(
   uid: string,
   res: Response,
@@ -72,18 +67,6 @@ async function loadPublicDashboardOrRespond(
   return dashboard;
 }
 
-// Unauthenticated endpoints for publicly-shared dashboards. Registered before
-// the JWT middleware in app.ts with permissive CORS. shareLevel === "public"
-// is the sole authorization gate.
-//
-// The payload is split into a lightweight shell (this endpoint) and the heavy
-// block result data (getDashboardPublicBlocks). The shell is small enough to
-// SSR into the page; block data (snapshots, query results) is fetched
-// client-side so it never bloats the document (__NEXT_DATA__).
-
-// Shell: dashboard config/layout + ssrData (definitions/labels polyfill for the
-// no-DefinitionsContext public page). ssrData is server-redacted (see
-// generateDashboardSSRData).
 export async function getDashboardPublic(
   req: Request<{ uid: string }>,
   res: Response,
@@ -97,9 +80,6 @@ export async function getDashboardPublic(
   return res.status(200).json({ status: 200, dashboard, ssrData });
 }
 
-// Block result data (snapshots, saved-query results, metric analyses,
-// explorations), each redacted through allow-list serializers. Fetched
-// client-side by the public page.
 export async function getDashboardPublicBlocks(
   req: Request<{ uid: string }>,
   res: Response,

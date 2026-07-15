@@ -148,9 +148,6 @@ export default function DashboardShareModal({
     }
   };
 
-  // "public" dashboards copy the no-auth public URL; "published" dashboards
-  // copy the in-app (organization) link. NOTE: the public URL resolves only
-  // once the public dashboard page (/public/d/:uid) exists.
   const getShareUrl = (): string => {
     if (shareLevel === "public") {
       return uid ? `${window.location.origin}/public/d/${uid}` : "";

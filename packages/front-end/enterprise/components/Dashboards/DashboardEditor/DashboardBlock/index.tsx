@@ -89,13 +89,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
-  // Read-only public rendering: hide the rendered-SQL view (SQL is stripped
-  // server-side on the public dashboard endpoint). Only sql-explorer reads it.
   hideSql?: boolean;
-  // Public dashboard page: embedded images (markdown content, variation
-  // screenshots) must resolve via the unauthenticated signed-URL endpoint using
-  // the dashboard's uid. Unset in the authenticated app (images use the authed
-  // path). Consumed by markdown + experiment-metadata blocks.
   isPublic?: boolean;
   publicShareUid?: string;
 } & ObjectProps<T>;
