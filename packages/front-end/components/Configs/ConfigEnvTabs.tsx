@@ -97,7 +97,7 @@ export default function ConfigEnvTabs({
   const availableEnvs = environments.filter((e) => !usedEnvs.has(e.id));
 
   const tabs = [
-    { key: baseKey, label: "All environments" },
+    { key: baseKey, label: "All Environments" },
     ...overrides.map((o) => ({ key: o.config, label: scopeLabel(o) })),
   ];
 

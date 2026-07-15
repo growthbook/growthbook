@@ -29,6 +29,24 @@ const GUIDE_COLOR = "var(--slate-a6)";
 // Indent the first two levels under a root; deeper nodes stop indenting.
 const MAX_INDENT_DEPTH = 2;
 
+// Horizontal elbow joining a row to its parent's vertical guide. Runs from the
+// guide (5px left of the row's content edge) into the row's icon so the icon
+// visibly sits on the connector rather than floating beside it.
+function RowConnector(): React.ReactElement {
+  return (
+    <Box
+      style={{
+        position: "absolute",
+        left: -5,
+        top: ROW_HEIGHT / 2,
+        width: 14,
+        height: 1,
+        background: GUIDE_COLOR,
+      }}
+    />
+  );
+}
+
 export default function LineageTree({
   nodes,
   currentKey,
@@ -164,18 +182,7 @@ export default function LineageTree({
     const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH;
     return (
       <Box key={`mixin-${mk}`} style={{ position: "relative" }}>
-        {showStub && (
-          <Box
-            style={{
-              position: "absolute",
-              left: -5,
-              top: ROW_HEIGHT / 2,
-              width: 5,
-              height: 1,
-              background: GUIDE_COLOR,
-            }}
-          />
-        )}
+        {showStub && <RowConnector />}
         <Flex
           align="center"
           gap="1"
@@ -254,18 +261,7 @@ export default function LineageTree({
     const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH + 1;
     return (
       <Box key={`flavor-${n.key}`} style={{ position: "relative" }}>
-        {showStub && (
-          <Box
-            style={{
-              position: "absolute",
-              left: -5,
-              top: ROW_HEIGHT / 2,
-              width: 5,
-              height: 1,
-              background: GUIDE_COLOR,
-            }}
-          />
-        )}
+        {showStub && <RowConnector />}
         <Flex
           align="center"
           gap="1"
@@ -344,18 +340,7 @@ export default function LineageTree({
     const isOpen = openEnvGroups.has(parentKey);
     return (
       <Box key={`envs-${parentKey}`} style={{ position: "relative" }}>
-        {showStub && (
-          <Box
-            style={{
-              position: "absolute",
-              left: -5,
-              top: ROW_HEIGHT / 2,
-              width: 5,
-              height: 1,
-              background: GUIDE_COLOR,
-            }}
-          />
-        )}
+        {showStub && <RowConnector />}
         <Flex
           align="center"
           gap="1"
@@ -468,18 +453,7 @@ export default function LineageTree({
       );
       return (
         <Box key={n.key} style={{ position: "relative" }}>
-          {showStub && (
-            <Box
-              style={{
-                position: "absolute",
-                left: -5,
-                top: ROW_HEIGHT / 2,
-                width: 5,
-                height: 1,
-                background: GUIDE_COLOR,
-              }}
-            />
-          )}
+          {showStub && <RowConnector />}
           <Flex
             align="center"
             gap="1"
