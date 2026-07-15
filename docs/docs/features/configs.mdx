@@ -30,8 +30,9 @@ A config has:
 - A **value** — a JSON object.
 - A **schema** — the field definitions (names, types, required/optional, bounds, enums, nullability) the value is validated against.
 - An optional **parent** — another config's key. The config inherits the parent's fields and value, then layers its own on top.
+- Optional **environment overrides** — per-environment (and optionally per-project) patches layered on top of the base value, covered in [Environment overrides](#environment-overrides).
 
-Configs are **environment-agnostic**: a config has a single value, not per-environment overrides. If you need a value to differ by environment, use a [constant](/features/constants) (which supports per-environment values) as the value source.
+A config's value applies across all environments by default. When you need it to differ per environment, add [environment overrides](#environment-overrides); you can also draw an environment-varying value from a [constant](/features/constants).
 
 ## Type safety and validation
 
@@ -52,9 +53,19 @@ When fields collide, the **closest base wins**: a child cannot redefine a field 
 
 Values layer as a **deep (targeted) patch**: when a child and its inherited value are both objects, they merge **recursively, key by key**, so a child restates only the leaves it changes and inherits the rest of a nested object. **Arrays and scalars replace wholesale** (arrays are never merged element-by-element), and **`null` is a value** (it sets the field to `null`, it does not delete it). A value composed from a [constant](/features/constants) via `$extends` is applied **whole** — the patch never reaches inside a referenced chunk.
 
-A config's value can also interpolate [string constants](/features/constants) with `{{ @const:key }}` inside any string field, exactly as in feature values — including constants with per-environment overrides, which is how an environment-varying value enters an environment-agnostic config.
+A config's value can also interpolate [string constants](/features/constants) with `{{ @const:key }}` inside any string field, exactly as in feature values — including constants with per-environment overrides, another way to vary a config's value by environment alongside [environment overrides](#environment-overrides).
 
 You can view the full family tree (ancestors and descendants) for any config, both in the app and over the [REST API](#rest-api) via the lineage endpoint.
+
+## Environment overrides
+
+By default a config resolves to a single **base value** used in every environment. When a value needs to differ by environment, add an **environment override** — a patch, scoped to one or more environments (and optionally projects), that layers on top of the base for those environments only.
+
+Manage overrides from the environment tabs on the config's page: **All Environments** shows the base value, and each environment that has an override gets its own tab for editing just that environment's patch. A [config-backed feature flag](#using-a-config-as-a-feature-flags-value) then serves the base value where no override applies and the overridden value where one does.
+
+An override resolves as the **last layer**: the matching environment's patch is deep-merged onto the fully-resolved base — the same targeted, key-by-key merge as [inheritance](#composability-and-inheritance) — so it wins over inherited and composed values while the base still cascades for every key it doesn't touch. When more than one override could match a given environment and project, the **first match wins**.
+
+Each override is itself a config, so its value carries its own revisions and goes through the same draft → review → publish flow; adding or removing an override for an environment takes effect immediately.
 
 ## How configs are validated
 
@@ -177,7 +188,7 @@ Some guardrails:
 
 ## REST API
 
-Configs and their revisions are fully manageable over the [REST API](/api/#tag/configs) — create, update, archive, delete, list references, fetch the full lineage, see where each key is used, import/export value and schema, and drive the revision/approval flow programmatically. Webhook events (`config.*`, including `config.revision.*`) fire on every change, modeled after the feature and constant events.
+Configs and their revisions are fully manageable over the [REST API](/api/#tag/configs) — create, update, archive, delete, list references, fetch the full lineage, see where each key is used, manage [environment overrides](#environment-overrides), import/export value and schema, and drive the revision/approval flow programmatically. Webhook events (`config.*`, including `config.revision.*`) fire on every change, modeled after the feature and constant events.
 
 To get the override values behind a key's usage, follow each reference back to its feature (`GET /features/:id`) — the key-usage endpoint reports _where_ a key is used, and the feature is the source of truth for _what_ it's set to.
 
