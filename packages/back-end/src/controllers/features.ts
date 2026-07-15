@@ -1989,25 +1989,6 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  // Publish-time safety net for config-backed values: re-validate the merged
-  // values going live against the backing config's schema + invariants (against
-  // the baseConfig going live, which the revision may change). Catches a value
-  // staged with ?skipSchemaValidation or invalidated by a later config change —
-  // the REST publish endpoint runs the same check. A no-op for non-config flags.
-  await assertConfigBackedFeatureValuesValid(
-    context,
-    {
-      valueType: feature.valueType,
-      baseConfig:
-        (mergeResult.result as { metadata?: { baseConfig?: string | null } })
-          .metadata?.baseConfig ?? feature.baseConfig,
-    },
-    {
-      defaultValue: mergeResult.result.defaultValue,
-      rules: mergeResult.result.rules,
-    },
-  );
-
   // If publishing experiments along with this draft, ensure they are valid.
   // Experiments with a future statusUpdateSchedule.startAt are routed through
   // approveScheduledExperimentStart instead of starting immediately.

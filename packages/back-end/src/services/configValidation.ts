@@ -24,6 +24,7 @@ import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 // The leaf config we're validating, with optional draft overrides for the
 // schema / parent / extends so a draft edit is judged against the lineage it's
@@ -173,39 +174,26 @@ async function collectMissingRequiredFields(
   ];
 }
 
-// Cross-field invariants (relational rules JSON Schema can't express) are
-// evaluated against the fully-resolved value at publish — the same point required
-// fields are enforced, since a draft can be transiently invalid mid-edit.
-// Invariants accumulate across the lineage (base→leaf, leaf wins on name) so a
-// base config's rules also guard its descendants. Returns each failed rule's
-// human message.
-//
-// Descendants are checked too: this publish changes every descendant's resolved
-// value, so each descendant's effective rules run against its would-be state.
-// Only violations INTRODUCED by this publish are reported (diffed against the
-// live family), so a pre-existing broken descendant — possibly in a project the
-// publisher can't edit — never blocks unrelated publishes. Snapshot-based, same
-// accepted TOCTOU race as assertConfigDescendantsReconcilable.
-// For every environment that a config in `leafKey`'s lineage overrides via a
-// flavor, re-collect invariant violations against the per-environment resolved
-// value (base ⊕ flavor ⊕ any leaf patch already modeled in `byKey`) — the shape
-// the SDK actually ships per environment. The plain env-agnostic pass validates
-// only base ⊕ patch; a cross-field invariant can pass there yet fail once a
-// flavor applies for a specific env (only invariants can differ per env — schema/
-// type conformance is env-agnostic). Envs with no flavor resolve to the base and
-// are already covered. Violations are tagged with their environment. `project`
-// scopes flavor selection (a project-scoped flavor only applies to a matching
-// feature/config project).
+// Re-collect invariant violations per flavor-overridden environment (base ⊕
+// flavor ⊕ any leaf patch modeled in `byKey`) — a cross-field invariant can
+// pass env-agnostic yet fail once a flavor applies. Only invariants differ per
+// env (schema/type conformance is env-agnostic); envs without a flavor resolve
+// to the base and are already covered by the plain pass.
 function collectFlavorInvariantViolations(
   leafKey: string,
   byKey: Map<string, ConfigInterface>,
   project: string,
+  // Org environment ids — a wildcard/project-only entry (no `environments`)
+  // applies in every named environment, so those must all be checked.
+  allEnvironments: string[],
 ): { environment: string; message: string }[] {
   const lineageKeys = linearizeConfigDag(leafKey, byKey).map((n) => n.key);
   const environments = new Set<string>();
   for (const key of lineageKeys) {
     for (const o of byKey.get(key)?.scopedOverrides ?? []) {
-      (o.environments ?? []).forEach((e) => environments.add(e));
+      if (!o.environments?.length)
+        allEnvironments.forEach((e) => environments.add(e));
+      else o.environments.forEach((e) => environments.add(e));
     }
   }
   if (!environments.size) return [];
@@ -213,8 +201,8 @@ function collectFlavorInvariantViolations(
   const out: { environment: string; message: string }[] = [];
   for (const environment of environments) {
     // Layer each lineage config's scope-selected flavor patch on top of its own
-    // value (via `variantPatch`), mirroring the SDK resolver. Skip archived/
-    // missing flavors, same as resolution.
+    // value (via `variantPatch`), mirroring the SDK resolver. Skip archived,
+    // missing, and cross-project flavors, same as resolution.
     const withFlavors = new Map<string, ConfigInterface>(byKey);
     for (const key of lineageKeys) {
       const node = byKey.get(key);
@@ -224,16 +212,14 @@ function collectFlavorInvariantViolations(
         { environment, project },
         (k) => {
           const f = byKey.get(k);
-          return !!f && !f.archived;
+          return !!f && !f.archived && (!f.project || f.project === project);
         },
       );
       const flavor = flavorKey ? byKey.get(flavorKey) : undefined;
       if (!flavor) continue;
-      // Keep the flavor's own `$extends` intact: resolveConfigChain ignores it
-      // when applying the patch's concrete keys, but configChainDeclaresReference-
-      // Layer needs to see it so a flavor that extends its own `@const:`/`@config:`
-      // bases (resolved for real in the SDK payload) exempts — rather than falsely
-      // flags — fields those bases supply that the gate can't resolve here.
+      // Keep the flavor's `$extends` intact so configChainDeclaresReferenceLayer
+      // sees it — a flavor extending its own ref bases exempts (not falsely
+      // flags) fields those bases supply. resolveConfigChain ignores it anyway.
       withFlavors.set(key, {
         ...node,
         variantPatch: flavor.value,
@@ -246,6 +232,12 @@ function collectFlavorInvariantViolations(
   return out;
 }
 
+// Cross-field invariants (relational rules JSON Schema can't express),
+// evaluated against the fully-resolved value at publish. Invariants accumulate
+// across the lineage (base→leaf, leaf wins on name). Descendants are checked
+// too — this publish changes their resolved values — but only violations
+// INTRODUCED by this publish are reported (diffed against the live family), so
+// a pre-existing broken descendant never blocks unrelated publishes.
 async function collectInvariantViolations(
   context: Context,
   leaf: ConfigLeaf,
@@ -269,6 +261,7 @@ async function collectInvariantViolations(
     leaf.key,
     proposed,
     proposed.get(leaf.key)?.project ?? "",
+    getEnvironmentIdsFromOrg(context.org),
   )) {
     errors.push(`[${environment}] ${message}`);
   }
@@ -474,6 +467,27 @@ export function assertConfigBackedDefaultHasNoOverrides(
   }
 }
 
+// The value strings the config net reads from a rule, by type — the fields
+// whose change makes a rule worth re-validating.
+export function configCheckedRuleValues(
+  rule: FeatureRule,
+): (string | undefined)[] {
+  switch (rule.type) {
+    case "force":
+    case "rollout":
+      return [rule.value];
+    case "experiment-ref":
+    case "contextual-bandit-ref":
+      return (rule.variations ?? []).map((v) => v.value);
+    case "experiment":
+      return (rule.values ?? []).map((v) => v.value);
+    case "safe-rollout":
+      return [rule.controlValue, rule.variationValue];
+    default:
+      return [];
+  }
+}
+
 export async function assertConfigBackedFeatureValuesValid(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
@@ -555,6 +569,7 @@ export async function assertConfigBackedFeatureValuesValid(
       PATCH_KEY,
       withPatch,
       feature.project ?? "",
+      getEnvironmentIdsFromOrg(context.org),
     )) {
       errors.push(`${label} [${environment}]: ${message}`);
     }

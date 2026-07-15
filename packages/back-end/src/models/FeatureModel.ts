@@ -51,6 +51,7 @@ import {
 import {
   assertConfigBackedDefaultHasNoOverrides,
   assertConfigBackedFeatureValuesValid,
+  configCheckedRuleValues,
 } from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
@@ -2378,24 +2379,37 @@ export async function prevalidatePublishRevision({
     dateUpdated: new Date(),
   };
   proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
-  // Re-check the value going live: a config-backed default must be exactly a
-  // config. This shared publish choke point can't be circumvented by publishing
-  // a stale/crafted draft outside the REST layer.
-  assertConfigBackedDefaultHasNoOverrides(
-    proposedFeature,
-    proposedFeature.defaultValue,
-  );
-  // Re-validate every config-backed value going live against the backing
-  // config's schema + invariants (env-agnostic AND per-environment flavor
-  // shape). Save-time validation can be stale: a config's schema/invariants may
-  // tighten between drafting and publish. This shared choke point closes that
-  // gap for every publish path — including auto-publish (experiment/bandit
-  // start) and postFeatureSync, which don't pass through the REST publish
-  // handler's own net.
-  await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
-    defaultValue: proposedFeature.defaultValue,
-    rules: proposedFeature.rules,
-  });
+  // Re-validate config-backed values going live: save-time validation can be
+  // stale (a config's schema/invariants may tighten between draft and publish),
+  // and auto-publish paths don't pass through a REST handler's own net. Only
+  // values THIS publish changes are checked — a pre-existing violation must not
+  // block status-only publishes (kill switches, safe-rollout rollbacks, ramp
+  // advances). A baseConfig change re-checks everything (new backing schema).
+  const backingChanged =
+    changes.baseConfig !== undefined &&
+    (changes.baseConfig ?? null) !== (feature.baseConfig ?? null);
+  const liveRuleById = new Map((feature.rules ?? []).map((r) => [r.id, r]));
+  const rulesToCheck = backingChanged
+    ? (proposedFeature.rules ?? [])
+    : (changes.rules ?? []).filter((r) => {
+        const live = liveRuleById.get(r.id);
+        return (
+          !live ||
+          !isEqual(configCheckedRuleValues(live), configCheckedRuleValues(r))
+        );
+      });
+  const defaultToCheck =
+    backingChanged ||
+    (changes.defaultValue !== undefined &&
+      changes.defaultValue !== feature.defaultValue)
+      ? proposedFeature.defaultValue
+      : undefined;
+  if (defaultToCheck !== undefined || rulesToCheck.length) {
+    await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
+      defaultValue: defaultToCheck,
+      rules: rulesToCheck,
+    });
+  }
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,
