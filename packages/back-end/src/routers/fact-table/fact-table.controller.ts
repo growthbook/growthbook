@@ -171,11 +171,20 @@ async function testVirtualColumnQuery(
   const alias =
     (columnId || "").replace(/[^a-zA-Z0-9_]/g, "") || "__virtual_column";
 
+  // Expand any nested virtual column references into their real SQL (each
+  // wrapped in parentheses) so the preview runs against real columns and matches
+  // how the column resolves in metric queries. Exclude the column being edited
+  // so a self-reference surfaces as an error instead of silently expanding to
+  // its previously-saved definition.
+  const expandedSql = expandVirtualColumnsInSql(sql, {
+    columns: factTable.columns.filter((c) => c.column !== columnId),
+  });
+
   // Select the computed expression alongside the raw rows. The expression
   // references bare column names, which resolve against the aliased subquery.
   const testSql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
-    query: `SELECT (${sql}) AS ${alias}, * FROM (
+    query: `SELECT (${expandedSql}) AS ${alias}, * FROM (
       ${factTable.sql}
     ) f`,
     templateVariables: {
