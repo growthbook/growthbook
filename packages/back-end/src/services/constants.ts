@@ -911,23 +911,23 @@ export function isEmptyConfigPatch(value: string | undefined): boolean {
 // Whether archiving this child config would change a value some feature serves:
 // it's referenced directly (a feature/config embeds `@config:key`), or it's an
 // env/project override whose base is referenced (the flavor patches the base's
-// served value, so archiving it reverts affected features to the base). Uses the
-// unfiltered scan context so a reference in an unreadable project still counts.
+// served value, so archiving it reverts affected features to the base). A flavor
+// can be selected by more than one base, so ANY referenced selecting base counts.
+// Uses the unfiltered scan context so a reference in an unreadable project still
+// counts.
 async function childConfigIsServed(
   scanContext: ReqContext | ApiReqContext,
   config: { id: string; key: string },
+  selectingBases: ConfigInterface[],
 ): Promise<boolean> {
   const direct = await loadConstantReferences(scanContext, config.id);
   if (direct && totalConstantReferences(direct) > 0) return true;
 
-  // An override flavor: the base is the config whose scopedOverrides selects it.
-  const all = await scanContext.models.configs.getAllForReconcile();
-  const base = all.find((c) =>
-    (c.scopedOverrides ?? []).some((o) => o.config === config.key),
-  );
-  if (!base) return false;
-  const baseRefs = await loadConstantReferences(scanContext, base.id);
-  return !!baseRefs && totalConstantReferences(baseRefs) > 0;
+  for (const base of selectingBases) {
+    const baseRefs = await loadConstantReferences(scanContext, base.id);
+    if (baseRefs && totalConstantReferences(baseRefs) > 0) return true;
+  }
+  return false;
 }
 
 // Block archiving a config. A live config depending on it as a base (via
@@ -965,11 +965,23 @@ export async function assertConfigArchivable(
     );
   }
 
-  // A child derives from a base — a parent spine, a composition mixin, or (for
-  // an env/project override) its parent base. A root has neither.
+  // Bases that select this config as an env/project override "flavor". A flavor
+  // need not carry a `parent`/`extends` — it can be a plain config attached
+  // purely via a base's scopedOverrides — so this membership is what makes it a
+  // child, independent of lineage fields.
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  const selectingBases = allConfigs.filter((c) =>
+    (c.scopedOverrides ?? []).some((o) => o.config === config.key),
+  );
+
+  // A child derives from a base — a parent spine, a composition mixin, or (as an
+  // env/project override) selection by some base's scopedOverrides. A root has
+  // none of these.
   const isChild =
     (getConfigParentKey(config) ?? null) !== null ||
-    (config.extends ?? []).length > 0;
+    (config.extends ?? []).length > 0 ||
+    selectingBases.length > 0;
 
   if (!isChild) {
     // Root: archiving strips its value from everything that references it.
@@ -981,8 +993,7 @@ export async function assertConfigArchivable(
   if (isEmptyConfigPatch(config.value)) return;
 
   // (b) Nothing serves it → safe to archive.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
-  if (!(await childConfigIsServed(scanContext, config))) return;
+  if (!(await childConfigIsServed(scanContext, config, selectingBases))) return;
 
   // (c) Live-serving child: acknowledge before reverting affected features.
   if (context.ignoreWarnings) return;

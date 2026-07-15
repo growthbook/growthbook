@@ -223,6 +223,7 @@ export default function ExperimentRefSummary({
           feature={feature}
           value={releasedValue.value}
           sparse={rule.sparse}
+          environment={environment}
         />
       ) : (
         <>

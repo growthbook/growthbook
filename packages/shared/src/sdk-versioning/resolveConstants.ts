@@ -440,16 +440,29 @@ function resolveValue(
             // first matching flavor's patch is deep-merged on top. buildConfigLayer
             // excludes the flavor's `@config` parent (this very layer), so the
             // flavor contributes only its own patch — no double-apply, no loop.
-            const flavorKey = selectScopedOverride(
-              ctx.map.get(mapKey("config", layerKey))?.scopedOverrides,
-              { environment: ctx.environment, project: ctx.featureProject },
-              // Skip an archived (or absent) flavor so its env falls back to the
-              // next matching override, else the base — never a stale patch.
-              (k) => {
-                const e = ctx.map.get(mapKey("config", k));
-                return !!e && !e.archived;
-              },
-            );
+            // Only env-scoped resolution applies flavors; env-agnostic
+            // resolution (environment == null) serves the base value only (the
+            // documented contract — schemaBreakGuard and the "all environments"
+            // editor view both rely on it), so a wildcard/project-only override
+            // must NOT leak in here.
+            const flavorKey =
+              ctx.environment != null
+                ? selectScopedOverride(
+                    ctx.map.get(mapKey("config", layerKey))?.scopedOverrides,
+                    {
+                      environment: ctx.environment,
+                      project: ctx.featureProject,
+                    },
+                    // Skip any flavor the layer builder would scrub anyway
+                    // (archived, cross-project, or absent) so selection falls
+                    // through to the next matching override / base rather than
+                    // stalling on a no-op first match.
+                    (k) => {
+                      const e = ctx.map.get(mapKey("config", k));
+                      return !!e && !isScrubbed(e, ctx);
+                    },
+                  )
+                : null;
             const flavor = flavorKey
               ? buildConfigLayer(flavorKey, visited, ctx)
               : null;

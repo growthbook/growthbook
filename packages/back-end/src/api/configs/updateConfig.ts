@@ -159,6 +159,10 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       // never through the revision flow (matches the internal
       // PUT /configs/:id/scoped-overrides). The flavor's value carries any
       // served-value change, under the flavor's own review.
+      // A locked config is frozen; attaching/reordering a flavor is value-
+      // affecting, so respect the lock here (before the immediate write) rather
+      // than only at the later value-publish gate.
+      assertConfigNotLocked(config);
       await assertScopedOverridesValid(req.context, {
         key: config.key,
         scopedOverrides: req.body.scopedOverrides,

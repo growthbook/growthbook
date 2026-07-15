@@ -1025,6 +1025,50 @@ describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => 
     ).toEqual({ timeout: 9 });
   });
 
+  it("does not apply a wildcard/catch-all flavor in env-agnostic resolution", () => {
+    const map = nsMap([
+      ["base", cfg('{"beanType":"jelly"}', [{ config: "base_any" }])],
+      ["base_any", cfg('{"$extends":["@config:base"],"beanType":"fava"}')],
+    ]);
+    // No environment → base only, even for a fully-wildcard (catch-all) entry.
+    expect(resolveFor({ $extends: ["@config:base"] }, map)).toEqual({
+      beanType: "jelly",
+    });
+    // With an environment the catch-all applies (confirms the guard is
+    // env-conditional, not a blanket skip).
+    expect(resolveFor({ $extends: ["@config:base"] }, map, "dev")).toEqual({
+      beanType: "fava",
+    });
+  });
+
+  it("skips a cross-project flavor first-match, falling through to the next", () => {
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"region":"base"}', [
+          { config: "flavor_eu", environments: ["prod"] },
+          { config: "flavor_global", environments: ["prod"] },
+        ]),
+      ],
+      // flavor_eu is scoped to project "eu"; a feature in "us" scrubs it, so the
+      // resolver must fall through to flavor_global rather than stall on it.
+      [
+        "flavor_eu",
+        {
+          type: "json",
+          source: "config",
+          value: JSON.stringify({ $extends: ["@config:base"], region: "eu" }),
+          parsed: { $extends: ["@config:base"], region: "eu" },
+          project: "eu",
+        } as ConstantValueMapEntry,
+      ],
+      ["flavor_global", cfg('{"$extends":["@config:base"],"region":"global"}')],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "prod", "us"),
+    ).toEqual({ region: "global" });
+  });
+
   it("cascades: a descendant's own value beats an ancestor's env flavor", () => {
     const map = nsMap([
       [

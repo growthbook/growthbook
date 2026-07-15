@@ -7,6 +7,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { LineageNode } from "@/components/Configs/fieldSchema";
@@ -152,12 +153,11 @@ export default function ConfigEnvTabs({
             {tabs.map((t) => (
               <TabsTrigger key={t.key} value={t.key}>
                 {archivedByKey?.[t.key] ? (
-                  <span
-                    style={{ textDecoration: "line-through" }}
-                    title="Archived — this override no longer serves a value"
-                  >
-                    {t.label}
-                  </span>
+                  <Tooltip content="Archived — this override no longer serves a value">
+                    <span style={{ textDecoration: "line-through" }}>
+                      {t.label}
+                    </span>
+                  </Tooltip>
                 ) : (
                   t.label
                 )}

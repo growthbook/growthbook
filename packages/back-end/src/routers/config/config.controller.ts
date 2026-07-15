@@ -1186,6 +1186,10 @@ export const setConfigScopedOverrides = async (
   if (!context.permissions.canUpdateConfig(config, config)) {
     context.permissions.throwPermissionError();
   }
+  // A locked config is frozen at its pinned revision; attaching/reordering a
+  // flavor is value-affecting (it changes what resolves per env), so it must not
+  // bypass the lock. Unlock first to change overrides.
+  assertConfigNotLocked(config);
   const scopedOverrides = req.body?.scopedOverrides ?? [];
   await assertScopedOverridesValid(context, {
     key: config.key,

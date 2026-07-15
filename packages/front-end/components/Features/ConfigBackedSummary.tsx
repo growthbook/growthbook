@@ -239,11 +239,16 @@ export default function ConfigBackedSummary({
       ? selectScopedOverride(
           configScopedOverrides,
           { environment, project: feature.project || "" },
-          // Match the resolver: an archived (or absent) flavor doesn't apply, so
-          // it shouldn't drive the "(env)" tag either.
+          // Match the resolver's scrub: a flavor that's archived, absent, or
+          // scoped to a different project than this feature doesn't apply, so it
+          // shouldn't drive the "(env)" tag either.
           (k) =>
             (data?.constants ?? []).some(
-              (c) => c.source === "config" && c.key === k && !c.archived,
+              (c) =>
+                c.source === "config" &&
+                c.key === k &&
+                !c.archived &&
+                (!c.project || c.project === (feature.project || "")),
             ),
         )
       : null;
