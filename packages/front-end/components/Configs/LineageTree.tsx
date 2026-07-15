@@ -217,11 +217,13 @@ export default function LineageTree({
               fontSize: "var(--font-size-1)",
               fontStyle: "italic",
               fontWeight: isCurrent ? 500 : 400,
+              // Mixins share the default text color of the other config rows;
+              // only the archived (and current) states diverge.
               color: isCurrent
                 ? "var(--violet-11)"
                 : isArchived
                   ? "var(--slate-9)"
-                  : "var(--slate-11)",
+                  : undefined,
               textDecoration: isArchived ? "line-through" : undefined,
               overflow: "hidden",
               textOverflow: "ellipsis",
