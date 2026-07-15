@@ -71,9 +71,18 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       fieldsToUpdate[field] = "";
     } else if (field === "extends") {
       fieldsToUpdate[field] = [];
+    } else if (field === "description") {
+      // Restore "no description": "" is a valid empty value that round-trips as
+      // a normal replace op (no unset needed).
+      fieldsToUpdate[field] = "";
     }
-    // Other optional fields absent in the target are left as-is; clearing them
-    // generically risks writing an invalid shape (e.g. an empty `schema`).
+    // `schema` absent in the target is deliberately NOT cleared here: it has no
+    // valid concrete "empty" (an empty schema declares zero fields, which is a
+    // DIFFERENT thing than "no schema"), so clearing it needs a JSON-patch
+    // `remove` op that round-trips through the revision record AND must fire the
+    // descendant reconcile on the clear (else descendants keep the removed
+    // schema's derived state). That's a scoped change, not a revert-loop tweak —
+    // reverting to a schema-less version keeps the current schema for now.
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
