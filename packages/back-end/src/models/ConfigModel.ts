@@ -409,6 +409,10 @@ export class ConfigModel extends BaseClass {
       scopedOverrides: config.scopedOverrides?.length
         ? config.scopedOverrides
         : undefined,
+      // Read-only flavor marker: makes an env/project-scoped override obvious in
+      // the API without reverse-scanning parents. Stamped from the parent's
+      // scopedOverrides; omitted for a normal (non-flavor) config.
+      scopedConfig: config.scopedConfig ?? undefined,
       description: config.description,
       project: config.project,
       archived: config.archived,

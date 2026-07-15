@@ -9,6 +9,7 @@ import {
 import { simpleSchemaValidator } from "./features";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   schemaValidationQueryFields,
 } from "./shared";
@@ -73,7 +74,32 @@ export const scopedOverrideValidator = z.object({
 const apiScopedOverridesField = z
   .array(scopedOverrideValidator)
   .describe(
-    "Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry).",
+    "Ordered, first-match-wins environment/project-scoped variant selection. Each entry points at a flavor config (a child config, by `key`) whose value is deep-merged onto this config's resolved value when the (environment, project) scope matches — resolved at build time, per layer. This is how you create an environment-scoped override (as opposed to a plain child config): make a child config for the override value, then add it here with its scope. Send the complete list to replace it; an empty array clears all overrides. Entries must reference existing configs, may not reference this config itself, and may not be unreachable (fully subsumed by an earlier entry).",
+  );
+
+// Read-only marker present ONLY on a "flavor" — a config selected by some other
+// config's `scopedOverrides`. Makes an environment/project-scoped override
+// self-evident (vs. a plain child config) without reverse-scanning parents.
+const apiScopedConfigField = z
+  .object({
+    parent: z
+      .string()
+      .describe("The base config this one is a scoped override of."),
+    environments: z
+      .array(z.string())
+      .describe(
+        "Environments this override applies to (empty/absent = every environment).",
+      )
+      .optional(),
+    projects: z
+      .array(z.string())
+      .describe(
+        "Projects this override applies to (empty/absent = every project).",
+      )
+      .optional(),
+  })
+  .describe(
+    'Present ONLY when this config is an environment/project-scoped override (a "flavor") of another config. Its value is a patch that applies solely within the listed environments/projects, layered onto `parent` at resolution — it is NOT a standalone config. A plain config (including an ordinary child that just inherits from a `parent`) omits this field entirely. Read-only: create/change the relationship via the parent config\'s `scopedOverrides`, never by setting this directly.',
   );
 
 export const configValidator = z
@@ -381,6 +407,7 @@ export const apiConfigValidator = namedSchema(
         )
         .optional(),
       scopedOverrides: apiScopedOverridesField.optional(),
+      scopedConfig: apiScopedConfigField.optional(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       project: z
         .string()
@@ -889,10 +916,18 @@ export const updateConfigValidator = {
 
 export const archiveConfigValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      ignoreWarnings: booleanQueryField.describe(
+        "Proceed despite the soft warning raised when archiving a config that is actively serving a value — archiving reverts anything resolving it (features, or the environments an override applies to) back to the base. Not needed when the config's live value is an empty patch or nothing uses it.",
+      ),
+    })
+    .strict(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponse,
   summary: "Archive a single config",
+  description:
+    "Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it; when it IS actively serving a value, this returns a 422 soft warning — re-submit with `?ignoreWarnings=true` to proceed. A root config that is still referenced by a feature or another config cannot be archived (400).",
   operationId: "archiveConfig",
   tags: ["configs"],
   method: "post" as const,
