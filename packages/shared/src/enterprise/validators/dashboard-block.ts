@@ -306,8 +306,8 @@ export type SqlExplorerBlockInterface = z.infer<
 // Period comparison for a dashboard block. `enabled` turns the comparison on;
 // `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
 // predefined/rolling primaries re-derive (and roll) the previous period on each
-// refresh. Kept as a structured object so a future dashboard-wide compare toggle
-// can resolve to the same shape (see resolveBlockComparison).
+// refresh. Kept as a structured object so dashboard and block controls use the
+// same comparison shape.
 export const blockComparisonValidator = z.object({
   enabled: z.boolean(),
   previousTimeFrame: explorationDateRangeValidator.optional(),
@@ -382,13 +382,6 @@ const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   config: dataSourceExplorationConfigValidator,
 });
 
-/**
- * The effective comparison for an exploration block. Today this is just the
- * block's own setting (saved from the explorer). The `dashboard` arg is the
- * forward-compat seam: a future dashboard-wide compare toggle
- * (`dashboard.comparison`) takes precedence here, so refresh/render code that
- * calls this never has to change. Returns null when comparison is off.
- */
 export function resolveBlockComparison(
   block: { comparison?: BlockComparison },
   dashboard?: { comparison?: BlockComparison } | null,

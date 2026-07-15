@@ -117,6 +117,27 @@ export function autoEnrollDashboardBlocksInDateControl<
   );
 }
 
+export function applyDashboardComparisonToBlocks<
+  T extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(blocks: T[], comparison: DashboardInterface["comparison"]): T[] {
+  return blocks.map((block) => {
+    if (!isDashboardGlobalControlSupportedBlock(block)) return block;
+    const enabled = Boolean(comparison?.enabled);
+    if (Boolean(block.comparison?.enabled) === enabled) return block;
+
+    return {
+      ...block,
+      comparison: enabled
+        ? {
+            ...block.comparison,
+            enabled: true,
+          }
+        : undefined,
+      comparisonExplorerAnalysisId: undefined,
+    } as T;
+  });
+}
+
 export function blockUsesDashboardDateControl(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
 ): block is DashboardGlobalControlSupportedBlock & {
@@ -307,11 +328,13 @@ export function getExplorationDateControlFingerprint(config: {
 
 export function getDashboardGlobalControlApplicability(dashboard: {
   globalControls?: DashboardInterface["globalControls"];
+  comparison?: DashboardInterface["comparison"];
   blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
 }): {
   supportedBlocks: DashboardGlobalControlSupportedBlock[];
   unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   dateControlledBlocks: DashboardGlobalControlSupportedBlock[];
+  compareControlledBlocks: DashboardGlobalControlSupportedBlock[];
 } {
   const supportedBlocks: DashboardGlobalControlSupportedBlock[] = [];
   const unsupportedBlocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] =
@@ -328,11 +351,13 @@ export function getDashboardGlobalControlApplicability(dashboard: {
   const dateControlledBlocks = supportedBlocks.filter(
     blockUsesDashboardDateControl,
   );
+  const compareControlledBlocks = supportedBlocks;
 
   return {
     supportedBlocks,
     unsupportedBlocks,
     dateControlledBlocks,
+    compareControlledBlocks,
   };
 }
 
@@ -365,12 +390,23 @@ function getDatasourceFromLookup(
 export function canAutoRefreshDashboard(
   dashboard: {
     globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
     blocks: readonly DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   },
   datasourcesById: DatasourceLookup,
 ): boolean {
   const applicability = getDashboardGlobalControlApplicability(dashboard);
-  const affectedBlocks = new Set(applicability.dateControlledBlocks);
+  const affectedBlocks = new Set<DashboardGlobalControlSupportedBlock>();
+  if (dashboard.globalControls?.dateRange) {
+    applicability.dateControlledBlocks.forEach((block) =>
+      affectedBlocks.add(block),
+    );
+  }
+  if (dashboard.comparison?.enabled) {
+    applicability.compareControlledBlocks.forEach((block) =>
+      affectedBlocks.add(block),
+    );
+  }
   if (!affectedBlocks.size) return false;
 
   return [...affectedBlocks].every((block) => {

@@ -7,6 +7,7 @@ import {
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
+  applyDashboardComparisonToBlocks,
   resolveGlobalControlsBlockEnrollment,
   dashboardBlockHasIds,
   apiCreateDashboardBody,
@@ -434,6 +435,7 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
+      comparison,
       blocks,
     } = apiCreateDashboardBody.parse(rawBody);
     const createdBlocks = await Promise.all(
@@ -449,6 +451,10 @@ export class DashboardModel extends BaseClass {
         nextGlobalControls: globalControls,
         nextBlocks: createdBlocks,
       }) ?? createdBlocks;
+    const blocksWithGlobalComparison =
+      comparison !== undefined
+        ? applyDashboardComparisonToBlocks(blocksWithGlobalControls, comparison)
+        : blocksWithGlobalControls;
     return {
       uid: uuidv4().replace(/-/g, ""), // TODO: Move to BaseModel
       isDefault: false,
@@ -462,7 +468,8 @@ export class DashboardModel extends BaseClass {
       title,
       projects,
       globalControls,
-      blocks: normalizeLayouts(blocksWithGlobalControls),
+      comparison,
+      blocks: normalizeLayouts(blocksWithGlobalComparison),
     };
   }
   public override async handleApiUpdate(
@@ -496,19 +503,36 @@ export class DashboardModel extends BaseClass {
             : generateDashboardBlockIds(this.context.org.id, blockData),
         ),
       );
-      updates.blocks = normalizeLayouts(
+      const blocksWithGlobalControls =
         resolveGlobalControlsBlockEnrollment({
           existingGlobalControls: existingDashboard?.globalControls,
           nextGlobalControls: updates.globalControls,
           nextBlocks: createdBlocks,
-        }) ?? createdBlocks,
+        }) ?? createdBlocks;
+      updates.blocks = normalizeLayouts(
+        updates.comparison !== undefined &&
+          updates.comparison.enabled !== existingDashboard?.comparison?.enabled
+          ? applyDashboardComparisonToBlocks(
+              blocksWithGlobalControls,
+              updates.comparison,
+            )
+          : blocksWithGlobalControls,
       );
     } else if (existingDashboard) {
-      const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+      const dateEnrolledBlocks = resolveGlobalControlsBlockEnrollment({
         existingGlobalControls: existingDashboard.globalControls,
         nextGlobalControls: updates.globalControls,
         existingBlocks: existingDashboard.blocks,
       });
+      const comparisonUpdatedBlocks =
+        updates.comparison !== undefined &&
+        updates.comparison.enabled !== existingDashboard.comparison?.enabled
+          ? applyDashboardComparisonToBlocks(
+              dateEnrolledBlocks ?? existingDashboard.blocks,
+              updates.comparison,
+            )
+          : undefined;
+      const enrolledBlocks = comparisonUpdatedBlocks ?? dateEnrolledBlocks;
       if (enrolledBlocks) updates.blocks = enrolledBlocks;
     }
     return updates;

@@ -52,13 +52,17 @@ function SingleDashboardPage() {
   >([]);
   const [globalControls, setGlobalControls] =
     useState<DashboardInterface["globalControls"]>();
+  const [comparison, setComparison] =
+    useState<DashboardInterface["comparison"]>();
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setComparison(undefined);
     }
   }, [dashboard]);
 
@@ -213,6 +217,7 @@ function SingleDashboardPage() {
             title={dashboard.title}
             blocks={blocks}
             globalControls={globalControls}
+            comparison={comparison}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
@@ -232,6 +237,20 @@ function SingleDashboardPage() {
                 dashboardId: dashboard.id,
                 data: {
                   globalControls,
+                  ...(controlBlocks ? { blocks: controlBlocks } : {}),
+                },
+              });
+            }}
+            onComparisonChange={async (comparison, controlBlocks) => {
+              setComparison(comparison);
+              if (controlBlocks) {
+                setBlocks(controlBlocks);
+              }
+              await submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  comparison,
                   ...(controlBlocks ? { blocks: controlBlocks } : {}),
                 },
               });

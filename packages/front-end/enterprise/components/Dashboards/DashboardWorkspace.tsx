@@ -11,6 +11,7 @@ import {
   getInitialConfigByBlockType,
   DASHBOARD_GRID_COLS,
   isDashboardGlobalControlSupportedBlock,
+  applyDashboardComparisonToBlocks,
   autoEnrollDashboardBlocksInDateControl,
   blockUsesDashboardDateControl,
   getEffectiveExplorationConfig,
@@ -61,6 +62,7 @@ interface Props {
   updateTemporaryDashboard?: (update: {
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     globalControls?: DashboardInterface["globalControls"];
+    comparison?: DashboardInterface["comparison"];
   }) => void;
 }
 export default function DashboardWorkspace({
@@ -92,9 +94,11 @@ export default function DashboardWorkspace({
     if (dashboard) {
       setBlocks(dashboard.blocks);
       setGlobalControls(dashboard.globalControls);
+      setComparison(dashboard.comparison);
     } else {
       setBlocks([]);
       setGlobalControls(undefined);
+      setComparison(undefined);
     }
   }, [dashboard]);
   const { metricGroups, datasources } = useDefinitions();
@@ -130,23 +134,37 @@ export default function DashboardWorkspace({
   const [globalControls, setGlobalControls] = useState<
     DashboardInterface["globalControls"]
   >(dashboard.globalControls);
+  const [comparison, setComparison] = useState<
+    DashboardInterface["comparison"]
+  >(dashboard.comparison);
   const { fetchData: fetchExplorationData } = useExploreData();
   const updateTemporaryDashboardResults = async (
     controls: DashboardInterface["globalControls"] = globalControls,
     blocksToRefresh: DashboardBlockInterfaceOrData<DashboardBlockInterface>[] = blocks,
+    dashboardComparison: DashboardInterface["comparison"] = comparison,
   ) => {
     const nextBlocks = await Promise.all(
       blocksToRefresh.map(async (block) => {
-        if (!blockUsesDashboardDateControl(block)) return block;
+        const usesDashboardDateControl =
+          Boolean(controls?.dateRange) && blockUsesDashboardDateControl(block);
+        const usesDashboardCompareControl =
+          Boolean(dashboardComparison?.enabled) &&
+          isDashboardGlobalControlSupportedBlock(block);
+        if (!usesDashboardDateControl && !usesDashboardCompareControl) {
+          return block;
+        }
 
         const config = getEffectiveExplorationConfig(block, {
           globalControls: controls,
         });
-        const comparison = resolveBlockComparison(block, dashboard);
+        const effectiveComparison = resolveBlockComparison(block);
         const result = await fetchExplorationData(config, {
           cache: "never",
-          previousTimeFrame: comparison
-            ? resolveComparisonPreviousTimeFrame(config.dateRange, comparison)
+          previousTimeFrame: effectiveComparison
+            ? resolveComparisonPreviousTimeFrame(
+                config.dateRange,
+                effectiveComparison,
+              )
             : null,
         });
         if (!result.data) {
@@ -238,6 +256,45 @@ export default function DashboardWorkspace({
     updateTemporaryDashboard,
   ]);
 
+  const setComparisonAndSubmit = useMemo(() => {
+    return async (
+      nextComparison: DashboardInterface["comparison"],
+      controlBlocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+    ) => {
+      const nextControlBlocks =
+        controlBlocks ??
+        applyDashboardComparisonToBlocks(blocks, nextComparison);
+      setHasMadeChanges(true);
+      setComparison(nextComparison);
+      if (nextControlBlocks) {
+        setBlocks(nextControlBlocks);
+      }
+
+      if (dashboardFirstSave) {
+        updateTemporaryDashboard?.({
+          ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
+          comparison: nextComparison,
+        });
+      } else {
+        await submit({
+          method: "PUT",
+          dashboardId: dashboard.id,
+          data: {
+            ...(nextControlBlocks ? { blocks: nextControlBlocks } : {}),
+            comparison: nextComparison,
+          },
+        });
+      }
+    };
+  }, [
+    dashboard.id,
+    dashboardFirstSave,
+    blocks,
+    setBlocks,
+    submit,
+    updateTemporaryDashboard,
+  ]);
+
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
@@ -286,6 +343,16 @@ export default function DashboardWorkspace({
       block ? autoEnrollDashboardBlocksInDateControl([block])[0] : block,
     );
   }, [globalControls?.dateRange]);
+
+  useEffect(() => {
+    if (comparison === undefined) return;
+    setStagedAddBlock((block) =>
+      block ? applyDashboardComparisonToBlocks([block], comparison)[0] : block,
+    );
+    setStagedEditBlock((block) =>
+      block ? applyDashboardComparisonToBlocks([block], comparison)[0] : block,
+    );
+  }, [comparison]);
 
   // Whenever a block becomes staged (via add, duplicate, or edit), make sure
   // the editing drawer is open so the user can actually configure/save it.
@@ -351,6 +418,7 @@ export default function DashboardWorkspace({
               ...blockData.globalControlSettings,
               dateRange: true,
             },
+            ...(comparison?.enabled ? { comparison: { enabled: true } } : {}),
           }
         : blockData,
     );
@@ -484,6 +552,8 @@ export default function DashboardWorkspace({
                         "title",
                         "editLevel",
                         "enableAutoUpdates",
+                        "globalControls",
+                        "comparison",
                       ]),
                     });
                     close();
@@ -553,6 +623,7 @@ export default function DashboardWorkspace({
               blocks={effectiveBlocks}
               globalControlBlocks={blocks}
               globalControls={globalControls}
+              comparison={comparison}
               isEditing={true}
               isGeneralDashboard={isGeneralDashboard}
               enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -621,6 +692,7 @@ export default function DashboardWorkspace({
               }}
               mutate={mutate}
               onGlobalControlsChange={setGlobalControlsAndSubmit}
+              onComparisonChange={setComparisonAndSubmit}
               updateTemporaryDashboardResults={
                 dashboardFirstSave ? updateTemporaryDashboardResults : undefined
               }

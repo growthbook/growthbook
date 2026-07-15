@@ -112,7 +112,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
         explorerAnalysisId:
           needsFetch && invalidateStaleResults ? "" : block.explorerAnalysisId,
         comparisonExplorerAnalysisId:
-          nextComparison && (!needsFetch || !invalidateStaleResults)
+          compareEnabled && (!needsFetch || !invalidateStaleResults)
             ? block.comparisonExplorerAnalysisId
             : undefined,
       } as
@@ -129,6 +129,7 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     draftExploreState,
     dashboardGlobalControls,
     nextComparison,
+    compareEnabled,
     usesDashboardDateRange,
     explorerAnalysisId,
   ]);

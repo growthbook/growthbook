@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import {
   canAutoRefreshDashboard,
+  applyDashboardComparisonToBlocks,
   autoEnrollDashboardBlocksInDateControl,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
@@ -13,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
+import Switch from "@/ui/Switch";
 import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
 
 type DashboardDateRange = NonNullable<
@@ -32,14 +34,20 @@ function hasCompleteDateRange(dateRange: DashboardDateRange): boolean {
 interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   globalControls: DashboardInterface["globalControls"];
+  comparison: DashboardInterface["comparison"];
   canEdit: boolean;
   onGlobalControlsChange: (
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  onComparisonChange: (
+    comparison: DashboardInterface["comparison"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   updateTemporaryDashboardResults?: (
     globalControls?: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+    comparison?: DashboardInterface["comparison"],
   ) => Promise<void>;
   setNeedsUpdate: (needsUpdate: boolean) => void;
 }
@@ -47,8 +55,10 @@ interface Props {
 export default function DashboardGlobalControlsBar({
   blocks,
   globalControls,
+  comparison,
   canEdit,
   onGlobalControlsChange,
+  onComparisonChange,
   updateTemporaryDashboardResults,
   setNeedsUpdate,
 }: Props) {
@@ -105,7 +115,11 @@ export default function DashboardGlobalControlsBar({
         setNeedsUpdate(false);
       } else if (
         canAutoRefreshDashboard(
-          { blocks: blocksForRefresh, globalControls: nextGlobalControls },
+          {
+            blocks: blocksForRefresh,
+            globalControls: nextGlobalControls,
+            comparison,
+          },
           datasourceMap,
         )
       ) {
@@ -113,6 +127,50 @@ export default function DashboardGlobalControlsBar({
           await updateTemporaryDashboardResults(
             nextGlobalControls,
             blocksForRefresh,
+            comparison,
+          );
+        } else {
+          await updateAllSnapshots();
+        }
+        setNeedsUpdate(false);
+      } else {
+        setNeedsUpdate(true);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const persistComparison = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      const nextComparison = { enabled };
+      const blocksForRefresh = applyDashboardComparisonToBlocks(
+        blocks,
+        nextComparison,
+      );
+      await onComparisonChange(nextComparison, blocksForRefresh);
+      const hasAffectedBlocks = blocksForRefresh.some(
+        (block, index) => block !== blocks[index],
+      );
+
+      if (!enabled || !hasAffectedBlocks) {
+        setNeedsUpdate(false);
+      } else if (
+        canAutoRefreshDashboard(
+          {
+            blocks: blocksForRefresh,
+            globalControls,
+            comparison: nextComparison,
+          },
+          datasourceMap,
+        )
+      ) {
+        if (updateTemporaryDashboardResults) {
+          await updateTemporaryDashboardResults(
+            globalControls,
+            blocksForRefresh,
+            nextComparison,
           );
         } else {
           await updateAllSnapshots();
@@ -140,29 +198,37 @@ export default function DashboardGlobalControlsBar({
             Dashboard Filters
           </Heading>
         </Flex>
-        <DashboardDateControlsDropdown
-          value={globalControls?.dateRange ?? null}
-          granularity={globalControls?.dateGranularity ?? "auto"}
-          disabled={!canModifyControls || saving}
-          onChange={(dateRange) => {
-            const nextGlobalControls = { ...(globalControls ?? {}) };
-            if (dateRange) {
-              nextGlobalControls.dateRange = dateRange;
-              nextGlobalControls.dateGranularity ??= "auto";
-            } else {
-              delete nextGlobalControls.dateRange;
-              delete nextGlobalControls.dateGranularity;
-            }
-            persistGlobalControls(nextGlobalControls);
-          }}
-          onGranularityChange={(granularity) => {
-            if (!globalControls?.dateRange) return;
-            persistGlobalControls({
-              ...(globalControls ?? {}),
-              dateGranularity: granularity,
-            });
-          }}
-        />
+        <Flex align="center" gap="3">
+          <Switch
+            label="Compare"
+            value={Boolean(comparison?.enabled)}
+            disabled={!canModifyControls || saving}
+            onChange={persistComparison}
+          />
+          <DashboardDateControlsDropdown
+            value={globalControls?.dateRange ?? null}
+            granularity={globalControls?.dateGranularity ?? "auto"}
+            disabled={!canModifyControls || saving}
+            onChange={(dateRange) => {
+              const nextGlobalControls = { ...(globalControls ?? {}) };
+              if (dateRange) {
+                nextGlobalControls.dateRange = dateRange;
+                nextGlobalControls.dateGranularity ??= "auto";
+              } else {
+                delete nextGlobalControls.dateRange;
+                delete nextGlobalControls.dateGranularity;
+              }
+              persistGlobalControls(nextGlobalControls);
+            }}
+            onGranularityChange={(granularity) => {
+              if (!globalControls?.dateRange) return;
+              persistGlobalControls({
+                ...(globalControls ?? {}),
+                dateGranularity: granularity,
+              });
+            }}
+          />
+        </Flex>
       </Flex>
     </Flex>
   );

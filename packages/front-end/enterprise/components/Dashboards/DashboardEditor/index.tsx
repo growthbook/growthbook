@@ -332,6 +332,7 @@ interface Props {
   enableAutoUpdates: boolean;
   updateSchedule: DashboardUpdateSchedule | undefined;
   globalControls?: DashboardInterface["globalControls"];
+  comparison?: DashboardInterface["comparison"];
   ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
@@ -349,9 +350,14 @@ interface Props {
     globalControls: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   ) => Promise<void>;
+  onComparisonChange?: (
+    comparison: DashboardInterface["comparison"],
+    blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+  ) => Promise<void>;
   updateTemporaryDashboardResults?: (
     globalControls?: DashboardInterface["globalControls"],
     blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
+    comparison?: DashboardInterface["comparison"],
   ) => Promise<void>;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
@@ -369,6 +375,7 @@ function DashboardEditor({
   enableAutoUpdates,
   updateSchedule,
   globalControls,
+  comparison,
   ownerId,
   initialEditLevel,
   initialShareLevel,
@@ -380,6 +387,7 @@ function DashboardEditor({
   setBlock,
   mutate,
   onGlobalControlsChange,
+  onComparisonChange,
   updateTemporaryDashboardResults,
   switchToExperimentView,
   isGeneralDashboard = false,
@@ -541,6 +549,7 @@ function DashboardEditor({
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
                 globalControls,
+                comparison,
                 blocks: (data.blocks ?? []).map(getBlockData),
               }),
             });
@@ -751,12 +760,14 @@ function DashboardEditor({
             </Flex>
           </Flex>
         )}
-        {isGeneralDashboard && onGlobalControlsChange ? (
+        {isGeneralDashboard && onGlobalControlsChange && onComparisonChange ? (
           <DashboardGlobalControlsBar
             blocks={globalControlBlocks ?? blocks}
             globalControls={globalControls}
+            comparison={comparison}
             canEdit={canEdit}
             onGlobalControlsChange={onGlobalControlsChange}
+            onComparisonChange={onComparisonChange}
             updateTemporaryDashboardResults={updateTemporaryDashboardResults}
             setNeedsUpdate={setNeedsUpdate}
           />
