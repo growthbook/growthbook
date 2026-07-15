@@ -64,6 +64,7 @@ import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -873,6 +874,9 @@ interface Props {
   hideNameField?: boolean;
   // Hide template creation while already editing a template.
   hideTemplateSave?: boolean;
+  // Prefetched by the parent so templates are resolved before this mounts;
+  // falls back to the local fetch when absent.
+  preloadedTemplates?: RampScheduleTemplateInterface[];
   // Shows pending removal before the draft is saved.
   pendingDetach?: boolean;
   // Hash attribute + seed — shown below date controls when ramp has coverage steps.
@@ -901,6 +905,7 @@ export default function RampScheduleSection({
   boxStepGrid = false,
   hideNameField = false,
   hideTemplateSave = false,
+  preloadedTemplates,
   pendingDetach = false,
   hashAttribute,
   setHashAttribute,
@@ -971,18 +976,26 @@ export default function RampScheduleSection({
   const { data: templatesData, mutate: mutateTemplates } = useApi<{
     rampScheduleTemplates: RampScheduleTemplateInterface[];
   }>("/ramp-schedule-templates");
-  const templates = templatesData?.rampScheduleTemplates ?? [];
+  // Prefer the parent's prefetched list; fall back to the local request.
+  const templatesLoaded =
+    preloadedTemplates !== undefined || templatesData !== undefined;
+  const templates =
+    templatesData?.rampScheduleTemplates ?? preloadedTemplates ?? [];
 
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [presetOpen, setPresetOpen] = useState(false);
   const hasAutoSelected = useRef(false);
+  // True once the initial preset auto-select has run; gates the step editor and
+  // the monitoring-default effects until then.
+  const [autoSelectDone, setAutoSelectDone] = useState(false);
   // The monitored-ness reflected by the last selection sync, so we can detect a
   // strategy flip that bypassed `patchState` (e.g. a page-1 release-strategy
   // switch reseeds the parent state directly).
   const lastSyncedMonitored = useRef<boolean | null>(null);
 
   useEffect(() => {
-    if (templates.length === 0) return;
+    // Wait for templates to resolve (an empty list is still "loaded").
+    if (!templatesLoaded) return;
     const stateMonitored = state.steps.some((s) => s.monitored);
 
     // Initial load: adopt an exact match, or pre-apply the first official
@@ -1011,6 +1024,7 @@ export default function RampScheduleSection({
         );
         if (defaultTemplate) applyTemplate(defaultTemplate);
       }
+      setAutoSelectDone(true);
       return;
     }
 
@@ -1023,11 +1037,18 @@ export default function RampScheduleSection({
       setSelectedTemplateId(findMatchingTemplate(state, templates));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates, state.steps]);
+  }, [templatesLoaded, state.steps]);
 
-  // Auto-derive monitoring cadence from step durations on initial mount,
-  // but only if no explicit cadence override was already saved.
+  // A brand-new ramp hides the step editor until auto-select applies its preset,
+  // so the basic default never flashes.
+  const awaitingTemplateAutoSelect =
+    !ruleRampSchedule && !hideTemplateSave && !autoSelectDone;
+
+  // Derive monitoring cadence from step durations, unless already set. Gated on
+  // autoSelectDone: running before the preset is applied lets patchState's
+  // whole-state merge clobber the applied steps from a stale closure.
   useEffect(() => {
+    if (!autoSelectDone) return;
     if (state.builderMode !== "simple") return;
     if (state.monitoring.updateScheduleMinutes !== null) return;
     const overrides = deriveMonitoringOverrides(state.steps);
@@ -1040,7 +1061,7 @@ export default function RampScheduleSection({
       monitoring: { ...state.monitoring, ...overrides },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autoSelectDone]);
 
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -2670,6 +2691,10 @@ export default function RampScheduleSection({
       oldPatch.force !== undefined
         ? { ...newPatch, force: oldPatch.force }
         : newPatch;
+    const mergedSteps = newState.steps.map((s, i) => ({
+      ...s,
+      patch: mergeForce(s.patch, state.steps[i]?.patch ?? {}),
+    }));
     setState({
       ...newState,
       mode: resolvedMode,
@@ -2677,12 +2702,12 @@ export default function RampScheduleSection({
       linkedRampId: state.linkedRampId,
       startDate: state.startDate,
       endPatch: mergeForce(newState.endPatch, state.endPatch),
-      steps: newState.steps.map((s, i) => ({
-        ...s,
-        patch: mergeForce(s.patch, state.steps[i]?.patch ?? {}),
-      })),
+      steps: mergedSteps,
     });
     setSelectedTemplateId(tmpl.id);
+    // Mark this monitored-ness as synced so the selection-sync effect treats the
+    // apply as explicit and doesn't re-derive the selection to "none".
+    lastSyncedMonitored.current = mergedSteps.some((s) => s.monitored);
   };
 
   const clearTemplate = () => {
@@ -2697,6 +2722,7 @@ export default function RampScheduleSection({
       monitoring: state.monitoring,
     });
     setSelectedTemplateId("");
+    lastSyncedMonitored.current = fresh.steps.some((s) => s.monitored);
   };
 
   const presetTrigger = (
@@ -3342,6 +3368,8 @@ export default function RampScheduleSection({
   const noneMonitored = state.steps.every((s) => !s.monitored);
 
   useEffect(() => {
+    // Gated like the cadence effect above, for the same stale-closure reason.
+    if (!autoSelectDone) return;
     if (noneMonitored || state.monitoring.datasourceId) return;
     const defaultDs =
       datasources.find((d) => d.id === settings?.defaultDataSource) ??
@@ -3353,7 +3381,7 @@ export default function RampScheduleSection({
       exposureQueryId: eqs[0]?.id ?? "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noneMonitored, state.monitoring.datasourceId]);
+  }, [autoSelectDone, noneMonitored, state.monitoring.datasourceId]);
   const monitorCheckboxValue: boolean | "indeterminate" = allMonitored
     ? true
     : noneMonitored
@@ -4154,7 +4182,14 @@ export default function RampScheduleSection({
         </Flex>
         <Switch value={open} onChange={handleToggle} />
       </Flex>
-      {open && content}
+      {open &&
+        (awaitingTemplateAutoSelect ? (
+          <Flex align="center" justify="center" py="6">
+            <LoadingSpinner />
+          </Flex>
+        ) : (
+          content
+        ))}
     </Box>
   );
 }

@@ -28,6 +28,7 @@ import {
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
+  RampScheduleTemplateInterface,
   RampStepAction,
 } from "shared/validators";
 import {
@@ -54,6 +55,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useApi from "@/hooks/useApi";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import Modal from "@/components/Modal";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
@@ -240,6 +242,12 @@ export default function RuleModal({
         ),
       )
     : undefined;
+
+  // Prefetch templates on modal open so they're resolved before the ramp step
+  // mounts RampScheduleSection.
+  const { data: rampTemplatesData } = useApi<{
+    rampScheduleTemplates: RampScheduleTemplateInterface[];
+  }>("/ramp-schedule-templates");
 
   // Check if there's a pending detach action for this rule in the draft.
   // When true, the ramp section should open as "off" so users don't think
@@ -1906,6 +1914,7 @@ export default function RuleModal({
               state={rampSectionState}
               setState={setRampSectionState}
               pendingDetach={hasPendingDetach}
+              preloadedTemplates={rampTemplatesData?.rampScheduleTemplates}
               embedded
               readOnly={!!ruleRampSchedule && !rampIsEditable}
               hideNameField={true}
