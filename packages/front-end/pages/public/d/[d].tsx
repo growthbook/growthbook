@@ -181,6 +181,7 @@ export default function PublicDashboardPage({
               <PublicDashboardBlock
                 block={block as DashboardBlockInterface}
                 dashboardUid={dashboard.uid}
+                dashboardGlobalControls={dashboard.globalControls}
                 ssrPolyfills={ssrPolyfills}
                 savedQueriesMap={savedQueriesMap}
                 snapshotsMap={snapshotsMap}

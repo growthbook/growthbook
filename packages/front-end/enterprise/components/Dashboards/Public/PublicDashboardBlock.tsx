@@ -2,6 +2,7 @@ import { ReactElement, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterface,
+  DashboardInterface,
   DataSourceExplorationBlockInterface,
   ExperimentDimensionBlockInterface,
   ExperimentMetricBlockInterface,
@@ -38,6 +39,7 @@ import ProductAnalyticsExplorerBlock from "@/enterprise/components/Dashboards/Da
 export interface PublicDashboardBlockProps {
   block: DashboardBlockInterface;
   dashboardUid: string;
+  dashboardGlobalControls: DashboardInterface["globalControls"];
   ssrPolyfills: SSRPolyfills;
   savedQueriesMap: Map<string, SavedQuery>;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
@@ -85,6 +87,7 @@ function BlockCard({
 export default function PublicDashboardBlock({
   block,
   dashboardUid,
+  dashboardGlobalControls,
   ssrPolyfills,
   savedQueriesMap,
   snapshotsMap,
@@ -104,6 +107,9 @@ export default function PublicDashboardBlock({
     hideSql: true,
     isPublic: true,
     publicShareUid: dashboardUid,
+    // Dashboard-level date controls the author configured; exploration blocks
+    // apply these (matches the authed view). Undefined for non-PA dashboards.
+    dashboardGlobalControls,
     snapshot: {} as ExperimentSnapshotInterface,
     analysis: {} as ExperimentSnapshotAnalysis,
   };
