@@ -1,4 +1,5 @@
 import { FactTableInterface } from "shared/types/fact-table";
+import Link from "@/ui/Link";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -26,15 +27,14 @@ export default function FactTableSchema({
           <tr key={col.column}>
             <td>
               {onColumnClick ? (
-                <a
-                  href="#"
+                <Link
                   onClick={(e) => {
                     e.preventDefault();
                     onColumnClick(col.column);
                   }}
                 >
                   {col.column}
-                </a>
+                </Link>
               ) : (
                 col.column
               )}

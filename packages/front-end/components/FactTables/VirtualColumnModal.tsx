@@ -6,7 +6,7 @@ import {
 } from "shared/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { FaPlay } from "react-icons/fa";
+import { PiPlay } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -14,7 +14,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FactTableSchema from "./FactTableSchema";
@@ -257,15 +257,13 @@ export default function VirtualColumnModal({
           />
 
           <Button
-            color="primary"
-            className="btn-sm"
+            variant="soft"
+            size="sm"
+            icon={<PiPlay />}
             onClick={async () => {
               await testQuery(form.watch("sql"));
             }}
           >
-            <span className="pr-2">
-              <FaPlay />
-            </span>
             Test Query
           </Button>
         </div>
