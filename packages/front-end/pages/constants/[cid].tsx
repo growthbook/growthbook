@@ -444,7 +444,7 @@ export default function ConstantDetailPage(): React.ReactElement {
             value={tab}
             onValueChange={(v) => setTabAndScroll(v as ConstantTab)}
           >
-            <TabsList>
+            <TabsList size="3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="review">
                 Review &amp; Publish

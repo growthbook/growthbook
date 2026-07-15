@@ -1651,7 +1651,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                   setTabAndScroll(v as "overview" | "validation" | "review")
                 }
               >
-                <TabsList>
+                <TabsList size="3">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="review">
                     Review &amp; Publish
