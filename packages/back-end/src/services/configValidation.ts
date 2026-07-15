@@ -467,6 +467,40 @@ export function assertConfigBackedDefaultHasNoOverrides(
   }
 }
 
+// Each config-backed value on a feature, as {backing config key, override
+// patch, human label}. A value naming its own config uses that; otherwise it
+// implicitly serves the feature's baseConfig. Shared by the publish-time value
+// net and the constant schema-break guard so both see the same value set.
+export function collectFeatureConfigBackedValues(
+  feature: Pick<FeatureInterface, "baseConfig">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): { config: string; patch: string; label: string }[] {
+  const backed: { config: string; patch: string; label: string }[] = [];
+  const add = (raw: string | undefined, label: string) => {
+    if (raw === undefined) return;
+    const config = getConfigBackingKey(raw) ?? feature.baseConfig ?? null;
+    if (!config) return;
+    backed.push({ config, patch: getConfigBackingPatch(raw), label });
+  };
+  add(values.defaultValue, "Default value");
+  for (const rule of values.rules ?? []) {
+    if (rule.type === "force" || rule.type === "rollout") {
+      add(rule.value, "Rule value");
+    } else if (
+      rule.type === "experiment-ref" ||
+      rule.type === "contextual-bandit-ref"
+    ) {
+      rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+    } else if (rule.type === "experiment") {
+      rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+    } else if (rule.type === "safe-rollout") {
+      add(rule.controlValue, "Control value");
+      add(rule.variationValue, "Variation value");
+    }
+  }
+  return backed;
+}
+
 // The value strings the config net reads from a rule, by type — the fields
 // whose change makes a rule worth re-validating.
 export function configCheckedRuleValues(
@@ -498,29 +532,7 @@ export async function assertConfigBackedFeatureValuesValid(
   if (context.skipSchemaValidation) return;
   if (feature.valueType !== "json") return;
 
-  const backed: { config: string; patch: string; label: string }[] = [];
-  const add = (raw: string | undefined, label: string) => {
-    if (raw === undefined) return;
-    const config = getConfigBackingKey(raw) ?? feature.baseConfig ?? null;
-    if (!config) return;
-    backed.push({ config, patch: getConfigBackingPatch(raw), label });
-  };
-  add(values.defaultValue, "Default value");
-  for (const rule of values.rules ?? []) {
-    if (rule.type === "force" || rule.type === "rollout") {
-      add(rule.value, "Rule value");
-    } else if (
-      rule.type === "experiment-ref" ||
-      rule.type === "contextual-bandit-ref"
-    ) {
-      rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
-    } else if (rule.type === "experiment") {
-      rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
-    } else if (rule.type === "safe-rollout") {
-      add(rule.controlValue, "Control value");
-      add(rule.variationValue, "Variation value");
-    }
-  }
+  const backed = collectFeatureConfigBackedValues(feature, values);
   if (!backed.length) return;
 
   const all = await context.models.configs.getAllForReconcile();

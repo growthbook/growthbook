@@ -3,6 +3,8 @@ import {
   collectResolvedConfigValueViolations,
   configIsExtensible,
   getConfigSpineRootKey,
+  parsePlainJSONObject,
+  deepMergePatch,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -12,7 +14,12 @@ import {
 import { ConstantInterface } from "shared/types/constant";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
-import { resolvableDependencyClosure } from "back-end/src/services/constants";
+import {
+  resolvableDependencyClosure,
+  featuresAffectedByResolvable,
+} from "back-end/src/services/constants";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { collectFeatureConfigBackedValues } from "back-end/src/services/configValidation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { SoftWarningError } from "back-end/src/util/errors";
@@ -152,9 +159,136 @@ export async function evaluateConstantSchemaBreakConflicts(
   return [...new Set(introduced)];
 }
 
+// The violations a proposed constant value would INTRODUCE into dependent
+// config-backed FEATURE values (each value = its backing config resolved ⊕ the
+// feature's override patch), checked against the backing config's schema +
+// invariants, per environment, diffed vs current. Complements the config check:
+// a feature's patch can combine with the changed constant to break a cross-field
+// invariant that the config's own resolved value doesn't. Values with an empty
+// patch are skipped — those resolve identically to the config and are already
+// covered by evaluateConstantSchemaBreakConflicts.
+async function evaluateConstantFeatureSchemaBreakConflicts(
+  context: Context,
+  constant: Pick<ConstantInterface, "key" | "project">,
+  proposedValue: string | undefined,
+): Promise<string[]> {
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const [resolvables, features] = await Promise.all([
+    getResolvableValues(scanContext),
+    getAllFeatures(scanContext, {}),
+  ]);
+  const affected = featuresAffectedByResolvable(
+    resolvables,
+    features,
+    "constant",
+    constant.key,
+  );
+  if (!affected.length) return [];
+
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+  const byKey = new Map(allConfigs.map((c) => [c.key, c]));
+  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  const proposedResolvables = resolvables.map((r) =>
+    r.source === "constant" && r.key === constant.key
+      ? { ...r, value: proposedValue ?? "" }
+      : r,
+  );
+
+  // The feature's shipped value for one config-backed slot in one environment:
+  // the backing config resolved ⊕ the (also-resolved) override patch.
+  const shippedValue = (
+    config: string,
+    patchObj: Record<string, unknown>,
+    map: ConstantValueMap,
+    project: string,
+  ): Record<string, unknown> | null => {
+    const base = resolveConfigConcreteValue(config, map, project);
+    if (!base) return null;
+    const resolvedPatch = resolveConstantRefs(
+      patchObj,
+      map,
+      new Set(),
+      undefined,
+      project,
+      undefined,
+    );
+    const patch =
+      resolvedPatch &&
+      typeof resolvedPatch === "object" &&
+      !Array.isArray(resolvedPatch)
+        ? (resolvedPatch as Record<string, unknown>)
+        : patchObj;
+    return deepMergePatch(base, patch) as Record<string, unknown>;
+  };
+
+  const introduced: string[] = [];
+  for (const feature of affected) {
+    if (feature.valueType !== "json") continue;
+    const project = feature.project || "";
+    const backed = collectFeatureConfigBackedValues(feature, {
+      defaultValue: feature.defaultValue,
+      rules: feature.rules,
+    });
+    for (const { config, patch, label } of backed) {
+      if (!byKey.has(config)) continue;
+      const patchObj = parsePlainJSONObject(patch);
+      if (!patchObj || Object.keys(patchObj).length === 0) continue;
+      const additionalProperties = configIsExtensible(
+        byKey.get(getConfigSpineRootKey(config, byKey)),
+        extensibleDefault,
+      );
+      const introducedFor = (env: string): string[] => {
+        const current = shippedValue(
+          config,
+          patchObj,
+          buildConstantValueMap(resolvables, env),
+          project,
+        );
+        const proposed = shippedValue(
+          config,
+          patchObj,
+          buildConstantValueMap(proposedResolvables, env),
+          project,
+        );
+        if (!proposed) return [];
+        const currentViolations = new Set(
+          current
+            ? collectResolvedConfigValueViolations({
+                configKey: config,
+                value: current,
+                byKey,
+                additionalProperties,
+              })
+            : [],
+        );
+        return collectResolvedConfigValueViolations({
+          configKey: config,
+          value: proposed,
+          byKey,
+          additionalProperties,
+        }).filter((v) => !currentViolations.has(v));
+      };
+      const baseViolations = new Set(introducedFor(""));
+      for (const v of baseViolations) {
+        introduced.push(`feature "${feature.id}" ${label}: ${v}`);
+      }
+      for (const env of environments) {
+        for (const v of introducedFor(env)) {
+          if (!baseViolations.has(v)) {
+            introduced.push(`feature "${feature.id}" ${label} [${env}]: ${v}`);
+          }
+        }
+      }
+    }
+  }
+  return [...new Set(introduced)];
+}
+
 // Warn (never hard-block) when publishing a constant would make a dependent
-// config's resolved value violate its schema or invariants. Bypassable soft
-// warning on a direct publish (?ignoreWarnings=true or bypassApprovalChecks).
+// config OR config-backed feature value violate its schema or invariants.
+// Bypassable soft warning on a direct publish (?ignoreWarnings=true or
+// bypassApprovalChecks).
 //
 // Deferred (armed) publishes are intentionally skipped in this first cut: a
 // scheduled / auto-publish-on-approval fire has no request to acknowledge
@@ -171,11 +305,15 @@ export async function assertConstantSchemaBreakGuard(
   // (this is a soft advisory, not a correctness gate).
   if (proposedValue === undefined) return;
 
-  const violations = await evaluateConstantSchemaBreakConflicts(
-    context,
-    constant,
-    proposedValue,
-  );
+  const [configViolations, featureViolations] = await Promise.all([
+    evaluateConstantSchemaBreakConflicts(context, constant, proposedValue),
+    evaluateConstantFeatureSchemaBreakConflicts(
+      context,
+      constant,
+      proposedValue,
+    ),
+  ]);
+  const violations = [...configViolations, ...featureViolations];
   if (!violations.length) return;
 
   const override =
@@ -192,7 +330,7 @@ export async function assertConstantSchemaBreakGuard(
   }
 
   throw new SoftWarningError(
-    "Publishing this constant would make dependent config value(s) violate their schema or validation rules:\n" +
+    "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:\n" +
       violations.join("\n"),
     violations,
   );
