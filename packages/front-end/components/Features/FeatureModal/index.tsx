@@ -13,6 +13,7 @@ import {
   setConfigBacking,
   stripConfigExtends,
   orderConfigsByLineage,
+  isScopedConfig,
 } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
@@ -242,6 +243,10 @@ export default function FeatureModal({
       configs.filter(
         (c) =>
           !c.archived &&
+          // Env/project overrides are variants of another config, never an
+          // independent base — they must stay implicit (never selectable as a
+          // feature's backing config), matching the value-field picker.
+          !isScopedConfig(c) &&
           (!c.project || !selectedProject || c.project === selectedProject),
       ),
     [configs, selectedProject],

@@ -4,7 +4,11 @@ import { useForm } from "react-hook-form";
 import { ConfigWithoutValue } from "shared/types/config";
 import { Revision } from "shared/enterprise";
 import { generateTrackingKey } from "shared/experiments";
-import { getConfigParentKey, getConfigSubtree } from "shared/util";
+import {
+  getConfigParentKey,
+  getConfigSubtree,
+  isScopedConfig,
+} from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -113,8 +117,10 @@ export default function ConfigModal({
   // For create, the base/child distinction follows the selected parent.
   const isBaseSelection = editing ? isBaseConfig : !form.watch("parent");
 
+  // Env/project override flavors are variants of a specific base, never a
+  // standalone base — exclude them so they can't be chosen as a parent or mixin.
   const parentOptions = configs
-    .filter((c) => !c.archived && c.key !== existing?.key)
+    .filter((c) => !c.archived && !isScopedConfig(c) && c.key !== existing?.key)
     .map((c) => ({ label: c.name, value: c.key }));
   const projectOptions = projects.map((p) => ({ label: p.name, value: p.id }));
 
@@ -132,6 +138,7 @@ export default function ConfigModal({
     .filter(
       (c) =>
         !c.archived &&
+        !isScopedConfig(c) &&
         c.key !== existing?.key &&
         c.key !== currentParent &&
         !descendantKeys.has(c.key),
