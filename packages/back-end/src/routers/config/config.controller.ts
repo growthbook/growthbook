@@ -389,11 +389,17 @@ export const getConfigResolved = async (
   // just a lone node — these surface "where am I used" as one tree per composing
   // family. Deduped by spine root so sibling composers in the same family render
   // a single tree, and the config's own family is excluded (it's already shown).
+  // Only composers the caller can read — a config in another project that
+  // mixes this one in must not leak its key/name to a viewer scoped to just the
+  // target's project (these keys flow into configNames/fieldCounts below).
   const composerRootKeys = [
     ...new Set(
       allConfigs
         .filter(
-          (c) => c.key !== config.key && (c.extends ?? []).includes(config.key),
+          (c) =>
+            c.key !== config.key &&
+            (c.extends ?? []).includes(config.key) &&
+            context.permissions.canReadSingleProjectResource(c.project),
         )
         .map((c) => getConfigSpineRootKey(c.key, byKey)),
     ),
