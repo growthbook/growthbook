@@ -404,13 +404,25 @@ export const getConfigResolved = async (
     lineage: buildSpineLineage(rootKey),
   }));
 
-  // Own-value field count + display name for every config, keyed by config key,
-  // so the lineage tree can label/count mixin rows (mixins usually live outside
-  // this config's family, so they aren't present as lineage nodes).
+  // Own-value field count + display name, keyed by config key, so the lineage
+  // tree can label/count mixin rows (mixins usually live outside this config's
+  // family, so they aren't present as lineage nodes). Scoped to the keys the
+  // returned trees actually reference (lineage/composer nodes + their mixins) —
+  // NOT every config org-wide, which would leak names/keys across projects.
+  const referencedKeys = new Set<string>([config.key]);
+  for (const fam of [{ lineage }, ...composerFamilies]) {
+    for (const node of fam.lineage) {
+      referencedKeys.add(node.key);
+      if (node.parentKey) referencedKeys.add(node.parentKey);
+      (node.extendsKeys ?? []).forEach((k) => referencedKeys.add(k));
+    }
+  }
   const fieldCounts: Record<string, number> = {};
   const configNames: Record<string, string> = {};
   const archivedByKey: Record<string, boolean> = {};
-  for (const c of byKey.values()) {
+  for (const key of referencedKeys) {
+    const c = byKey.get(key);
+    if (!c) continue;
     fieldCounts[c.key] = configOwnFieldCount(c.value);
     configNames[c.key] = c.name;
     if (c.archived) archivedByKey[c.key] = true;
@@ -993,6 +1005,18 @@ export const putConfig = async (
           existing,
           fieldsToUpdate as Parameters<typeof context.models.configs.update>[1],
         );
+        // A schema/lineage change can introduce a field a descendant already
+        // declares; cascade "base wins" down the subtree (system-normalized live
+        // writes). Kept inside the try so a cascade failure reopens the revision
+        // too — otherwise the revision stays "merged", the webhook never fires,
+        // and the caller sees a 500 for a publish that half-happened.
+        if (
+          fieldsToUpdate.schema !== undefined ||
+          fieldsToUpdate.parent !== undefined ||
+          "extends" in fieldsToUpdate
+        ) {
+          await reconcileConfigDescendants(context, existing.key);
+        }
       } catch (e) {
         try {
           await context.models.revisions.reopen(revision.id, context.userId);
@@ -1000,17 +1024,6 @@ export const putConfig = async (
           // ignore — surface the original update error
         }
         throw e;
-      }
-
-      // A schema/lineage change can introduce a field a descendant already
-      // declares; cascade "base wins" down the subtree (system-normalized live
-      // writes).
-      if (
-        fieldsToUpdate.schema !== undefined ||
-        fieldsToUpdate.parent !== undefined ||
-        "extends" in fieldsToUpdate
-      ) {
-        await reconcileConfigDescendants(context, existing.key);
       }
 
       await dispatchConfigRevisionEvent(context, revision, {

@@ -120,7 +120,10 @@ export class ConfigModel extends BaseClass {
 
   protected async beforeCreate(doc: ConfigInterface) {
     await this.assertNoCycle(doc);
-    await this.assertValidComposition(doc, { lineageChanged: true });
+    await this.assertValidComposition(doc, {
+      lineageChanged: true,
+      priorBaseKeys: [],
+    });
   }
 
   protected async beforeUpdate(
@@ -151,6 +154,7 @@ export class ConfigModel extends BaseClass {
       await this.assertValidComposition(newDoc, {
         lineageChanged:
           updates.parent !== undefined || updates.extends !== undefined,
+        priorBaseKeys: getConfigBaseKeys(existing),
       });
     }
   }
@@ -174,7 +178,10 @@ export class ConfigModel extends BaseClass {
   // schema check below always runs (a schema change can newly create one).
   private async assertValidComposition(
     doc: ConfigInterface,
-    { lineageChanged }: { lineageChanged: boolean },
+    {
+      lineageChanged,
+      priorBaseKeys,
+    }: { lineageChanged: boolean; priorBaseKeys: string[] },
   ): Promise<void> {
     const baseKeys = getConfigBaseKeys(doc);
     if (!baseKeys.length) return;
@@ -209,6 +216,26 @@ export class ConfigModel extends BaseClass {
       if (missing.length) {
         throw new BadRequestError(
           `Unknown config(s) in lineage: ${missing.join(", ")}.`,
+        );
+      }
+
+      // A base you can't read must not be composable: resolving this config
+      // would expose that base's field values (and its existence). Gate only
+      // NEWLY-referenced bases so an existing lineage set up with access stays
+      // editable; a global (project-less) base is readable by everyone.
+      const prior = new Set(priorBaseKeys);
+      const unreadable = baseKeys.filter(
+        (k) =>
+          !prior.has(k) &&
+          !this.context.permissions.canReadSingleProjectResource(
+            byKey.get(k)?.project || "",
+          ),
+      );
+      if (unreadable.length) {
+        throw new BadRequestError(
+          `Cannot compose config(s) you don't have access to: ${unreadable.join(
+            ", ",
+          )}.`,
         );
       }
 
