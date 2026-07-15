@@ -14,6 +14,7 @@ import type { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { resolvableDependencyClosure } from "back-end/src/services/constants";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
@@ -51,8 +52,11 @@ function resolveConfigConcreteValue(
 // config field backed by `@const:` finally gets checked against a concrete
 // value (the ordinary config collectors exempt reference-backed fields).
 //
-// Configs only, env-agnostic (base value). Config-backed FEATURE values and
-// per-environment constant values are a documented follow-on.
+// Configs only. Checked across every environment (plus the env-agnostic base):
+// a constant carries per-environment values, so a change can break a dependent
+// config in one environment but not another. A break present in every
+// environment is reported once (untagged); an env-specific one is tagged with
+// its environment. Config-backed FEATURE values are a documented follow-on.
 export async function evaluateConstantSchemaBreakConflicts(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
@@ -74,31 +78,34 @@ export async function evaluateConstantSchemaBreakConflicts(
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
   const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
 
-  // Current vs proposed constant maps (env-agnostic). The proposed map swaps only
-  // the changed constant's base value; everything else resolves identically, so
-  // the diff isolates violations this change introduces.
-  const mapCurrent = buildConstantValueMap(resolvables, "");
+  // The proposed universe swaps only the changed constant's value; everything
+  // else resolves identically, so the diff isolates violations this change
+  // introduces. Per environment, buildConstantValueMap picks that env's constant
+  // values, so resolution reflects what actually ships there.
   const proposedResolvables = resolvables.map((r) =>
     r.source === "constant" && r.key === constant.key
       ? { ...r, value: proposedValue ?? "" }
       : r,
   );
-  const mapProposed = buildConstantValueMap(proposedResolvables, "");
 
-  const introduced: string[] = [];
-  for (const key of affectedConfigKeys) {
-    const cfg = byKey.get(key);
-    if (!cfg) continue;
-    const additionalProperties = configIsExtensible(
-      byKey.get(getConfigSpineRootKey(key, byKey)),
-      extensibleDefault,
+  // Violations this change introduces for one config in one environment.
+  const introducedFor = (
+    key: string,
+    env: string,
+    project: string,
+    additionalProperties: boolean,
+  ): string[] => {
+    const current = resolveConfigConcreteValue(
+      key,
+      buildConstantValueMap(resolvables, env),
+      project,
     );
-    const project = cfg.project || "";
-
-    const current = resolveConfigConcreteValue(key, mapCurrent, project);
-    const proposed = resolveConfigConcreteValue(key, mapProposed, project);
-    if (!proposed) continue;
-
+    const proposed = resolveConfigConcreteValue(
+      key,
+      buildConstantValueMap(proposedResolvables, env),
+      project,
+    );
+    if (!proposed) return [];
     const currentViolations = new Set(
       current
         ? collectResolvedConfigValueViolations({
@@ -109,18 +116,40 @@ export async function evaluateConstantSchemaBreakConflicts(
           })
         : [],
     );
-    for (const v of collectResolvedConfigValueViolations({
+    return collectResolvedConfigValueViolations({
       configKey: key,
       value: proposed,
       byKey,
       additionalProperties,
-    })) {
-      if (!currentViolations.has(v)) {
-        introduced.push(`config "${key}": ${v}`);
+    }).filter((v) => !currentViolations.has(v));
+  };
+
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  const introduced: string[] = [];
+  for (const key of affectedConfigKeys) {
+    const cfg = byKey.get(key);
+    if (!cfg) continue;
+    const additionalProperties = configIsExtensible(
+      byKey.get(getConfigSpineRootKey(key, byKey)),
+      extensibleDefault,
+    );
+    const project = cfg.project || "";
+
+    // Base (env-agnostic) first: anything it flags holds in every environment,
+    // so per-env passes suppress the duplicate and only add env-specific breaks.
+    const baseViolations = new Set(
+      introducedFor(key, "", project, additionalProperties),
+    );
+    for (const v of baseViolations) introduced.push(`config "${key}": ${v}`);
+    for (const env of environments) {
+      for (const v of introducedFor(key, env, project, additionalProperties)) {
+        if (!baseViolations.has(v)) {
+          introduced.push(`config "${key}" [${env}]: ${v}`);
+        }
       }
     }
   }
-  return introduced;
+  return [...new Set(introduced)];
 }
 
 // Warn (never hard-block) when publishing a constant would make a dependent
