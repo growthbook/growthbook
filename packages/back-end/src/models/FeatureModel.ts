@@ -2056,6 +2056,21 @@ async function createRampSchedulesForRevision(
         "lockdownConfig",
         updateAction.lockdownConfig,
       );
+      // Persist the resolved start-approval alongside the start. Reaching here
+      // means the ramp is not held (nextRequiresApproval is off, or on but
+      // already approved), so this write is what clears an unchecked gate before
+      // the start tripwire runs. Clear a stale approval marker on a real toggle.
+      set(
+        updateAction.requiresStartApproval !== undefined,
+        "requiresStartApproval",
+        nextRequiresApproval,
+      );
+      if (
+        updateAction.requiresStartApproval !== undefined &&
+        nextRequiresApproval !== !!existingSchedule?.requiresStartApproval
+      ) {
+        (contentUpdates as Record<string, unknown>).startApprovedAt = null;
+      }
       edited.push("startDate"); // always changed on this path (cleared)
 
       // A "config-edited" event rides along so startReadyScheduleNow appends

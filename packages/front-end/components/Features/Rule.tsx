@@ -1612,6 +1612,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {formatRollbackReason(rampSchedule.lastRollbackReason)}
                     </Callout>
                   )}
+                {isAwaitingStartApproval(rampSchedule) &&
+                  !hasMonitoringStatusRow &&
+                  rampSchedule.lastRollbackReason && (
+                    <Callout status="warning" mb="2">
+                      <Text weight="semibold">Rolled back by monitoring:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)} —
+                      review before re-approving.
+                    </Callout>
+                  )}
                 <RampTimeline
                   rs={rampSchedule}
                   pendingDetach={!!hasPendingDetach}

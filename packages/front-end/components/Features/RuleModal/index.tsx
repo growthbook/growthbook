@@ -133,11 +133,20 @@ function buildRampStartActionsFromRule(
 }
 
 // A future-dated or approval-gated ramp publishes its rule disabled (zero
-// traffic) until the schedule activates or is approved.
+// traffic) until the schedule activates or is approved. Only applies pre-start:
+// once the schedule is running the ramp owns the rule's enabled state, so a
+// later edit must not re-disable a live rollout (requiresStartApproval stays set
+// after start — e.g. a running 0-step approval schedule).
 function shouldPublishRuleDisabled(
   ramp: Record<string, unknown> | undefined,
+  existingScheduleStatus?: string,
 ): boolean {
   if (!ramp) return false;
+  const preStart =
+    existingScheduleStatus === undefined ||
+    existingScheduleStatus === "pending" ||
+    existingScheduleStatus === "ready";
+  if (!preStart) return false;
   return (
     ("startDate" in ramp && !!ramp.startDate) ||
     ("requiresStartApproval" in ramp && !!ramp.requiresStartApproval)
@@ -1506,7 +1515,12 @@ export default function RuleModal({
           // advances, but the rule must have them set immediately for the period
           // between publish and ramp-start (or if the ramp never starts).
 
-          if (shouldPublishRuleDisabled(rampScheduleInline)) {
+          if (
+            shouldPublishRuleDisabled(
+              rampScheduleInline,
+              ruleRampSchedule?.status,
+            )
+          ) {
             values = { ...values, enabled: false };
           }
 

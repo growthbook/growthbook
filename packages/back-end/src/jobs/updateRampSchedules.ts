@@ -123,10 +123,16 @@ export const advanceSingleRampSchedule = async (
   try {
     const screened = await context.models.rampSchedules.getById(rampScheduleId);
     if (!screened) return;
-    // A schedule held for start approval never advances from a poll (it waits
-    // for the approve action). Skip it here so a held schedule that still
-    // carries a past startDate isn't lock-cycled every tick.
-    if (isAwaitingStartApproval(screened)) return;
+    // A ready schedule held for start approval never advances from a poll (it
+    // waits for the approve action). Skip it here so a held schedule that still
+    // carries a past startDate isn't lock-cycled every tick. A *pending*
+    // approval-gated schedule is different: it still needs its activating-
+    // revision transition (which is what establishes the hold), so let it fall
+    // through to the pending-recovery block below — otherwise a publish hook
+    // that deferred to the scheduler leaves it stuck pending forever.
+    if (screened.status !== "pending" && isAwaitingStartApproval(screened)) {
+      return;
+    }
     if (screened.status === "pending") {
       const activatingVersion = getActivatingVersion(screened);
       if (activatingVersion === null) return;

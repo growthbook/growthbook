@@ -1311,7 +1311,12 @@ export async function rollbackToStep(
       ? "rolled-back"
       : "paused";
 
-  const fullRollbackFields = terminalRollback
+  // Record the reason on a terminal rollback AND on a re-hold: a guardrail
+  // auto-rollback of an approval-gated ramp lands back in "ready" (awaiting
+  // approval), so without this the hold shows no sign a guardrail tripped and a
+  // re-approval relaunches straight into the same failure.
+  const recordRollbackReason = terminalRollback || reHoldForApproval;
+  const fullRollbackFields = recordRollbackReason
     ? {
         lastRollbackAt: now,
         lastRollbackReason: reason ?? "Manual",
@@ -1375,8 +1380,10 @@ export async function rollbackToStep(
   }
 
   // Re-entering the pre-start hold (manual or guardrail auto-rollback) emits the
-  // awaiting-approval signal so integrations see the ramp is held again.
-  if (reHoldForApproval) {
+  // awaiting-approval signal so integrations see the ramp is held again. Gated
+  // by emitEvent: a caller that suppresses events (e.g. restartSchedule) fires
+  // its own awaiting-approval signal afterward, so this would double-fire.
+  if (reHoldForApproval && emitEvent) {
     await dispatchAwaitingStartApproval(ctx, updated);
   }
 
@@ -2269,6 +2276,10 @@ type StartNowContentUpdates = Partial<
     | "cutoffDate"
     | "monitoringConfig"
     | "lockdownConfig"
+    // Cleared start-approval must land in the same write that flips the schedule
+    // to running, or the start tripwire (assertStartApprovalCleared) throws.
+    | "requiresStartApproval"
+    | "startApprovedAt"
   >
 > & {
   // Recorded beneath the "started" event; appended onto the in-lock history
