@@ -6,6 +6,8 @@ import {
   RampScheduleInterface,
   RampStepAction,
   StepHoldConditions,
+  isAwaitingStartApproval,
+  isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
 import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
@@ -187,6 +189,20 @@ export function rampScheduleToApiInterface(
       : doc.monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
+    // Reads bypass zod validation (only migrate() runs), so guard against
+    // legacy docs whose approvedAt is a string or an Invalid Date — the field
+    // was silently dropped before this mapping existed, so bad values were
+    // harmless and may still exist.
+    stepApproval:
+      doc.stepApproval &&
+      doc.stepApproval.approvedAt instanceof Date &&
+      !isNaN(doc.stepApproval.approvedAt.getTime())
+        ? {
+            ...doc.stepApproval,
+            approvedAt: doc.stepApproval.approvedAt.toISOString(),
+          }
+        : undefined,
+    awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
     monitoringStartDate: dateToIso(doc.monitoringStartDate),
     lastRollbackAt: dateToIso(doc.lastRollbackAt),
     lastRollbackReason: doc.lastRollbackReason,
