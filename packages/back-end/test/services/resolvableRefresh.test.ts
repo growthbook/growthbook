@@ -148,6 +148,16 @@ describe("featureReferenceTokens", () => {
     expect([...tokens]).toEqual(["config:theme"]);
   });
 
+  it("emits the base-config token even when no value carries a @config: ref", () => {
+    // Config mode with a bare-patch default (the common create path): backing
+    // lives on `feature.baseConfig`, not in any value string. It must still be
+    // matched so editing/deleting/archiving that config refreshes the payload.
+    const tokens = featureReferenceTokens(
+      feat({ valueType: "json", baseConfig: "theme", defaultValue: "{}" }),
+    );
+    expect([...tokens]).toEqual(["config:theme"]);
+  });
+
   it("extracts references from top-level rule values and variations", () => {
     const tokens = featureReferenceTokens(
       feat({

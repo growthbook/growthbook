@@ -299,6 +299,13 @@ const refToken = (source: ConstantSource, key: string): string =>
 // `@const:` and `@config:` references). Exported for unit testing.
 export function featureReferenceTokens(feature: FeatureInterface): Set<string> {
   const tokens = new Set<string>();
+  // A config-backed feature whose values are pure patches (the common create
+  // path: default = the base config with no override) carries the backing on
+  // `feature.baseConfig`, not as a `@config:` token in any value string. Emit it
+  // explicitly so editing/deleting/archiving that config still matches the
+  // feature (matches loadConfigFamilyFeatureReferences).
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
+  if (baseConfigKey) tokens.add(refToken("config", baseConfigKey));
   for (const value of featureValueStrings(feature)) {
     for (const key of getConstantReferenceKeys(value, undefined, "constant")) {
       tokens.add(refToken("constant", key));
