@@ -8,6 +8,7 @@ import {
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -46,6 +47,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
+import ButtonTooltip from "@/ui/Tooltip";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -126,6 +128,10 @@ export default function FactTablePage() {
   const canDuplicate = permissionsUtil.canCreateFactTable({
     projects: factTable.projects,
   });
+  const datasource = getDatasourceById(factTable.datasource);
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunFactQueries(datasource)
+    : false;
 
   let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
@@ -276,7 +282,20 @@ export default function FactTablePage() {
             />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          {canOpenInExplorer && (
+            <ButtonTooltip content="Open this Fact Table in Product Analytics to chart its activity.">
+              <LinkButton
+                href={`/product-analytics/explore/fact-table?factTableId=${encodeURIComponent(
+                  factTable.id,
+                )}`}
+                variant="outline"
+                size="sm"
+              >
+                Open in Explorer
+              </LinkButton>
+            </ButtonTooltip>
+          )}
           <DropdownMenu
             trigger={
               <IconButton
@@ -448,7 +467,7 @@ export default function FactTablePage() {
               href={`/datasources/${factTable.datasource}`}
               className="font-weight-bold"
             >
-              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
+              {datasource?.name || "Unknown"}
             </Link>
           }
         />

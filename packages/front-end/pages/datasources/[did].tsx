@@ -12,6 +12,7 @@ import { datetime } from "shared/dates";
 import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -48,6 +49,7 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
+import Tooltip from "@/ui/Tooltip";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -176,6 +178,10 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
+  const canOpenInExplorer =
+    supportsSQL &&
+    d.properties?.supportsInformationSchema &&
+    permissionsUtil.canRunFactQueries(d);
 
   return (
     <div className="container pagecontents">
@@ -216,10 +222,23 @@ const DataSourcePage: FC = () => {
             radius="full"
           />
         </Flex>
-        {(canUpdateConnectionParams ||
-          canUpdateDataSourceSettings ||
-          canDelete) && (
-          <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          {canOpenInExplorer && (
+            <Tooltip content="Open this Data Source in Product Analytics to choose a table and visualize its data.">
+              <LinkButton
+                href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
+                  d.id,
+                )}`}
+                variant="outline"
+                size="sm"
+              >
+                Open in Explorer
+              </LinkButton>
+            </Tooltip>
+          )}
+          {(canUpdateConnectionParams ||
+            canUpdateDataSourceSettings ||
+            canDelete) && (
             <DropdownMenu
               trigger={
                 <IconButton
@@ -322,8 +341,8 @@ const DataSourcePage: FC = () => {
                 </>
               )}
             </DropdownMenu>
-          </Flex>
-        )}
+          )}
+        </Flex>
       </Flex>
       {d.type === "mixpanel" && (
         <Callout status="warning" mt="3">

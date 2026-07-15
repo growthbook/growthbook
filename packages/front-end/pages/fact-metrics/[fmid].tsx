@@ -25,6 +25,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -267,6 +268,9 @@ export default function FactMetricPage() {
   const datasource = factMetric.datasource
     ? getDatasourceById(factMetric.datasource)
     : null;
+  const canOpenInExplorer = datasource
+    ? permissionsUtil.canRunMetricQueries(datasource)
+    : false;
 
   const userFilters = getAggregateFilters({
     columnRef: factMetric.numerator,
@@ -534,7 +538,20 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} officialBadgePosition="right" />
           </Heading>
         </Flex>
-        <Flex align="center" pr="2">
+        <Flex align="center" gap="2" pr="2">
+          {canOpenInExplorer && (
+            <Tooltip content="Open this Fact Metric in Product Analytics to chart and break down its values.">
+              <LinkButton
+                href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+                  factMetric.id,
+                )}`}
+                variant="outline"
+                size="sm"
+              >
+                Open in Explorer
+              </LinkButton>
+            </Tooltip>
+          )}
           <DropdownMenu
             trigger={
               <IconButton
