@@ -705,9 +705,8 @@ export async function createExperiment({
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
-    // TODO: Can we use satisfies instead? as feels like a lie
-  } as ExperimentInterface;
+    nextSnapshotAttempt: nextUpdate ?? undefined,
+  } satisfies Partial<ExperimentInterface> as ExperimentInterface;
 
   await runValidateExperimentHooks({
     context,
@@ -715,7 +714,6 @@ export async function createExperiment({
     original: null,
   });
 
-  // TODO: does .create() add any default value? how can we also add it to the validationHook?
   const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);

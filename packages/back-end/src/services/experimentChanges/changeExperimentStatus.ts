@@ -58,19 +58,7 @@ export type ExperimentStartChecklistResult = {
   status: ExperimentStartChecklistStatus;
 };
 
-/**
- * Runs the validateExperiment custom hook for a user-initiated change, against
- * the state the experiment will actually run as. When the change starts a
- * not-yet-running experiment or arms it for a scheduled start, the hook sees the
- * would-be running state, so launch-time rules fire at the user's action instead
- * of silently in the headless start. Every other change validates the merged
- * result as-is (a draft edit sees the draft, a stop sees the stopped state, an
- * edit to a running experiment sees the running state).
- *
- * Call this only from user-initiated (API or UI) paths. Headless writes stay
- * hook-free so background starts never block: the updateExperiment model choke
- * point, executeExperimentStart, and the agenda jobs must never call it.
- */
+/** User-initiated experiment writes only. Start/schedule-start paths validate the would-be running state. */
 export async function validateExperimentChange({
   context,
   experiment,

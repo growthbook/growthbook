@@ -25,7 +25,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class CustomHookModel extends BaseClass {
-  // Resolve the referenced feature synchronously (foreign refs are populated first).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
     if (doc.entityType !== "feature" || !doc.entityId) return null;
     return this.getForeignRefs(doc, false).feature ?? null;
@@ -69,7 +68,6 @@ export class CustomHookModel extends BaseClass {
     _updates: UpdateProps<CustomHookInterface>,
     newDoc: CustomHookInterface,
   ): boolean {
-    // entityType/entityId are readonly, so the scope can't change on update.
     const feature = this.featureRef(newDoc);
     if (feature) {
       return this.context.permissions.canManageFeatureCustomHooks(feature);
@@ -96,7 +94,6 @@ export class CustomHookModel extends BaseClass {
     return this.context.permissions.canDeleteCustomHook(doc);
   }
 
-  // Ensure scoped hooks are well-formed and point at a real resource.
   protected async customValidation(doc: CustomHookInterface) {
     const entityType = doc.entityType ?? null;
     const entityId = doc.entityId ?? null;
@@ -129,7 +126,6 @@ export class CustomHookModel extends BaseClass {
   ) {
     const hooks = await this._find({ hook, enabled: true });
 
-    // Entity-scoped hooks match by entityId; others match by project (empty = all).
     return hooks.filter((h) =>
       h.entityType && h.entityId
         ? h.entityId === entityId

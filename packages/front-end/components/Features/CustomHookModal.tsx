@@ -10,7 +10,10 @@ import { Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { ExperimentInterface } from "shared/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -119,8 +122,6 @@ const dummyExperiment: ExperimentInterface = {
   previewURL: "",
   targetURLRegex: "",
   releasedVariationId: "",
-  // Custom field values live here; validate them the same way you would any
-  // other experiment property.
   customFields: {
     contextualAttributes: ["checkout", "mobile"],
     jiraTicket: "PROJ-123",
@@ -188,7 +189,7 @@ export default function CustomHookModal({
   // When set, scopes the hook to this feature and hides the Projects field.
   feature?: FeatureInterface;
   // When set, scopes the hook to this experiment and hides the Projects field.
-  experiment?: ExperimentInterface;
+  experiment?: ExperimentInterfaceStringDates;
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
 }) {

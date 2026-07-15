@@ -12,13 +12,6 @@ import {
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { setupApp } from "../api/api.setup";
 
-// Exercises the validateExperiment custom-hook wiring end-to-end: createExperiment
-// and runValidateExperimentHooks run the real runValidateExperimentHooks -> _runCustomHooks chain
-// against an in-memory Mongo. Only the sandbox leaf (runInSandbox, which runs user
-// JS in a child process) is mocked, so each test controls the hook's verdict.
-// updateExperiment itself no longer runs hooks; callers validate explicitly via
-// runValidateExperimentHooks before writing.
-
 jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
   runInSandbox: jest.fn(),
 }));
@@ -72,7 +65,6 @@ async function seedExperimentHook(options?: {
   });
 }
 
-// Fields that toExperimentApiInterface reads when create/update logs an event.
 const experimentBase = {
   type: "standard",
   project: "",
@@ -182,7 +174,6 @@ describe("experiment custom hooks", () => {
     await createExperiment({ data: experimentData(), context: makeContext() });
 
     expect(mockRunInSandbox).toHaveBeenCalledTimes(1);
-    // The hook receives the pending experiment as its function args
     expect(mockRunInSandbox.mock.calls[0][1]).toMatchObject({
       experiment: { name: "New Experiment" },
     });
@@ -201,7 +192,6 @@ describe("experiment custom hooks", () => {
       createExperiment({ data: experimentData(), context: makeContext() }),
     ).rejects.toThrow("Rejected by hook");
 
-    // The rejection fires before the DB write, so nothing is persisted
     expect(mockRunInSandbox).toHaveBeenCalledTimes(1);
     expect(await countExperiments()).toBe(0);
   });
@@ -249,8 +239,6 @@ describe("experiment custom hooks", () => {
     ).rejects.toThrow("Update rejected");
 
     expect(mockRunInSandbox).toHaveBeenCalledTimes(1);
-    // Real call sites run this before updateExperiment, so a throw here means
-    // the write never happens.
     expect((await findExperiment(EXISTING_ID))?.name).toBe("Original Name");
   });
 
