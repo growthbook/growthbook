@@ -366,9 +366,9 @@ export default function FieldDefForm({
       />
       <Text size="small" color="text-low">
         Enter a JSON Schema for this field&apos;s value. See{" "}
-        <a href="https://json-schema.org/" target="_blank" rel="noreferrer">
+        <Link href="https://json-schema.org/" target="_blank" rel="noreferrer">
           https://json-schema.org/
-        </a>{" "}
+        </Link>{" "}
         for more information.
       </Text>
     </Box>

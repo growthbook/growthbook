@@ -5,7 +5,7 @@ import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import VariationLabel from "@/ui/VariationLabel";
+import VariationNumber from "@/ui/VariationNumber";
 import Table, {
   TableHeader,
   TableBody,
@@ -115,13 +115,6 @@ export function dedupeImplementations(
   return [...bySignature.values()];
 }
 
-// Human label for a stacked variation section in the override drilldown.
-function variationLabel(impl: ConfigKeyImplementation, index: number): string {
-  if (impl.variationId === "control") return "Control";
-  if (impl.variationId === "variation") return "Variation";
-  return `Variation ${index}`;
-}
-
 // The raw override value(s) a reference sets, rendered like the config field
 // table (ValueDisplay). Experiment/bandit refs stack one section per variation.
 // `keys` scopes which fields to show (the row's own keys — already limited to
@@ -144,11 +137,7 @@ function OverrideValues({
           <Box key={`${v.variationId ?? ""}|${i}`}>
             {multi && (
               <Box mb="2">
-                <VariationLabel
-                  number={i}
-                  name={variationLabel(v, i)}
-                  size="small"
-                />
+                <VariationNumber number={i} />
               </Box>
             )}
             {shownKeys.length === 0 ? (

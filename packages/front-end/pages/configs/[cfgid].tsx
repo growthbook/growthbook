@@ -307,6 +307,9 @@ export default function ConfigDetailPage(): React.ReactElement {
   const [editKey, setEditKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  // Delete failures fire from a row's action menu (not its editing state), so
+  // they can't use the editing-only `editError` slot — surfaced section-level.
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   // Separate from the text so an explicit null and a concrete value stay distinct
   // (not overriding at all is a third axis: the inherit / Reset action).
   const [editKind, setEditKind] = useState<"value" | "null" | "undefined">(
@@ -1059,14 +1062,14 @@ export default function ConfigDetailPage(): React.ReactElement {
     const v = ownValue();
     const hadOverride = key in v;
     delete v[key];
-    setEditError(null);
+    setDeleteError(null);
     try {
       await saveSchema(
         ownSchema().fields.filter((f) => f.key !== key),
         hadOverride ? v : undefined,
       );
     } catch (e) {
-      setEditError(e instanceof Error ? e.message : "Failed to remove field");
+      setDeleteError(e instanceof Error ? e.message : "Failed to remove field");
     }
   };
 
@@ -1074,11 +1077,11 @@ export default function ConfigDetailPage(): React.ReactElement {
   const removeOverride = async (key: string) => {
     const v = ownValue();
     delete v[key];
-    setEditError(null);
+    setDeleteError(null);
     try {
       await saveValue(v);
     } catch (e) {
-      setEditError(
+      setDeleteError(
         e instanceof Error ? e.message : "Failed to remove override",
       );
     }
@@ -1813,6 +1816,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                         {editError && editKey === null && (
                           <Callout status="error" mt="3">
                             {editError}
+                          </Callout>
+                        )}
+                        {deleteError && (
+                          <Callout status="error" mt="3">
+                            {deleteError}
                           </Callout>
                         )}
                         <Box style={{ minWidth: 800 }}>

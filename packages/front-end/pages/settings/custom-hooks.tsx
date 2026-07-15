@@ -46,6 +46,81 @@ function CustomHookCodeModal({
   );
 }
 
+// Feature- and config-scoped hooks render identical tables, differing only in
+// their labels and the entity link target.
+function EntityScopedHooksSection({
+  title,
+  description,
+  entityLabel,
+  entityHref,
+  hooks,
+  onViewCode,
+  onHistory,
+}: {
+  title: string;
+  description: string;
+  entityLabel: string;
+  entityHref: (hook: CustomHookInterface) => string;
+  hooks: CustomHookInterface[];
+  onViewCode: (hook: CustomHookInterface) => void;
+  onHistory: (hook: CustomHookInterface) => void;
+}) {
+  if (!hooks.length) return null;
+  return (
+    <div className="mt-5">
+      <h2>{title}</h2>
+      <p className="text-muted">{description}</p>
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Type</TableColumnHeader>
+            <TableColumnHeader>{entityLabel}</TableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {hooks.map((hook) => (
+            <TableRow key={hook.id}>
+              <TableCell>
+                <Link onClick={() => onViewCode(hook)}>{hook.name}</Link>
+                {!hook.enabled ? (
+                  <Badge color="gray" label="Disabled" ml="2" />
+                ) : null}
+              </TableCell>
+              <TableCell>{hook.hook}</TableCell>
+              <TableCell>
+                <Link href={entityHref(hook)}>{hook.entityId}</Link>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu
+                  variant="soft"
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="1"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                >
+                  <DropdownMenuItem onClick={() => onHistory(hook)}>
+                    History &amp; revert
+                  </DropdownMenuItem>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
     null,
@@ -237,131 +312,25 @@ export default function CustomHooksPage() {
             )}
           </div>
 
-          {featureHooks.length > 0 && (
-            <div className="mt-5">
-              <h2>Feature-specific Hooks</h2>
-              <p className="text-muted">
-                These hooks are scoped to a single feature and managed from that
-                feature&apos;s Validation tab.
-              </p>
-              <Table variant="list" stickyHeader roundedCorners>
-                <TableHeader>
-                  <TableRow>
-                    <TableColumnHeader>Name</TableColumnHeader>
-                    <TableColumnHeader>Type</TableColumnHeader>
-                    <TableColumnHeader>Feature</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 50 }} />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {featureHooks.map((hook) => (
-                    <TableRow key={hook.id}>
-                      <TableCell>
-                        <Link onClick={() => setViewCodeHook(hook)}>
-                          {hook.name}
-                        </Link>
-                        {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" ml="2" />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
-                      <TableCell>
-                        <Link href={`/features/${hook.entityId}#validation`}>
-                          {hook.entityId}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu
-                          variant="soft"
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="1"
-                              highContrast
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                          menuPlacement="end"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => setHistoryHook(hook)}
-                          >
-                            History &amp; revert
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <EntityScopedHooksSection
+            title="Feature-specific Hooks"
+            description="These hooks are scoped to a single feature and managed from that feature's Validation tab."
+            entityLabel="Feature"
+            entityHref={(hook) => `/features/${hook.entityId}#validation`}
+            hooks={featureHooks}
+            onViewCode={setViewCodeHook}
+            onHistory={setHistoryHook}
+          />
 
-          {configHooks.length > 0 && (
-            <div className="mt-5">
-              <h2>Config-specific Hooks</h2>
-              <p className="text-muted">
-                These hooks are scoped to a single config and managed from that
-                config&apos;s Validation tab.
-              </p>
-              <Table variant="list" stickyHeader roundedCorners>
-                <TableHeader>
-                  <TableRow>
-                    <TableColumnHeader>Name</TableColumnHeader>
-                    <TableColumnHeader>Type</TableColumnHeader>
-                    <TableColumnHeader>Config</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 50 }} />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {configHooks.map((hook) => (
-                    <TableRow key={hook.id}>
-                      <TableCell>
-                        <Link onClick={() => setViewCodeHook(hook)}>
-                          {hook.name}
-                        </Link>
-                        {!hook.enabled ? (
-                          <Badge color="gray" label="Disabled" ml="2" />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
-                      <TableCell>
-                        <Link href={`/configs/${hook.entityId}#validation`}>
-                          {hook.entityId}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu
-                          variant="soft"
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="1"
-                              highContrast
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                          menuPlacement="end"
-                        >
-                          <DropdownMenuItem
-                            onClick={() => setHistoryHook(hook)}
-                          >
-                            History &amp; revert
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <EntityScopedHooksSection
+            title="Config-specific Hooks"
+            description="These hooks are scoped to a single config and managed from that config's Validation tab."
+            entityLabel="Config"
+            entityHref={(hook) => `/configs/${hook.entityId}#validation`}
+            hooks={configHooks}
+            onViewCode={setViewCodeHook}
+            onHistory={setHistoryHook}
+          />
         </>
       )}
     </div>

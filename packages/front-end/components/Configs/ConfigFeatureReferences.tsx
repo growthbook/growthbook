@@ -4,6 +4,7 @@ import { PiFlag, PiDotOutline } from "react-icons/pi";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import HelperText from "@/ui/HelperText";
 import styles from "./ConfigFeatureReferences.module.scss";
 
 const ROW_HEIGHT = 30;
@@ -81,9 +82,9 @@ export default function ConfigFeatureReferences({
   // an errored fetch reads as "nothing references this," which is misleading.
   if (error && !references) {
     return (
-      <span style={{ fontSize: "var(--font-size-1)", color: "var(--red-11)" }}>
+      <HelperText status="error">
         Couldn&apos;t load references. Try refreshing.
-      </span>
+      </HelperText>
     );
   }
 
