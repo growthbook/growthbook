@@ -1,12 +1,9 @@
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
-// Pre-existing Radix Text usage (weight + a raw `style` color that @/ui/Text
-// doesn't model); migrating it is an unrelated cleanup, not part of threading
-// the env-flavor prop below.
-// eslint-disable-next-line no-restricted-imports
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 import { AttributeBadge } from "./AttributeBadge";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
@@ -87,7 +84,7 @@ export default function RolloutSummary({
               color="gray"
               mr="2"
               label={
-                <Text style={{ color: "var(--slate-12)" }}>
+                <Text color="text-high">
                   {percentFormatter.format(displayCoverage)}
                 </Text>
               }
