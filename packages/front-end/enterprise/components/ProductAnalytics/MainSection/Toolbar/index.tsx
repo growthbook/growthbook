@@ -66,15 +66,13 @@ export default function Toolbar() {
           gap="3"
           style={{ flexGrow: 1, minWidth: 0 }}
         >
-          {!isFunnel && (
-            <Switch
-              label="Compare"
-              value={compareEnabled}
-              onChange={setCompareEnabled}
-              disabled={!submittedExploreState || managedWarehouseUnavailable}
-            />
-          )}
-          {!isFunnel && showComparisonDateControls ? (
+          <Switch
+            label="Compare"
+            value={compareEnabled}
+            onChange={setCompareEnabled}
+            disabled={!submittedExploreState || managedWarehouseUnavailable}
+          />
+          {showComparisonDateControls ? (
             <ComparisonDateControls
               groupBySlot={
                 ["line", "area", "timeseries-table"].includes(

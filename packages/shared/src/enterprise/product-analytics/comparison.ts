@@ -657,10 +657,18 @@ export function computeExplorationComparisonPayload(
 ): ProductAnalyticsRunComparisonPayload {
   const previousPeriod = dateRangeToPeriodStrings(previousTimeFrame);
 
-  const n =
-    submittedConfig.dataset?.type !== "funnel"
-      ? (submittedConfig.dataset?.values?.length ?? 0)
-      : 0;
+  // Funnels have no metric values but still need comparison.exploration
+  // passed through so the funnel table can render previous-period data.
+  if (submittedConfig.dataset?.type === "funnel") {
+    return {
+      exploration: comparison,
+      previousPeriod,
+      bigNumberTrends: [],
+      tableTrendsByRow: [],
+    };
+  }
+
+  const n = submittedConfig.dataset?.values?.length ?? 0;
   const emptyTrends = Array.from({ length: n }, () => null);
 
   if (!primary?.result?.rows?.length || n === 0) {

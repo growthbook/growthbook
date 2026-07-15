@@ -10,20 +10,12 @@ import {
   formatDurationMs,
   getFunnelStepDisplayLabel,
 } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  CHART_COLORS,
+  getChartThemeColors,
+} from "@/enterprise/components/ProductAnalytics/chart-theme";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
-
-const CHART_COLORS = [
-  "#8b5cf6",
-  "#3b82f6",
-  "#06b6d4",
-  "#22c55e",
-  "#eab308",
-  "#f97316",
-  "#ef4444",
-  "#ec4899",
-  "#6b7280",
-];
 
 /** Convert a `#rrggbb` hex into `rgba(…)` with the given alpha. Used to
  *  paint the drop-off ghost bar in the same hue as its main series at a
@@ -76,10 +68,8 @@ export default function FunnelChart({
 }) {
   const { theme } = useAppearanceUITheme();
   const { getFactTableById } = useDefinitions();
-  const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
-  const tooltipBackgroundColor = theme === "dark" ? "#1c2339" : "#FFFFFF";
-  const gridLineColor =
-    theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+  const { textColor, tooltipBackgroundColor, gridLineColor } =
+    getChartThemeColors(theme);
 
   // Step labels: when the user hasn't renamed the step from the default
   // "Step N", substitute the filter preview (e.g. `event_name=Purchase`,
@@ -278,7 +268,12 @@ export default function FunnelChart({
       xAxis: {
         type: "category",
         data: stepNames,
-        axisLabel: { color: textColor },
+        axisLabel: {
+          color: textColor,
+          interval: 0,
+          overflow: "truncate",
+          width: 120,
+        },
         splitLine: { lineStyle: { color: gridLineColor, width: 1 } },
       },
       yAxis: {

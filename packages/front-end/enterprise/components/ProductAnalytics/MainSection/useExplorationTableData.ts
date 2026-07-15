@@ -110,7 +110,6 @@ const FUNNEL_STEP_SUBCOLS = [
   { key: "fromStart", label: "From start" },
   { key: "avgTime", label: "Avg time" },
 ] as const;
-type FunnelSubColKey = (typeof FUNNEL_STEP_SUBCOLS)[number]["key"];
 
 function formatPct(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -122,10 +121,16 @@ function formatPct(value: number | null): string {
  * one column-group per step. When no dimension is set, fall back to a long
  * format (one row per step) for readability.
  */
+function computeCountTrend(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
 function buildFunnelTableData(
   exploration: ProductAnalyticsExploration | null,
   submittedExploreState: ExplorationConfig,
   getFactTableById: (id: string) => FactTableDefinition | null,
+  comparisonExploration?: ProductAnalyticsExploration | null,
 ): ExplorationTableData {
   if (submittedExploreState.dataset.type !== "funnel") {
     return {
@@ -139,6 +144,8 @@ function buildFunnelTableData(
   }
   const steps = submittedExploreState.dataset.steps;
   const rows = exploration?.result?.rows ?? [];
+  const cmpRows = comparisonExploration?.result?.rows ?? [];
+  const compareActive = cmpRows.length > 0;
   const hasDimension = (submittedExploreState.dimensions?.length ?? 0) > 0;
   // Substitute filter previews for the default `Step N` names so table
   // column headers communicate which step is which. Passing `allSteps`
@@ -155,42 +162,77 @@ function buildFunnelTableData(
 
   if (!hasDimension) {
     // Long format: row per step, one row in the result.
-    // The single row in `rows` (or none) drives this.
-    const orderedColumnKeys = [
-      "step",
-      "count",
-      "fromPrev",
-      "fromStart",
-      "avgTime",
-    ];
-    const columnLabels = [
-      "Step",
-      "Count",
-      "Conv. from previous",
-      "Conv. from start",
-      "Avg. time from previous",
-    ];
+    const orderedColumnKeys = compareActive
+      ? [
+          "step",
+          "count__curr",
+          "count__prev",
+          "fromPrev",
+          "fromStart",
+          "avgTime",
+        ]
+      : ["step", "count", "fromPrev", "fromStart", "avgTime"];
+    const columnLabels = compareActive
+      ? [
+          "Step",
+          "Count — Current",
+          "Count — Previous",
+          "Conv. from previous",
+          "Conv. from start",
+          "Avg. time from previous",
+        ]
+      : [
+          "Step",
+          "Count",
+          "Conv. from previous",
+          "Conv. from start",
+          "Avg. time from previous",
+        ];
+
+    const compareColumnMetaByKey: Record<
+      string,
+      ExplorationTableCompareColumnMeta
+    > = compareActive
+      ? {
+          count__prev: { compareCell: "previous" },
+          count__curr: { compareCell: "current", trendRowKey: "count__trend" },
+        }
+      : {};
+
     const firstRow = rows[0];
     const stepResults = firstRow?.steps ?? [];
     const firstStepCount = stepResults[0]?.count ?? 0;
+    const cmpStepResults = cmpRows[0]?.steps ?? [];
+
     const rowData = steps.map((step, i) => {
       const result = stepResults[i];
       const count = result?.count ?? 0;
-      const prevCount = i > 0 ? stepResults[i - 1]?.count : null;
+      const prevStepCount = i > 0 ? stepResults[i - 1]?.count : null;
       const fromPrev =
-        prevCount != null && prevCount > 0 ? count / prevCount : null;
+        prevStepCount != null && prevStepCount > 0
+          ? count / prevStepCount
+          : null;
       const fromStart = firstStepCount > 0 ? count / firstStepCount : null;
       const avgMs =
         result && result.timeFromPrevSumMs != null && result.count
           ? result.timeFromPrevSumMs / result.count
           : null;
-      return {
+
+      const out: Record<string, unknown> = {
         step: stepLabels[i] ?? step.name,
-        count,
         fromPrev: i === 0 ? "—" : formatPct(fromPrev),
         fromStart: formatPct(fromStart),
         avgTime: i === 0 ? "—" : formatDurationMs(avgMs),
-      } as Record<string, unknown>;
+      };
+      if (compareActive) {
+        const cmpCount = cmpStepResults[i]?.count ?? 0;
+        out["count__curr"] = count;
+        out["count__prev"] = cmpCount;
+        out["count__trend"] = computeCountTrend(count, cmpCount);
+      } else {
+        out["count"] = count;
+      }
+      return out;
     });
     return {
       rowData,
@@ -198,7 +240,8 @@ function buildFunnelTableData(
       columnLabels,
       headerStructure: null,
       explorationReturnedNoData: !firstRow || stepResults.length === 0,
-      tableCompareActive: false,
+      tableCompareActive: compareActive,
+      ...(compareActive ? { compareColumnMetaByKey } : {}),
     };
   }
 
@@ -217,51 +260,93 @@ function buildFunnelTableData(
   const columnLabels: string[] = [dimensionLabel];
   const row1: HeaderStructure["row1"] = [{ label: dimensionLabel, rowSpan: 2 }];
   const row2Labels: string[] = [];
+  const compareColumnMetaByKey: Record<
+    string,
+    ExplorationTableCompareColumnMeta
+  > = {};
+
   steps.forEach((step, stepIdx) => {
     const label = stepLabels[stepIdx] ?? step.name;
-    row1.push({
-      label,
-      colSpan: FUNNEL_STEP_SUBCOLS.length,
-    });
+    const subColCount = compareActive
+      ? FUNNEL_STEP_SUBCOLS.length + 1
+      : FUNNEL_STEP_SUBCOLS.length;
+    row1.push({ label, colSpan: subColCount });
     FUNNEL_STEP_SUBCOLS.forEach((sub) => {
-      const key = `__step_${stepIdx}_${sub.key}__`;
-      orderedColumnKeys.push(key);
-      columnLabels.push(`${label} ${sub.label}`);
-      row2Labels.push(sub.label);
+      if (sub.key === "count" && compareActive) {
+        const currKey = `__step_${stepIdx}_count_curr__`;
+        const prevKey = `__step_${stepIdx}_count_prev__`;
+        const trendKey = `__step_${stepIdx}_count_trend__`;
+        orderedColumnKeys.push(currKey, prevKey);
+        columnLabels.push(
+          `${label} Count — Current`,
+          `${label} Count — Previous`,
+        );
+        row2Labels.push("Count (curr)", "Count (prev)");
+        compareColumnMetaByKey[prevKey] = { compareCell: "previous" };
+        compareColumnMetaByKey[currKey] = {
+          compareCell: "current",
+          trendRowKey: trendKey,
+        };
+      } else {
+        const key = `__step_${stepIdx}_${sub.key}__`;
+        orderedColumnKeys.push(key);
+        columnLabels.push(`${label} ${sub.label}`);
+        row2Labels.push(sub.label);
+      }
     });
   });
   const headerStructure: HeaderStructure = { row1, row2Labels };
 
-  const rowData: Record<string, unknown>[] = [];
-  // Sort by first-step count descending (matches the chart).
   const sortedRows = [...rows].sort(
     (a, b) => (b.steps?.[0]?.count ?? 0) - (a.steps?.[0]?.count ?? 0),
   );
+
+  const firstDimensionIsDate =
+    submittedExploreState.dimensions?.[0]?.dimensionType === "date";
+  const getAlignedCmpRow = compareActive
+    ? buildAlignedComparisonRowLookup(sortedRows, cmpRows, firstDimensionIsDate)
+    : null;
+
+  const rowData: Record<string, unknown>[] = [];
   for (const row of sortedRows) {
     const out: Record<string, unknown> = {};
     out["__dim_0__"] = row.dimensions[0] ?? "";
     const stepResults = row.steps ?? [];
     const firstStepCount = stepResults[0]?.count ?? 0;
+    const cmpRow = getAlignedCmpRow?.(row.dimensions) ?? null;
+    const cmpStepResults = cmpRow?.steps ?? [];
+
     steps.forEach((_step, stepIdx) => {
       const result = stepResults[stepIdx];
       const count = result?.count ?? 0;
-      const prevCount = stepIdx > 0 ? stepResults[stepIdx - 1]?.count : null;
+      const prevStepCount =
+        stepIdx > 0 ? stepResults[stepIdx - 1]?.count : null;
       const fromPrev =
-        prevCount != null && prevCount > 0 ? count / prevCount : null;
+        prevStepCount != null && prevStepCount > 0
+          ? count / prevStepCount
+          : null;
       const fromStart = firstStepCount > 0 ? count / firstStepCount : null;
       const avgMs =
         result && result.timeFromPrevSumMs != null && result.count
           ? result.timeFromPrevSumMs / result.count
           : null;
-      const subValues: Record<FunnelSubColKey, unknown> = {
-        count,
-        fromPrev: stepIdx === 0 ? "—" : formatPct(fromPrev),
-        fromStart: formatPct(fromStart),
-        avgTime: stepIdx === 0 ? "—" : formatDurationMs(avgMs),
-      };
-      FUNNEL_STEP_SUBCOLS.forEach((sub) => {
-        out[`__step_${stepIdx}_${sub.key}__`] = subValues[sub.key];
-      });
+
+      if (compareActive) {
+        const cmpCount = cmpStepResults[stepIdx]?.count ?? 0;
+        out[`__step_${stepIdx}_count_curr__`] = count;
+        out[`__step_${stepIdx}_count_prev__`] = cmpCount;
+        out[`__step_${stepIdx}_count_trend__`] = computeCountTrend(
+          count,
+          cmpCount,
+        );
+      } else {
+        out[`__step_${stepIdx}_count__`] = count;
+      }
+      out[`__step_${stepIdx}_fromPrev__`] =
+        stepIdx === 0 ? "—" : formatPct(fromPrev);
+      out[`__step_${stepIdx}_fromStart__`] = formatPct(fromStart);
+      out[`__step_${stepIdx}_avgTime__`] =
+        stepIdx === 0 ? "—" : formatDurationMs(avgMs);
     });
     rowData.push(out);
   }
@@ -272,7 +357,8 @@ function buildFunnelTableData(
     columnLabels,
     headerStructure,
     explorationReturnedNoData: rowData.length === 0,
-    tableCompareActive: false,
+    tableCompareActive: compareActive,
+    ...(compareActive ? { compareColumnMetaByKey } : {}),
   };
 }
 
@@ -300,8 +386,15 @@ export default function useExplorationTableData(
       exploration,
       submittedExploreState,
       getFactTableById,
+      compareEnabled ? comparisonExploration : null,
     );
-  }, [exploration, submittedExploreState, getFactTableById]);
+  }, [
+    exploration,
+    submittedExploreState,
+    getFactTableById,
+    compareEnabled,
+    comparisonExploration,
+  ]);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({

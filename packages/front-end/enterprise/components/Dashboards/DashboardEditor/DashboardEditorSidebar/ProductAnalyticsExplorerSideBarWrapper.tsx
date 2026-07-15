@@ -102,9 +102,11 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
       : nextDraftConfig;
     const shouldInvalidateResults =
       needsFetch && invalidateStaleResults && Boolean(explorerAnalysisId);
+    const comparisonChanged =
+      needsUpdate && !isEqual(block.comparison, nextComparison);
     if (
       (needsUpdate && !isEqual(block.config, nextConfig)) ||
-      !isEqual(block.comparison, nextComparison) ||
+      comparisonChanged ||
       shouldInvalidateResults
     ) {
       setBlock({

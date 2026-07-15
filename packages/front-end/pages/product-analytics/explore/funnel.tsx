@@ -15,7 +15,7 @@ export default function FunnelExplorePage() {
   }
 
   return (
-    <Box className="position-relative" style={{ padding: "8px" }}>
+    <Box position="relative" style={{ padding: "8px" }}>
       <PageHead
         breadcrumb={[
           {

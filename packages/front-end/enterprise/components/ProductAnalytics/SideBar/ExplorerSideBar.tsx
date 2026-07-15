@@ -15,6 +15,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import GraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/GraphTypeSelector";
+import FunnelGraphTypeSelector from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/FunnelGraphTypeSelector";
 import DateRangePicker, {
   ComparisonDateControls,
 } from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DateRangePicker";
@@ -264,7 +265,11 @@ export default function ExplorerSideBar({
                 disabled={!submittedExploreState || managedWarehouseUnavailable}
               />
             </Flex>
-            <GraphTypeSelector />
+            {activeType === "funnel" ? (
+              <FunnelGraphTypeSelector />
+            ) : (
+              <GraphTypeSelector />
+            )}
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
             <Flex justify="between" align="center" gap="2" width="100%">

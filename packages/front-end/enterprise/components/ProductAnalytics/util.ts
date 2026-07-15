@@ -774,7 +774,9 @@ function getChartCategory(chartType: ExplorationConfig["chartType"]): string {
 }
 
 /** Strips fields that only affect rendering, not data fetching. */
-function toFetchKey(config: ExplorationConfig | ExplorerDraftConfig): unknown {
+export function toFetchKey(
+  config: ExplorationConfig | ExplorerDraftConfig,
+): unknown {
   const base =
     "previousTimeFrame" in config ? stripExplorerDraftFields(config) : config;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

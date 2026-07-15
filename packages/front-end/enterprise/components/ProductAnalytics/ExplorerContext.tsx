@@ -39,6 +39,7 @@ import {
   hasUnsatisfiedInlineFilters,
   isSubmittableConfig,
   stripExplorerDraftFields,
+  toFetchKey,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -663,8 +664,19 @@ export function ExplorerProvider({
     // Funnels on customer warehouses auto-run as soon as the config becomes
     // fetchable (e.g. second step added), which fires an expensive query.
     // Managed Warehouse stays auto-run — queries are cheap there.
+    // Exception: toggling Compare on/off only changes previousTimeFrame — the
+    // primary result is already cached, so don't defer.
+    const onlyComparisonChanged =
+      baselineConfig !== null &&
+      isEqual(
+        toFetchKey(stripExplorerDraftFields(baselineConfig)),
+        toFetchKey(cleanedDraftExploreState),
+      );
     const deferFunnelFetchUntilManualRefresh =
-      draftIsFunnel && !isManagedWarehouse && needsFetch;
+      draftIsFunnel &&
+      !isManagedWarehouse &&
+      needsFetch &&
+      !onlyComparisonChanged;
 
     if (needsFetch) {
       if (deferFunnelFetchUntilManualRefresh) {
@@ -686,6 +698,7 @@ export function ExplorerProvider({
     needsFetch,
     needsUpdate,
     doSubmit,
+    baselineConfig,
     cleanedDraftExploreState,
     draftExploreState.previousTimeFrame,
     setSubmittedExploreState,
@@ -852,7 +865,7 @@ export function ExplorerProvider({
               {
                 dimensionType: "date",
                 column: "date",
-                dateGranularity: "day",
+                dateGranularity: "auto",
               },
               ...dimensions,
             ];
