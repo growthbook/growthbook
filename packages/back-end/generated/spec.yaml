@@ -4123,6 +4123,10 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   type: object
@@ -4721,6 +4725,10 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   type: object
@@ -5344,6 +5352,10 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                requiresStartApproval:
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 environment:
                   deprecated: true
                   type: string
@@ -8697,6 +8709,10 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9297,6 +9313,10 @@ paths:
                       required:
                         - mode
                       additionalProperties: false
+                    requiresStartApproval:
+                      anyOf:
+                        - type: boolean
+                        - type: 'null'
                   additionalProperties: false
                 schedule:
                   description: >-
@@ -9930,6 +9950,10 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
+                requiresStartApproval:
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 environment:
                   deprecated: true
                   type: string
@@ -22918,6 +22942,14 @@ paths:
                     - type: string
                       format: date-time
                     - type: 'null'
+                requiresStartApproval:
+                  description: >-
+                    When true, the ramp holds at step -1 with its rule disabled
+                    (zero traffic) until a human approves the start via
+                    /actions/approve-step. Composes with startDate.
+                  anyOf:
+                    - type: boolean
+                    - type: 'null'
                 monitoringConfig:
                   anyOf:
                     - type: object
@@ -23405,63 +23437,44 @@ paths:
   /v1/ramp-schedules/{id}/actions/approve-step:
     post:
       operationId: approveStepRampSchedule
-      summary: Approve the current step
+      summary: Approve the pending approval gate
       description: >
-        Satisfies the `holdConditions.requiresApproval` gate on the current step
-        of
-
-        a `running` schedule.
+        Clears whichever approval gate is currently pending on the schedule:
 
 
-        Approval is the **final** gate: it can only be granted once every other
-        hold
+        - **Start gate** — a schedule created with `requiresStartApproval` sits
+        in `ready` at step -1 with its rule disabled (zero traffic). Approving
+        starts the ramp (or, if a future `startDate` is set, arms it to start on
+        that date).
 
-        on the step has already cleared. This endpoint rejects the request
-        (`400`) if
+        - **Step gate** — the `holdConditions.requiresApproval` gate on the
+        current step of a `running` schedule.
 
-        the step is not yet ready for approval — for example while the interval
-        timer
 
-        is still counting down, or (for monitored steps) before fresh analysis
-
-        covering the step is available or while a guardrail/health signal is
-        failing.
-
-        Poll the `/status` endpoint and only call this once it reports the step
-        is
-
-        awaiting approval.
+        For a step gate, approval is the **final** gate: it can only be granted
+        once every other hold has cleared. This endpoint rejects the request
+        (`400`) if the step is not yet ready — while the interval timer is still
+        counting down, or (for monitored steps) before fresh analysis is
+        available or while a guardrail/health signal is failing. Poll `/status`
+        and call this once it reports awaiting approval.
 
 
         **Non-monitored steps**: once the interval has elapsed, approving clears
-        the
-
-        last hold and the schedule advances immediately, chaining through any
-
-        subsequent instant steps in the same request.
+        the last hold and advances immediately, chaining through subsequent
+        instant steps.
 
 
-        **Monitored steps**: once the interval has elapsed and fresh, healthy
-        analysis
-
-        is available, approving clears the last hold and the agenda advances the
-        step
-
-        on its next tick (re-checking the latest analysis once more first).
+        **Monitored steps**: approving clears the last hold and the agenda
+        advances on its next tick (re-checking analysis first).
 
 
         Different from `/actions/advance`: `approve-step` works within the
-        normal
-
-        evaluation flow and refuses to skip ahead of the interval or any other
-
-        unmet gate. Use `/actions/advance` only if you want to bypass all
-        remaining
-
-        holds entirely (including the interval timer).
+        normal evaluation flow and refuses to skip ahead of the interval or any
+        other unmet gate. Use `/actions/advance` to bypass all remaining holds.
 
 
-        Requires feature review permissions for the associated feature.
+        Requires update + publish (start gate) or review (step gate) permissions
+        for the associated feature.
       tags:
         - ramp-schedules
       parameters:
@@ -23896,6 +23909,22 @@ paths:
                       - type: string
                         format: date-time
                       - type: 'null'
+                  requiresStartApproval:
+                    description: >-
+                      When true, the ramp holds at step -1 with its rule
+                      disabled (zero traffic) until a human approves the start
+                      via /actions/approve-step. Composes with startDate ('hold
+                      until approved, then arm for that date').
+                    type: boolean
+                  startApprovedAt:
+                    description: >-
+                      When the current launch's start was approved. Cleared on
+                      every return to step -1 (publish, rollback), re-arming the
+                      approval gate.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
                   status:
                     type: string
                     enum:
@@ -24244,6 +24273,22 @@ paths:
                       and the rule is disabled (enabled=false). Use for
                       time-boxed rules that must stop serving on a fixed date
                       regardless of ramp progress. Set to null to clear.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
+                  requiresStartApproval:
+                    description: >-
+                      When true, the ramp holds at step -1 with its rule
+                      disabled (zero traffic) until a human approves the start
+                      via /actions/approve-step. Composes with startDate ('hold
+                      until approved, then arm for that date').
+                    type: boolean
+                  startApprovedAt:
+                    description: >-
+                      When the current launch's start was approved. Cleared on
+                      every return to step -1 (publish, rollback), re-arming the
+                      approval gate.
                     anyOf:
                       - type: string
                         format: date-time
@@ -24662,6 +24707,22 @@ paths:
                       - type: string
                         format: date-time
                       - type: 'null'
+                  requiresStartApproval:
+                    description: >-
+                      When true, the ramp holds at step -1 with its rule
+                      disabled (zero traffic) until a human approves the start
+                      via /actions/approve-step. Composes with startDate ('hold
+                      until approved, then arm for that date').
+                    type: boolean
+                  startApprovedAt:
+                    description: >-
+                      When the current launch's start was approved. Cleared on
+                      every return to step -1 (publish, rollback), re-arming the
+                      approval gate.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
                   status:
                     type: string
                     enum:
@@ -25013,6 +25074,22 @@ paths:
                       and the rule is disabled (enabled=false). Use for
                       time-boxed rules that must stop serving on a fixed date
                       regardless of ramp progress. Set to null to clear.
+                    anyOf:
+                      - type: string
+                        format: date-time
+                      - type: 'null'
+                  requiresStartApproval:
+                    description: >-
+                      When true, the ramp holds at step -1 with its rule
+                      disabled (zero traffic) until a human approves the start
+                      via /actions/approve-step. Composes with startDate ('hold
+                      until approved, then arm for that date').
+                    type: boolean
+                  startApprovedAt:
+                    description: >-
+                      When the current launch's start was approved. Cleared on
+                      every return to step -1 (publish, rollback), re-arming the
+                      approval gate.
                     anyOf:
                       - type: string
                         format: date-time
@@ -39608,6 +39685,10 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                 required:
                   - mode
                   - ruleId
@@ -40020,6 +40101,10 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                   mode:
                     type: string
                     const: update
@@ -40796,6 +40881,10 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                 required:
                   - mode
                   - ruleId
@@ -41208,6 +41297,10 @@ components:
                     required:
                       - mode
                     additionalProperties: false
+                  requiresStartApproval:
+                    anyOf:
+                      - type: boolean
+                      - type: 'null'
                   mode:
                     type: string
                     const: update
@@ -46270,6 +46363,21 @@ components:
             rule is disabled (enabled=false). Use for time-boxed rules that must
             stop serving on a fixed date regardless of ramp progress. Set to
             null to clear.
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        requiresStartApproval:
+          description: >-
+            When true, the ramp holds at step -1 with its rule disabled (zero
+            traffic) until a human approves the start via /actions/approve-step.
+            Composes with startDate ('hold until approved, then arm for that
+            date').
+          type: boolean
+        startApprovedAt:
+          description: >-
+            When the current launch's start was approved. Cleared on every
+            return to step -1 (publish, rollback), re-arming the approval gate.
           anyOf:
             - type: string
               format: date-time
