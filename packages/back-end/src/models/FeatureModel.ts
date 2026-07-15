@@ -48,7 +48,10 @@ import {
   queueSDKPayloadRefresh,
   synthesizeRuleId,
 } from "back-end/src/services/features";
-import { assertConfigBackedDefaultHasNoOverrides } from "back-end/src/services/configValidation";
+import {
+  assertConfigBackedDefaultHasNoOverrides,
+  assertConfigBackedFeatureValuesValid,
+} from "back-end/src/services/configValidation";
 import {
   appendRampEvent,
   assertFeatureNotLockedByRamp,
@@ -2382,6 +2385,17 @@ export async function prevalidatePublishRevision({
     proposedFeature,
     proposedFeature.defaultValue,
   );
+  // Re-validate every config-backed value going live against the backing
+  // config's schema + invariants (env-agnostic AND per-environment flavor
+  // shape). Save-time validation can be stale: a config's schema/invariants may
+  // tighten between drafting and publish. This shared choke point closes that
+  // gap for every publish path — including auto-publish (experiment/bandit
+  // start) and postFeatureSync, which don't pass through the REST publish
+  // handler's own net.
+  await assertConfigBackedFeatureValuesValid(context, proposedFeature, {
+    defaultValue: proposedFeature.defaultValue,
+    rules: proposedFeature.rules,
+  });
   await runValidateFeatureHooks({
     context,
     feature: proposedFeature,
