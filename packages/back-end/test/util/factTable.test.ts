@@ -22,8 +22,8 @@ function makeClickhouseDatasource(
     type: "growthbook_clickhouse",
     settings: {
       materializedColumns,
-      // growthbook_clickhouse syncs userIdTypes from materializedColumns
-      // (type === "identifier") on every settings save via getManagedWarehouseSettings
+      // Legacy growthbook_clickhouse warehouses mirror userIdTypes from their
+      // materializedColumns identifiers (type === "identifier").
       userIdTypes: materializedColumns
         .filter((c) => c.type === "identifier")
         .map((c) => ({ userIdType: c.columnName, description: "" })),
