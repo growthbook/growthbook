@@ -1,6 +1,7 @@
 import { FeatureInterface, SchemaField } from "shared/types/feature";
 import { ConstantInterface } from "shared/types/constant";
 import {
+  getConfigAncestorKeys,
   getConfigBackingPatch,
   setConfigBacking,
   validateJSONFeatureValue,
@@ -112,8 +113,11 @@ export default function ConfigBackedSummary({
 
   const resolved = useMemo(() => {
     if (!data?.constants) return null;
-    const env = environment ?? "";
-    const map = buildConstantValueMap(data.constants, env);
+    // Keep undefined undefined: the resolver's env-agnostic mode (base only, no
+    // flavors) is the all-environments contract — coercing to "" would apply
+    // wildcard/project-only overrides in the all-envs view.
+    const env = environment;
+    const map = buildConstantValueMap(data.constants, env ?? "");
     const project = feature.project || "";
     // Resolve the config base — this flattens the constants the config itself
     // references (and its lineage). Passing `env` applies the config's matching
@@ -172,7 +176,14 @@ export default function ConfigBackedSummary({
       ) ?? {}) as Record<string, unknown>;
       const resolvedDefaultPatch =
         toObject(
-          resolveConstantRefs(defaultPatch, map, undefined, undefined, project),
+          resolveConstantRefs(
+            defaultPatch,
+            map,
+            undefined,
+            undefined,
+            project,
+            env,
+          ),
         ) ?? defaultPatch;
       defaultObj = deepMergePatch(baseObj, resolvedDefaultPatch) as Record<
         string,
@@ -223,35 +234,46 @@ export default function ConfigBackedSummary({
     return errors;
   }, [hasJsonValidator, resolved, data?.effectiveSchema, data?.extensible]);
 
-  const configScopedOverrides = (data?.constants ?? []).find(
-    (c) => c.source === "config" && c.key === configKey,
-  )?.scopedOverrides;
+  // Env flavors apply per LAYER, so the cue must consider the whole lineage —
+  // an ancestor's flavor changes this config's per-env resolution too.
+  const lineageKeys = useMemo(() => {
+    const byKey = new Map(configs.map((c) => [c.key, c]));
+    const self = byKey.get(configKey);
+    return self
+      ? [configKey, ...getConfigAncestorKeys(self, byKey)]
+      : [configKey];
+  }, [configs, configKey]);
+  const configByKey = useMemo(
+    () => new Map(configs.map((c) => [c.key, c])),
+    [configs],
+  );
 
   // In an ambiguous (all-environments) view we show the base value, so flag when
-  // the config has env flavors — a cue that the served value can differ per env.
-  const hasEnvOverrides = (configScopedOverrides?.length ?? 0) > 0;
+  // any lineage config has env flavors — the served value can differ per env.
+  const hasEnvOverrides = lineageKeys.some(
+    (k) => (configByKey.get(k)?.scopedOverrides?.length ?? 0) > 0,
+  );
 
   // When previewing a specific environment, tag the header with that env only if
-  // it actually selects a flavor (a non-base rendering) — envs with no matching
-  // scoped override still serve the base value, so they stay untagged.
+  // some lineage layer actually selects a flavor (a non-base rendering). Match
+  // the resolver's scrub: archived, absent, or cross-project flavors don't apply.
+  const flavorEligible = (k: string) => {
+    const f = configByKey.get(k);
+    return (
+      !!f &&
+      !f.archived &&
+      (!f.project || f.project === (feature.project || ""))
+    );
+  };
   const activeEnvFlavor =
-    environment != null
-      ? selectScopedOverride(
-          configScopedOverrides,
-          { environment, project: feature.project || "" },
-          // Match the resolver's scrub: a flavor that's archived, absent, or
-          // scoped to a different project than this feature doesn't apply, so it
-          // shouldn't drive the "(env)" tag either.
-          (k) =>
-            (data?.constants ?? []).some(
-              (c) =>
-                c.source === "config" &&
-                c.key === k &&
-                !c.archived &&
-                (!c.project || c.project === (feature.project || "")),
-            ),
-        )
-      : null;
+    environment != null &&
+    lineageKeys.some((k) =>
+      selectScopedOverride(
+        configByKey.get(k)?.scopedOverrides,
+        { environment, project: feature.project || "" },
+        flavorEligible,
+      ),
+    );
 
   const fullStyle = {
     maxHeight: maxHeight ?? 150,

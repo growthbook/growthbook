@@ -1746,8 +1746,6 @@ export default function ConfigDetailPage(): React.ReactElement {
                       );
                     }}
                   >
-                    {/* Prototype: outline split button as a segmented control in
-                    place of the Form | JSON | Resolved tabs. */}
                     <Box mb="4">
                       <Flex align="center" justify="between" width="100%">
                         <SplitButton variant="outline">

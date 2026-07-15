@@ -295,10 +295,14 @@ export default function ExperimentRefSummary({
                           (() => {
                             // Config-backed arms render "SERVE ConfigName with
                             // overrides" like force rules — never the raw
-                            // `@config:` directive.
-                            const configKey =
-                              getConfigBackingKey(value) ??
+                            // `@config:` directive. Only a config-backed
+                            // feature resolves configs.
+                            const baseConfigKey =
                               getFeatureBaseConfigKey(feature);
+                            const configKey =
+                              baseConfigKey !== null
+                                ? (getConfigBackingKey(value) ?? baseConfigKey)
+                                : null;
                             if (configKey !== null) {
                               return (
                                 <ConfigBackedSummary

@@ -9,19 +9,19 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 
 type Props = {
   // The config currently open (from the URL) — a base or one of its flavors.
   currentKey: string;
-  // The open config's id — used to attach a new flavor to the base's selection
-  // list. Only meaningful when the base is open (create is offered there only).
+  // The open config's id; used to attach a new flavor (create shows on the base only).
   currentConfigId: string;
   lineage: LineageNode[];
   configNames?: Record<string, string>;
-  // Archived flag per config key — an archived override still shows a tab (so
-  // you can open it to unarchive), struck through, but no longer serves a value.
+  // An archived override still shows a (struck-through) tab so it can be opened
+  // to unarchive, but no longer serves a value.
   archivedByKey?: Record<string, boolean>;
   canCreate: boolean;
   mutate: () => Promise<unknown>;
@@ -64,10 +64,12 @@ export default function ConfigEnvTabs({
 }: Props) {
   const router = useRouter();
   const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
   const environments = useEnvironments();
 
-  // If the open config is a flavor, the base is the parent that lists it;
-  // otherwise the open config is itself the base.
+  // If the open config is a flavor, the base is the parent that lists it —
+  // discovered from the lineage, with the config's own scopedConfig marker as
+  // the fallback (a flavor attached without `parent` isn't in the base's spine).
   const flavorParent = useMemo(
     () =>
       lineage.find((n) =>
@@ -75,8 +77,13 @@ export default function ConfigEnvTabs({
       ),
     [lineage, currentKey],
   );
-  const isFlavor = !!flavorParent;
-  const baseKey = flavorParent?.key ?? currentKey;
+  const currentNode = useMemo(
+    () => lineage.find((n) => n.key === currentKey),
+    [lineage, currentKey],
+  );
+  const isFlavor = !!flavorParent || !!currentNode?.scopedConfig;
+  const baseKey =
+    flavorParent?.key ?? currentNode?.scopedConfig?.parent ?? currentKey;
   const baseNode = useMemo(
     () => lineage.find((n) => n.key === baseKey),
     [lineage, baseKey],
@@ -107,9 +114,13 @@ export default function ConfigEnvTabs({
   ];
 
   const createOverride = async () => {
-    if (!createEnv) throw new Error("Select an environment");
+    if (!createEnv || !availableEnvs.some((e) => e.id === createEnv)) {
+      throw new Error("Select an environment");
+    }
     const flavorKey = newFlavorKey(baseKey, createEnv);
-    // 1. Create the flavor as a child config (empty patch to start).
+    // Create the flavor (empty patch), then attach it to the base's selection
+    // list — an immediate write (not revision-controlled) so the tab appears
+    // everywhere; the flavor's value edits go through its own review.
     await apiCall(`/configs`, {
       method: "POST",
       body: JSON.stringify({
@@ -119,10 +130,6 @@ export default function ConfigEnvTabs({
         value: "{}",
       }),
     });
-    // 2. Attach it to the base's selection list. This writes IMMEDIATELY (its
-    // own endpoint, not the revision flow) — the entry points at an empty patch
-    // so it changes no served value, and it must be live for the tab to appear
-    // everywhere. The flavor's later value edits go through its own review.
     await apiCall(`/configs/${currentConfigId}/scoped-overrides`, {
       method: "PUT",
       body: JSON.stringify({
@@ -133,6 +140,7 @@ export default function ConfigEnvTabs({
       }),
     });
     await mutate();
+    await mutateDefinitions();
     setCreateOpen(false);
     await router.push(`/configs/${flavorKey}`);
   };
@@ -170,7 +178,13 @@ export default function ConfigEnvTabs({
                 pl="4"
                 onKeyDown={(e) => e.stopPropagation()}
               >
-                <Button variant="ghost" onClick={() => setCreateOpen(true)}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setCreateEnv("");
+                    setCreateOpen(true);
+                  }}
+                >
                   <PiPlus /> Environment override
                 </Button>
               </Flex>

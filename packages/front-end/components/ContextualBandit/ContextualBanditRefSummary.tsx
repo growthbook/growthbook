@@ -117,9 +117,13 @@ export default function ContextualBanditRefSummary({
                       // the feature is config-backed (mirrors getFeatureDefinition's
                       // `!!defaultConfigKey`).
                       const defaultConfigKey = getFeatureBaseConfigKey(feature);
+                      // Only a config-backed feature resolves configs — a stray
+                      // `@config:` on a plain flag is stripped at serve time.
                       const configKey =
-                        getConfigBackingKey(ruleVariation.value) ??
-                        defaultConfigKey;
+                        defaultConfigKey !== null
+                          ? (getConfigBackingKey(ruleVariation.value) ??
+                            defaultConfigKey)
+                          : null;
                       return configKey !== null ? (
                         <ConfigBackedSummary
                           value={ruleVariation.value}

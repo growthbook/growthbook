@@ -33,10 +33,14 @@ export default function RolloutSummary({
 }) {
   const displayCoverage = coverage;
   const type = feature.valueType;
-  // A config-backed feature's rule values always serve a config: an explicit ref
-  // on this value, else the feature default's config (the base it overrides).
+  // Mirror the SDK compiler: values resolve a config ONLY when the feature is
+  // config-backed (baseConfig set) — a stray `@config:` on a plain flag is
+  // stripped at serve time, so it must not preview as backed.
+  const baseConfigKey = getFeatureBaseConfigKey(feature);
   const configKey =
-    getConfigBackingKey(value) ?? getFeatureBaseConfigKey(feature);
+    baseConfigKey !== null
+      ? (getConfigBackingKey(value) ?? baseConfigKey)
+      : null;
   return (
     <Box>
       <Flex direction="row" gap="2" mb="3">
