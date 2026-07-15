@@ -590,7 +590,11 @@ function DashboardEditor({
               </Text>
               <ShareStatusBadge
                 shareLevel={
-                  initialShareLevel === "published" ? "organization" : "private"
+                  initialShareLevel === "published"
+                    ? "organization"
+                    : initialShareLevel === "public"
+                      ? "public"
+                      : "private"
                 }
                 editLevel={
                   initialEditLevel === "private" ? "private" : "organization"
