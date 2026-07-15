@@ -1,9 +1,13 @@
 import { z } from "zod";
 
-export const hooks = ["validateFeature", "validateFeatureRevision"] as const;
+export const hooks = [
+  "validateFeature",
+  "validateFeatureRevision",
+  "validateExperiment",
+] as const;
 
 // Resource types a hook can be scoped to via entityType/entityId.
-export const customHookEntityTypes = ["feature"] as const;
+export const customHookEntityTypes = ["feature", "experiment"] as const;
 
 export const customHookValidator = z
   .object({
@@ -35,4 +39,5 @@ export type CustomHookEntityType = (typeof customHookEntityTypes)[number];
 export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateFeature: "feature",
   validateFeatureRevision: "feature",
+  validateExperiment: "experiment",
 };

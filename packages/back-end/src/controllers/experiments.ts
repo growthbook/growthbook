@@ -72,6 +72,7 @@ import {
   startExperiment,
   stopExperiment,
   unapproveScheduledExperimentStart,
+  validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
@@ -132,7 +133,7 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-import { BadRequestError } from "back-end/src/util/errors";
+import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import {
   getFeature,
   getFeaturesByIds,
@@ -1429,6 +1430,7 @@ export async function postExperiments(
       experiment,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -2050,6 +2052,7 @@ export async function postExperiment(
     }
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperimentAndSync({
     context,
     experiment,
@@ -2138,6 +2141,7 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -2156,6 +2160,7 @@ export async function postExperimentArchive(
       },
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to archive experiment",
@@ -2197,6 +2202,7 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -2235,6 +2241,7 @@ export async function postExperimentUnarchive(
       });
     }
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to unarchive experiment",
@@ -2329,6 +2336,12 @@ export async function postExperimentStatus(
       !!bypassLockdown &&
       context.permissions.canBypassApprovalChecks(experiment);
 
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: { status: "running" },
+    });
+
     const { updated } = await startExperiment({
       context,
       experimentId: id,
@@ -2410,6 +2423,7 @@ export async function postExperimentStatus(
     changes.nextScheduledStatusUpdate = null;
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -2458,6 +2472,7 @@ export async function postApproveScheduledExperimentStart(
       experiment: updated,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to approve scheduled experiment start",
@@ -2552,6 +2567,7 @@ export async function postExperimentStop(
       status: 200,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to stop experiment",
@@ -2628,6 +2644,7 @@ export async function deleteExperimentPhase(
       changes.banditStage = "paused";
     }
   }
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -2737,6 +2754,7 @@ export async function putExperimentPhase(
     );
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -2912,8 +2930,8 @@ export async function postExperimentTargeting(
     if (trackingKey) changes.trackingKey = trackingKey;
   }
 
-  // TODO: validation
   try {
+    await validateExperimentChange({ context, experiment, changes });
     const updated = await updateExperiment({
       context,
       experiment,
@@ -2939,6 +2957,7 @@ export async function postExperimentTargeting(
       status: 200,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to edit experiment targeting",
@@ -3033,9 +3052,9 @@ export async function postExperimentPhase(
     reason: "",
   });
 
-  // TODO: validation
   try {
     changes.phases = phases;
+    await validateExperimentChange({ context, experiment, changes });
     const updated = await updateExperiment({
       context,
       experiment,
@@ -3061,6 +3080,7 @@ export async function postExperimentPhase(
       status: 200,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message || "Failed to start new experiment phase",
@@ -3455,6 +3475,7 @@ export async function postBanditSnapshot(
       reweight,
     });
 
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -3479,6 +3500,7 @@ export async function postBanditSnapshot(
       snapshot,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     return res.status(400).json({
       status: 400,
       message: e?.message || e,
@@ -3604,6 +3626,7 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -3682,6 +3705,7 @@ export async function addScreenshot(
     description: description,
   });
 
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,
@@ -4229,6 +4253,7 @@ export async function postExperimentFeatureValues(
     if (!context.permissions.canRunExperiment(experiment, envs)) {
       context.permissions.throwPermissionError();
     }
+    await validateExperimentChange({ context, experiment, changes });
     experimentForResponse = await updateExperimentAndSync({
       context,
       experiment,

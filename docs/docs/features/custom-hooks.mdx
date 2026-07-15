@@ -17,13 +17,14 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 :::
 
-You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which features it runs for:
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which resources it runs for:
 
-- **Global** — runs for every feature.
-- **Project** — runs only for features in the selected projects.
-- **Feature** — runs only for a single feature.
+- **Global** — runs for every feature or experiment (depending on hook type).
+- **Project** — runs only for resources in the selected projects.
+- **Feature** — runs only for a single feature (`validateFeature` and `validateFeatureRevision` hooks).
+- **Experiment** — runs only for a single experiment (`validateExperiment` hooks).
 
-Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. Experiment-scoped hooks are created and managed from an experiment's **Setup** tab by anyone who can edit that experiment; that tab also lists any global and project hooks that apply to the experiment.
 
 ### Limits
 
@@ -241,5 +242,45 @@ if (revision.status === "published") {
   if (!approvals.some((r) => seniorReviewers.includes(r.userId))) {
     throw new Error("At least one approval must come from a senior reviewer.");
   }
+}
+```
+
+### validateExperiment
+
+Called whenever an experiment is about to be created or updated. Receives the full experiment object, including any Custom Field values under `experiment.customFields`. It runs on create, edit, start, and stop, so a thrown error blocks that action.
+
+Internal bookkeeping writes skip this hook. For example, when GrowthBook flips the flag that tracks whether an experiment has visual changes or URL redirects, your validation rules are not run, so those actions never fail because of an unrelated validation rule.
+
+Example: Require at least one contextual attribute, and require a linked ticket when the "checkout" attribute is selected. This validates one multi-select Custom Field against another.
+
+```js
+const attributes = experiment.customFields?.contextualAttributes || [];
+if (attributes.length === 0) {
+  throw new Error("Select at least one contextual attribute.");
+}
+if (attributes.includes("checkout") && !experiment.customFields?.jiraTicket) {
+  throw new Error("Checkout experiments must reference a Jira ticket.");
+}
+```
+
+Example: Check a Custom Field against an external service.
+
+```js
+const response = await fetch("https://example.com/validate-experiment", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ team: experiment.customFields?.team }),
+});
+const result = await response.json();
+if (!result.isValid) {
+  throw new Error(result.message || "Experiment validation failed.");
+}
+```
+
+Example: Warn without blocking when an experiment has no hypothesis.
+
+```js
+if (!experiment.hypothesis) {
+  addWarning("Consider adding a hypothesis before starting this experiment.");
 }
 ```

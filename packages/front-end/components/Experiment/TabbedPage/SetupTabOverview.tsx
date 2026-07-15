@@ -30,6 +30,8 @@ import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
 import EditHypothesisModal from "@/components/Experiment/EditHypothesisModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
+import ExperimentCustomHooksSection from "@/components/Experiment/ExperimentCustomHooksSection";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
 import Tooltip from "@/ui/Tooltip";
@@ -423,6 +425,12 @@ export default function SetupTabOverview({
           mutate={mutate}
           section="experiment"
         />
+
+        {!isCloud() && (
+          <Frame mb="4" px="6" py="4" mt="4">
+            <ExperimentCustomHooksSection experiment={experiment} />
+          </Frame>
+        )}
       </div>
       {experiment.status === "draft" && experiment.type !== "holdout" && (
         <PreLaunchChecklistDrawer />

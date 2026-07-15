@@ -15,6 +15,10 @@ import {
   experimentHasLiveLinkedChanges,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import {
+  customHooksActive,
+  runValidateExperimentHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
 import {
   getExperimentById,
@@ -53,6 +57,47 @@ export type ExperimentStartChecklistResult = {
   checklistItems: StartChecklistItemStatus[];
   status: ExperimentStartChecklistStatus;
 };
+
+/**
+ * Runs the validateExperiment custom hook for a user-initiated change, against
+ * the state the experiment will actually run as. When the change starts a
+ * not-yet-running experiment or arms it for a scheduled start, the hook sees the
+ * would-be running state, so launch-time rules fire at the user's action instead
+ * of silently in the headless start. Every other change validates the merged
+ * result as-is (a draft edit sees the draft, a stop sees the stopped state, an
+ * edit to a running experiment sees the running state).
+ *
+ * Call this only from user-initiated (API or UI) paths. Headless writes stay
+ * hook-free so background starts never block: the updateExperiment model choke
+ * point, executeExperimentStart, and the agenda jobs must never call it.
+ */
+export async function validateExperimentChange({
+  context,
+  experiment,
+  changes,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  changes: Changeset;
+}): Promise<void> {
+  if (!customHooksActive(context)) return;
+
+  const merged = { ...experiment, ...changes };
+  const willRun =
+    merged.status === "running" ||
+    merged.nextScheduledStatusUpdate?.type === "start";
+
+  const effectiveChanges =
+    willRun && experiment.status !== "running"
+      ? { ...changes, ...(await getChangesToStartExperiment(context, merged)) }
+      : changes;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: { ...experiment, ...effectiveChanges },
+    original: experiment,
+  });
+}
 
 export async function completeExperimentStartChecklistItems({
   context,
@@ -103,10 +148,12 @@ export async function completeExperimentStartChecklistItems({
     ([key, status]) => ({ key, status }),
   );
 
+  const changes: Changeset = { manualLaunchChecklist };
+  await validateExperimentChange({ context, experiment, changes });
   return await updateExperiment({
     context,
     experiment,
-    changes: { manualLaunchChecklist },
+    changes,
   });
 }
 
@@ -534,15 +581,17 @@ export async function approveScheduledExperimentStart({
     }
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: {
+      type: "start",
+      date: startAt,
+    },
+  };
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: {
-        type: "start",
-        date: startAt,
-      },
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -576,12 +625,14 @@ export async function unapproveScheduledExperimentStart({
     return { experiment, updated: experiment };
   }
 
+  const changes: Changeset = {
+    nextScheduledStatusUpdate: null,
+  };
+
   const updated = await updateExperiment({
     context,
     experiment,
-    changes: {
-      nextScheduledStatusUpdate: null,
-    },
+    changes,
   });
 
   return { experiment, updated };
@@ -712,6 +763,7 @@ export async function stopExperiment({
     changes.banditStageDateStarted = new Date();
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,
@@ -774,6 +826,7 @@ export async function modifyTemporaryRollout({
     }
   }
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,

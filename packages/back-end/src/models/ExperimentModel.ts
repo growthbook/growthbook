@@ -59,6 +59,7 @@ import {
   notifyLicenseServerEvent,
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -686,7 +687,7 @@ export async function createExperiment({
 
   validateMetricOverrides(data.metricOverrides);
 
-  const exp = await ExperimentModel.create({
+  const experimentToCreate = {
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
@@ -705,7 +706,17 @@ export async function createExperiment({
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
+    // TODO: Can we use satisfies instead? as feels like a lie
+  } as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
   });
+
+  // TODO: does .create() add any default value? how can we also add it to the validationHook?
+  const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);
 

@@ -45,6 +45,8 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
+import { SoftWarningError } from "back-end/src/util/errors";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -288,6 +290,7 @@ export const createHoldout = async (
       holdout: holdout,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -506,13 +509,19 @@ export const editStatus = async (
       phases[1].dateEnded = new Date();
     }
     // set the status to stopped for the experiment
+    const stoppedChanges: Changeset = {
+      phases,
+      status: "stopped",
+    };
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: stoppedChanges,
+    });
     await updateExperiment({
       context,
       experiment,
-      changes: {
-        phases,
-        status: "stopped",
-      },
+      changes: stoppedChanges,
     });
     // Clear next scheduled status update
     await context.models.holdout.update(holdout, {
@@ -539,6 +548,7 @@ export const editStatus = async (
       experiment,
     );
     Object.assign(changes, additionalChanges);
+    await validateExperimentChange({ context, experiment, changes });
     await updateExperiment({
       context,
       experiment,
@@ -606,10 +616,16 @@ export const editStatus = async (
         analysisStartDate: undefined,
       });
     }
+    const runningChanges: Changeset = { phases, status: "running" };
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: runningChanges,
+    });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases, status: "running" },
+      changes: runningChanges,
     });
 
     queueSDKPayloadRefresh({
@@ -627,10 +643,16 @@ export const editStatus = async (
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
+    const draftChanges: Changeset = { phases: [phases[0]], status: "draft" };
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: draftChanges,
+    });
     await updateExperiment({
       context,
       experiment,
-      changes: { phases: [phases[0]], status: "draft" },
+      changes: draftChanges,
     });
     await context.models.holdout.update(holdout, {
       analysisStartDate: undefined,

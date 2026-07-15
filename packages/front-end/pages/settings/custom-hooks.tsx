@@ -78,6 +78,7 @@ export default function CustomHooksPage() {
   // Global/project hooks managed here; feature-scoped ones on the feature's Validation tab.
   const hooks = allHooks.filter((h) => !h.entityType);
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
+  const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
 
   return (
     <div className="container-fluid pagecontents">
@@ -247,6 +248,57 @@ export default function CustomHooksPage() {
                       <TableCell>{hook.hook}</TableCell>
                       <TableCell>
                         <Link href={`/features/${hook.entityId}#validation`}>
+                          {hook.entityId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <MoreMenu iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
+                          >
+                            Preview Code
+                          </a>
+                        </MoreMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {experimentHooks.length > 0 && (
+            <div className="mt-5">
+              <h2>Experiment-specific Hooks</h2>
+              <p className="text-muted">
+                These hooks are scoped to a single experiment and managed from
+                that experiment&apos;s Setup tab.
+              </p>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Experiment</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {experimentHooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        <Link href={`/experiment/${hook.entityId}`}>
                           {hook.entityId}
                         </Link>
                       </TableCell>
