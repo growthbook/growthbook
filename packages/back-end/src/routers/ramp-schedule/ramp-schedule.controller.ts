@@ -484,6 +484,15 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
+      // Completing a held ramp would enable the rule (serve traffic) without the
+      // required start approval — refuse it; approve to launch first.
+      if (isAwaitingStartApproval(schedule)) {
+        return res.status(400).json({
+          status: 400,
+          message:
+            "This schedule requires start approval — approve it before completing.",
+        });
+      }
       updated = await runLockedRampScheduleAction(
         context,
         schedule.id,
@@ -491,6 +500,11 @@ export const postRampScheduleAction = async (
           if (["completed", "rolled-back"].includes(fresh.status)) {
             throw new ConflictError(
               `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+            );
+          }
+          if (isAwaitingStartApproval(fresh)) {
+            throw new ConflictError(
+              "This schedule now requires start approval — approve it before completing.",
             );
           }
           const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;

@@ -1967,6 +1967,9 @@ async function applyEndActionsAndAwaitCutoff(
   // still disabled — fold enabled:true into this publish or the rule would sit
   // at end-state coverage without ever serving traffic.
   if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
+    // Enabling here crosses -1 → serving, so it must clear the start-approval
+    // gate like the start/advance/jump paths — a manual completion can't bypass it.
+    assertStartApprovalCleared(schedule);
     for (const target of schedule.targets) {
       if (target.status !== "active" || target.entityType !== "feature") {
         continue;
@@ -2064,6 +2067,10 @@ export async function completeRollout(
   // permanently disabled after completion. Simple schedules (steps: []) handle
   // enabling via startActions and don't need this injection.
   if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
+    // This crosses -1 → serving, so honor the start-approval gate. Skipped when
+    // disableActiveTargets is set — that path disables (e.g. cutoff-driven
+    // completion) and the injected enabled:true is overridden to false below.
+    if (!opts.disableActiveTargets) assertStartApprovalCleared(schedule);
     for (const target of schedule.targets) {
       if (target.status !== "active" || target.entityType !== "feature") {
         continue;

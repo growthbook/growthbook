@@ -3375,6 +3375,40 @@ describe("completeRollout", () => {
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"a":"1"}');
   });
+
+  it("refuses to complete a held approval-gated schedule (would enable without approval)", async () => {
+    // Held at -1, awaiting start approval: completing would inject enabled:true
+    // and serve traffic without the recorded approval — the gate must block it.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(completeRollout(ctx as never, schedule)).rejects.toThrow(
+      /start approval/i,
+    );
+    // Threw before publishing, so no revision was created.
+    expect(mockCreateRevision).not.toHaveBeenCalled();
+  });
+
+  it("still completes a held approval-gated schedule when disabling (cutoff path never serves)", async () => {
+    // disableActiveTargets disables the rule (e.g. cutoff-driven completion), so
+    // there's no -1 → serving crossing to gate — it must not be blocked.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(
+      completeRollout(ctx as never, schedule, { disableActiveTargets: true }),
+    ).resolves.toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

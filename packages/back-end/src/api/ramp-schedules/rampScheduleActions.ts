@@ -254,6 +254,13 @@ export const completeRampSchedule = createApiRequestHandler({
       `Ramp schedule is already in terminal status "${schedule.status}"`,
     );
   }
+  // Completing a held ramp would enable the rule without the required start
+  // approval — refuse it; approve via /actions/approve-step to launch first.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step before completing.",
+    );
+  }
 
   const completed = await runLockedRampScheduleAction(
     req.context,
@@ -262,6 +269,11 @@ export const completeRampSchedule = createApiRequestHandler({
       if (["completed", "rolled-back"].includes(fresh.status)) {
         throw new ConflictError(
           `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step before completing.",
         );
       }
       const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
