@@ -355,6 +355,16 @@ export async function revertFeatureRevision(
     { revertedToVersion: targetRevision.version },
   );
 
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
+  );
+
   return { feature, revision: finalRevision };
 }
 

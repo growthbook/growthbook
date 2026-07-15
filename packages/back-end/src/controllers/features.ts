@@ -2496,12 +2496,33 @@ export async function postFeatureRevert(
     }),
   });
 
+  // Re-read the revision so dispatched events carry the published status —
+  // publishRevision updates the document in Mongo, not the in-memory object.
+  const publishedRevision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    feature: updatedFeature,
+    version: newRevision.version,
+  });
+  const finalRevision = publishedRevision ?? newRevision;
+
   await dispatchFeatureRevisionEvent(
     context,
     updatedFeature,
-    newRevision,
+    finalRevision,
     "revision.reverted",
     { revertedToVersion: revision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
   );
 
   res.status(200).json({

@@ -19,6 +19,7 @@ import {
   getFeature,
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import {
   getApiFeatureObj,
   getSavedGroupMap,
@@ -277,6 +278,26 @@ export async function revertFeatureCore(
     feature: updatedFeature,
     version: updatedFeature.version,
   });
+  // Emit the same revision lifecycle events as the app's revert flow so
+  // webhook consumers see API-initiated reverts too. The re-read revision
+  // carries the published status; fall back to the in-memory one if the
+  // re-read came back empty.
+  const eventRevision = latestRevision ?? newRevision;
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    eventRevision,
+    "revision.reverted",
+    { revertedToVersion: version },
+  );
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    eventRevision,
+    "revision.published",
+    {},
+  );
+
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
 

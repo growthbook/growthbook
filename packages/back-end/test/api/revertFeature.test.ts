@@ -23,6 +23,10 @@ jest.mock("back-end/src/services/audit", () => ({
   auditDetailsUpdate: jest.fn(() => ({})),
 }));
 
+jest.mock("back-end/src/services/featureRevisionEvents", () => ({
+  dispatchFeatureRevisionEvent: jest.fn(),
+}));
+
 jest.mock("back-end/src/services/organizations", () => ({
   getEnvironments: jest.fn(() => [
     { id: "production", description: "" },
@@ -45,6 +49,7 @@ import {
 } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
@@ -53,6 +58,9 @@ const mockCreateAndPublish = createAndPublishRevision as jest.MockedFunction<
 >;
 const mockGetExperimentMap = getExperimentMapForFeature as jest.MockedFunction<
   typeof getExperimentMapForFeature
+>;
+const mockDispatchEvent = dispatchFeatureRevisionEvent as jest.MockedFunction<
+  typeof dispatchFeatureRevisionEvent
 >;
 
 const ctx = {
@@ -159,5 +167,107 @@ describe("revertFeatureCore empty-diff guard", () => {
     expect(mockCreateAndPublish.mock.calls[0][0].changes).toEqual({
       defaultValue: "old-default",
     });
+  });
+});
+
+describe("revertFeatureCore revision events", () => {
+  function setupSuccessfulRevert() {
+    mockGetFeature.mockResolvedValue(makeFeature());
+    const targetRevision = {
+      version: 3,
+      status: "published",
+      defaultValue: "old-default",
+      rules: [],
+    } as never;
+    const updatedFeature = makeFeature({
+      version: 6,
+      defaultValue: "old-default",
+    });
+    mockCreateAndPublish.mockResolvedValue({
+      revision: { version: 6, status: "draft" } as never,
+      updatedFeature,
+    });
+    return { targetRevision, updatedFeature };
+  }
+
+  it("dispatches revision.reverted and revision.published with the re-read published revision", async () => {
+    const { targetRevision } = setupSuccessfulRevert();
+    const publishedRevision = { version: 6, status: "published" } as never;
+    // First getRevision call resolves the target revision; the second is the
+    // post-publish re-read. (The approval-check read in between is skipped
+    // because ctx mocks canBypassApprovalChecks to true — if that changes,
+    // queue a third value here.)
+    mockGetRevision
+      .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(publishedRevision);
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
+    const [revertedCall, publishedCall] = mockDispatchEvent.mock.calls;
+    expect(revertedCall[2]).toBe(publishedRevision);
+    expect(revertedCall[3]).toBe("revision.reverted");
+    expect(revertedCall[4]).toEqual({ revertedToVersion: 3 });
+    expect(publishedCall[2]).toBe(publishedRevision);
+    expect(publishedCall[3]).toBe("revision.published");
+  });
+
+  it("falls back to the in-memory revision when the post-publish read returns nothing", async () => {
+    const { targetRevision } = setupSuccessfulRevert();
+    mockGetRevision
+      .mockResolvedValueOnce(targetRevision)
+      .mockResolvedValueOnce(null);
+
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
+    expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
+      version: 6,
+      status: "draft",
+    });
+    expect(mockDispatchEvent.mock.calls[1][2]).toEqual({
+      version: 6,
+      status: "draft",
+    });
+  });
+
+  it("dispatches no events when there is nothing to revert", async () => {
+    mockGetFeature.mockResolvedValue(makeFeature());
+    mockGetRevision.mockResolvedValue({
+      version: 3,
+      status: "published",
+      defaultValue: "live-default",
+      rules: [],
+    } as never);
+
+    await expect(
+      revertFeatureCore(
+        ctx,
+        org,
+        eventAudit,
+        { id: "feat_1" },
+        { revision: 3 },
+        jest.fn(),
+        false,
+      ),
+    ).rejects.toThrow(/Nothing to revert/);
+
+    expect(mockDispatchEvent).not.toHaveBeenCalled();
   });
 });
