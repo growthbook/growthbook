@@ -204,7 +204,7 @@ function OverridePopoverTrigger({
             icon={<PiMagnifyingGlass />}
             aria-label="View override values"
           >
-            Overrides
+            Override
           </Button>
         }
         content={
@@ -434,10 +434,10 @@ const GROUP_BORDER = "1px solid var(--slate-a3)";
 // what stops a Radix table's header from sticking to the page.
 // Columns: Key | Feature | Revision status | Experiment | Exp status | Location | Config source | (override)
 const BY_KEY_COLS =
-  "minmax(80px, 130px) minmax(120px, 1.2fr) 100px minmax(110px, 1fr) 90px 100px 150px 32px";
+  "minmax(120px, 180px) minmax(120px, 1.2fr) 80px minmax(110px, 1fr) 90px 100px 120px 110px";
 // Columns: Feature | Overrides | Revision status | Experiment | Exp status | Location | Config source | (override)
 const BY_REF_COLS =
-  "minmax(120px, 1.2fr) minmax(120px, 190px) 100px minmax(110px, 1fr) 90px 100px 150px 32px";
+  "minmax(120px, 1.2fr) minmax(120px, 190px) 80px minmax(110px, 1fr) 90px 100px 120px 110px";
 
 function UsageGridHeader({
   columns,
