@@ -386,6 +386,19 @@ function buildConfigLayer(
   return layer;
 }
 
+// The single rule for layering one resolved key onto an accumulator, shared by
+// every merge point in the payload resolver so they can't drift: a `replace`
+// key (a constant's own key) or a `$extends` chunk is assigned wholesale;
+// otherwise a config/feature key deep-merges (targeted patch).
+function assignResolvedKey(
+  acc: Record<string, unknown>,
+  key: string,
+  value: unknown,
+  { replace, isChunk }: { replace: boolean; isChunk: boolean },
+): void {
+  acc[key] = replace || isChunk ? value : deepMergePatch(acc[key], value);
+}
+
 function resolveValue(
   value: unknown,
   visited: Set<string>,
@@ -452,9 +465,11 @@ function resolveValue(
           const applyLayer = (layer: ConfigLayer) => {
             Object.assign(out, layer.assign);
             for (const e of layer.own) {
-              out[e.key] = e.isChunk
-                ? e.value
-                : deepMergePatch(out[e.key], e.value);
+              // Config layers always deep-merge own keys (never replace).
+              assignResolvedKey(out, e.key, e.value, {
+                replace: false,
+                isChunk: e.isChunk,
+              });
             }
           };
           // Env-agnostic resolution (environment == null) serves the base only —
@@ -520,10 +535,10 @@ function resolveValue(
       if (isUnsafeMergeKey(outKey)) continue;
       const resolved = resolveValue(v, visited, ctx, replaceOwnKeys);
       const isChunk = isPlainObject(v) && EXTENDS_KEY in v;
-      out[outKey] =
-        replaceOwnKeys || isChunk
-          ? resolved
-          : deepMergePatch(out[outKey], resolved);
+      assignResolvedKey(out, outKey, resolved, {
+        replace: replaceOwnKeys,
+        isChunk,
+      });
     }
     return out;
   }

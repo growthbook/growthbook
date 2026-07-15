@@ -944,6 +944,53 @@ describe("config chain ↔ payload resolution parity", () => {
     expect(chainValue).toEqual({ opts: { a: 1, b: 2, c: 3 }, top: 1 });
     expect(payloadValue).toEqual(chainValue);
   });
+
+  it("config Resolved tab (chain + squashed constants) matches the payload", () => {
+    // Mirrors the config detail page: resolveConfigChain merges the lineage and
+    // leaves `@const:` refs raw, then squashConstants (= resolveConstantRefs)
+    // resolves them per field. That two-stage path must equal the single-stage
+    // SDK payload for the same graph — including a constant object ref inside a
+    // field and a lineage deep-merge.
+    const constants = { pal: '{"primary":"#000","secondary":"#fff"}' };
+    const configs = [
+      {
+        key: "base",
+        value:
+          '{"colors":{"$extends":["@const:pal"],"primary":"#111"},"size":1}',
+      },
+      { key: "child", parent: "base", value: '{"size":2}' },
+    ];
+    const map = mapOf({
+      pal: { type: "json", value: constants.pal, source: "constant" },
+      ...Object.fromEntries(
+        configs.map((c) => [
+          c.key,
+          {
+            type: "json" as const,
+            source: "config" as const,
+            value: withConfigExtends(c.value, getConfigBaseKeys(c)),
+          },
+        ]),
+      ),
+    });
+    const byKey = new Map(configs.map((c) => [c.key, c]));
+
+    // Stage 1 + 2: chain merge, then squash each field's constants.
+    const resolvedTab: Record<string, unknown> = {};
+    for (const f of resolveConfigChain(linearizeConfigDag("child", byKey))
+      .fields) {
+      if (f.source !== null)
+        resolvedTab[f.key] = resolveConstantRefs(f.value, map);
+    }
+
+    const payload = resolveConstantRefs({ $extends: ["@config:child"] }, map);
+
+    expect(resolvedTab).toEqual({
+      colors: { primary: "#111", secondary: "#fff" },
+      size: 2,
+    });
+    expect(payload).toEqual(resolvedTab);
+  });
 });
 
 describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => {
