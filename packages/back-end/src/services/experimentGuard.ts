@@ -5,7 +5,12 @@ import {
   getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { getConfigSubtree } from "shared/util";
+import {
+  getConfigSubtree,
+  parsePlainJSONObject,
+  ScopedOverrideEntry,
+} from "shared/util";
+import { isEqual } from "lodash";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
   ConfigKeyImplementation,
@@ -261,6 +266,39 @@ export async function assertConfigExperimentGuard(
   }
   throw new TerminalPublishError(
     `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (config keys now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+  );
+}
+
+// Experiment guard for the IMMEDIATE (non-revision) scopedOverrides write.
+// Attaching/detaching/re-scoping a value-bearing flavor changes what a
+// config-backed feature serves per environment, same as publishing a value.
+// Skipped when the change is provably value-neutral — the UI's create-override
+// flow attaches a brand-new empty-patch flavor, which must not trip the guard.
+export async function assertScopedOverridesExperimentGuard(
+  context: Context,
+  config: ConfigInterface,
+  prevOverrides: ScopedOverrideEntry[],
+  nextOverrides: ScopedOverrideEntry[],
+): Promise<void> {
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const all = await scanContext.models.configs.getAllForReconcile();
+  const byKey = new Map(all.map((c) => [c.key, c]));
+  // An entry can affect served values only if its flavor exists, is live, and
+  // carries a non-empty patch (a non-object value replaces wholesale).
+  const impactful = (list: ScopedOverrideEntry[]) =>
+    list.filter((o) => {
+      const flavor = byKey.get(o.config);
+      if (!flavor || flavor.archived) return false;
+      const obj = parsePlainJSONObject(flavor.value ?? "");
+      return !obj || Object.keys(obj).length > 0;
+    });
+  if (isEqual(impactful(prevOverrides), impactful(nextOverrides))) return;
+
+  await assertConfigExperimentGuard(
+    context,
+    config,
+    { armAcknowledgments: undefined },
+    { armed: false },
   );
 }
 

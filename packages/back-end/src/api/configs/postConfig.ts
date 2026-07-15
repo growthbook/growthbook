@@ -20,6 +20,7 @@ import {
 import {
   assertKeyAvailable,
   assertScopedOverridesValid,
+  syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import {
   assertConfigValueValid,
@@ -178,7 +179,11 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
     original: null,
   });
 
-  await assertScopedOverridesValid(req.context, { key, scopedOverrides });
+  await assertScopedOverridesValid(req.context, {
+    key,
+    project: project || "",
+    scopedOverrides,
+  });
 
   // Creation never requires approval: a brand-new config has no dependents, so
   // it can't change any resolved value. Approvals apply to later changes.
@@ -204,6 +209,12 @@ export const postConfig = createApiRequestHandler(postConfigValidator)(async (
       ? { renderProjections: { [req.body.source]: projection } }
       : {}),
   });
+
+  // Stamp each attached flavor's scopedConfig marker (the internal create does
+  // the same) — approval scoping and the flavor filters read it.
+  if (scopedOverrides?.length) {
+    await syncScopedConfigMarkers(req.context, key, [], scopedOverrides);
+  }
 
   // Backfill a live revision so the config is immediately editable via revisions.
   await ensureLiveRevisionExists(

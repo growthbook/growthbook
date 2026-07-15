@@ -6,6 +6,7 @@ import {
   setConfigBacking,
   getConfigBackingKey,
   getConfigSubtree,
+  isScopedConfig,
   valueHasConfigExtends,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
@@ -51,6 +52,14 @@ async function requireLiveConfig(
   if (config.archived) {
     throw new BadRequestError(
       `Config "${key}" is archived and cannot back a feature value.`,
+    );
+  }
+  // Flavors are selected implicitly per environment via the base's
+  // scopedOverrides — referencing one directly would serve its patch in EVERY
+  // environment and dodge its env-scoped review.
+  if (isScopedConfig(config)) {
+    throw new BadRequestError(
+      `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base config instead.`,
     );
   }
 }

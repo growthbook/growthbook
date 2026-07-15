@@ -14,6 +14,7 @@ import {
   parsePlainJSONObject,
   findScopedOverrideStructuralErrors,
   ScopedOverrideEntry,
+  constantRequiresReview,
 } from "shared/util";
 import { CONSTANT_EXTENDS_KEY } from "shared/constants";
 import { ConstantSource } from "shared/sdk-versioning";
@@ -1032,7 +1033,15 @@ export async function assertConfigDeletable(
 // selection list is a client mistake, not an impact warning.
 export async function assertScopedOverridesValid(
   context: ReqContext | ApiReqContext,
-  config: { key: string; scopedOverrides?: ScopedOverrideEntry[] },
+  config: {
+    key: string;
+    project?: string;
+    scopedOverrides?: ScopedOverrideEntry[];
+  },
+  // The entries already on the config, so checks below only reject NEWLY-added
+  // refs — a parent whose flavor was later archived (or attached elsewhere by
+  // legacy data) stays editable.
+  prevOverrides: ScopedOverrideEntry[] = [],
 ): Promise<void> {
   const overrides = config.scopedOverrides ?? [];
   if (!overrides.length) return;
@@ -1040,13 +1049,13 @@ export async function assertScopedOverridesValid(
   const errors = findScopedOverrideStructuralErrors(overrides, config.key);
 
   const all = await context.models.configs.getAllForReconcile();
-  const existingKeys = new Set(all.map((c) => c.key));
+  const byKey = new Map(all.map((c) => [c.key, c]));
   const dangling = [
     ...new Set(
       overrides
         .map((o) => o.config)
         // Self-references are reported by the structural check; don't double-count.
-        .filter((k) => k !== config.key && !existingKeys.has(k)),
+        .filter((k) => k !== config.key && !byKey.has(k)),
     ),
   ];
   if (dangling.length) {
@@ -1057,17 +1066,109 @@ export async function assertScopedOverridesValid(
     );
   }
 
+  const prevKeys = new Set(prevOverrides.map((o) => o.config));
+  const newKeys = [
+    ...new Set(
+      overrides
+        .map((o) => o.config)
+        .filter((k) => !prevKeys.has(k) && k !== config.key && byKey.has(k)),
+    ),
+  ];
+  for (const key of newKeys) {
+    const flavor = byKey.get(key);
+    if (flavor?.archived) {
+      errors.push(
+        `"${key}" is archived and would never serve — unarchive it first.`,
+      );
+    }
+    // The resolver scrubs a flavor whose own project differs from the feature
+    // being resolved — a cross-project attachment would silently never apply.
+    if (
+      flavor?.project &&
+      (config.project ?? "") &&
+      flavor.project !== config.project
+    ) {
+      errors.push(
+        `"${key}" belongs to a different project than "${config.key}" and would never serve.`,
+      );
+    }
+    // A flavor belongs to exactly one base: its derived scopedConfig marker and
+    // approval scoping are single-valued.
+    const otherBase = all.find(
+      (b) =>
+        b.key !== config.key &&
+        (b.scopedOverrides ?? []).some((o) => o.config === key),
+    );
+    if (otherBase) {
+      errors.push(
+        `"${key}" is already an environment override of "${otherBase.key}" — a config can only override one base.`,
+      );
+    }
+  }
+
   if (errors.length) throw new BadRequestError(errors.join(" "));
 }
 
-// After a config is deleted, drop any scopedOverrides entry on OTHER configs that
-// pointed at it, so a deleted flavor never leaves a dangling selection entry on
-// its parent. System write (bypasses per-config edit permission): the deleter
-// acted on the flavor, and the parent may live in a project they can't edit.
+// Approval gate for the immediate scopedOverrides write. Attaching, detaching,
+// re-scoping, or reordering a VALUE-BEARING flavor changes served values with
+// no reviewable revision — when the org requires review for the affected
+// project/environments, that shortcut needs review-bypass privileges. Attaching
+// an empty-patch flavor (the UI create flow) stays free.
+export async function assertScopedOverridesChangeAllowed(
+  context: ReqContext | ApiReqContext,
+  config: ConfigInterface,
+  prevOverrides: ScopedOverrideEntry[],
+  nextOverrides: ScopedOverrideEntry[],
+): Promise<void> {
+  const all = await context.models.configs.getAllForReconcile();
+  const byKey = new Map(all.map((c) => [c.key, c]));
+  const impactful = (list: ScopedOverrideEntry[]) =>
+    list.filter((o) => {
+      const flavor = byKey.get(o.config);
+      if (!flavor || flavor.archived) return false;
+      const obj = parsePlainJSONObject(flavor.value ?? "");
+      return !obj || Object.keys(obj).length > 0;
+    });
+  const before = impactful(prevOverrides);
+  const after = impactful(nextOverrides);
+  if (isEqual(before, after)) return;
+
+  // Entries that differ carry the affected env scope; a pure reorder (empty
+  // diff) can still change first-match selection, so it affects them all.
+  const diff = [
+    ...after.filter((o) => !before.some((b) => isEqual(b, o))),
+    ...before.filter((o) => !after.some((a) => isEqual(a, o))),
+  ];
+  const affected = diff.length ? diff : [...before, ...after];
+  const affectsAllEnvs = affected.some((o) => !o.environments?.length);
+  const changedEnvironments = [
+    ...new Set(affected.flatMap((o) => o.environments ?? [])),
+  ];
+
+  const requiresReview = constantRequiresReview(
+    config,
+    affectsAllEnvs
+      ? { valueChanged: true, changedEnvironments: [], metadataOnly: false }
+      : { valueChanged: false, changedEnvironments, metadataOnly: false },
+    context.org.settings,
+  );
+  if (!requiresReview) return;
+  if (
+    context.permissions.canBypassApprovalChecks({
+      project: config.project || "",
+    })
+  ) {
+    return;
+  }
+  throw new BadRequestError(
+    "This scoped-overrides change alters values served in environments that require review. " +
+      "Publish value changes through the override's own review flow, or have someone with approval-bypass privileges change the scoping.",
+  );
+}
+
 // Stamp/refresh the self-describing `scopedConfig` marker on each flavor a
 // parent now selects, and clear it on any flavor it no longer selects. Called
-// immediately after a parent's scopedOverrides is written (not revision-managed),
-// so a flavor always carries a live mirror of its scope — the parent's
+// immediately after a parent's scopedOverrides is written; the parent's
 // scopedOverrides stays the source of truth for resolution. System writes (a
 // flavor may live in a project the editor can't touch).
 export async function syncScopedConfigMarkers(
@@ -1110,6 +1211,9 @@ export async function syncScopedConfigMarkers(
   }
 }
 
+// After a config is deleted, drop any scopedOverrides entry on other configs
+// that pointed at it. System write: the deleter acted on the flavor, and the
+// parent may live in a project they can't edit.
 export async function pruneScopedOverridesReferencing(
   context: ReqContext | ApiReqContext,
   deletedKey: string,

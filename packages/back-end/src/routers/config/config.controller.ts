@@ -15,7 +15,7 @@ import {
   getConstantRevisionChange,
 } from "shared/enterprise";
 import {
-  constantRequiresReview,
+  configRequiresReview,
   parsePlainJSONObject,
   resolveConfigChain,
   linearizeConfigDag,
@@ -52,6 +52,7 @@ import {
   assertConfigDeletable,
   assertKeyAvailable,
   assertScopedOverridesValid,
+  assertScopedOverridesChangeAllowed,
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
@@ -71,7 +72,10 @@ import {
   isValidRevertBypass,
   revertRestoresTargetSnapshot,
 } from "back-end/src/services/configRevertBypass";
-import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
+import {
+  assertScopedOverridesExperimentGuard,
+  configChangeAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import {
   assertConfigNotLocked,
@@ -535,6 +539,7 @@ export const postConfig = async (
 
   await assertScopedOverridesValid(context, {
     key: body.key,
+    project: body.project || "",
     scopedOverrides: body.scopedOverrides,
   });
 
@@ -843,9 +848,12 @@ export const putConfig = async (
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
   // Configs inherit the feature `requireReviews` settings (same as constants).
-  const approvalRequired = constantRequiresReview(
+  // An env-scoped flavor's value change only needs review when its environments
+  // fall in a review rule's scope — same logic as the revision adapter.
+  const approvalRequired = configRequiresReview(
     { project: existing.project },
     getConstantRevisionChange(existing, patchOps),
+    existing.scopedConfig ? (existing.scopedConfig.environments ?? []) : null,
     org.settings,
   );
 
@@ -1167,13 +1175,12 @@ export const setConfigExperimentGuard = async (
   return res.status(200).json({ status: 200, config: result });
 };
 
-// The env/project variant selection is a structural fact about the config, not
-// reviewable value content — it writes IMMEDIATELY (like lock/experimentGuard),
-// never through the revision flow. Attaching/detaching a flavor changes no
-// served value on its own (the flavor's value carries that, under the flavor's
-// own review); keeping the selection live is what lets the env-tab UI resolve
-// the family from any view. Validity (refs resolve, no self-ref/unreachable
-// entries) is enforced here; afterUpdate refreshes affected SDK payloads.
+// The env/project variant selection writes IMMEDIATELY (like lock/
+// experimentGuard), never through the revision flow — keeping it live is what
+// lets the env-tab UI resolve the family from any view. Attaching an
+// empty-patch flavor changes no served value; changes involving value-bearing
+// flavors DO, so they're gated below (approval + experiment guard) on top of
+// the structural validity checks. afterUpdate refreshes affected SDK payloads.
 export const setConfigScopedOverrides = async (
   req: AuthRequest<{ scopedOverrides: ScopedOverrideEntry[] }, { id: string }>,
   res: Response<{ status: 200; config: ConfigInterface }>,
@@ -1191,10 +1198,23 @@ export const setConfigScopedOverrides = async (
   // bypass the lock. Unlock first to change overrides.
   assertConfigNotLocked(config);
   const scopedOverrides = req.body?.scopedOverrides ?? [];
-  await assertScopedOverridesValid(context, {
-    key: config.key,
+  await assertScopedOverridesValid(
+    context,
+    { key: config.key, project: config.project, scopedOverrides },
+    config.scopedOverrides ?? [],
+  );
+  await assertScopedOverridesChangeAllowed(
+    context,
+    config,
+    config.scopedOverrides ?? [],
     scopedOverrides,
-  });
+  );
+  await assertScopedOverridesExperimentGuard(
+    context,
+    config,
+    config.scopedOverrides ?? [],
+    scopedOverrides,
+  );
   const result = await context.models.configs.dangerousUpdateBypassPermission(
     config,
     { scopedOverrides },

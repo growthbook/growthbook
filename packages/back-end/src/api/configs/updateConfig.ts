@@ -33,8 +33,10 @@ import {
 } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import { assertScopedOverridesExperimentGuard } from "back-end/src/services/experimentGuard";
 import {
   assertScopedOverridesValid,
+  assertScopedOverridesChangeAllowed,
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
 import { runValidateConfigHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
@@ -151,31 +153,50 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
         fieldsToUpdate.value = normalizedValue;
       }
     }
+    // The env/project variant selection is structural — written outside the
+    // revision flow (matches the internal PUT /configs/:id/scoped-overrides).
+    // Validate now, but DEFER the write until the rest of the request has
+    // passed its gates, so a later rejection doesn't leave a half-applied mix.
+    let commitScopedOverrides: (() => Promise<void>) | null = null;
     if (
       req.body.scopedOverrides !== undefined &&
       !isEqual(req.body.scopedOverrides, config.scopedOverrides ?? [])
     ) {
-      // The env/project variant selection is structural — written IMMEDIATELY,
-      // never through the revision flow (matches the internal
-      // PUT /configs/:id/scoped-overrides). The flavor's value carries any
-      // served-value change, under the flavor's own review.
-      // A locked config is frozen; attaching/reordering a flavor is value-
-      // affecting, so respect the lock here (before the immediate write) rather
-      // than only at the later value-publish gate.
+      const nextOverrides = req.body.scopedOverrides;
       assertConfigNotLocked(config);
-      await assertScopedOverridesValid(req.context, {
-        key: config.key,
-        scopedOverrides: req.body.scopedOverrides,
-      });
-      await req.context.models.configs.dangerousUpdateBypassPermission(config, {
-        scopedOverrides: req.body.scopedOverrides,
-      });
-      await syncScopedConfigMarkers(
+      await assertScopedOverridesValid(
         req.context,
-        config.key,
+        {
+          key: config.key,
+          project: config.project,
+          scopedOverrides: nextOverrides,
+        },
         config.scopedOverrides ?? [],
-        req.body.scopedOverrides,
       );
+      await assertScopedOverridesChangeAllowed(
+        req.context,
+        config,
+        config.scopedOverrides ?? [],
+        nextOverrides,
+      );
+      await assertScopedOverridesExperimentGuard(
+        req.context,
+        config,
+        config.scopedOverrides ?? [],
+        nextOverrides,
+      );
+      commitScopedOverrides = async () => {
+        await req.context.models.configs.dangerousUpdateBypassPermission(
+          config,
+          { scopedOverrides: nextOverrides },
+        );
+        await syncScopedConfigMarkers(
+          req.context,
+          config.key,
+          config.scopedOverrides ?? [],
+          nextOverrides,
+        );
+      };
     }
     // Fold validation rules into the schema to persist:
     //  - `invariants` sent → they replace (an empty array clears them);
@@ -290,7 +311,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     // Cycle rejection is enforced in ConfigModel (covers every write path).
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      // No value change to fail, so the toggle is atomic on its own.
+      // No value change to fail, so the deferred writes are atomic on their own.
+      await commitScopedOverrides?.();
       const guardFields = await commitGuardToggle();
       return {
         config: await resolveOwnerEmail(
@@ -465,7 +487,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
       await dispatchConfigRevisionEvent(req.context, merged, {
         type: "published",
       });
-      // Publish committed — now apply the guard toggle (atomic ordering).
+      // Publish committed — now apply the deferred writes (atomic ordering).
+      await commitScopedOverrides?.();
       const guardFields = await commitGuardToggle();
       return {
         config: await resolveOwnerEmail(
@@ -487,7 +510,8 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     if (needsDescendantReconcile) {
       await reconcileConfigDescendants(req.context, config.key);
     }
-    // Publish committed — now apply the guard toggle (atomic ordering).
+    // Publish committed — now apply the deferred writes (atomic ordering).
+    await commitScopedOverrides?.();
     const guardFields = await commitGuardToggle();
     return {
       config: await resolveOwnerEmail(
