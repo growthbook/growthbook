@@ -4,17 +4,12 @@ import {
   DashboardBlockInterface,
   DataSourceExplorationBlockInterface,
   ExperimentDimensionBlockInterface,
-  ExperimentMetadataBlockInterface,
   ExperimentMetricBlockInterface,
   ExperimentTimeSeriesBlockInterface,
-  ExperimentTrafficBlockInterface,
   FactTableExplorationBlockInterface,
   getBlockSnapshotAnalysis,
-  MarkdownBlockInterface,
   MetricExplorationBlockInterface,
-  MetricExplorerBlockInterface,
   resolveExperimentBlockMetricIds,
-  SqlExplorerBlockInterface,
 } from "shared/enterprise";
 import { ProductAnalyticsExploration, SavedQuery } from "shared/validators";
 import { isDefined } from "shared/util";
@@ -39,7 +34,6 @@ import ExperimentDimensionBlock from "@/enterprise/components/Dashboards/Dashboa
 import ExperimentTimeSeriesBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ExperimentTimeSeriesBlock";
 import MetricExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/MetricExplorerBlock";
 import ProductAnalyticsExplorerBlock from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/ProductAnalyticsExplorerBlock";
-import { BlockProps } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock";
 
 export interface PublicDashboardBlockProps {
   block: DashboardBlockInterface;
@@ -98,6 +92,9 @@ export default function PublicDashboardBlock({
   explorationsMap,
   blockDataLoading,
 }: PublicDashboardBlockProps): ReactElement {
+  // Shared props for every block component. Snapshot/analysis are stubbed the
+  // same way the authenticated DashboardBlock does; experiment-result blocks
+  // override them with the resolved values below.
   const baseProps = {
     isTabActive: true,
     setBlock: undefined,
@@ -107,7 +104,25 @@ export default function PublicDashboardBlock({
     hideSql: true,
     isPublic: true,
     publicShareUid: dashboardUid,
+    snapshot: {} as ExperimentSnapshotInterface,
+    analysis: {} as ExperimentSnapshotAnalysis,
   };
+
+  // SSR experiments are Partial; block components read the subset of fields the
+  // public endpoint provides.
+  const asExperiment = (experiment: Partial<ExperimentInterfaceStringDates>) =>
+    experiment as ExperimentInterfaceStringDates;
+
+  const blockFallback = (
+    message = "Results for this block aren't available.",
+  ): ReactNode =>
+    blockDataLoading ? (
+      <LoadingSpinner />
+    ) : (
+      <Callout status="info" size="sm">
+        {message}
+      </Callout>
+    );
 
   const resolveExperimentResult = (
     b:
@@ -141,19 +156,13 @@ export default function PublicDashboardBlock({
     const { experiment, snapshot, analysis, metrics } = resolved;
     if (experiment && snapshot && analysis) {
       return render({
-        experiment: experiment as unknown as ExperimentInterfaceStringDates,
+        experiment: asExperiment(experiment),
         snapshot,
         analysis,
         metrics,
       });
     }
-    return blockDataLoading ? (
-      <LoadingSpinner />
-    ) : (
-      <Callout status="info" size="sm">
-        Results for this block aren&apos;t available.
-      </Callout>
-    );
+    return blockFallback();
   };
 
   const renderExplorationBlock = (
@@ -168,35 +177,22 @@ export default function PublicDashboardBlock({
     const comparisonExploration = b.comparisonExplorerAnalysisId
       ? (explorationsMap.get(b.comparisonExplorerAnalysisId) ?? null)
       : null;
-    if (exploration) {
-      return (
-        <ProductAnalyticsExplorerBlock
-          {...(baseProps as unknown as BlockProps<typeof b>)}
-          block={b}
-          exploration={exploration}
-          comparisonExploration={comparisonExploration}
-          query={null}
-        />
-      );
-    }
-    return blockDataLoading ? (
-      <LoadingSpinner />
-    ) : (
-      <Callout status="info" size="sm">
-        Results for this block aren&apos;t available.
-      </Callout>
+    if (!exploration) return blockFallback();
+    return (
+      <ProductAnalyticsExplorerBlock
+        {...baseProps}
+        block={b}
+        exploration={exploration}
+        comparisonExploration={comparisonExploration}
+        query={null}
+      />
     );
   };
 
   let content: ReactNode;
   switch (block.type) {
     case "markdown":
-      content = (
-        <MarkdownBlock
-          {...(baseProps as unknown as BlockProps<MarkdownBlockInterface>)}
-          block={block}
-        />
-      );
+      content = <MarkdownBlock {...baseProps} block={block} />;
       break;
     case "sql-explorer": {
       const savedQuery = block.savedQueryId
@@ -204,16 +200,12 @@ export default function PublicDashboardBlock({
         : undefined;
       content = savedQuery ? (
         <SqlExplorerBlock
-          {...(baseProps as unknown as BlockProps<SqlExplorerBlockInterface>)}
+          {...baseProps}
           block={block}
           savedQuery={savedQuery}
         />
-      ) : blockDataLoading ? (
-        <LoadingSpinner />
       ) : (
-        <Callout status="info" size="sm">
-          This query result isn&apos;t available.
-        </Callout>
+        blockFallback("This query result isn't available.")
       );
       break;
     }
@@ -221,14 +213,12 @@ export default function PublicDashboardBlock({
       const experiment = ssrPolyfills.getExperimentById(block.experimentId);
       content = experiment ? (
         <ExperimentMetadataBlock
-          {...(baseProps as unknown as BlockProps<ExperimentMetadataBlockInterface>)}
+          {...baseProps}
           block={block}
-          experiment={experiment as unknown as ExperimentInterfaceStringDates}
+          experiment={asExperiment(experiment)}
         />
       ) : (
-        <Callout status="info" size="sm">
-          This experiment isn&apos;t available.
-        </Callout>
+        blockFallback("This experiment isn't available.")
       );
       break;
     }
@@ -243,18 +233,14 @@ export default function PublicDashboardBlock({
       content =
         experiment && snapshot && analysis ? (
           <ExperimentTrafficBlock
-            {...(baseProps as unknown as BlockProps<ExperimentTrafficBlockInterface>)}
+            {...baseProps}
             block={block}
-            experiment={experiment as unknown as ExperimentInterfaceStringDates}
+            experiment={asExperiment(experiment)}
             snapshot={snapshot}
             analysis={analysis}
           />
-        ) : blockDataLoading ? (
-          <LoadingSpinner />
         ) : (
-          <Callout status="info" size="sm">
-            Results for this block aren&apos;t available.
-          </Callout>
+          blockFallback()
         );
       break;
     }
@@ -263,7 +249,7 @@ export default function PublicDashboardBlock({
         resolveExperimentResult(block),
         ({ experiment, snapshot, analysis, metrics }) => (
           <ExperimentMetricBlock
-            {...(baseProps as unknown as BlockProps<ExperimentMetricBlockInterface>)}
+            {...baseProps}
             block={block}
             experiment={experiment}
             snapshot={snapshot}
@@ -278,7 +264,7 @@ export default function PublicDashboardBlock({
         resolveExperimentResult(block),
         ({ experiment, snapshot, analysis, metrics }) => (
           <ExperimentDimensionBlock
-            {...(baseProps as unknown as BlockProps<ExperimentDimensionBlockInterface>)}
+            {...baseProps}
             block={block}
             experiment={experiment}
             snapshot={snapshot}
@@ -293,7 +279,7 @@ export default function PublicDashboardBlock({
         resolveExperimentResult(block),
         ({ experiment, snapshot, analysis, metrics }) => (
           <ExperimentTimeSeriesBlock
-            {...(baseProps as unknown as BlockProps<ExperimentTimeSeriesBlockInterface>)}
+            {...baseProps}
             block={block}
             experiment={experiment}
             snapshot={snapshot}
@@ -317,17 +303,13 @@ export default function PublicDashboardBlock({
       content =
         factMetric && metricAnalysis ? (
           <MetricExplorerBlock
-            {...(baseProps as unknown as BlockProps<MetricExplorerBlockInterface>)}
+            {...baseProps}
             block={block}
             factMetric={factMetric}
             metricAnalysis={metricAnalysis}
           />
-        ) : blockDataLoading ? (
-          <LoadingSpinner />
         ) : (
-          <Callout status="info" size="sm">
-            Results for this block aren&apos;t available.
-          </Callout>
+          blockFallback()
         );
       break;
     }
@@ -336,12 +318,10 @@ export default function PublicDashboardBlock({
     case "data-source-exploration":
       content = renderExplorationBlock(block);
       break;
-    default:
-      content = (
-        <Callout status="info" size="sm">
-          This block type isn&apos;t available in the public view yet.
-        </Callout>
-      );
+    default: {
+      const _exhaustiveCheck: never = block;
+      return _exhaustiveCheck;
+    }
   }
 
   return <BlockCard title={getBlockTitle(block)}>{content}</BlockCard>;

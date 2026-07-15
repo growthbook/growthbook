@@ -21,6 +21,18 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
 
+// The public page supplies the exploration data directly so blocks render
+// without the authenticated fetches below.
+type ProductAnalyticsExplorerBlockProps = BlockProps<
+  | MetricExplorationBlockInterface
+  | FactTableExplorationBlockInterface
+  | DataSourceExplorationBlockInterface
+> & {
+  exploration?: ProductAnalyticsExploration;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  query?: QueryInterface | null;
+};
+
 export default function ProductAnalyticsExplorerBlock({
   block,
   hideSql,
@@ -29,20 +41,9 @@ export default function ProductAnalyticsExplorerBlock({
   exploration: explorationProp,
   comparisonExploration: comparisonExplorationProp,
   query: queryProp,
-}: BlockProps<
-  | MetricExplorationBlockInterface
-  | FactTableExplorationBlockInterface
-  | DataSourceExplorationBlockInterface
-> & {
-  exploration?: ProductAnalyticsExploration;
-  // Public page only: the previous-period exploration, supplied directly so we
-  // can render the comparison without the authenticated fetch below.
-  comparisonExploration?: ProductAnalyticsExploration | null;
-  query?: QueryInterface | null;
-}) {
+}: ProductAnalyticsExplorerBlockProps) {
   const { getFactMetricById: definitionsGetFactMetricById } = useDefinitions();
-  // On the public page there's no DefinitionsContext; use the ssrPolyfills
-  // lookup so ratio comparisons resolve correctly.
+  // ssrPolyfills covers the public page where there's no DefinitionsContext.
   const getFactMetricById =
     ssrPolyfills?.getFactMetricById ?? definitionsGetFactMetricById;
   const { data, error, isLoading } = useApi<{
@@ -58,9 +59,8 @@ export default function ProductAnalyticsExplorerBlock({
   const loading = explorationProp ? false : isLoading;
   const errorMessage = error?.message ?? null;
 
-  // Comparison is resolved through the shared seam so a future dashboard-wide
-  // compare toggle drives this the same way. The previous-period exploration is
-  // a separate entity produced on refresh; fetch it when present.
+  // Comparison is resolved through the shared seam. The previous-period
+  // exploration is a separate entity produced on refresh; fetch it when present.
   const comparison = resolveBlockComparison(block);
   const compareEnabled = !!comparison?.enabled;
   const { data: comparisonData } = useApi<{
@@ -73,20 +73,14 @@ export default function ProductAnalyticsExplorerBlock({
       compareEnabled &&
       !!block.comparisonExplorerAnalysisId,
   });
-  // Public page passes the comparison exploration directly (no authed fetch).
   const rawComparisonExploration =
     comparisonExplorationProp ?? comparisonData?.exploration ?? null;
-  // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
 
-  // Dashboard blocks fetch the saved primary + previous explorations directly,
-  // bypassing POST /product-analytics/run — where the live Explorer builds its
-  // comparison payload via computeExplorationComparisonPayload (densified rows +
-  // trends). Recreate that payload here with the same shared helper so the
-  // dashboard matches the Explorer: empty previous periods densify to zeros
-  // instead of triggering the "no data, nothing to compare" message, and
-  // big-number / table trends are computed identically.
+  // Recreate the Explorer's comparison payload with the same shared helper so
+  // the dashboard matches it: densified previous periods plus big-number/table
+  // trends, rather than the raw fetched explorations.
   const submittedConfig = useMemo(
     () =>
       block.config && dashboardGlobalControls
@@ -97,7 +91,6 @@ export default function ProductAnalyticsExplorerBlock({
     [block, dashboardGlobalControls, data?.exploration?.config],
   );
   const submittedExplorationConfig = data?.exploration?.config;
-  // A block only tracks the dashboard date control when it hasn't opted out.
   const usesDashboardDateRange =
     blockUsesDashboardDateControl(block) &&
     Boolean(dashboardGlobalControls?.dateRange);
@@ -137,8 +130,7 @@ export default function ProductAnalyticsExplorerBlock({
     getFactMetricById,
   ]);
 
-  // Use the densified comparison exploration from the payload (matching the
-  // Explorer) rather than the raw fetched one.
+  // Use the densified comparison exploration from the payload, not the raw one.
   const comparisonExploration = comparisonPayload?.exploration ?? null;
 
   if (loading) {
@@ -185,7 +177,7 @@ export default function ProductAnalyticsExplorerBlock({
           hasChart={false}
           query={query}
           hideSql={hideSql}
-          getFactMetricById={ssrPolyfills?.getFactMetricById}
+          getFactMetricById={getFactMetricById}
         />
       ) : (
         <ExplorerChart
@@ -197,7 +189,7 @@ export default function ProductAnalyticsExplorerBlock({
           error={exploration.error || errorMessage}
           loading={loading}
           submittedExploreState={submittedConfig ?? exploration.config}
-          getFactMetricById={ssrPolyfills?.getFactMetricById}
+          getFactMetricById={getFactMetricById}
         />
       )}
     </Flex>

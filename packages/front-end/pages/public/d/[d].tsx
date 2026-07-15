@@ -106,6 +106,13 @@ export default function PublicDashboardPage({
 
   const blockDataLoading = !!dashboard && blockData === null;
 
+  const pageTitle = dashboard?.title
+    ? `${dashboard.title} | GrowthBook`
+    : "Dashboard not found | GrowthBook";
+  const socialTitle = dashboard?.title
+    ? `Dashboard: ${dashboard.title} | GrowthBook`
+    : "Dashboard not found | GrowthBook";
+
   const savedQueriesMap = useMemo(
     () => new Map((blockData?.savedQueries ?? []).map((q) => [q.id, q])),
     [blockData?.savedQueries],
@@ -141,30 +148,12 @@ export default function PublicDashboardPage({
   return (
     <div className="pagecontents container-fluid pt-3">
       <Head>
-        <title>
-          {dashboard?.title
-            ? `${dashboard.title} | GrowthBook`
-            : "Dashboard not found | GrowthBook"}
-        </title>
+        <title>{pageTitle}</title>
         <meta property="og:type" content="website" />
-        <meta
-          property="og:title"
-          content={
-            dashboard?.title
-              ? `Dashboard: ${dashboard.title} | GrowthBook`
-              : "Dashboard not found | GrowthBook"
-          }
-        />
+        <meta property="og:title" content={socialTitle} />
         <meta property="og:description" content={description} />
         <meta name="twitter:card" content="summary" />
-        <meta
-          name="twitter:title"
-          content={
-            dashboard?.title
-              ? `Dashboard: ${dashboard.title} | GrowthBook`
-              : "Dashboard not found | GrowthBook"
-          }
-        />
+        <meta name="twitter:title" content={socialTitle} />
         <meta name="twitter:description" content={description} />
       </Head>
 

@@ -29,12 +29,13 @@ export default function MetricExplorerBlock({
   ssrPolyfills,
 }: BlockProps<MetricExplorerBlockInterface>) {
   const { visualizationType, valueType, analysisSettings } = block;
-  const { getFactTableById: _getFactTableById } = useDefinitions();
-  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const { getFactTableById: definitionsGetFactTableById } = useDefinitions();
+  const getFactTableById =
+    ssrPolyfills?.getFactTableById || definitionsGetFactTableById;
   const { loading, error, comparisonMetricAnalysis, compareEnabled } =
     useDashboardMetricAnalysis(block, setBlock);
-  const _displayCurrency = useCurrency();
-  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
+  const hookDisplayCurrency = useCurrency();
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || hookDisplayCurrency;
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
   const chartsContext = useDashboardCharts();

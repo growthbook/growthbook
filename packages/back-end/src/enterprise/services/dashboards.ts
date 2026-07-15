@@ -735,12 +735,9 @@ export async function generateDashboardSSRData({
   };
 }
 
-// These serializers are the authorization boundary for anonymous block data.
-// Snapshots embed raw SQL inside `settings` (metric SQL, dimension SQL, and the
-// authored queryFilter). Blank those while keeping the analyses/results the UI
-// renders. Targeted strip rather than a full allow-list: settings has ~40
-// nested fields and allow-listing it would be brittle and break rendering. The
-// `queries` field is only QueryPointer[] (id/status/name) — no SQL.
+// Authorization boundary for anonymous block data: snapshots embed raw SQL in
+// `settings` (metric SQL, dimension SQL, queryFilter). Blank those while keeping
+// the analyses/results the UI renders.
 export function redactSnapshotForPublic(
   snapshot: ExperimentSnapshotInterface,
 ): ExperimentSnapshotInterface {
@@ -759,8 +756,8 @@ export function redactSnapshotForPublic(
   };
 }
 
-// sql-explorer blocks: strip the raw SQL (top-level and the copy nested in
-// results) and keep the result rows + viz config the author chose to display.
+// sql-explorer blocks: strip raw SQL (top-level and nested in results), keeping
+// the result rows and viz config.
 export function redactSavedQueryForPublic(query: SavedQuery): SavedQuery {
   return {
     ...query,
@@ -769,8 +766,8 @@ export function redactSavedQueryForPublic(query: SavedQuery): SavedQuery {
   };
 }
 
-// Metric analyses carry no inline SQL, but settings can hold adhoc SQL filter
-// expressions — strip those; keep the result + display settings.
+// Metric analysis settings can hold adhoc SQL filter expressions — strip those,
+// keeping the result and display settings.
 export function redactMetricAnalysisForPublic(
   analysis: MetricAnalysisInterface,
 ): MetricAnalysisInterface {
@@ -829,9 +826,7 @@ export async function getPublicDashboardBlockData({
           blockHasFieldOfType(block, "metricAnalysisId", isString)
             ? block.metricAnalysisId
             : undefined,
-          // metric-explorer blocks reference a comparison (previous-period)
-          // metric analysis; include it so period comparisons render on public
-          // dashboards (useDashboardMetricAnalysis resolves it from this map).
+          // Include the comparison analysis so period comparisons render.
           block.type === "metric-explorer"
             ? block.comparisonMetricAnalysisId
             : undefined,
@@ -848,9 +843,7 @@ export async function getPublicDashboardBlockData({
         block.type === "metric-exploration" ||
         block.type === "fact-table-exploration" ||
         block.type === "data-source-exploration"
-          ? // Include the comparison (previous-period) exploration alongside the
-            // primary so public dashboards can render period comparisons the
-            // same as the authed view.
+          ? // Include the comparison exploration so period comparisons render.
             [
               block.explorerAnalysisId,
               block.comparisonExplorerAnalysisId,

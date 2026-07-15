@@ -390,7 +390,7 @@ app.get(
   }),
   experimentsController.getExperimentPublic,
 );
-// public shareable dashboards (shell + lazy-loaded block data)
+// public shareable dashboards
 app.get(
   "/api/dashboard/public/:uid",
   cors({

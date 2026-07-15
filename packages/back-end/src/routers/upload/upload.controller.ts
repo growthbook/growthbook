@@ -448,7 +448,7 @@ export async function getSignedPublicImageToken(
   if (!imageFound) {
     res.status(404).json({
       status: 404,
-      message: "Image not found in experiment or report data",
+      message: "Image not found in experiment, report, or dashboard data",
     });
     return;
   }

@@ -705,6 +705,12 @@ export function filterAndGroupExperimentMetrics({
   };
 }
 
+const EXPERIMENT_METRIC_SELECTORS = [
+  "experiment-goal",
+  "experiment-secondary",
+  "experiment-guardrail",
+];
+
 export function resolveExperimentBlockMetricIds({
   blockMetricIds,
   experiment,
@@ -712,11 +718,12 @@ export function resolveExperimentBlockMetricIds({
 }: {
   blockMetricIds: string[];
   experiment:
-    | {
-        goalMetrics?: string[];
-        secondaryMetrics?: string[];
-        guardrailMetrics?: string[];
-      }
+    | Partial<
+        Pick<
+          ExperimentInterface,
+          "goalMetrics" | "secondaryMetrics" | "guardrailMetrics"
+        >
+      >
     | undefined;
   metricGroups: MetricGroupInterface[];
 }): string[] {
@@ -742,12 +749,7 @@ export function resolveExperimentBlockMetricIds({
   let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
 
   const actualMetricIds = blockMetricIds.filter(
-    (id) =>
-      ![
-        "experiment-goal",
-        "experiment-secondary",
-        "experiment-guardrail",
-      ].includes(id),
+    (id) => !EXPERIMENT_METRIC_SELECTORS.includes(id),
   );
   if (actualMetricIds.length > 0) {
     const filteredMetricIds = expandMetricGroups(actualMetricIds, metricGroups);
