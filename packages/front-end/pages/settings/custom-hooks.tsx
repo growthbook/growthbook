@@ -9,10 +9,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
-import CustomHookModal from "@/components/Features/CustomHookModal";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Table, {
   TableHeader,
   TableBody,
@@ -22,28 +21,6 @@ import Table, {
 } from "@/ui/Table";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-
-function CustomHookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
-}
 
 export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(

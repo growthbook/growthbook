@@ -22,13 +22,12 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
 import JSONValidation from "@/components/Features/JSONValidation";
-import CustomHookModal from "@/components/Features/CustomHookModal";
+import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Badge from "@/ui/Badge";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
@@ -89,28 +88,6 @@ function isFeatureScopedHook(
   feature: FeatureInterface,
 ): boolean {
   return hook.entityType === "feature" && hook.entityId === feature.id;
-}
-
-function CustomHookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
 }
 
 function CustomHooksSection({

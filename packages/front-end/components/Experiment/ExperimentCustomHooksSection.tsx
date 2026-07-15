@@ -16,12 +16,13 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
-import CustomHookModal from "@/components/Features/CustomHookModal";
+import CustomHookModal, {
+  hookTypes,
+} from "@/components/CustomHooks/CustomHookModal";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Badge from "@/ui/Badge";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
@@ -45,28 +46,6 @@ function isExperimentScopedHook(
   experiment: ExperimentInterfaceStringDates,
 ): boolean {
   return hook.entityType === "experiment" && hook.entityId === experiment.id;
-}
-
-function CustomHookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
 }
 
 export default function ExperimentCustomHooksSection({
@@ -124,9 +103,11 @@ export default function ExperimentCustomHooksSection({
         Custom Hooks
       </Heading>
       <Box mb="3">
-        <em className="text-muted">
-          Run sandboxed JavaScript validation before this experiment is saved.
-        </em>
+        <Text color="text-low">
+          <em>
+            Run sandboxed JavaScript validation before this experiment is saved.
+          </em>
+        </Text>
       </Box>
 
       {!hasAccessToCustomHooks ? (
@@ -138,20 +119,18 @@ export default function ExperimentCustomHooksSection({
         </PremiumCallout>
       ) : (
         <>
-          <Flex align="center" gap="1" mb="1">
+          <Flex align="center" justify="between" gap="1" mb="1">
             <Heading as="h4" size="small" mb="0">
               Experiment-specific Hooks
             </Heading>
-            <div className="ml-auto">
-              <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
-                <Button
-                  onClick={() => setModalData(true)}
-                  disabled={!hasAccessToCustomHooks || !canManage}
-                >
-                  Add Experiment Hook
-                </Button>
-              </Tooltip>
-            </div>
+            <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
+              <Button
+                onClick={() => setModalData(true)}
+                disabled={!hasAccessToCustomHooks || !canManage}
+              >
+                Add Experiment Hook
+              </Button>
+            </Tooltip>
           </Flex>
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !!hook.entityId)}
@@ -161,19 +140,17 @@ export default function ExperimentCustomHooksSection({
             mutate={mutate}
           />
 
-          <Flex align="center" gap="1" mb="1" mt="5" pt="5">
+          <Flex align="center" justify="between" gap="1" mb="1" mt="5" pt="5">
             <Heading as="h4" size="small" mb="0">
               Global/Project Hooks
             </Heading>
-            <div className="ml-auto">
-              <LinkButton
-                href="/settings/custom-hooks"
-                variant="soft"
-                disabled={!hasAccessToCustomHooks || !canManage}
-              >
-                Manage in Settings <PiArrowSquareOut />
-              </LinkButton>
-            </div>
+            <LinkButton
+              href="/settings/custom-hooks"
+              variant="soft"
+              disabled={!hasAccessToCustomHooks || !canManage}
+            >
+              Manage in Settings <PiArrowSquareOut />
+            </LinkButton>
           </Flex>
 
           <CustomHooksTable
@@ -244,7 +221,9 @@ function CustomHooksTable({
                     <Badge color="gray" label="Disabled" />
                   ) : null}
                 </TableCell>
-                <TableCell>{hook.hook}</TableCell>
+                <TableCell>
+                  {hookTypes[hook.hook]?.label ?? hook.hook}
+                </TableCell>
                 <TableCell>{getHookScopeLabel(hook, experiment)}</TableCell>
                 <TableCell>
                   {hook.incrementalChangesOnly ? "Yes" : "No"}
