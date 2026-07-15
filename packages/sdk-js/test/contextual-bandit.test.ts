@@ -97,6 +97,44 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("buckets into a leaf only when both global targeting and the leaf condition pass", () => {
+    // Rule-level `condition` is the global targeting; it is ANDed with the
+    // per-leaf context condition. Here the user passes both.
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise", country: "US" },
+      features: cbFeatures({ condition: { country: "US" } }),
+      contextualBandits: cbMap(),
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.inExperiment).toEqual(true);
+    expect(res.experimentResult?.leafId).toEqual(1);
+
+    gb.destroy();
+  });
+
+  it("excludes the user (no exposure, no leaf metadata) when global targeting fails even if a leaf matches", () => {
+    // The user matches leaf 1 (plan=enterprise) but fails the global targeting
+    // condition (country != US). Must be excluded and leak no leaf metadata.
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise", country: "CA" },
+      trackingCallback,
+      features: cbFeatures({ condition: { country: "US" } }),
+      contextualBandits: cbMap(),
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("defaultValue");
+    expect(res.value).toEqual("default");
+    expect(res.experimentResult).toBeUndefined();
+    expect(trackingCallback.mock.calls.length).toEqual(0);
+
+    gb.destroy();
+  });
+
   it("falls through to the catch-all leaf when no specific leaf matches", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
