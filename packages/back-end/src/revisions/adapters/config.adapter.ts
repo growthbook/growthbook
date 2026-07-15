@@ -39,7 +39,9 @@ import {
   configRevisionAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
 import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { captureConfigSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
 
@@ -302,6 +304,15 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
     proposedChanges: unknown,
   ): Promise<ArmAcknowledgments | undefined> {
     const valueAffecting = configRevisionAffectsServedValue(proposedChanges);
+    // The config state this schedule would publish, for the schema-break
+    // fingerprint (its own resolved value across envs).
+    const proposedConfig = {
+      ...entity,
+      ...applyPatchToSnapshot(
+        entity as unknown as Record<string, unknown>,
+        normalizeProposedChanges(proposedChanges),
+      ),
+    } as ConfigInterface;
     return buildArmAcknowledgments({
       experiment: await captureConfigExperimentGuardAcknowledgment(
         context,
@@ -313,6 +324,17 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             source: "config",
             key: entity.key,
             project: entity.project,
+          })
+        : undefined,
+      "schema-break": valueAffecting
+        ? await captureConfigSchemaBreakAcknowledgment(context, {
+            key: entity.key,
+            project: entity.project,
+            value: proposedConfig.value,
+            schema: proposedConfig.schema,
+            parent: proposedConfig.parent,
+            extends: proposedConfig.extends,
+            extensible: proposedConfig.extensible,
           })
         : undefined,
     });

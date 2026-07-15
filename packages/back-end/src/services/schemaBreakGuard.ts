@@ -15,8 +15,13 @@ import {
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
+import { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import {
+  getArmAcknowledgment,
+  type ArmGuardId,
+} from "back-end/src/services/armGuards";
 import {
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
@@ -25,10 +30,62 @@ import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { collectFeatureConfigBackedValues } from "back-end/src/services/configValidation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { SoftWarningError } from "back-end/src/util/errors";
+import {
+  SoftWarningError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 const CONFIG_PREFIX = "config:";
+const SCHEMA_BREAK: ArmGuardId = "schema-break";
+
+// Resolve a direct (unarmed) publish's schema-break violations to an action:
+// clear when none, bypass on ignoreWarnings / approval-bypass (logged), else a
+// bypassable soft warning. Shared by the constant and config guards.
+function resolveDirectSchemaBreak(
+  context: Context,
+  violations: string[],
+  project: string | undefined,
+  logKey: Record<string, unknown>,
+  message: string,
+): void {
+  if (!violations.length) return;
+  const override =
+    context.ignoreWarnings ||
+    context.permissions.canBypassApprovalChecks({ project: project || "" });
+  if (override) {
+    logger.info(
+      { ...logKey, userId: context.userId, violations },
+      "Schema-break guard overridden on a direct publish",
+    );
+    return;
+  }
+  throw new SoftWarningError(
+    message + "\n" + violations.join("\n"),
+    violations,
+  );
+}
+
+// Decide an ARMED (deferred) fire against the arm-time fingerprint: a violation
+// that wasn't acknowledged when the publish was scheduled is a NEW break
+// introduced since — the deferred publish is terminal (re-open + re-confirm).
+// Acknowledged breaks stand (the armer already accepted them). Order-independent.
+function assertArmedSchemaBreakAcknowledged(
+  violations: string[],
+  revision: Pick<Revision, "armAcknowledgments"> | undefined,
+  entityMessage: string,
+): void {
+  const acknowledged = new Set(
+    (revision && getArmAcknowledgment(revision, SCHEMA_BREAK)) ?? [],
+  );
+  const unacknowledged = violations.filter((v) => !acknowledged.has(v));
+  if (!unacknowledged.length) return;
+  throw new TerminalPublishError(
+    `${entityMessage} since this publish was scheduled:\n${unacknowledged.join(
+      "\n",
+    )}\nRe-open the draft and re-confirm to publish.`,
+  );
+}
 
 // Resolve a config to its concrete, fully-substituted value under `map` by
 // resolving a synthetic `$extends` reference to it — the same config-layer
@@ -293,21 +350,13 @@ async function evaluateConstantFeatureSchemaBreakConflicts(
 // Bypassable soft warning on a direct publish (?ignoreWarnings=true or
 // bypassApprovalChecks).
 //
-// Deferred (armed) publishes are intentionally skipped in this first cut: a
-// scheduled / auto-publish-on-approval fire has no request to acknowledge
-// against, and blocking it terminally would strand schedules. Arm-time capture +
-// deferred re-check (mirroring the experiment guard) is a documented follow-on.
-export async function assertConstantSchemaBreakGuard(
+// All schema-break violations a proposed constant value would introduce —
+// dependent configs (per env) and config-backed feature values, combined.
+async function constantSchemaBreakViolations(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
-  proposedValue: string | undefined,
-  { armed }: { armed: boolean },
-): Promise<void> {
-  if (armed) return;
-  // Without the proposed value there's nothing to resolve-and-check; fail open
-  // (this is a soft advisory, not a correctness gate).
-  if (proposedValue === undefined) return;
-
+  proposedValue: string,
+): Promise<string[]> {
   const [configViolations, featureViolations] = await Promise.all([
     evaluateConstantSchemaBreakConflicts(context, constant, proposedValue),
     evaluateConstantFeatureSchemaBreakConflicts(
@@ -316,27 +365,81 @@ export async function assertConstantSchemaBreakGuard(
       proposedValue,
     ),
   ]);
-  const violations = [...configViolations, ...featureViolations];
-  if (!violations.length) return;
+  return [...configViolations, ...featureViolations];
+}
+
+// Warn (never hard-block) when publishing a constant would make a dependent
+// config OR config-backed feature value violate its schema/invariants.
+// - Direct publish: bypassable soft warning (?ignoreWarnings / approval-bypass).
+// - Armed (deferred) fire: re-checked against the arm-time fingerprint
+//   (captureConstantSchemaBreakAcknowledgment); a break not acknowledged when
+//   scheduling is terminal, so a schedule that goes bad by fire time surfaces
+//   rather than silently shipping.
+export async function assertConstantSchemaBreakGuard(
+  context: Context,
+  constant: Pick<ConstantInterface, "key" | "project">,
+  proposedValue: string | undefined,
+  { armed }: { armed: boolean },
+  revision?: Pick<Revision, "armAcknowledgments">,
+): Promise<void> {
+  // Without the proposed value there's nothing to resolve-and-check; fail open
+  // (this is a soft advisory, not a correctness gate).
+  if (proposedValue === undefined) return;
+
+  const violations = await constantSchemaBreakViolations(
+    context,
+    constant,
+    proposedValue,
+  );
+
+  if (armed) {
+    assertArmedSchemaBreakAcknowledged(
+      violations,
+      revision,
+      "Publishing this constant would newly break dependent config or feature value(s)",
+    );
+    return;
+  }
+
+  resolveDirectSchemaBreak(
+    context,
+    violations,
+    constant.project,
+    { constantKey: constant.key },
+    "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
+  );
+}
+
+// Arm-time fingerprint for a deferred constant publish: the breaks it would
+// introduce, which the armer must acknowledge (bypassably) to schedule. The
+// deferred fire re-checks against this. Returns undefined when nothing breaks.
+export async function captureConstantSchemaBreakAcknowledgment(
+  context: Context,
+  constant: Pick<ConstantInterface, "key" | "project">,
+  proposedValue: string | undefined,
+): Promise<string[] | undefined> {
+  if (proposedValue === undefined) return undefined;
+  const violations = await constantSchemaBreakViolations(
+    context,
+    constant,
+    proposedValue,
+  );
+  if (!violations.length) return undefined;
 
   const override =
     context.ignoreWarnings ||
     context.permissions.canBypassApprovalChecks({
       project: constant.project || "",
     });
-  if (override) {
-    logger.info(
-      { constantKey: constant.key, userId: context.userId, violations },
-      "Constant schema-break guard overridden on a direct publish",
+  if (!override) {
+    throw new SoftWarningError(
+      "Scheduling this constant publish will make dependent config or feature value(s) violate their schema or validation rules:\n" +
+        violations.join("\n") +
+        "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
+      violations,
     );
-    return;
   }
-
-  throw new SoftWarningError(
-    "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:\n" +
-      violations.join("\n"),
-    violations,
-  );
+  return [...new Set(violations)].sort();
 }
 
 // The config-side counterpart: the violations a config's own PROPOSED value
@@ -437,39 +540,63 @@ export async function evaluateConfigOwnSchemaBreakConflicts(
   return [...new Set(introduced)];
 }
 
-// Warn (bypassable) when publishing a config would make its own resolved value
-// violate its schema/invariants once `@const:` refs are substituted — the
-// config-side analog of assertConstantSchemaBreakGuard. Armed publishes skipped
-// (same first-cut rationale).
+// Warn when publishing a config would make its own resolved value violate its
+// schema/invariants once `@const:` refs are substituted — the config-side analog
+// of assertConstantSchemaBreakGuard. Direct = bypassable soft warning; armed =
+// re-checked against the arm-time fingerprint (terminal on a newly-introduced
+// break).
 export async function assertConfigSchemaBreakGuard(
   context: Context,
   proposed: ProposedConfig,
   { armed }: { armed: boolean },
+  revision?: Pick<Revision, "armAcknowledgments">,
 ): Promise<void> {
-  if (armed) return;
-
   const violations = await evaluateConfigOwnSchemaBreakConflicts(
     context,
     proposed,
   );
-  if (!violations.length) return;
+
+  if (armed) {
+    assertArmedSchemaBreakAcknowledged(
+      violations,
+      revision,
+      "Publishing this config would newly break its own resolved value",
+    );
+    return;
+  }
+
+  resolveDirectSchemaBreak(
+    context,
+    violations,
+    proposed.project,
+    { configKey: proposed.key },
+    "Publishing this config would make its resolved value violate its schema or validation rules:",
+  );
+}
+
+// Arm-time fingerprint for a deferred config publish (see the constant analog).
+export async function captureConfigSchemaBreakAcknowledgment(
+  context: Context,
+  proposed: ProposedConfig,
+): Promise<string[] | undefined> {
+  const violations = await evaluateConfigOwnSchemaBreakConflicts(
+    context,
+    proposed,
+  );
+  if (!violations.length) return undefined;
 
   const override =
     context.ignoreWarnings ||
     context.permissions.canBypassApprovalChecks({
       project: proposed.project || "",
     });
-  if (override) {
-    logger.info(
-      { configKey: proposed.key, userId: context.userId, violations },
-      "Config schema-break guard overridden on a direct publish",
+  if (!override) {
+    throw new SoftWarningError(
+      "Scheduling this config publish will make its resolved value violate its schema or validation rules:\n" +
+        violations.join("\n") +
+        "\nRe-submit with ignoreWarnings to acknowledge and schedule.",
+      violations,
     );
-    return;
   }
-
-  throw new SoftWarningError(
-    "Publishing this config would make its resolved value violate its schema or validation rules:\n" +
-      violations.join("\n"),
-    violations,
-  );
+  return [...new Set(violations)].sort();
 }

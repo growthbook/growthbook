@@ -1,5 +1,9 @@
 import { ConstantInterface } from "shared/types/constant";
-import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import {
+  Revision,
+  getConstantRevisionChange,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import {
   constantRequiresReview,
   constantResetReviewOnChange,
@@ -20,7 +24,9 @@ import {
 } from "back-end/src/services/armGuards";
 import { captureConstantExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
 import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { captureConstantSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
 // so the two can't drift. The snapshot validator runs in `.strict()` mode, so a
@@ -207,6 +213,15 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     const change = getConstantRevisionChange(entity, proposedChanges);
     const valueAffecting =
       change.valueChanged || change.changedEnvironments.length > 0;
+    // The base value this schedule would publish, for the schema-break
+    // fingerprint (dependent config + config-backed feature values).
+    const proposedValue =
+      (
+        applyPatchToSnapshot(
+          entity as unknown as Record<string, unknown>,
+          normalizeProposedChanges(proposedChanges),
+        ) as { value?: string }
+      ).value ?? entity.value;
     return buildArmAcknowledgments({
       experiment: await captureConstantExperimentGuardAcknowledgment(
         context,
@@ -219,6 +234,13 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
             key: entity.key,
             project: entity.project,
           })
+        : undefined,
+      "schema-break": valueAffecting
+        ? await captureConstantSchemaBreakAcknowledgment(
+            context,
+            { key: entity.key, project: entity.project },
+            proposedValue,
+          )
         : undefined,
     });
   },

@@ -53,6 +53,7 @@ export async function assertConfigPublishGuards(
         extensible: proposedConfig.extensible,
       },
       opts,
+      revision,
     );
   }
 }
@@ -78,5 +79,6 @@ export async function assertConstantPublishGuards(
     { key: constant.key, project: constant.project },
     proposedValue,
     opts,
+    revision,
   );
 }
