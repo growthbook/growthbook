@@ -67,10 +67,12 @@ function scopeSubsumes(
 
 // Structural problems in a config's scopedOverrides list that make it malformed
 // regardless of what other configs exist: a self-reference (a config can't be
-// its own flavor), and an unreachable entry that an earlier entry already fully
-// subsumes under first-match-wins (this also catches an exact duplicate). Does
-// NOT check that referenced configs exist — that needs the config set and lives
-// in the write-path service. Pure.
+// its own flavor), an unreachable entry that an earlier entry already fully
+// subsumes under first-match-wins (this also catches an exact duplicate), and
+// any entry not in the supported single-environment shape (exactly one
+// environment, no project scoping — project-only/multi-env/fallback overrides
+// aren't offered yet). Does NOT check that referenced configs exist — that
+// needs the config set and lives in the write-path service. Pure.
 export function findScopedOverrideStructuralErrors(
   scopedOverrides: ScopedOverrideEntry[] | undefined,
   selfKey: string,
@@ -81,6 +83,12 @@ export function findScopedOverrideStructuralErrors(
     if (entry.config === selfKey) {
       errors.push(
         `A config can't reference itself as a scoped override ("${selfKey}").`,
+      );
+    }
+    if ((entry.environments?.length ?? 0) !== 1 || entry.projects?.length) {
+      errors.push(
+        `Scoped override #${j + 1} ("${entry.config}") must target exactly one ` +
+          `environment and no project — other override scopes aren't supported yet.`,
       );
     }
     for (let i = 0; i < j; i++) {
