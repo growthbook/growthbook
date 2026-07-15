@@ -106,6 +106,10 @@ export default function EditScheduleModal({
     value: v.id,
     label: v.name || `Variation ${i}`,
   }));
+  // A tiebreaker only matters when 2+ variations can qualify as winners (i.e.
+  // there's more than one non-control variation to break a tie between). With a
+  // single treatment there's never a tie, so hide the tiebreaker entirely.
+  const showTiebreaker = experiment.variations.length > 2;
   const renderVariationOption = (variationId: string) => {
     const index = experiment.variations.findIndex((v) => v.id === variationId);
     if (index < 0) return null;
@@ -165,25 +169,34 @@ export default function EditScheduleModal({
         Record a result
       </Text>
       <Text as="div" color="text-mid" size="medium" mb="3">
-        The Decision Framework tags a won/lost/inconclusive result; the
-        tiebreaker breaks ties when multiple variations qualify.
+        Even though you have selected a forced fallback or shipped variation,
+        the Decision Framework will still record metadata about whether this
+        experiment was won/lost/inconclusive.
       </Text>
-      <Text as="label" color="text-high" mb="1">
-        Tiebreaker metric
-      </Text>
-      <SelectField
-        label=""
-        value={autoShipAvailable ? form.watch("tiebreakerMetricId") : ""}
-        options={metricOptions}
-        initialOption="None"
-        disabled={!autoShipAvailable}
-        onChange={(v) => form.setValue("tiebreakerMetricId", v)}
-      />
-      {!autoShipAvailable && (
-        <Text as="div" color="text-mid" size="small" mt="1">
-          Enable the Decision Framework in your organization settings to record
-          a verdict.
-        </Text>
+      {showTiebreaker && (
+        <>
+          <Text as="div" color="text-mid" size="medium" mb="3">
+            The tiebreaker metric will break ties when multiple variations
+            qualify.
+          </Text>
+          <Text as="label" color="text-high" mb="1">
+            Tiebreaker metric
+          </Text>
+          <SelectField
+            label=""
+            value={autoShipAvailable ? form.watch("tiebreakerMetricId") : ""}
+            options={metricOptions}
+            initialOption="None"
+            disabled={!autoShipAvailable}
+            onChange={(v) => form.setValue("tiebreakerMetricId", v)}
+          />
+          {!autoShipAvailable && (
+            <Text as="div" color="text-mid" size="small" mt="1">
+              Enable the Decision Framework in your organization settings to
+              record a verdict.
+            </Text>
+          )}
+        </>
       )}
     </Box>
   );
@@ -480,10 +493,7 @@ export default function EditScheduleModal({
               <Helpertext status="info" mb="3">
                 The experiment keeps running past the end date — you&apos;ll be
                 notified
-                {autoShipAvailable
-                  ? ", with a recommended winner to review"
-                  : ""}
-                .
+                {autoShipAvailable ? ", with a recommendation to review" : ""}.
               </Helpertext>
             )}
 
@@ -494,9 +504,10 @@ export default function EditScheduleModal({
                   linked features
                 </Helpertext>
 
-                {renderTiebreakerField(
-                  "If two variations both qualify, ship the one with the higher lift on this goal metric.",
-                )}
+                {showTiebreaker &&
+                  renderTiebreakerField(
+                    "If two variations both qualify, ship the one with the higher lift on this goal metric.",
+                  )}
 
                 <Box>
                   <Text as="label" color="text-high" mb="1">
@@ -534,9 +545,15 @@ export default function EditScheduleModal({
               </Flex>
             )}
 
-            {mode === "stop" &&
-              hasDecisionFrameworkFeature &&
-              renderVerdictSection()}
+            {mode === "stop" && (
+              <Flex direction="column" gap="3">
+                <Helpertext status="info" mb="3">
+                  Stops the experiment and reverts to any default feature flag
+                  values, regardless of results
+                </Helpertext>
+                {hasDecisionFrameworkFeature && renderVerdictSection()}
+              </Flex>
+            )}
           </>
         )}
       </Flex>
