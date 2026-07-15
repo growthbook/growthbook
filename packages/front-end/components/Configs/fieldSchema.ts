@@ -40,6 +40,22 @@ export type LineageNode = {
   // Composition mixins: the config keys this node layers on top of its `parent`
   // spine. Shown as same-level chips on the node (not nested tree branches).
   extendsKeys?: string[];
+  // Ordered env/project variant selection — present only on a base config. Drives
+  // the editor's env-selector tab group (each entry points at a flavor child
+  // config, by key, for a matching environment/project scope).
+  scopedOverrides?: {
+    config: string;
+    environments?: string[];
+    projects?: string[];
+  }[];
+  // Self-describing flavor marker — present only on an env/project flavor. Lets
+  // the tree group it under an "Environments" label under its parent instead of
+  // rendering it as a plain child node.
+  scopedConfig?: {
+    parent: string;
+    environments?: string[];
+    projects?: string[];
+  } | null;
   // Own value keys that no longer conform to the effective schema ("incompatible,
   // must fix"). Non-empty flags the node in the tree.
   incompatibleFields?: string[];

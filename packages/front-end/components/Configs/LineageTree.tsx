@@ -9,10 +9,20 @@ import {
   PiWarningFill,
   PiPlusBold,
 } from "react-icons/pi";
+import { isScopedConfig } from "shared/util";
 import { LineageNode } from "@/components/Configs/fieldSchema";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import styles from "./LineageTree.module.scss";
+
+// Label for a flavor row: its environment(s), else project(s), else its name.
+function flavorScopeLabel(n: LineageNode): string {
+  const envs = n.scopedConfig?.environments;
+  if (envs?.length) return envs.join(", ");
+  const projs = n.scopedConfig?.projects;
+  if (projs?.length) return projs.join(", ");
+  return n.name;
+}
 
 const ROW_HEIGHT = 30;
 const GUIDE_COLOR = "var(--slate-a6)";
@@ -80,6 +90,12 @@ export default function LineageTree({
 
   const childrenOf = (parentKey: string | null) =>
     childrenByParent.get(parentKey) ?? [];
+  // Env/project flavors are children too (parent = base), but they're grouped
+  // under an "Environments" label rather than rendered as plain child nodes.
+  const flavorChildrenOf = (parentKey: string | null) =>
+    childrenOf(parentKey).filter((c) => isScopedConfig(c));
+  const regularChildrenOf = (parentKey: string | null) =>
+    childrenOf(parentKey).filter((c) => !isScopedConfig(c));
 
   // Field-count pill, matching the counter badges on the Configs/Features tabs.
   // Center the digit (the badge's min-width otherwise left-aligns it) and keep it
@@ -200,6 +216,156 @@ export default function LineageTree({
     );
   };
 
+  // A single env/project flavor, rendered as a leaf under the "Environments"
+  // group. Labelled by its scope (e.g. "dev"); clicking opens the flavor config.
+  const renderFlavorRow = (n: LineageNode, depth: number): React.ReactNode => {
+    const label = flavorScopeLabel(n);
+    const isCurrent = n.key === currentKey;
+    const isArchived = !!archivedByKey?.[n.key];
+    const isDraftNode = !!draftKeys?.[n.key];
+    // Env leaves indent one level past the spine's max-depth cap (the group
+    // adds a +1 override), so allow the connector stub one deeper too.
+    const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH + 1;
+    return (
+      <Box key={`flavor-${n.key}`} style={{ position: "relative" }}>
+        {showStub && (
+          <Box
+            style={{
+              position: "absolute",
+              left: -5,
+              top: ROW_HEIGHT / 2,
+              width: 5,
+              height: 1,
+              background: GUIDE_COLOR,
+            }}
+          />
+        )}
+        <Flex
+          align="center"
+          gap="1"
+          pl="1"
+          pr="3"
+          className={styles.row}
+          title={`${n.name}${isArchived ? " (archived)" : ""}`}
+          onClick={isCurrent ? undefined : openConfig(n.key)}
+          onAuxClick={isCurrent ? undefined : openConfig(n.key)}
+          style={{
+            height: ROW_HEIGHT,
+            borderRadius: "var(--radius-2)",
+            cursor: isCurrent ? "default" : "pointer",
+            background: isCurrent ? "var(--violet-a3)" : undefined,
+          }}
+        >
+          <Flex
+            align="center"
+            justify="center"
+            style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
+          >
+            <PiDotOutline size={20} />
+          </Flex>
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginLeft: 4,
+              fontSize: "var(--font-size-1)",
+              fontWeight: isCurrent ? 500 : 400,
+              color: isCurrent
+                ? "var(--violet-11)"
+                : isArchived
+                  ? "var(--slate-9)"
+                  : undefined,
+              textDecoration: isArchived ? "line-through" : undefined,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+          {isDraftNode && (
+            <Tooltip content="Showing an unpublished draft — values here reflect staged changes, not the live config.">
+              <Box
+                style={{
+                  flexShrink: 0,
+                  width: 8,
+                  height: 8,
+                  marginRight: 4,
+                  borderRadius: "50%",
+                  background: "var(--amber-9)",
+                }}
+              />
+            </Tooltip>
+          )}
+          {n.fieldCount !== undefined && countBadge(n.fieldCount)}
+        </Flex>
+      </Box>
+    );
+  };
+
+  // The "Environments" branch under a node: a muted group label (a sibling of
+  // the node's child configs, connected to the node's guide by a stub) with the
+  // env-override leaves nested one level beneath it. This keeps env overrides a
+  // distinct branch rather than siblings of the child configs. Rendered before
+  // the child configs; null when the node has none. `depth` is the child level.
+  const renderEnvironmentsGroup = (
+    parentKey: string,
+    depth: number,
+  ): React.ReactNode => {
+    const flavors = flavorChildrenOf(parentKey);
+    if (!flavors.length) return null;
+    const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH;
+    const rows = flavors.map((f) => renderFlavorRow(f, depth + 1));
+    return (
+      <Box key={`envs-${parentKey}`} style={{ position: "relative" }}>
+        {showStub && (
+          <Box
+            style={{
+              position: "absolute",
+              left: -5,
+              top: ROW_HEIGHT / 2,
+              width: 5,
+              height: 1,
+              background: GUIDE_COLOR,
+            }}
+          />
+        )}
+        <Flex
+          align="center"
+          gap="1"
+          pl="1"
+          pr="3"
+          style={{ height: ROW_HEIGHT }}
+        >
+          {/* No caret column — the label sits at the child dot column (half an
+              indent left of a child row's name). */}
+          <span
+            style={{
+              marginLeft: 4,
+              fontSize: "var(--font-size-1)",
+              fontWeight: 500,
+              color: "var(--slate-10)",
+            }}
+          >
+            Environments
+          </span>
+        </Flex>
+        {/* Always indent the env leaves one step past the label (even at deep
+            levels where the spine stops indenting), so "dev" sits forward, at
+            the child-name column. */}
+        <Box
+          style={{
+            marginLeft: 6,
+            paddingLeft: 5,
+            borderLeft: `1px solid ${GUIDE_COLOR}`,
+          }}
+        >
+          {rows}
+        </Box>
+      </Box>
+    );
+  };
+
   const renderNodes = (
     parentKey: string | null,
     depth: number,
@@ -207,15 +373,18 @@ export default function LineageTree({
     // which would otherwise recurse until the stack overflows.
     seen: Set<string> = new Set(),
   ): React.ReactNode =>
-    childrenOf(parentKey).map((n) => {
+    // Flavors aren't rendered as plain nodes — they're grouped under the
+    // "Environments" label of their parent (see renderEnvironmentsGroup).
+    regularChildrenOf(parentKey).map((n) => {
       if (seen.has(n.key)) return null;
       const childSeen = new Set(seen).add(n.key);
-      const hasChildren = childrenOf(n.key).length > 0;
+      const hasChildren = regularChildrenOf(n.key).length > 0;
+      const hasFlavors = flavorChildrenOf(n.key).length > 0;
       const mixins = n.extendsKeys ?? [];
       const hasMixins = mixins.length > 0;
-      // Both children and mixins are nested under the node, so either makes the
-      // node expandable/collapsible.
-      const expandable = hasChildren || hasMixins;
+      // Children, mixins, and the Environments group all nest under the node, so
+      // any of them makes it expandable/collapsible.
+      const expandable = hasChildren || hasMixins || hasFlavors;
       const expanded = !collapsed.has(n.key);
       const isCurrent = n.key === currentKey;
       // Cap indentation at MAX_INDENT_DEPTH so deep chains don't run out of room
@@ -228,10 +397,14 @@ export default function LineageTree({
       const hasViolations = (n.invariantViolations?.length ?? 0) > 0;
       const isArchived = !!archivedByKey?.[n.key];
       const isDraftNode = !!draftKeys?.[n.key];
-      // Mixins listed first, then child configs.
+      // Under a node, in order: mixins, then the "Environments" branch (a
+      // labeled group with its env-override leaves nested beneath it), then the
+      // regular child configs — all in the node's indented block, so env
+      // overrides read as a distinct branch, not siblings of the child configs.
       const nested = (
         <>
           {mixins.map((mk) => renderMixinRow(mk, depth + 1))}
+          {renderEnvironmentsGroup(n.key, depth + 1)}
           {renderNodes(n.key, depth + 1, childSeen)}
         </>
       );

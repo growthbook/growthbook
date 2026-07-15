@@ -51,11 +51,15 @@ export default function ExperimentRefSummary({
   experiment,
   feature,
   isDraft,
+  environment,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
   isDraft: boolean;
+  // Environment this rule is shown for, so config-backed arm values preview
+  // their matching env flavor. Absent (all-environments view) = base value.
+  environment?: string;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -301,6 +305,7 @@ export default function ExperimentRefSummary({
                                   configKey={configKey}
                                   feature={feature}
                                   sparse={rule.sparse}
+                                  environment={environment}
                                 />
                               );
                             }

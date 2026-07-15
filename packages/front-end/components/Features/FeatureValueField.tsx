@@ -22,6 +22,7 @@ import {
   getConfigBackingPatch,
   setConfigBacking,
   orderConfigsByLineage,
+  isScopedConfig,
 } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -346,8 +347,9 @@ export default function FeatureValueField({
   }
 
   if (valueType === "json" && allowConfigBacking) {
-    // Configs eligible to back this value: JSON-typed, in scope, not archived.
-    // A caller may further restrict the set (e.g. rules to the default's subtree).
+    // Configs eligible to back this value: JSON-typed, in scope, not archived,
+    // and not an env/project flavor (those are variants of another config, never
+    // an independent base). A caller may further restrict (e.g. to a subtree).
     const backingProject = project ?? feature?.project ?? "";
     const optionKeySet = configBackingOptionKeys
       ? new Set(configBackingOptionKeys)
@@ -355,6 +357,7 @@ export default function FeatureValueField({
     const eligibleConfigs = configs.filter(
       (c) =>
         !c.archived &&
+        !isScopedConfig(c) &&
         (!c.project || !backingProject || c.project === backingProject) &&
         (!optionKeySet || optionKeySet.has(c.key)),
     );

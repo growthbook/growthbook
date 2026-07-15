@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isScopedConfig,
+  truncateString,
+} from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -94,8 +98,12 @@ export default function ConfigsPage(): React.ReactElement {
   // `filterResults` below).
   const visibleConfigs = useMemo(
     () =>
-      allConfigs.filter((c) =>
-        isProjectListValidForProject(c.project ? [c.project] : [], project),
+      allConfigs.filter(
+        (c) =>
+          // Env/project flavors are variants of another config, browsed via the
+          // env tabs on their parent — never listed as top-level configs.
+          !isScopedConfig(c) &&
+          isProjectListValidForProject(c.project ? [c.project] : [], project),
       ),
     [allConfigs, project],
   );

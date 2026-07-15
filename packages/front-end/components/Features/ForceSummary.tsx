@@ -12,6 +12,7 @@ export default function ForceSummary({
   maxHeight,
   sparse = false,
   isDefault = false,
+  environment,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -20,6 +21,9 @@ export default function ForceSummary({
   // The feature's default value (vs a rule). A config-backed default is a pure
   // config with no overrides, so the "with overrides" tag never applies to it.
   isDefault?: boolean;
+  // Environment this value is shown for, so a config-backed value previews its
+  // matching env flavor. Absent (e.g. all-environments view) = the base value.
+  environment?: string;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -38,6 +42,7 @@ export default function ForceSummary({
         maxHeight={maxHeight}
         sparse={sparse}
         isDefault={isDefault}
+        environment={environment}
       />
     );
   }

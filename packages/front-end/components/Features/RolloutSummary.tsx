@@ -1,5 +1,9 @@
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
+// Pre-existing Radix Text usage (weight + a raw `style` color that @/ui/Text
+// doesn't model); migrating it is an unrelated cleanup, not part of threading
+// the env-flavor prop below.
+// eslint-disable-next-line no-restricted-imports
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/ui/Badge";
@@ -18,6 +22,7 @@ export default function RolloutSummary({
   feature,
   hashAttribute,
   sparse = false,
+  environment,
 }: {
   value: string;
   coverage: number;
@@ -25,6 +30,9 @@ export default function RolloutSummary({
   hashAttribute: string;
   monitored?: boolean;
   sparse?: boolean;
+  // Environment this value is shown for, so a config-backed value previews its
+  // matching env flavor. Absent (all-environments view) = the base value.
+  environment?: string;
 }) {
   const displayCoverage = coverage;
   const type = feature.valueType;
@@ -94,6 +102,7 @@ export default function RolloutSummary({
           configKey={configKey}
           feature={feature}
           sparse={sparse}
+          environment={environment}
         />
       ) : (
         <>

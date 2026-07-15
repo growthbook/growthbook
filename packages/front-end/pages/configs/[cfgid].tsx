@@ -24,6 +24,7 @@ import {
   computeConfigReconciliationPreview,
   evaluateInvariants,
   invariantRuleFields,
+  isScopedConfig,
   SchemaProjection,
 } from "shared/util";
 import {
@@ -62,6 +63,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ConfigJsonEditor from "@/components/Configs/ConfigJsonEditor";
+import ConfigEnvTabs from "@/components/Configs/ConfigEnvTabs";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "@/ui/Switch";
 import {
@@ -350,6 +352,14 @@ export default function ConfigDetailPage(): React.ReactElement {
     { shouldRun: () => !!configKey },
   );
   const config = data?.config;
+
+  // Env flavors render in the tree grouped under their parent's "Environments"
+  // label (see LineageTree), so the tree gets the full lineage. The "Configs"
+  // count, though, is standalone configs only — exclude flavors (the marker).
+  const nonFlavorCount = useMemo(
+    () => (data?.lineage ?? []).filter((n) => !isScopedConfig(n)).length,
+    [data?.lineage],
+  );
 
   const {
     selectedRevision,
@@ -1331,7 +1341,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                       size="xs"
                       color="gray"
                       radius="full"
-                      label={`${data.lineage.length}`}
+                      label={`${nonFlavorCount}`}
                       style={{ justifyContent: "center", textAlign: "center" }}
                     />
                   </Flex>
@@ -1689,6 +1699,20 @@ export default function ConfigDetailPage(): React.ReactElement {
                       : undefined
                   }
                   disablePinning
+                />
+
+                <ConfigEnvTabs
+                  currentKey={config.key}
+                  currentConfigId={config.id}
+                  lineage={data.lineage}
+                  configNames={data.configNames}
+                  canCreate={
+                    hasConfigsFeature &&
+                    permissionsUtil.canCreateConfig({
+                      project: config.project || "",
+                    })
+                  }
+                  mutate={mutate}
                 />
 
                 <Box mb="4" pb="5" px="6" className="appbox">

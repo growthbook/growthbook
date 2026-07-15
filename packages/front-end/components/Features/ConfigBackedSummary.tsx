@@ -51,7 +51,16 @@ function ServeConfigHeader({
 type ResolvableInput = Pick<
   ConstantInterface,
   "key" | "type" | "value" | "project" | "archived"
-> & { source: ConstantSource };
+> & {
+  source: ConstantSource;
+  // A config's env/project flavor selection, so the resolver can swap in the
+  // matching flavor for the environment being previewed.
+  scopedOverrides?: {
+    config: string;
+    environments?: string[];
+    projects?: string[];
+  }[];
+};
 
 function toObject(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v)
@@ -75,6 +84,7 @@ export default function ConfigBackedSummary({
   maxHeight,
   sparse = false,
   isDefault = false,
+  environment,
 }: {
   value: string;
   configKey: string;
@@ -84,6 +94,9 @@ export default function ConfigBackedSummary({
   // A config-backed default is a pure config (no overrides), so never tag it
   // "with overrides" — that suffix is for rules that layer their own patch.
   isDefault?: boolean;
+  // The environment this value is being previewed for, so the config resolves
+  // with its matching env flavor (scopedOverrides). Absent = the base value.
+  environment?: string;
 }) {
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -98,16 +111,19 @@ export default function ConfigBackedSummary({
 
   const resolved = useMemo(() => {
     if (!data?.constants) return null;
-    const map = buildConstantValueMap(data.constants, "");
+    const env = environment ?? "";
+    const map = buildConstantValueMap(data.constants, env);
     const project = feature.project || "";
     // Resolve the config base — this flattens the constants the config itself
-    // references (and its lineage).
+    // references (and its lineage). Passing `env` applies the config's matching
+    // env flavor (scopedOverrides) so the preview matches the per-env payload.
     const base = resolveConstantRefs(
       JSON.parse(setConfigBacking(configKey, "{}")),
       map,
       undefined,
       undefined,
       project,
+      env,
     );
     let patch: Record<string, unknown> = {};
     try {
@@ -127,7 +143,7 @@ export default function ConfigBackedSummary({
     // the SDK ships (the config base above is already resolved).
     const resolvedPatch =
       toObject(
-        resolveConstantRefs(patch, map, undefined, undefined, project),
+        resolveConstantRefs(patch, map, undefined, undefined, project, env),
       ) ?? patch;
     const baseObj = toObject(base);
     // Deep (targeted) patch onto the resolved base, matching SDK resolution —
@@ -168,7 +184,15 @@ export default function ConfigBackedSummary({
       Object.keys(merged).filter((k) => !isEqual(merged[k], defaultObj[k])),
     );
     return { merged, diffKeys, hasOverrides };
-  }, [data, value, configKey, feature.project, feature.defaultValue, sparse]);
+  }, [
+    data,
+    value,
+    configKey,
+    feature.project,
+    feature.defaultValue,
+    sparse,
+    environment,
+  ]);
 
   // Validate the resolved (base + patch) value against the config's own schema.
   // The flag's `jsonSchema` is disabled for config-backed values, so this is the

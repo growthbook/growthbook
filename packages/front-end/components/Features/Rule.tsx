@@ -1432,6 +1432,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 value={rule.value}
                 feature={feature}
                 sparse={rule.sparse}
+                environment={isAllEnvsView ? undefined : environment}
               />
             )}
             {rule.type === "rollout" && (
@@ -1441,6 +1442,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
                 sparse={rule.sparse}
+                environment={isAllEnvsView ? undefined : environment}
                 monitored={
                   rampSchedule?.currentStepIndex !== undefined &&
                   rampSchedule.currentStepIndex >= 0 &&
@@ -1505,6 +1507,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
                 isDraft={isDraft}
+                environment={isAllEnvsView ? undefined : environment}
               />
             )}
             {rule.type === "contextual-bandit-ref" && (
