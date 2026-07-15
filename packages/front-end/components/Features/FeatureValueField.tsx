@@ -248,6 +248,11 @@ export default function FeatureValueField({
   // stored value changes from outside this editor (e.g. switching configs).
   const [configPatchDraft, setConfigPatchDraft] = useState<string | null>(null);
   const lastComposedValueRef = useRef<string | null>(null);
+  // The config the value was last backed by. While editing, a momentarily
+  // invalid-JSON patch makes getConfigBackingKey(value) return null; without
+  // this, a locked rule would silently fall back to the subtree root (the base)
+  // and recompose against it — changing the served value on a keystroke.
+  const lastBackingKeyRef = useRef<string | null>(null);
 
   // A config-backed default value serves the config as-is — this mode has no
   // patch editor (configBackingShowPatch off). Strip any orphaned override keys
@@ -374,7 +379,15 @@ export default function FeatureValueField({
         configBackingOptionKeys?.find((k) => eligibleKeys.has(k)) ??
         eligibleConfigs[0]?.key ??
         null;
-      const configKey = backedKey ?? (lockConfigBacking ? baseOptionKey : null);
+      // Mid-edit with an unparseable patch, `backedKey` reads null even though
+      // the backing hasn't changed — hold the last one so a locked rule doesn't
+      // silently re-point to the base. Only trust it while this editor owns the
+      // value (our own compose round-trip), else the value changed from outside.
+      const editingOwnValue =
+        configPatchDraft !== null && value === lastComposedValueRef.current;
+      const preservedKey = editingOwnValue ? lastBackingKeyRef.current : null;
+      const configKey =
+        backedKey ?? preservedKey ?? (lockConfigBacking ? baseOptionKey : null);
       const isBacked = configKey !== null;
       // When backed, the value's own keys are an override patch on the config;
       // otherwise the whole value is authored directly (and becomes the patch if a
@@ -396,6 +409,9 @@ export default function FeatureValueField({
       // Compose the patch back with the config ref and emit, buffering raw text.
       const emitPatch = (p: string) => {
         setConfigPatchDraft(p);
+        // Remember the backing as-of-emit so the next render can hold it if `p`
+        // is momentarily unparseable (getConfigBackingKey would read null).
+        lastBackingKeyRef.current = configKey;
         const composed = isBacked ? setConfigBacking(configKey, p) : p;
         lastComposedValueRef.current = composed;
         setValue(composed);
