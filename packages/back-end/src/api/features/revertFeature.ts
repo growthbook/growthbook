@@ -19,7 +19,10 @@ import {
   getFeature,
 } from "back-end/src/models/FeatureModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import {
   getApiFeatureObj,
   getSavedGroupMap,
@@ -271,29 +274,26 @@ export async function revertFeatureCore(
 
   const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const latestRevision = await getRevision({
+  // Re-read so events and the response carry the published status; falls back
+  // to the in-memory revision instead of failing the already-committed revert.
+  const latestRevision = await getPublishedRevisionForEvents(
     context,
-    organization: updatedFeature.organization,
-    featureId: updatedFeature.id,
-    feature: updatedFeature,
-    version: updatedFeature.version,
-  });
+    updatedFeature,
+    newRevision,
+  );
   // Emit the same revision lifecycle events as the app's revert flow so
-  // webhook consumers see API-initiated reverts too. The re-read revision
-  // carries the published status; fall back to the in-memory one if the
-  // re-read came back empty.
-  const eventRevision = latestRevision ?? newRevision;
+  // webhook consumers see API-initiated reverts too.
   await dispatchFeatureRevisionEvent(
     context,
     updatedFeature,
-    eventRevision,
+    latestRevision,
     "revision.reverted",
     { revertedToVersion: version },
   );
   await dispatchFeatureRevisionEvent(
     context,
     updatedFeature,
-    eventRevision,
+    latestRevision,
     "revision.published",
     {},
   );

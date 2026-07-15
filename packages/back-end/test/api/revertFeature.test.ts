@@ -23,7 +23,18 @@ jest.mock("back-end/src/services/audit", () => ({
   auditDetailsUpdate: jest.fn(() => ({})),
 }));
 
+jest.mock("back-end/src/models/EventModel", () => ({
+  createEvent: jest.fn(),
+}));
+
+jest.mock("back-end/src/util/logger", () => ({
+  logger: { error: jest.fn() },
+}));
+
+// Keep the real getPublishedRevisionForEvents (it drives the re-read/fallback
+// behavior under test, via the mocked getRevision) and stub only the dispatch.
 jest.mock("back-end/src/services/featureRevisionEvents", () => ({
+  ...jest.requireActual("back-end/src/services/featureRevisionEvents"),
   dispatchFeatureRevisionEvent: jest.fn(),
 }));
 
@@ -242,6 +253,30 @@ describe("revertFeatureCore revision events", () => {
       status: "draft",
     });
     expect(mockDispatchEvent.mock.calls[1][2]).toEqual({
+      version: 6,
+      status: "draft",
+    });
+  });
+
+  it("falls back and still succeeds when the post-publish read fails", async () => {
+    const { targetRevision } = setupSuccessfulRevert();
+    mockGetRevision
+      .mockResolvedValueOnce(targetRevision)
+      .mockRejectedValueOnce(new Error("mongo unavailable"));
+
+    // Must not throw — the revert already committed by the time the re-read runs.
+    await revertFeatureCore(
+      ctx,
+      org,
+      eventAudit,
+      { id: "feat_1" },
+      { revision: 3 },
+      jest.fn(),
+      false,
+    );
+
+    expect(mockDispatchEvent).toHaveBeenCalledTimes(2);
+    expect(mockDispatchEvent.mock.calls[0][2]).toEqual({
       version: 6,
       status: "draft",
     });

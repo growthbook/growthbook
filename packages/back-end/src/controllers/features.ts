@@ -141,6 +141,7 @@ import {
 import {
   dispatchFeatureRevisionEvent,
   dispatchRevisionReviewEvent,
+  getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
 import {
@@ -2151,17 +2152,17 @@ export async function postFeaturePublish(
     }),
   });
 
-  const publishedRevision = await getRevision({
+  // Re-read so the event carries the published status; falls back to the
+  // in-memory revision instead of failing the already-committed publish.
+  const publishedRevision = await getPublishedRevisionForEvents(
     context,
-    organization: org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
+    updatedFeature,
+    revision,
+  );
   await dispatchFeatureRevisionEvent(
     context,
     updatedFeature,
-    publishedRevision ?? revision,
+    publishedRevision,
     "revision.published",
     {},
   );
@@ -2496,16 +2497,13 @@ export async function postFeatureRevert(
     }),
   });
 
-  // Re-read the revision so dispatched events carry the published status —
-  // publishRevision updates the document in Mongo, not the in-memory object.
-  const publishedRevision = await getRevision({
+  // Re-read so dispatched events carry the published status; falls back to
+  // the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
-    organization: org.id,
-    featureId: feature.id,
-    feature: updatedFeature,
-    version: newRevision.version,
-  });
-  const finalRevision = publishedRevision ?? newRevision;
+    updatedFeature,
+    newRevision,
+  );
 
   await dispatchFeatureRevisionEvent(
     context,
