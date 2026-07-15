@@ -56,6 +56,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -276,6 +277,10 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+  // Selected rules env tab, lifted here so the Default Value display resolves a
+  // config-backed value for the same environment the rules are filtered to.
+  // null = "All environments".
+  const [rulesEnv, setRulesEnv] = useFeatureRulesEnv();
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -1540,6 +1545,13 @@ export default function FeaturesOverview({
                       value={getFeatureDefaultValue(feature)}
                       feature={feature}
                       isDefault={true}
+                      // Match FeatureRules' tab: ignore a stored env that isn't
+                      // one of this feature's environments (falls back to base).
+                      environment={
+                        rulesEnv !== null && envs.includes(rulesEnv)
+                          ? rulesEnv
+                          : undefined
+                      }
                     />
                   </Box>
                 </Flex>
@@ -1580,6 +1592,8 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      rulesEnv={rulesEnv}
+                      setRulesEnv={setRulesEnv}
                     />
                   </>
                 ) : (
