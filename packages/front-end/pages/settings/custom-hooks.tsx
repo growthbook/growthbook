@@ -10,7 +10,9 @@ import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { isCloud } from "@/services/env";
-import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
+import CustomHookModal, {
+  hookTypes,
+} from "@/components/CustomHooks/CustomHookModal";
 import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Table, {
   TableHeader,
@@ -129,7 +131,9 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         {hook.projects.length ? (
                           hook.projects.join(", ")
@@ -222,7 +226,9 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         <Link href={`/features/${hook.entityId}#validation`}>
                           {hook.entityId}
@@ -273,7 +279,9 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         <Link href={`/experiment/${hook.entityId}`}>
                           {hook.entityId}
