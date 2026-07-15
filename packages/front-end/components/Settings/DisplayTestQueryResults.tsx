@@ -1,4 +1,3 @@
-import { FaExclamationTriangle } from "react-icons/fa";
 import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
@@ -384,15 +383,16 @@ export default function DisplayTestQueryResults({
                   <ManagedWarehouseNoEventsCallout />
                 </div>
               ) : (
-                <div className="alert alert-danger mr-auto">{error}</div>
+                <Callout status="error" mr="auto">
+                  {error}
+                </Callout>
               )
             ) : (
               showNoRowsWarning &&
               !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
+                <Callout status="warning" mr="auto">
+                  No rows returned, could not verify result
+                </Callout>
               )
             )}
             <Code

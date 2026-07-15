@@ -15,7 +15,13 @@ export type RampScheduleStartedPayload = z.infer<
 >;
 
 export const rampScheduleStepAdvancedPayload =
-  rampScheduleBaseNotificationPayload.strict();
+  rampScheduleBaseNotificationPayload
+    .extend({
+      // Where the schedule was before this advance. A gap > 1 means a catch-up
+      // jump collapsed multiple overdue steps into this single event.
+      previousStepIndex: z.number().int().optional(),
+    })
+    .strict();
 export type RampScheduleStepAdvancedPayload = z.infer<
   typeof rampScheduleStepAdvancedPayload
 >;
@@ -28,8 +34,13 @@ export type RampScheduleStepApprovalRequiredPayload = z.infer<
   typeof rampScheduleStepApprovalRequiredPayload
 >;
 
-export const rampScheduleCompletedPayload =
-  rampScheduleBaseNotificationPayload.strict();
+export const rampScheduleCompletedPayload = rampScheduleBaseNotificationPayload
+  .extend({
+    // Where the schedule was before completion; a gap > 1 means overdue steps
+    // were folded into the completing advance.
+    previousStepIndex: z.number().int().optional(),
+  })
+  .strict();
 export type RampScheduleCompletedPayload = z.infer<
   typeof rampScheduleCompletedPayload
 >;

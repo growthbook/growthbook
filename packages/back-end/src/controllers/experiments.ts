@@ -8,6 +8,7 @@ import {
   getSnapshotAnalysis,
   isDefined,
   autoMerge,
+  includeExperimentInPayload,
 } from "shared/util";
 import {
   expandAllSliceMetricsInMap,
@@ -137,7 +138,7 @@ import {
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -1447,6 +1448,7 @@ export async function postExperiment(
       phaseStartDate?: string;
       phaseEndDate?: string;
       variationWeights?: number[];
+      coverage?: number;
     },
     { id: string }
   >,
@@ -1623,6 +1625,60 @@ export async function postExperiment(
 
   if (data.variations) {
     validateVariationIds(data.variations);
+  }
+
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const existingKeyById = new Map(
+    experiment.variations.map((v) => [v.id, v.key]),
+  );
+  const variationIdsChanged =
+    !!data.variations &&
+    !isEqual(
+      data.variations.map((v) => v.id),
+      latestPhase?.variations.map((v) => v.id),
+    );
+  // Variation keys are emitted in the SDK payload meta, so key edits also count
+  const variationKeysChanged =
+    !!data.variations &&
+    data.variations.some((v) => v.key !== existingKeyById.get(v.id));
+  const variationsChanged = variationIdsChanged || variationKeysChanged;
+  const coverageChanged =
+    data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
+  const variationWeightsChanged =
+    data.variationWeights !== undefined &&
+    !isEqual(data.variationWeights, latestPhase?.variationWeights);
+  if (
+    experiment.status === "running" &&
+    (variationsChanged || coverageChanged || variationWeightsChanged)
+  ) {
+    const linkedFeaturesForPayload = await getFeaturesByIds(
+      context,
+      experiment.linkedFeatures || [],
+    );
+    const inPayload = includeExperimentInPayload(
+      experiment,
+      linkedFeaturesForPayload,
+    );
+    if (inPayload) {
+      const fields = [];
+      if (variationIdsChanged) {
+        fields.push("variation IDs");
+      }
+      if (variationKeysChanged) {
+        fields.push("variation keys");
+      }
+      if (coverageChanged) {
+        fields.push("coverage");
+      }
+      if (variationWeightsChanged) {
+        fields.push("variationWeights");
+      }
+      res.status(400).json({
+        status: 400,
+        message: `Cannot change: [${fields.join(", ")}] while the experiment is running and live in the SDK payload.`,
+      });
+      return;
+    }
   }
 
   // Check if tracking key is being changed and validate uniqueness if required
@@ -1939,6 +1995,16 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
+  if (data.coverage !== undefined) {
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      coverage: data.coverage,
+    };
+    changes.phases = phases;
+  }
+
   // Only some fields affect production SDK payloads
   const needsRunExperimentsPermission = (
     [
@@ -2155,11 +2221,14 @@ export async function postExperimentUnarchive(
     if (linkedFeatureIds.length > 0) {
       Promise.all(
         linkedFeatureIds.map(async (featureId) => {
-          const revisions = await getNonDiscardedRevisionSummaries(
-            context.org.id,
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          return syncFeatureExperimentLinkages(
+            context,
             featureId,
+            openDrafts,
+            liveRevision,
           );
-          return syncFeatureExperimentLinkages(context, featureId, revisions);
         }),
       ).catch((e) => {
         logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
@@ -3182,6 +3251,10 @@ export async function postSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const force = !!req.query["force"];
   if (
     dimension &&
@@ -3342,6 +3415,10 @@ export async function postBanditSnapshot(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource for this experiment");
+  }
+
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   // We wait until the snapshot is fully updated, which can

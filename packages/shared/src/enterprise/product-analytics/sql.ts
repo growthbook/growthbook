@@ -1,5 +1,10 @@
 import { getValidDate } from "shared/dates";
 import { buildMinimalOrCondition, format } from "shared/sql";
+import {
+  buildManagedWarehouseAttributeAliasClause,
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+  MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
+} from "shared/util";
 import { SqlDialect } from "shared/types/sql";
 import {
   RowFilter,
@@ -45,7 +50,21 @@ type MinimalMetric = Pick<
   | "quantileSettings"
 >;
 interface MinimalDatasourceInterface {
+  type?: string;
   settings?: DataSourceSettings | null;
+}
+
+// Per-org managed-warehouse tables that carry the `attributes` JSON column, so a
+// `data_source` exploration querying one directly can be given the same column aliases
+// the fact table uses. Matches the table-name suffix (the information-schema path may be
+// db-qualified / backtick-quoted).
+const MANAGED_WAREHOUSE_PER_ORG_TABLES = new Set<string>([
+  MANAGED_WAREHOUSE_EVENTS_TABLE,
+  MANAGED_WAREHOUSE_EXPERIMENT_VIEWS_TABLE,
+]);
+function isManagedWarehousePerOrgTable(path: string): boolean {
+  const table = path.replace(/`/g, "").split(".").pop()?.trim().toLowerCase();
+  return table !== undefined && MANAGED_WAREHOUSE_PER_ORG_TABLES.has(table);
 }
 interface MetricWithMetadata {
   metric: MinimalMetric;
@@ -125,24 +144,33 @@ function getFactTableGroups({
   config,
   factTableMap,
   metricMap,
-  datasourceSettings,
+  datasource,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
-  datasourceSettings: DataSourceSettings | null;
+  datasource: MinimalDatasourceInterface;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
   }
+  const datasourceSettings = datasource.settings || null;
 
   switch (config.dataset.type) {
-    case "data_source":
+    case "data_source": {
+      // For a migrated managed warehouse, re-expose former materialized columns as
+      // top-level aliases (same as the fact table) so bare references in a raw
+      // `data_source` exploration keep resolving. No-op for legacy/other datasources.
+      const aliasClause =
+        datasource.type === "growthbook_clickhouse" &&
+        isManagedWarehousePerOrgTable(config.dataset.path)
+          ? buildManagedWarehouseAttributeAliasClause(datasourceSettings)
+          : "";
       return [
         {
           index: 0,
           factTable: createStubFactTable(
-            `SELECT * FROM ${config.dataset.path}`,
+            `SELECT *${aliasClause} FROM ${config.dataset.path}`,
             config.dataset.timestampColumn,
             config.dataset.columnTypes,
             datasourceSettings,
@@ -150,6 +178,7 @@ function getFactTableGroups({
           ...getMetricsAndUnitsFromValues(config.dataset.values),
         },
       ];
+    }
     case "fact_table":
       return (() => {
         if (!config.dataset.factTableId) {
@@ -1110,7 +1139,7 @@ export function generateProductAnalyticsSQL(
     config,
     factTableMap,
     metricMap,
-    datasourceSettings: datasource.settings || null,
+    datasource,
   });
 
   // Get all metric aliases

@@ -9,7 +9,7 @@ import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { getInitialSettings } from "@/services/datasources";
@@ -24,6 +24,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -199,27 +200,24 @@ const DataSourceForm: FC<{
       }
     >
       {importSampleData && !datasource.type && (
-        <div className="alert alert-info">
-          <div className="row align-items-center">
-            <div className="col">
-              <div>
-                <strong>Not ready to connect to your data source?</strong>
-              </div>{" "}
-              Try out GrowthBook first with a sample dataset.
-            </div>
-            <div className="col-auto">
-              <Button
-                color="info"
-                className="btn-sm"
-                onClick={async () => {
-                  await importSampleData();
-                }}
-              >
-                Use Sample Data
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Callout
+          status="info"
+          action={
+            <Button
+              color="inherit"
+              onClick={async () => {
+                await importSampleData();
+              }}
+            >
+              Use Sample Data
+            </Button>
+          }
+        >
+          <div>
+            <strong>Not ready to connect to your data source?</strong>
+          </div>{" "}
+          Try out GrowthBook first with a sample dataset.
+        </Callout>
       )}
       <SelectField
         label="Data Source Type"
@@ -294,7 +292,7 @@ const DataSourceForm: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={datasource.projects || []}
             options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}

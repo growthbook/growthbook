@@ -22,6 +22,7 @@ import GranularitySelector from "@/enterprise/components/ProductAnalytics/MainSe
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import DataSourceDropdown from "@/enterprise/components/ProductAnalytics/MainSection/Toolbar/DataSourceDropdown";
+import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import Switch from "@/ui/Switch";
 import {
   createEmptyValue,
@@ -40,10 +41,18 @@ import DatasourceConfigurator from "./DatasourceConfigurator";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
+  dashboardDateRange?: ExplorationConfig["dateRange"];
+  useDashboardDateControl?: boolean;
+  onGlobalControlSettingsChange?: (settings: { dateRange?: boolean }) => void;
+  onSubmit?: () => void;
 }
 
 export default function ExplorerSideBar({
   renderingInDashboardSidebar = false,
+  dashboardDateRange,
+  useDashboardDateControl = false,
+  onGlobalControlSettingsChange,
+  onSubmit,
 }: Props) {
   const [showSaveToDashboardModal, setShowSaveToDashboardModal] =
     useState(false);
@@ -63,7 +72,7 @@ export default function ExplorerSideBar({
     error,
     trackingSource,
     submittedExploreState,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
   const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
@@ -99,6 +108,9 @@ export default function ExplorerSideBar({
     Boolean(draftExploreState.dateRange.endDate);
   const isTimeSeriesChart = ["line", "area", "timeseries-table"].includes(
     draftExploreState.chartType,
+  );
+  const usesInheritedDashboardDateRange = Boolean(
+    dashboardDateRange && useDashboardDateControl,
   );
 
   return (
@@ -200,7 +212,9 @@ export default function ExplorerSideBar({
                   !draftExploreState?.dataset?.values?.length ||
                   !isSubmittable
                 }
-                onClick={() => handleSubmit({ force: isStale })}
+                onClick={() =>
+                  onSubmit ? onSubmit() : handleSubmit({ force: isStale })
+                }
               >
                 <Flex align="center" gap="2">
                   <PiArrowsClockwise />
@@ -242,22 +256,58 @@ export default function ExplorerSideBar({
                 label="Compare"
                 value={compareEnabled}
                 onChange={setCompareEnabled}
-                disabled={
-                  !submittedExploreState || managedWarehouseAwaitingProvisioning
-                }
+                disabled={!submittedExploreState || managedWarehouseUnavailable}
               />
             </Flex>
             <GraphTypeSelector />
           </Flex>
           <Flex direction="column" gap="2" width="100%" style={{ minWidth: 0 }}>
-            <Text weight="medium">Date Range</Text>
-            {showComparisonDateControls ? (
+            <Flex justify="between" align="center" gap="2" width="100%">
+              <Text weight="medium">Date Range</Text>
+              {dashboardDateRange ? (
+                <Switch
+                  size="1"
+                  value={useDashboardDateControl}
+                  onChange={(checked) =>
+                    onGlobalControlSettingsChange?.({ dateRange: checked })
+                  }
+                  label={
+                    <Flex direction="row" align="center" gap="1">
+                      <Text size="small" weight="medium">
+                        Use dashboard date filter
+                      </Text>
+                      <Tooltip
+                        body={
+                          useDashboardDateControl
+                            ? "This block uses the dashboard date range."
+                            : "This block overrides the dashboard date filter."
+                        }
+                      />
+                    </Flex>
+                  }
+                />
+              ) : null}
+            </Flex>
+            {dashboardDateRange && useDashboardDateControl ? (
+              <Flex
+                p="2"
+                style={{
+                  border: "1px solid var(--gray-a3)",
+                  borderRadius: "var(--radius-3)",
+                  backgroundColor: "var(--gray-a2)",
+                }}
+              >
+                <Text size="medium" color="text-low">
+                  {formatExplorationDateRange(dashboardDateRange)}
+                </Text>
+              </Flex>
+            ) : showComparisonDateControls ? (
               <ComparisonDateControls fullWidth />
             ) : (
               <DateRangePicker fullWidth />
             )}
           </Flex>
-          {isTimeSeriesChart && (
+          {isTimeSeriesChart && !usesInheritedDashboardDateRange && (
             <Flex direction="column" gap="2" width="100%">
               <Text weight="medium">Date Granularity</Text>
               <GranularitySelector />

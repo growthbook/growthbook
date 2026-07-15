@@ -20,6 +20,7 @@ import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const methodTypes: WebhookMethod[] = [
   "GET",
@@ -367,7 +368,7 @@ export function CreateSDKWebhookModal({
               key="http_endpoint_url"
             />
             {form.watch("endpoint").match(/localhost/) && (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 <strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}
                 <a
@@ -378,7 +379,7 @@ export function CreateSDKWebhookModal({
                   ngrok
                 </a>{" "}
                 instead.
-              </div>
+              </Callout>
             )}
 
             <SelectField
@@ -407,9 +408,9 @@ export function CreateSDKWebhookModal({
               helpText={
                 <>
                   {!validHeaders ? (
-                    <div className="alert alert-danger mr-auto">
+                    <Callout status="error" mr="auto">
                       Invalid JSON
-                    </div>
+                    </Callout>
                   ) : (
                     <div>
                       JSON format for headers. Supports{" "}
@@ -583,7 +584,9 @@ const EditSDKWebhooksModal: FC<{
       helpText={
         <>
           {!validHeaders ? (
-            <div className="alert alert-danger mr-auto">Invalid JSON</div>
+            <Callout status="error" mr="auto">
+              Invalid JSON
+            </Callout>
           ) : (
             <div>JSON format for headers.</div>
           )}
@@ -626,7 +629,7 @@ const EditSDKWebhooksModal: FC<{
         }
       />
       {form.watch("endpoint").match(/localhost/) && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
           <a
             href="https://www.npmjs.com/package/ngrok"
@@ -636,7 +639,7 @@ const EditSDKWebhooksModal: FC<{
             ngrok
           </a>{" "}
           instead.
-        </div>
+        </Callout>
       )}
 
       <SelectField

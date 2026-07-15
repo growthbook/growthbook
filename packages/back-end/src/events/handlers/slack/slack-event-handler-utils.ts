@@ -1512,6 +1512,26 @@ const buildSlackMessageForExperimentWarningEvent = (
       };
     }
 
+    case "underpowered": {
+      const text = (experimentName: string) =>
+        `Experiment ${experimentName} is underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
     case "scheduled-status-update-failed": {
       const action =
         data.scheduledStatusUpdateType === "start" ? "start" : "stop";

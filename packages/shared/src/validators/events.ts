@@ -156,7 +156,7 @@ export const notificationEvents = {
     "rampSchedule.actions.step.advanced": {
       schema: rampScheduleStepAdvancedPayload,
       description:
-        "Triggered when a feature ramp schedule advances to the next step",
+        "Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually.",
     },
     "rampSchedule.actions.step.approvalRequired": {
       schema: rampScheduleStepApprovalRequiredPayload,

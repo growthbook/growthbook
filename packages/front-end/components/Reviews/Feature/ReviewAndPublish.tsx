@@ -1035,7 +1035,7 @@ export default function ReviewAndPublish({
         Select a revision from the dropdown above to review.
         {onClose && (
           <Box mt="2">
-            <Button variant="soft" onClick={() => onClose()}>
+            <Button color="inherit" variant="soft" onClick={() => onClose()}>
               Back to Overview
             </Button>
           </Box>
@@ -1954,20 +1954,14 @@ export default function ReviewAndPublish({
             mb="4"
             style={{ maxWidth: 800, margin: "0 auto var(--space-4)" }}
           >
-            <Callout
-              status="info"
-              contentsAs="div"
-              icon={<PiGitMergeBold size={18} />}
-            >
-              <Text as="p">
-                Your draft is based on an older version, and the live version
-                has since been published with conflicting changes. Resolve each
-                conflict below, then click{" "}
-                <Text as="span" weight="medium">
-                  Update Draft
-                </Text>{" "}
-                to rebase your draft onto the current live version.
-              </Text>
+            <Callout status="info" icon={<PiGitMergeBold size={18} />}>
+              Your draft is based on an older version, and the live version has
+              since been published with conflicting changes. Resolve each
+              conflict below, then click{" "}
+              <Text as="span" weight="medium">
+                Update Draft
+              </Text>{" "}
+              to rebase your draft onto the current live version.
             </Callout>
           </Box>
           {mergeResult.conflicts.map((conflict) => (
@@ -2317,42 +2311,49 @@ export default function ReviewAndPublish({
           </Box>
         )}
 
-        {requireReviews && reviewers.length > 0 && (
-          <Box mb="3">
-            <Text
-              size="medium"
-              weight="medium"
-              color="text-high"
-              as="div"
-              mb="2"
-            >
-              Reviewers
-            </Text>
-            <Flex direction="column" gap="2">
-              {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                const u = users.get(id);
-                const name = u?.name || r.name || "";
-                const email = u?.email || r.email || "";
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={name}
-                    email={email}
-                    trailing={
-                      <ReviewerVerdictIcon
-                        status={status}
-                        name={name || email}
-                        timestamp={timestamp}
-                        stale={stale}
-                      />
-                    }
-                  />
-                );
-              })}
-            </Flex>
-          </Box>
-        )}
+        {requireReviews &&
+          (reviewers.length > 0 || revision.status === "pending-review") && (
+            <Box mb="3">
+              <Text
+                size="medium"
+                weight="medium"
+                color="text-high"
+                as="div"
+                mb="2"
+              >
+                Reviewers
+              </Text>
+              {reviewers.length === 0 &&
+                revision.status === "pending-review" && (
+                  <Text size="small" color="text-mid" as="div">
+                    No reviews yet.
+                  </Text>
+                )}
+              <Flex direction="column" gap="2">
+                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
+                  const u = users.get(id);
+                  const name = u?.name || r.name || "";
+                  const email = u?.email || r.email || "";
+                  return (
+                    <PersonRow
+                      key={id}
+                      id={id}
+                      name={name}
+                      email={email}
+                      trailing={
+                        <ReviewerVerdictIcon
+                          status={status}
+                          name={name || email}
+                          timestamp={timestamp}
+                          stale={stale}
+                        />
+                      }
+                    />
+                  );
+                })}
+              </Flex>
+            </Box>
+          )}
 
         {!experimentsStep &&
           (approved || !requireReviews) &&
@@ -2431,6 +2432,25 @@ export default function ReviewAndPublish({
                 align="center"
               />
             </Flex>
+          )}
+
+          {/* Non-reviewers see an explicit status while the draft waits on a
+              review — without it the tab shows only the status badge and the
+              draft reads as stuck. */}
+          {/* Suppressed when the admin-bypass publish section renders below —
+              "waiting for a reviewer" next to a working Publish button reads
+              as a contradiction. */}
+          {state.waitingForReview && !canReview && !showPublishSection && (
+            <Callout status="info" size="sm">
+              Waiting for a reviewer.{" "}
+              {createdBy?.id === user?.id
+                ? "Authors can't approve their own drafts. "
+                : ""}
+              Anyone with review permission on this feature can approve it.
+              {state.canRecallReview
+                ? " You can also return the draft to editing, which withdraws the review request."
+                : ""}
+            </Callout>
           )}
 
           {(() => {

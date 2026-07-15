@@ -1,6 +1,12 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
-import { Slider } from "@radix-ui/themes";
-import React, { useState } from "react";
+import { Box, Flex, Slider } from "@radix-ui/themes";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getEqualWeights } from "shared/experiments";
 import { PiArrowsClockwise, PiLockSimpleFill } from "react-icons/pi";
 import {
@@ -54,6 +60,12 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // When set, the variation with this id has its Name field auto-focused on
+  // mount.
+  autoFocusVariationId?: string | null;
+  // When true, a new variation is appended once on mount (reusing the same
+  // "Add variation" behavior) and its Name field is auto-focused.
+  autoAddVariationOnMount?: boolean;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -88,9 +100,14 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  autoFocusVariationId,
+  autoAddVariationOnMount,
   sparse,
 }: Props) {
-  const weights = variations?.map((v) => v.weight) || [];
+  const weights = useMemo(
+    () => variations?.map((v) => v.weight) || [],
+    [variations],
+  );
   const isEqualWeights = weights?.every(
     (w) => Math.abs(w - weights[0]) < 0.0001,
   );
@@ -115,6 +132,57 @@ export default function FeatureVariationsInput({
       setWeight(i, w);
     });
   };
+
+  const addVariation = useCallback((): string | null => {
+    if (!variations || !setVariations) return null;
+    const newWeights = distributeWeights([...weights, 0], editingSplits);
+    const newId = generateVariationId();
+    const newValues = [
+      ...variations,
+      {
+        value: getDefaultVariationValue(defaultValue),
+        name: `Variation ${variations.length}`,
+        weight: 0,
+        id: newId,
+      },
+    ];
+    newValues.forEach((v, i) => {
+      v.weight = newWeights[i] || 0;
+    });
+    setVariations(newValues);
+    if (isEqualWeights && setWeight) {
+      getEqualWeights(newValues.length).forEach((w, i) => setWeight(i, w));
+    }
+    return newId;
+  }, [
+    variations,
+    setVariations,
+    setWeight,
+    weights,
+    editingSplits,
+    isEqualWeights,
+    defaultValue,
+  ]);
+
+  // Id of a variation added on mount via autoAddVariationOnMount; used to
+  // auto-focus its Name field.
+  const [autoAddedVariationId, setAutoAddedVariationId] = useState<
+    string | null
+  >(null);
+  const didAutoAddRef = useRef(false);
+  useEffect(() => {
+    if (!autoAddVariationOnMount || didAutoAddRef.current) return;
+    didAutoAddRef.current = true;
+    const newId = addVariation();
+    if (newId !== null) {
+      setAutoAddedVariationId(newId);
+      setNumberOfVariations((variations?.length ?? 0) + 1 + "");
+    }
+    // Only run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAddVariationOnMount]);
+
+  const focusVariationId = autoAddedVariationId ?? autoFocusVariationId ?? null;
 
   const label = _label
     ? _label
@@ -395,6 +463,10 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         className={sortableClassName}
+                        autoFocusName={
+                          focusVariationId !== null &&
+                          variation.id === focusVariationId
+                        }
                         sparse={sparse}
                       />
                     ))}
@@ -407,60 +479,37 @@ export default function FeatureVariationsInput({
                   setWeight &&
                   !onlySafeToEditVariationMetadata && (
                     <tr>
-                      <td colSpan={10}>
-                        <div className="row">
-                          <div className="col">
-                            {valueType !== "boolean" && setVariations && (
-                              <a
-                                role="button"
-                                className="btn btn-link link-purple font-weight-bold p-0"
-                                onClick={() => {
-                                  const newWeights = distributeWeights(
-                                    [...weights, 0],
-                                    editingSplits,
-                                  );
-
-                                  // Add a new value and update weights
-                                  const newValues = [
-                                    ...variations,
-                                    {
-                                      value:
-                                        getDefaultVariationValue(defaultValue),
-                                      name: `Variation ${variations.length}`,
-                                      weight: 0,
-                                      id: generateVariationId(),
-                                    },
-                                  ];
-                                  newValues.forEach((v, i) => {
-                                    v.weight = newWeights[i] || 0;
-                                  });
-                                  setVariations(newValues);
-                                  if (isEqualWeights) {
-                                    getEqualWeights(newValues.length).forEach(
-                                      (w, i) => setWeight(i, w),
-                                    );
-                                  }
-                                }}
-                              >
-                                <GBAddCircle className="mr-1" />
-                                Add variation
-                              </a>
-                            )}
-                            {valueType === "boolean" && (
-                              <>
-                                <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                  <a
-                                    role="button"
-                                    className="btn btn-link p-0 disabled"
-                                  >
-                                    <GBAddCircle className="mr-2" />
-                                    Add variation
-                                  </a>
-                                </Tooltip>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                      <td colSpan={10} style={{ paddingLeft: 0 }}>
+                        <Box>
+                          {valueType !== "boolean" && setVariations && (
+                            <Link
+                              onClick={() => {
+                                addVariation();
+                              }}
+                            >
+                              <Flex align="center" gap="2">
+                                <GBAddCircle /> Add variation
+                              </Flex>
+                            </Link>
+                          )}
+                          {valueType === "boolean" && (
+                            <>
+                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                                <Link
+                                  style={{
+                                    cursor: "not-allowed",
+                                  }}
+                                >
+                                  <Flex align="center" gap="2">
+                                    <Text color="text-disabled">
+                                      <GBAddCircle /> Add variation
+                                    </Text>
+                                  </Flex>
+                                </Link>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
                       </td>
                     </tr>
                   )}

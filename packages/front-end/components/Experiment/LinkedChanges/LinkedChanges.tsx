@@ -40,6 +40,7 @@ export default function LinkedChanges({
   onAddVariation,
   canEditExperiment,
   setEditVariationIndex,
+  hideVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -57,6 +58,7 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
+  hideVariations?: boolean;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -69,11 +71,13 @@ export default function LinkedChanges({
 
   return (
     <Frame>
-      <Flex justify="between" align="center" mb="4" mx="1" gap="3">
+      <Flex justify="between" align="center" mb="4" gap="3">
         <Heading color="text-high" as="h4" size="small">
-          {isPublic ? "Linked Changes" : "Variations & Values"}
+          {isPublic || hideVariations
+            ? "Linked Changes"
+            : "Variations & Values"}
         </Heading>
-        {!isPublic && onAddVariation ? (
+        {!isPublic && onAddVariation && !hideVariations ? (
           <Button variant="ghost" onClick={onAddVariation}>
             Edit Variations
           </Button>
@@ -108,7 +112,7 @@ export default function LinkedChanges({
         </Flex>
       ) : (
         <>
-          {!isPublic ? (
+          {!isPublic && !hideVariations ? (
             <>
               <Box>
                 <VariationsTable
@@ -123,7 +127,9 @@ export default function LinkedChanges({
                   }
                 />
               </Box>
-              <Separator size="4" my="6" />
+              {(numLinkedChanges !== 0 || experiment.status === "draft") && (
+                <Separator size="4" my="6" />
+              )}
             </>
           ) : null}
           {linkedFeatures.map((info) => (

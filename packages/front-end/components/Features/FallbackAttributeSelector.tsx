@@ -114,7 +114,7 @@ export default function FallbackAttributeSelector({
 
   return (
     <Flex direction="column" flexGrow="1" mt="4">
-      <Text as="label" weight="semibold" mb="1">
+      <Text as="label" color="text-high" weight="semibold" mb="1">
         Fallback Attribute
       </Text>
       <Text as="div" color="text-mid" mb="2">

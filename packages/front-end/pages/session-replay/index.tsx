@@ -12,9 +12,9 @@ import {
   PiPlus,
   PiX,
 } from "react-icons/pi";
+import { AppFeatures } from "shared/types/app-features";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
-import { AppFeatures } from "@/types/app-features";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";

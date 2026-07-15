@@ -9,7 +9,6 @@ import {
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js/pure";
-import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/ui/Callout";
@@ -115,13 +114,15 @@ export function StripeProvider({
     return <Callout status="error">Missing Stripe Publishable Key</Callout>;
   if (error)
     return (
-      <Callout status="error" contentsAs="div">
-        <Flex align="center" justify="between" gap="3">
-          <span>{error}</span>
-          <Button variant="soft" onClick={retrySetupStripe}>
+      <Callout
+        status="error"
+        action={
+          <Button color="inherit" variant="soft" onClick={retrySetupStripe}>
             Retry
           </Button>
-        </Flex>
+        }
+      >
+        {error}
       </Callout>
     );
   if (!clientSecret || !stripePromise) return <LoadingOverlay />;

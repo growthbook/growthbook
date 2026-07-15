@@ -7,6 +7,7 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
   if (!vals.length) {
@@ -88,9 +89,9 @@ const VariationIdWarning: FC<{
     }
     return (
       <div className="px-3">
-        <div className="alert alert-info">
+        <Callout status="info">
           Results are out of date. Update Data to refresh.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -108,7 +109,7 @@ const VariationIdWarning: FC<{
             setVariationIds={setVariationIds}
           />
         )}
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning:</strong> Expected {variations.length} variation ids (
           <CommaList vals={definedVariations} />
           ), but database returned{" "}
@@ -132,7 +133,7 @@ const VariationIdWarning: FC<{
                 Update Ids
               </button>
             )}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -141,7 +142,7 @@ const VariationIdWarning: FC<{
   if (definedVariations.length > returnedVariations.length) {
     return (
       <div className="px-3">
-        <div className="alert alert-warning">
+        <Callout status="warning">
           <strong>Warning</strong>: Missing data from the following variation
           ids:{" "}
           <CommaList
@@ -149,7 +150,7 @@ const VariationIdWarning: FC<{
               (v) => !returnedVariations.includes(v),
             )}
           />
-        </div>
+        </Callout>
       </div>
     );
   }

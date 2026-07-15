@@ -5,6 +5,7 @@ import {
 import { ApiErrorDetails } from "shared/validators";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { hasAttributeCondition } from "shared/experiments";
 import { format } from "date-fns-tz";
 import { ReactNode, useState } from "react";
 import { Box, Flex, type AvatarProps } from "@radix-ui/themes";
@@ -180,9 +181,7 @@ export default function StartExperimentModal({
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
   const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
   const isBandit = experiment.type === "multi-armed-bandit";
-  const hasAttributeTargeting = !!(
-    latestPhase?.condition && latestPhase.condition !== "{}"
-  );
+  const hasAttributeTargeting = hasAttributeCondition(latestPhase?.condition);
   const hasSavedGroupTargeting = !!latestPhase?.savedGroups?.length;
   const hasPrerequisites = !!latestPhase?.prerequisites?.length && !isHoldout;
   const hasLinkedChanges =

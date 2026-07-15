@@ -16,10 +16,10 @@ import {
 import Markdown from "@/components/Markdown/Markdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DataList, { DataListItem } from "@/ui/DataList";
-import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -255,9 +255,9 @@ const CustomFieldDisplay: FC<{
               </Flex>
               <div className="flex-1" />
               {canEdit && hasCustomFieldAccess && (
-                <Button variant="ghost" onClick={() => setEditModal(true)}>
-                  Edit
-                </Button>
+                <Link onClick={() => setEditModal(true)}>
+                  <Text weight="semibold">Edit</Text>
+                </Link>
               )}
             </Flex>
             <DataList data={displayFieldsObj} maxColumns={3} />
@@ -271,9 +271,9 @@ const CustomFieldDisplay: FC<{
                 </Heading>
                 <div className="flex-1" />
                 {canEdit && hasCustomFieldAccess && (
-                  <Button variant="ghost" onClick={() => setEditModal(true)}>
-                    Edit
-                  </Button>
+                  <Link onClick={() => setEditModal(true)}>
+                    <Text weight="semibold">Edit</Text>
+                  </Link>
                 )}
               </Flex>
               <DataList data={displayFieldsObj} maxColumns={3} />

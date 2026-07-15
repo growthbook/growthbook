@@ -244,7 +244,7 @@ const Results: FC<{
       )}
 
       {!hasMetrics && (
-        <div className="alert alert-info m-3">
+        <Callout status="info" m="3">
           Add at least 1 metric to view results.{" "}
           {editMetrics && (
             <button
@@ -258,7 +258,7 @@ const Results: FC<{
               Add Metrics
             </button>
           )}
-        </div>
+        </Callout>
       )}
 
       {status === "failed" && !hasData && !snapshotLoading ? (
