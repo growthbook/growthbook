@@ -316,10 +316,10 @@ export class DashboardModel extends BaseClass {
     return DashboardModel.migrateDoc(orig);
   }
 
-  // Cross-org lookup by globally-unique uid for the unauthenticated public
-  // dashboard endpoint. This bypasses org scoping and permission checks, so
-  // the caller MUST verify shareLevel === "public" before returning any data.
-  public static async dangerousGetByUid(
+  // Cross-org lookup by globally-unique uid. This bypasses org scoping and
+  // permission checks entirely, so it is private and only reachable through
+  // getPublicByUid, which enforces the shareLevel === "public" gate.
+  private static async dangerousGetByUid(
     uid: string,
   ): Promise<DashboardInterface | null> {
     const doc = await getCollection(COLLECTION_NAME).findOne({
@@ -329,6 +329,16 @@ export class DashboardModel extends BaseClass {
     });
     if (!doc) return null;
     return DashboardModel.migrateDoc(doc as unknown as LegacyDashboardDocument);
+  }
+
+  // Safe cross-org lookup for the unauthenticated public dashboard endpoints.
+  // Returns null for both missing and non-public dashboards so private,
+  // cross-org data can never leak, regardless of what the caller does.
+  public static async getPublicByUid(
+    uid: string,
+  ): Promise<DashboardInterface | null> {
+    const dashboard = await DashboardModel.dangerousGetByUid(uid);
+    return dashboard?.shareLevel === "public" ? dashboard : null;
   }
 
   protected async customValidation(toSave: DashboardDocument) {

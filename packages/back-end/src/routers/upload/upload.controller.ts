@@ -316,21 +316,14 @@ export async function getSignedPublicImageToken(
     // variation screenshots for reports since those are not included in reports
   } else {
     // shareType === "dashboard"
-    dashboard = await DashboardModel.dangerousGetByUid(shareUid);
+    // getPublicByUid returns null for both missing and non-public dashboards,
+    // so a private dashboard's existence can't be probed via this endpoint.
+    dashboard = await DashboardModel.getPublicByUid(shareUid);
 
     if (!dashboard) {
       res.status(404).json({
         status: 404,
         message: "Dashboard not found",
-      });
-      return;
-    }
-
-    // Verify the dashboard is publicly shared
-    if (dashboard.shareLevel !== "public") {
-      res.status(403).json({
-        status: 403,
-        message: "Dashboard is not publicly shared",
       });
       return;
     }

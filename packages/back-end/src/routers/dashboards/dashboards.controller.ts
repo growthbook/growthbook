@@ -55,20 +55,18 @@ interface MultiDashboardResponse {
   dashboards: DashboardInterface[];
 }
 
-// Looks up a public dashboard by uid and enforces the shareLevel === "public"
-// gate, sending the 404/401 response itself. Returns null when it has already
-// responded, so callers should `if (!dashboard) return;`.
+// Looks up a public dashboard by uid, sending the 404 response itself. Missing
+// and non-public dashboards are indistinguishable here (both 404) so an
+// anonymous caller can't probe for the existence of private dashboards.
+// Returns null when it has already responded, so callers should
+// `if (!dashboard) return;`.
 async function loadPublicDashboardOrRespond(
   uid: string,
   res: Response,
 ): Promise<DashboardInterface | null> {
-  const dashboard = await DashboardModel.dangerousGetByUid(uid);
+  const dashboard = await DashboardModel.getPublicByUid(uid);
   if (!dashboard) {
     res.status(404).json({ status: 404, message: "Dashboard not found" });
-    return null;
-  }
-  if (dashboard.shareLevel !== "public") {
-    res.status(401).json({ status: 401, message: "Unauthorized" });
     return null;
   }
   return dashboard;
