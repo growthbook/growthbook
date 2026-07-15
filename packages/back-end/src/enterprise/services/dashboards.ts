@@ -35,6 +35,7 @@ import {
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
 import { FactTableInterface } from "shared/types/fact-table";
+import { DimensionInterface } from "shared/types/dimension";
 import { ProjectInterface } from "shared/types/project";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -549,6 +550,28 @@ const SENSITIVE_METRIC_FIELDS = [
   "queryFormat",
 ] as const;
 
+// Fact tables carry warehouse SQL: the top-level `sql` and each `filters[].value`
+// (raw SQL expressions). Blank those before exposing to anonymous viewers. The
+// public blocks only read columns/userIdTypes/eventName for display; `filters`
+// SQL is used solely by server-side query generation, never in read-only render.
+function redactFactTableForPublic(
+  factTable: FactTableInterface,
+): FactTableInterface {
+  return {
+    ...factTable,
+    sql: "",
+    filters: factTable.filters.map((f) => ({ ...f, value: "" })),
+  };
+}
+
+// Dimensions carry a raw `sql` definition; blank it (only id/name are used for
+// labels on the public page).
+function redactDimensionForPublic(
+  dimension: DimensionInterface,
+): DimensionInterface {
+  return { ...dimension, sql: "" };
+}
+
 export async function generateDashboardSSRData({
   context,
   dashboard,
@@ -666,11 +689,13 @@ export async function generateDashboardSSRData({
   const factTables = await getFactTablesByIds(context, factTableIds);
   const factTableMap: Record<string, FactTableInterface> = {};
   factTables.forEach((ft) => {
-    factTableMap[ft.id] = ft;
+    factTableMap[ft.id] = redactFactTableForPublic(ft);
   });
 
   const allDimensions = await findDimensionsByOrganization(context.org.id);
-  const dimensions = allDimensions.filter((d) => dimensionIds.has(d.id));
+  const dimensions = allDimensions
+    .filter((d) => dimensionIds.has(d.id))
+    .map(redactDimensionForPublic);
 
   const experiments: Record<
     string,
