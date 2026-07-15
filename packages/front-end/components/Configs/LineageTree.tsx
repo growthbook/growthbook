@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -123,6 +123,32 @@ export default function LineageTree({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+
+  // The "Environments" branch defaults collapsed (env variants are secondary to
+  // the main lineage), unlike config nodes which default expanded. Keyed by the
+  // parent config; presence = open.
+  const [openEnvGroups, setOpenEnvGroups] = useState<Set<string>>(new Set());
+
+  // Auto-open the branch containing the flavor you're currently viewing so it's
+  // visible on landing, and leave it open once opened — navigating away doesn't
+  // re-collapse it (an explicit toggle still can).
+  useEffect(() => {
+    const current = nodeByKey.get(currentKey);
+    const parentKey = current?.parentKey;
+    if (current && parentKey && isScopedConfig(current)) {
+      setOpenEnvGroups((prev) =>
+        prev.has(parentKey) ? prev : new Set(prev).add(parentKey),
+      );
+    }
+  }, [currentKey, nodeByKey]);
+
+  const toggleEnvGroup = (parentKey: string) =>
+    setOpenEnvGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentKey)) next.delete(parentKey);
+      else next.add(parentKey);
       return next;
     });
 
@@ -303,11 +329,11 @@ export default function LineageTree({
     );
   };
 
-  // The "Environments" branch under a node: a muted group label (a sibling of
+  // The "Environments" branch under a node: a collapsible group (a sibling of
   // the node's child configs, connected to the node's guide by a stub) with the
-  // env-override leaves nested one level beneath it. This keeps env overrides a
-  // distinct branch rather than siblings of the child configs. Rendered before
-  // the child configs; null when the node has none. `depth` is the child level.
+  // env-override leaves nested one level beneath it. Defaults collapsed — its
+  // own caret expands it, matching the config rows. Rendered before the child
+  // configs; null when the node has none. `depth` is the child level.
   const renderEnvironmentsGroup = (
     parentKey: string,
     depth: number,
@@ -315,7 +341,7 @@ export default function LineageTree({
     const flavors = flavorChildrenOf(parentKey);
     if (!flavors.length) return null;
     const showStub = depth >= 1 && depth <= MAX_INDENT_DEPTH;
-    const rows = flavors.map((f) => renderFlavorRow(f, depth + 1));
+    const isOpen = openEnvGroups.has(parentKey);
     return (
       <Box key={`envs-${parentKey}`} style={{ position: "relative" }}>
         {showStub && (
@@ -335,12 +361,25 @@ export default function LineageTree({
           gap="1"
           pl="1"
           pr="3"
-          style={{ height: ROW_HEIGHT }}
+          className={styles.row}
+          onClick={() => toggleEnvGroup(parentKey)}
+          style={{
+            height: ROW_HEIGHT,
+            borderRadius: "var(--radius-2)",
+            cursor: "pointer",
+          }}
         >
-          {/* No caret column — the label sits at the child dot column (half an
-              indent left of a child row's name). */}
+          <Flex
+            align="center"
+            justify="center"
+            style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
+          >
+            {isOpen ? <PiCaretDown size={10} /> : <PiCaretRight size={10} />}
+          </Flex>
           <span
             style={{
+              flex: 1,
+              minWidth: 0,
               marginLeft: 4,
               fontSize: "var(--font-size-1)",
               fontWeight: 500,
@@ -349,19 +388,38 @@ export default function LineageTree({
           >
             Environments
           </span>
+          <Tooltip
+            content={`${flavors.length} environment override${
+              flavors.length === 1 ? "" : "s"
+            }`}
+          >
+            <Badge
+              size="xs"
+              color="gray"
+              radius="full"
+              label={`${flavors.length}`}
+              style={{
+                flexShrink: 0,
+                justifyContent: "center",
+                textAlign: "center",
+              }}
+            />
+          </Tooltip>
         </Flex>
-        {/* Always indent the env leaves one step past the label (even at deep
-            levels where the spine stops indenting), so "dev" sits forward, at
-            the child-name column. */}
-        <Box
-          style={{
-            marginLeft: 6,
-            paddingLeft: 5,
-            borderLeft: `1px solid ${GUIDE_COLOR}`,
-          }}
-        >
-          {rows}
-        </Box>
+        {isOpen && (
+          // Indent the env leaves one step past the label (even at deep levels
+          // where the spine stops indenting), so "dev" sits forward at the
+          // child-name column.
+          <Box
+            style={{
+              marginLeft: 6,
+              paddingLeft: 5,
+              borderLeft: `1px solid ${GUIDE_COLOR}`,
+            }}
+          >
+            {flavors.map((f) => renderFlavorRow(f, depth + 1))}
+          </Box>
+        )}
       </Box>
     );
   };
