@@ -55,14 +55,6 @@ export interface ColumnInterface {
   // The raw SQL expression for a virtual column, e.g. "price * quantity".
   // Inlined into generated SQL by getColumnExpression.
   sql?: string;
-  // Names of the columns referenced by `sql` (computed server-side). Used to
-  // qualify the expression with the table alias and to cascade invalidation
-  // when a referenced column is removed.
-  dependsOn?: string[];
-  // Set when a virtual column references a column that has been removed (or an
-  // invalid virtual column). Preserved rather than deleted so the user can fix it.
-  invalid?: boolean;
-  invalidReason?: string;
 }
 
 export interface FactFilterInterface {

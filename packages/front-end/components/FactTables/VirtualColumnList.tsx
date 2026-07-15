@@ -10,7 +10,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -180,14 +179,7 @@ export default function VirtualColumnList({ factTable }: Props) {
             <tbody>
               {items.map((column) => (
                 <tr key={column.column}>
-                  <td style={{ verticalAlign: "top" }}>
-                    {column.name}
-                    {column.invalid && (
-                      <Tooltip body={column.invalidReason || "Invalid"}>
-                        <Badge label="Invalid" color="red" ml="2" />
-                      </Tooltip>
-                    )}
-                  </td>
+                  <td style={{ verticalAlign: "top" }}>{column.name}</td>
                   <td style={{ verticalAlign: "top" }}>
                     <div style={{ marginTop: 2 }}>
                       <InlineCode language="sql" code={column.sql || ""} />

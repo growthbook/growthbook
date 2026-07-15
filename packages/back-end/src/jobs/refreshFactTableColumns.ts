@@ -1,9 +1,6 @@
 import Agenda, { Job } from "agenda";
 import chunk from "lodash/chunk";
-import {
-  canInlineFilterColumn,
-  revalidateVirtualColumns,
-} from "shared/experiments";
+import { canInlineFilterColumn } from "shared/experiments";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
   DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
@@ -418,9 +415,6 @@ export async function runRefreshColumnsQuery(
       }
     }
   }
-
-  // Flag any virtual columns whose referenced columns were removed by this refresh.
-  revalidateVirtualColumns(columns);
 
   return columns;
 }

@@ -11,8 +11,6 @@ import {
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
-  getVirtualColumnDependencies,
-  revalidateVirtualColumns,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
@@ -1799,7 +1797,6 @@ describe("Virtual Columns", () => {
           column: "vc_total",
           isVirtual: true,
           sql: "price * quantity",
-          dependsOn: ["price", "quantity"],
           datatype: "number",
         }),
       ],
@@ -1826,7 +1823,6 @@ describe("Virtual Columns", () => {
             column: "flagged_vc",
             isVirtual: true,
             sql: "CASE WHEN status = 'price' THEN price ELSE 0 END",
-            dependsOn: ["status", "price"],
             datatype: "number",
           }),
         ],
@@ -1845,14 +1841,12 @@ describe("Virtual Columns", () => {
             column: "margin_vc",
             isVirtual: true,
             sql: "price - cost",
-            dependsOn: ["price", "cost"],
             datatype: "number",
           }),
           col({
             column: "margin_pct_vc",
             isVirtual: true,
             sql: "margin_vc / price",
-            dependsOn: ["margin_vc", "price"],
             datatype: "number",
           }),
         ],
@@ -1872,7 +1866,6 @@ describe("Virtual Columns", () => {
           column: "revenue_vc",
           isVirtual: true,
           sql: "amount * qty",
-          dependsOn: ["amount", "qty"],
           datatype: "number",
         }),
       ],
@@ -1893,105 +1886,6 @@ describe("Virtual Columns", () => {
     it("does not expand a virtual column name inside a string literal", () => {
       expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
         "label = 'revenue_vc'",
-      );
-    });
-  });
-
-  describe("getVirtualColumnDependencies", () => {
-    const columns = [
-      { column: "price" },
-      { column: "quantity" },
-      { column: "discount" },
-      { column: "vc_total" },
-    ];
-
-    it("returns the referenced columns, excluding self", () => {
-      expect(
-        getVirtualColumnDependencies(
-          "price * quantity",
-          columns,
-          "vc_total",
-        ).sort(),
-      ).toEqual(["price", "quantity"]);
-    });
-
-    it("does not double-count a column referenced twice", () => {
-      expect(
-        getVirtualColumnDependencies("price - price", columns, "vc_total"),
-      ).toEqual(["price"]);
-    });
-  });
-
-  describe("revalidateVirtualColumns", () => {
-    it("flags a virtual column that references a missing column", () => {
-      const columns = [
-        col({ column: "price", datatype: "number" }),
-        col({
-          column: "vc_margin",
-          isVirtual: true,
-          sql: "price - cost",
-          dependsOn: ["price", "cost"],
-          datatype: "number",
-        }),
-      ];
-      revalidateVirtualColumns(columns);
-      const margin = columns.find((c) => c.column === "vc_margin");
-      expect(margin?.invalid).toBe(true);
-      expect(margin?.invalidReason).toContain("cost");
-    });
-
-    it("flags a virtual column whose dependency was soft-deleted", () => {
-      const columns = [
-        col({ column: "price", datatype: "number", deleted: true }),
-        col({
-          column: "vc_margin",
-          isVirtual: true,
-          sql: "price * 2",
-          dependsOn: ["price"],
-          datatype: "number",
-        }),
-      ];
-      revalidateVirtualColumns(columns);
-      expect(columns.find((c) => c.column === "vc_margin")?.invalid).toBe(true);
-    });
-
-    it("cascades invalidation through dependency chains", () => {
-      const columns = [
-        col({ column: "price", datatype: "number" }),
-        col({
-          column: "vc_margin",
-          isVirtual: true,
-          sql: "price - cost",
-          dependsOn: ["price", "cost"],
-          datatype: "number",
-        }),
-        col({
-          column: "vc_pct",
-          isVirtual: true,
-          sql: "vc_margin / price",
-          dependsOn: ["vc_margin", "price"],
-          datatype: "number",
-        }),
-      ];
-      revalidateVirtualColumns(columns);
-      expect(columns.find((c) => c.column === "vc_pct")?.invalid).toBe(true);
-    });
-
-    it("keeps a virtual column valid when all dependencies exist", () => {
-      const columns = [
-        col({ column: "price", datatype: "number" }),
-        col({ column: "cost", datatype: "number" }),
-        col({
-          column: "vc_margin",
-          isVirtual: true,
-          sql: "price - cost",
-          dependsOn: ["price", "cost"],
-          datatype: "number",
-        }),
-      ];
-      revalidateVirtualColumns(columns);
-      expect(columns.find((c) => c.column === "vc_margin")?.invalid).toBe(
-        false,
       );
     });
   });

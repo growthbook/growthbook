@@ -134,15 +134,6 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Resolve a virtual column's expression into valid SQL for the current query
-// context. Each referenced column (from the server-computed `dependsOn`) is
-// rewritten: a real column becomes `alias.<col>` (bare when no alias), and a
-// nested virtual column is expanded recursively — so chains
-// (margin -> margin_pct) produce fully-inlined SQL. Only known dependency names
-// are touched, which keeps this safe for arbitrary SQL (functions, keywords,
-// literals are left alone). Longer names are handled first so a shorter name
-// can't partially match inside an already-rewritten reference. `seen` guards
-// against cyclic definitions.
 // Replace bare identifier tokens in a SQL string, skipping anything inside
 // single-quoted string literals or double-quoted identifiers so we never
 // rewrite text inside a quoted span (e.g. `status = 'price'` is left alone).
@@ -167,8 +158,14 @@ function replaceSqlIdentifiers(
   );
 }
 
+// Resolve a virtual column's expression into valid SQL for the current query
+// context. Any fact table column name appearing in the expression is rewritten:
+// a real column becomes `alias.<col>` (bare when no alias), and a nested virtual
+// column is expanded recursively — so chains (margin -> margin_pct) produce
+// fully-inlined SQL. Quoted spans are skipped, so string literals are left
+// alone. `seen` guards against cyclic definitions.
 function resolveVirtualColumnSql(
-  col: Pick<ColumnInterface, "column" | "sql" | "dependsOn">,
+  col: Pick<ColumnInterface, "column" | "sql">,
   factTable: Pick<FactTableInterface, "columns">,
   alias: string,
   seen: Set<string> = new Set(),
@@ -177,7 +174,11 @@ function resolveVirtualColumnSql(
   if (seen.has(col.column)) return sql;
   const nextSeen = new Set(seen).add(col.column);
 
-  return replaceSqlIdentifiers(sql, col.dependsOn || [], (name) => {
+  const names = factTable.columns
+    .map((c) => c.column)
+    .filter((name) => name !== col.column);
+
+  return replaceSqlIdentifiers(sql, names, (name) => {
     const target = factTable.columns.find((c) => c.column === name);
     if (target?.isVirtual && target.sql) {
       return `(${resolveVirtualColumnSql(target, factTable, alias, nextSeen)})`;
@@ -243,62 +244,6 @@ export function getColumnExpression(
   }
 
   return alias ? `${alias}.${column}` : column;
-}
-
-// Compute which columns a virtual column's SQL expression references. Matches
-// bare column names (word-boundary) against the fact table's other columns.
-// Runs server-side on create/update so cascade invalidation works regardless of
-// whether the expression came from the guided builder or was free-form SQL.
-export function getVirtualColumnDependencies(
-  sql: string,
-  columns: Pick<ColumnInterface, "column">[],
-  selfColumn: string,
-): string[] {
-  const deps: string[] = [];
-  columns.forEach((c) => {
-    if (c.column === selfColumn) return;
-    const re = new RegExp(`\\b${escapeRegExp(c.column)}\\b`);
-    if (re.test(sql)) deps.push(c.column);
-  });
-  return deps;
-}
-
-// Recompute the `invalid`/`invalidReason` flags for every virtual column in the
-// list, mutating in place. A virtual column is invalid if any column it depends
-// on is missing, deleted, or itself an invalid virtual column. Iterates to a
-// fixpoint so invalidation cascades through dependency chains
-// (e.g. price removed -> margin invalid -> margin_pct invalid).
-export function revalidateVirtualColumns(columns: ColumnInterface[]): void {
-  const byName = new Map(columns.map((c) => [c.column, c]));
-
-  const invalidReasonFor = (col: ColumnInterface): string | null => {
-    for (const dep of col.dependsOn || []) {
-      const target = byName.get(dep);
-      if (!target || target.deleted) {
-        return `References removed column "${dep}"`;
-      }
-      if (target.isVirtual && target.invalid) {
-        return `Depends on invalid virtual column "${dep}"`;
-      }
-    }
-    return null;
-  };
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const col of columns) {
-      if (!col.isVirtual) continue;
-      const reason = invalidReasonFor(col);
-      const invalid = reason !== null;
-      const prevInvalid = !!col.invalid;
-      col.invalid = invalid;
-      col.invalidReason = reason || undefined;
-      if (invalid !== prevInvalid) {
-        changed = true;
-      }
-    }
-  }
 }
 
 export function getColumnRefWhereClause({

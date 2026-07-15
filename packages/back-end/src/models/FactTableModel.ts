@@ -2,10 +2,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
-  getVirtualColumnDependencies,
-  revalidateVirtualColumns,
-} from "shared/experiments";
-import {
   CreateColumnProps,
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -591,21 +587,7 @@ export async function updateColumn({
     updatedColumn.autoSlices = ["true", "false"];
   }
 
-  // dependsOn is always recomputed server-side from the (possibly updated)
-  // expression, never taken from client input.
-  if (updatedColumn.isVirtual) {
-    updatedColumn.dependsOn = getVirtualColumnDependencies(
-      updatedColumn.sql || "",
-      factTable.columns,
-      column,
-    );
-  }
-
   factTable.columns[columnIndex] = updatedColumn;
-
-  // Recompute virtual column validity in case this change (a soft-delete, or an
-  // edit to a virtual column's expression) affects any dependent virtual column.
-  revalidateVirtualColumns(factTable.columns);
 
   await FactTableModel.updateOne(
     {
@@ -655,18 +637,7 @@ export async function createColumn(
     dateUpdated: new Date(),
   };
 
-  // dependsOn is always computed server-side from the expression, never taken
-  // from client input.
-  if (column.isVirtual) {
-    column.dependsOn = getVirtualColumnDependencies(
-      column.sql || "",
-      factTable.columns,
-      column.column,
-    );
-  }
-
   const columns = [...factTable.columns, column];
-  revalidateVirtualColumns(columns);
 
   await FactTableModel.updateOne(
     {
@@ -699,23 +670,7 @@ export async function deleteColumn(
     throw new Error("Only virtual columns can be deleted");
   }
 
-  // Block deletion if other virtual columns depend on this one.
-  const dependents = factTable.columns.filter(
-    (c) =>
-      c.isVirtual &&
-      c.column !== columnName &&
-      (c.dependsOn || []).includes(columnName),
-  );
-  if (dependents.length) {
-    throw new Error(
-      `Cannot delete: the following virtual columns depend on it:${dependents
-        .map((c) => `\n - ${c.name || c.column}`)
-        .join("")}`,
-    );
-  }
-
   const columns = factTable.columns.filter((c) => c.column !== columnName);
-  revalidateVirtualColumns(columns);
 
   await FactTableModel.updateOne(
     {

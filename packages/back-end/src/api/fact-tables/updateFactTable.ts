@@ -115,7 +115,14 @@ export const updateFactTable = createApiRequestHandler(
         context: req.context,
         factTable,
         column: columnUpdate.column,
-        changes: omit(columnUpdate, ["dateCreated", "dateUpdated"]),
+        // Strip server/UI-managed fields: the API cannot change a column's
+        // origin (isVirtual) or a virtual column's expression (sql).
+        changes: omit(columnUpdate, [
+          "dateCreated",
+          "dateUpdated",
+          "isVirtual",
+          "sql",
+        ]),
       });
     }
 
@@ -139,7 +146,7 @@ export const updateFactTable = createApiRequestHandler(
       ? (
           req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
         ).map((col) => ({
-          ...col,
+          ...omit(col, ["isVirtual", "sql"]),
           name: col.name ?? col.column,
           description: col.description ?? "",
           numberFormat: col.numberFormat ?? "",

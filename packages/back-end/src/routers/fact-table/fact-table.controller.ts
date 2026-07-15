@@ -2,7 +2,6 @@ import type { Response } from "express";
 import {
   canInlineFilterColumn,
   expandVirtualColumnsInSql,
-  revalidateVirtualColumns,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { cloneDeep } from "lodash";
@@ -250,9 +249,6 @@ function mergeColumnsWithTypeMap(
       });
     }
   });
-
-  // Flag any virtual columns whose referenced columns were removed.
-  revalidateVirtualColumns(columns);
 
   return columns;
 }
