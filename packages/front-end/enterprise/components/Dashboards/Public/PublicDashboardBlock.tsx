@@ -165,12 +165,16 @@ export default function PublicDashboardBlock({
     const exploration = b.explorerAnalysisId
       ? explorationsMap.get(b.explorerAnalysisId)
       : undefined;
+    const comparisonExploration = b.comparisonExplorerAnalysisId
+      ? (explorationsMap.get(b.comparisonExplorerAnalysisId) ?? null)
+      : null;
     if (exploration) {
       return (
         <ProductAnalyticsExplorerBlock
           {...(baseProps as unknown as BlockProps<typeof b>)}
           block={b}
           exploration={exploration}
+          comparisonExploration={comparisonExploration}
           query={null}
         />
       );

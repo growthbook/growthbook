@@ -27,6 +27,7 @@ export default function ProductAnalyticsExplorerBlock({
   ssrPolyfills,
   dashboardGlobalControls,
   exploration: explorationProp,
+  comparisonExploration: comparisonExplorationProp,
   query: queryProp,
 }: BlockProps<
   | MetricExplorationBlockInterface
@@ -34,9 +35,16 @@ export default function ProductAnalyticsExplorerBlock({
   | DataSourceExplorationBlockInterface
 > & {
   exploration?: ProductAnalyticsExploration;
+  // Public page only: the previous-period exploration, supplied directly so we
+  // can render the comparison without the authenticated fetch below.
+  comparisonExploration?: ProductAnalyticsExploration | null;
   query?: QueryInterface | null;
 }) {
-  const { getFactMetricById } = useDefinitions();
+  const { getFactMetricById: definitionsGetFactMetricById } = useDefinitions();
+  // On the public page there's no DefinitionsContext; use the ssrPolyfills
+  // lookup so ratio comparisons resolve correctly.
+  const getFactMetricById =
+    ssrPolyfills?.getFactMetricById ?? definitionsGetFactMetricById;
   const { data, error, isLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
@@ -65,7 +73,9 @@ export default function ProductAnalyticsExplorerBlock({
       compareEnabled &&
       !!block.comparisonExplorerAnalysisId,
   });
-  const rawComparisonExploration = comparisonData?.exploration ?? null;
+  // Public page passes the comparison exploration directly (no authed fetch).
+  const rawComparisonExploration =
+    comparisonExplorationProp ?? comparisonData?.exploration ?? null;
   // The resolved previous window lives on the comparison exploration's config.
   const submittedPreviousTimeFrame =
     rawComparisonExploration?.config?.dateRange ?? null;
@@ -105,14 +115,14 @@ export default function ProductAnalyticsExplorerBlock({
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
-      !data?.exploration ||
+      !exploration ||
       !submittedConfig ||
       !submittedPreviousTimeFrame
     ) {
       return null;
     }
     return computeExplorationComparisonPayload(
-      data.exploration,
+      exploration,
       rawComparisonExploration,
       submittedConfig,
       submittedPreviousTimeFrame,
@@ -120,7 +130,7 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }, [
     compareEnabled,
-    data?.exploration,
+    exploration,
     rawComparisonExploration,
     submittedConfig,
     submittedPreviousTimeFrame,

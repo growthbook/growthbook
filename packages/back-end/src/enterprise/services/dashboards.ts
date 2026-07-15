@@ -824,18 +824,19 @@ export async function getPublicDashboardBlockData({
 
   const metricAnalysisIds = [
     ...new Set(
-      dashboard.blocks
-        .filter(
-          (
-            block,
-          ): block is Extract<
-            DashboardBlockInterface,
-            { metricAnalysisId: string }
-          > =>
-            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-            block.metricAnalysisId.length > 0,
-        )
-        .map((block) => block.metricAnalysisId),
+      dashboard.blocks.flatMap((block) =>
+        [
+          blockHasFieldOfType(block, "metricAnalysisId", isString)
+            ? block.metricAnalysisId
+            : undefined,
+          // metric-explorer blocks reference a comparison (previous-period)
+          // metric analysis; include it so period comparisons render on public
+          // dashboards (useDashboardMetricAnalysis resolves it from this map).
+          block.type === "metric-explorer"
+            ? block.comparisonMetricAnalysisId
+            : undefined,
+        ].filter((id): id is string => isString(id) && id.length > 0),
+      ),
     ),
   ];
   const metricAnalyses =
@@ -843,20 +844,19 @@ export async function getPublicDashboardBlockData({
 
   const explorerAnalysisIds = [
     ...new Set(
-      dashboard.blocks
-        .filter(
-          (
-            block,
-          ): block is DashboardBlockInterface & {
-            explorerAnalysisId: string;
-          } =>
-            (block.type === "metric-exploration" ||
-              block.type === "fact-table-exploration" ||
-              block.type === "data-source-exploration") &&
-            blockHasFieldOfType(block, "explorerAnalysisId", isString) &&
-            block.explorerAnalysisId.length > 0,
-        )
-        .map((block) => block.explorerAnalysisId),
+      dashboard.blocks.flatMap((block) =>
+        block.type === "metric-exploration" ||
+        block.type === "fact-table-exploration" ||
+        block.type === "data-source-exploration"
+          ? // Include the comparison (previous-period) exploration alongside the
+            // primary so public dashboards can render period comparisons the
+            // same as the authed view.
+            [
+              block.explorerAnalysisId,
+              block.comparisonExplorerAnalysisId,
+            ].filter((id): id is string => isString(id) && id.length > 0)
+          : [],
+      ),
     ),
   ];
   const explorations: ProductAnalyticsExploration[] =
