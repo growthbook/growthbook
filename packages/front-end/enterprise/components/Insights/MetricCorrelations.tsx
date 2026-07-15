@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState, useMemo } from "react";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -385,7 +385,7 @@ const MetricCorrelationCard = ({
 
   const getLiftFormatter = useCallback(
     (
-      metric: ExperimentMetricInterface | null,
+      metric: ExperimentMetricDefinition | null,
       differenceType: DifferenceType,
     ) => {
       if (!metric) {

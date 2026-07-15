@@ -121,9 +121,14 @@ export async function deleteMetric(
   });
 }
 
-export async function getMetrics(req: AuthRequest, res: Response) {
+export async function getMetrics(
+  req: AuthRequest<null, null, { includeArchived?: string }>,
+  res: Response,
+) {
   const context = getContextFromReq(req);
-  const metrics = await getMetricsByOrganization(context);
+  // Default to excluding archived metrics; the general case doesn't want them.
+  const includeArchived = req.query.includeArchived === "true";
+  const metrics = await getMetricsByOrganization(context, { includeArchived });
   res.status(200).json({
     status: 200,
     metrics,

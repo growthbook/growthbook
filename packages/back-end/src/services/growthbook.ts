@@ -210,6 +210,26 @@ export async function initializeGrowthBookClient(): Promise<void> {
 }
 
 /**
+ * Evaluate a backend AppFeatures flag using the global singleton client.
+ * Usable anywhere (jobs, services) — unlike req.gb, which only exists on
+ * authenticated routes. Returns `fallback` when the client or flag isn't
+ * loaded, so callers keep safe default behavior during a CDN blip.
+ */
+export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
+  key: K,
+  fallback: AppFeatures[K],
+  attributes: Record<string, unknown> = {},
+): AppFeatures[K] {
+  const client = getGrowthBookClient();
+  if (!client) return fallback;
+  // getFeatureValue widens primitives (e.g. boolean literals); narrow back to
+  // the flag's declared type, which is sound for all AppFeatures value types.
+  return client.getFeatureValue(key, fallback, {
+    attributes,
+  }) as AppFeatures[K];
+}
+
+/**
  * Cleanup the GrowthBook client on shutdown
  * Call this during graceful shutdown to close SSE connections
  */

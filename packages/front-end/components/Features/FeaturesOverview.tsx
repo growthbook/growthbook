@@ -1751,6 +1751,7 @@ export default function FeaturesOverview({
                       setEnv={setRuleEnv}
                       hideInactive={hideInactiveRules}
                       showOrphaned={showOrphanedRules}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (

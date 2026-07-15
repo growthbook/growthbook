@@ -397,7 +397,7 @@ export default function ResultsTab({
               !experiment.datasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
-                <div className="alert-cool-1 text-center m-4 px-3 py-4">
+                <div className="appbox text-center m-4 px-3 py-4">
                   <p className="h4">Use GrowthBook for Analysis</p>
                   {datasources.length > 0 ? (
                     <>

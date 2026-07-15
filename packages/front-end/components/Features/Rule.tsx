@@ -31,6 +31,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
   isReadyForApproval,
+  isAwaitingStartApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -241,9 +242,12 @@ interface SortableProps {
   onMoveDown?: () => void;
   onMoveToTop?: () => void;
   onMoveToBottom?: () => void;
-  // True when the draft has this rule disabled but the live feature has it enabled.
-  // Surfaces a warning so users don't accidentally revert a schedule-driven enable.
-  liveEnabledDraftDisabled?: boolean;
+  // True when the draft intentionally disabled a rule that's enabled in live —
+  // publishing would revert a schedule-driven enable (aggressive warning).
+  willRevertScheduleEnable?: boolean;
+  // True when the draft is behind live and this rule's shown state differs from
+  // live for a reason a rebase would reconcile — a gentle "behind live" hint.
+  draftBehindLiveStale?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -312,7 +316,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       onMoveDown,
       onMoveToTop,
       onMoveToBottom,
-      liveEnabledDraftDisabled,
+      willRevertScheduleEnable,
+      draftBehindLiveStale,
       ...props
     },
     ref,
@@ -443,6 +448,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       safeRollout = safeRolloutsMap.get(rampSchedule.safeRolloutId);
     }
 
+    const hasPendingDetach =
+      isDraft &&
+      draftRevision?.rampActions?.some(
+        (action) => action.mode === "detach" && action.ruleId === rule.id,
+      );
+
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
@@ -450,6 +461,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       unreachable,
       conflictBanners,
       rampSchedule,
+      rampPendingDetach: !!hasPendingDetach,
     });
 
     if (hideInactive && isInactive) {
@@ -468,11 +480,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     // ramp action CTAs (Start/Resume/Approve) must be suppressed.
     const isSyntheticRamp =
       !!rampSchedule && rampSchedule.id.startsWith("pending-");
-    const hasPendingDetach =
-      isDraft &&
-      draftRevision?.rampActions?.some(
-        (action) => action.mode === "detach" && action.ruleId === rule.id,
-      );
 
     const ruleTags: React.ReactNode[] = [];
     const ruleCtas: React.ReactNode[] = [];
@@ -505,23 +512,33 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !rampControlsLocked &&
       !rampIsTerminal &&
       !hasPendingDetach &&
-      !isSimpleSchedule &&
+      // Simple (stepless) schedules have no step CTAs, but a stepless schedule
+      // genuinely awaiting start approval still needs its "Approve & start"
+      // button — otherwise the "awaiting approval" badge has no way to clear.
+      (!isSimpleSchedule || isAwaitingStartApproval(rampSchedule)) &&
       !isSyntheticRamp
     ) {
       if (rampSchedule.status === "ready" && rampSchedule.targets.length > 0) {
+        // An approval-gated hold uses the shared approve-step action (which
+        // clears whichever gate is pending — here the pre-start hold, starting
+        // the ramp); a plain scheduled ready schedule uses start (start-early).
+        const awaitingStartApproval = isAwaitingStartApproval(rampSchedule);
         ruleCtas.push(
           <Button
             key="ramp-start"
             size="xs"
             variant="solid"
             onClick={async () => {
-              await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/start`, {
-                method: "POST",
-              });
+              await apiCall(
+                `/ramp-schedule/${rampSchedule.id}/actions/${
+                  awaitingStartApproval ? "approve-step" : "start"
+                }`,
+                { method: "POST" },
+              );
               await mutate();
             }}
           >
-            Start
+            {awaitingStartApproval ? "Approve & start" : "Start"}
           </Button>,
         );
       }
@@ -1357,21 +1374,27 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
-          {liveEnabledDraftDisabled && (
+          {willRevertScheduleEnable ? (
             <Callout status="warning" mt="3" size="sm">
               This rule is <strong>enabled</strong> in the live feature but{" "}
               <strong>disabled</strong> in this draft. Publishing may revert a
               schedule-driven enable.
             </Callout>
-          )}
+          ) : draftBehindLiveStale ? (
+            <Box mt="3">
+              <HelperText status="info" size="sm">
+                This draft is behind live — rebase (Review and Publish tab) to
+                compare
+              </HelperText>
+            </Box>
+          ) : null}
           {rampSchedule &&
             isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
               <Callout
-                status="info"
+                status="attention"
                 mt="3"
-                color="orange"
                 size="sm"
                 icon={<PiSpinnerGapBold />}
               >
@@ -1564,29 +1587,38 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   </Text>
                 )}
                 {rampApproveError && (
-                  <Callout status="error" mb="2">
-                    <Flex justify="between" align="start" gap="3">
-                      <Text>{rampApproveError}</Text>
-                      <Flex gap="2" flexShrink="0">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => setRampApproveError("")}
-                        >
-                          Dismiss
-                        </Button>
-                      </Flex>
-                    </Flex>
+                  <Callout
+                    status="error"
+                    mb="2"
+                    action={
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        color="inherit"
+                        onClick={() => setRampApproveError("")}
+                      >
+                        Dismiss
+                      </Button>
+                    }
+                  >
+                    {rampApproveError}
                   </Callout>
                 )}
                 {rampSchedule.status === "rolled-back" &&
                   !hasMonitoringStatusRow &&
                   rampSchedule.lastRollbackReason && (
                     <Callout status="error" mb="2">
-                      <Text>
-                        <Text weight="semibold">Rolled back:</Text>{" "}
-                        {formatRollbackReason(rampSchedule.lastRollbackReason)}
-                      </Text>
+                      <Text weight="semibold">Rolled back:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)}
+                    </Callout>
+                  )}
+                {isAwaitingStartApproval(rampSchedule) &&
+                  !hasMonitoringStatusRow &&
+                  rampSchedule.lastRollbackReason && (
+                    <Callout status="warning" mb="2">
+                      <Text weight="semibold">Rolled back by monitoring:</Text>{" "}
+                      {formatRollbackReason(rampSchedule.lastRollbackReason)} —
+                      review before re-approving.
                     </Callout>
                   )}
                 <RampTimeline
@@ -1700,6 +1732,7 @@ export function getRuleMetaInfo({
   unreachable,
   conflictBanners,
   rampSchedule,
+  rampPendingDetach,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
@@ -1707,6 +1740,8 @@ export function getRuleMetaInfo({
   unreachable?: boolean;
   conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
+  // The draft queues this rule's ramp for removal — so it won't enable on publish.
+  rampPendingDetach?: boolean;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -1727,6 +1762,26 @@ export function getRuleMetaInfo({
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
   if (!rule.enabled) {
+    // An approval-gated ramp holds the rule off (zero traffic) until someone
+    // approves the start — surface that instead of a bare "Disabled" so it's
+    // clear the rule is staged, not turned off by hand.
+    if (rampSchedule && isAwaitingStartApproval(rampSchedule)) {
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title="This rule is staged and serving no traffic. It will go live when someone approves the ramp's start."
+            label={
+              <>
+                <RxCircleBackslash />
+                Disabled · awaiting approval
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
     const rampEnableDate = getRampEnableDate(rampSchedule);
     if (rampEnableDate) {
       // A pending draft schedule whose startDate has drifted into the past
@@ -1749,6 +1804,35 @@ export function getRuleMetaInfo({
               <>
                 <RxCircleBackslash />
                 {label}
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
+    // A pre-start ramp with no start date and no approval gate (both handled
+    // above) starts — and enables the rule — immediately on publish. Disabling
+    // the rule here does NOT hold the rollout, so say so instead of a bare
+    // "Disabled" and point at the option that actually holds it. Only in a draft
+    // ("on publish" framing), and not when the ramp is queued for removal (then
+    // the rule really does stay disabled).
+    const rampEnablesOnPublish =
+      isDraft &&
+      !rampPendingDetach &&
+      !!rampSchedule &&
+      (rampSchedule.status === "pending" || rampSchedule.status === "ready") &&
+      !rampSchedule.startDate;
+    if (rampEnablesOnPublish) {
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title="This rule's ramp schedule starts on publish and will re-enable it — disabling here won't hold the rollout. Use Start → On approval to stage it with zero traffic until approved."
+            label={
+              <>
+                <RxCircleBackslash />
+                Disabled · enables on publish
               </>
             }
           />

@@ -1,6 +1,6 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { SegmentInterface } from "shared/types/segment";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -16,9 +16,9 @@ import {
 import { TagInterface } from "shared/types/tag";
 import {
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
 } from "shared/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetricId } from "shared/experiments";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { ConstantWithoutValue } from "shared/types/constant";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -32,8 +32,8 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 type Definitions = {
-  metrics: MetricInterface[];
-  _metricsIncludingArchived: MetricInterface[];
+  metrics: MetricDefinitionInterface[];
+  _metricsIncludingArchived: MetricDefinitionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
@@ -45,8 +45,8 @@ type Definitions = {
   metricGroups: MetricGroupInterface[];
   customFields: CustomField[];
   tags: TagInterface[];
-  factTables: FactTableInterface[];
-  _factTablesIncludingArchived: FactTableInterface[];
+  factTables: FactTableDefinition[];
+  _factTablesIncludingArchived: FactTableDefinition[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
   decisionCriteria: DecisionCriteriaInterface[];
@@ -60,7 +60,7 @@ type DefinitionContextValue = Definitions & {
   setProject: (id: string) => void;
   refreshTags: (newTags: string[]) => Promise<void>;
   mutateDefinitions: (changes?: Partial<Definitions>) => Promise<void>;
-  getMetricById: (id: string) => null | MetricInterface;
+  getMetricById: (id: string) => null | MetricDefinitionInterface;
   getDatasourceById: (id: string) => null | DataSourceInterfaceWithParams;
   getDimensionById: (id: string) => null | DimensionInterface;
   getSegmentById: (id: string) => null | SegmentInterface;
@@ -69,9 +69,9 @@ type DefinitionContextValue = Definitions & {
   getConstantById: (id: string) => null | ConstantWithoutValue;
   getConstantByKey: (key: string) => null | ConstantWithoutValue;
   getTagById: (id: string) => null | TagInterface;
-  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactTableById: (id: string) => null | FactTableDefinition;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricDefinition;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };

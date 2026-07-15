@@ -203,7 +203,7 @@ export default function ExperimentRefSummary({
               color="gray"
               label={
                 <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage || 1)}
+                  {percentFormatter.format(phase?.coverage ?? 1)}
                 </Text>
               }
             />

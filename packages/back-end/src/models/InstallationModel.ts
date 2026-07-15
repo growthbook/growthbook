@@ -35,6 +35,24 @@ export async function getInstallation(): Promise<InstallationInterface> {
   }
 }
 
+// The installation doc is a singleton and rarely changes, so cache it for
+// hot paths (TTL covers renames made by other instances)
+const INSTALLATION_CACHE_TTL = 15 * 60 * 1000;
+let installationCache: {
+  installation: InstallationInterface;
+  expires: number;
+} | null = null;
+
+export async function getInstallationCached(): Promise<InstallationInterface> {
+  if (!installationCache || installationCache.expires < Date.now()) {
+    installationCache = {
+      installation: await getInstallation(),
+      expires: Date.now() + INSTALLATION_CACHE_TTL,
+    };
+  }
+  return installationCache.installation;
+}
+
 export async function setInstallationName(name: string): Promise<void> {
   const installation = await InstallationModel.findOne({});
   if (installation) {
@@ -44,4 +62,5 @@ export async function setInstallationName(name: string): Promise<void> {
     const installationId = `installation-${randomUUID()}`;
     await InstallationModel.create({ id: installationId, name });
   }
+  installationCache = null;
 }

@@ -40,6 +40,7 @@ function errorDetailForLog(text: string, status: number): string {
 async function postManagedClickhouse(
   path: string,
   body: unknown,
+  { allowStatuses = [] }: { allowStatuses?: number[] } = {},
 ): Promise<Response> {
   if (!CLOUD_SECRET) {
     throw new Error(
@@ -90,7 +91,7 @@ async function postManagedClickhouse(
     clearTimeout(timeoutId);
   }
 
-  if (!res.ok) {
+  if (!res.ok && !allowStatuses.includes(res.status)) {
     const rawBody = await res.text();
     const contentType = res.headers.get("content-type") ?? "";
     const detail = errorDetailForLog(rawBody, res.status);
@@ -138,10 +139,21 @@ async function postManagedClickhouseJson<T>(
   }
 }
 
+/**
+ * Kick off an async table rebuild on the license server. The server acks (202)
+ * and rebuilds in the background under a datasource lock, so this returns as soon
+ * as the rebuild is accepted — not when it finishes. A 423 means a rebuild is
+ * already running for this org, so the caller should wait rather than re-request.
+ */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
-): Promise<void> {
-  await postManagedClickhouse("recreate-tables", { orgId });
+): Promise<"started" | "already-running"> {
+  const res = await postManagedClickhouse(
+    "recreate-tables",
+    { orgId },
+    { allowStatuses: [423] },
+  );
+  return res.status === 423 ? "already-running" : "started";
 }
 
 export async function deleteClickhouseUser(orgId: string): Promise<void> {

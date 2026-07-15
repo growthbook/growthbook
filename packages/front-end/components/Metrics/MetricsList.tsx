@@ -597,7 +597,7 @@ const MetricsList = (): React.ReactElement => {
       {metrics.length > 4 && !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="2"

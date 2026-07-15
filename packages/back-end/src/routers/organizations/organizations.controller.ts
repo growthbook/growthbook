@@ -87,7 +87,7 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -133,9 +133,10 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
+  getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
@@ -181,8 +182,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     decisionCriteria,
     webhookSecrets,
   ] = await Promise.all([
-    getMetricsByOrganization(context),
-    getDataSourcesByOrganization(context),
+    getMetricsForDefinitions(context),
+    getDataSourcesByOrganization(context).then((ds) =>
+      getDataSourcesWithParams(context, ds),
+    ),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
@@ -191,7 +194,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.constants.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
-    getAllFactTablesForOrganization(context),
+    getAllFactTablesForDefinitions(context),
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),
@@ -200,7 +203,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: await getDataSourcesWithParams(context, datasources),
+    datasources,
     dimensions,
     segments,
     metricGroups,
@@ -638,7 +641,7 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.userId);
+      await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
@@ -881,22 +884,36 @@ export async function getOrganization(
     isVercelIntegration,
   } = org;
 
-  let license: Partial<LicenseInterface> | null = null;
-  if (licenseKey || process.env.LICENSE_KEY) {
-    // automatically set the license data based on org license key
-    license = getLicense(licenseKey || process.env.LICENSE_KEY);
-    if (!license || (license.organizationId && license.organizationId !== id)) {
-      try {
-        license =
-          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-          null;
-      } catch (e) {
-        logger.error(e, "setting license failed");
+  const resolveLicense =
+    async (): Promise<Partial<LicenseInterface> | null> => {
+      if (!licenseKey && !process.env.LICENSE_KEY) return null;
+      // automatically set the license data based on org license key
+      let license: Partial<LicenseInterface> | null =
+        getLicense(licenseKey || process.env.LICENSE_KEY) || null;
+      if (
+        !license ||
+        (license.organizationId && license.organizationId !== id)
+      ) {
+        try {
+          license =
+            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+            null;
+        } catch (e) {
+          logger.error(e, "setting license failed");
+        }
       }
-    }
-  }
+      return license;
+    };
 
-  const installationName = (await getLicenseMetaData())?.installationName;
+  // These lookups don't depend on each other, so run them in parallel
+  const [license, installationName, expandedMembers, agreements, watch] =
+    await Promise.all([
+      resolveLicense(),
+      getInstallationName(org),
+      expandOrgMembers(members, userId),
+      context.models.agreements.getAll(),
+      context.models.watch.getWatchedByUser(userId),
+    ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
@@ -918,9 +935,8 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members, userId);
-
-  const teams = await context.models.teams.getAll();
+  // Teams were already loaded (unfiltered) by the auth middleware
+  const teams = context.teams;
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
     const memberIds = getMembersOfTeam(org, team.id);
@@ -935,23 +951,21 @@ export async function getOrganization(
     org,
     teams || [],
   );
-  const agreements = await context.models.agreements.getAll();
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await context.models.watch.getWatchedByUser(userId);
-
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+  const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    effectiveAccountPlan,
     licenseError: getLicenseError(org),
-    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatures: [...accountFeatures[effectiveAccountPlan]],
     commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
@@ -1331,10 +1345,10 @@ export async function postInviteAccept(
   const { key } = req.body;
 
   try {
-    if (!req.userId) {
+    if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
-    const org = await acceptInvite(key, req.userId);
+    const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({

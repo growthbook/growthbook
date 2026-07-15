@@ -39,6 +39,7 @@ export default function FeatureRules({
   revisionList,
   rampSchedules,
   draftRevision,
+  baseRevision,
   pendingRuleEdit,
   onPendingRuleEditHandled,
   env,
@@ -63,6 +64,9 @@ export default function FeatureRules({
   revisionList: MinimalFeatureRevisionInterface[];
   rampSchedules?: RampScheduleInterface[];
   draftRevision?: FeatureRevisionInterface | null;
+  // The revision the draft is based on — used to tell an intentional disable
+  // from a stale-inherited one when live has diverged.
+  baseRevision?: FeatureRevisionInterface | null;
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
   // Selected env tab (null = "All environments"), already normalized. Owned by
@@ -188,6 +192,7 @@ export default function FeatureRules({
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                baseRevision={baseRevision}
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
               />
             ) : (
@@ -241,6 +246,7 @@ export default function FeatureRules({
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                baseRevision={baseRevision}
               />
             ) : (
               <Box className="text-muted">

@@ -1,6 +1,6 @@
 import { InformationSchemaInterfaceWithPaths } from "shared/types/integrations";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   Fragment,
   useCallback,
@@ -24,6 +24,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import Callout from "@/ui/Callout";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -41,8 +42,7 @@ export default function SchemaBrowser({
   updateSqlInput,
   cursorData,
 }: Props) {
-  const managedWarehousePending =
-    isManagedWarehouseAwaitingProvisioning(datasource);
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
 
   const { data, mutate } = useApi<{
     informationSchema: InformationSchemaInterfaceWithPaths;
@@ -459,7 +459,11 @@ export default function SchemaBrowser({
         )}
       </PanelGroup>
 
-      {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
+      {error && (
+        <Callout status="error" mt="2" mb="0">
+          {error}
+        </Callout>
+      )}
     </div>
   );
 }
