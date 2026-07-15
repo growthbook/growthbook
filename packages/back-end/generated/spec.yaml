@@ -30368,6 +30368,12 @@ paths:
                                 additionalProperties: false
                               comparisonExplorerAnalysisId:
                                 type: string
+                              globalControlSettings:
+                                type: object
+                                properties:
+                                  dateRange:
+                                    type: boolean
+                                additionalProperties: false
                               config:
                                 type: object
                                 properties:
@@ -50259,6 +50265,12 @@ components:
                     additionalProperties: false
                   comparisonExplorerAnalysisId:
                     type: string
+                  globalControlSettings:
+                    type: object
+                    properties:
+                      dateRange:
+                        type: boolean
+                    additionalProperties: false
                   config:
                     type: object
                     properties:
