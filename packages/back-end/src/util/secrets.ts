@@ -13,6 +13,33 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
+/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
+export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
+
+/**
+ * Issuer identifier for the OAuth AS (RFC 8414). Defaults to the API host
+ * derived at request time when unset; set explicitly in production
+ * (e.g. https://api.growthbook.io).
+ */
+export const OAUTH_ISSUER = (process.env.OAUTH_ISSUER || "").replace(
+  /\/+$/,
+  "",
+);
+
+/** Access token lifetime in seconds (default 1 hour). */
+export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = parseEnvInt(
+  process.env.OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  60 * 60,
+  { name: "OAUTH_ACCESS_TOKEN_TTL_SECONDS", min: 60 },
+);
+
+/** Refresh token lifetime in seconds (default 30 days). */
+export const OAUTH_REFRESH_TOKEN_TTL_SECONDS = parseEnvInt(
+  process.env.OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+  30 * 24 * 60 * 60,
+  { name: "OAUTH_REFRESH_TOKEN_TTL_SECONDS", min: 60 },
+);
+
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,

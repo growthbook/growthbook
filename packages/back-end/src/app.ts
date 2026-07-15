@@ -26,6 +26,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
 import {
@@ -37,6 +38,10 @@ import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import {
+  oauthAsAuthedRouter,
+  oauthAsPublicRouter,
+} from "./routers/oauth-as/oauth-as.router";
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -488,6 +493,14 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
+// OAuth 2.1 Authorization Server (public) — discovery, DCR, token, revoke.
+// Mount the router only (per-route open CORS lives on the router). Do NOT wrap
+// with app-wide cors(*) — that leaked onto /oauth/authorize/info and broke
+// credentialed browser fetches (ACAO * + credentials = NetworkError).
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsPublicRouter);
+}
+
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware as RequestHandler);
@@ -540,6 +553,11 @@ const requireUserIdHandler: RequestHandler = async (req, res, next) => {
   next();
 };
 app.use(asyncHandler(requireUserIdHandler));
+
+// OAuth consent helpers (authenticated)
+if (OAUTH_AS_ENABLED) {
+  app.use(oauthAsAuthedRouter);
+}
 
 // Organization and Settings
 app.use(organizationsRouter);

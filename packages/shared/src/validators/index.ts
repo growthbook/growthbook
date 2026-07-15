@@ -75,6 +75,7 @@ export * from "./metrics";
 export * from "./product-analytics";
 export * from "./ai-conversation";
 export * from "./organization";
+export * from "./oauth";
 export * from "./team";
 export * from "./visual-changesets";
 export * from "./sdk-connections";
