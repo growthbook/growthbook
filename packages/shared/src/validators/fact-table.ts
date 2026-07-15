@@ -62,11 +62,10 @@ export const createColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
+    // Virtual column inputs. `dependsOn`/`invalid`/`invalidReason` are
+    // server-managed (computed from `sql`) and intentionally NOT accepted here.
     isVirtual: z.boolean().optional(),
     sql: z.string().optional(),
-    dependsOn: z.array(z.string()).optional(),
-    invalid: z.boolean().optional(),
-    invalidReason: z.string().optional(),
   })
   .strict();
 
@@ -83,11 +82,10 @@ export const updateColumnPropsValidator = z
     isAutoSliceColumn: z.boolean().optional(),
     autoSlices: z.array(z.string()).optional(),
     lockedAutoSlices: z.array(z.string()).optional(),
-    isVirtual: z.boolean().optional(),
+    // Only the expression is editable. `isVirtual` (a column's origin) and the
+    // server-managed `dependsOn`/`invalid`/`invalidReason` cannot be changed by
+    // the client — a SQL-detected column must never be flippable to virtual.
     sql: z.string().optional(),
-    dependsOn: z.array(z.string()).optional(),
-    invalid: z.boolean().optional(),
-    invalidReason: z.string().optional(),
   })
   .strict();
 

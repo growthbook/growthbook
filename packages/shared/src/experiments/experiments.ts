@@ -143,6 +143,30 @@ function escapeRegExp(s: string): string {
 // literals are left alone). Longer names are handled first so a shorter name
 // can't partially match inside an already-rewritten reference. `seen` guards
 // against cyclic definitions.
+// Replace bare identifier tokens in a SQL string, skipping anything inside
+// single-quoted string literals or double-quoted identifiers so we never
+// rewrite text inside a quoted span (e.g. `status = 'price'` is left alone).
+// Single pass — replacement text is NOT re-scanned, so an inserted `m.price`
+// is never re-qualified into `m.m.price`. Longer names come first so the
+// alternation prefers the most specific identifier.
+function replaceSqlIdentifiers(
+  sql: string,
+  names: string[],
+  replacer: (name: string) => string,
+): string {
+  if (!names.length) return sql;
+  const sorted = [...names].sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(
+    `('(?:[^']|'')*'|"(?:[^"]|"")*")|\\b(${sorted
+      .map(escapeRegExp)
+      .join("|")})\\b`,
+    "g",
+  );
+  return sql.replace(pattern, (fullMatch, quoted, ident) =>
+    quoted !== undefined ? quoted : replacer(ident),
+  );
+}
+
 function resolveVirtualColumnSql(
   col: Pick<ColumnInterface, "column" | "sql" | "dependsOn">,
   factTable: Pick<FactTableInterface, "columns">,
@@ -153,24 +177,12 @@ function resolveVirtualColumnSql(
   if (seen.has(col.column)) return sql;
   const nextSeen = new Set(seen).add(col.column);
 
-  const deps = [...(col.dependsOn || [])].sort((a, b) => b.length - a.length);
-  if (!deps.length) return sql;
-
-  // Single pass over the expression: each dependency token is replaced exactly
-  // once, and the replacement text is NOT re-scanned. This matters for chains —
-  // a nested virtual column that expands to `m.price` must not have its `price`
-  // re-qualified into `m.m.price` by a later dependency. Longer names come first
-  // so an alternation prefers the most specific identifier.
-  const pattern = new RegExp(
-    `\\b(${deps.map(escapeRegExp).join("|")})\\b`,
-    "g",
-  );
-  return sql.replace(pattern, (match) => {
-    const target = factTable.columns.find((c) => c.column === match);
+  return replaceSqlIdentifiers(sql, col.dependsOn || [], (name) => {
+    const target = factTable.columns.find((c) => c.column === name);
     if (target?.isVirtual && target.sql) {
       return `(${resolveVirtualColumnSql(target, factTable, alias, nextSeen)})`;
     }
-    return alias ? `${alias}.${match}` : match;
+    return alias ? `${alias}.${name}` : name;
   });
 }
 
@@ -187,17 +199,14 @@ export function expandVirtualColumnsInSql(
   );
   if (!virtualCols.length) return sql;
 
-  let result = sql;
-  [...virtualCols]
-    .sort((a, b) => b.column.length - a.column.length)
-    .forEach((c) => {
-      const resolved = resolveVirtualColumnSql(c, factTable, "");
-      result = result.replace(
-        new RegExp(`\\b${escapeRegExp(c.column)}\\b`, "g"),
-        `(${resolved})`,
-      );
-    });
-  return result;
+  return replaceSqlIdentifiers(
+    sql,
+    virtualCols.map((c) => c.column),
+    (name) => {
+      const c = virtualCols.find((v) => v.column === name);
+      return c ? `(${resolveVirtualColumnSql(c, factTable, "")})` : name;
+    },
+  );
 }
 
 export function getColumnExpression(

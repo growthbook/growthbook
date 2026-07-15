@@ -1,7 +1,10 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { revalidateVirtualColumns } from "shared/experiments";
+import {
+  getVirtualColumnDependencies,
+  revalidateVirtualColumns,
+} from "shared/experiments";
 import {
   CreateColumnProps,
   CreateFactFilterProps,
@@ -588,6 +591,16 @@ export async function updateColumn({
     updatedColumn.autoSlices = ["true", "false"];
   }
 
+  // dependsOn is always recomputed server-side from the (possibly updated)
+  // expression, never taken from client input.
+  if (updatedColumn.isVirtual) {
+    updatedColumn.dependsOn = getVirtualColumnDependencies(
+      updatedColumn.sql || "",
+      factTable.columns,
+      column,
+    );
+  }
+
   factTable.columns[columnIndex] = updatedColumn;
 
   // Recompute virtual column validity in case this change (a soft-delete, or an
@@ -641,6 +654,16 @@ export async function createColumn(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   };
+
+  // dependsOn is always computed server-side from the expression, never taken
+  // from client input.
+  if (column.isVirtual) {
+    column.dependsOn = getVirtualColumnDependencies(
+      column.sql || "",
+      factTable.columns,
+      column.column,
+    );
+  }
 
   const columns = [...factTable.columns, column];
   revalidateVirtualColumns(columns);

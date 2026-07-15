@@ -1817,6 +1817,25 @@ describe("Virtual Columns", () => {
       );
     });
 
+    it("does not rewrite column names inside string literals", () => {
+      const withLiteral = {
+        columns: [
+          col({ column: "status", datatype: "string" }),
+          col({ column: "price", datatype: "number" }),
+          col({
+            column: "flagged_vc",
+            isVirtual: true,
+            sql: "CASE WHEN status = 'price' THEN price ELSE 0 END",
+            dependsOn: ["status", "price"],
+            datatype: "number",
+          }),
+        ],
+      };
+      expect(
+        getColumnExpression("flagged_vc", withLiteral, jsonExtract, "m"),
+      ).toBe("(CASE WHEN m.status = 'price' THEN m.price ELSE 0 END)");
+    });
+
     it("recursively inlines a virtual column that references another", () => {
       const chained = {
         columns: [
@@ -1868,6 +1887,12 @@ describe("Virtual Columns", () => {
     it("leaves fragments without virtual columns unchanged", () => {
       expect(expandVirtualColumnsInSql("amount > 100", factTable)).toBe(
         "amount > 100",
+      );
+    });
+
+    it("does not expand a virtual column name inside a string literal", () => {
+      expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
+        "label = 'revenue_vc'",
       );
     });
   });

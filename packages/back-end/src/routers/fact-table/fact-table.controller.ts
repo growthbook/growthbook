@@ -2,7 +2,6 @@ import type { Response } from "express";
 import {
   canInlineFilterColumn,
   expandVirtualColumnsInSql,
-  getVirtualColumnDependencies,
   revalidateVirtualColumns,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
@@ -948,17 +947,10 @@ export const putColumn = async (
     data.name = col.column;
   }
 
-  // When a virtual column's expression changes, recompute its dependencies so
-  // cascade invalidation stays accurate.
-  if (col.isVirtual && data.sql !== undefined) {
-    if (!data.sql.trim()) {
-      throw new Error("Virtual columns require a SQL expression");
-    }
-    data.dependsOn = getVirtualColumnDependencies(
-      data.sql,
-      factTable.columns,
-      col.column,
-    );
+  // Editing a virtual column's expression must not blank it out. (dependsOn is
+  // recomputed server-side inside updateColumn.)
+  if (col.isVirtual && data.sql !== undefined && !data.sql.trim()) {
+    throw new Error("Virtual columns require a SQL expression");
   }
 
   // Check enterprise feature access for dimension properties
@@ -1172,14 +1164,7 @@ export const postColumn = async (
     throw new Error("Virtual columns require a data type");
   }
 
-  // Compute which columns the expression references (server-side, so it works
-  // for both guided-builder and free-form SQL).
-  data.dependsOn = getVirtualColumnDependencies(
-    data.sql,
-    factTable.columns,
-    data.column,
-  );
-
+  // dependsOn is computed server-side inside createColumn.
   const column = await createColumn(factTable, data);
 
   res.status(200).json({
