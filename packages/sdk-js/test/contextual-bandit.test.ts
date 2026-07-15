@@ -9,7 +9,7 @@ function cbRule(overrides: Record<string, unknown> = {}) {
     hashAttribute: "id",
     hashVersion: 2,
     coverage: 1,
-    variations: ["control", "treatment"],
+    contextualVariations: ["control", "treatment"],
     weights: [1, 0],
     meta: [{ key: "0" }, { key: "1" }],
     isContextualBandit: true,
@@ -61,6 +61,42 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
+  it("skips a CB rule whose variations were stripped (old-SDK payload), no even-split fallback", () => {
+    // An SDK without the contextualBandits capability drops the
+    // `contextualVariations` key and never sees `variations`, so the rule must
+    // be skipped and fall through to the default rather than run as a plain
+    // 50/50 experiment.
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "enterprise" },
+      features: {
+        promo: {
+          defaultValue: "default",
+          rules: [
+            {
+              key: "promo_bandit",
+              seed: "promo_bandit",
+              hashAttribute: "id",
+              hashVersion: 2,
+              coverage: 1,
+              weights: [1, 0],
+              meta: [{ key: "0" }, { key: "1" }],
+              isContextualBandit: true,
+              contextualBanditRef: "cb_promo",
+            },
+          ],
+        },
+      },
+      contextualBandits: cbMap(),
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("defaultValue");
+    expect(res.value).toEqual("default");
+    expect(res.experimentResult).toBeUndefined();
+
+    gb.destroy();
+  });
+
   it("falls through to the catch-all leaf when no specific leaf matches", () => {
     const gb = new GrowthBook({
       attributes: { id: "u1", plan: "free" },
@@ -87,7 +123,7 @@ describe("contextual bandit feature rules", () => {
           defaultValue: "off",
           rules: [
             cbRule({
-              variations: ["off", "on"],
+              contextualVariations: ["off", "on"],
             }),
           ],
         },

@@ -50,6 +50,11 @@ export type FeatureRule<T = any> = {
   }>;
   isContextualBandit?: boolean;
   contextualBanditRef?: string;
+  // Contextual bandit rules carry their variations here instead of under
+  // `variations` so that older SDKs (which key off `variations` to detect an
+  // experiment rule) skip the rule entirely rather than mis-bucketing users
+  // into an even split. CB-capable SDKs read this into the experiment.
+  contextualVariations?: T[];
 };
 
 export type ContextualBanditDefinition = {

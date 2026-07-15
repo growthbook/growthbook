@@ -122,8 +122,10 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     expect(rule).not.toHaveProperty("contexts");
     expect(rule).not.toHaveProperty("attributesRequired");
     expect(rule).not.toHaveProperty("banditVersion");
-    // Aggregate fallback fields still present for non-capable SDK behavior
-    expect(rule?.variations).toEqual(["control", "treatment"]);
+    // Variations live under `contextualVariations` (not `variations`) so older
+    // SDKs skip the rule; aggregate weights remain for the CB MAB fallback.
+    expect(rule).not.toHaveProperty("variations");
+    expect(rule?.contextualVariations).toEqual(["control", "treatment"]);
     expect(rule?.weights).toEqual([0.5, 0.5]);
   });
 
@@ -143,8 +145,11 @@ describe("getFeatureDefinition contextual-bandit-ref rules", () => {
     expect(rule).toBeTruthy();
     expect(rule).not.toHaveProperty("contextualBanditRef");
     expect(rule).not.toHaveProperty("isContextualBandit");
-    // Degrades to a plain experiment rule with aggregate weights
-    expect(rule?.variations).toEqual(["control", "treatment"]);
+    // Non-capable SDKs get neither `contextualVariations` (stripped, CB-gated
+    // key) nor `variations`, so they skip the rule instead of running a plain
+    // experiment split. Weights remain but are never reached.
+    expect(rule).not.toHaveProperty("contextualVariations");
+    expect(rule).not.toHaveProperty("variations");
     expect(rule?.weights).toEqual([0.5, 0.5]);
     // Sticky bucketing stays disabled even for the MAB fallback (weights still
     // retrain each epoch), independent of the contextualBandits capability.

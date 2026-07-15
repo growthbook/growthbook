@@ -942,7 +942,12 @@ export function getFeatureDefinition({
             return null;
           }
 
-          rule.variations = cb.variations.map((v) => {
+          // Store variations under `contextualVariations` (a CB-capability
+          // gated key) rather than `variations`. Older SDKs drop this key and,
+          // finding no `variations`, skip the rule instead of bucketing users
+          // into a plain experiment split. CB-capable SDKs read it back into
+          // the experiment during evaluation.
+          rule.contextualVariations = cb.variations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
             );

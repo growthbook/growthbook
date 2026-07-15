@@ -319,7 +319,10 @@ export function evalFeature<V = unknown>(
 
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
-      if (!rule.variations) {
+      // Contextual bandit rules carry their variations under
+      // `contextualVariations` so older SDKs skip them; read either field here.
+      const ruleVariations = rule.contextualVariations ?? rule.variations;
+      if (!ruleVariations) {
         process.env.NODE_ENV !== "production" &&
           ctx.global.log("Skip invalid rule", {
             id,
@@ -331,7 +334,7 @@ export function evalFeature<V = unknown>(
 
       // For experiment rules, run an experiment
       const exp: Experiment<V> = {
-        variations: rule.variations as [V, V, ...V[]],
+        variations: ruleVariations as [V, V, ...V[]],
         key: rule.key || id,
       };
       if ("coverage" in rule) exp.coverage = rule.coverage;
