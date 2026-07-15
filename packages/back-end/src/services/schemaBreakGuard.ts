@@ -15,6 +15,7 @@ import {
 } from "shared/sdk-versioning";
 import { ConstantInterface } from "shared/types/constant";
 import { ConfigInterface } from "shared/types/config";
+import { FeatureInterface } from "shared/types/feature";
 import { Revision } from "shared/enterprise";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -125,6 +126,47 @@ function resolveConfigConcreteValue(
     : null;
 }
 
+// A per-environment ConstantValueMap getter that builds each env's map at most
+// once (a map is O(resolvables); without memoization it was rebuilt once per
+// affected config/feature, i.e. O(entities × envs × resolvables) on large orgs).
+type EnvMapGetter = (env: string) => ConstantValueMap;
+function memoizedEnvMaps(resolvables: ResolvableValue[]): EnvMapGetter {
+  const cache = new Map<string, ConstantValueMap>();
+  return (env) => {
+    let map = cache.get(env);
+    if (!map) {
+      map = buildConstantValueMap(resolvables, env);
+      cache.set(env, map);
+    }
+    return map;
+  };
+}
+
+// The resolvable universe with one constant's value + per-env values swapped to
+// the proposed ones — the "after this publish" world the diff compares against.
+function swapConstantValue(
+  resolvables: ResolvableValue[],
+  constantKey: string,
+  proposedValue: string | undefined,
+  proposedEnvironmentValues: Record<string, string> | undefined,
+): ResolvableValue[] {
+  return resolvables.map((r) =>
+    r.source === "constant" && r.key === constantKey
+      ? {
+          ...r,
+          value: proposedValue ?? "",
+          // A per-environment value change lives here, not in the base value —
+          // swap the whole map so env-specific resolution reflects it.
+          environmentValues: proposedEnvironmentValues ?? r.environmentValues,
+        }
+      : r,
+  );
+}
+
+// Current + proposed per-env map getters, shared across the config and feature
+// checks of one constant publish so the maps are built once, not per check.
+type ConstantEnvMaps = { current: EnvMapGetter; proposed: EnvMapGetter };
+
 // The schema/invariant violations a proposed constant value would INTRODUCE into
 // the configs that (transitively) reference it — diffed against the current
 // value so a pre-existing break never blocks an unrelated publish. Each affected
@@ -137,31 +179,8 @@ function resolveConfigConcreteValue(
 // a constant carries per-environment values, so a change can break a dependent
 // config in one environment but not another. A break present in every
 // environment is reported once (untagged); an env-specific one is tagged with
-// its environment. Config-backed FEATURE values are a documented follow-on.
-export async function evaluateConstantSchemaBreakConflicts(
-  context: Context,
-  constant: Pick<ConstantInterface, "key" | "project">,
-  proposedValue: string | undefined,
-  proposedEnvironmentValues?: Record<string, string>,
-): Promise<string[]> {
-  // Org-wide scan (mirrors the other constant guards): a dependent config in any
-  // project must be seen, even one the acting user can't read.
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
-  const resolvables = await getResolvableValues(scanContext);
-  const allConfigs = await scanContext.models.configs.getAllForReconcile();
-  return collectConstantConfigBreaks({
-    resolvables,
-    allConfigs,
-    environments: getEnvironmentIdsFromOrg(context.org),
-    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
-    constantKey: constant.key,
-    proposedValue,
-    proposedEnvironmentValues,
-  });
-}
-
-// Pure core of evaluateConstantSchemaBreakConflicts (loaded data in, violations
-// out) — exported for unit testing. See the wrapper above for semantics.
+// its environment. Pure (loaded data in, violations out) — the caller loads the
+// collections once and shares `envMaps` with the feature check.
 export function collectConstantConfigBreaks({
   resolvables,
   allConfigs,
@@ -170,6 +189,7 @@ export function collectConstantConfigBreaks({
   constantKey,
   proposedValue,
   proposedEnvironmentValues,
+  envMaps,
 }: {
   resolvables: ResolvableValue[];
   allConfigs: ConfigInterface[];
@@ -178,6 +198,9 @@ export function collectConstantConfigBreaks({
   constantKey: string;
   proposedValue: string | undefined;
   proposedEnvironmentValues?: Record<string, string>;
+  // Shared per-env maps (built once for the config + feature checks of one
+  // publish). Omit to build them locally.
+  envMaps?: ConstantEnvMaps;
 }): string[] {
   const affectedConfigKeys = [
     ...resolvableDependencyClosure(resolvables, "constant", constantKey),
@@ -187,22 +210,20 @@ export function collectConstantConfigBreaks({
   if (!affectedConfigKeys.length) return [];
 
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-
-  // The proposed universe swaps only the changed constant's value; everything
-  // else resolves identically, so the diff isolates violations this change
-  // introduces. Per environment, buildConstantValueMap picks that env's constant
-  // values, so resolution reflects what actually ships there.
-  const proposedResolvables = resolvables.map((r) =>
-    r.source === "constant" && r.key === constantKey
-      ? {
-          ...r,
-          value: proposedValue ?? "",
-          // A per-environment value change lives here, not in the base value —
-          // swap the whole map so env-specific resolution reflects it.
-          environmentValues: proposedEnvironmentValues ?? r.environmentValues,
-        }
-      : r,
-  );
+  // Per environment, buildConstantValueMap picks that env's constant values, so
+  // resolution reflects what actually ships there. The proposed map swaps only
+  // the changed constant, so the diff isolates the breaks this change introduces.
+  const currentMapFor = envMaps?.current ?? memoizedEnvMaps(resolvables);
+  const proposedMapFor =
+    envMaps?.proposed ??
+    memoizedEnvMaps(
+      swapConstantValue(
+        resolvables,
+        constantKey,
+        proposedValue,
+        proposedEnvironmentValues,
+      ),
+    );
 
   // Violations this change introduces for one config in one environment.
   const introducedFor = (
@@ -213,12 +234,12 @@ export function collectConstantConfigBreaks({
   ): string[] => {
     const current = resolveConfigConcreteValue(
       key,
-      buildConstantValueMap(resolvables, env),
+      currentMapFor(env),
       project,
     );
     const proposed = resolveConfigConcreteValue(
       key,
-      buildConstantValueMap(proposedResolvables, env),
+      proposedMapFor(env),
       project,
     );
     if (!proposed) return [];
@@ -275,40 +296,47 @@ export function collectConstantConfigBreaks({
 // invariant that the config's own resolved value doesn't. Values with an empty
 // patch are skipped — those resolve identically to the config and are already
 // covered by evaluateConstantSchemaBreakConflicts.
-async function evaluateConstantFeatureSchemaBreakConflicts(
-  context: Context,
-  constant: Pick<ConstantInterface, "key" | "project">,
-  proposedValue: string | undefined,
-  proposedEnvironmentValues?: Record<string, string>,
-): Promise<string[]> {
-  const scanContext = getContextForAgendaJobByOrgObject(context.org);
-  const [resolvables, features] = await Promise.all([
-    getResolvableValues(scanContext),
-    getAllFeatures(scanContext, {}),
-  ]);
+export function collectConstantFeatureBreaks({
+  resolvables,
+  features,
+  allConfigs,
+  environments,
+  extensibleDefault,
+  constantKey,
+  proposedValue,
+  proposedEnvironmentValues,
+  envMaps,
+}: {
+  resolvables: ResolvableValue[];
+  features: FeatureInterface[];
+  allConfigs: ConfigInterface[];
+  environments: string[];
+  extensibleDefault: boolean | undefined;
+  constantKey: string;
+  proposedValue: string | undefined;
+  proposedEnvironmentValues?: Record<string, string>;
+  envMaps?: ConstantEnvMaps;
+}): string[] {
   const affected = featuresAffectedByResolvable(
     resolvables,
     features,
     "constant",
-    constant.key,
+    constantKey,
   );
   if (!affected.length) return [];
 
-  const allConfigs = await scanContext.models.configs.getAllForReconcile();
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-  const extensibleDefault = context.org.settings?.configsExtensibleByDefault;
-  const environments = getEnvironmentIdsFromOrg(context.org);
-  const proposedResolvables = resolvables.map((r) =>
-    r.source === "constant" && r.key === constant.key
-      ? {
-          ...r,
-          value: proposedValue ?? "",
-          // A per-environment value change lives here, not in the base value —
-          // swap the whole map so env-specific resolution reflects it.
-          environmentValues: proposedEnvironmentValues ?? r.environmentValues,
-        }
-      : r,
-  );
+  const currentMapFor = envMaps?.current ?? memoizedEnvMaps(resolvables);
+  const proposedMapFor =
+    envMaps?.proposed ??
+    memoizedEnvMaps(
+      swapConstantValue(
+        resolvables,
+        constantKey,
+        proposedValue,
+        proposedEnvironmentValues,
+      ),
+    );
 
   // The feature's shipped value for one config-backed slot in one environment:
   // the backing config resolved ⊕ the (also-resolved) override patch.
@@ -357,13 +385,13 @@ async function evaluateConstantFeatureSchemaBreakConflicts(
         const current = shippedValue(
           config,
           patchObj,
-          buildConstantValueMap(resolvables, env),
+          currentMapFor(env),
           project,
         );
         const proposed = shippedValue(
           config,
           patchObj,
-          buildConstantValueMap(proposedResolvables, env),
+          proposedMapFor(env),
           project,
         );
         if (!proposed) return [];
@@ -406,28 +434,47 @@ async function evaluateConstantFeatureSchemaBreakConflicts(
 // bypassApprovalChecks).
 //
 // All schema-break violations a proposed constant value would introduce —
-// dependent configs (per env) and config-backed feature values, combined.
+// dependent configs (per env) and config-backed feature values, combined. Loads
+// each collection ONCE and shares the per-env maps across both checks (the two
+// used to reload configs/constants independently and rebuild maps per entity).
 async function constantSchemaBreakViolations(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string,
   proposedEnvironmentValues?: Record<string, string>,
 ): Promise<string[]> {
-  const [configViolations, featureViolations] = await Promise.all([
-    evaluateConstantSchemaBreakConflicts(
-      context,
-      constant,
-      proposedValue,
-      proposedEnvironmentValues,
-    ),
-    evaluateConstantFeatureSchemaBreakConflicts(
-      context,
-      constant,
-      proposedValue,
-      proposedEnvironmentValues,
-    ),
+  const scanContext = getContextForAgendaJobByOrgObject(context.org);
+  const [resolvables, features] = await Promise.all([
+    getResolvableValues(scanContext),
+    getAllFeatures(scanContext, {}),
   ]);
-  return [...configViolations, ...featureViolations];
+  const allConfigs = await scanContext.models.configs.getAllForReconcile();
+
+  const envMaps: ConstantEnvMaps = {
+    current: memoizedEnvMaps(resolvables),
+    proposed: memoizedEnvMaps(
+      swapConstantValue(
+        resolvables,
+        constant.key,
+        proposedValue,
+        proposedEnvironmentValues,
+      ),
+    ),
+  };
+  const shared = {
+    resolvables,
+    allConfigs,
+    environments: getEnvironmentIdsFromOrg(context.org),
+    extensibleDefault: context.org.settings?.configsExtensibleByDefault,
+    constantKey: constant.key,
+    proposedValue,
+    proposedEnvironmentValues,
+    envMaps,
+  };
+  return [
+    ...collectConstantConfigBreaks(shared),
+    ...collectConstantFeatureBreaks({ ...shared, features }),
+  ];
 }
 
 // Warn (never hard-block) when publishing a constant would make a dependent
