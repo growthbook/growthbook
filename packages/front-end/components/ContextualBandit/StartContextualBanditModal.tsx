@@ -59,6 +59,18 @@ function computeBlockers(
     </Link>
   );
 
+  if (linkedFeatures.length === 0) {
+    hardBlockerItems.push({
+      key: "no-linked-feature",
+      hardBlock: true,
+      display: (
+        <>
+          Link at least one feature flag before this contextual bandit can start
+        </>
+      ),
+    });
+  }
+
   linkedFeatures
     .filter((f) => f.state === "draft" && f.hasMergeConflict)
     .forEach((f) => {
