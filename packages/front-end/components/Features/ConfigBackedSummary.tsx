@@ -40,7 +40,7 @@ function ServeConfigHeader({
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
         </Link>
-        {suffix && <Text>{suffix}</Text>}
+        {suffix && <Text size="small">{suffix}</Text>}
       </Flex>
     </Flex>
   );
