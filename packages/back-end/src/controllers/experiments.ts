@@ -3251,6 +3251,10 @@ export async function postSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const force = !!req.query["force"];
   if (
     dimension &&
@@ -3411,6 +3415,10 @@ export async function postBanditSnapshot(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource for this experiment");
+  }
+
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   // We wait until the snapshot is fully updated, which can
