@@ -30,8 +30,9 @@ const GUIDE_COLOR = "var(--slate-a6)";
 const MAX_INDENT_DEPTH = 2;
 
 // Horizontal elbow joining a row to its parent's vertical guide. Runs from the
-// guide (5px left of the row's content edge) into the row's icon so the icon
-// visibly sits on the connector rather than floating beside it.
+// guide (5px left of the row's content edge) to just shy of the row's icon —
+// close enough to read as connected, with a couple px of breathing room so the
+// icon (e.g. the compose "+") stays legible rather than bleeding into the line.
 function RowConnector(): React.ReactElement {
   return (
     <Box
@@ -39,7 +40,7 @@ function RowConnector(): React.ReactElement {
         position: "absolute",
         left: -5,
         top: ROW_HEIGHT / 2,
-        width: 14,
+        width: 8,
         height: 1,
         background: GUIDE_COLOR,
       }}
