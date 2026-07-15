@@ -1079,7 +1079,7 @@ export function getFeatureDefinition({
         }
 
         if (r.type === "force") {
-          rule.force = valueForSDK(r.value, r.sparse);
+          rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
         } else if (r.type === "experiment") {
           // Inline experiment values have no `sparse` flag, but config-backed arms
           // are authored as sparse patches (like the experiment-ref twins), so a
@@ -1140,7 +1140,7 @@ export function getFeatureDefinition({
               : feature.defaultValue;
 
             rule.variations = [
-              valueForSDK(r.value, r.sparse),
+              valueForSDK(r.value, r.sparse || !!defaultConfigKey),
               // valueForSDK (not a bare resolve): a config-backed default is a pure
               // config (`{}` for the base), so a bare resolve would serve an empty
               // object to the control arm instead of the config's value.
@@ -1194,7 +1194,7 @@ export function getFeatureDefinition({
                 "Monitored ramp rule missing hashAttribute — falling back to force rollout payload",
               );
             }
-            rule.force = valueForSDK(r.value, r.sparse);
+            rule.force = valueForSDK(r.value, r.sparse || !!defaultConfigKey);
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
             if (clampedCoverage < 1) {
