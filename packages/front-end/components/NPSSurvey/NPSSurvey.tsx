@@ -15,6 +15,9 @@ import styles from "./NPSSurvey.module.scss";
 
 type Panel = "question" | "feedback" | "thanks";
 type Category = "detractor" | "passive" | "promoter";
+// How the user left the survey after picking a score; only "submitted"
+// (an explicit "Send feedback" click) carries the comment text.
+type ExitDisposition = "submitted" | "skipped" | "dismissed" | "abandoned";
 
 const STORAGE_KEY = "gb_nps_v1";
 const SURVEY_ID = "app-nps";
@@ -167,7 +170,7 @@ export default function NPSSurvey() {
   const persistServer = useCallback(
     (
       status: "responded" | "dismissed",
-      extra?: { score: number; feedback: string },
+      extra?: { score: number; feedback: string; disposition: ExitDisposition },
     ) => {
       void apiCall(`/user/nps-response`, {
         method: "POST",
@@ -182,20 +185,21 @@ export default function NPSSurvey() {
     [apiCall, updateUser],
   );
 
-  // Report the chosen score exactly once. The comment text is only included
-  // on an explicit "Send feedback" click — Skip, dismissal, and abandonment
-  // still record the score, but never transmit a draft the user didn't send.
+  // Report the chosen score exactly once, tagged with how the survey was
+  // exited. The comment text is only included on an explicit "Send feedback"
+  // click — every other exit records the score alone, never an unsent draft.
   const emitResponse = useCallback(
-    (includeFeedback: boolean) => {
+    (disposition: ExitDisposition) => {
       const { score: s, feedback } = getValues();
       if (sentRef.current || s === null) return;
       sentRef.current = true;
-      const feedbackText = includeFeedback ? feedback.trim() : "";
+      const feedbackText = disposition === "submitted" ? feedback.trim() : "";
       track("nps_response", {
         score: s,
         nps_value: npsValue(s),
         category: categoryOf(s),
         feedback: feedbackText,
+        disposition,
         survey_id: SURVEY_ID,
       });
       writeStored({
@@ -206,6 +210,7 @@ export default function NPSSurvey() {
       persistServer("responded", {
         score: s,
         feedback: feedbackText,
+        disposition,
       });
     },
     [persistServer, getValues],
@@ -225,7 +230,7 @@ export default function NPSSurvey() {
 
   const handleClose = useCallback(() => {
     if (getValues("score") !== null) {
-      emitResponse(false);
+      emitResponse("dismissed");
     } else {
       writeStored({ status: "dismissed", date: new Date().toISOString() });
       persistServer("dismissed");
@@ -234,8 +239,8 @@ export default function NPSSurvey() {
   }, [emitResponse, dismissCard, persistServer, getValues]);
 
   const handleSubmit = useCallback(
-    (includeFeedback: boolean) => {
-      emitResponse(includeFeedback);
+    (disposition: "submitted" | "skipped") => {
+      emitResponse(disposition);
       setPanel("thanks");
       if (closeTimer.current) window.clearTimeout(closeTimer.current);
       closeTimer.current = window.setTimeout(dismissCard, THANKS_DURATION);
@@ -248,7 +253,9 @@ export default function NPSSurvey() {
   useEffect(() => {
     if (!visible) return;
     const flush = () => {
-      if (getValues("score") !== null && !sentRef.current) emitResponse(false);
+      if (getValues("score") !== null && !sentRef.current) {
+        emitResponse("abandoned");
+      }
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -401,11 +408,13 @@ export default function NPSSurvey() {
               <Button
                 variant="ghost"
                 color="gray"
-                onClick={() => handleSubmit(false)}
+                onClick={() => handleSubmit("skipped")}
               >
                 Skip
               </Button>
-              <Button onClick={() => handleSubmit(true)}>Send feedback</Button>
+              <Button onClick={() => handleSubmit("submitted")}>
+                Send feedback
+              </Button>
             </Flex>
           </div>
         )}

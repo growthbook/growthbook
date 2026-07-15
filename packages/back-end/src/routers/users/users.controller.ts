@@ -150,14 +150,30 @@ function escapeSlackMrkdwn(s: string): string {
 
 const MAX_FEEDBACK_LENGTH = 1500;
 
+// How the user exited the survey; "submitted" is the only path where the
+// feedback text was explicitly sent. Values outside this list are dropped.
+const NPS_DISPOSITIONS = [
+  "submitted",
+  "skipped",
+  "dismissed",
+  "abandoned",
+] as const;
+type NpsDisposition = (typeof NPS_DISPOSITIONS)[number];
+
+function parseNpsDisposition(value: unknown): NpsDisposition | undefined {
+  return NPS_DISPOSITIONS.find((d) => d === value);
+}
+
 async function sendNpsResponseToSlack({
   score,
   feedback,
   email,
+  disposition,
 }: {
   score: number;
   feedback: string;
   email: string;
+  disposition?: NpsDisposition;
 }): Promise<void> {
   const category =
     score >= 9 ? "Promoter" : score <= 6 ? "Detractor" : "Passive";
@@ -172,6 +188,11 @@ async function sendNpsResponseToSlack({
     ? `*NPS ${score}/10 · ${category}*\n> ${safeFeedback.replace(/\n/g, "\n> ")}`
     : `*NPS ${score}/10 · ${category}*`;
 
+  // A "submitted" score is the norm, so only the other exits are called out —
+  // a score with no comment reads differently when the survey was abandoned.
+  const exitNote =
+    disposition && disposition !== "submitted" ? `   ·   ${disposition}` : "";
+
   const blocks: KnownBlock[] = [
     {
       type: "section",
@@ -185,7 +206,7 @@ async function sendNpsResponseToSlack({
       elements: [
         {
           type: "mrkdwn",
-          text: `:bust_in_silhouette:  ${email}`,
+          text: `:bust_in_silhouette:  ${email}${exitNote}`,
         },
       ],
     },
@@ -196,7 +217,7 @@ async function sendNpsResponseToSlack({
       {
         color,
         // Notification-only fallback; not shown in-channel.
-        fallback: `NPS ${score}/10 (${category}) from ${email}`,
+        fallback: `NPS ${score}/10 (${category}) from ${email}${exitNote}`,
         blocks,
       },
     ],
@@ -231,10 +252,12 @@ export async function postNpsResponse(
     status: "responded" | "dismissed";
     score?: number;
     feedback?: string;
+    disposition?: string;
   }>,
   res: Response,
 ) {
   const { status, score, feedback } = req.body;
+  const disposition = parseNpsDisposition(req.body.disposition);
   if (status !== "responded" && status !== "dismissed") {
     return res.status(400).json({
       status: 400,
@@ -266,6 +289,7 @@ export async function postNpsResponse(
       score,
       feedback: feedback?.trim() || "",
       email: req.email,
+      disposition,
     });
   }
 
