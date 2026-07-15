@@ -395,7 +395,7 @@ Iterating on existing mutations:
 
 Iterating on existing global CSS / JS (different rule from mutations — read carefully):
 - The \`css\` and \`js\` fields you return REPLACE the variation's prior global CSS / JS entirely on the back-end. There is NO merge or dedupe (unlike mutations).
-- Always consult the "Current variation global CSS" / "Current variation global JS" blocks above (when present) before deciding what to return.
+- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. ALWAYS build your returned CSS/JS from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only actually applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), it is NOT applied, so do NOT re-add it. When the Current block says "(none)", return only your new rules.
 - When your change ADDS, MODIFIES, or REMOVES a rule in global CSS/JS, return the COMPLETE intended new global CSS/JS — existing rules verbatim, plus/minus/edited rules:
   • ADD a new rule → echo the existing CSS, then append your new rule.
   • MODIFY an existing rule (change a color, swap a value, retarget a selector) → echo the existing CSS with that rule edited in place.
@@ -533,12 +533,20 @@ const buildPrompt = ({
     ? `\nThe current variation already contains these mutations (do not duplicate them):\n\`\`\`json\n${JSON.stringify(existingMutations, null, 2)}\n\`\`\`\n`
     : "";
 
+  // ALWAYS emit the current-state block, even when empty. This is the
+  // authoritative record of what global CSS/JS is currently applied to the
+  // variation (the committed changeset). When it's empty we say so explicitly
+  // ("(none)") rather than omitting the block — otherwise the model has no
+  // anchor and infers the current state from the conversation, which may
+  // include changes the user REJECTED or undid (e.g. re-adding a rejected
+  // `a{color:red}` on the next turn). The model is instructed to build its
+  // returned CSS/JS from THIS block, not from the chat history.
   const existingCssBlock = existingCss
-    ? `\nCurrent variation global CSS:\n\`\`\`css\n${existingCss}\n\`\`\`\n`
-    : "";
+    ? `\nCurrent variation global CSS (authoritative — build on this, not the conversation):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
+    : `\nCurrent variation global CSS: (none — this variation has no global CSS applied. Do not re-add CSS from earlier in the conversation; it may have been rejected.)\n`;
   const existingJsBlock = existingJs
-    ? `\nCurrent variation global JS:\n\`\`\`js\n${existingJs}\n\`\`\`\n`
-    : "";
+    ? `\nCurrent variation global JS (authoritative — build on this, not the conversation):\n\`\`\`js\n${existingJs}\n\`\`\`\n`
+    : `\nCurrent variation global JS: (none — this variation has no global JS applied. Do not re-add JS from earlier in the conversation; it may have been rejected.)\n`;
 
   const retryBlock = retryHint ? `\n${retryHint}\n` : "";
 

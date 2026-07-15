@@ -168,6 +168,8 @@ export function rampScheduleToApiInterface(
     endActions: doc.endActions,
     startDate: dateToIso(doc.startDate),
     cutoffDate: dateToIso(doc.cutoffDate),
+    requiresStartApproval: doc.requiresStartApproval,
+    startApprovedAt: dateToIso(doc.startApprovedAt),
     status: doc.status,
     currentStepIndex: doc.currentStepIndex,
     startedAt: dateToIso(doc.startedAt),
@@ -579,6 +581,12 @@ export class RampScheduleModel extends BaseClass {
       startDate: ("startDate" in updates
         ? updates.startDate
         : schedule.startDate) as RampScheduleInterface["startDate"],
+      requiresStartApproval: ("requiresStartApproval" in updates
+        ? updates.requiresStartApproval
+        : schedule.requiresStartApproval) as boolean | undefined,
+      startApprovedAt: ("startApprovedAt" in updates
+        ? updates.startApprovedAt
+        : schedule.startApprovedAt) as Date | null | undefined,
     });
 
     const editedFields = Object.keys(updates).filter(

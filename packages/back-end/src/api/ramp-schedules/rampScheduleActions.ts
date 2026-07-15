@@ -7,6 +7,7 @@ import {
   rampMonitoringConfig,
   lockdownConfigSchema,
   stepHoldConditions,
+  isAwaitingStartApproval,
 } from "shared/validators";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -18,6 +19,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
+  approveScheduleStart,
   completeRampKeepCutoff,
   completeRollout,
   ensureSafeRolloutForMonitoredRamp,
@@ -78,6 +80,13 @@ export const startRampSchedule = createApiRequestHandler({
       `Cannot start a ramp schedule in status "${schedule.status}" — must be "ready"`,
     );
   }
+  // An approval-gated schedule can only be launched via /actions/approve-step,
+  // so the approval is recorded and audited. `start` (start-early) is refused.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step to start it.",
+    );
+  }
 
   const current = await runLockedRampScheduleAction(
     req.context,
@@ -86,6 +95,11 @@ export const startRampSchedule = createApiRequestHandler({
       if (fresh.status !== "ready") {
         throw new ConflictError(
           `Cannot start: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step to start it.",
         );
       }
       return startSchedule(req.context, fresh, heartbeat);
@@ -240,6 +254,13 @@ export const completeRampSchedule = createApiRequestHandler({
       `Ramp schedule is already in terminal status "${schedule.status}"`,
     );
   }
+  // Completing a held ramp would enable the rule without the required start
+  // approval — refuse it; approve via /actions/approve-step to launch first.
+  if (isAwaitingStartApproval(schedule)) {
+    throw new Error(
+      "This schedule requires start approval — use POST /actions/approve-step before completing.",
+    );
+  }
 
   const completed = await runLockedRampScheduleAction(
     req.context,
@@ -248,6 +269,11 @@ export const completeRampSchedule = createApiRequestHandler({
       if (["completed", "rolled-back"].includes(fresh.status)) {
         throw new ConflictError(
           `Cannot complete: schedule changed to "${fresh.status}" while the request was in flight`,
+        );
+      }
+      if (isAwaitingStartApproval(fresh)) {
+        throw new ConflictError(
+          "This schedule now requires start approval — use /actions/approve-step before completing.",
         );
       }
       const isSimple = fresh.steps.length === 0 && !!fresh.cutoffDate;
@@ -273,9 +299,9 @@ export const approveStepRampSchedule = createApiRequestHandler({
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/approve-step",
   operationId: "approveStepRampSchedule",
-  summary: "Approve the current step",
+  summary: "Approve the pending approval gate",
   description:
-    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule.\n\nApproval is the **final** gate: it can only be granted once every other hold\non the step has already cleared. This endpoint rejects the request (`400`) if\nthe step is not yet ready for approval — for example while the interval timer\nis still counting down, or (for monitored steps) before fresh analysis\ncovering the step is available or while a guardrail/health signal is failing.\nPoll the `/status` endpoint and only call this once it reports the step is\nawaiting approval.\n\n**Non-monitored steps**: once the interval has elapsed, approving clears the\nlast hold and the schedule advances immediately, chaining through any\nsubsequent instant steps in the same request.\n\n**Monitored steps**: once the interval has elapsed and fresh, healthy analysis\nis available, approving clears the last hold and the agenda advances the step\non its next tick (re-checking the latest analysis once more first).\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation flow and refuses to skip ahead of the interval or any other\nunmet gate. Use `/actions/advance` only if you want to bypass all remaining\nholds entirely (including the interval timer).\n\nRequires feature review permissions for the associated feature.\n",
+    "Clears whichever approval gate is currently pending on the schedule:\n\n- **Start gate** — a schedule created with `requiresStartApproval` sits in `ready` at step -1 with its rule disabled (zero traffic). Approving starts the ramp (or, if a future `startDate` is set, arms it to start on that date).\n- **Step gate** — the `holdConditions.requiresApproval` gate on the current step of a `running` schedule.\n\nFor a step gate, approval is the **final** gate: it can only be granted once every other hold has cleared. This endpoint rejects the request (`400`) if the step is not yet ready — while the interval timer is still counting down, or (for monitored steps) before fresh analysis is available or while a guardrail/health signal is failing. Poll `/status` and call this once it reports awaiting approval.\n\n**Non-monitored steps**: once the interval has elapsed, approving clears the last hold and advances immediately, chaining through subsequent instant steps.\n\n**Monitored steps**: approving clears the last hold and the agenda advances on its next tick (re-checking analysis first).\n\nDifferent from `/actions/advance`: `approve-step` works within the normal evaluation flow and refuses to skip ahead of the interval or any other unmet gate. Use `/actions/advance` to bypass all remaining holds.\n\nRequires update + publish (start gate) or review (step gate) permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -283,15 +309,16 @@ export const approveStepRampSchedule = createApiRequestHandler({
   );
   if (!schedule) throw new Error("Ramp schedule not found");
 
+  const awaitingStart = isAwaitingStartApproval(schedule);
   const currentStep = schedule.steps[schedule.currentStepIndex];
-  const awaitingApproval =
+  const awaitingStepApproval =
     schedule.status === "running" &&
     currentStep?.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex;
 
-  if (!awaitingApproval) {
+  if (!awaitingStart && !awaitingStepApproval) {
     throw new Error(
-      `Cannot approve step: schedule is not awaiting approval (currently "${schedule.status}")`,
+      `Cannot approve: schedule is not awaiting approval (currently "${schedule.status}")`,
     );
   }
 
@@ -299,6 +326,18 @@ export const approveStepRampSchedule = createApiRequestHandler({
     req.context,
     schedule.id,
     (fresh) => {
+      // Pin the gate to what the caller saw pre-lock. If it flipped under us
+      // (e.g. a concurrent rollback re-held a running step, or vice versa),
+      // refuse — a "approve step N" call must never become a full re-start.
+      if (isAwaitingStartApproval(fresh) !== awaitingStart) {
+        throw new ConflictError(
+          "The schedule's approval state changed while the request was in flight",
+        );
+      }
+      // Pre-start hold: approving starts the ramp (crosses -1 → 0).
+      if (awaitingStart) {
+        return approveScheduleStart(req.context, fresh);
+      }
       // Pin to the step the reviewer saw — a queued approval must not land
       // on a step that was never reviewed.
       if (fresh.currentStepIndex !== schedule.currentStepIndex) {
@@ -329,12 +368,18 @@ export const approveStepRampSchedule = createApiRequestHandler({
     (await req.context.models.rampSchedules.getById(schedule.id)) ?? schedule;
 
   await req.audit({
-    event: "rampSchedule.step-approved",
+    event: awaitingStart
+      ? "rampSchedule.start-approved"
+      : "rampSchedule.step-approved",
     entity: { object: "rampSchedule", id: schedule.id },
-    details: JSON.stringify({
-      stepIndex: updated.currentStepIndex,
-      stepApproval: updated.stepApproval,
-    }),
+    details: JSON.stringify(
+      awaitingStart
+        ? { status: updated.status, startApprovedAt: updated.startApprovedAt }
+        : {
+            stepIndex: updated.currentStepIndex,
+            stepApproval: updated.stepApproval,
+          },
+    ),
   });
 
   return { rampSchedule: rampScheduleToApiInterface(updated) };

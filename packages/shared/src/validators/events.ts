@@ -21,6 +21,8 @@ import {
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleJumpedPayload,
+  rampScheduleAwaitingStartApprovalPayload,
+  rampScheduleStartApprovedPayload,
 } from "./ramp-schedule-notifications";
 import {
   featureRevisionCreatedPayload,
@@ -161,6 +163,16 @@ export const notificationEvents = {
     "rampSchedule.actions.step.approvalRequired": {
       schema: rampScheduleStepApprovalRequiredPayload,
       description: "Triggered when a feature ramp step is waiting for approval",
+    },
+    "rampSchedule.actions.awaitingStartApproval": {
+      schema: rampScheduleAwaitingStartApprovalPayload,
+      description:
+        "Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval",
+    },
+    "rampSchedule.actions.startApproved": {
+      schema: rampScheduleStartApprovedPayload,
+      description:
+        "Triggered when a held ramp schedule's start is approved by a user",
     },
     "revision.created": {
       schema: featureRevisionCreatedPayload,

@@ -265,7 +265,7 @@ export default function CustomHookModal({
           {!feature && (
             <MultiSelectField
               label={"Projects"}
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects") || []}
               options={projectOptions}
               onChange={(v) => form.setValue("projects", v)}

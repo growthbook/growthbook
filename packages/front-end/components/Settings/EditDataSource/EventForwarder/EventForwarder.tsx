@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   normalizeBigQueryTablePrefixForEventForwarder,
+  normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   stripLeadingUtf8ByteOrderMark,
   supportsEventForwarder,
@@ -178,12 +179,15 @@ function getEventForwarderDraft(
   return null;
 }
 
-// Only validates what the browser's native `required` validation can't cover:
-// read-only/derived fields (Snowflake access URL), datasource connection params
-// that aren't inputs in this modal (account/username/auth method), and table
-// prefix *format*. Empty visible required fields (BigQuery project/dataset,
+// Validates what the browser's native `required` validation can't cover:
+// datasource connection params that aren't inputs in this modal
+// (account/username/auth method), and *format* of free-form fields (table
+// prefix, access URL). Empty visible required fields (BigQuery project/dataset,
 // Snowflake database/schema) are handled by native `required` on the inputs, so
-// don't re-check them here — that would duplicate the per-field tooltip.
+// don't re-check emptiness here — that duplicates the per-field tooltip. The
+// access URL is the exception: it's only conditionally editable/required in the
+// UI, so this validator owns its emptiness too as a backstop (native gates
+// submit first, so it never double-messages).
 function getEventForwarderValidationErrors(
   draft: EventForwarderDatasourceDraft,
 ): string[] {
@@ -206,12 +210,24 @@ function getEventForwarderValidationErrors(
   if (cfg.sinkType === "snowflake") {
     const p = rawParams as Partial<SnowflakeConnectionParams>;
     const authMethod = p.authMethod ?? "password";
-    if (!cfg.config.accessUrl?.trim())
-      errors.push("Enter a Snowflake access URL.");
     if (!p.account?.trim()) errors.push("Enter a Snowflake account.");
     if (!p.username?.trim()) errors.push("Enter a Snowflake username.");
     if (authMethod !== "key-pair") {
       errors.push("Use key-pair authentication for the Snowflake connection.");
+    }
+    const accessUrl = cfg.config.accessUrl?.trim();
+    if (!accessUrl) {
+      errors.push("Enter a Snowflake access URL.");
+    } else {
+      try {
+        normalizeSnowflakeEventForwarderAccessUrl(accessUrl);
+      } catch (e) {
+        errors.push(
+          e instanceof Error
+            ? e.message
+            : "Enter a valid Snowflake access URL.",
+        );
+      }
     }
     try {
       normalizeSnowflakeTablePrefixForEventForwarder(cfg.config.tablePrefix);
@@ -296,11 +312,13 @@ function EventForwarderModal({
   onCancel,
   onRefresh,
   onClearError,
+  onRefreshError,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
   onClearError: () => void;
+  onRefreshError: (message: string) => void;
 }) {
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
@@ -370,7 +388,9 @@ function EventForwarderModal({
             // Unreachable once validation passes (a null config yields an
             // error above); the throw narrows the type for the request body.
             if (!eventForwarderConfig) {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+              throw new Error(
+                "Event Forwarder configuration is missing. Review the destination settings and try again.",
+              );
             }
             try {
               await testEventForwarderAccess();
@@ -380,12 +400,22 @@ function EventForwarderModal({
                   eventForwarderConfig,
                 }),
               });
-              onClearError();
-              await onRefresh();
-              onCancel();
-            } catch {
-              throw new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
+            } catch (e) {
+              throw e instanceof Error
+                ? e
+                : new Error(EVENT_FORWARDER_MODAL_FAILURE_MESSAGE);
             }
+
+            onClearError();
+            try {
+              await onRefresh();
+            } catch (e) {
+              const detail = e instanceof Error ? ` ${e.message}` : "";
+              onRefreshError(
+                `Event Forwarder was saved, but the updated status could not be loaded.${detail}`,
+              );
+            }
+            onCancel();
           }}
         >
           <SyncSubmittingRef submittingRef={isSubmittingRef} />
@@ -592,6 +622,12 @@ export default function EventForwarder({
         </DocLink>
       </p>
 
+      {error && !eventForwarderConfig ? (
+        <Callout status="error" mb="3">
+          {error}
+        </Callout>
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -721,10 +757,8 @@ export default function EventForwarder({
           dataSource={dataSource}
           onCancel={() => setShowEditModal(false)}
           onClearError={() => setError(null)}
-          onRefresh={async () => {
-            await onRefresh();
-            setShowEditModal(false);
-          }}
+          onRefresh={onRefresh}
+          onRefreshError={setError}
         />
       ) : null}
     </Box>
