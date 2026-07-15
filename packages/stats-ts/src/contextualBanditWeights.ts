@@ -295,9 +295,6 @@ function sumOfSquaredErrors(
  * three `ArmColumns` fields the SSE objective reads (`n`, `main_sum`,
  * `main_sum_squares`), laid out per variation as `[n, sum, sumSquares]` in a
  * single `Float64Array` of length `3 * numVariations`.
- *
- * For binomial metrics the `sumSquares` slot holds `main_sum` (since `x^2 = x`
- * for 0/1 data), so `armSseDirect` needs no metric-type awareness.
  */
 type CompactCat = Float64Array;
 
@@ -313,9 +310,7 @@ function trailingZeros(x: number): number {
 
 /**
  * `(n - 1) * variance` for a single pooled variation arm, computed directly
- * from its sufficient statistics — the exact quantity summed by
- * `sumOfSquaredErrorsFromArms` (which multiplies a moment stat's variance by
- * `n - 1`), but without allocating a statistic object.
+ * from its sufficient statistics.
  * */
 export function armSseDirect(
   n: number,
@@ -661,23 +656,11 @@ type LeafSplit = {
 /**
  * Greedy SSE regression tree up to `maxLeaves` where each split groups one
  * attribute's categories into two sets via weighted k-means (porting gbstats
- * `UpdateWeightsContextualTreeKMeans`). This admits multi-category splits like
- * `country in (US, CA)` vs not, rather than only `country == US` vs not.
- *
- * A split is taken only when the best available (non-degenerate) binary
- * category partition strictly reduces total SSE; there is no minimum-users-
- * per-leaf guard. For attributes with at most `MAX_EXHAUSTIVE_CATEGORIES`
+ * `UpdateWeightsContextualTreeKMeans`).
+ * For attributes with at most `MAX_EXHAUSTIVE_CATEGORIES`
  * categories the optimal partition is found exactly (via
  * `bestExhaustiveBinarySplit`); otherwise it falls back to
- * `approximateBinaryKMeans`, whose Forgy initialization uses `Math.random`, so
- * those partitions (and hence the tree) are not reproducible across runs.
- *
- * Performance: each leaf's best split is cached and only the two leaves touched
- * by a split are re-evaluated per iteration; the exact split search enumerates
- * partitions incrementally over compact per-variation stats (see
- * `bestExhaustiveBinarySplit`). Split SSE and gains are computed with the direct
- * SS formula (`armSseDirect`), which matches the reference `armMomentStat` path
- * up to floating-point rounding.
+ * `approximateBinaryKMeans`.
  */
 function buildTreeKMeans(
   contexts: ContextEntry[],
@@ -691,8 +674,6 @@ function buildTreeKMeans(
     return { leafMap: [], sseTrajectory: [] };
   }
 
-  // Contextual bandits are asserted to be count or binomial only; the split
-  // objective reads the metric type once here rather than per candidate.
   const isBinomial = metric.main_metric_type === "binomial";
 
   const totalSse = (): number => {
@@ -707,8 +688,7 @@ function buildTreeKMeans(
     return total;
   };
 
-  // Pooled within-leaf SSE over a set of contexts, using only the three fields
-  // the objective reads (matches `sumOfSquaredErrors` up to fp rounding).
+  // Pooled within-leaf SSE over a set of contexts.
   const contextsSseDirect = (ctxIdxs: number[]): number => {
     let sse = 0;
     for (let v = 0; v < numVariations; v++) {
@@ -734,10 +714,6 @@ function buildTreeKMeans(
       ? bestExhaustiveBinarySplit(cats, numVariations)
       : approximateBinaryKMeans(cats, numVariations, 100);
 
-  // Best split for a single leaf, computed independently of every other leaf.
-  // This independence is what makes the per-leaf cache below valid: a leaf's
-  // best split depends only on its own contexts. Returns null when the leaf
-  // admits no valid (non-degenerate) split.
   const evaluateLeafBestSplit = (leafId: number): LeafSplit | null => {
     const inLeaf: number[] = [];
     for (let c = 0; c < contexts.length; c++) {
@@ -785,9 +761,6 @@ function buildTreeKMeans(
       // Both sides must be non-empty for a real split.
       if (group.size === 0 || group.size === categories.length) continue;
 
-      // The clusterer already minimized this same pooled-SSE objective over the
-      // category statistics, so its achieved SSE is the split SSE (pooling a
-      // group's category arms is identical to pooling that group's contexts).
       const candidateSseSplit = km.sse;
       const gain = sseCurrent - candidateSseSplit;
       if (best === null || gain > best.gain) {
@@ -805,9 +778,6 @@ function buildTreeKMeans(
 
   const sseTrajectory: number[] = [totalSse()];
 
-  // Per-leaf best-split cache. After a split only the two child leaves change,
-  // so every other leaf's cached best split stays valid; re-evaluating just the
-  // dirty leaves cuts per-iteration work from O(leaves) fits to O(1).
   const splitCache = new Map<number, LeafSplit | null>();
   let dirtyLeaves = new Set<number>(currentLeaf);
 
@@ -861,7 +831,6 @@ function buildTreeKMeans(
   };
 }
 
-/** Compute updated contextual-bandit weights. */
 export function computeContextualBanditWeights(
   input: ContextualBanditWeightsInput,
 ): ContextualBanditSnapshot {
