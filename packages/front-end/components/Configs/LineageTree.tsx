@@ -400,7 +400,7 @@ export default function LineageTree({
           // child-name column.
           <Box
             style={{
-              marginLeft: 6,
+              marginLeft: 10,
               paddingLeft: 5,
               borderLeft: `1px solid ${GUIDE_COLOR}`,
             }}
@@ -572,7 +572,7 @@ export default function LineageTree({
             (indentChildren ? (
               <Box
                 style={{
-                  marginLeft: 6,
+                  marginLeft: 10,
                   paddingLeft: 5,
                   borderLeft: `1px solid ${GUIDE_COLOR}`,
                 }}
