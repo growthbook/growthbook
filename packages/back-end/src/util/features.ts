@@ -892,16 +892,24 @@ export function getFeatureDefinition({
             );
             if (!variation) return null;
 
+            // A config-backed feature composes every arm as a sparse patch on
+            // the base (the invariant above), so force sparse there regardless
+            // of the stored flag — a rule retro-fitted onto config-backing may
+            // still carry sparse=false. Matches the CB-ref / inline-experiment
+            // arms below. Non-config features keep their independent sparse.
+            const armSparse = r.sparse || !!defaultConfigKey;
+
             // If a variation has been rolled out to 100%
-            rule.force = valueForSDK(variation.value, r.sparse);
+            rule.force = valueForSDK(variation.value, armSparse);
           }
           // Running experiment
           else {
+            const armSparse = r.sparse || !!defaultConfigKey;
             rule.variations = getLatestPhaseVariations(exp).map((v) => {
               const variation = r.variations?.find(
                 (ruleVariation) => v.id === ruleVariation.variationId,
               );
-              return variation ? valueForSDK(variation.value, r.sparse) : null;
+              return variation ? valueForSDK(variation.value, armSparse) : null;
             });
             rule.weights = phase.variationWeights;
 
