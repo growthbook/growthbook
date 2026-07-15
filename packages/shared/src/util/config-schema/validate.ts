@@ -118,12 +118,9 @@ export function collectInvalidConfigValueKeys({
 //
 // The top-level `$extends` merge directive is stripped before validation (it's a
 // composition instruction, not data).
-// Recursively remove every `required` keyword from a JSON Schema document (the
-// node itself and nested subschemas via properties/items/additionalProperties/
-// combinators) — used for sparse-patch validation where completeness isn't
-// enforced at any depth. Only descends into subschema positions, so a config
-// field literally named "required" (a key inside a `properties` map) is left
-// alone; only the JSON Schema keyword is stripped.
+// Recursively remove `required` from a JSON Schema — sparse-patch validation
+// doesn't enforce completeness at any depth. Only descends into subschema
+// positions, so a field literally named "required" is untouched.
 function stripRequiredDeep(schema: unknown): void {
   if (!schema || typeof schema !== "object") return;
   if (Array.isArray(schema)) {
@@ -199,9 +196,7 @@ export function validateConfigValue({
   }
 
   // Sparse values don't carry every required key (inheritance does), so drop
-  // `required` unless validating a fully-resolved value. Recurse so a NESTED
-  // required (e.g. a raw JSON Schema field with its own required[]) doesn't
-  // reject a partial nested object that inherits the rest of its keys.
+  // `required` — at every depth — unless validating a fully-resolved value.
   if (!requireAll) stripRequiredDeep(schemaObj);
 
   try {

@@ -823,12 +823,10 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
 }
 
 // Whether any node in a chain declares a `@const:`/`@config:` `$extends`
-// layer — in its own value OR in a scope-selected flavor patch (variantPatch).
+// layer — in its own value or its scope-selected flavor patch (variantPatch).
 // Such a layer can supply arbitrary fields but is unresolvable at gate time, so
 // required-field enforcement treats it as satisfying everything (the analog of
-// the reference-backed own-key exemption). A flavor may extend its own bases
-// (resolved for real in the SDK payload); the gate can't resolve them, so it
-// must exempt rather than falsely flag a field the flavor's mixin supplies.
+// the reference-backed own-key exemption).
 export function configChainDeclaresReferenceLayer(
   chain: ConfigChainNode[],
 ): boolean {

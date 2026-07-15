@@ -15,6 +15,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ConfigInterface } from "shared/types/config";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { Context } from "back-end/src/models/BaseModel";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import {
@@ -102,12 +103,9 @@ type ConfigHookInput = {
   extends?: string[];
   lineage?: ConfigLineage;
   scopedConfig?: ScopedConfigHookInfo;
-  // The config's fully-resolved (lineage + `@const:`/`@config:` substituted)
-  // shipping shape, so a hook can validate the real value, not just the raw
-  // patch. `resolved` is env-agnostic (the base value); `perEnvironment` carries
-  // one entry per environment for which the lineage declares a flavor override,
-  // resolved as `base ⊕ flavor` for that env. Present only on the config being
-  // validated (not `original`), and only when hooks will actually run.
+  // Fully-resolved shipping shape (lineage + refs substituted): `resolved` is
+  // the env-agnostic base value; `perEnvironment` has one entry per environment
+  // the lineage overrides via a flavor. Set only on the config being validated.
   resolved?: unknown;
   perEnvironment?: { environment: string; value: unknown }[];
 } & Record<string, unknown>;
@@ -123,25 +121,28 @@ function parseConfigValue(value: unknown): unknown {
   }
 }
 
-// Resolve the config's fully-substituted shipping shape (env-agnostic + one
-// value per flavor-overridden environment), so a hook can validate the value the
-// SDK actually ships — not just the raw patch it's editing. The STAGED value is
-// substituted into the reference universe (mirroring schemaBreakGuard's proposed
-// map) so the resolved shape reflects the change under validation, not the stored
-// one. Configs + constants are read unfiltered (an admin scan context) since
-// lineage/refs can span projects the acting user can't read.
+// Resolve the config's shipping shape for hooks. The staged value is
+// substituted into the reference universe (like schemaBreakGuard's proposed
+// map) so the result reflects the change under validation. Reads are
+// unfiltered — lineage/refs can span projects the acting user can't read.
+type ResolvedShapes = {
+  resolved: unknown;
+  perEnvironment: { environment: string; value: unknown }[];
+};
+
 async function computeConfigResolvedShapes(
   context: Context,
   all: ConfigInterface[],
   byKey: Map<string, ConfigInterface>,
   config: ConfigHookInput,
-): Promise<{
-  resolved: unknown;
-  perEnvironment: { environment: string; value: unknown }[];
-}> {
+  withOriginal: boolean,
+): Promise<{ staged: ResolvedShapes; original: ResolvedShapes | null }> {
   const project = config.project ?? byKey.get(config.key)?.project ?? "";
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
   const constants = await scanContext.models.constants.getAll();
+  const constantResolvables = constants.map(
+    (c): ResolvableValue => ({ ...c, source: "constant" }),
+  );
 
   const stored = byKey.get(config.key);
   const rawValue =
@@ -161,40 +162,58 @@ async function computeConfigResolvedShapes(
     scopedOverrides: stored?.scopedOverrides,
   } as ResolvableValue;
 
-  const resolvables: ResolvableValue[] = [
-    ...constants.map((c): ResolvableValue => ({ ...c, source: "constant" })),
+  const stagedResolvables: ResolvableValue[] = [
+    ...constantResolvables,
     ...all.map((c) =>
       c.key === config.key ? stagedResolvable : configToResolvable(c),
     ),
   ];
-  if (!stored) resolvables.push(stagedResolvable);
-
-  const resolveFor = (environment: string | undefined): unknown =>
-    resolveConstantRefs(
-      { [CONSTANT_EXTENDS_KEY]: [`@config:${config.key}`] },
-      buildConstantValueMap(resolvables, environment ?? ""),
-      new Set(),
-      undefined,
-      project,
-      environment,
-    );
+  if (!stored) stagedResolvables.push(stagedResolvable);
 
   // Only environments the lineage overrides via a flavor can differ from the
-  // base value, so resolve just those (plus the env-agnostic base).
+  // base value, so resolve just those (plus the env-agnostic base). A wildcard/
+  // project-only entry (no `environments`) applies in every named environment.
   const lineageKeys = [config.key, ...getConfigAncestorKeys(config, byKey)];
   const environments = new Set<string>();
   for (const key of lineageKeys) {
     for (const o of byKey.get(key)?.scopedOverrides ?? []) {
-      (o.environments ?? []).forEach((e) => environments.add(e));
+      if (!o.environments?.length) {
+        getEnvironmentIdsFromOrg(context.org).forEach((e) =>
+          environments.add(e),
+        );
+      } else {
+        o.environments.forEach((e) => environments.add(e));
+      }
     }
   }
 
+  const shapesFor = (resolvables: ResolvableValue[]): ResolvedShapes => {
+    const resolveFor = (environment: string | undefined): unknown =>
+      resolveConstantRefs(
+        { [CONSTANT_EXTENDS_KEY]: [`@config:${config.key}`] },
+        buildConstantValueMap(resolvables, environment ?? ""),
+        new Set(),
+        undefined,
+        project,
+        environment,
+      );
+    return {
+      resolved: resolveFor(undefined),
+      perEnvironment: [...environments].map((environment) => ({
+        environment,
+        value: resolveFor(environment),
+      })),
+    };
+  };
+
   return {
-    resolved: resolveFor(undefined),
-    perEnvironment: [...environments].map((environment) => ({
-      environment,
-      value: resolveFor(environment),
-    })),
+    staged: shapesFor(stagedResolvables),
+    // The original resolves against the STORED universe (no substitution) so
+    // incrementalChangesOnly hooks can diff resolved shapes symmetrically.
+    original:
+      withOriginal && stored
+        ? shapesFor([...constantResolvables, ...all.map(configToResolvable)])
+        : null,
   };
 }
 
@@ -248,20 +267,46 @@ async function prepareConfigHookArgs(
       ...(scopedConfig ? { scopedConfig } : {}),
     };
   };
-  const { resolved, perEnvironment } = await computeConfigResolvedShapes(
+  const shapes = await computeConfigResolvedShapes(
     context,
     all,
     byKey,
     config,
+    !!original,
   );
+  const attach = (c: ConfigHookInput, s: ResolvedShapes): ConfigHookInput => ({
+    ...c,
+    resolved: s.resolved,
+    ...(s.perEnvironment.length ? { perEnvironment: s.perEnvironment } : {}),
+  });
   return {
-    config: {
-      ...shape(config),
-      resolved,
-      ...(perEnvironment.length ? { perEnvironment } : {}),
-    },
-    original: original ? shape(original) : original,
+    config: attach(shape(config), shapes.staged),
+    original:
+      original && shapes.original
+        ? attach(shape(original), shapes.original)
+        : original
+          ? shape(original)
+          : original,
   };
+}
+
+// Whether any hook would run for this entity — probed BEFORE the arg
+// enrichment so configless orgs don't pay the config/constant collection reads
+// and reference resolution on every write.
+async function anyHooksToRun(
+  context: Context,
+  hookType: CustomHookType,
+  config: ConfigHookInput,
+): Promise<boolean> {
+  if (IS_CLOUD || !context.hasPremiumFeature("custom-hooks")) return false;
+  const adminContext = getContextForAgendaJobByOrgObject(context.org);
+  const hooks = await adminContext.models.customHooks.getByHook(
+    hookType,
+    config.project ?? "",
+    config.key,
+    { parent: config.parent, extends: config.extends },
+  );
+  return hooks.length > 0;
 }
 
 export async function runValidateConfigHooks({
@@ -273,6 +318,7 @@ export async function runValidateConfigHooks({
   config: ConfigHookInput;
   original: ConfigHookInput | null;
 }): Promise<void> {
+  if (!(await anyHooksToRun(context, "validateConfig", config))) return;
   const enriched = await prepareConfigHookArgs(context, config, original);
   return _runCustomHooks(
     context,
@@ -315,6 +361,7 @@ export async function runValidateConfigRevisionHooks({
   revision?: ConfigRevisionHookInput;
   original?: ConfigHookInput | null;
 }): Promise<void> {
+  if (!(await anyHooksToRun(context, "validateConfigRevision", config))) return;
   const enriched = await prepareConfigHookArgs(context, config, original);
   // Args are injected by destructuring, so `revision` must always be bound —
   // an absent key makes `if (revision)` a ReferenceError inside the hook.

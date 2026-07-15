@@ -1001,6 +1001,34 @@ describe("resolveConstantRefs — scopedOverrides (env/project flavors)", () => 
     });
   });
 
+  it("applies a flavored mixin's own env flavor (consistent cascade)", () => {
+    // base selects base-prod for production; base-prod extends mixin; mixin has
+    // its OWN prod flavor. The mixin must resolve the same way it would if the
+    // feature extended it directly: mixin ⊕ mixin-prod.
+    const map = nsMap([
+      [
+        "base",
+        cfg('{"timeout":3}', [
+          { config: "base-prod", environments: ["production"] },
+        ]),
+      ],
+      [
+        "base-prod",
+        cfg('{"$extends":["@config:base","@config:mixin"],"timeout":5}'),
+      ],
+      [
+        "mixin",
+        cfg('{"region":"us","level":1}', [
+          { config: "mixin-prod", environments: ["production"] },
+        ]),
+      ],
+      ["mixin-prod", cfg('{"$extends":["@config:mixin"],"region":"eu"}')],
+    ]);
+    expect(
+      resolveFor({ $extends: ["@config:base"] }, map, "production"),
+    ).toEqual({ timeout: 5, region: "eu", level: 1 });
+  });
+
   it("resolves a flavor's own @const: extends", () => {
     const map = nsMap([
       [

@@ -424,7 +424,11 @@ function resolveValue(
             if (pr?.source === "config") configKeys.push(pr.key);
           }
           const layerKeys = linearizeConfigLayers(configKeys, visited, ctx);
-          const layerKeySet = new Set(layerKeys);
+          // Chain layers apply at their linearized position; flavor chains skip
+          // them (and anything already flavor-applied) so nothing double-applies
+          // or reorders.
+          const chainKeys = new Set(layerKeys);
+          const flavorApplied = new Set<string>();
           const applyLayer = (layer: ConfigLayer) => {
             Object.assign(out, layer.assign);
             for (const e of layer.own) {
@@ -433,56 +437,45 @@ function resolveValue(
                 : deepMergePatch(out[e.key], e.value);
             }
           };
+          // Env-agnostic resolution (environment == null) serves the base only —
+          // a wildcard/project-only override must not leak in (schemaBreakGuard
+          // and the all-environments editor view rely on this). The eligibility
+          // predicate skips flavors the layer builder would scrub anyway
+          // (archived, cross-project, absent) so selection falls through.
+          const selectFlavor = (key: string): string | null =>
+            ctx.environment != null
+              ? selectScopedOverride(
+                  ctx.map.get(mapKey("config", key))?.scopedOverrides,
+                  { environment: ctx.environment, project: ctx.featureProject },
+                  (k) => {
+                    const e = ctx.map.get(mapKey("config", k));
+                    return !!e && !isScrubbed(e, ctx);
+                  },
+                )
+              : null;
+          // A flavor is itself a config: apply its own `@config:` bases
+          // (ancestor-first) then its own layer, each getting flavor selection
+          // of its own — the same cascade a directly-extended config gets.
+          const applyFlavorChain = (flavorKey: string) => {
+            for (const fKey of linearizeConfigLayers(
+              [flavorKey],
+              visited,
+              ctx,
+            )) {
+              if (chainKeys.has(fKey) || flavorApplied.has(fKey)) continue;
+              flavorApplied.add(fKey);
+              const fLayer = buildConfigLayer(fKey, visited, ctx);
+              if (fLayer) applyLayer(fLayer);
+              const nested = selectFlavor(fKey);
+              if (nested) applyFlavorChain(nested);
+            }
+          };
           for (const layerKey of layerKeys) {
             const layer = buildConfigLayer(layerKey, visited, ctx);
             if (!layer) continue;
             applyLayer(layer);
-            // Env/project-scoped flavor: after this config layer's own keys, the
-            // first matching flavor's patch is deep-merged on top. buildConfigLayer
-            // excludes the flavor's `@config` parent (this very layer), so the
-            // flavor contributes only its own patch — no double-apply, no loop.
-            // Only env-scoped resolution applies flavors; env-agnostic
-            // resolution (environment == null) serves the base value only (the
-            // documented contract — schemaBreakGuard and the "all environments"
-            // editor view both rely on it), so a wildcard/project-only override
-            // must NOT leak in here.
-            const flavorKey =
-              ctx.environment != null
-                ? selectScopedOverride(
-                    ctx.map.get(mapKey("config", layerKey))?.scopedOverrides,
-                    {
-                      environment: ctx.environment,
-                      project: ctx.featureProject,
-                    },
-                    // Skip any flavor the layer builder would scrub anyway
-                    // (archived, cross-project, or absent) so selection falls
-                    // through to the next matching override / base rather than
-                    // stalling on a no-op first match.
-                    (k) => {
-                      const e = ctx.map.get(mapKey("config", k));
-                      return !!e && !isScrubbed(e, ctx);
-                    },
-                  )
-                : null;
-            // A flavor is itself a config, so give it first-class resolution:
-            // its own `$extends` `@config:` bases (ancestor-first) then its own
-            // layer (its `@const:`/inline extends already fold into that layer's
-            // `assign`). Skip the base being flavored (`layerKey`) and any config
-            // already contributed by the feature's own `@config:` chain, so a
-            // flavor extending one of them doesn't double-apply or reorder the
-            // existing layers — the flavor still adds its novel bases and its own
-            // patch, on top of the base value.
-            if (flavorKey) {
-              for (const fKey of linearizeConfigLayers(
-                [flavorKey],
-                visited,
-                ctx,
-              )) {
-                if (fKey === layerKey || layerKeySet.has(fKey)) continue;
-                const fLayer = buildConfigLayer(fKey, visited, ctx);
-                if (fLayer) applyLayer(fLayer);
-              }
-            }
+            const flavorKey = selectFlavor(layerKey);
+            if (flavorKey) applyFlavorChain(flavorKey);
           }
           continue;
         }
