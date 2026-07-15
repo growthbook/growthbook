@@ -224,7 +224,28 @@ function screenshotMatchesPath(
   } catch {
     // Not a full URL, use as-is
   }
-  return screenshotPath === fullPath || screenshotUrl.includes(fullPath);
+  return (
+    screenshotPath === fullPath ||
+    contentReferencesPath(screenshotUrl, fullPath)
+  );
+}
+
+// Match `fullPath` only as a complete path token so a substring or directory
+// prefix of a different referenced object cannot be authorized.
+function contentReferencesPath(content: string, fullPath: string): boolean {
+  const isFilenameChar = (c: string | undefined) =>
+    c !== undefined && /[A-Za-z0-9._-]/.test(c);
+  let idx = content.indexOf(fullPath);
+  while (idx !== -1) {
+    const before = content[idx - 1];
+    const after = content[idx + fullPath.length];
+    // "/" is allowed before (URL separator) but not after (directory prefix).
+    if (!isFilenameChar(before) && !isFilenameChar(after) && after !== "/") {
+      return true;
+    }
+    idx = content.indexOf(fullPath, idx + 1);
+  }
+  return false;
 }
 
 export async function getSignedPublicImageToken(
@@ -381,7 +402,7 @@ export async function getSignedPublicImageToken(
     if (
       !imageFound &&
       experiment.description &&
-      experiment.description.includes(fullPath)
+      contentReferencesPath(experiment.description, fullPath)
     ) {
       imageFound = true;
     }
@@ -397,7 +418,10 @@ export async function getSignedPublicImageToken(
       );
 
       for (const report of publicReports) {
-        if (report.description && report.description.includes(fullPath)) {
+        if (
+          report.description &&
+          contentReferencesPath(report.description, fullPath)
+        ) {
           imageFound = true;
           break;
         }
@@ -406,7 +430,11 @@ export async function getSignedPublicImageToken(
   } else if (shareType === "report") {
     // For reports, we already loaded the report above
     const report = await getReportByUid(shareUid);
-    if (report && report.description && report.description.includes(fullPath)) {
+    if (
+      report &&
+      report.description &&
+      contentReferencesPath(report.description, fullPath)
+    ) {
       imageFound = true;
     }
   } else if (shareType === "dashboard" && dashboard) {
@@ -414,7 +442,7 @@ export async function getSignedPublicImageToken(
       (block) =>
         block.type === "markdown" &&
         typeof block.content === "string" &&
-        block.content.includes(fullPath),
+        contentReferencesPath(block.content, fullPath),
     );
 
     if (!imageFound && dashboard.experimentId) {
@@ -437,7 +465,7 @@ export async function getSignedPublicImageToken(
         if (
           !imageFound &&
           dashboardExperiment.description &&
-          dashboardExperiment.description.includes(fullPath)
+          contentReferencesPath(dashboardExperiment.description, fullPath)
         ) {
           imageFound = true;
         }

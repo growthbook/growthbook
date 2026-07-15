@@ -74,7 +74,7 @@ export default function useSSRPolyfills(
   const getMetricGroupByIdSSR = useCallback(
     (metricGroupId: string) =>
       getMetricGroupById(metricGroupId) ||
-      metricGroupsSSR?.[metricGroupId] ||
+      metricGroupsSSR.find((mg) => mg.id === metricGroupId) ||
       null,
     [getMetricGroupById, metricGroupsSSR],
   );
@@ -157,7 +157,8 @@ export default function useSSRPolyfills(
     [dimensions, ssrData?.dimensions],
   );
   const getDimensionByIdSSR = useCallback(
-    (id: string) => getDimensionById(id) || dimensionsSSR?.[id] || null,
+    (id: string) =>
+      getDimensionById(id) || dimensionsSSR.find((d) => d.id === id) || null,
     [getDimensionById, dimensionsSSR],
   );
 
