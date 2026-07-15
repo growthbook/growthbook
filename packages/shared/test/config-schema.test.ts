@@ -841,6 +841,47 @@ describe("validateConfigValue", () => {
     ).toBe(false);
   });
 
+  it("does not enforce NESTED required for a sparse patch", () => {
+    // A field whose schema is a nested object with its own required keys. A
+    // sparse patch that fills in only part of that object (inheriting the rest)
+    // must not be rejected — completeness isn't enforced at any depth unless
+    // requireAll is set.
+    const nested: SchemaField[] = [
+      field({
+        key: "conn",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { host: { type: "string" }, port: { type: "integer" } },
+          required: ["host", "port"],
+        }),
+      }),
+    ];
+    expect(
+      validateConfigValue({
+        value: { conn: { host: "db.internal" } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // But a fully-resolved value must satisfy the nested required.
+    expect(
+      validateConfigValue({
+        value: { conn: { host: "db.internal" } },
+        fields: nested,
+        additionalProperties: false,
+        requireAll: true,
+      }).valid,
+    ).toBe(false);
+    // A present nested value with a wrong type is still rejected when sparse.
+    expect(
+      validateConfigValue({
+        value: { conn: { host: 123 } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+  });
+
   it("rejects extra keys when not extensible", () => {
     expect(
       validateConfigValue({

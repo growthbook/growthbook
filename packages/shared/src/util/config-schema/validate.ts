@@ -118,6 +118,34 @@ export function collectInvalidConfigValueKeys({
 //
 // The top-level `$extends` merge directive is stripped before validation (it's a
 // composition instruction, not data).
+// Recursively remove every `required` keyword from a JSON Schema document (the
+// node itself and nested subschemas via properties/items/additionalProperties/
+// combinators) — used for sparse-patch validation where completeness isn't
+// enforced at any depth. Only descends into subschema positions, so a config
+// field literally named "required" (a key inside a `properties` map) is left
+// alone; only the JSON Schema keyword is stripped.
+function stripRequiredDeep(schema: unknown): void {
+  if (!schema || typeof schema !== "object") return;
+  if (Array.isArray(schema)) {
+    schema.forEach(stripRequiredDeep);
+    return;
+  }
+  const s = schema as Record<string, unknown>;
+  delete s.required;
+  if (s.properties && typeof s.properties === "object") {
+    for (const sub of Object.values(s.properties as Record<string, unknown>)) {
+      stripRequiredDeep(sub);
+    }
+  }
+  if (s.items) stripRequiredDeep(s.items);
+  if (s.additionalProperties && typeof s.additionalProperties === "object") {
+    stripRequiredDeep(s.additionalProperties);
+  }
+  for (const k of ["allOf", "anyOf", "oneOf"]) {
+    if (Array.isArray(s[k])) (s[k] as unknown[]).forEach(stripRequiredDeep);
+  }
+}
+
 export function validateConfigValue({
   value,
   fields,
@@ -171,8 +199,10 @@ export function validateConfigValue({
   }
 
   // Sparse values don't carry every required key (inheritance does), so drop
-  // `required` unless validating a fully-resolved value.
-  if (!requireAll) schemaObj.required = [];
+  // `required` unless validating a fully-resolved value. Recurse so a NESTED
+  // required (e.g. a raw JSON Schema field with its own required[]) doesn't
+  // reject a partial nested object that inherits the rest of its keys.
+  if (!requireAll) stripRequiredDeep(schemaObj);
 
   try {
     const ajv = new Ajv({ strictSchema: false });
