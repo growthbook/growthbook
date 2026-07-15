@@ -168,19 +168,7 @@ describe("experiment custom hooks", () => {
     premiumSpy.mockRestore();
   });
 
-  it("runs the validateExperiment hook when creating an experiment", async () => {
-    await seedExperimentHook();
-
-    await createExperiment({ data: experimentData(), context: makeContext() });
-
-    expect(mockRunInSandbox).toHaveBeenCalledTimes(1);
-    expect(mockRunInSandbox.mock.calls[0][1]).toMatchObject({
-      experiment: { name: "New Experiment" },
-    });
-    expect(await countExperiments()).toBe(1);
-  });
-
-  it("aborts experiment creation when a hook rejects", async () => {
+  it("does not run the validateExperiment hook when creating an experiment", async () => {
     await seedExperimentHook();
     mockRunInSandbox.mockResolvedValue({
       ok: false,
@@ -188,15 +176,13 @@ describe("experiment custom hooks", () => {
       warnings: [],
     });
 
-    await expect(
-      createExperiment({ data: experimentData(), context: makeContext() }),
-    ).rejects.toThrow("Rejected by hook");
+    await createExperiment({ data: experimentData(), context: makeContext() });
 
-    expect(mockRunInSandbox).toHaveBeenCalledTimes(1);
-    expect(await countExperiments()).toBe(0);
+    expect(mockRunInSandbox).not.toHaveBeenCalled();
+    expect(await countExperiments()).toBe(1);
   });
 
-  it("runValidateExperimentHooks validates the pending state for an update, and the experiment as-is for a create", async () => {
+  it("runValidateExperimentHooks validates the pending state for an update, and the experiment as-is when there is no original", async () => {
     const experiment = await seedExperiment();
     await seedExperimentHook();
 
@@ -290,16 +276,6 @@ describe("experiment custom hooks", () => {
     expect(mockRunInSandbox).not.toHaveBeenCalled();
     expect(updated.name).toBe("Bypassed Name");
     expect((await findExperiment(EXISTING_ID))?.name).toBe("Bypassed Name");
-  });
-
-  it("skips hooks when the org lacks the custom-hooks premium feature", async () => {
-    premiumSpy.mockReturnValue(false);
-    await seedExperimentHook();
-
-    await createExperiment({ data: experimentData(), context: makeContext() });
-
-    expect(mockRunInSandbox).not.toHaveBeenCalled();
-    expect(await countExperiments()).toBe(1);
   });
 
   it("runs only experiment-scoped hooks that match the target experiment", async () => {

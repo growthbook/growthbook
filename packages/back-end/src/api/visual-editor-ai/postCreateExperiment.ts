@@ -6,7 +6,6 @@ import type {
   ExperimentInterfaceExcludingHoldouts,
 } from "shared/validators";
 import { createExperiment } from "back-end/src/models/ExperimentModel";
-import { SoftWarningError } from "back-end/src/util/errors";
 import {
   createVisualChangeset,
   toVisualChangesetApiInterface,
@@ -165,7 +164,6 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
       context,
     });
   } catch (e) {
-    if (e instanceof SoftWarningError) throw e;
     logger.warn({ err: e }, "[visual-editor-ai] createExperiment failed");
     throw new Error(
       e instanceof Error
