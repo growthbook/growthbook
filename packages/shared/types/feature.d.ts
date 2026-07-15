@@ -163,6 +163,9 @@ export type FeatureMetaInfo = Pick<
   defaultValue?: string;
   hasPrerequisites?: boolean;
   hasSavedGroups?: boolean;
+  ruleTypes?: Array<
+    "force" | "rollout" | "safe-rollout" | "experiment" | "experiment-ref"
+  >;
   revision?: {
     version: number;
     comment: string;

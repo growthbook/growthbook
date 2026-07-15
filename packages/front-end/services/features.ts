@@ -190,7 +190,19 @@ export function useEnvironments() {
   return environments;
 }
 
-export function useFeatureSearch({
+type SearchableFeature = Pick<
+  FeatureInterface,
+  | "id"
+  | "description"
+  | "tags"
+  | "project"
+  | "archived"
+  | "valueType"
+  | "owner"
+  | "neverStale"
+>;
+
+export function useFeatureSearch<T extends SearchableFeature>({
   allFeatures,
   defaultSortField = "id",
   filterResults,
@@ -204,7 +216,7 @@ export function useFeatureSearch({
   experimentStates,
   contentSearchPrefixes = [],
 }: {
-  allFeatures: FeatureInterface[];
+  allFeatures: T[];
   defaultSortField?:
     | "id"
     | "description"
@@ -212,7 +224,7 @@ export function useFeatureSearch({
     | "defaultValue"
     | "dateCreated"
     | "dateUpdated";
-  filterResults?: (items: FeatureInterface[]) => FeatureInterface[];
+  filterResults?: (items: T[]) => T[];
   environments: Environment[];
   localStorageKey?: string;
   environmentStatus?: Record<string, Record<string, boolean>>;

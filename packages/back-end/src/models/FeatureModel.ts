@@ -2765,6 +2765,7 @@ export async function getFeatureMetaInfoById(
     prerequisites: 1,
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
+    "rules.type": 1,
     environmentSettings: 1,
   };
   if (includeDefaultValue) {
@@ -2778,10 +2779,17 @@ export async function getFeatureMetaInfoById(
     .map((f) => {
       const doc = f as unknown as Record<string, unknown>;
       const rules = doc.rules as
-        | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
+        | {
+            prerequisites?: unknown[];
+            savedGroups?: unknown[];
+            type?: string;
+          }[]
         | undefined;
       const envSettings = doc.environmentSettings as
-        | Record<string, { prerequisites?: unknown[] }>
+        | Record<
+            string,
+            { prerequisites?: unknown[]; rules?: { type?: string }[] }
+          >
         | undefined;
       const topPrereqs = doc.prerequisites as unknown[] | undefined;
 
@@ -2795,6 +2803,30 @@ export async function getFeatureMetaInfoById(
       const hasSavedGroups = (rules ?? []).some(
         (r) => (r.savedGroups?.length ?? 0) > 0,
       );
+
+      const ruleTypesSet = new Set<string>();
+      if (rules) {
+        rules.forEach((r) => r.type && ruleTypesSet.add(r.type));
+      }
+      if (envSettings) {
+        Object.values(envSettings).forEach((env) => {
+          if (env.rules) {
+            env.rules.forEach((r) => r.type && ruleTypesSet.add(r.type));
+          }
+        });
+      }
+      const RULE_ORDER = [
+        "experiment",
+        "experiment-ref",
+        "safe-rollout",
+        "rollout",
+        "force",
+      ];
+      const ruleTypes = Array.from(ruleTypesSet).sort((a, b) => {
+        const indexA = RULE_ORDER.indexOf(a);
+        const indexB = RULE_ORDER.indexOf(b);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      }) as FeatureMetaInfo["ruleTypes"];
 
       return {
         id: f.id,
@@ -2811,6 +2843,7 @@ export async function getFeatureMetaInfoById(
         neverStale: f.neverStale,
         hasPrerequisites,
         hasSavedGroups,
+        ruleTypes,
         revision: f.revision as FeatureMetaInfo["revision"],
         ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
       };
@@ -2840,26 +2873,61 @@ export async function getFeatureMetaInfoByIds(
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
+      "rules.type": 1,
+      "environmentSettings.rules.type": 1,
     },
   );
 
   return features
     .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
-    .map((f) => ({
-      id: f.id,
-      project: f.project,
-      archived: f.archived,
-      description: f.description,
-      dateCreated: f.dateCreated,
-      dateUpdated: f.dateUpdated,
-      tags: f.tags,
-      owner: f.owner,
-      valueType: f.valueType,
-      version: f.version,
-      linkedExperiments: f.linkedExperiments,
-      neverStale: f.neverStale,
-      revision: f.revision as FeatureMetaInfo["revision"],
-    }));
+    .map((f) => {
+      const doc = f as unknown as Record<string, unknown>;
+      const rules = doc.rules as { type?: string }[] | undefined;
+      const envSettings = doc.environmentSettings as
+        | Record<string, { rules?: { type?: string }[] }>
+        | undefined;
+
+      const ruleTypesSet = new Set<string>();
+      if (rules) {
+        rules.forEach((r) => r.type && ruleTypesSet.add(r.type));
+      }
+      if (envSettings) {
+        Object.values(envSettings).forEach((env) => {
+          if (env.rules) {
+            env.rules.forEach((r) => r.type && ruleTypesSet.add(r.type));
+          }
+        });
+      }
+      const RULE_ORDER = [
+        "experiment",
+        "experiment-ref",
+        "safe-rollout",
+        "rollout",
+        "force",
+      ];
+      const ruleTypes = Array.from(ruleTypesSet).sort((a, b) => {
+        const indexA = RULE_ORDER.indexOf(a);
+        const indexB = RULE_ORDER.indexOf(b);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      }) as FeatureMetaInfo["ruleTypes"];
+
+      return {
+        id: f.id,
+        project: f.project,
+        archived: f.archived,
+        description: f.description,
+        dateCreated: f.dateCreated,
+        dateUpdated: f.dateUpdated,
+        tags: f.tags,
+        owner: f.owner,
+        valueType: f.valueType,
+        version: f.version,
+        linkedExperiments: f.linkedExperiments,
+        neverStale: f.neverStale,
+        ruleTypes,
+        revision: f.revision as FeatureMetaInfo["revision"],
+      };
+    });
 }
 
 export async function getFeatureEnvStatus(
