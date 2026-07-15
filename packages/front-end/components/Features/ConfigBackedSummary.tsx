@@ -5,6 +5,7 @@ import {
   setConfigBacking,
   validateJSONFeatureValue,
   deepMergePatch,
+  selectScopedOverride,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -36,7 +37,7 @@ function ServeConfigHeader({
   return (
     <Flex direction="row" gap="4" align="center">
       <Text weight="medium">SERVE</Text>
-      <Flex as="span" align="center" gap="2">
+      <Flex as="span" align="center" gap="1">
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
         </Link>
@@ -222,13 +223,24 @@ export default function ConfigBackedSummary({
     return errors;
   }, [hasJsonValidator, resolved, data?.effectiveSchema, data?.extensible]);
 
+  const configScopedOverrides = (data?.constants ?? []).find(
+    (c) => c.source === "config" && c.key === configKey,
+  )?.scopedOverrides;
+
   // In an ambiguous (all-environments) view we show the base value, so flag when
   // the config has env flavors — a cue that the served value can differ per env.
-  // (When a specific `environment` is set the value is already resolved for it.)
-  const hasEnvOverrides =
-    ((data?.constants ?? []).find(
-      (c) => c.source === "config" && c.key === configKey,
-    )?.scopedOverrides?.length ?? 0) > 0;
+  const hasEnvOverrides = (configScopedOverrides?.length ?? 0) > 0;
+
+  // When previewing a specific environment, tag the header with that env only if
+  // it actually selects a flavor (a non-base rendering) — envs with no matching
+  // scoped override still serve the base value, so they stay untagged.
+  const activeEnvFlavor =
+    environment != null
+      ? selectScopedOverride(configScopedOverrides, {
+          environment,
+          project: feature.project || "",
+        })
+      : null;
 
   const fullStyle = {
     maxHeight: maxHeight ?? 150,
@@ -247,6 +259,7 @@ export default function ConfigBackedSummary({
             !environment && hasEnvOverrides
               ? "(has environment overrides)"
               : null,
+            activeEnvFlavor ? `(${environment})` : null,
           ]
             .filter(Boolean)
             .join(" ") || undefined
