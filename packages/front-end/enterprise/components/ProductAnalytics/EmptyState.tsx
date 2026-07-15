@@ -108,12 +108,12 @@ export default function EmptyState() {
           <Heading as="h2" size="x-large" weight="medium">
             {isDataSourceEmpty
               ? "No data sources selected"
-              : "Explore Your Data"}
+              : "Ask AI about your data"}
           </Heading>
           <Text color="text-low" align="center" size="large">
             {isDataSourceEmpty
               ? "Connect to a data source to start exploring your data."
-              : "Ask a question to get started, or choose an explorer below"}
+              : "Our agent can explore your data and build charts and other visualizations for you."}
           </Text>
         </Flex>
 
@@ -247,9 +247,12 @@ export default function EmptyState() {
                     }
                     style={buttonStyle}
                   >
-                    <Flex direction="column" align="center" gap="1">
+                    <Flex direction="column" align="start" gap="1">
                       <PiChartBar size={24} />
                       <Text weight="medium">Metrics</Text>
+                      <Text color="text-low" size="small">
+                        Chart your existing GrowthBook Metrics
+                      </Text>
                     </Flex>
                   </LinkButton>
                   <LinkButton
@@ -262,9 +265,12 @@ export default function EmptyState() {
                     }
                     style={buttonStyle}
                   >
-                    <Flex direction="column" align="center" gap="1">
+                    <Flex direction="column" align="start" gap="1">
                       <PiTable size={24} />
                       <Text weight="medium">Fact Table</Text>
+                      <Text color="text-low" size="small">
+                        Chart events from your Fact Table
+                      </Text>
                     </Flex>
                   </LinkButton>
                   <LinkButton
@@ -277,9 +283,12 @@ export default function EmptyState() {
                     }
                     style={buttonStyle}
                   >
-                    <Flex direction="column" align="center" gap="1">
+                    <Flex direction="column" align="start" gap="1">
                       <PiDatabase size={24} />
                       <Text weight="medium">Data Source</Text>
+                      <Text color="text-low" size="small">
+                        Visualize data directly from your Data Source
+                      </Text>
                     </Flex>
                   </LinkButton>
                   <LinkButton
@@ -292,9 +301,12 @@ export default function EmptyState() {
                       }) && !permissionsUtil.canRunFactQueries({ projects: [] })
                     }
                   >
-                    <Flex direction="column" align="center" gap="1">
+                    <Flex direction="column" align="start" gap="1">
                       <PiCode size={24} />
                       <Text weight="medium">Custom SQL</Text>
+                      <Text color="text-low" size="small">
+                        Write SQL for advanced data visualizations
+                      </Text>
                     </Flex>
                   </LinkButton>
                 </Flex>
