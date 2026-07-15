@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { sqlReferencesColumn } from "shared/experiments";
 import {
   CreateColumnProps,
   CreateFactFilterProps,
@@ -668,6 +669,25 @@ export async function deleteColumn(
   // by the column refresh (soft delete) and must not be removed here.
   if (!col.isVirtual) {
     throw new Error("Only virtual columns can be deleted");
+  }
+
+  // Block deletion if another virtual column's expression still references this
+  // one — otherwise the dependent would fall back to a bare, now-undefined
+  // identifier and its generated SQL would fail at query time.
+  const dependents = factTable.columns.filter(
+    (c) =>
+      c.isVirtual &&
+      !c.deleted &&
+      c.column !== columnName &&
+      c.sql &&
+      sqlReferencesColumn(c.sql, columnName),
+  );
+  if (dependents.length) {
+    throw new Error(
+      `Cannot delete: the following virtual columns reference it:${dependents
+        .map((c) => `\n - ${c.name || c.column}`)
+        .join("")}`,
+    );
   }
 
   const columns = factTable.columns.filter((c) => c.column !== columnName);

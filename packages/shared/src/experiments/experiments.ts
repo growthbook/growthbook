@@ -210,6 +210,19 @@ export function expandVirtualColumnsInSql(
   );
 }
 
+// Whether a SQL expression references a given column identifier. Quoted spans
+// are skipped, so a name inside a string literal (e.g. `status = 'margin_vc'`)
+// does not count as a reference. Computed on demand — no dependency state is
+// persisted.
+export function sqlReferencesColumn(sql: string, column: string): boolean {
+  let found = false;
+  replaceSqlIdentifiers(sql, [column], (name) => {
+    found = true;
+    return name;
+  });
+  return found;
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,

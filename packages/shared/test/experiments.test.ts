@@ -11,6 +11,7 @@ import {
   getAggregateFilters,
   getColumnExpression,
   expandVirtualColumnsInSql,
+  sqlReferencesColumn,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
@@ -1886,6 +1887,24 @@ describe("Virtual Columns", () => {
     it("does not expand a virtual column name inside a string literal", () => {
       expect(expandVirtualColumnsInSql("label = 'revenue_vc'", factTable)).toBe(
         "label = 'revenue_vc'",
+      );
+    });
+  });
+
+  describe("sqlReferencesColumn", () => {
+    it("detects a bare identifier reference", () => {
+      expect(sqlReferencesColumn("margin_vc / price", "margin_vc")).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(sqlReferencesColumn("status = 'margin_vc'", "margin_vc")).toBe(
+        false,
+      );
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(sqlReferencesColumn("gross_margin_vc + 1", "margin_vc")).toBe(
+        false,
       );
     });
   });
