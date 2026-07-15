@@ -65,6 +65,16 @@ type ConfigLineage = {
   isLeaf: boolean;
 };
 
+// Present ONLY when the config being validated is an environment/project-scoped
+// override (a "flavor") of another config — so a hook can apply env-specific
+// rules (e.g. "the production override must set timeout"). Derived from the base
+// config's scopedOverrides (the source of truth); absent for a plain config.
+type ScopedConfigHookInfo = {
+  parent: string;
+  environments?: string[];
+  projects?: string[];
+};
+
 // A config's publish-time content passed to config hooks. `key`/`project`/
 // `parent`/`extends` drive hook scoping (entity-scoped by key, descendant-scoped
 // by the staged lineage, project-scoped by project); the rest is the config's
@@ -76,6 +86,7 @@ type ConfigHookInput = {
   parent?: string;
   extends?: string[];
   lineage?: ConfigLineage;
+  scopedConfig?: ScopedConfigHookInfo;
 } & Record<string, unknown>;
 
 // Configs store `value` as a JSON string; hooks get it parsed. A non-JSON /
@@ -108,6 +119,23 @@ async function prepareConfigHookArgs(
   const shape = (c: ConfigHookInput): ConfigHookInput => {
     const ancestors = [...getConfigAncestorKeys(c, byKey)];
     const descendants = getConfigSubtree(c.key, all).filter((k) => k !== c.key);
+    // If some other config selects this one via scopedOverrides, it's an
+    // environment/project override — surface its scope so hooks can validate
+    // per-environment. Source of truth is the base's scopedOverrides.
+    let scopedConfig: ScopedConfigHookInfo | undefined;
+    for (const base of all) {
+      const entry = (base.scopedOverrides ?? []).find(
+        (o) => o.config === c.key,
+      );
+      if (entry) {
+        scopedConfig = {
+          parent: base.key,
+          environments: entry.environments,
+          projects: entry.projects,
+        };
+        break;
+      }
+    }
     return {
       ...c,
       value: parseConfigValue(c.value),
@@ -119,6 +147,7 @@ async function prepareConfigHookArgs(
         isRoot: ancestors.length === 0,
         isLeaf: descendants.length === 0,
       },
+      ...(scopedConfig ? { scopedConfig } : {}),
     };
   };
   return {

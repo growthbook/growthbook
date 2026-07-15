@@ -144,6 +144,14 @@ const dummyConfig = {
   // also runs on. `hookTargetKey` is the pinned config (null for project hooks).
   hookTargetKey: "checkout_limits",
   isHookTarget: true,
+  // Present only when the config is an environment/project override ("flavor")
+  // of another config — its base and the scope it applies to. A plain config
+  // omits this. Shown here so env-aware validation can be tested; delete it to
+  // simulate a non-override config.
+  scopedConfig: {
+    parent: "base_limits",
+    environments: ["production"],
+  },
 };
 const dummyConfigRevision = {
   version: 3,
@@ -185,7 +193,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config being validated: schema fields, staged value (parsed JSON object), lineage, and isHookTarget (is this the config the hook is pinned to, vs a descendant)",
+          "The config being validated: schema fields, staged value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
     },
@@ -196,7 +204,7 @@ export const hookTypes: Record<
     availableArguments: {
       config: {
         description:
-          "The config's changed content: schema fields, value (parsed JSON object), lineage, and isHookTarget (is this the config the hook is pinned to, vs a descendant)",
+          "The config's changed content: schema fields, value (parsed JSON object), lineage, isHookTarget (is this the config the hook is pinned to, vs a descendant), and scopedConfig (present only for an environment/project override — its base and the environments/projects it applies to)",
         testValue: stringify(dummyConfig),
       },
       revision: {
