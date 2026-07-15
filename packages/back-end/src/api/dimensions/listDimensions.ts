@@ -3,10 +3,7 @@ import {
   findDimensionsByOrganization,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
-import {
-  getAllDatasourceIdsByOrganization,
-  getDataSourcesByOrganization,
-} from "back-end/src/models/DataSourceModel";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyFilter,
@@ -18,24 +15,16 @@ export const listDimensions = createApiRequestHandler(listDimensionsValidator)(
   async (req) => {
     const dimensions = await findDimensionsByOrganization(req.organization.id);
 
-    // A dimension inherits project access from its datasource. Drop it only when
-    // the datasource exists but is inaccessible; orphaned dimensions whose
-    // datasource no longer exists stay in the list.
+    // A dimension inherits project access from its datasource, so drop any whose
+    // datasource is inaccessible or no longer exists.
     const readableDatasourceIds = new Set(
       (await getDataSourcesByOrganization(req.context)).map((ds) => ds.id),
-    );
-    const allDatasourceIds = await getAllDatasourceIdsByOrganization(
-      req.context,
     );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       dimensions
-        .filter(
-          (dimension) =>
-            readableDatasourceIds.has(dimension.datasource) ||
-            !allDatasourceIds.has(dimension.datasource),
-        )
+        .filter((dimension) => readableDatasourceIds.has(dimension.datasource))
         .filter((dimension) =>
           applyFilter(req.query.datasourceId, dimension.datasource),
         )

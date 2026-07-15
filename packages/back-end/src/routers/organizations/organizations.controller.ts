@@ -86,10 +86,7 @@ import {
   sendPendingMemberApprovalEmail,
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
-import {
-  getAllDatasourceIdsByOrganization,
-  getDataSourcesByOrganization,
-} from "back-end/src/models/DataSourceModel";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
@@ -203,15 +200,11 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
-  // A dimension inherits project access from its datasource. Drop it only when
-  // the datasource exists but is inaccessible; orphaned dimensions whose
-  // datasource no longer exists stay in the list.
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
   const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
-  const allDatasourceIds = await getAllDatasourceIdsByOrganization(context);
-  const visibleDimensions = dimensions.filter(
-    (dimension) =>
-      readableDatasourceIds.has(dimension.datasource) ||
-      !allDatasourceIds.has(dimension.datasource),
+  const visibleDimensions = dimensions.filter((dimension) =>
+    readableDatasourceIds.has(dimension.datasource),
   );
 
   return res.status(200).json({

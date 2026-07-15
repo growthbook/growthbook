@@ -125,23 +125,6 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-// Returns the ids of every datasource in the org, ignoring project access.
-// Used to distinguish an inaccessible datasource from a deleted one.
-export async function getAllDatasourceIdsByOrganization(
-  context: ReqContext | ApiReqContext,
-): Promise<Set<string>> {
-  if (usingFileConfig()) {
-    return new Set(getConfigDatasources(context.org.id).map((ds) => ds.id));
-  }
-
-  const docs: DataSourceDocument[] = await DataSourceModel.find(
-    { organization: context.org.id },
-    { id: 1 },
-  );
-
-  return new Set(docs.map((doc) => doc.id));
-}
-
 // WARNING: This does not restrict by organization
 export async function _dangerourslyGetAllDatasourcesByOrganizations(
   organizations: string[],
