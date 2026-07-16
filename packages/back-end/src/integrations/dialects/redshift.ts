@@ -1,3 +1,4 @@
+import type { DataType } from "shared/types/integrations";
 import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
@@ -22,6 +23,39 @@ export const redshiftDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_CREATE_SKETCH(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_CARDINALITY(${col})`,
+  // HLL_CREATE_SKETCH/HLL_COMBINE already return Redshift's native HLLSKETCH
+  // type. The base dialect's default of VARBINARY doesn't apply here — Redshift
+  // has no cast path from HLLSKETCH to VARBINARY/VARBYTE, so CAST(... AS
+  // VARBINARY) fails with "cannot cast type hllsketch to binary varying".
+  // Casting to HLLSKETCH instead is a no-op that keeps the column typed
+  // correctly for later HLL_COMBINE/HLL_CARDINALITY calls.
+  getDataType: (dataType: DataType): string => {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "integer":
+        return "INTEGER";
+      case "float":
+        return "DOUBLE";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      case "hll":
+        return "HLLSKETCH";
+      case "quantileSketch":
+        // Quantile sketches aren't supported on Redshift (quantileSketchInit
+        // etc. fall back to the base dialect's "not supported" errors), so
+        // this value is never actually used to build SQL.
+        return "VARBINARY";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
+  },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
       .split(".")
