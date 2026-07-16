@@ -78,7 +78,10 @@ export default function SqlExplorationBlockEditor({
           {chartReady ? (
             chartTrigger
           ) : (
-            <Tooltip body="Run the current SQL query successfully to view the chart.">
+            <Tooltip
+              body="Run the current SQL query successfully to view the chart."
+              usePortal
+            >
               <span>{chartTrigger}</span>
             </Tooltip>
           )}

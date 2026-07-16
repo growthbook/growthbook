@@ -12,11 +12,9 @@ import {
 } from "shared/enterprise";
 import type { BlockComparison } from "shared/enterprise";
 import { isEqual } from "lodash";
-import { Box } from "@radix-ui/themes";
 import ExplorerSideBar from "@/enterprise/components/ProductAnalytics/SideBar/ExplorerSideBar";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import { stripExplorerDraftFields } from "@/enterprise/components/ProductAnalytics/util";
-import Callout from "@/ui/Callout";
 import SqlExplorationBlockEditor from "./SqlExplorationBlockEditor";
 
 export default function ProductAnalyticsExplorerSideBarWrapper({
@@ -186,10 +184,6 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
     needsFetch,
   ]);
 
-  const hideSidebar =
-    draftExploreState.type === "sql" &&
-    Object.keys(draftExploreState.dataset.columnTypes).length === 0;
-
   return (
     <>
       {block.type === "sql-exploration" &&
@@ -202,67 +196,59 @@ export default function ProductAnalyticsExplorerSideBarWrapper({
           headerTarget={sqlBlockEditorHeaderTarget}
         />
       ) : null}
-      {hideSidebar ? (
-        <Box p="3">
-          <Callout status="info">
-            Run the SQL query to configure the chart.
-          </Callout>
-        </Box>
-      ) : (
-        <ExplorerSideBar
-          renderingInDashboardSidebar
-          dashboardDateRange={dashboardGlobalControls?.dateRange}
-          useDashboardDateControl={usesDashboardDateRange}
-          onSubmit={() =>
-            handleSubmit({ force: true, config: getEffectiveDraftConfig() })
-          }
-          onGlobalControlSettingsChange={(settings) => {
-            const nextSettings = {
-              ...block.globalControlSettings,
-              ...settings,
-            };
-            if (settings.dateRange !== undefined) {
-              setDraftExploreState((prev) => ({
-                ...prev,
-                dateRange:
-                  settings.dateRange && dashboardGlobalControls?.dateRange
-                    ? dashboardGlobalControls.dateRange
-                    : block.config.dateRange,
-                dimensions: prev.dimensions.map((dimension) => {
-                  if (dimension.dimensionType !== "date") return dimension;
-                  if (
-                    settings.dateRange &&
-                    dashboardGlobalControls?.dateGranularity
-                  ) {
-                    return {
-                      ...dimension,
-                      dateGranularity: dashboardGlobalControls.dateGranularity,
-                    };
-                  }
+      <ExplorerSideBar
+        renderingInDashboardSidebar
+        dashboardDateRange={dashboardGlobalControls?.dateRange}
+        useDashboardDateControl={usesDashboardDateRange}
+        onSubmit={() =>
+          handleSubmit({ force: true, config: getEffectiveDraftConfig() })
+        }
+        onGlobalControlSettingsChange={(settings) => {
+          const nextSettings = {
+            ...block.globalControlSettings,
+            ...settings,
+          };
+          if (settings.dateRange !== undefined) {
+            setDraftExploreState((prev) => ({
+              ...prev,
+              dateRange:
+                settings.dateRange && dashboardGlobalControls?.dateRange
+                  ? dashboardGlobalControls.dateRange
+                  : block.config.dateRange,
+              dimensions: prev.dimensions.map((dimension) => {
+                if (dimension.dimensionType !== "date") return dimension;
+                if (
+                  settings.dateRange &&
+                  dashboardGlobalControls?.dateGranularity
+                ) {
+                  return {
+                    ...dimension,
+                    dateGranularity: dashboardGlobalControls.dateGranularity,
+                  };
+                }
 
-                  const blockDateDimension = block.config.dimensions.find(
-                    (blockDimension) => blockDimension.dimensionType === "date",
-                  );
-                  return blockDateDimension
-                    ? {
-                        ...dimension,
-                        dateGranularity: blockDateDimension.dateGranularity,
-                      }
-                    : dimension;
-                }),
-              }));
-            }
-            setBlock({
-              ...block,
-              globalControlSettings: nextSettings,
-            } as
-              | MetricExplorationBlockInterface
-              | FactTableExplorationBlockInterface
-              | DataSourceExplorationBlockInterface
-              | SqlExplorationBlockInterface);
-          }}
-        />
-      )}
+                const blockDateDimension = block.config.dimensions.find(
+                  (blockDimension) => blockDimension.dimensionType === "date",
+                );
+                return blockDateDimension
+                  ? {
+                      ...dimension,
+                      dateGranularity: blockDateDimension.dateGranularity,
+                    }
+                  : dimension;
+              }),
+            }));
+          }
+          setBlock({
+            ...block,
+            globalControlSettings: nextSettings,
+          } as
+            | MetricExplorationBlockInterface
+            | FactTableExplorationBlockInterface
+            | DataSourceExplorationBlockInterface
+            | SqlExplorationBlockInterface);
+        }}
+      />
     </>
   );
 }

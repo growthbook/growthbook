@@ -39,6 +39,7 @@ import SqlTabContent from "./SqlTabContent";
 import GroupBySection from "./GroupBySection";
 import ShowAsSection from "./ShowAsSection";
 import DatasourceConfigurator from "./DatasourceConfigurator";
+import SchemaBrowserSection from "./SchemaBrowserSection";
 
 interface Props {
   renderingInDashboardSidebar?: boolean;
@@ -102,6 +103,10 @@ export default function ExplorerSideBar({
     activeType === "fact_table" && dataset?.type === "fact_table"
       ? dataset
       : null;
+  const isSqlSetupState =
+    activeType === "sql" &&
+    dataset?.type === "sql" &&
+    Object.keys(dataset.columnTypes).length === 0;
   const showComparisonDateControls =
     compareEnabled &&
     draftExploreState.dateRange.predefined === "customDateRange" &&
@@ -238,6 +243,14 @@ export default function ExplorerSideBar({
           </Flex>
         )}
       </Flex>
+      {renderingInDashboardSidebar && isSqlSetupState ? (
+        <Callout status="info">
+          Run the SQL query to configure the chart.
+        </Callout>
+      ) : null}
+      {renderingInDashboardSidebar && activeType === "sql" && (
+        <SchemaBrowserSection />
+      )}
       {renderingInDashboardSidebar && (
         <Flex
           direction="column"
@@ -380,6 +393,9 @@ export default function ExplorerSideBar({
         >
           <DatasourceConfigurator dataset={dataset} />
         </Flex>
+      )}
+      {!renderingInDashboardSidebar && activeType === "sql" && (
+        <SchemaBrowserSection />
       )}
       <Box p="0">
         {activeType === "metric" && <MetricTabContent />}

@@ -41,6 +41,7 @@ import {
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
@@ -851,7 +852,16 @@ export function ExplorerProvider({
 
   return (
     <ExplorerContext.Provider value={value}>
-      {children}
+      {draftExploreState.dataset.type === "sql" ? (
+        <SqlEditorProvider
+          datasourceId={draftExploreState.datasource}
+          sql={draftExploreState.dataset.sql}
+        >
+          {children}
+        </SqlEditorProvider>
+      ) : (
+        children
+      )}
     </ExplorerContext.Provider>
   );
 }

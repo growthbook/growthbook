@@ -1,17 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { FaExclamationTriangle } from "react-icons/fa";
-import {
-  PiArrowsOut,
-  PiCaretDoubleLeft,
-  PiCaretDown,
-  PiCaretRight,
-  PiDotsSix,
-  PiPlay,
-  PiX,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiPlay, PiQuestion } from "react-icons/pi";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import {
   ExplorationConfig,
@@ -30,10 +21,8 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AiSqlGenerator from "@/components/SchemaBrowser/AiSqlGenerator";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
-import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { canFormatSql, formatSql } from "@/services/sqlFormatter";
@@ -42,14 +31,11 @@ import {
   getInferredTimestampColumn,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { RadixTheme } from "@/services/RadixTheme";
+import { useSqlEditorContext } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
 import styles from "@/components/SchemaBrowser/EditSqlModal.module.scss";
 
 const PREVIEW_ROW_LIMIT = 100;
-const SQL_PLACEHOLDER = `-- Write a read-only query that returns rows with at least one date or
--- timestamp column.
-
-SELECT timestamp, user_id, event_name FROM events`;
+const SQL_PLACEHOLDER = `SELECT timestamp, user_id, event_name FROM events`;
 
 export default function SqlQuerySection({
   fullHeight = false,
@@ -70,36 +56,34 @@ export default function SqlQuerySection({
     : null;
   const {
     autoCompletions,
-    cursorData,
     isAutocompleteEnabled,
+    localSql,
+    setLocalSql,
     setCursorData,
     setIsAutocompleteEnabled,
-  } = useSqlAutocomplete({
-    datasourceId: draftExploreState.datasource,
-    source: "SqlExplorer",
-    skipManagedWarehouseUnavailable: true,
-  });
+    setSchemaCollapsed,
+  } = useSqlEditorContext();
 
   const [open, setOpen] = useState(true);
-  const [localSql, setLocalSql] = useState(dataset?.sql ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
   const [previewResult, setPreviewResult] =
     useState<QueryExecutionResult | null>(null);
-  const [schemaCollapsed, setSchemaCollapsed] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const schemaPanelRef = useRef<ImperativePanelHandle>(null);
   const editorPanelRef = useRef<ImperativePanelHandle>(null);
   const lastPreviewedSqlRef = useRef<string | null>(null);
   const collapseAfterSuccessfulRunRef = useRef(false);
 
   useEffect(() => {
-    setLocalSql(dataset?.sql ?? "");
     if ((dataset?.sql ?? "") !== lastPreviewedSqlRef.current) {
       setPreviewResult(null);
     }
   }, [dataset?.sql]);
+
+  useEffect(() => {
+    setError(null);
+    setPreviewResult(null);
+  }, [localSql]);
 
   useEffect(() => {
     lastPreviewedSqlRef.current = null;
@@ -111,27 +95,9 @@ export default function SqlQuerySection({
       return;
     }
     collapseAfterSuccessfulRunRef.current = false;
-    if (!isFullscreen) {
-      schemaPanelRef.current?.collapse();
-    }
+    setSchemaCollapsed(true);
     editorPanelRef.current?.resize(30);
-  }, [error, isFullscreen, previewResult]);
-
-  useEffect(() => {
-    if (!isFullscreen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsFullscreen(false);
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isFullscreen]);
+  }, [error, previewResult, setSchemaCollapsed]);
 
   const chartReady =
     dataset !== null &&
@@ -251,19 +217,32 @@ export default function SqlQuerySection({
     }
   };
 
-  const toggleSchema = () => {
-    if (schemaCollapsed) {
-      schemaPanelRef.current?.expand();
-    } else {
-      schemaPanelRef.current?.collapse();
-    }
-  };
-
   const sqlChanged = localSql !== dataset.sql;
   const canRunPreview = !!localSql.trim() && !!draftExploreState.datasource;
   const canFormat = datasource ? canFormatSql(datasource.type) : false;
-  const useFullHeight = fullHeight || isFullscreen;
-  const showSectionHeader = showHeader || isFullscreen;
+  const showContent = open || !showHeader;
+  const queryHelp = (
+    <Tooltip
+      body={
+        <Flex direction="column" gap="2">
+          <Text>
+            Write a read-only query that returns rows with at least one date or
+            timestamp column.
+          </Text>
+          <Text>
+            Use the Schema Browser on the side bar to explore what data is
+            available in your Data Source, and optionally use our AI SQL
+            Generator to help you write the query.{" "}
+          </Text>
+        </Flex>
+      }
+      usePortal
+    >
+      <Button size="xs" variant="ghost" icon={<PiQuestion />}>
+        Need help?
+      </Button>
+    </Tooltip>
+  );
 
   const content = (
     <AiSqlGenerator
@@ -277,28 +256,19 @@ export default function SqlQuerySection({
       {({ prompt, trigger }) => (
         <Box
           style={{
-            border: showSectionHeader ? "1px solid var(--gray-a3)" : undefined,
-            borderRadius: isFullscreen
-              ? 0
-              : showHeader
-                ? "var(--radius-4)"
-                : undefined,
-            backgroundColor: isFullscreen
-              ? "var(--color-surface-solid)"
-              : showHeader
-                ? "var(--color-panel-translucent)"
-                : undefined,
+            border: showHeader ? "1px solid var(--gray-a3)" : undefined,
+            borderRadius: showHeader ? "var(--radius-4)" : undefined,
+            backgroundColor: showHeader
+              ? "var(--color-panel-translucent)"
+              : undefined,
             overflow: "hidden",
-            flex: useFullHeight ? 1 : undefined,
-            minHeight: useFullHeight ? 0 : undefined,
-            display: useFullHeight ? "flex" : undefined,
-            flexDirection: useFullHeight ? "column" : undefined,
-            position: isFullscreen ? "fixed" : undefined,
-            inset: isFullscreen ? 0 : undefined,
-            zIndex: isFullscreen ? 9500 : undefined,
+            flex: fullHeight && showContent ? 1 : undefined,
+            minHeight: fullHeight && showContent ? 0 : undefined,
+            display: fullHeight && showContent ? "flex" : undefined,
+            flexDirection: fullHeight && showContent ? "column" : undefined,
           }}
         >
-          {showSectionHeader ? (
+          {showHeader ? (
             <Flex
               align="center"
               justify="between"
@@ -307,171 +277,40 @@ export default function SqlQuerySection({
                 borderBottom: open ? "1px solid var(--gray-a3)" : undefined,
               }}
             >
-              {isFullscreen ? (
+              <Button variant="ghost" onClick={() => setOpen(!open)}>
                 <Flex align="center" gap="2">
+                  {open ? <PiCaretDown /> : <PiCaretRight />}
                   <Text weight="medium">Query</Text>
                 </Flex>
-              ) : (
-                <Button variant="ghost" onClick={() => setOpen(!open)}>
-                  <Flex align="center" gap="2">
-                    {open ? <PiCaretDown /> : <PiCaretRight />}
-                    <Text weight="medium">Query</Text>
-                  </Flex>
-                </Button>
-              )}
+              </Button>
               <Flex align="center" justify="between" gap="3" mr="1">
                 {sqlChanged ? (
                   <Text size="small" color="text-low">
                     Unsaved query changes
                   </Text>
                 ) : null}
-                {open ? (
-                  <Tooltip
-                    style={{ display: "flex", alignItems: "center" }}
-                    body={
-                      isFullscreen
-                        ? "Close full screen (ESC)"
-                        : "Open in full screen"
-                    }
-                  >
-                    <IconButton
-                      size="2"
-                      variant="ghost"
-                      color="gray"
-                      aria-label={
-                        isFullscreen
-                          ? "Close full screen"
-                          : "Open in full screen"
-                      }
-                      onClick={() => {
-                        if (!isFullscreen) {
-                          setOpen(true);
-                        }
-                        setIsFullscreen(!isFullscreen);
-                      }}
-                    >
-                      {isFullscreen ? <PiX /> : <PiArrowsOut />}
-                    </IconButton>
-                  </Tooltip>
-                ) : null}
+                {queryHelp}
               </Flex>
             </Flex>
           ) : null}
-          {(open || !showHeader) && (
+          {showContent && (
             <Flex
               direction="column"
               gap="3"
-              p={showSectionHeader ? "3" : "0"}
+              p={showHeader ? "3" : "0"}
               style={{
-                flex: useFullHeight ? 1 : undefined,
-                minHeight: useFullHeight ? 0 : undefined,
+                flex: fullHeight ? 1 : undefined,
+                minHeight: fullHeight ? 0 : undefined,
               }}
             >
               <PanelGroup
                 direction="horizontal"
                 style={{
-                  minHeight: useFullHeight ? 0 : 360,
-                  flex: useFullHeight ? 1 : undefined,
+                  minHeight: fullHeight ? 0 : 360,
+                  flex: fullHeight ? 1 : undefined,
                 }}
               >
-                {datasource && (
-                  <>
-                    <Panel
-                      ref={schemaPanelRef}
-                      order={1}
-                      defaultSize={35}
-                      minSize={20}
-                      collapsible
-                      collapsedSize={5}
-                      onCollapse={() => setSchemaCollapsed(true)}
-                      onExpand={() => setSchemaCollapsed(false)}
-                    >
-                      <Flex direction="column" height="100%" width="100%">
-                        <AreaWithHeader
-                          header={
-                            <Flex
-                              align="center"
-                              justify={schemaCollapsed ? "center" : "start"}
-                              gap="2"
-                              width="100%"
-                            >
-                              <IconButton
-                                variant="ghost"
-                                size="1"
-                                aria-label={
-                                  schemaCollapsed
-                                    ? "Show schema browser"
-                                    : "Hide schema browser"
-                                }
-                                title={
-                                  schemaCollapsed
-                                    ? "Show schema browser"
-                                    : "Hide schema browser"
-                                }
-                                onClick={toggleSchema}
-                              >
-                                <PiCaretDoubleLeft
-                                  style={{
-                                    transform: schemaCollapsed
-                                      ? "rotate(180deg)"
-                                      : "rotate(0deg)",
-                                    transition: "transform 0.5s ease",
-                                  }}
-                                />
-                              </IconButton>
-                              {!schemaCollapsed ? (
-                                <Text weight="medium">Schema Browser</Text>
-                              ) : null}
-                            </Flex>
-                          }
-                          headerStyles={
-                            schemaCollapsed
-                              ? {
-                                  padding: "12px 4px 8px",
-                                }
-                              : undefined
-                          }
-                        >
-                          <Box
-                            height="100%"
-                            style={{
-                              display: schemaCollapsed ? "none" : undefined,
-                            }}
-                          >
-                            <SchemaBrowser
-                              datasource={datasource}
-                              cursorData={cursorData ?? undefined}
-                              updateSqlInput={(sql) => {
-                                setLocalSql(sql);
-                                setError(null);
-                                setPreviewResult(null);
-                              }}
-                            />
-                          </Box>
-                        </AreaWithHeader>
-                      </Flex>
-                    </Panel>
-                    <PanelResizeHandle
-                      style={{
-                        alignSelf: "stretch",
-                        height: "auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <PiDotsSix
-                        size={16}
-                        style={{ transform: "rotate(90deg)" }}
-                      />
-                    </PanelResizeHandle>
-                  </>
-                )}
-                <Panel
-                  order={2}
-                  defaultSize={datasource ? 65 : 100}
-                  minSize={45}
-                >
+                <Panel order={1} defaultSize={100} minSize={45}>
                   <PanelGroup direction="vertical">
                     <Panel
                       ref={editorPanelRef}
@@ -509,22 +348,7 @@ export default function SqlQuerySection({
                               >
                                 Run
                               </Button>
-                              {!showHeader && !isFullscreen ? (
-                                <Tooltip body="Open in full screen">
-                                  <IconButton
-                                    size="2"
-                                    variant="ghost"
-                                    color="gray"
-                                    aria-label="Open in full screen"
-                                    onClick={() => {
-                                      setOpen(true);
-                                      setIsFullscreen(true);
-                                    }}
-                                  >
-                                    <PiArrowsOut />
-                                  </IconButton>
-                                </Tooltip>
-                              ) : null}
+                              {!showHeader ? queryHelp : null}
                               <DropdownMenu
                                 trigger={
                                   <IconButton
@@ -608,7 +432,5 @@ export default function SqlQuerySection({
     </AiSqlGenerator>
   );
 
-  return isFullscreen && typeof document !== "undefined"
-    ? createPortal(<RadixTheme>{content}</RadixTheme>, document.body)
-    : content;
+  return content;
 }
