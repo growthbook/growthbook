@@ -48,10 +48,16 @@ export async function normalizeConfigChangesAgainstAncestors(
   const changes = { ...filteredChanges };
 
   const lineageChanged = changes.parent !== undefined || "extends" in changes;
-  const schemaToNormalize =
-    (changes.schema as ConfigInterface["schema"]) ?? entity.schema;
+  // An explicit `schema: null` in the changes is a clear — normalize nothing and
+  // leave it null so it persists (and fires the descendant reconcile). Only fall
+  // back to the entity's schema when the change doesn't touch `schema` at all;
+  // otherwise a combined lineage + schema-clear would resurrect the old schema.
+  const schemaProvided = "schema" in changes;
+  const schemaToNormalize = schemaProvided
+    ? (changes.schema as ConfigInterface["schema"])
+    : entity.schema;
 
-  if (!(changes.schema || lineageChanged) || !schemaToNormalize) {
+  if (!(schemaProvided || lineageChanged) || !schemaToNormalize) {
     return { changes, identical: [], conflicting: [] };
   }
 

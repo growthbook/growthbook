@@ -75,14 +75,14 @@ export const postConfigRevisionRevert = createApiRequestHandler(
       // Restore "no description": "" is a valid empty value that round-trips as
       // a normal replace op (no unset needed).
       fieldsToUpdate[field] = "";
+    } else if (field === "schema") {
+      // Restore "no schema" (free-form). `null` is the clear signal: it survives
+      // the revision record's JSON round-trip (unlike a dropped `undefined`) and
+      // reads as "no schema" everywhere (every reader uses `?.`/truthiness), and
+      // it fires the descendant reconcile (the trigger tests `!== undefined`) so
+      // descendants shed the removed schema's derived state.
+      fieldsToUpdate[field] = null;
     }
-    // `schema` absent in the target is deliberately NOT cleared here: it has no
-    // valid concrete "empty" (an empty schema declares zero fields, which is a
-    // DIFFERENT thing than "no schema"), so clearing it needs a JSON-patch
-    // `remove` op that round-trips through the revision record AND must fire the
-    // descendant reconcile on the clear (else descendants keep the removed
-    // schema's derived state). That's a scoped change, not a revert-loop tweak —
-    // reverting to a schema-less version keeps the current schema for now.
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -120,7 +120,12 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     key: config.key,
     name: config.name,
     value: revertedValue,
-    schema: (fieldsToUpdate.schema as typeof config.schema) ?? config.schema,
+    // A cleared schema (null) must reach the leaf as "no schema" — `?? config.schema`
+    // would wrongly re-apply the live schema and validate the reverted value against it.
+    schema:
+      "schema" in fieldsToUpdate
+        ? (fieldsToUpdate.schema as typeof config.schema)
+        : config.schema,
     parent: (fieldsToUpdate.parent as string | undefined) ?? config.parent,
     extends: (fieldsToUpdate.extends as string[] | undefined) ?? config.extends,
     extensible:

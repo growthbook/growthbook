@@ -438,7 +438,7 @@ export function getAncestorSchemaKeys(
   config: { parent?: string; extends?: string[] },
   byKey: Map<
     string,
-    { parent?: string; extends?: string[]; schema?: SimpleSchema }
+    { parent?: string; extends?: string[]; schema?: SimpleSchema | null }
   >,
 ): Set<string> {
   const keys = new Set<string>();
@@ -466,7 +466,7 @@ export function getAncestorSchemaFieldOwners(
   config: { parent?: string; extends?: string[] },
   byKey: Map<
     string,
-    { parent?: string; extends?: string[]; schema?: SimpleSchema }
+    { parent?: string; extends?: string[]; schema?: SimpleSchema | null }
   >,
 ): Map<string, { owner: string; field: SchemaField }> {
   const owners = new Map<string, { owner: string; field: SchemaField }>();
@@ -642,7 +642,7 @@ export function findOrphanedConfigValueKeys({
 // Remove schema fields whose key is owned by an ancestor (base wins). Returns
 // the reconciled field list, or null when nothing changes (no collisions).
 export function stripAncestorOwnedFields(
-  schema: SimpleSchema | undefined,
+  schema: SimpleSchema | null | undefined,
   ancestorKeys: Set<string>,
 ): SchemaField[] | null {
   const fields = schema?.fields ?? [];
@@ -659,7 +659,7 @@ export type AncestorFieldCollision = { key: string; owner: string };
 // stripAncestorOwnedFields: the field list with every collision removed, or
 // null when there are none. Policy (reject vs warn) is the caller's.
 export function classifyAncestorOwnedFields(
-  schema: SimpleSchema | undefined,
+  schema: SimpleSchema | null | undefined,
   owners: Map<string, { owner: string; field: SchemaField }>,
 ): {
   kept: SchemaField[] | null;
@@ -738,7 +738,8 @@ export type ConfigChainNode = {
   key: string;
   name?: string;
   value?: string;
-  schema?: SimpleSchema;
+  // `null` = explicitly no schema (a cleared config), read identically to absent.
+  schema?: SimpleSchema | null;
   // The scope-selected flavor's own patch for the target environment/project,
   // already chosen by the caller (see selectScopedOverride), deep-merged on top of
   // this node's own value. Absent = no variant applies for this node + context.
@@ -962,7 +963,7 @@ export type ConfigFamilyMember = {
   parent?: string;
   extends?: string[];
   value?: string;
-  schema?: SimpleSchema;
+  schema?: SimpleSchema | null;
   archived?: boolean;
 };
 

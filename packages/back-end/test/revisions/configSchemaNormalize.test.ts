@@ -171,6 +171,47 @@ describe("normalizeConfigChangesAgainstAncestors", () => {
     expect("schema" in out.changes).toBe(false);
   });
 
+  it("preserves an explicit schema clear (null) and normalizes nothing", async () => {
+    const e = entity({ schema: schemaWith("x") });
+    const changes: Record<string, unknown> = { schema: null };
+    let called = false;
+    const spy = async (
+      c: Parameters<ReturnType<typeof stripKeys>>[0],
+      s: SimpleSchema | undefined,
+    ) => {
+      called = true;
+      return stripKeys(new Set(["x"]))(c, s);
+    };
+
+    const out = await normalizeConfigChangesAgainstAncestors(e, changes, spy);
+
+    // A cleared schema has nothing to strip; null survives so it persists and
+    // the downstream reconcile trigger (`schema !== undefined`) still fires.
+    expect(called).toBe(false);
+    expect(out.changes.schema).toBeNull();
+  });
+
+  it("keeps the schema clear (null) even when lineage also changes", async () => {
+    // The revert-to-a-schema-less-revision case: `parent` moves AND schema is
+    // cleared in the same change. The old schema must NOT be resurrected.
+    const e = entity({ schema: schemaWith("x", "y"), parent: "oldBase" });
+    const changes: Record<string, unknown> = {
+      parent: "newBase",
+      schema: null,
+    };
+
+    const out = await normalizeConfigChangesAgainstAncestors(
+      e,
+      changes,
+      stripKeys(new Set(["x"])),
+    );
+
+    expect(out.changes.schema).toBeNull();
+    expect(out.changes.parent).toBe("newBase");
+    expect(out.identical).toEqual([]);
+    expect(out.conflicting).toEqual([]);
+  });
+
   it("does not mutate the input changes object", async () => {
     const e = entity({ schema: schemaWith("y") });
     const changes: Record<string, unknown> = { schema: schemaWith("x", "y") };

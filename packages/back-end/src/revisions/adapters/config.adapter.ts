@@ -248,9 +248,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         key: entity.key,
         name: entity.name,
         value: (normalizedChanges.value as string | undefined) ?? entity.value,
+        // Honor an explicit schema clear (null): validate against no schema, not
+        // the old one — `?? entity.schema` would resurrect the removed invariants.
         schema:
-          (normalizedChanges.schema as ConfigInterface["schema"]) ??
-          entity.schema,
+          "schema" in normalizedChanges
+            ? (normalizedChanges.schema as ConfigInterface["schema"])
+            : entity.schema,
         parent:
           (normalizedChanges.parent as string | undefined) ?? entity.parent,
         extends:
@@ -441,9 +444,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         key: entity.key,
         name: entity.name,
         value: postValue,
+        // Honor an explicit schema clear (null): a schema-less revert publishes
+        // against no schema rather than the schema it's removing.
         schema:
-          (normalizedChanges.schema as ConfigInterface["schema"]) ??
-          entity.schema,
+          "schema" in normalizedChanges
+            ? (normalizedChanges.schema as ConfigInterface["schema"])
+            : entity.schema,
         parent:
           (normalizedChanges.parent as string | undefined) ?? entity.parent,
         extends:

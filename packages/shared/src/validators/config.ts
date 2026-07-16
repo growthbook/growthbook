@@ -139,7 +139,7 @@ export const configValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
-    schema: simpleSchemaValidator.optional(),
+    schema: simpleSchemaValidator.nullish(),
     // Whether this family permits extra keys. Only the root config's value applies;
     // absent = inherit the org default (`configsExtensibleByDefault`).
     extensible: z.boolean().optional(),

@@ -692,6 +692,10 @@ describe("stripAncestorOwnedFields", () => {
     ).toBeNull();
     expect(stripAncestorOwnedFields(objSchema("color"), new Set())).toBeNull();
   });
+
+  it("returns null for a cleared schema (null), like an absent one", () => {
+    expect(stripAncestorOwnedFields(null, new Set(["color"]))).toBeNull();
+  });
 });
 
 describe("configIsExtensible", () => {
@@ -1599,7 +1603,7 @@ describe("getAncestorSchemaFieldOwners", () => {
   type Node = {
     parent?: string;
     extends?: string[];
-    schema?: SimpleSchema;
+    schema?: SimpleSchema | null;
   };
   const map = (entries: Record<string, Node>) =>
     new Map(Object.entries(entries));
@@ -1653,6 +1657,16 @@ describe("getAncestorSchemaFieldOwners", () => {
     );
     expect([...owners.keys()].sort()).toEqual(["x", "y"]);
   });
+
+  it("treats a cleared ancestor (schema: null) as owning no fields, like absent", () => {
+    const byKey = map({
+      root: { schema: null }, // cleared config: no schema
+      mid: { parent: "root", schema: objSchema("b") },
+    });
+    const owners = getAncestorSchemaFieldOwners({ parent: "mid" }, byKey);
+    // Only mid's field is owned; the cleared root contributes nothing.
+    expect([...owners.keys()]).toEqual(["b"]);
+  });
 });
 
 describe("classifyAncestorOwnedFields", () => {
@@ -1668,6 +1682,12 @@ describe("classifyAncestorOwnedFields", () => {
       conflicting: [],
     });
     expect(classifyAncestorOwnedFields(undefined, owners)).toEqual({
+      kept: null,
+      identical: [],
+      conflicting: [],
+    });
+    // A cleared config (schema: null) declares nothing, so nothing collides.
+    expect(classifyAncestorOwnedFields(null, owners)).toEqual({
       kept: null,
       identical: [],
       conflicting: [],
@@ -1699,6 +1719,46 @@ describe("classifyAncestorOwnedFields", () => {
     expect(out.identical).toEqual([{ key: "a", owner: "base" }]);
     expect(out.conflicting).toEqual([]);
     expect(out.kept).toEqual([]);
+  });
+});
+
+// The descendant-reconcile core the revert's schema-clear depends on: clearing a
+// base's schema (revert to a schema-less revision) must un-own its fields so a
+// descendant that re-declared them keeps its own definition again. This is the
+// getAncestorSchemaKeys → stripAncestorOwnedFields pair the server cascade runs.
+describe("clearing a base schema (null) un-strips descendant fields", () => {
+  type Node = {
+    parent?: string;
+    extends?: string[];
+    schema?: SimpleSchema | null;
+  };
+
+  it("strips a base-owned field while the base has the schema, keeps it once cleared", () => {
+    const child = { parent: "base", schema: objSchema("color", "weight") };
+    // Base owns "color": the child's "color" is stripped (base wins).
+    const withBase = new Map<string, Node>([
+      ["base", { schema: objSchema("color") }],
+      ["child", child],
+    ]);
+    const strippedWhileOwned = stripAncestorOwnedFields(
+      child.schema,
+      getAncestorSchemaKeys(child, withBase),
+    );
+    expect(strippedWhileOwned?.map((f) => f.key)).toEqual(["weight"]);
+
+    // Clear the base's schema (the revert): it now owns nothing, so the child's
+    // own "color" is no longer ancestor-owned and there is nothing left to strip.
+    const cleared = new Map<string, Node>([
+      ["base", { schema: null }],
+      ["child", child],
+    ]);
+    expect(
+      stripAncestorOwnedFields(
+        child.schema,
+        getAncestorSchemaKeys(child, cleared),
+      ),
+    ).toBeNull();
+    expect(getAncestorSchemaKeys(child, cleared).size).toBe(0);
   });
 });
 

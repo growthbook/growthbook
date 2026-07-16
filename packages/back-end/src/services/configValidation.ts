@@ -35,7 +35,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 // schema / parent / extends so a draft edit is judged against the lineage it's
 // also setting (not the stale live one).
 type ConfigLeaf = Pick<ConfigInterface, "key" | "name" | "value"> & {
-  schema?: SimpleSchema;
+  schema?: SimpleSchema | null;
   parent?: string;
   extends?: string[];
   extensible?: boolean;
