@@ -710,8 +710,9 @@ export async function createFeature(
   // Legacy/internal create paths (v1 POST, internal postFeatures) reach here
   // without their own net, and creation writes a published revision directly
   // (no publish-time re-check), so an unchecked create would ship a
-  // schema-violating value on version 1. `rules` is canonical here:
-  // buildFeatureUpdate scrubs env-settings rules into the flat top-level array.
+  // schema-violating value on version 1. The flat top-level `rules` is canonical
+  // here: callers populate it (buildFeatureUpdate then strips the legacy
+  // env-settings copies), so it holds every rule regardless of entry point.
   // No-op for non-json / non-config features and when skipSchemaValidation is set.
   await assertConfigBackedFeatureValuesValid(context, featureToCreate, {
     defaultValue: featureToCreate.defaultValue,
