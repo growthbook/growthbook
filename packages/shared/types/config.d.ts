@@ -9,10 +9,7 @@ export type ConfigInterface = z.infer<typeof configValidator>;
 
 // Value-omitted projection loaded into the definitions context (values can be
 // large). Full values are fetched on demand.
-export type ConfigWithoutValue = Omit<
-  ConfigInterface,
-  "value" | "environmentValues"
->;
+export type ConfigWithoutValue = Omit<ConfigInterface, "value">;
 
 export type PostConfigBody = z.infer<typeof postConfigBodyValidator>;
 

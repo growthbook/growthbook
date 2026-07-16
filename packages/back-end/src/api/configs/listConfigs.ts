@@ -8,8 +8,8 @@ import {
 export const listConfigs = createApiRequestHandler(listConfigsValidator)(async (
   req,
 ) => {
-  // `value`/`environmentValues` can be large, so paginate over the
-  // value-omitted projection, then hydrate just the page.
+  // `value` can be large, so paginate over the value-omitted projection, then
+  // hydrate just the page.
   const allWithoutValues =
     await req.context.models.configs.getAllWithoutValues();
 
