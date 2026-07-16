@@ -1,5 +1,5 @@
 import { isProjectListValidForProject } from "shared/util";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
@@ -9,19 +9,19 @@ import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  filterSearchTerm,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
+import FactTableSearchFilters from "@/components/Search/FactTableSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LinkButton from "@/ui/LinkButton";
@@ -47,6 +47,7 @@ export default function FactTablesPage() {
   const {
     _factTablesIncludingArchived: factTables,
     getDatasourceById,
+    getProjectById,
     project,
     projects,
     factMetrics,
@@ -118,8 +119,6 @@ export default function FactTablesPage() {
       )
     : factTables;
 
-  const hasArchivedFactTables = factTables.some((t) => t.archived);
-
   const canCreate = permissionsUtil.canViewCreateFactTableModal(
     project,
     projects,
@@ -137,34 +136,36 @@ export default function FactTablesPage() {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
         ownerNameDisplay: getOwnerDisplay(table.owner),
+        projectNames: table.projects.map((p) => getProjectById(p)?.name || p),
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById, getOwnerDisplay],
+    [getDatasourceById, getOwnerDisplay, getProjectById],
   );
 
-  const tagsFilter = useTagsFilter("facttables");
   const filterResults = useCallback(
     (items: typeof factTablesWithLabels) => {
-      items = filterByTags(items, tagsFilter.tags);
+      if (!showArchived) {
+        items = items.filter((t) => !t.archived);
+      }
       return items;
     },
-    [tagsFilter.tags],
+    [showArchived],
   );
 
   const {
     items,
     searchInputProps,
     isFiltered,
+    syntaxFilters,
+    setSearchValue,
     SortableTableColumnHeader,
     clear,
   } = useSearch({
-    items: showArchived
-      ? factTablesWithLabels
-      : factTablesWithLabels.filter((t) => !t.archived),
+    items: factTablesWithLabels,
     defaultSortField: "name",
     localStorageKey: "factTables",
     searchFields: [
@@ -174,8 +175,49 @@ export default function FactTablesPage() {
       "userIdTypes",
       "description",
     ],
+    updateSearchQueryOnChange: true,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.managedBy) is.push("official");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.projects?.length) has.push("project", "projects");
+        if (item.tags?.length) has.push("tag", "tags");
+        return has;
+      },
+      created: (item) => (item.dateCreated ? new Date(item.dateCreated) : null),
+      updated: (item) => (item.dateUpdated ? new Date(item.dateUpdated) : null),
+      name: (item) => item.name,
+      description: (item) => item.description,
+      id: (item) => item.id,
+      owner: (item) => [item.owner, item.ownerNameDisplay],
+      datasource: (item) => [item.datasource, item.datasourceName],
+      project: (item) => [...item.projectNames, ...item.projects],
+      tag: (item) => item.tags,
+      identifier: (item) => item.userIdTypes,
+    },
     filterResults,
   });
+
+  // Include archived Fact Tables in the list whenever an `is:archived` filter
+  // is present, since they are otherwise hidden before filtering. Match with
+  // filterSearchTerm so operator/case variants (`is:~arch`, `is:Archived`)
+  // reveal archived items the same way they filter them.
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.some((v) =>
+          filterSearchTerm("archived", filter.operator, v),
+        ),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   return (
     <Box className="pagecontents container-fluid">
@@ -183,9 +225,32 @@ export default function FactTablesPage() {
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <Heading as="h1" size="x-large" mb="4">
-        Fact Tables
-      </Heading>
+      <Flex align="center" justify="between" gap="3" mb="4">
+        <Heading as="h1" size="x-large" mb="0">
+          Fact Tables
+        </Heading>
+        {filteredFactTables.length > 0 && hasDatasource ? (
+          <Tooltip
+            body={
+              !canCreate
+                ? `You don't have permission to create fact tables ${
+                    project ? "in this project" : ""
+                  }`
+                : ""
+            }
+          >
+            <Button
+              onClick={() => {
+                if (!canCreate) return;
+                setCreateFactOpen(true);
+              }}
+              disabled={!canCreate}
+            >
+              Add Fact Table
+            </Button>
+          </Tooltip>
+        ) : null}
+      </Flex>
 
       {!filteredFactTables.length ? (
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
@@ -380,76 +445,20 @@ export default function FactTablesPage() {
         </Box>
       ) : (
         <Box>
-          <Flex mb="2" align="center" gap="3" wrap="wrap">
-            {filteredFactTables.length > 0 && (
-              <>
-                <Box style={{ minWidth: 120, flex: "1 1 200px" }}>
-                  <Field
-                    placeholder="Search..."
-                    type="search"
-                    {...searchInputProps}
-                  />
-                </Box>
-                {hasArchivedFactTables && (
-                  <Box className="text-muted">
-                    <Switch
-                      value={showArchived}
-                      onChange={setShowArchived}
-                      id="show-archived"
-                      label="Show archived"
-                    />
-                  </Box>
-                )}
-                <Box>
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </Box>
-                <Box style={{ marginLeft: "auto" }} />
-              </>
-            )}
-            <Box>
-              {initialFactTableData && canCreate && (
-                <Button
-                  variant="outline"
-                  mr="2"
-                  onClick={async () => {
-                    setAutoGenerateError(null);
-                    await createInitialResources({
-                      ...initialFactTableData,
-                      apiCall,
-                      settings,
-                      metricDefaults,
-                    });
-                    await mutateDefinitions();
-                  }}
-                  setError={(error) => {
-                    setAutoGenerateError(error);
-                  }}
-                >
-                  Auto-generate Fact Tables
-                </Button>
-              )}
-              {hasDatasource ? (
-                <Tooltip
-                  body={
-                    !canCreate
-                      ? `You don't have permission to create fact tables ${
-                          project ? "in this project" : ""
-                        }`
-                      : ""
-                  }
-                >
-                  <Button
-                    onClick={() => {
-                      if (!canCreate) return;
-                      setCreateFactOpen(true);
-                    }}
-                    disabled={!canCreate}
-                  >
-                    Add Fact Table
-                  </Button>
-                </Tooltip>
-              ) : null}
+          <Flex justify="between" mb="3" gap="3" align="center">
+            <Box className="relative" width="40%">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
             </Box>
+            <FactTableSearchFilters
+              factTables={filteredFactTables}
+              searchInputProps={searchInputProps}
+              setSearchValue={setSearchValue}
+              syntaxFilters={syntaxFilters}
+            />
           </Flex>
           <Table variant="list" stickyHeader roundedCorners className="appbox">
             <TableHeader>
