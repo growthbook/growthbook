@@ -80,6 +80,17 @@ const apiBaseConfigField = z
   )
   .optional();
 
+// Same field on update, where the backing config is fixed at creation: an
+// update that changes it is rejected, so callers may only resend the current
+// value or omit it.
+const apiBaseConfigUpdateField = z
+  .string()
+  .nullable()
+  .describe(
+    "The config backing this flag, fixed at creation. Cannot be changed by an update — resend the current value or omit it; a different value is rejected.",
+  )
+  .optional();
+
 // Selects which config the DEFAULT value resolves to: a config within
 // `baseConfig`'s family, else `baseConfig` itself. The default is exactly that
 // config with no overrides of its own (unlike rules, which patch their config).
@@ -620,7 +631,7 @@ export const updateFeatureBodyV2 = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
-    baseConfig: apiBaseConfigField,
+    baseConfig: apiBaseConfigUpdateField,
     defaultValueConfig: apiDefaultValueConfigField,
     tags: z
       .array(z.string())
