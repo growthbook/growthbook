@@ -52,7 +52,19 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   const uuidKey = settings.uuidKey || "id";
   let uuid = settings.uuid || "";
   function persistUUID() {
+    if (!COOKIE_DOMAIN) {
+      setCookie(COOKIE_NAME, uuid);
+      return;
+    }
+    // Remove any legacy host-only cookie first - two same-named cookies would
+    // shadow each other and make reads unreliable
+    expireCookie(COOKIE_NAME);
     setCookie(COOKIE_NAME, uuid, COOKIE_DOMAIN);
+    // Browsers silently reject a cookie whose domain doesn't cover this host
+    // (e.g. a typo) - fall back to host-only so the id stays stable here
+    if (getCookie(COOKIE_NAME) !== uuid) {
+      setCookie(COOKIE_NAME, uuid);
+    }
   }
   function getUUID() {
     // Already stored in memory, return
@@ -143,10 +155,17 @@ function setCookie(name: string, value: string, domain?: string) {
     name + "=" + value + ";path=/" + domainStr + ";expires=" + d.toUTCString();
 }
 
+function expireCookie(name: string) {
+  // No domain attribute, so this only removes the host-only cookie
+  document.cookie = name + "=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+}
+
 function getCookie(name: string): string {
+  // A host-only and a domain-scoped cookie can coexist under the same name
+  // (e.g. before/after uuidCookieDomain is enabled) - use the first match
   const value = "; " + document.cookie;
   const parts = value.split(`; ${name}=`);
-  return parts.length === 2 ? parts[1].split(";")[0] : "";
+  return parts.length >= 2 ? parts[1].split(";")[0] : "";
 }
 
 // Use the browsers crypto.randomUUID if set to generate a UUID

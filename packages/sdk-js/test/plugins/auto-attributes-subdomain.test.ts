@@ -30,9 +30,15 @@ type StoredCookie = {
 };
 
 class CookieJar {
+  // Real browsers store a host-only and a domain-scoped cookie of the same
+  // name as SEPARATE entries, so the store is keyed by name + scope.
   private store = new Map<string, StoredCookie>();
   // The host the "browser" is currently on. Change this to simulate a redirect.
   host = "www.example.com";
+
+  private key(c: Pick<StoredCookie, "name" | "hostOnly" | "scope">): string {
+    return `${c.name}|${c.hostOnly ? "host" : "domain"}|${c.scope}`;
+  }
 
   private matches(cookie: StoredCookie): boolean {
     if (cookie.hostOnly) return this.host === cookie.scope;
@@ -55,25 +61,35 @@ class CookieJar {
     const value = nameValue.slice(eq + 1);
 
     let domain = "";
+    let expired = false;
     for (const attr of attrs) {
-      const [k, v = ""] = attr.split("=");
+      const [k, ...rest] = attr.split("=");
+      const v = rest.join("=");
       if (k.toLowerCase() === "domain") domain = v.trim();
+      if (k.toLowerCase() === "expires" && new Date(v).getTime() < Date.now())
+        expired = true;
     }
 
+    let cookie: StoredCookie;
     if (domain) {
       const scope = domain.replace(/^\./, "");
       // Browsers reject a domain cookie the current host isn't a member of.
       const allowed = this.host === scope || this.host.endsWith("." + scope);
       if (!allowed) return;
-      this.store.set(name, { name, value, hostOnly: false, scope });
+      cookie = { name, value, hostOnly: false, scope };
     } else {
-      this.store.set(name, {
-        name,
-        value,
-        hostOnly: true,
-        scope: this.host,
-      });
+      cookie = { name, value, hostOnly: true, scope: this.host };
     }
+
+    // A Set-Cookie with a past expiry deletes that specific cookie
+    if (expired) this.store.delete(this.key(cookie));
+    else this.store.set(this.key(cookie), cookie);
+  }
+
+  count(name: string): number {
+    return [...this.store.values()].filter(
+      (c) => c.name === name && this.matches(c),
+    ).length;
   }
 
   reset(): void {
@@ -169,5 +185,49 @@ describe("auto-attributes uuid stability across a subdomain redirect", () => {
     const second = loadPageAndBucket("example.com", ".example.com");
     expect(second.id).toBe(first.id);
     expect(second.variation).toBe(first.variation);
+  });
+
+  it("migrates a legacy host-only cookie when uuidCookieDomain is enabled", () => {
+    // Site ran without the option first: users have a host-only gbuuid
+    const before = loadPageAndBucket("www.example.com");
+    expect(jar.count("gbuuid")).toBe(1);
+
+    // Operator enables uuidCookieDomain: the id must be preserved and the
+    // legacy host-only cookie replaced (two same-named cookies would make
+    // reads unreliable)
+    const after = loadPageAndBucket("www.example.com", ".example.com");
+    expect(after.id).toBe(before.id);
+    expect(jar.count("gbuuid")).toBe(1);
+
+    // And the preserved id is now readable on other subdomains
+    const destination = loadPageAndBucket("app.example.com", ".example.com");
+    expect(destination.id).toBe(before.id);
+  });
+
+  it("does not re-mint the id when two same-named cookies coexist", () => {
+    // A parent-domain gbuuid can already exist (set by another subdomain's
+    // SDK) alongside this host's legacy host-only cookie
+    jar.set("gbuuid=host-only-id;path=/");
+    jar.host = "app.example.com";
+    jar.set("gbuuid=domain-id;path=/;domain=.example.com");
+    jar.host = "www.example.com";
+    expect(jar.count("gbuuid")).toBe(2);
+
+    // Reads must return a stable value, not "" (which would mint a fresh
+    // uuid on every single page load)
+    const first = loadPageAndBucket("www.example.com");
+    const second = loadPageAndBucket("www.example.com");
+    expect(first.id).toBeTruthy();
+    expect(second.id).toBe(first.id);
+  });
+
+  it("falls back to a host-only cookie when the configured domain is invalid", () => {
+    // Typo'd/foreign domain: the browser silently rejects the write
+    const first = loadPageAndBucket("www.example.com", ".other.com");
+    const second = loadPageAndBucket("www.example.com", ".other.com");
+
+    // The id must still persist on this host instead of re-minting each load
+    expect(jar.count("gbuuid")).toBe(1);
+    expect(second.id).toBe(first.id);
   });
 });
