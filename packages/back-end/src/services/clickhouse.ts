@@ -615,6 +615,85 @@ async function fireManagedWarehouseRecreate(
   }
 }
 
+// Legacy matcol metadata to carry through the JSON migration:
+// - Identifiers: every legacy custom identifier (a `userIdType` that isn't a built-in
+//   or a current hashAttribute) is preserved as an `attributes`-aliased top-level
+//   column, exactly like a hashAttribute identifier. This keeps the join keys
+//   experiments/metrics depend on, so the migration never has to skip a warehouse
+//   over identifier drift. Persisted in `migratedIdentifiers` so the attribute-change
+//   sync re-includes them.
+// - Dimensions: non-identifier matcols preserved as top-level aliases (so bare
+//   references in raw-SQL filters, exposure breakdowns, and fact-table-routed
+//   metrics keep resolving).
+function getPreservedLegacyColumns(
+  context: ReqContext | ApiReqContext,
+  datasource: GrowthbookClickhouseDataSource,
+) {
+  const attributeSchema = context.org.settings?.attributeSchema;
+  const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
+  const schemaIdentifiers = new Set(
+    getManagedWarehouseCustomIdentifiers(attributeSchema),
+  );
+  const migratedIdentifiers = (datasource.settings.userIdTypes || [])
+    .map((u) => u.userIdType)
+    .filter((t) => !builtins.has(t) && !schemaIdentifiers.has(t));
+  const migratedColumns = getMigratedDimensionColumns(
+    datasource.settings.materializedColumns || [],
+    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  );
+  return { migratedIdentifiers, migratedColumns };
+}
+
+// Migrate a never-provisioned legacy warehouse with Mongo-only settings updates: no
+// ClickHouse database exists yet, so there is nothing to rebuild and no queries to
+// block (`migrating` stays unset). Mirrors the provisioned flow's metadata steps and
+// its crash-safety: `materializedColumns` is cleared last, so a crash re-runs this on
+// the next sweep or on-read trigger.
+async function migrateUnprovisionedManagedWarehouseSettings(
+  context: ReqContext | ApiReqContext,
+  datasource: GrowthbookClickhouseDataSource,
+): Promise<void> {
+  const { migratedIdentifiers, migratedColumns } = getPreservedLegacyColumns(
+    context,
+    datasource,
+  );
+
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        useJsonColumns: true,
+        migratedIdentifiers,
+        migratedColumns,
+      },
+    },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Mongo-only: regenerates userIdTypes/exposure queries (and the ch_events fact
+  // table, if one exists) for the JSON model.
+  await syncManagedWarehouseIdentifiers(context);
+
+  // Clear materializedColumns last (re-fetch: the sync mutated the datasource
+  // settings); only then is the warehouse fully migrated and out of the legacy set.
+  const synced =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+  if (!synced || synced.type !== "growthbook_clickhouse") {
+    logger.error(
+      `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource after sync; migration will re-trigger on next sweep`,
+    );
+    return;
+  }
+  await updateDataSource(
+    context,
+    synced,
+    { settings: { ...synced.settings, materializedColumns: undefined } },
+    { skipExposureQueryValidation: true },
+  );
+}
+
 // Migrate a legacy (materialized-column) managed warehouse to native JSON columns.
 // Recreate now acks and rebuilds the per-org tables in the background under a
 // datasource lock (holding the connection open for the whole rebuild 504'd behind the
@@ -633,9 +712,14 @@ export async function migrateManagedWarehouseToJson(
     return;
   }
 
-  // Defer until provisioned: recreating tables for a never-provisioned org would
-  // race the normal provisioning flow (and spam Sentry).
+  // Never-provisioned warehouses have no physical tables, so a Mongo-only settings
+  // rewrite fully migrates them (recreating tables here would race the normal
+  // provisioning flow). Once `useJsonColumns` is persisted, eventual provisioning
+  // creates the JSON DDL directly.
   if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+    if (isManagedWarehouseAwaitingJsonMigration(datasource)) {
+      await migrateUnprovisionedManagedWarehouseSettings(context, datasource);
+    }
     return;
   }
 
@@ -678,27 +762,9 @@ export async function migrateManagedWarehouseToJson(
   }
 
   // awaiting === true: (re)start the migration.
-  const matColumns = datasource.settings.materializedColumns || [];
-  const attributeSchema = context.org.settings?.attributeSchema;
-
-  // Preserve every legacy custom identifier (a `userIdType` that isn't a built-in or a
-  // current hashAttribute) by carrying it as an `attributes`-aliased top-level column,
-  // exactly like a hashAttribute identifier. This keeps the join keys experiments/metrics
-  // depend on, so the migration never has to skip a warehouse over identifier drift.
-  // Persisted in `migratedIdentifiers` so the attribute-change sync re-includes them.
-  const builtins = new Set<string>(MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS);
-  const schemaIdentifiers = new Set(
-    getManagedWarehouseCustomIdentifiers(attributeSchema),
-  );
-  const migratedIdentifiers = (datasource.settings.userIdTypes || [])
-    .map((u) => u.userIdType)
-    .filter((t) => !builtins.has(t) && !schemaIdentifiers.has(t));
-
-  // Non-identifier dimensions to preserve as top-level aliases (so bare references in
-  // raw-SQL filters, exposure breakdowns, and fact-table-routed metrics keep resolving).
-  const migratedColumns = getMigratedDimensionColumns(
-    matColumns,
-    MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
+  const { migratedIdentifiers, migratedColumns } = getPreservedLegacyColumns(
+    context,
+    datasource,
   );
 
   // Enter the transient "migrating" state (still provisioned) so in-flight usage
