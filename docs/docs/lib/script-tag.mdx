@@ -271,6 +271,8 @@ To keep one stable id across all subdomains, scope the cookie to your parent dom
 ></script>
 ```
 
+When set, this also scopes the sticky bucketing cookies (`data-use-sticky-bucket-service="cookie"`) to the same domain, so sticky assignments follow the shared id across subdomains.
+
 Note that cookies cannot be shared across completely different registrable domains (e.g. `example.com` and `example.co.uk`). For that case, pass the id through the redirect URL and initialize the destination with `data-uuid` / `window.growthbook_config.uuid`.
 
 ### Delay Storing the Cookie Until Consent is Granted
