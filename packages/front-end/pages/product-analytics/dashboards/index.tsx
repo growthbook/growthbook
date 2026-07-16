@@ -247,6 +247,7 @@ export default function DashboardsPage() {
           }}
           isGeneralDashboard={true}
           dashboardId={selectedDashboard.id}
+          uid={selectedDashboard.uid}
         />
       )}
       <div className="p-3 container-fluid pagecontents">
@@ -388,7 +389,9 @@ export default function DashboardsPage() {
                                   shareLevel={
                                     d.shareLevel === "published"
                                       ? "organization"
-                                      : "private"
+                                      : d.shareLevel === "public"
+                                        ? "public"
+                                        : "private"
                                   }
                                   editLevel={
                                     d.editLevel === "private"

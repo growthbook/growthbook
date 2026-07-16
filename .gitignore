@@ -53,3 +53,6 @@ next-env.d.ts
 # Private claude folders
 .claude/worktrees/
 .claude/projects/
+
+# Internal design docs (not for the public docs site / PRs)
+docs-internal/

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Request, Response } from "express";
 import {
   blockHasFieldOfType,
   dashboardBlockHasIds,
@@ -18,7 +19,10 @@ import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import {
   createExperimentSnapshot,
   createExperimentSnapshotFromPlan,
@@ -28,12 +32,15 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  generateDashboardSSRData,
+  getPublicDashboardBlockData,
   updateDashboardMetricAnalyses,
   updateDashboardExplorations,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
 import {
+  DashboardModel,
   generateDashboardBlockIds,
   migrateBlock,
 } from "back-end/src/enterprise/models/DashboardModel";
@@ -46,6 +53,44 @@ interface SingleDashboardResponse {
 interface MultiDashboardResponse {
   status: number;
   dashboards: DashboardInterface[];
+}
+
+async function loadPublicDashboardOrRespond(
+  uid: string,
+  res: Response,
+): Promise<DashboardInterface | null> {
+  const dashboard = await DashboardModel.getPublicByUid(uid);
+  if (!dashboard) {
+    res.status(404).json({ status: 404, message: "Dashboard not found" });
+    return null;
+  }
+  return dashboard;
+}
+
+export async function getDashboardPublic(
+  req: Request<{ uid: string }>,
+  res: Response,
+) {
+  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!dashboard) return;
+
+  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
+  const ssrData = await generateDashboardSSRData({ context, dashboard });
+
+  return res.status(200).json({ status: 200, dashboard, ssrData });
+}
+
+export async function getDashboardPublicBlocks(
+  req: Request<{ uid: string }>,
+  res: Response,
+) {
+  const dashboard = await loadPublicDashboardOrRespond(req.params.uid, res);
+  if (!dashboard) return;
+
+  const context = await getContextForAgendaJobByOrgId(dashboard.organization);
+  const blockData = await getPublicDashboardBlockData({ context, dashboard });
+
+  return res.status(200).json({ status: 200, blockData });
 }
 
 export async function getAllDashboards(

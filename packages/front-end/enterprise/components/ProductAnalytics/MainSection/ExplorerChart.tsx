@@ -7,6 +7,7 @@ import type {
   ProductAnalyticsExploration,
   ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
+import { FactMetricInterface } from "shared/types/fact-table";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
   calculateProductAnalyticsDateRange,
@@ -121,6 +122,7 @@ export default function ExplorerChart({
   animate = true,
   submittedPreviousTimeFrame = null,
   serverBigNumberTrends = null,
+  getFactMetricById: getFactMetricByIdProp,
 }: {
   exploration: ProductAnalyticsExploration | null;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -134,6 +136,9 @@ export default function ExplorerChart({
   serverBigNumberTrends?:
     | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
     | null;
+  // Override for the public dashboard page (no DefinitionsContext); defaults to
+  // useDefinitions(). Only .metricType / .numerator.aggregation are read.
+  getFactMetricById?: (id: string) => FactMetricInterface | null;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -141,7 +146,8 @@ export default function ExplorerChart({
   const gridLineColor =
     theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const chartsContext = useDashboardCharts();
-  const { getFactMetricById } = useDefinitions();
+  const { getFactMetricById: defGetFactMetricById } = useDefinitions();
+  const getFactMetricById = getFactMetricByIdProp ?? defGetFactMetricById;
 
   // ECharts only auto-resizes on window resize, not when its parent container
   // changes (e.g. a dashboard block being resized via react-grid-layout or the

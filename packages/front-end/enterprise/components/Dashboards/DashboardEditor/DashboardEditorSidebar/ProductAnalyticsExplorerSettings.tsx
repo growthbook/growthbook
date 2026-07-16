@@ -4,6 +4,7 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  blockUsesDashboardDateControl,
   buildComparisonDateRange,
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
@@ -78,7 +79,7 @@ export default function ProductAnalyticsExplorerSettings({
       : baseInitialConfig
     : null;
   const usesDashboardDateRange =
-    block.globalControlSettings?.dateRange === true &&
+    blockUsesDashboardDateControl(block) &&
     Boolean(dashboardGlobalControls?.dateRange);
   const hasStaleDashboardDateResults =
     usesDashboardDateRange &&

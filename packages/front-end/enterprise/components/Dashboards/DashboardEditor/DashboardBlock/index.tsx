@@ -4,6 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
+  resolveExperimentBlockMetricIds,
   blockUsesDashboardDateControl,
   DashboardInterface,
   isDashboardGlobalControlSupportedBlock,
@@ -17,10 +18,7 @@ import {
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
 import { SavedQuery } from "shared/validators";
-import {
-  expandMetricGroups,
-  ExperimentMetricDefinition,
-} from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/nextjs";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "shared/types/metric-analysis";
@@ -91,6 +89,9 @@ export type BlockProps<T extends DashboardBlockInterface> = {
   mutate: () => void;
   isEditing: boolean;
   ssrPolyfills?: SSRPolyfills;
+  hideSql?: boolean;
+  isPublic?: boolean;
+  publicShareUid?: string;
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
@@ -236,58 +237,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   if (blockHasMetrics && blockHasExperiment) {
     // TypeScript needs help here - blockHasMetrics narrows the type but TS can't infer it
     const blockWithMetrics = block as Extract<T, { metricIds: string[] }>;
-    const blockMetricIds = blockWithMetrics.metricIds;
-    const hasGoalSelector = blockMetricIds.includes("experiment-goal");
-    const hasSecondarySelector = blockMetricIds.includes(
-      "experiment-secondary",
-    );
-    const hasGuardrailSelector = blockMetricIds.includes(
-      "experiment-guardrail",
-    );
-
-    let baseMetricIds: string[] = [];
-    if (hasGoalSelector || hasSecondarySelector || hasGuardrailSelector) {
-      // If any selector is present, include metrics from those categories
-      if (hasGoalSelector) {
-        baseMetricIds.push(...(blockExperiment?.goalMetrics ?? []));
-      }
-      if (hasSecondarySelector) {
-        baseMetricIds.push(...(blockExperiment?.secondaryMetrics ?? []));
-      }
-      if (hasGuardrailSelector) {
-        baseMetricIds.push(...(blockExperiment?.guardrailMetrics ?? []));
-      }
-    } else {
-      // No selectors - include all metrics (equivalent to "all")
-      baseMetricIds = [
-        ...(blockExperiment?.goalMetrics ?? []),
-        ...(blockExperiment?.secondaryMetrics ?? []),
-        ...(blockExperiment?.guardrailMetrics ?? []),
-      ];
-    }
-
-    let expandedMetricIds = expandMetricGroups(baseMetricIds, metricGroups);
-
-    // Filter by actual metric IDs (excluding selector IDs)
-    const actualMetricIds = blockMetricIds.filter(
-      (id) =>
-        ![
-          "experiment-goal",
-          "experiment-secondary",
-          "experiment-guardrail",
-        ].includes(id),
-    );
-    if (actualMetricIds.length > 0) {
-      const filteredMetricIds = expandMetricGroups(
-        actualMetricIds,
-        metricGroups,
-      );
-      const filteredMetricIdsSet = new Set(filteredMetricIds);
-      expandedMetricIds = expandedMetricIds.filter((id) =>
-        filteredMetricIdsSet.has(id),
-      );
-    }
-
+    const expandedMetricIds = resolveExperimentBlockMetricIds({
+      blockMetricIds: blockWithMetrics.metricIds,
+      experiment: blockExperiment,
+      metricGroups,
+    });
     const blockMetrics = expandedMetricIds
       .map(getExperimentMetricById)
       .filter(isDefined);

@@ -517,6 +517,20 @@ export function truncateString(s: string, numChars: number) {
   return s;
 }
 
+// Converts common Markdown syntax to plain text for previews.
+export function stripMarkdown(md: string): string {
+  return md
+    .replace(/```[^\n]*\n?/g, "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/(\*\*|__|\*|_|~~)/g, "")
+    .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "")
+    .replace(/^\s{0,3}([-*_])(\s*\1){2,}\s*$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function getNumberFormatDigits(
   value: number,
   highPrecision: boolean = false,

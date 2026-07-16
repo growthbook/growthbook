@@ -26626,13 +26626,16 @@ paths:
                     - private
                 shareLevel:
                   description: >-
-                    General Dashboards only. Dashboards that are "published" are
-                    viewable by organization members with appropriate
-                    permissions
+                    General Dashboards only. "published" dashboards are viewable
+                    by organization members with appropriate permissions;
+                    "public" dashboards are viewable by anyone with the share
+                    URL (no authentication); "private" dashboards are viewable
+                    only by the owner.
                   type: string
                   enum:
                     - published
                     - private
+                    - public
                 enableAutoUpdates:
                   description: >-
                     If enabled for a General Dashboard, also requires an
@@ -30371,13 +30374,16 @@ paths:
                     - private
                 shareLevel:
                   description: >-
-                    General Dashboards only. Dashboards that are "published" are
-                    viewable by organization members with appropriate
-                    permissions
+                    General Dashboards only. "published" dashboards are viewable
+                    by organization members with appropriate permissions;
+                    "public" dashboards are viewable by anyone with the share
+                    URL (no authentication); "private" dashboards are viewable
+                    only by the owner.
                   type: string
                   enum:
                     - published
                     - private
+                    - public
                 enableAutoUpdates:
                   description: >-
                     If enabled for a General Dashboard, also requires an
@@ -47086,6 +47092,7 @@ components:
           enum:
             - published
             - private
+            - public
         enableAutoUpdates:
           type: boolean
         updateSchedule:

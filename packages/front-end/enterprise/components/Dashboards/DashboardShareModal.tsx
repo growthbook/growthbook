@@ -29,8 +29,10 @@ interface DashboardShareModalProps {
   };
   /** Whether this is for a general dashboard (affects available options) */
   isGeneralDashboard?: boolean;
-  /** Dashboard ID for generating share link */
+  /** Dashboard ID for generating the in-app (organization) share link */
   dashboardId?: string;
+  /** Dashboard uid for generating the public (no-auth) share link */
+  uid?: string;
 }
 
 /**
@@ -44,6 +46,7 @@ export default function DashboardShareModal({
   initialValues,
   isGeneralDashboard = true,
   dashboardId,
+  uid,
 }: DashboardShareModalProps) {
   const { hasCommercialFeature } = useUser();
   const [shareLevel, setShareLevel] = useState<DashboardShareLevel>(
@@ -145,19 +148,29 @@ export default function DashboardShareModal({
     }
   };
 
+  const getShareUrl = (): string => {
+    if (shareLevel === "public") {
+      return uid ? `${window.location.origin}/public/d/${uid}` : "";
+    }
+    if (dashboardId) {
+      return window.location.href.replace(
+        /[?#].*/,
+        `#dashboards/${dashboardId}`,
+      );
+    }
+    return "";
+  };
+
   const shareLinkButton = copySuccess ? (
     <Button style={{ width: 130 }} icon={<PiCheck />}>
       Link copied
     </Button>
   ) : (
     <Button
-      disabled={shareLevel === "private"}
+      disabled={shareLevel === "private" || (shareLevel === "public" && !uid)}
       onClick={() => {
-        if (dashboardId) {
-          const url = window.location.href.replace(
-            /[?#].*/,
-            `#dashboards/${dashboardId}`,
-          );
+        const url = getShareUrl();
+        if (url) {
           performCopy(url);
         }
       }}
@@ -202,6 +215,10 @@ export default function DashboardShareModal({
             <Callout status="info" size="sm">
               Currently only you can view or edit this dashboard.
             </Callout>
+          ) : shareLevel === "public" ? (
+            <Callout status="warning" size="sm">
+              {`Anyone with the link can view this dashboard, including people outside your organization and without logging in. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
+            </Callout>
           ) : (
             <Callout status="warning" size="sm">
               {`This dashboard is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
@@ -218,7 +235,7 @@ export default function DashboardShareModal({
                   options={[
                     { label: "Organization members", value: "published" },
                     { label: "Only me", value: "private" },
-                    // { label: "Anyone with the link", value: "public" }, // We'll add this when we build the public dashboard feature
+                    { label: "Anyone with the link", value: "public" },
                   ]}
                   value={shareLevel}
                   onChange={(value) => handleFieldChange("shareLevel", value)}

@@ -156,6 +156,12 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
+    if (
+      doc.shareLevel === "public" &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
+    }
     if (doc.experimentId) {
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support creating dashboards.");
@@ -200,6 +206,7 @@ export class DashboardModel extends BaseClass {
   protected canUpdate(
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
+    newDoc: DashboardInterface,
   ): boolean {
     const isOwner = this.context.userId === existing.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
@@ -225,6 +232,14 @@ export class DashboardModel extends BaseClass {
           "You are not authorized to change the sharing level of this dashboard.",
         );
       }
+    }
+
+    if (
+      existing.shareLevel !== "public" &&
+      newDoc.shareLevel === "public" &&
+      !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+    ) {
+      throw new Error("Your plan does not support public dashboards.");
     }
 
     if (existing.experimentId) {
@@ -281,7 +296,9 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+  protected static migrateDoc(
+    orig: LegacyDashboardDocument,
+  ): DashboardInterface {
     return toInterface({
       ...orig,
       blocks: orig.blocks.map(migrateBlock),
@@ -290,6 +307,30 @@ export class DashboardModel extends BaseClass {
       shareLevel: orig.shareLevel || "private",
       updateSchedule: orig.updateSchedule || undefined,
     });
+  }
+
+  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+    return DashboardModel.migrateDoc(orig);
+  }
+
+  // Bypasses organization scoping and must remain private.
+  private static async dangerousGetByUid(
+    uid: string,
+  ): Promise<DashboardInterface | null> {
+    const doc = await getCollection(COLLECTION_NAME).findOne({
+      uid,
+      isDefault: false,
+      isDeleted: false,
+    });
+    if (!doc) return null;
+    return DashboardModel.migrateDoc(doc as unknown as LegacyDashboardDocument);
+  }
+
+  public static async getPublicByUid(
+    uid: string,
+  ): Promise<DashboardInterface | null> {
+    const dashboard = await DashboardModel.dangerousGetByUid(uid);
+    return dashboard?.shareLevel === "public" ? dashboard : null;
   }
 
   protected async customValidation(toSave: DashboardDocument) {

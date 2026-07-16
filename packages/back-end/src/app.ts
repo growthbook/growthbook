@@ -149,6 +149,8 @@ import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import * as dashboardsControllerRaw from "./routers/dashboards/dashboards.controller";
+const dashboardsController = wrapController(dashboardsControllerRaw);
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
@@ -387,6 +389,23 @@ app.get(
     origin: "*",
   }),
   experimentsController.getExperimentPublic,
+);
+// public shareable dashboards
+app.get(
+  "/api/dashboard/public/:uid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  dashboardsController.getDashboardPublic,
+);
+app.get(
+  "/api/dashboard/public/:uid/blocks",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  dashboardsController.getDashboardPublicBlocks,
 );
 
 // public image signed URLs for shared experiments

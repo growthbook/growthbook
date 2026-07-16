@@ -204,6 +204,7 @@ function SingleDashboardPage() {
           <DashboardEditor
             isTabActive
             id={dashboard.id}
+            uid={dashboard.uid}
             initialEditLevel={dashboard.editLevel}
             ownerId={dashboard.userId}
             initialShareLevel={dashboard.shareLevel}

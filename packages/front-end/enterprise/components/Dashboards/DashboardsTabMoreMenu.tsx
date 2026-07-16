@@ -187,15 +187,20 @@ export default function DashboardsTabMoreMenu({
           {copySupported && (
             <DropdownMenuItem
               onClick={() => {
-                const url = window.location.href.replace(
-                  /[?#].*/,
-                  `#dashboards/${dashboardId}`,
-                );
+                // Public dashboards copy the no-auth public URL; otherwise the
+                // in-app (organization) link.
+                const url =
+                  dashboard.shareLevel === "public" && dashboard.uid
+                    ? `${window.location.origin}/public/d/${dashboard.uid}`
+                    : window.location.href.replace(
+                        /[?#].*/,
+                        `#dashboards/${dashboardId}`,
+                      );
                 performCopy(url);
                 setDropdownOpen(false);
               }}
             >
-              Share
+              {dashboard.shareLevel === "public" ? "Copy public link" : "Share"}
             </DropdownMenuItem>
           )}
           {canCreate && (

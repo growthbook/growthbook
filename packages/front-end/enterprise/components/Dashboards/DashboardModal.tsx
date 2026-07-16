@@ -7,7 +7,7 @@ import {
   DashboardShareLevel,
   DashboardUpdateSchedule,
 } from "shared/enterprise";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
@@ -142,14 +142,21 @@ export default function DashboardModal({
     <SelectField
       label="View access"
       disabled={disabled}
-      helpText={helpText}
+      helpText={
+        helpText ??
+        (form.watch("shareLevel") === "public"
+          ? "Anyone with the link can view this dashboard, including people outside your organization and without logging in."
+          : undefined)
+      }
       options={[
         { label: "Organization members", value: "published" },
         {
           label: form.watch("userId") === userId ? "Only me" : "Owner only",
           value: "private",
         },
-        // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+        ...(hasGeneralDashboardSharing
+          ? [{ label: "Anyone with the link", value: "public" }]
+          : []),
       ]}
       value={form.watch("shareLevel")}
       onChange={(value) => {
@@ -188,8 +195,7 @@ export default function DashboardModal({
   );
 
   return (
-    <Modal
-      useRadixButton={false}
+    <ModalStandard
       open={true}
       size="md"
       trackingEventModalType={`${mode}-dashboard`}
@@ -206,7 +212,6 @@ export default function DashboardModal({
       submit={() => submit(form.getValues())}
       ctaEnabled={!!form.watch("title") && !cronError}
       close={close}
-      closeCta="Cancel"
     >
       <Flex direction="column" gap="3">
         <Field
@@ -305,6 +310,6 @@ export default function DashboardModal({
           </>
         ) : null}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 }
