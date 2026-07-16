@@ -139,6 +139,14 @@ export async function runProductAnalyticsExploration(
   } else if (dataset.type === "data_source") {
     // Nothing to fetch or verify
   } else if (dataset.type === "funnel") {
+    if (dataset.steps.length < 2) {
+      throw new BadRequestError("Funnels require at least two steps");
+    }
+    if (!dataset.unit) {
+      throw new BadRequestError("Funnel unit is required");
+    }
+    const unit = dataset.unit;
+
     // D-PA2: the funnel explorer launches on a validated subset of warehouse
     // types. Reject datasources whose funnel SQL hasn't been execution-verified
     // yet, rather than running SQL that may be invalid on that engine. Expand
@@ -155,7 +163,10 @@ export async function runProductAnalyticsExploration(
     const factTableIds = Array.from(
       new Set(dataset.steps.map((s) => s.factTable).filter(Boolean)),
     );
-    if (factTableIds.length === 0) {
+    if (
+      factTableIds.length === 0 ||
+      dataset.steps.some((step) => !step.factTable)
+    ) {
       throw new BadRequestError("Funnel steps require fact tables");
     }
     const factTables = await getFactTablesByIds(context, factTableIds);
@@ -168,6 +179,11 @@ export async function runProductAnalyticsExploration(
       if (ft.datasource !== datasource.id) {
         throw new BadRequestError(
           "Funnel fact tables must belong to the same datasource as the exploration",
+        );
+      }
+      if (!ft.userIdTypes.includes(unit)) {
+        throw new BadRequestError(
+          `Funnel unit "${unit}" must exist on every step's fact table`,
         );
       }
     }
