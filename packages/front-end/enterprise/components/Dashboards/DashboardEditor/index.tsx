@@ -73,54 +73,78 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardGlobalControlsBar from "./DashboardGlobalControlsBar";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
-export const BLOCK_TYPE_INFO: Record<
-  DashboardBlockType,
-  { name: string; icon: ReactElement; deprecated?: boolean }
-> = {
+type BlockTypeInfo = {
+  name: string;
+  icon: ReactElement;
+  description: string;
+  deprecated?: boolean;
+};
+
+export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   markdown: {
     name: "Markdown",
     icon: <PiArticleMediumDuotone />,
+    description: "Adds formatted text, links, and images to your dashboard.",
   },
   "experiment-metadata": {
     name: "Experiment Metadata",
     icon: <PiListDashesDuotone />,
+    description:
+      "Shows the experiment description, hypothesis, and variation details.",
   },
   "experiment-metric": {
     name: "Metric Results",
     icon: <PiTableDuotone />,
+    description:
+      "Shows experiment results for selected goal, secondary, and guardrail metrics.",
   },
   "experiment-dimension": {
     name: "Dimension Results",
     icon: <PiTableDuotone />,
+    description:
+      "Breaks down experiment metric results by values from a selected dimension.",
   },
   "experiment-time-series": {
     name: "Time Series",
     icon: <PiChartLineDuotone />,
+    description:
+      "Plots experiment metric performance over the course of the experiment.",
   },
   "experiment-traffic": {
     name: "Experiment Traffic",
     icon: <PiChartLineDuotone />,
+    description:
+      "Shows traffic allocation and participant counts for each variation.",
   },
   "sql-explorer": {
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
+    description:
+      "Displays results and saved visualizations from a custom SQL query.",
   },
   "metric-explorer": {
     name: "Metric",
     icon: <PiFileSqlDuotone />,
+    description: "Shows an analysis of a single Fact Metric.",
     deprecated: true,
   },
   "metric-exploration": {
     name: "Metric Explorer",
     icon: <PiChartBar />,
+    description:
+      "Charts one or more of your existing GrowthBook Metrics over a selected date range. View trends, compare time periods, and slice/dice your data.",
   },
   "fact-table-exploration": {
     name: "Fact Table Explorer",
     icon: <PiTable />,
+    description:
+      "Builds an analysis directly from events and columns in one of your existing Fact Tables.",
   },
   "data-source-exploration": {
     name: "Data Source Explorer",
     icon: <PiDatabase />,
+    description:
+      "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
   },
 };
 
