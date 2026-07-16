@@ -30,6 +30,7 @@ const eventWebHookPayload = z
     projects: z.array(z.string()),
     experiments: z.array(z.string()).optional(),
     metrics: z.array(z.string()).optional(),
+    features: z.array(z.string()).optional(),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
     payloadType: z.enum(eventWebHookPayloadTypes),

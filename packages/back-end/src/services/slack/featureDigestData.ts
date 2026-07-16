@@ -1,4 +1,8 @@
 import { EventModel } from "back-end/src/models/EventModel";
+import {
+  digestEventPassesFilters,
+  type SlackDigestFilters,
+} from "back-end/src/services/slack/scorecardData";
 import type {
   FeatureDigestData,
   FeatureDigestReason,
@@ -7,9 +11,9 @@ import type {
 export type { FeatureDigestData } from "back-end/src/services/slack/chartImage";
 
 // Feature-flag digest: flag activity over a trailing window (published,
-// reverted, safe-rollout outcomes, stale candidates, reviews). Aggregated
-// org-wide, like the experiment scorecard — per-install filters apply to live
-// notifications, not the digest roll-up.
+// reverted, safe-rollout outcomes, stale candidates, reviews). Scoped by the
+// channel's project/tag/feature-id filters (metric filtering stays a
+// live-notification concern).
 
 // Digest-worthy feature events and the bucket each lands in.
 const PUBLISHED = "feature.revision.published";
@@ -52,10 +56,11 @@ export async function buildFeatureDigestData(
   now: Date,
   windowMs: number,
   period: string,
+  filters: SlackDigestFilters,
 ): Promise<FeatureDigestData | null> {
   const since = new Date(now.getTime() - windowMs);
 
-  const events = await EventModel.find({
+  const allEvents = await EventModel.find({
     organizationId,
     object: "feature",
     event: { $in: DIGEST_EVENTS },
@@ -63,7 +68,13 @@ export async function buildFeatureDigestData(
   })
     .sort({ dateCreated: -1 })
     .limit(1000)
-    .lean<{ event: string; objectId?: string }[]>();
+    .lean<{ event: string; objectId?: string; data?: unknown }[]>();
+
+  // Apply the channel's Scope filters (project/tag/feature-id) so a scoped
+  // channel gets a scoped digest, consistent with per-event delivery.
+  const events = allEvents.filter((ev) =>
+    digestEventPassesFilters(ev, filters),
+  );
 
   if (!events.length) return null;
 

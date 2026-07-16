@@ -23,6 +23,7 @@ import {
   getSlackBotAccessTokenForWebhook,
   propagateSlackTeamCredentials,
   reconnectSlackEventWebhook,
+  setSlackAssistantEnabled,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
@@ -329,6 +330,7 @@ export const slackEventWebhookToIntegration = (
   projects: eventWebHook.projects,
   experiments: eventWebHook.experiments,
   metrics: eventWebHook.metrics,
+  features: eventWebHook.features,
   environments: eventWebHook.environments,
   tags: eventWebHook.tags,
   coalesceWindowMs: eventWebHook.coalesceWindowMs,
@@ -639,6 +641,40 @@ export const disconnectSlackWorkspace = async ({
     if (await deleteSlackOAuthIntegration({ context, id: doc.id })) deleted++;
   }
   return { deleted };
+};
+
+// Toggle the workspace-wide conversational assistant on/off. Resolves the
+// target team (defaulting to the only connected one) and writes the flag to
+// every same-team doc so it reads consistently. Notifications are unaffected.
+export const setSlackWorkspaceAssistantEnabled = async ({
+  context,
+  teamId,
+  enabled,
+}: {
+  context: ReqContext;
+  teamId?: string;
+  enabled: boolean;
+}): Promise<{ assistantEnabled: boolean }> => {
+  const slackDocs = (await getAllEventWebHooks(context.org.id)).filter(
+    (w) => w.payloadType === "slack",
+  );
+  const teams = new Set(
+    slackDocs.map((w) => w.slack?.teamId).filter((t): t is string => !!t),
+  );
+  const target = teamId ?? (teams.size === 1 ? [...teams][0] : undefined);
+  if (!target) {
+    throw new Error(
+      teams.size
+        ? "Multiple Slack workspaces are connected — specify which one."
+        : "No Slack workspace connection found.",
+    );
+  }
+  await setSlackAssistantEnabled({
+    organizationId: context.org.id,
+    teamId: target,
+    enabled,
+  });
+  return { assistantEnabled: enabled };
 };
 
 // Resolve the org's workspace connection (channel-less doc) and its bot token.

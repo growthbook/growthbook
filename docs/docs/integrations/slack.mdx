@@ -98,19 +98,152 @@ feature and then deleting it.
 
 ## Self-hosted setup
 
-GrowthBook Cloud is already configured for Slack OAuth. If you are self-hosting,
-create a Slack app and configure these settings before users can connect
-channels:
+GrowthBook Cloud runs a shared Slack app, so no setup is needed there. When
+self-hosting you **create your own Slack app** in your workspace: the shared
+Cloud app can't redirect OAuth to your private domain, and you can't reuse its
+credentials. Each self-hosted instance points its own app at its own URLs.
 
-1. Create a Slack app from your workspace's app dashboard.
-2. In **OAuth & Permissions**, add these bot scopes:
-   `chat:write`, `files:write`, `channels:read`, `groups:read`,
-   `channels:join`, `commands`, `users:read`, `users:read.email`,
-   `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
-   `mpim:history`, `links:read`.
-3. Add `{APP_ORIGIN}/integrations/slack` as an OAuth redirect URL, replacing
-   `{APP_ORIGIN}` with your GrowthBook app URL.
-4. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` on the GrowthBook API server.
+### Which features do you need?
+
+Slack talks to GrowthBook in two directions, and they have different network
+requirements. Decide which tier you need before configuring the app:
+
+| Feature                                                                                     | Traffic direction                  | Requirement                                                                                                                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Notifications** — cards, digests, event webhooks                                          | Outbound only (GrowthBook → Slack) | Works from anywhere, including behind a firewall                                                                                     |
+| **AI assistant** — @mentions, Confirm/Cancel buttons, `/growthbook` command, link unfurling | Inbound (Slack → GrowthBook)       | GrowthBook API must be **publicly reachable over HTTPS**; requires `SLACK_SIGNING_SECRET` and an AI provider configured for your org |
+
+In both cases, your GrowthBook **app URL must be served over HTTPS** — Slack
+rejects non-HTTPS OAuth redirect URLs (a plain `http://` domain, other than
+`localhost` during local development, will not save).
+
+### Create the app from a manifest (recommended)
+
+A Slack **app manifest** packages every scope, redirect URL, event
+subscription, and command into one document, so you don't set them by hand. In
+Slack, go to **Your Apps → Create New App → From a manifest**, pick your
+workspace, paste one of the manifests below, and replace the placeholders:
+
+- `YOUR_GROWTHBOOK_APP_URL` — your GrowthBook web app (`APP_ORIGIN`), e.g.
+  `https://growthbook.example.com`
+- `YOUR_GROWTHBOOK_API_URL` — your GrowthBook API (`API_HOST`), e.g.
+  `https://growthbook-api.example.com`. If your app and API share one host, use
+  the same URL for both.
+- `YOUR_GROWTHBOOK_APP_DOMAIN` — the host portion of the app URL, e.g.
+  `growthbook.example.com` (used for link unfurling only)
+
+**Notifications only** (no inbound traffic, no signing secret):
+
+```yaml
+display_information:
+  name: GrowthBook
+  description: GrowthBook experiment and feature-flag notifications
+features:
+  bot_user:
+    display_name: GrowthBook
+    always_online: true
+oauth_config:
+  redirect_urls:
+    - https://YOUR_GROWTHBOOK_APP_URL/integrations/slack
+  scopes:
+    bot:
+      - chat:write
+      - files:write
+      - channels:read
+      - groups:read
+      - channels:join
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+```
+
+**Notifications + AI assistant** (adds the inbound endpoints and command):
+
+```yaml
+display_information:
+  name: GrowthBook
+  description: GrowthBook notifications and the GrowthBook AI assistant
+features:
+  bot_user:
+    display_name: GrowthBook
+    always_online: true
+  slash_commands:
+    - command: /growthbook
+      url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/commands
+      description: Query experiments and manage this channel's subscriptions
+      usage_hint: list | subscribe | status <experiment-id> | results <experiment-id>
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - https://YOUR_GROWTHBOOK_APP_URL/integrations/slack
+  scopes:
+    bot:
+      - chat:write
+      - files:write
+      - channels:read
+      - groups:read
+      - channels:join
+      - commands
+      - users:read
+      - users:read.email
+      - app_mentions:read
+      - channels:history
+      - groups:history
+      - im:history
+      - mpim:history
+      - links:read
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - link_shared
+    unfurl_domains:
+      - YOUR_GROWTHBOOK_APP_DOMAIN
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR_GROWTHBOOK_API_URL/integrations/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
+```
+
+After creating the app, open **Basic Information → App Credentials** and set
+these on the GrowthBook API server:
+
+| Env var                | Where to find it                     |
+| ---------------------- | ------------------------------------ |
+| `SLACK_CLIENT_ID`      | Client ID                            |
+| `SLACK_CLIENT_SECRET`  | Client Secret                        |
+| `SLACK_SIGNING_SECRET` | Signing Secret (assistant tier only) |
+
+Restart GrowthBook so the values take effect, then connect from
+**Integrations → Slack**.
+
+:::note Assistant tier: verify the URLs after setting the signing secret
+
+Slack verifies the Event Subscriptions and Interactivity Request URLs by sending
+a signed challenge, which GrowthBook only accepts once `SLACK_SIGNING_SECRET` is
+set. Because that secret doesn't exist until the app is created, there's a
+chicken-and-egg: create the app from the **notifications** manifest first, set
+all three env vars and restart, then edit the app's manifest to the
+**assistant** version — the URL checks now pass. Reinstall the app to grant the
+added scopes.
+:::
+
+### Configure manually
+
+If you'd rather not use a manifest, create the app, then set the same bot
+scopes, OAuth redirect URL (`YOUR_GROWTHBOOK_APP_URL/integrations/slack`), and —
+for the assistant — the Event Subscriptions, Interactivity, and Slash Command
+Request URLs listed in the manifests above, and set the matching env vars.
+
+### How installs work
 
 Installing is workspace-level — Slack shows no channel picker during OAuth.
 Delivery uses the bot token (`chat.postMessage` and private file uploads);

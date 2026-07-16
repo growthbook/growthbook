@@ -14,6 +14,7 @@ import {
   selectedSlackOptionIds,
   resolveExperimentDigest,
   resolveFeatureDigest,
+  resolveSlackAssistantEnabled,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
@@ -21,6 +22,8 @@ import { PiArrowsClockwise, PiPlus, PiPlugsConnected } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { getApiHost, getAppOrigin, isCloud } from "@/services/env";
+import Code from "@/components/SyntaxHighlighting/Code";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SlackChannelSettings, {
   getSlackChannelLabel,
@@ -33,6 +36,7 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { Select, SelectItem } from "@/ui/Select";
 
@@ -241,6 +245,182 @@ function AddChannelModal({
   );
 }
 
+// --- Self-hosted setup: Slack app manifest ---------------------------------
+
+// Slack's "Create New App" dashboard. Admins choose "From a manifest" and paste
+// the pre-filled YAML below.
+const SLACK_CREATE_APP_URL = "https://api.slack.com/apps?new_app=1";
+
+const trimTrailingSlash = (url: string): string => url.replace(/\/+$/, "");
+
+// Full manifest (notifications + AI assistant), pre-filled with this instance's
+// app + API URLs so a self-hosted admin can paste it into Slack's "Create app
+// from a manifest" flow without editing anything. Kept in sync with the
+// self-hosted section of docs/docs/integrations/slack.mdx.
+function buildSlackAppManifest({
+  appUrl,
+  apiUrl,
+  appDomain,
+}: {
+  appUrl: string;
+  apiUrl: string;
+  appDomain: string;
+}): string {
+  return `display_information:
+  name: GrowthBook
+  description: GrowthBook notifications and the GrowthBook AI assistant
+features:
+  bot_user:
+    display_name: GrowthBook
+    always_online: true
+  slash_commands:
+    - command: /growthbook
+      url: ${apiUrl}/integrations/slack/commands
+      description: Query experiments and manage this channel's subscriptions
+      usage_hint: list | subscribe | status <experiment-id> | results <experiment-id>
+      should_escape: false
+oauth_config:
+  redirect_urls:
+    - ${appUrl}/integrations/slack
+  scopes:
+    bot:
+      - chat:write
+      - files:write
+      - channels:read
+      - groups:read
+      - channels:join
+      - commands
+      - users:read
+      - users:read.email
+      - app_mentions:read
+      - channels:history
+      - groups:history
+      - im:history
+      - mpim:history
+      - links:read
+settings:
+  event_subscriptions:
+    request_url: ${apiUrl}/integrations/slack/events
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+      - message.im
+      - message.mpim
+      - link_shared
+    unfurl_domains:
+      - ${appDomain}
+  interactivity:
+    is_enabled: true
+    request_url: ${apiUrl}/integrations/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false`;
+}
+
+function SlackManifestModal({ onClose }: { onClose: () => void }) {
+  const manifest = useMemo(() => {
+    const appUrl = trimTrailingSlash(getAppOrigin());
+    const apiUrl = trimTrailingSlash(getApiHost());
+    let appDomain = "your-growthbook-domain";
+    try {
+      appDomain = new URL(appUrl).host;
+    } catch {
+      // getAppOrigin() should always be a valid URL; fall back to a placeholder.
+    }
+    return buildSlackAppManifest({ appUrl, apiUrl, appDomain });
+  }, []);
+
+  return (
+    <ModalStandard
+      trackingEventModalType="slack-app-manifest"
+      open={true}
+      size="lg"
+      header="Set up the GrowthBook Slack app"
+      close={onClose}
+      closeCta="Done"
+      secondaryAction={
+        <Button
+          variant="outline"
+          icon={<FaSlack />}
+          onClick={() => window.open(SLACK_CREATE_APP_URL, "_blank")}
+        >
+          Open Slack app dashboard
+        </Button>
+      }
+    >
+      <Text as="p" color="text-mid" mb="3">
+        Self-hosted GrowthBook connects through your own Slack app. This
+        manifest is pre-filled with this instance&rsquo;s URLs — no editing
+        required.
+      </Text>
+      <ol style={{ paddingLeft: "1.2rem", margin: "0 0 1rem" }}>
+        <li>
+          <Text>
+            In Slack, open{" "}
+            <strong>Your Apps → Create New App → From a manifest</strong> and
+            pick your workspace.
+          </Text>
+        </li>
+        <li>
+          <Text>Paste the manifest below and create the app.</Text>
+        </li>
+        <li>
+          <Text>
+            Under <strong>Basic Information → App Credentials</strong>, copy the
+            Client ID, Client Secret, and Signing Secret into{" "}
+            <code>SLACK_CLIENT_ID</code>, <code>SLACK_CLIENT_SECRET</code>, and{" "}
+            <code>SLACK_SIGNING_SECRET</code> on your API server.
+          </Text>
+        </li>
+        <li>
+          <Text>Restart GrowthBook and reload this page to connect.</Text>
+        </li>
+      </ol>
+      <Code
+        code={manifest}
+        language="yml"
+        filename="growthbook-slack-manifest.yml"
+      />
+      <Callout status="info" mt="3">
+        Slack verifies the event URLs with a signed challenge that needs{" "}
+        <code>SLACK_SIGNING_SECRET</code> set first. If creating the app fails
+        URL verification, remove the <code>event_subscriptions</code> and{" "}
+        <code>interactivity</code> blocks, finish the steps above, then add them
+        back and reinstall.
+      </Callout>
+    </ModalStandard>
+  );
+}
+
+function SelfHostedSetupPanel({
+  onOpenManifest,
+}: {
+  onOpenManifest: () => void;
+}) {
+  return (
+    <Flex direction="column" gap="3" align="center" p="8">
+      <Heading as="h2" size="small" mb="0">
+        Finish self-hosted Slack setup
+      </Heading>
+      <Box style={{ maxWidth: 520 }}>
+        <Text color="text-mid" align="center">
+          Self-hosted GrowthBook connects through your own Slack app. Create it
+          from a pre-filled manifest, set the credentials on your API server,
+          and restart to connect.
+        </Text>
+      </Box>
+      <Button icon={<FaSlack />} onClick={onOpenManifest}>
+        Set up Slack app
+      </Button>
+      <Text size="small" color="text-mid" align="center">
+        Requires <code>SLACK_CLIENT_ID</code>, <code>SLACK_CLIENT_SECRET</code>,
+        and <code>SLACK_SIGNING_SECRET</code> on the API server.
+      </Text>
+    </Flex>
+  );
+}
+
 const SlackIntegrationsPage: NextPage = () => {
   const permissionsUtils = usePermissionsUtil();
   const router = useRouter();
@@ -263,6 +443,14 @@ const SlackIntegrationsPage: NextPage = () => {
   // Add-channel picker: which workspace (teamId) it's open for, if any.
   const [addChannelTeamId, setAddChannelTeamId] = useState<string | null>(null);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  // Self-hosted setup: the pre-filled Slack app manifest modal.
+  const [showManifest, setShowManifest] = useState(false);
+  // Workspace-wide AI assistant toggle: optimistic override while saving + any
+  // error to surface.
+  const [pendingAssistant, setPendingAssistant] = useState<boolean | null>(
+    null,
+  );
+  const [assistantError, setAssistantError] = useState<string | null>(null);
 
   // Slot at the bottom of the page card that the detail pane portals its
   // sticky save bar into (so the bar spans the full card width).
@@ -390,6 +578,29 @@ const SlackIntegrationsPage: NextPage = () => {
     );
     window.location.href = response.url;
   }, [apiCall]);
+
+  // Flip the workspace-wide assistant on/off. Optimistic (pendingAssistant) so
+  // the switch responds instantly; cleared once the refetch reflects the write.
+  const toggleAssistant = useCallback(
+    async (enabled: boolean, teamId: string | null) => {
+      setAssistantError(null);
+      setPendingAssistant(enabled);
+      try {
+        await apiCall("/integrations/slack/assistant", {
+          method: "POST",
+          body: JSON.stringify({ enabled, ...(teamId ? { teamId } : {}) }),
+        });
+        await mutate();
+      } catch (e) {
+        setAssistantError(
+          e instanceof Error ? e.message : "Failed to update the assistant.",
+        );
+      } finally {
+        setPendingAssistant(null);
+      }
+    },
+    [apiCall, mutate],
+  );
 
   // Remove the whole workspace connection + all its channels. `teamId` scopes
   // it to the workspace being disconnected (multi-workspace safe). Throws
@@ -559,6 +770,10 @@ const SlackIntegrationsPage: NextPage = () => {
   }
 
   const connected = slackIntegrations.length > 0;
+  // Self-hosted instance whose server env is missing SLACK_CLIENT_ID/SECRET:
+  // show the app-manifest setup flow instead of a dead, disabled Connect
+  // button. Cloud is always configured, so this is false there.
+  const selfHostedUnconfigured = !!data && !data.oauthConfigured && !isCloud();
   // Docs representing the team: workspace connections when present, else the
   // channel docs of a legacy (pre-workspace-install) org.
   const teamDocs = workspaces.length ? workspaces : channelIntegrations;
@@ -572,8 +787,19 @@ const SlackIntegrationsPage: NextPage = () => {
   // doc as the credentials source, so legacy installs work too.
   const addChannelTarget = teamDocs[0]?.slack?.teamId || null;
 
+  // Workspace-wide AI assistant toggle. The flag is kept in sync across the
+  // team's docs, so any representative doc reflects it. `pendingAssistant` is an
+  // optimistic override so the switch flips instantly while the write + refetch
+  // settle.
+  const assistantEnabled =
+    pendingAssistant ?? resolveSlackAssistantEnabled(teamDocs[0]?.slackOptions);
+
   return (
     <div className="container-fluid pagecontents">
+      {showManifest && (
+        <SlackManifestModal onClose={() => setShowManifest(false)} />
+      )}
+
       {addChannelTeamId && (
         <AddChannelModal
           teamId={addChannelTeamId}
@@ -623,7 +849,7 @@ const SlackIntegrationsPage: NextPage = () => {
         </Callout>
       )}
 
-      {data && !data.oauthConfigured && (
+      {data && !data.oauthConfigured && isCloud() && (
         <Callout status="warning" mb="4">
           Slack OAuth is not configured. Set SLACK_CLIENT_ID and
           SLACK_CLIENT_SECRET on the GrowthBook API server.
@@ -639,14 +865,14 @@ const SlackIntegrationsPage: NextPage = () => {
       <Box className="appbox" mb="0">
         {/* Integration header */}
         <Flex
+          direction={{ initial: "column", sm: "row" }}
           justify="between"
           align="start"
           gap="4"
-          wrap="wrap"
           p="5"
           style={{ borderBottom: "1px solid var(--gray-a4)" }}
         >
-          <Box style={{ maxWidth: 640 }}>
+          <Box style={{ maxWidth: 640, flex: 1 }}>
             <Heading as="h1" size="large" mb="2">
               Slack
             </Heading>
@@ -667,17 +893,23 @@ const SlackIntegrationsPage: NextPage = () => {
                   : "Connected to Slack"}
               </HelperText>
             )}
-            <Button
-              icon={<FaSlack />}
-              onClick={connectToSlack}
-              loading={connecting}
-              disabled={!data?.oauthConfigured}
-              variant={
-                connected && !workspaceNeedsReconnect ? "outline" : "solid"
-              }
-            >
-              {connected ? "Reconnect" : "Connect to Slack"}
-            </Button>
+            {!connected && selfHostedUnconfigured ? (
+              <Button icon={<FaSlack />} onClick={() => setShowManifest(true)}>
+                Set up Slack
+              </Button>
+            ) : (
+              <Button
+                icon={<FaSlack />}
+                onClick={connectToSlack}
+                loading={connecting}
+                disabled={!data?.oauthConfigured}
+                variant={
+                  connected && !workspaceNeedsReconnect ? "outline" : "solid"
+                }
+              >
+                {connected ? "Reconnect" : "Connect to Slack"}
+              </Button>
+            )}
             {connected && (
               <Button
                 variant="outline"
@@ -691,29 +923,66 @@ const SlackIntegrationsPage: NextPage = () => {
           </Flex>
         </Flex>
 
+        {/* AI assistant (workspace-wide) — sits above the per-channel body so
+            it reads as a connection-level setting, not a per-channel one. */}
+        {connected && (
+          <Box p="5" style={{ borderBottom: "1px solid var(--gray-a4)" }}>
+            <Flex justify="between" align="center" gap="4" wrap="wrap">
+              <Box style={{ maxWidth: 640 }}>
+                <Text as="p" weight="medium" mb="1">
+                  AI assistant
+                </Text>
+                <Text as="p" size="small" color="text-mid" mb="0">
+                  Let people @mention the bot in Slack to ask about experiments,
+                  features, and metrics. Turn this off to run notifications only
+                  — cards and digests keep posting either way. Requires AI to be
+                  enabled for your organization.
+                </Text>
+              </Box>
+              <Switch
+                value={assistantEnabled}
+                onChange={(v) => toggleAssistant(v, addChannelTarget)}
+                disabled={pendingAssistant !== null}
+                label={assistantEnabled ? "On" : "Off"}
+              />
+            </Flex>
+            {assistantError && (
+              <Callout status="error" mt="3">
+                {assistantError}
+              </Callout>
+            )}
+          </Box>
+        )}
+
         {/* Body: channel rail + detail */}
         {loadingIntegrations ? (
           <Box p="5">
             <Text color="text-mid">Loading Slack integrations…</Text>
           </Box>
         ) : !connected ? (
-          <Flex direction="column" gap="3" align="center" p="8">
-            <Heading as="h2" size="small" mb="0">
-              No Slack workspace connected
-            </Heading>
-            <Text color="text-mid" align="center">
-              Connect your Slack workspace, then add the channels GrowthBook
-              should post to.
-            </Text>
-            <Button
-              icon={<FaSlack />}
-              onClick={connectToSlack}
-              loading={connecting}
-              disabled={!data?.oauthConfigured}
-            >
-              Connect to Slack
-            </Button>
-          </Flex>
+          selfHostedUnconfigured ? (
+            <SelfHostedSetupPanel
+              onOpenManifest={() => setShowManifest(true)}
+            />
+          ) : (
+            <Flex direction="column" gap="3" align="center" p="8">
+              <Heading as="h2" size="small" mb="0">
+                No Slack workspace connected
+              </Heading>
+              <Text color="text-mid" align="center">
+                Connect your Slack workspace, then add the channels GrowthBook
+                should post to.
+              </Text>
+              <Button
+                icon={<FaSlack />}
+                onClick={connectToSlack}
+                loading={connecting}
+                disabled={!data?.oauthConfigured}
+              >
+                Connect to Slack
+              </Button>
+            </Flex>
+          )
         ) : (
           <Flex align="stretch">
             {/* Channel rail */}

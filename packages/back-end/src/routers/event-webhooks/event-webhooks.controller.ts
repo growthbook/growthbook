@@ -103,6 +103,7 @@ type PostEventWebHooksRequest = AuthRequest & {
     projects: string[];
     experiments: string[];
     metrics: string[];
+    features?: string[];
     payloadType: EventWebHookPayloadType;
     method: EventWebHookMethod;
     headers: Record<string, string>;
@@ -133,6 +134,7 @@ export const createEventWebHook = async (
     projects = [],
     experiments = [],
     metrics = [],
+    features = [],
     environments = [],
     payloadType,
     method = "POST",
@@ -150,6 +152,7 @@ export const createEventWebHook = async (
     projects,
     experiments,
     metrics,
+    features,
     environments,
     tags,
     payloadType,

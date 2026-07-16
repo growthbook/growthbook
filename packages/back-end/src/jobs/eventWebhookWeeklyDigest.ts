@@ -100,6 +100,11 @@ async function deliverExperimentDigest(
     now,
     windowMs,
     label,
+    {
+      projects: webhook.projects || [],
+      tags: webhook.tags || [],
+      ids: webhook.experiments || [],
+    },
   );
   if (!data) return;
   await deliverScorecard(webhook, data, PERIOD_LABELS[digest.frequency]);
@@ -120,6 +125,11 @@ async function deliverFeatureDigest(
     now,
     windowMs,
     label,
+    {
+      projects: webhook.projects || [],
+      tags: webhook.tags || [],
+      ids: webhook.features || [],
+    },
   );
   if (!data) return;
 

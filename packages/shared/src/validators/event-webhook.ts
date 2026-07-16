@@ -110,6 +110,12 @@ export type SlackDigestConfig = z.infer<typeof slackDigestConfig>;
 
 export const slackEventWebHookOptions = z
   .object({
+    // Workspace-wide: whether the conversational AI assistant responds to
+    // @mentions and thread follow-ups. Off => notifications-only (cards,
+    // digests, event webhooks are unaffected). Absent => enabled (the default
+    // for installs predating this setting). Kept in sync across a workspace's
+    // docs so any of them can be read for the answer.
+    assistantEnabled: z.boolean().optional(),
     // Which results card (if any) to attach to per-event notifications.
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
     // Two independent digest schedules, each off unless configured.
@@ -183,6 +189,12 @@ export const resolveFeatureDigest = (
   options: SlackEventWebHookOptions | undefined,
 ): ResolvedSlackDigest =>
   resolveDigestConfig(options?.featureDigest) ?? OFF_DIGEST;
+
+// Whether the conversational assistant is on. Defaults to true so existing
+// installs (and any doc that never stored the flag) keep answering @mentions.
+export const resolveSlackAssistantEnabled = (
+  options: SlackEventWebHookOptions | undefined,
+): boolean => options?.assistantEnabled !== false;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Quarters begin in these UTC months (Jan, Apr, Jul, Oct).
@@ -667,6 +679,9 @@ export const eventWebHookInterface = z
     environments: z.array(z.string()),
     experiments: z.array(z.string()),
     metrics: z.array(z.string()),
+    // Feature-flag id filter (mirrors `experiments`). Optional so docs predating
+    // it read cleanly; absent/empty means "all features".
+    features: z.array(z.string()).optional(),
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),

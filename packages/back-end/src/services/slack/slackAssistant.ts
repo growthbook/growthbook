@@ -72,6 +72,17 @@ export async function handleSlackAssistantMention(
   const { teamId, channelId, slackUserId, messageTs } = mention;
   const rootTs = mention.threadTs || messageTs;
 
+  logger.info(
+    {
+      teamId,
+      channelId,
+      slackUserId,
+      threaded: !!mention.threadTs,
+      requireActiveThread: !!mention.requireActiveThread,
+    },
+    "Slack assistant: handling mention",
+  );
+
   // Resolve the workspace + channel + user to a single org and a
   // permission-scoped context (or a routing/access failure we can surface).
   const target = await resolveSlackAssistantTarget({
@@ -81,28 +92,79 @@ export async function handleSlackAssistantMention(
   });
   if (!target.ok) {
     // Non-mention thread messages stay silent on any failure — don't nag.
-    if (mention.requireActiveThread) return;
+    if (mention.requireActiveThread) {
+      logger.info(
+        { reason: target.reason, teamId, channelId, slackUserId },
+        "Slack assistant: unresolved thread-follow, staying silent",
+      );
+      return;
+    }
     if (target.botToken) {
       // Ephemeral (visible only to the mentioning user): these messages are
       // directed at them, and the "not linked" one carries a signed account-
       // link URL that must not be exposed to everyone in the channel.
-      await postSlackEphemeralMessage({
+      //
+      // Only thread it when the mention itself came from inside a thread. A
+      // threaded ephemeral on a top-level mention is effectively invisible —
+      // ephemerals create no "N replies" indicator, so it hides in a thread
+      // that looks empty from the channel. Posting inline shows it where the
+      // user is looking.
+      const posted = await postSlackEphemeralMessage({
         token: target.botToken,
         channel: channelId,
         user: slackUserId,
         text: target.message,
-        threadTs: rootTs,
+        threadTs: mention.threadTs,
       });
+      // Ephemeral messages are visible only to the mentioning user and are
+      // transient, so log whether Slack accepted the post — otherwise a
+      // "nothing happened" report is impossible to distinguish from a missed
+      // ephemeral reply.
+      logger[posted ? "info" : "warn"](
+        { reason: target.reason, channelId, slackUserId, rootTs, posted },
+        posted
+          ? "Slack assistant: posted ephemeral prompt to mentioning user"
+          : "Slack assistant: FAILED to post ephemeral prompt (see chat.postEphemeral warning above)",
+      );
     } else {
       // No connection / no token — we can't post anything back.
-      logger.warn(`Slack assistant: ${target.reason} for team ${teamId}`);
+      logger.warn(
+        { reason: target.reason, teamId, channelId, slackUserId },
+        "Slack assistant: cannot reply (no bot token for this workspace)",
+      );
     }
     return;
   }
 
+  logger.info(
+    {
+      organizationId: target.organizationId,
+      growthbookUserId: target.userId,
+      channelId,
+    },
+    "Slack assistant: resolved linked user, running agent turn",
+  );
+
   const token = target.botToken;
   const reply = (text: string) =>
     postSlackMessage({ token, channel: channelId, text, threadTs: rootTs });
+
+  // The workspace has turned the conversational assistant off. Reply once with
+  // a visible (non-secret) message so people understand why the bot isn't
+  // answering, then stop before running a turn. Notifications are unaffected.
+  // Stay silent on ambient thread-follows so we don't repeat it on every reply.
+  if (!target.assistantEnabled) {
+    logger.info(
+      { organizationId: target.organizationId, channelId },
+      "Slack assistant: conversation disabled for workspace, not answering",
+    );
+    if (!mention.requireActiveThread) {
+      await reply(
+        "The GrowthBook assistant is turned off for this workspace, so I can't answer questions right now — but I'm still posting notifications here. An admin can turn it back on in *GrowthBook → Integrations → Slack*.",
+      );
+    }
+    return;
+  }
 
   const question = stripBotMention(mention.text, mention.botUserId);
   if (!question) {
@@ -164,7 +226,14 @@ export async function handleSlackAssistantMention(
     });
 
     if (!result.ok) {
-      await finish(result.message);
+      // A blocked access gate (no AI plan → 403, AI not enabled → 404) returns
+      // a terse internal string; give Slack users a clear, actionable message
+      // instead. Other failures (e.g. rate limit) keep their specific message.
+      const friendly =
+        result.status === 403 || result.status === 404
+          ? "The GrowthBook AI assistant isn't enabled for your organization, so I can't answer questions — but notifications will still post here. An admin can enable AI in *GrowthBook → Settings → General* (AI features)."
+          : result.message;
+      await finish(friendly);
       return;
     }
     if (result.pendingAction) {

@@ -93,6 +93,17 @@ router.post(
   slackIntegrationController.postSlackDisconnect,
 );
 
+// Toggle the workspace-wide conversational assistant (notifications-only off).
+router.post(
+  "/assistant",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackAssistant,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

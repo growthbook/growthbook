@@ -27,6 +27,7 @@ export interface SlackOAuthIntegrationInterface {
   projects: string[];
   experiments: string[];
   metrics: string[];
+  features?: string[];
   environments: string[];
   tags: string[];
   coalesceWindowMs?: number;

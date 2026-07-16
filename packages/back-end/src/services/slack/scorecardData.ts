@@ -2,12 +2,47 @@ import { EventModel } from "back-end/src/models/EventModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { buildExperimentCardData } from "back-end/src/services/slack/experimentCardData";
+import { getFilterDataForNotificationEvent } from "back-end/src/events/handlers/utils";
 import type {
   CardState,
   ScorecardData,
   ScorecardNotable,
 } from "back-end/src/services/slack/chartImage";
 import { logger } from "back-end/src/util/logger";
+
+// The channel's Scope filters, applied to the digest so a scoped channel gets a
+// scoped digest (previously digests were always org-wide). `ids` are experiment
+// ids (scorecard) or feature ids (feature digest). Metric filtering is a
+// live-notification concern and intentionally not applied to periodic digests.
+export type SlackDigestFilters = {
+  projects: string[];
+  tags: string[];
+  ids: string[];
+};
+
+const anyMatch = (want: string[], has: string[]) =>
+  want.length === 0 || has.some((h) => want.includes(h));
+
+// Whether a digest source event passes the channel's project/tag/id filters.
+// Event envelope tags/projects mirror how live delivery filters (event-time
+// values), keeping digest scope consistent with per-event scope.
+export const digestEventPassesFilters = (
+  ev: { objectId?: string; data?: unknown },
+  filters: SlackDigestFilters,
+): boolean => {
+  if (
+    filters.ids.length &&
+    (!ev.objectId || !filters.ids.includes(ev.objectId))
+  )
+    return false;
+  const { tags = [], projects = [] } =
+    getFilterDataForNotificationEvent(
+      // getFilterDataForNotificationEvent only reads .tags/.projects (with
+      // fallbacks), so a loose cast is safe here.
+      ev.data as Parameters<typeof getFilterDataForNotificationEvent>[0],
+    ) || {};
+  return anyMatch(filters.projects, projects) && anyMatch(filters.tags, tags);
+};
 
 // Aggregates a trailing window of experiment activity into the ScorecardData the
 // program digest renders. Heuristics — an at-a-glance program pulse, not an
@@ -87,6 +122,7 @@ export async function buildScorecardData(
   now: Date,
   windowMs: number,
   label: string,
+  filters: SlackDigestFilters,
 ): Promise<ScorecardData | null> {
   const context = await getContextForAgendaJobByOrgId(organizationId);
   const since = new Date(now.getTime() - windowMs);
@@ -98,7 +134,7 @@ export async function buildScorecardData(
   })
     .sort({ dateCreated: -1 })
     .limit(500)
-    .lean<{ event: string; objectId?: string }[]>();
+    .lean<{ event: string; objectId?: string; data?: unknown }[]>();
 
   // Reduce to the top-priority category per experiment, and count categories.
   const byExperiment = new Map<string, Category>();
@@ -106,6 +142,7 @@ export async function buildScorecardData(
   const shipped = new Set<string>();
   const rolledback = new Set<string>();
   for (const ev of events) {
+    if (!digestEventPassesFilters(ev, filters)) continue;
     const experimentId = ev.objectId;
     if (!experimentId) continue;
     const category = categorize(ev.event);
@@ -122,8 +159,16 @@ export async function buildScorecardData(
     }
   }
 
-  const running = (await getAllExperiments(context, { status: "running" }))
-    .length;
+  // Scope the running count to the same filters so it's consistent with the
+  // filtered notable list (project/tag/id — experiments carry these directly).
+  const running = (
+    await getAllExperiments(context, { status: "running" })
+  ).filter(
+    (e) =>
+      anyMatch(filters.projects, e.project ? [e.project] : []) &&
+      anyMatch(filters.tags, e.tags || []) &&
+      (filters.ids.length === 0 || filters.ids.includes(e.id)),
+  ).length;
 
   if (!byExperiment.size && !running) return null;
 

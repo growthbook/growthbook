@@ -652,6 +652,37 @@ export async function getFeaturesByIds(
   );
 }
 
+// Ids of features linked to an experiment (reverse of `linkedExperiments`,
+// which Mongo matches by array membership). Lightweight org-scoped id projection
+// — used by Slack delivery so a feature filter can also match that experiment's
+// events. No permission scoping: the caller (notification filtering) is not
+// returning feature data to a user, only checking membership.
+export async function getFeatureIdsLinkedToExperiment(
+  organizationId: string,
+  experimentId: string,
+): Promise<string[]> {
+  const features = await FeatureModel.find(
+    { organization: organizationId, linkedExperiments: experimentId },
+    { id: 1, _id: 0 },
+  ).lean<{ id: string }[]>();
+  return features.map((f) => f.id);
+}
+
+// The experiment ids a feature is linked to. Lightweight org-scoped projection
+// (no permission context) — the mirror of getFeatureIdsLinkedToExperiment, used
+// by Slack delivery so an experiments filter can also match this feature's
+// events.
+export async function getFeatureLinkedExperimentIds(
+  organizationId: string,
+  featureId: string,
+): Promise<string[]> {
+  const feature = await FeatureModel.findOne(
+    { organization: organizationId, id: featureId },
+    { linkedExperiments: 1, _id: 0 },
+  ).lean<{ linkedExperiments?: string[] }>();
+  return feature?.linkedExperiments || [];
+}
+
 // Returns id -> project for every feature that exists in the org, regardless of
 // the caller's read permission. Intended for permission decisions where missing
 // (inaccessible) and non-existent features must be distinguished — do not use it

@@ -18,6 +18,7 @@ import {
   getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
   listSlackWorkspaceChannels,
+  setSlackWorkspaceAssistantEnabled,
   type SlackChannelOption,
 } from "back-end/src/services/slackIntegration";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
@@ -289,6 +290,36 @@ export const postSlackDisconnect = async (
 };
 
 // endregion POST /integrations/slack/disconnect
+
+// region POST /integrations/slack/assistant
+
+type PostSlackAssistantRequest = AuthRequest<{
+  teamId?: string;
+  enabled: boolean;
+}>;
+
+// Toggle the workspace-wide conversational AI assistant (notifications-only
+// when off). Does not touch AI availability at the org level.
+export const postSlackAssistant = async (
+  req: PostSlackAssistantRequest,
+  res: Response<{ assistantEnabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await setSlackWorkspaceAssistantEnabled({
+    context,
+    teamId: req.body.teamId,
+    enabled: req.body.enabled,
+  });
+
+  return res.json(result);
+};
+
+// endregion POST /integrations/slack/assistant
 
 // region GET /integrations/slack/:id
 

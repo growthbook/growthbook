@@ -1,9 +1,14 @@
+import {
+  resolveSlackAssistantEnabled,
+  type SlackEventWebHookOptions,
+} from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
 import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { getSlackUserLink } from "back-end/src/models/SlackUserLinkModel";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
 import { buildSlackLinkUrl } from "back-end/src/services/slack/slackLink";
+import { logger } from "back-end/src/util/logger";
 
 // Minimal shape we read off the lean Slack Event Webhook docs. `botAccessToken`
 // is intentionally absent from the public EventWebHookInterface, so we read it
@@ -12,9 +17,11 @@ interface SlackWebhookDoc {
   id: string;
   organizationId: string;
   slack?: {
+    teamId?: string;
     channelId?: string;
     botAccessToken?: string;
   };
+  slackOptions?: SlackEventWebHookOptions;
 }
 
 async function findSlackWebhooksByTeam(
@@ -26,6 +33,19 @@ async function findSlackWebhooksByTeam(
     "slack.teamId": teamId,
   }).lean();
   return docs as unknown as SlackWebhookDoc[];
+}
+
+// Distinct Slack team ids we have any connection for — used only to make a
+// team_id mismatch obvious in the logs when a mention can't be routed.
+async function allConnectedSlackTeamIds(): Promise<string[]> {
+  const docs = (await EventWebHookModel.find({ payloadType: "slack" })
+    .select({ "slack.teamId": 1 })
+    .lean()) as unknown as SlackWebhookDoc[];
+  return [
+    ...new Set(
+      docs.map((d) => d.slack?.teamId).filter((t): t is string => !!t),
+    ),
+  ];
 }
 
 const readBotToken = (w: SlackWebhookDoc): string | undefined =>
@@ -69,6 +89,13 @@ export type SlackAssistantTarget =
       eventWebHookId: string;
       /** Bot token to post replies with (the resolved org's token). */
       botToken: string;
+      /**
+       * Workspace-wide: whether the conversational assistant is enabled. When
+       * false, the caller replies "assistant is off" instead of running a turn
+       * (notifications are unaffected). Defaults to true for installs predating
+       * the setting.
+       */
+      assistantEnabled: boolean;
     }
   | {
       ok: false;
@@ -109,6 +136,13 @@ export async function resolveSlackAssistantTarget({
 }): Promise<SlackAssistantTarget> {
   const webhooks = await findSlackWebhooksByTeam(teamId);
   if (!webhooks.length) {
+    // A team_id mismatch is the usual cause — log the team ids we DO have a
+    // connection for so the discrepancy is obvious without a DB dump.
+    const knownTeamIds = await allConnectedSlackTeamIds();
+    logger.warn(
+      { searchedTeamId: teamId, knownTeamIds },
+      "Slack assistant: no Slack connection matches the event's team_id",
+    );
     return {
       ok: false,
       reason: "no_connection",
@@ -120,6 +154,10 @@ export async function resolveSlackAssistantTarget({
   // they all belong to the same Slack team.
   const botToken = webhooks.map(readBotToken).find((t): t is string => !!t);
   if (!botToken) {
+    logger.warn(
+      { teamId, webhookCount: webhooks.length },
+      "Slack assistant: workspace connected but no bot token stored on any doc",
+    );
     return {
       ok: false,
       reason: "no_bot_token",
@@ -197,5 +235,8 @@ export async function resolveSlackAssistantTarget({
     organizationId: target.webhook.organizationId,
     eventWebHookId: target.webhook.id,
     botToken: readBotToken(target.webhook) || botToken,
+    // The flag is kept in sync across a team's docs, so the resolved org's doc
+    // reflects the workspace-wide setting.
+    assistantEnabled: resolveSlackAssistantEnabled(target.webhook.slackOptions),
   };
 }

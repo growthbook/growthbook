@@ -22,8 +22,8 @@ import {
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiTrash, PiPaperPlaneTilt, PiX } from "react-icons/pi";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useFeaturesList, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -522,6 +522,7 @@ export default function SlackChannelSettings({
   const environments = useEnvironments().map((env) => env.id);
   const { projects, tags, metrics, factMetrics } = useDefinitions();
   const { experiments } = useExperiments();
+  const { features } = useFeaturesList();
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [enabled, setEnabled] = useState(true);
@@ -559,8 +560,9 @@ export default function SlackChannelSettings({
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [filterExperiments, setFilterExperiments] = useState<string[]>([]);
   const [filterMetrics, setFilterMetrics] = useState<string[]>([]);
-  // Tag / experiment / metric filters live behind a "more" toggle; auto-open
-  // when any are already set.
+  const [filterFeatures, setFilterFeatures] = useState<string[]>([]);
+  // Tag / experiment / metric / feature filters live behind a "more" toggle;
+  // auto-open when any are already set.
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const markDirty = () => {
@@ -595,6 +597,16 @@ export default function SlackChannelSettings({
     );
   }, [metrics, factMetrics, filterMetrics]);
 
+  const featureOptions = useMemo(() => {
+    const opts = features.map((f) => ({ label: f.id, value: f.id }));
+    const known = new Set(opts.map((o) => o.value));
+    return opts.concat(
+      filterFeatures
+        .filter((id) => !known.has(id))
+        .map((id) => ({ label: id, value: id })),
+    );
+  }, [features, filterFeatures]);
+
   // Hydrate form when the integration loads/changes.
   useEffect(() => {
     if (!integration) return;
@@ -617,10 +629,12 @@ export default function SlackChannelSettings({
     setFilterTags(integration.tags || []);
     setFilterExperiments(integration.experiments || []);
     setFilterMetrics(integration.metrics || []);
+    setFilterFeatures(integration.features || []);
     setShowMoreFilters(
       (integration.tags?.length || 0) +
         (integration.experiments?.length || 0) +
-        (integration.metrics?.length || 0) >
+        (integration.metrics?.length || 0) +
+        (integration.features?.length || 0) >
         0,
     );
     setDirty(false);
@@ -853,6 +867,7 @@ export default function SlackChannelSettings({
           tags: filterTags,
           experiments: filterExperiments,
           metrics: filterMetrics,
+          features: filterFeatures,
           slackOptions: {
             experimentCardFormat: cardFormat,
             experimentDigest: digestConfig(experimentDigest),
@@ -1072,7 +1087,7 @@ export default function SlackChannelSettings({
             everything; non-empty filters combine.
           </Text>
 
-          <Box style={{ maxWidth: 560 }}>
+          <Box style={{ maxWidth: 800 }}>
             <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="4">
               <MultiSelectField
                 label="Projects"
@@ -1110,54 +1125,68 @@ export default function SlackChannelSettings({
                   size="xs"
                   onClick={() => setShowMoreFilters(true)}
                 >
-                  + Add tag, experiment or metric filter
+                  + Add tag, experiment, metric or feature filter
                 </Button>
               </Box>
             ) : (
-              <Flex direction="column" gap="4" mt="4">
-                <Box>
-                  <Text as="label" size="medium" weight="medium">
-                    Tags
-                  </Text>
-                  <TagsInput
-                    tagOptions={tags}
-                    value={filterTags}
+              <Box mt="4">
+                <Grid columns={{ initial: "1", sm: "2" }} gapX="4" gapY="4">
+                  <Box>
+                    <Text as="label" size="medium" weight="medium">
+                      Tags
+                    </Text>
+                    <TagsInput
+                      tagOptions={tags}
+                      value={filterTags}
+                      onChange={(v) => {
+                        setFilterTags(v);
+                        markDirty();
+                      }}
+                    />
+                  </Box>
+
+                  <MultiSelectField
+                    label="Experiments"
+                    placeholder="All experiments"
+                    value={filterExperiments}
+                    options={experimentOptions}
                     onChange={(v) => {
-                      setFilterTags(v);
+                      setFilterExperiments(v);
                       markDirty();
                     }}
                   />
-                </Box>
 
-                <MultiSelectField
-                  label="Experiments"
-                  placeholder="All experiments"
-                  value={filterExperiments}
-                  options={experimentOptions}
-                  onChange={(v) => {
-                    setFilterExperiments(v);
-                    markDirty();
-                  }}
-                />
+                  <MultiSelectField
+                    label="Metrics"
+                    placeholder="All metrics"
+                    value={filterMetrics}
+                    options={metricOptions}
+                    onChange={(v) => {
+                      setFilterMetrics(v);
+                      markDirty();
+                    }}
+                  />
 
-                <MultiSelectField
-                  label="Metrics"
-                  placeholder="All metrics"
-                  value={filterMetrics}
-                  options={metricOptions}
-                  onChange={(v) => {
-                    setFilterMetrics(v);
-                    markDirty();
-                  }}
-                />
+                  <MultiSelectField
+                    label="Features"
+                    placeholder="All feature flags"
+                    value={filterFeatures}
+                    options={featureOptions}
+                    onChange={(v) => {
+                      setFilterFeatures(v);
+                      markDirty();
+                    }}
+                  />
+                </Grid>
 
                 {/* Collapsible again only while empty — hiding fields with
                     active values would hide what's actually filtering. */}
                 {filterTags.length +
                   filterExperiments.length +
-                  filterMetrics.length ===
+                  filterMetrics.length +
+                  filterFeatures.length ===
                   0 && (
-                  <Box>
+                  <Box mt="3">
                     <Button
                       variant="ghost"
                       color="gray"
@@ -1168,7 +1197,7 @@ export default function SlackChannelSettings({
                     </Button>
                   </Box>
                 )}
-              </Flex>
+              </Box>
             )}
           </Box>
         </Frame>

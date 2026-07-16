@@ -123,6 +123,10 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: false,
   },
+  features: {
+    type: [String],
+    required: false,
+  },
   dateCreated: {
     type: Date,
     required: true,
@@ -230,6 +234,7 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
     ...(payload.environments ? {} : { environments: [] }),
     ...(payload.experiments ? {} : { experiments: [] }),
     ...(payload.metrics ? {} : { metrics: [] }),
+    ...(payload.features ? {} : { features: [] }),
   };
 
   if (Object.keys(defaults).length)
@@ -266,6 +271,7 @@ type CreateEventWebHookOptions = {
   projects: string[];
   experiments?: string[];
   metrics?: string[];
+  features?: string[];
   tags: string[];
   environments: string[];
   payloadType: EventWebHookPayloadType;
@@ -290,6 +296,7 @@ export const createEventWebHook = async ({
   projects,
   experiments = [],
   metrics = [],
+  features = [],
   tags,
   environments,
   payloadType,
@@ -315,6 +322,7 @@ export const createEventWebHook = async ({
     projects,
     experiments,
     metrics,
+    features,
     tags,
     environments,
     payloadType,
@@ -396,6 +404,7 @@ export type UpdateEventWebHookAttributes = {
   projects?: string[];
   experiments?: string[];
   metrics?: string[];
+  features?: string[];
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
@@ -552,6 +561,25 @@ export const propagateSlackTeamCredentials = async ({
   );
 };
 
+// Toggle the workspace-wide conversational assistant. Written to every same-
+// team doc so the flag reads consistently no matter which doc resolves a
+// mention (workspace connection or a legacy channel doc). Dotted $set leaves
+// the bot token and all other slackOptions untouched.
+export const setSlackAssistantEnabled = async ({
+  organizationId,
+  teamId,
+  enabled,
+}: {
+  organizationId: string;
+  teamId: string;
+  enabled: boolean;
+}): Promise<void> => {
+  await EventWebHookModel.updateMany(
+    { organizationId, payloadType: "slack", "slack.teamId": teamId },
+    { $set: { "slackOptions.assistantEnabled": enabled } },
+  );
+};
+
 // Dotted $set so only slack.channelName is touched (bot token and other
 // metadata left intact).
 export const updateSlackChannelName = async ({
@@ -625,7 +653,8 @@ export const getAllEventWebHooksForEvent = async ({
   enabled,
   tags,
   projects,
-  experimentId,
+  experimentIds,
+  featureIds,
   metricIds,
 }: {
   organizationId: string;
@@ -633,7 +662,17 @@ export const getAllEventWebHooksForEvent = async ({
   enabled: boolean;
   tags: string[];
   projects: string[];
-  experimentId?: string;
+  // Experiments associated with this event's subject: an experiment event's own
+  // id, plus (for a feature event) the experiments that feature is linked to.
+  // The experiments filter is cross-subject and matches whichever the channel picks.
+  experimentIds?: string[];
+  // Features associated with this event's subject: a feature event's own id,
+  // plus (for an experiment event) the features that experiment is linked to.
+  // The feature filter is cross-subject and matches whichever the channel picks.
+  featureIds?: string[];
+  // Metrics associated with this event's subject (an experiment's goal/guardrail
+  // metrics, or a feature's safe-rollout/experiment metrics). The metric filter
+  // is cross-subject: it matches whichever of these the channel filters on.
   metricIds?: string[];
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
@@ -643,16 +682,47 @@ export const getAllEventWebHooksForEvent = async ({
   });
 
   const docs = allDocs.filter((doc) => {
+    // Universal filters — apply to every event.
     if (!filterOptional(doc.tags, tags)) return false;
     if (!filterOptional(doc.projects, projects)) return false;
-    if (!filterOptional(doc.experiments, experimentId ? [experimentId] : []))
-      return false;
+
+    // Experiments filter: cross-subject — matches an experiment event by its
+    // own id AND a feature event by the experiments it's linked to
+    // (`experimentIds` carries the right set per subject).
+    if (!filterOptional(doc.experiments, experimentIds || [])) return false;
+
+    // Features filter: cross-subject — matches a feature event by its own id
+    // AND an experiment event by the features it's linked to (`featureIds`
+    // carries the right set per subject). An experiment linked to none of the
+    // filtered features is dropped when a features filter is set.
+    if (!filterOptional(doc.features, featureIds || [])) return false;
+
+    // Cross-subject metric filter: applies to both experiment and feature
+    // events via the subject's associated metrics. A subject with no matching
+    // metric is dropped when a metric filter is set.
     if (!filterOptional(doc.metrics, metricIds || [])) return false;
 
     return true;
   });
 
   return docs.map(toInterface);
+};
+
+// Cheap existence check: is any enabled webhook filtering by the given field?
+// Used to skip resolving a subject's cross-subject associations (a context build
+// + queries) on every event unless some channel actually filters by that
+// dimension — e.g. a feature's safe-rollout metrics, or the features a given
+// experiment is linked to.
+export const orgHasWebhookFilteringBy = async (
+  organizationId: string,
+  field: "metrics" | "features" | "experiments",
+): Promise<boolean> => {
+  const doc = await EventWebHookModel.exists({
+    organizationId,
+    enabled: true,
+    [`${field}.0`]: { $exists: true },
+  });
+  return !!doc;
 };
 
 export const sendEventWebhookTestEvent = async (

@@ -8,7 +8,15 @@ import {
 import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
+  orgHasWebhookFilteringBy,
 } from "back-end/src/models/EventWebhookModel";
+import {
+  getFeature,
+  getFeatureIdsLinkedToExperiment,
+  getFeatureLinkedExperimentIds,
+} from "back-end/src/models/FeatureModel";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { upsertCoalesceBucket } from "back-end/src/models/EventWebHookCoalesceBucketModel";
 import { isSlackExperimentNotificationSnoozed } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
@@ -50,10 +58,16 @@ const enqueueImmediate = (
   notifier.enqueue();
 };
 
+// Metric ids come in three flavors: classic (met_), fact (fact__), and metric
+// groups (mg_). Collect all three so filtering by any of them works — the
+// dropdown offers fact metrics, and scanning only met_ silently matched nothing.
+const isMetricId = (s: string) =>
+  s.startsWith("met_") || s.startsWith("fact__") || s.startsWith("mg_");
+
 const collectMetricIds = (value: unknown, depth = 0): string[] => {
   if (depth > 4 || value === null || value === undefined) return [];
   if (typeof value === "string") {
-    return value.startsWith("met_") ? [value] : [];
+    return isMetricId(value) ? [value] : [];
   }
   if (Array.isArray(value)) {
     return value.flatMap((item) => collectMetricIds(item, depth + 1));
@@ -78,6 +92,65 @@ const collectMetricIds = (value: unknown, depth = 0): string[] => {
 const getMetricIdsForEvent = (event: EventInterface): string[] =>
   Array.from(new Set(collectMetricIds(event.data)));
 
+// Metric ids configured on an experiment or an inline experiment rule (goal,
+// secondary, guardrail, activation). Ids may be classic (met_), fact (fact__),
+// or metric-group (mg_) — all pass through unchanged.
+const metricIdsFromMetricConfig = (c: {
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  guardrails?: string[];
+  activationMetric?: string;
+}): string[] => [
+  ...(c.goalMetrics || []),
+  ...(c.secondaryMetrics || []),
+  ...(c.guardrailMetrics || []),
+  ...(c.guardrails || []),
+  ...(c.activationMetric ? [c.activationMetric] : []),
+];
+
+// Every metric a feature is "related to", so the cross-subject metric filter can
+// match feature events. Covers the four association paths: (1) safe-rollout
+// guardrail metrics, (2) metrics on inline experiment rules, and (4) metrics of
+// experiments linked to the feature — which also subsumes (3) experiment-ref
+// rules, since those experiments are in `linkedExperiments`. Resolved only when
+// a channel filters by metric (this builds a context + loads the feature and
+// its experiments).
+const getFeatureMetricIds = async (
+  organizationId: string,
+  featureId: string,
+): Promise<string[]> => {
+  try {
+    const context = await getContextForAgendaJobByOrgId(organizationId);
+    const ids: string[] = [];
+
+    // (1) Safe-rollout guardrail metrics — metrics monitoring the rollout.
+    const rollouts =
+      await context.models.safeRollout.getAllByFeatureId(featureId);
+    rollouts.forEach((r) => ids.push(...(r.guardrailMetricIds || [])));
+
+    const feature = await getFeature(context, featureId);
+    if (feature) {
+      // (2) Inline experiment rules carry their own metric config.
+      feature.rules.forEach((rule) => {
+        if (rule.type === "experiment")
+          ids.push(...metricIdsFromMetricConfig(rule));
+      });
+      // (4) Experiments linked to the feature (also covers experiment-ref rules).
+      const linked = await getExperimentsByIds(
+        context,
+        feature.linkedExperiments || [],
+      );
+      linked.forEach((exp) => ids.push(...metricIdsFromMetricConfig(exp)));
+    }
+
+    return Array.from(new Set(ids));
+  } catch (e) {
+    logger.error(e, `Failed resolving metrics for feature ${featureId}`);
+    return [];
+  }
+};
+
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.
  */
@@ -86,6 +159,57 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     tags: [],
     projects: [],
   };
+
+  const experimentId =
+    event.object === "experiment" ? event.objectId : undefined;
+  const featureId = event.object === "feature" ? event.objectId : undefined;
+
+  // Metrics this event's subject is associated with, for the cross-subject
+  // metric filter. Experiments carry theirs in the payload; a feature's come
+  // from its safe rollouts + experiment rules + linked experiments (resolved
+  // only when some channel filters by metric, to avoid a per-event context
+  // build otherwise).
+  let metricIds = getMetricIdsForEvent(event);
+  if (
+    featureId &&
+    (await orgHasWebhookFilteringBy(event.organizationId, "metrics"))
+  ) {
+    metricIds = Array.from(
+      new Set([
+        ...metricIds,
+        ...(await getFeatureMetricIds(event.organizationId, featureId)),
+      ]),
+    );
+  }
+
+  // Features this event's subject is associated with, for the cross-subject
+  // features filter. A feature event is its own id; an experiment event resolves
+  // the features it's linked to (only when some channel filters by feature).
+  let featureIds = featureId ? [featureId] : [];
+  if (
+    experimentId &&
+    (await orgHasWebhookFilteringBy(event.organizationId, "features"))
+  ) {
+    featureIds = await getFeatureIdsLinkedToExperiment(
+      event.organizationId,
+      experimentId,
+    );
+  }
+
+  // Experiments this event's subject is associated with, for the cross-subject
+  // experiments filter. An experiment event is its own id; a feature event
+  // resolves the experiments it's linked to (only when some channel filters by
+  // experiment).
+  let experimentIds = experimentId ? [experimentId] : [];
+  if (
+    featureId &&
+    (await orgHasWebhookFilteringBy(event.organizationId, "experiments"))
+  ) {
+    experimentIds = await getFeatureLinkedExperimentIds(
+      event.organizationId,
+      featureId,
+    );
+  }
 
   const eventWebHooks = await (async () => {
     if (event.data.event === "webhook.test") {
@@ -109,9 +233,9 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
           enabled: true,
           tags,
           projects,
-          experimentId:
-            event.object === "experiment" ? event.objectId : undefined,
-          metricIds: getMetricIdsForEvent(event),
+          experimentIds,
+          featureIds,
+          metricIds,
         })) || []
       ).filter(({ environments = [] }) =>
         filterEventForEnvironments({ event: event.data, environments }),
