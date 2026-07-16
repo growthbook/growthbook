@@ -495,7 +495,8 @@ export abstract class BaseModel<
       (entityType === "experiment" ||
         entityType === "datasource" ||
         entityType === "metric" ||
-        entityType === "feature") &&
+        entityType === "feature" ||
+        entityType === "savedGroup") &&
       !keys[entityType]
     ) {
       keys[entityType] = entityId;

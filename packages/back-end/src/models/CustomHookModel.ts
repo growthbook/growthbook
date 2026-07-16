@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { FeatureInterface } from "shared/types/feature";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -30,17 +31,39 @@ export class CustomHookModel extends BaseClass {
     return this.getForeignRefs(doc, false).feature ?? null;
   }
 
+  // Resolve the referenced saved group synchronously (foreign refs are populated first).
+  private savedGroupRef(doc: CustomHookInterface): SavedGroupInterface | null {
+    if (doc.entityType !== "savedGroup" || !doc.entityId) return null;
+    return this.getForeignRefs(doc, false).savedGroup ?? null;
+  }
+
   protected canCreate(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canCreateCustomHook(doc);
+    if (feature) {
+      return this.context.permissions.canManageFeatureCustomHooks(feature);
+    }
+    const savedGroup = this.savedGroupRef(doc);
+    if (savedGroup) {
+      return this.context.permissions.canManageSavedGroupCustomHooks(
+        savedGroup,
+      );
+    }
+    return this.context.permissions.canCreateCustomHook(doc);
   }
   protected canRead(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canReadSingleProjectResource(feature.project)
-      : this.context.permissions.canReadMultiProjectResource(doc.projects);
+    if (feature) {
+      return this.context.permissions.canReadSingleProjectResource(
+        feature.project,
+      );
+    }
+    const savedGroup = this.savedGroupRef(doc);
+    if (savedGroup) {
+      return this.context.permissions.canReadMultiProjectResource(
+        savedGroup.projects,
+      );
+    }
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canUpdate(
     existing: CustomHookInterface,
@@ -49,15 +72,29 @@ export class CustomHookModel extends BaseClass {
   ): boolean {
     // entityType/entityId are readonly, so the scope can't change on update.
     const feature = this.featureRef(newDoc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canUpdateCustomHook(existing, newDoc);
+    if (feature) {
+      return this.context.permissions.canManageFeatureCustomHooks(feature);
+    }
+    const savedGroup = this.savedGroupRef(newDoc);
+    if (savedGroup) {
+      return this.context.permissions.canManageSavedGroupCustomHooks(
+        savedGroup,
+      );
+    }
+    return this.context.permissions.canUpdateCustomHook(existing, newDoc);
   }
   protected canDelete(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canDeleteCustomHook(doc);
+    if (feature) {
+      return this.context.permissions.canManageFeatureCustomHooks(feature);
+    }
+    const savedGroup = this.savedGroupRef(doc);
+    if (savedGroup) {
+      return this.context.permissions.canManageSavedGroupCustomHooks(
+        savedGroup,
+      );
+    }
+    return this.context.permissions.canDeleteCustomHook(doc);
   }
 
   // Ensure scoped hooks are well-formed and point at a real resource.
@@ -80,20 +117,41 @@ export class CustomHookModel extends BaseClass {
     if (entityType === "feature" && this.featureRef(doc) === null) {
       throw new Error(`Could not find feature for custom hook: ${entityId}`);
     }
+
+    if (entityType === "savedGroup" && this.savedGroupRef(doc) === null) {
+      throw new Error(
+        `Could not find saved group for custom hook: ${entityId}`,
+      );
+    }
   }
 
   public async getByHook(
     hook: CustomHookType,
-    project: string = "",
-    featureId: string = "",
+    // A single project (features) or list of projects (saved groups).
+    projects: string | string[] = "",
+    entityId: string = "",
   ) {
     const hooks = await this._find({ hook, enabled: true });
 
-    // Feature-scoped hooks match by entityId; others match by project (empty = all).
+    const projectList = Array.isArray(projects)
+      ? projects
+      : projects
+        ? [projects]
+        : [];
+
+    // Scoping model (conventional narrowing):
+    //   - Global hooks (empty `projects`) are universal rules: they match every
+    //     resource, whatever its projects.
+    //   - Project-scoped hooks add on for project-scoped resources: they match a
+    //     resource only when they share at least one project with it.
+    //   - A global resource (empty `projectList`) therefore runs global hooks
+    //     ONLY — a project-scoped hook can never share a project with it and so
+    //     never reaches it.
+    // Entity-scoped hooks are exempt from project matching and match by entityId.
     return hooks.filter((h) =>
-      h.entityType === "feature" && h.entityId
-        ? h.entityId === featureId
-        : !h.projects.length || h.projects.includes(project),
+      h.entityType && h.entityId
+        ? h.entityId === entityId
+        : !h.projects.length || projectList.some((p) => h.projects.includes(p)),
     );
   }
 

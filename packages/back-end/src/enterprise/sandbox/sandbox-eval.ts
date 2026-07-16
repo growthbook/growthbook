@@ -1,6 +1,7 @@
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -52,13 +53,36 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+export async function runValidateSavedGroupHooks({
+  context,
+  savedGroup,
+  original,
+}: {
+  context: ReqContextClass;
+  savedGroup: SavedGroupInterface;
+  original: SavedGroupInterface | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateSavedGroup",
+    { savedGroup },
+    // Saved groups belong to zero or more projects; a project-scoped hook
+    // applies if it targets any of them (empty hook projects = global).
+    savedGroup.projects || [],
+    savedGroup.id,
+    original ? { savedGroup: original } : undefined,
+  );
+}
+
 // Private methods
 async function _runCustomHooks(
   context: ReqContextClass,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
-  project: string = "",
-  featureId: string = "",
+  // A single project (features) or a list of projects (saved groups) used to
+  // resolve project-scoped hooks. Empty = global scope only.
+  projects: string | string[] = "",
+  entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
 ) {
   // Skip on cloud
@@ -80,8 +104,8 @@ async function _runCustomHooks(
 
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
-    project,
-    featureId,
+    projects,
+    entityId,
   );
 
   const allWarnings: string[] = [];

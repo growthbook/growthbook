@@ -1,11 +1,16 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  CustomHookInterface,
+  CustomHookType,
+  hookEntityType,
+} from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { SavedGroupInterface } from "shared/types/saved-group";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -40,6 +45,19 @@ const dummyFeature: FeatureInterface = {
   version: 1,
   prerequisites: [],
   customFields: {},
+};
+const dummySavedGroup: SavedGroupInterface = {
+  id: "grp_abc123",
+  organization: "org_abc123",
+  groupName: "My Saved Group",
+  owner: "",
+  type: "condition",
+  condition: '{"country": "US"}',
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  description: "My saved group",
+  projects: [],
+  archived: false,
 };
 const dummyRevision: FeatureRevisionInterface = {
   organization: "org_abc123",
@@ -116,6 +134,16 @@ export const hookTypes: Record<
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
+  validateSavedGroup: {
+    label: "Validate Saved Group",
+    availableArguments: {
+      savedGroup: {
+        description: "The saved group object being validated",
+        testValue: stringify(dummySavedGroup),
+      },
+    },
+    example: `\n// Block the save (hard error):\nif (!savedGroup.description) {\n  throw new Error("Saved group must have a description");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!savedGroup.projects || savedGroup.projects.length === 0) {\n  addWarning("Consider scoping this saved group to a project");\n}`,
+  },
 };
 
 export default function CustomHookModal({
@@ -124,6 +152,7 @@ export default function CustomHookModal({
   onSave,
   feature,
   revision,
+  savedGroup,
 }: {
   close: () => void;
   current?: CustomHookInterface;
@@ -132,11 +161,16 @@ export default function CustomHookModal({
   feature?: FeatureInterface;
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
+  // When set, scopes the hook to this saved group and hides the Projects field.
+  savedGroup?: SavedGroupInterface;
 }) {
+  const defaultHook: CustomHookType = savedGroup
+    ? "validateSavedGroup"
+    : "validateFeature";
   const form = useForm<CreateProps<CustomHookInterface>>({
     defaultValues: {
       name: current?.name || "",
-      hook: current?.hook || "validateFeature",
+      hook: current?.hook || defaultHook,
       code: current?.code || "",
       projects: current?.projects || [],
       incrementalChangesOnly: current?.incrementalChangesOnly ?? true,
@@ -150,6 +184,15 @@ export default function CustomHookModal({
   const hookType = form.watch("hook");
   const hookTypeData = hookTypes[hookType];
 
+  // Restrict the selectable hook types to those matching the entity scope.
+  const availableHookTypes = (
+    Object.keys(hookTypes) as CustomHookType[]
+  ).filter((h) => {
+    if (feature) return hookEntityType[h] === "feature";
+    if (savedGroup) return hookEntityType[h] === "savedGroup";
+    return true;
+  });
+
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
       Object.entries(hookTypes[h].availableArguments).map(([k, v]) => [
@@ -158,12 +201,14 @@ export default function CustomHookModal({
           ? stringify(feature)
           : revision && k === "revision"
             ? stringify(revision)
-            : v.testValue,
+            : savedGroup && k === "savedGroup"
+              ? stringify(savedGroup)
+              : v.testValue,
       ]),
     );
 
   const [testValues, setTestValues] = useState<Record<string, string>>(
-    initialTestValues(current?.hook || "validateFeature"),
+    initialTestValues(current?.hook || defaultHook),
   );
   const [testResult, setTestResult] = useState<{
     status: "" | "success" | "error";
@@ -195,7 +240,9 @@ export default function CustomHookModal({
         ),
         ...(feature
           ? { entityType: "feature" as const, entityId: feature.id }
-          : {}),
+          : savedGroup
+            ? { entityType: "savedGroup" as const, entityId: savedGroup.id }
+            : {}),
       }),
     });
     setTestResult({
@@ -229,7 +276,13 @@ export default function CustomHookModal({
                 entityType: "feature" as const,
                 entityId: feature.id,
               }
-            : {}),
+            : savedGroup
+              ? {
+                  projects: [],
+                  entityType: "savedGroup" as const,
+                  entityId: savedGroup.id,
+                }
+              : {}),
         };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {
@@ -252,9 +305,9 @@ export default function CustomHookModal({
           <SelectField
             label="Hook Type"
             required
-            options={Object.entries(hookTypes).map(([value, { label }]) => ({
+            options={availableHookTypes.map((value) => ({
               value,
-              label,
+              label: hookTypes[value].label,
             }))}
             value={hookType}
             onChange={(value) => {
@@ -262,7 +315,7 @@ export default function CustomHookModal({
               setTestValues(initialTestValues(value as CustomHookType));
             }}
           />
-          {!feature && (
+          {!feature && !savedGroup && (
             <MultiSelectField
               label={"Projects"}
               placeholder="All Projects"

@@ -1510,6 +1510,14 @@ export class Permissions {
     return this.canUpdateFeature(feature, {});
   };
 
+  // Alias for the saved-group-edit permission; its own method so we can add
+  // logic/resource types later (mirrors canManageFeatureCustomHooks).
+  public canManageSavedGroupCustomHooks = (
+    savedGroup: Pick<SavedGroupInterface, "projects">,
+  ): boolean => {
+    return this.canUpdateSavedGroup(savedGroup, {});
+  };
+
   public canCreateEventForwarderConfig = (
     config: Pick<EventForwarderConfigInterface, "projects">,
   ): boolean => {

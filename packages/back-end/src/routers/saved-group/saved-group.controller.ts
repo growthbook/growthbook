@@ -762,6 +762,12 @@ export const putSavedGroup = async (
     });
   }
 
+  // Custom-hook validation is NOT run here. Draft-only saves must not be
+  // blocked by hooks — validation fires only when a change goes live. The
+  // authoritative gate is the model write in SavedGroupModel.beforeUpdate,
+  // which runs on every live write (immediate-merge update and every publish
+  // path, including background scheduled/auto publishes) but never on
+  // draft-only saves (which don't call savedGroups.update).
   await ensureLiveRevisionExists(
     context,
     "saved-group",

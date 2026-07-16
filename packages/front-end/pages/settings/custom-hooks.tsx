@@ -75,9 +75,11 @@ export default function CustomHooksPage() {
   }
 
   const allHooks = data.customHooks || [];
-  // Global/project hooks managed here; feature-scoped ones on the feature's Validation tab.
+  // Global/project hooks managed here; entity-scoped ones on the entity's
+  // Validation tab.
   const hooks = allHooks.filter((h) => !h.entityType);
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
+  const savedGroupHooks = allHooks.filter((h) => h.entityType === "savedGroup");
 
   return (
     <div className="container-fluid pagecontents">
@@ -247,6 +249,60 @@ export default function CustomHooksPage() {
                       <TableCell>{hook.hook}</TableCell>
                       <TableCell>
                         <Link href={`/features/${hook.entityId}#validation`}>
+                          {hook.entityId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <MoreMenu iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
+                          >
+                            Preview Code
+                          </a>
+                        </MoreMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {savedGroupHooks.length > 0 && (
+            <div className="mt-5">
+              <h2>Saved Group-specific Hooks</h2>
+              <p className="text-muted">
+                These hooks are scoped to a single saved group and managed from
+                that saved group&apos;s Validation tab.
+              </p>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Saved Group</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {savedGroupHooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/saved-groups/${hook.entityId}#validation`}
+                        >
                           {hook.entityId}
                         </Link>
                       </TableCell>
