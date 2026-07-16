@@ -7,8 +7,6 @@ import {
   PiCaretRightBold,
   PiChartBar,
   PiCode,
-  PiDatabase,
-  PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
@@ -69,14 +67,14 @@ export default function EmptyState() {
       : null;
 
   const buttonStyle = {
-    height: "116px",
+    height: "160px",
     paddingTop: "16px",
     paddingBottom: "16px",
-    width: "160px",
+    width: "360px",
   };
 
   return (
-    <Box m="7">
+    <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
       <Flex align="center">
         <Heading as="h1" size="x-large" weight="medium">
           Product Analytics
@@ -92,9 +90,9 @@ export default function EmptyState() {
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "start",
           flexDirection: "column",
-          minHeight: "400px",
+          flex: 1,
           border: "1px solid var(--slate-a3)",
           borderRadius: "4px",
           padding: "60px 80px",
@@ -165,7 +163,7 @@ export default function EmptyState() {
             </Flex>
           ) : (
             <>
-              <Flex align="center" gap="3" direction="column" justify="center">
+              <Flex align="center" gap="4" direction="column" justify="center">
                 <Flex gap="2" width="100%" align="center" justify="center">
                   <BsStars
                     size={20}
@@ -178,8 +176,7 @@ export default function EmptyState() {
                     <Field
                       placeholder="Ask about metrics, experiments, or setup..."
                       containerStyle={{
-                        maxWidth: "600px",
-                        flex: 1,
+                        width: "60vw",
                       }}
                       style={{ height: "40px" }}
                       ref={inputRef}
@@ -235,7 +232,7 @@ export default function EmptyState() {
 
               <Flex justify="center" direction="column" gap="5" mt="3">
                 <TextDivider width={435}>or explore manually</TextDivider>
-                <Flex gap="3" justify="center">
+                <Flex gap="4" justify="center">
                   <LinkButton
                     href="/product-analytics/explore/metrics"
                     variant="outline"
@@ -248,46 +245,12 @@ export default function EmptyState() {
                     style={buttonStyle}
                   >
                     <Flex direction="column" align="start" gap="1">
-                      <PiChartBar size={24} />
-                      <Text weight="medium">Metrics</Text>
-                      <Text color="text-low" size="small">
+                      <PiChartBar size={30} />
+                      <Text weight="medium" size="large">
+                        Metric Analysis
+                      </Text>
+                      <Text color="text-low" size="medium">
                         Chart your existing GrowthBook Metrics
-                      </Text>
-                    </Flex>
-                  </LinkButton>
-                  <LinkButton
-                    href="/product-analytics/explore/fact-table"
-                    variant="outline"
-                    disabled={
-                      !permissionsUtil.canRunFactQueries({
-                        projects: [project],
-                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                    }
-                    style={buttonStyle}
-                  >
-                    <Flex direction="column" align="start" gap="1">
-                      <PiTable size={24} />
-                      <Text weight="medium">Fact Table</Text>
-                      <Text color="text-low" size="small">
-                        Chart events from your Fact Table
-                      </Text>
-                    </Flex>
-                  </LinkButton>
-                  <LinkButton
-                    href="/product-analytics/explore/data-source"
-                    variant="outline"
-                    disabled={
-                      !permissionsUtil.canRunFactQueries({
-                        projects: [project],
-                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                    }
-                    style={buttonStyle}
-                  >
-                    <Flex direction="column" align="start" gap="1">
-                      <PiDatabase size={24} />
-                      <Text weight="medium">Data Source</Text>
-                      <Text color="text-low" size="small">
-                        Visualize data directly from your Data Source
                       </Text>
                     </Flex>
                   </LinkButton>
@@ -302,10 +265,13 @@ export default function EmptyState() {
                     }
                   >
                     <Flex direction="column" align="start" gap="1">
-                      <PiCode size={24} />
-                      <Text weight="medium">Custom SQL</Text>
-                      <Text color="text-low" size="small">
-                        Write SQL for advanced data visualizations
+                      <PiCode size={30} />
+                      <Text weight="medium" size="large">
+                        Custom SQL Explorer
+                      </Text>
+                      <Text color="text-low" size="medium">
+                        Write one-off SQL queries to build advanced data
+                        visualizations
                       </Text>
                     </Flex>
                   </LinkButton>

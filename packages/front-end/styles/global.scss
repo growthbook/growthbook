@@ -47,6 +47,11 @@ body {
 
 .main {
   padding-left: 240px;
+  &.product-analytics-explore-landing {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
   &.lite {
     padding-left: 0;
   }
