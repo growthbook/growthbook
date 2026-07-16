@@ -16,7 +16,7 @@ import {
 } from "shared/constants";
 import { datetime, getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "shared/types/metric";
+import { MetricDefinitionInterface } from "shared/types/metric";
 import { DifferenceType } from "shared/types/stats";
 import {
   getAllMetricIdsFromExperiment,
@@ -101,7 +101,7 @@ export default function ConfigureLegacyReport({
       .map((m) => m?.denominator)
       .filter((m) => m && typeof m === "string") as string[],
   );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
+  const denominatorMetrics: MetricDefinitionInterface[] = useMemo(() => {
     return denominatorMetricIds
       .map((m) => getMetricById(m as string))
       .filter(isDefined);

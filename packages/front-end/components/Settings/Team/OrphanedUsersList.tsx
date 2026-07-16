@@ -5,6 +5,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
+import Callout from "@/ui/Callout";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
@@ -28,7 +29,7 @@ const OrphanedUsersList: FC<{
   if (isCloud()) return null;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
 
   if (!data) {

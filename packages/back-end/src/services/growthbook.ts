@@ -23,16 +23,6 @@ setPolyfills({ EventSource });
 
 let gbClient: GrowthBookClient<AppFeatures> | null = null;
 let initPromise: Promise<void> | null = null;
-let gbInitSucceeded = false;
-
-function resetGrowthBookClientState(): void {
-  if (gbClient) {
-    gbClient.destroy();
-    gbClient = null;
-  }
-  initPromise = null;
-  gbInitSucceeded = false;
-}
 
 function createGrowthBookClient(): GrowthBookClient<AppFeatures> {
   const client = new GrowthBookClient<AppFeatures>({
@@ -161,8 +151,6 @@ export function getGrowthBookTrackingAttributes(
 }
 
 function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
-  if (!IS_CLOUD) return null;
-
   if (!gbClient) {
     gbClient = createGrowthBookClient();
   }
@@ -178,7 +166,7 @@ function ensureGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
 export function getGrowthBookClient(): GrowthBookClient<AppFeatures> | null {
   const client = ensureGrowthBookClient();
 
-  if (!gbInitSucceeded && !initPromise) {
+  if (!initPromise) {
     void initializeGrowthBookClient();
   }
 
@@ -196,12 +184,9 @@ async function runGrowthBookClientInit(): Promise<void> {
 
   if (!success) {
     logger.warn({ source, err: error }, "GrowthBook features not loaded");
-    // SDK sets ready=true even with an empty payload; discard and retry later.
-    resetGrowthBookClientState();
     return;
   }
 
-  gbInitSucceeded = true;
   logger.info(
     { source, streaming: true },
     "GrowthBook client initialized successfully",
@@ -214,17 +199,9 @@ async function runGrowthBookClientInit(): Promise<void> {
  * Enables real-time feature updates via Server-Sent Events
  */
 export async function initializeGrowthBookClient(): Promise<void> {
-  if (!IS_CLOUD) {
-    logger.info(
-      "GrowthBook client not initialized - not running in cloud mode",
-    );
-    return;
-  }
-
   if (initPromise) return initPromise;
 
   initPromise = runGrowthBookClientInit().catch((error) => {
-    resetGrowthBookClientState();
     logger.error({ err: error }, "Failed to initialize GrowthBook client");
     // Don't throw - allow app to continue without feature flags
   });
@@ -233,10 +210,31 @@ export async function initializeGrowthBookClient(): Promise<void> {
 }
 
 /**
+ * Evaluate a backend AppFeatures flag using the global singleton client.
+ * Usable anywhere (jobs, services) — unlike req.gb, which only exists on
+ * authenticated routes. Returns `fallback` when the client or flag isn't
+ * loaded, so callers keep safe default behavior during a CDN blip.
+ */
+export function getBackendFeatureValue<K extends string & keyof AppFeatures>(
+  key: K,
+  fallback: AppFeatures[K],
+  attributes: Record<string, unknown> = {},
+): AppFeatures[K] {
+  const client = getGrowthBookClient();
+  if (!client) return fallback;
+  // getFeatureValue widens primitives (e.g. boolean literals); narrow back to
+  // the flag's declared type, which is sound for all AppFeatures value types.
+  return client.getFeatureValue(key, fallback, {
+    attributes,
+  }) as AppFeatures[K];
+}
+
+/**
  * Cleanup the GrowthBook client on shutdown
  * Call this during graceful shutdown to close SSE connections
  */
 export function destroyGrowthBookClient(): void {
-  resetGrowthBookClientState();
+  gbClient?.destroy();
+  gbClient = null;
   logger.info("GrowthBook client destroyed");
 }

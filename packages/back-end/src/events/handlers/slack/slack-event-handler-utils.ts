@@ -133,6 +133,8 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.rampSchedule.actions.jumped":
     case "feature.rampSchedule.actions.step.advanced":
     case "feature.rampSchedule.actions.step.approvalRequired":
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+    case "feature.rampSchedule.actions.startApproved":
       return buildSlackMessageForRampScheduleEvent(
         event.event,
         event.data.object,
@@ -588,6 +590,12 @@ const buildSlackMessageForRampScheduleEvent = (
       break;
     case "feature.rampSchedule.actions.step.approvalRequired":
       text = `Ramp schedule ${name} step ${step} requires approval`;
+      break;
+    case "feature.rampSchedule.actions.awaitingStartApproval":
+      text = `Ramp schedule ${name} is awaiting start approval`;
+      break;
+    case "feature.rampSchedule.actions.startApproved":
+      text = `Ramp schedule ${name} start was approved`;
       break;
     default:
       text = `Ramp schedule ${name}: ${eventType}`;
@@ -1495,6 +1503,26 @@ const buildSlackMessageForExperimentWarningEvent = (
     case "no-data": {
       const text = (experimentName: string) =>
         `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "underpowered": {
+      const text = (experimentName: string) =>
+        `Experiment ${experimentName} is underpowered. Statistical power is below the configured threshold. Consider increasing traffic, using a more sensitive metric, or accepting a larger minimum detectable effect.`;
 
       return {
         text: text(data.experimentName),

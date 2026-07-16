@@ -61,11 +61,15 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const filteredConditionGroups = project
-    ? conditionGroups.filter((group) =>
-        isProjectListValidForProject(group.projects, project),
-      )
-    : conditionGroups;
+  const filteredConditionGroups = useMemo(
+    () =>
+      project
+        ? conditionGroups.filter((group) =>
+            isProjectListValidForProject(group.projects, project),
+          )
+        : conditionGroups,
+    [conditionGroups, project],
+  );
 
   const [showArchived, setShowArchived] = useState(false);
 

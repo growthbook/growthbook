@@ -59,6 +59,7 @@ import {
   notifyLicenseServerEvent,
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -583,7 +584,7 @@ export async function getAllExperimentsForStaleGraph(
       if (exp.status === "stopped" && exp.results === "lost") {
         exp.releasedVariationId = exp.variations?.[0]?.id || "";
       } else if (exp.status === "stopped" && exp.results === "won") {
-        exp.releasedVariationId = exp.variations?.[exp.winner || 1]?.id || "";
+        exp.releasedVariationId = exp.variations?.[exp.winner ?? 1]?.id || "";
       } else {
         exp.releasedVariationId = "";
       }
@@ -686,7 +687,7 @@ export async function createExperiment({
 
   validateMetricOverrides(data.metricOverrides);
 
-  const exp = await ExperimentModel.create({
+  const experimentToCreate = {
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
@@ -704,8 +705,16 @@ export async function createExperiment({
     dateUpdated: new Date(),
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
+    nextSnapshotAttempt: nextUpdate ?? undefined,
+  } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
   });
+
+  const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);
 

@@ -7,7 +7,7 @@ import { Flex, TextField, Text, Box } from "@radix-ui/themes";
 import Collapsible from "react-collapsible";
 import { PiSlidersHorizontal, PiWrench } from "react-icons/pi";
 import { FaAngleRight } from "react-icons/fa";
-import { FactTableInterface } from "shared/types/fact-table";
+import { FactTableDefinition } from "shared/types/fact-table";
 import { Select, SelectItem } from "@/ui/Select";
 import Switch from "@/ui/Switch";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -27,7 +27,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
   const metric = getFactMetricById(block.factMetricId);
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
-  let denominatorFactTable: FactTableInterface | null = null;
+  let denominatorFactTable: FactTableDefinition | null = null;
 
   if (metric?.denominator?.factTableId) {
     if (metric?.numerator?.factTableId !== metric?.denominator?.factTableId) {

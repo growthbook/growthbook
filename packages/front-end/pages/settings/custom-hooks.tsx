@@ -9,10 +9,11 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
-import CustomHookModal from "@/components/Features/CustomHookModal";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import CustomHookModal, {
+  hookTypes,
+} from "@/components/CustomHooks/CustomHookModal";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Table, {
   TableHeader,
   TableBody,
@@ -22,28 +23,6 @@ import Table, {
 } from "@/ui/Table";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-
-function CustomHookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
-}
 
 export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
@@ -78,6 +57,7 @@ export default function CustomHooksPage() {
   // Global/project hooks managed here; feature-scoped ones on the feature's Validation tab.
   const hooks = allHooks.filter((h) => !h.entityType);
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
+  const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
 
   return (
     <div className="container-fluid pagecontents">
@@ -151,12 +131,14 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         {hook.projects.length ? (
                           hook.projects.join(", ")
                         ) : (
-                          <em>All projects</em>
+                          <em>All Projects</em>
                         )}
                       </TableCell>
                       <TableCell>
@@ -244,7 +226,9 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         <Link href={`/features/${hook.entityId}#validation`}>
                           {hook.entityId}
@@ -262,6 +246,73 @@ export default function CustomHooksPage() {
                           >
                             Preview Code
                           </a>
+                        </MoreMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {experimentHooks.length > 0 && (
+            <div className="mt-5">
+              <h2>Experiment-specific Hooks</h2>
+              <p className="text-muted">
+                These hooks are scoped to a single experiment. Experiment hooks
+                are now managed as global hooks above; you can remove any
+                leftover scoped hooks here.
+              </p>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Experiment</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {experimentHooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/experiment/${hook.entityId}`}>
+                          {hook.entityId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <MoreMenu iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
+                          >
+                            Preview Code
+                          </a>
+                          <DeleteButton
+                            useRadix={false}
+                            useIcon={false}
+                            text="Delete"
+                            displayName="custom hook"
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                            className="dropdown-item text-danger"
+                          />
                         </MoreMenu>
                       </TableCell>
                     </TableRow>

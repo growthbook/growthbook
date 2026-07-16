@@ -1,7 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
@@ -224,7 +223,9 @@ export default function StandardRuleFields({
 
     setScheduleToggleEnabled(false);
     if (saved) {
-      setRampSectionState(saved.ramp);
+      // Start-approval is a ramp-only concept; never carry it into a non-ramp
+      // mode, or the rule publishes disabled with no way to clear it here.
+      setRampSectionState({ ...saved.ramp, requiresStartApproval: false });
       form.setValue("coverage", saved.coverage);
     } else {
       setRampSectionState({
@@ -233,6 +234,7 @@ export default function StandardRuleFields({
         steps: [],
         startDate: "",
         endScheduleAt: "",
+        requiresStartApproval: false,
       });
       if (leavingRamp) form.setValue("coverage", 1);
     }
@@ -397,10 +399,13 @@ export default function StandardRuleFields({
                         disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
-                        <Callout status="info" mt="3" size="sm">
-                          <Flex align="center" justify="between" gap="3">
-                            <Text>This schedule has finished.</Text>
+                        <Callout
+                          status="info"
+                          mt="3"
+                          size="sm"
+                          action={
                             <Button
+                              color="inherit"
                               size="xs"
                               variant="outline"
                               onClick={() =>
@@ -412,7 +417,9 @@ export default function StandardRuleFields({
                             >
                               Remove schedule
                             </Button>
-                          </Flex>
+                          }
+                        >
+                          This schedule has finished.
                         </Callout>
                       )}
                       {isPendingRemoval && (
@@ -514,11 +521,10 @@ export default function StandardRuleFields({
         </Flex>
       )}
       {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
+        <Callout status="error">
+          A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+          dependency. Remove this prerequisite to continue.
+        </Callout>
       )}
     </>
   );

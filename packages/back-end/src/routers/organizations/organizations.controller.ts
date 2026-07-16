@@ -18,6 +18,7 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { AgreementType, updateSdkWebhookValidator } from "shared/validators";
 import { entityTypes } from "shared/constants";
 import { UpdateSdkWebhookProps } from "shared/types/webhook";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   GetOrganizationResponse,
   CreateOrganizationPostBody,
@@ -33,6 +34,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
@@ -59,6 +61,8 @@ import { getDataSourcesWithParams } from "back-end/src/services/datasourceRespon
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  auditDetailsCreate,
+  auditDetailsDelete,
   auditDetailsUpdate,
   getRecentWatchedAudits,
   isValidAuditEntityType,
@@ -83,7 +87,7 @@ import {
   sendOwnerEmailChangeEmail,
 } from "back-end/src/services/email";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
-import { getMetricsByOrganization } from "back-end/src/models/MetricModel";
+import { getMetricsForDefinitions } from "back-end/src/models/MetricModel";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -129,9 +133,10 @@ import {
   countAllAuditsByEntityType,
   countAllAuditsByEntityTypeParent,
 } from "back-end/src/models/AuditModel";
-import { getAllFactTablesForOrganization } from "back-end/src/models/FactTableModel";
+import { getAllFactTablesForDefinitions } from "back-end/src/models/FactTableModel";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
+  getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
@@ -177,8 +182,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     decisionCriteria,
     webhookSecrets,
   ] = await Promise.all([
-    getMetricsByOrganization(context),
-    getDataSourcesByOrganization(context),
+    getMetricsForDefinitions(context),
+    getDataSourcesByOrganization(context).then((ds) =>
+      getDataSourcesWithParams(context, ds),
+    ),
     findDimensionsByOrganization(orgId),
     context.models.segments.getAll(),
     context.models.metricGroups.getAll(),
@@ -187,17 +194,24 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.constants.getAllWithoutValues(),
     context.models.customFields.getCustomFields(),
     context.models.projects.getAll(),
-    getAllFactTablesForOrganization(context),
+    getAllFactTablesForDefinitions(context),
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
+  const visibleDimensions = dimensions.filter((dimension) =>
+    readableDatasourceIds.has(dimension.datasource),
+  );
+
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: await getDataSourcesWithParams(context, datasources),
-    dimensions,
+    datasources,
+    dimensions: visibleDimensions,
     segments,
     metricGroups,
     tags,
@@ -261,6 +275,13 @@ export async function getAllHistory(
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
+  }
+
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
   }
 
   // Get total count for display
@@ -345,6 +366,13 @@ export async function getHistory(
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${entityTypes}`,
     });
+  }
+
+  // API key history can expose roles/scope/descriptions, so gate it behind the
+  // same admin permission used to manage keys (matching the admin-gated UI).
+  // Other entity types keep their existing org-scoped access.
+  if (type === "apiKey" && !context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
   }
 
   // Get total count for display
@@ -620,7 +648,7 @@ export async function putMember(
     );
     if (invite) {
       // if user already invited, accept invite
-      await acceptInvite(invite.key, req.userId);
+      await acceptInvite(invite.key, req.userId, req.email);
     } else if (organization.autoApproveMembers) {
       // if auto approve, add user as member
       await addMemberToOrg({
@@ -863,22 +891,36 @@ export async function getOrganization(
     isVercelIntegration,
   } = org;
 
-  let license: Partial<LicenseInterface> | null = null;
-  if (licenseKey || process.env.LICENSE_KEY) {
-    // automatically set the license data based on org license key
-    license = getLicense(licenseKey || process.env.LICENSE_KEY);
-    if (!license || (license.organizationId && license.organizationId !== id)) {
-      try {
-        license =
-          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
-          null;
-      } catch (e) {
-        logger.error(e, "setting license failed");
+  const resolveLicense =
+    async (): Promise<Partial<LicenseInterface> | null> => {
+      if (!licenseKey && !process.env.LICENSE_KEY) return null;
+      // automatically set the license data based on org license key
+      let license: Partial<LicenseInterface> | null =
+        getLicense(licenseKey || process.env.LICENSE_KEY) || null;
+      if (
+        !license ||
+        (license.organizationId && license.organizationId !== id)
+      ) {
+        try {
+          license =
+            (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+            null;
+        } catch (e) {
+          logger.error(e, "setting license failed");
+        }
       }
-    }
-  }
+      return license;
+    };
 
-  const installationName = (await getLicenseMetaData())?.installationName;
+  // These lookups don't depend on each other, so run them in parallel
+  const [license, installationName, expandedMembers, agreements, watch] =
+    await Promise.all([
+      resolveLicense(),
+      getInstallationName(org),
+      expandOrgMembers(members, userId),
+      context.models.agreements.getAll(),
+      context.models.watch.getWatchedByUser(userId),
+    ]);
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
     context.permissions.canReadMultiProjectResource(attribute.projects),
@@ -900,9 +942,8 @@ export async function getOrganization(
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members, userId);
-
-  const teams = await context.models.teams.getAll();
+  // Teams were already loaded (unfiltered) by the auth middleware
+  const teams = context.teams;
 
   const teamsWithMembers: TeamInterface[] = teams.map((team) => {
     const memberIds = getMembersOfTeam(org, team.id);
@@ -917,23 +958,21 @@ export async function getOrganization(
     org,
     teams || [],
   );
-  const agreements = await context.models.agreements.getAll();
   const agreementsAgreed = Array.from(
     new Set(agreements.map((a) => a.agreement as AgreementType)),
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  const watch = await context.models.watch.getWatchedByUser(userId);
-
   const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+  const effectiveAccountPlan = getEffectiveAccountPlan(org);
 
   return res.status(200).json({
     status: 200,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    effectiveAccountPlan,
     licenseError: getLicenseError(org),
-    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatures: [...accountFeatures[effectiveAccountPlan]],
     commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
@@ -1313,10 +1352,10 @@ export async function postInviteAccept(
   const { key } = req.body;
 
   try {
-    if (!req.userId) {
+    if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
-    const org = await acceptInvite(key, req.userId);
+    const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
@@ -1813,6 +1852,7 @@ export async function postApiKey(
     projectRoles,
   } = req.body;
 
+  let key: ApiKeyInterface;
   // Handle user personal access tokens
   if (type === "user") {
     if (!userId) {
@@ -1820,31 +1860,94 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    const key = await context.models.apiKeys.createUserPersonalAccessApiKey({
+    key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
-    });
-
-    return res.status(200).json({
-      status: 200,
-      key,
     });
   }
   // Handle organization secret tokens
   else {
-    const key = await context.models.apiKeys.createOrganizationApiKey({
+    key = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
       limitAccessByEnvironment,
       environments,
       projectRoles,
     });
-
-    return res.status(200).json({
-      status: 200,
-      key,
-    });
   }
+
+  await req.audit({
+    event: "apiKey.create",
+    entity: {
+      object: "apiKey",
+      id: key.id || "",
+      name: key.description,
+    },
+    details: auditDetailsCreate(ApiKeyModel.toAuditDetails(key)),
+  });
+
+  return res.status(200).json({
+    status: 200,
+    key,
+  });
+}
+
+export async function putApiKey(
+  req: AuthRequest<
+    {
+      role: string;
+      description?: string;
+      limitAccessByEnvironment?: boolean;
+      environments?: string[];
+      projectRoles?: ProjectMemberRole[];
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const {
+    role,
+    description,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
+
+  // Editing a key's authority is at least as sensitive as revealing it, so we
+  // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user
+  // keys (permissions.canCreateApiKey()).
+  if (!context.permissions.canCreateApiKey()) {
+    context.permissions.throwPermissionError();
+  }
+
+  // The model returns both the pre- and post-update docs from a single read so
+  // the audit log can diff the permission scope. If the key doesn't exist the
+  // model throws, so there is always a before-state here.
+  const { before, after } =
+    await context.models.apiKeys.updateSecretApiKeyPermissions(id, {
+      role,
+      description,
+      limitAccessByEnvironment,
+      environments,
+      projectRoles,
+    });
+
+  await req.audit({
+    event: "apiKey.update",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function deleteApiKey(
@@ -1858,10 +1961,20 @@ export async function deleteApiKey(
     throw new Error("Must provide either an API key or id in order to delete");
   }
 
-  await context.models.apiKeys.deleteByIdOrKey(
+  const deleted = await context.models.apiKeys.deleteByIdOrKey(
     id || undefined,
     key || undefined,
   );
+
+  await req.audit({
+    event: "apiKey.delete",
+    entity: {
+      object: "apiKey",
+      id: deleted.id || "",
+      name: deleted.description,
+    },
+    details: auditDetailsDelete(ApiKeyModel.toAuditDetails(deleted)),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1876,7 +1989,25 @@ export async function putApiKeyDisabled(
   const { id } = req.params;
   const { disabled } = req.body;
 
-  await context.models.apiKeys.setDisabled(id, disabled);
+  // `setDisabled` returns both the pre- and post-update docs so we can log the
+  // before/after state from the real persisted doc.
+  const { before, after } = await context.models.apiKeys.setDisabled(
+    id,
+    disabled,
+  );
+
+  await req.audit({
+    event: disabled ? "apiKey.disable" : "apiKey.enable",
+    entity: {
+      object: "apiKey",
+      id: after.id || "",
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
 
   res.status(200).json({ status: 200 });
 }

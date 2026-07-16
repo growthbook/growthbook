@@ -690,7 +690,7 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-export async function acceptInvite(key: string, userId: string) {
+export async function acceptInvite(key: string, userId: string, email: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
@@ -706,6 +706,12 @@ export async function acceptInvite(key: string, userId: string) {
   const invite = organization.invites.filter((invite) => invite.key === key)[0];
   if (!invite) {
     throw new Error("Could not find invitation with that key");
+  }
+
+  // Ensure the invite was issued to the authenticated user's email; otherwise a
+  // leaked invite key would let any logged-in user join with the invited role.
+  if (!email || email.toLowerCase() !== invite.email.toLowerCase()) {
+    throw new Error("This invitation was sent to a different email address");
   }
 
   // Remove invite

@@ -1580,6 +1580,7 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      baseRevision={baseRevision}
                     />
                   </>
                 ) : (

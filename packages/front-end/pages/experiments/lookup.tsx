@@ -35,7 +35,7 @@ export default function ExperimentLookupPage() {
   }, [trackingKey, apiCall, router]);
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return <Callout status="error">{error}</Callout>;
   }
 
   if (loading) {

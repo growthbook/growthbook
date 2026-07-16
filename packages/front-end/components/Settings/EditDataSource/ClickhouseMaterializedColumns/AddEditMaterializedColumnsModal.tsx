@@ -9,6 +9,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import Button from "@/ui/Button";
 
 interface BaseProps {
@@ -84,18 +85,19 @@ export default function AddMaterializedColumnsModal({
     existingSourceFields,
   ]);
 
-  const [ftId, contextJsonFields]: [string, JSONColumnFields] = useMemo(() => {
-    const clickhouseFactTable = factTables.find(
-      (ft) =>
-        getDatasourceById(ft.datasource)?.type === "growthbook_clickhouse",
-    );
-    return [
-      clickhouseFactTable?.id || "",
-      (clickhouseFactTable?.columns || []).find(
-        (col) => col.column === "attributes",
-      )?.jsonFields || {},
-    ];
-  }, [factTables, getDatasourceById]);
+  const ftId = useMemo(
+    () =>
+      factTables.find(
+        (ft) =>
+          getDatasourceById(ft.datasource)?.type === "growthbook_clickhouse",
+      )?.id || "",
+    [factTables, getDatasourceById],
+  );
+  // jsonFields is slimmed out of the definitions copy, so fetch the full table
+  const { factTable: clickhouseFactTable } = useFullFactTable(ftId || null);
+  const contextJsonFields: JSONColumnFields =
+    clickhouseFactTable?.columns.find((col) => col.column === "attributes")
+      ?.jsonFields || {};
 
   const typeOptions = [{ label: "Other", value: "" }];
 
