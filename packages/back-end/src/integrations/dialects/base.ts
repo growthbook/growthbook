@@ -27,11 +27,17 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   dateDiff: (startCol: string, endCol: string) =>
     `datediff(day, ${startCol}, ${endCol})`,
 
-  dateDiffMs: (startCol: string, endCol: string) =>
-    `(EXTRACT(EPOCH FROM (${endCol} - ${startCol})) * 1000)`,
+  dateDiffMs: () => {
+    throw new Error(
+      "Millisecond date differences are not supported by this data source.",
+    );
+  },
 
-  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
-    `${col} ${sign} INTERVAL '${amount} seconds'`,
+  addIntervalSeconds: () => {
+    throw new Error(
+      "Adding timestamp intervals is not supported by this data source.",
+    );
+  },
 
   percentileApprox: (column: string, percentile: number | string) =>
     `APPROX_PERCENTILE(${column}, ${percentile})`,
@@ -51,26 +57,20 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
 
   castUserDateCol: (column: string) => column,
 
-  // Postgres-flavored array helpers. Redshift inherits these unchanged.
-  // BigQuery/Snowflake/Athena/ClickHouse have their own array syntax and
-  // override below; if a dialect doesn't support arrays at all (MySQL,
-  // older MSSQL) it'll need to override these to throw or to express the
-  // operation through a different mechanism (e.g. JSON_TABLE).
-  arrayAggSorted: (col: string) =>
-    `ARRAY_AGG(${col} ORDER BY ${col}) FILTER (WHERE ${col} IS NOT NULL)`,
+  arrayAggSorted: () => {
+    throw new Error("Array aggregation is not supported by this data source.");
+  },
 
-  argMinByTimestamp: (valueCol: string, tsCol: string) =>
-    // No standard ARG_MIN in Postgres. Trick: build a value-array ordered
-    // by the timestamp column (NULLs filtered), then index [1] gives the
-    // value paired with the earliest timestamp.
-    `(ARRAY_AGG(${valueCol} ORDER BY ${tsCol}) FILTER (WHERE ${tsCol} IS NOT NULL))[1]`,
+  argMinByTimestamp: () => {
+    throw new Error(
+      "Finding a value at the minimum timestamp is not supported by this data source.",
+    );
+  },
 
-  arrayMinInRange: (col, lowerBound, upperBound) => {
-    const conditions: string[] = [];
-    if (lowerBound) conditions.push(`t >= ${lowerBound}`);
-    if (upperBound) conditions.push(`t <= ${upperBound}`);
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-    return `(SELECT MIN(t) FROM unnest(${col}) AS t ${where})`;
+  arrayMinInRange: () => {
+    throw new Error(
+      "Finding a minimum array value is not supported by this data source.",
+    );
   },
 
   getCurrentTimestamp: () => `CURRENT_TIMESTAMP`,

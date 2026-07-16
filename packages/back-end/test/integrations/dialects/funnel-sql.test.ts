@@ -9,23 +9,38 @@ import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
 import { athenaDialect } from "back-end/src/integrations/dialects/athena";
 import { prestoDialect } from "back-end/src/integrations/dialects/presto";
 import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
+import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
+import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import { baseDialect } from "back-end/src/integrations/dialects/base";
+import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 
 // The funnel SQL depends on two dialect helpers beyond the array helpers:
 // `dateDiffMs` (emitted on every 2+ step funnel for time-from-previous stats)
 // and `addIntervalSeconds` (conversion/concurrency window bounds). These were
-// only correct for Postgres + ClickHouse until per-dialect overrides were
-// added; the Postgres-flavored base versions are invalid on the other
-// engines. These table-driven cases assert each dialect emits its native
-// syntax (mirrors integrations/dialects/array-element.test.ts).
+// dialect-specific, so the base implementations throw and every concrete
+// dialect emits its native syntax.
 describe("SqlDialect funnel time helpers", () => {
+  it("throws when a dialect does not implement time helpers", () => {
+    expect(() => baseDialect.dateDiffMs("a", "b")).toThrow(
+      "Millisecond date differences are not supported by this data source.",
+    );
+    expect(() => baseDialect.addIntervalSeconds("c", "+", 30)).toThrow(
+      "Adding timestamp intervals is not supported by this data source.",
+    );
+  });
+
   const dateDiffMsCases: [string, Pick<SqlDialect, "dateDiffMs">, string][] = [
-    [
-      "postgres (base)",
-      postgresDialect,
-      "(EXTRACT(EPOCH FROM (b - a)) * 1000)",
-    ],
+    ["postgres", postgresDialect, "(EXTRACT(EPOCH FROM (b - a)) * 1000)"],
+    ["redshift", redshiftDialect, "DATEDIFF(millisecond, a, b)"],
+    ["mssql", mssqlDialect, "DATEDIFF_BIG(millisecond, a, b)"],
+    ["vertica", verticaDialect, "TIMESTAMPDIFF(millisecond, a, b)"],
     ["clickhouse", clickHouseDialect, "dateDiff('millisecond', a, b)"],
-    ["bigquery", bigQueryDialect, "DATETIME_DIFF(b, a, MILLISECOND)"],
+    [
+      "bigquery",
+      bigQueryDialect,
+      "CAST(DATETIME_DIFF(b, a, MILLISECOND) AS FLOAT64)",
+    ],
     ["snowflake", snowflakeDialect, "DATEDIFF(millisecond, a, b)"],
     ["athena (trino)", athenaDialect, "date_diff('millisecond', a, b)"],
     ["presto (trino)", prestoDialect, "date_diff('millisecond', a, b)"],
@@ -34,6 +49,7 @@ describe("SqlDialect funnel time helpers", () => {
       databricksDialect,
       "(unix_millis(b) - unix_millis(a))",
     ],
+    ["mysql", mysqlDialect, "(TIMESTAMPDIFF(MICROSECOND, a, b) / 1000)"],
   ];
   it.each(dateDiffMsCases)("dateDiffMs — %s", (_name, dialect, expected) => {
     expect(dialect.dateDiffMs("a", "b")).toBe(expected);
@@ -46,10 +62,23 @@ describe("SqlDialect funnel time helpers", () => {
     string,
   ][] = [
     [
-      "postgres (base)",
+      "postgres",
       postgresDialect,
       "c + INTERVAL '30 seconds'",
       "c - INTERVAL '5 seconds'",
+    ],
+    [
+      "redshift",
+      redshiftDialect,
+      "DATEADD(second, 30, c)",
+      "DATEADD(second, -5, c)",
+    ],
+    ["mssql", mssqlDialect, "DATEADD(second, 30, c)", "DATEADD(second, -5, c)"],
+    [
+      "vertica",
+      verticaDialect,
+      "TIMESTAMPADD(second, 30, c)",
+      "TIMESTAMPADD(second, -5, c)",
     ],
     [
       "clickhouse",
@@ -87,6 +116,12 @@ describe("SqlDialect funnel time helpers", () => {
       "timestampadd(SECOND, 30, c)",
       "timestampadd(SECOND, -5, c)",
     ],
+    [
+      "mysql",
+      mysqlDialect,
+      "DATE_ADD(c, INTERVAL 30 SECOND)",
+      "DATE_SUB(c, INTERVAL 5 SECOND)",
+    ],
   ];
   it.each(addIntervalSecondsCases)(
     "addIntervalSeconds — %s",
@@ -95,6 +130,59 @@ describe("SqlDialect funnel time helpers", () => {
       expect(dialect.addIntervalSeconds("c", "-", 5)).toBe(minus);
     },
   );
+});
+
+describe("SqlDialect funnel array helpers", () => {
+  it("throws when a dialect does not implement array operations", () => {
+    expect(() => baseDialect.arrayAggSorted("value")).toThrow(
+      "Array aggregation is not supported by this data source.",
+    );
+    expect(() => baseDialect.argMinByTimestamp("value", "timestamp")).toThrow(
+      "Finding a value at the minimum timestamp is not supported by this data source.",
+    );
+    expect(() => baseDialect.arrayMinInRange("values", null, null)).toThrow(
+      "Finding a minimum array value is not supported by this data source.",
+    );
+  });
+
+  it("keeps Postgres-style array SQL in the Postgres dialect", () => {
+    expect(postgresDialect.arrayAggSorted("value")).toBe(
+      "ARRAY_AGG(value ORDER BY value) FILTER (WHERE value IS NOT NULL)",
+    );
+    expect(postgresDialect.argMinByTimestamp("value", "timestamp")).toBe(
+      "(ARRAY_AGG(value ORDER BY timestamp) FILTER (WHERE timestamp IS NOT NULL))[1]",
+    );
+    expect(postgresDialect.arrayMinInRange("values", "lower", "upper")).toBe(
+      "(SELECT MIN(t) FROM unnest(values) AS t WHERE t >= lower AND t <= upper)",
+    );
+  });
+
+  it("uses Redshift SUPER array SQL", () => {
+    expect(redshiftDialect.arrayAggSorted("value")).toContain(
+      "SPLIT_TO_ARRAY(LISTAGG(",
+    );
+    expect(redshiftDialect.argMinByTimestamp("value", "timestamp")).toContain(
+      "SPLIT_PART(MIN(",
+    );
+    expect(redshiftDialect.arrayMinInRange("values", "lower", "upper")).toBe(
+      "(SELECT MIN(t::timestamp) FROM values AS t WHERE t::timestamp >= lower AND t::timestamp <= upper)",
+    );
+  });
+
+  it("rejects MySQL array aggregation", () => {
+    expect(mysqlDialect.castToTimestamp("value")).toBe(
+      "CAST(value AS DATETIME)",
+    );
+    expect(() => mysqlDialect.arrayAggSorted("value")).toThrow(
+      "Array aggregation is not supported by this data source.",
+    );
+    expect(mysqlDialect.argMinByTimestamp("value", "timestamp")).toContain(
+      "GROUP_CONCAT(IF(timestamp IS NULL",
+    );
+    expect(mysqlDialect.arrayMinInRange("values", "lower", "upper")).toBe(
+      "(SELECT MIN(t.value) FROM JSON_TABLE(values, '$[*]' COLUMNS (value DATETIME(6) PATH '$')) AS t WHERE t.value >= lower AND t.value <= upper)",
+    );
+  });
 });
 
 // End-to-end guard for the launch subset (D-PA2: postgres + clickhouse):
@@ -233,6 +321,12 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).not.toContain("::float");
   });
 
+  it("MySQL rejects funnel SQL until array aggregation is supported", () => {
+    expect(() => buildFunnelSql(config, factTableMap, mysqlDialect)).toThrow(
+      "Array aggregation is not supported by this data source.",
+    );
+  });
+
   it("Snowflake resolves steps without a correlated FLATTEN subquery", () => {
     const { sql, stepCount } = buildFunnelSql(
       config,
@@ -251,19 +345,16 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).toMatch(/DATEADD\s*\(\s*second/i);
   });
 
-  it("BigQuery computes time-from-previous stats in FLOAT64 (no INT64 overflow)", () => {
+  it("BigQuery computes time-from-previous stats in FLOAT64", () => {
     const { sql, stepCount } = buildFunnelSql(
       config,
       factTableMap,
       bigQueryDialect,
     );
     expect(stepCount).toBe(3);
-    // The ms diff must be cast to FLOAT64 before it's squared/summed, so the
-    // sum-of-squares aggregation doesn't overflow INT64.
     expect(sql).toMatch(
       /CAST\s*\(\s*DATETIME_DIFF\([^)]*MILLISECOND\s*\)\s*AS FLOAT64\s*\)/,
     );
-    // The squared term multiplies two FLOAT64-cast diffs (float arithmetic).
     expect(sql).toMatch(/AS FLOAT64\s*\)\s*\*\s*CAST\s*\(\s*DATETIME_DIFF/);
     // First-touch dimension uses ANY_VALUE(... HAVING MIN ...). `IGNORE NULLS`
     // is invalid in this form (it IS valid on ARRAY_AGG, so only guard the

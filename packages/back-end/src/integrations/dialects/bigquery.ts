@@ -125,7 +125,6 @@ export const bigQueryDialect: SqlDialect = {
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
-  castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral: bigQueryEscapeStringLiteral,
     emitEscapeClause: false,
@@ -195,7 +194,7 @@ export const bigQueryDialect: SqlDialect = {
   addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
     `DATETIME_${sign === "+" ? "ADD" : "SUB"}(${col}, INTERVAL ${amount} SECOND)`,
   dateDiffMs: (startCol: string, endCol: string) =>
-    `DATETIME_DIFF(${endCol}, ${startCol}, MILLISECOND)`,
+    `CAST(DATETIME_DIFF(${endCol}, ${startCol}, MILLISECOND) AS FLOAT64)`,
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":
