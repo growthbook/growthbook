@@ -24,6 +24,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/CustomHooks/CustomHookModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/DataViz/DataVizConfigPanel.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -315,11 +320,6 @@
     }
   },
   "packages/front-end/components/Features/CodeSnippetModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/CustomHookModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

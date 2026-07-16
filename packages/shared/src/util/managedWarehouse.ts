@@ -369,6 +369,61 @@ export function getManagedWarehouseUserIdTypeSettings(
   );
 }
 
+// Built-in identifier folding for JSON-column warehouses, mirroring
+// parseAttributes in the growthbook-tracking SDK plugin: the `user_id` attribute
+// maps to the `user_id` column; `device_id`, `anonymous_id`, and `id` all map to
+// the `device_id` column. Any other attribute is a custom identifier whose column
+// name equals the attribute property.
+const BUILTIN_ATTRIBUTE_TO_IDENTIFIER: Record<string, string> = {
+  user_id: "user_id",
+  device_id: "device_id",
+  anonymous_id: "device_id",
+  id: "device_id",
+};
+
+// Resolve the managed-warehouse identifier column (which doubles as the exposure
+// query's userIdType) that a hash attribute maps to. Legacy materialized-column
+// warehouses return the stored SQL column, or null when the attribute isn't an
+// identifier. JSON-column warehouses fold built-ins per BUILTIN_ATTRIBUTE_TO_IDENTIFIER
+// and treat any other attribute as a custom identifier named after the property.
+export function getManagedWarehouseIdentifierForAttribute({
+  settings,
+  attribute,
+}: {
+  settings: GrowthbookClickhouseSettings;
+  attribute: string;
+}): string | null {
+  const materializedColumns = settings.materializedColumns || [];
+  if (materializedColumns.length) {
+    const column = materializedColumns.find(
+      (c) => c.type === "identifier" && c.sourceField === attribute,
+    )?.columnName;
+    return column ?? null;
+  }
+  return BUILTIN_ATTRIBUTE_TO_IDENTIFIER[attribute] ?? attribute;
+}
+
+// Resolve the exposure query (Experiment Assignment Query) a hash attribute maps
+// to on a managed warehouse, using the identifier mapping stored in the datasource
+// settings. Returns "" when no query matches.
+export function getManagedWarehouseExposureQueryIdForAttribute({
+  settings,
+  attribute,
+}: {
+  settings: GrowthbookClickhouseSettings;
+  attribute: string;
+}): string {
+  const identifier = getManagedWarehouseIdentifierForAttribute({
+    settings,
+    attribute,
+  });
+  if (!identifier) return "";
+  const query = (settings.queries?.exposure || []).find(
+    (q) => q.userIdType === identifier,
+  );
+  return query?.id ?? "";
+}
+
 /** Quote a ClickHouse identifier (column/alias/JSON path segment) with backticks. */
 function chQuoteIdentifier(name: string): string {
   return "`" + name.replace(/`/g, "``") + "`";

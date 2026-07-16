@@ -6,6 +6,7 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 
 export const getCustomHooks = async (
   req: AuthRequest,
@@ -48,7 +49,7 @@ export const createCustomHook = async (
   }
 
   const data = { ...req.body };
-  // Feature-scoped hooks derive scope from the feature; keep projects empty.
+  // Entity-scoped hooks derive scope from the target resource; keep projects empty.
   if (data.entityType && data.entityId) {
     data.projects = [];
   }
@@ -138,6 +139,14 @@ export const testCustomHook = async (
     // Feature-scoped test: authorize against the target feature
     const feature = await getFeature(context, entityId);
     if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (entityType === "experiment" && entityId) {
+    const experiment = await getExperimentById(context, entityId);
+    if (
+      !experiment ||
+      !context.permissions.canManageExperimentCustomHooks(experiment)
+    ) {
       context.permissions.throwPermissionError();
     }
   } else if (!context.permissions.canCreateCustomHook({ projects: [] })) {

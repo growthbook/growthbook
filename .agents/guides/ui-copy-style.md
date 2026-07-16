@@ -30,22 +30,22 @@ There is one exception that overrides the rule above. A first-class GrowthBook r
 
 The glossary:
 
-| Term                          | Plural                         | Notes                                                                                                                       |
-| ----------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| GrowthBook                    | —                              | The product. Never "Growthbook" or "growthbook".                                                                            |
-| Visual Editor                 | —                              | The product feature.                                                                                                        |
-| North Star                    | North Stars                    | The metric concept.                                                                                                         |
-| Bandit                        | Bandits                        |                                                                                                                             |
-| Data Source                   | Data Sources                   |                                                                                                                             |
-| Fact Metric                   | Fact Metrics                   | Lowercase "metric" only when not referring to the Fact Metric resource.                                                     |
-| Feature Flag                  | Feature Flags                  | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                  |
-| Saved Group                   | Saved Groups                   |                                                                                                                             |
-| SDK Connection                | SDK Connections                |                                                                                                                             |
-| Experiment Template           | Experiment Templates           | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template"). |
-| Experiment Decision Framework | -                              | Title Case. Abbreviated as "EDF".                                                                                           |
-| Metric Slices                 | —                              | The metric-slicing feature (overall).                                                                                       |
-| Auto Slice                    | Auto Slices                    | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
-| Project                       | Projects                       | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
+| Term                          | Plural               | Notes                                                                                                                       |
+| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| GrowthBook                    | —                    | The product. Never "Growthbook" or "growthbook".                                                                            |
+| Visual Editor                 | —                    | The product feature.                                                                                                        |
+| North Star                    | North Stars          | The metric concept.                                                                                                         |
+| Bandit                        | Bandits              |                                                                                                                             |
+| Data Source                   | Data Sources         |                                                                                                                             |
+| Fact Metric                   | Fact Metrics         | Lowercase "metric" only when not referring to the Fact Metric resource.                                                     |
+| Feature Flag                  | Feature Flags        | Use the full "Feature Flag" in user-facing copy. Do not use the shorthand "Feature" or "Flag" as the term.                  |
+| Saved Group                   | Saved Groups         |                                                                                                                             |
+| SDK Connection                | SDK Connections      |                                                                                                                             |
+| Experiment Template           | Experiment Templates | The full compound is a named resource. Bare "template" stays a lowercase common noun ("select a template", "New template"). |
+| Experiment Decision Framework | -                    | Title Case. Abbreviated as "EDF".                                                                                           |
+| Metric Slices                 | —                    | The metric-slicing feature (overall).                                                                                       |
+| Auto Slice                    | Auto Slices          | Automatically populates and manages Metric Slices. The word "levels" in "Auto Slice levels" stays a lowercase common noun.  |
+| Project                       | Projects             | A first-class resource with its own sidebar entry and page. "All Projects" is the fixed scope label meaning every Project.  |
 
 So a sentence-case label still reads "Require approval to modify Saved Groups", and body copy still reads "users will only be able to create Fact Metrics".
 
