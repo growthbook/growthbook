@@ -71,6 +71,7 @@ const STARTER_BILLING_PLAN: BillingPlan = {
   details: [
     { label: "Feature Flags & Evaluations", value: "Unlimited" },
     { label: "Experiments", value: "Unlimited" },
+    { label: "Projects", value: "Limit 1" },
     { label: "Seats", value: "Up to 3" },
   ],
 };
@@ -87,6 +88,7 @@ function getProBillingPlan(perSeatCost: number): BillingPlan {
     details: [
       { label: "Feature Flags & Evaluations", value: "Unlimited" },
       { label: "Experiments", value: "Unlimited" },
+      { label: "Projects", value: "Unlimited" },
       { label: "Seats", value: `$${perSeatCost}/seat/month` },
       {
         label: "Advanced Flags",
