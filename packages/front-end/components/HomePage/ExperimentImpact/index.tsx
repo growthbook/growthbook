@@ -470,7 +470,7 @@ export default function ExperimentImpact({
         <div className="col-auto" style={{ maxWidth: 250 }}>
           <label className="mb-1">Projects</label>
           <MultiSelectField
-            placeholder="All projects"
+            placeholder="All Projects"
             value={project ? [project] : selectedProjects}
             disabled={!!project}
             options={projects

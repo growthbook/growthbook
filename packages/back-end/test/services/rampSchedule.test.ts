@@ -24,6 +24,9 @@ import type { FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
+  isAwaitingStartApproval,
+  startApprovalPending,
+  resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
@@ -3372,6 +3375,40 @@ describe("completeRollout", () => {
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"a":"1"}');
   });
+
+  it("refuses to complete a held approval-gated schedule (would enable without approval)", async () => {
+    // Held at -1, awaiting start approval: completing would inject enabled:true
+    // and serve traffic without the recorded approval — the gate must block it.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(completeRollout(ctx as never, schedule)).rejects.toThrow(
+      /start approval/i,
+    );
+    // Threw before publishing, so no revision was created.
+    expect(mockCreateRevision).not.toHaveBeenCalled();
+  });
+
+  it("still completes a held approval-gated schedule when disabling (cutoff path never serves)", async () => {
+    // disableActiveTargets disables the rule (e.g. cutoff-driven completion), so
+    // there's no -1 → serving crossing to gate — it must not be blocked.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(
+      completeRollout(ctx as never, schedule, { disableActiveTargets: true }),
+    ).resolves.toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -4316,6 +4353,116 @@ describe("isAwaitingApproval", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isAwaitingStartApproval
+// ---------------------------------------------------------------------------
+
+describe("isAwaitingStartApproval", () => {
+  const held = {
+    status: "ready" as const,
+    currentStepIndex: -1,
+    requiresStartApproval: true,
+    startApprovedAt: null,
+  };
+
+  it("returns true for a ready, unapproved, pre-start approval schedule", () => {
+    expect(isAwaitingStartApproval(held)).toBe(true);
+  });
+
+  it("returns false once approved", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the schedule does not require approval", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        requiresStartApproval: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false once past step -1 (already crossed into a step)", () => {
+    expect(isAwaitingStartApproval({ ...held, currentStepIndex: 0 })).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a running schedule (only the ready hold counts)", () => {
+    expect(
+      isAwaitingStartApproval({ ...held, status: "running" as const }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// startApprovalPending — the status-independent invariant used at the crossing
+// ---------------------------------------------------------------------------
+
+describe("startApprovalPending", () => {
+  it("is true when required and not yet approved (any status)", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: null,
+      }),
+    ).toBe(true);
+    // Status-independent: still pending even mid-transition to running.
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false once approved", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when approval isn't required", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: false,
+        startApprovedAt: null,
+      }),
+    ).toBe(false);
+    expect(startApprovalPending({})).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveStartApproval — tri-state (true/false/null = set, undefined = keep)
+// ---------------------------------------------------------------------------
+
+describe("resolveStartApproval", () => {
+  it("uses the action value when explicitly set", () => {
+    expect(resolveStartApproval(true, false)).toBe(true);
+    expect(resolveStartApproval(false, true)).toBe(false);
+  });
+
+  it("treats null as an explicit off (does not fall back to base)", () => {
+    expect(resolveStartApproval(null, true)).toBe(false);
+  });
+
+  it("falls back to the base value when the action omits it (undefined)", () => {
+    expect(resolveStartApproval(undefined, true)).toBe(true);
+    expect(resolveStartApproval(undefined, false)).toBe(false);
+    expect(resolveStartApproval(undefined, null)).toBe(false);
+    expect(resolveStartApproval(undefined, undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isReadyForApproval — approval is gated behind the step's interval
 // ---------------------------------------------------------------------------
 
@@ -4451,6 +4598,26 @@ describe("computeNextProcessAt", () => {
   it("ready: returns null when no startDate", () => {
     const result = computeNextProcessAt({ status: "ready" });
     expect(result).toBeNull();
+  });
+
+  it("ready: returns null while awaiting start approval, even with a startDate", () => {
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: new Date("2026-06-05T00:00:00Z"),
+      requiresStartApproval: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: arms for startDate once the start is approved", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+      requiresStartApproval: true,
+      startApprovedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    expect(result).toEqual(start);
   });
 
   it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {

@@ -1,16 +1,18 @@
-import { isReadyForApproval } from "shared/validators";
+import { isReadyForApproval, isAwaitingStartApproval } from "shared/validators";
 
 // Single source of truth: a timeline node's status → label + colors. The dot,
 // label, connector, and popover all resolve here so they can't drift apart.
 
 // Minimal schedule shape the derivation needs; tracks isReadyForApproval's input.
-type StatusSchedule = Parameters<typeof isReadyForApproval>[0];
+type StatusSchedule = Parameters<typeof isReadyForApproval>[0] &
+  Parameters<typeof isAwaitingStartApproval>[0];
 
 export type NodeState = "completed" | "active" | "future";
 
 export type NodeStatusToken =
   | "completed"
   | "awaiting-approval"
+  | "awaiting-start-approval"
   | "monitoring"
   | "running"
   | "paused"
@@ -48,6 +50,15 @@ const STATUS_VISUALS: Record<
     label: "Needs Approval",
     dotColor: "var(--orange-9)",
     labelColor: "var(--orange-11)",
+    connectorColor: FUTURE_CONNECTOR,
+    pulse: false,
+  },
+  // Pre-start hold: the rule is off (0% traffic) until a human approves. Like
+  // approval, the outgoing edge stays gray so it doesn't read as "advanced".
+  "awaiting-start-approval": {
+    label: "Awaiting approval",
+    dotColor: "var(--amber-9)",
+    labelColor: "var(--amber-11)",
     connectorColor: FUTURE_CONNECTOR,
     pulse: false,
   },
@@ -103,6 +114,8 @@ export function nodeStatusToken(
   if (nodeState === "completed") return "completed";
   if (nodeState === "future") return "future";
 
+  // Pre-start approval hold takes precedence — the ramp hasn't started yet.
+  if (isAwaitingStartApproval(rs)) return "awaiting-start-approval";
   // Approval is the top-priority active hold, mirroring the rule badge.
   if (isReadyForApproval(rs)) return "awaiting-approval";
   switch (rs.status) {

@@ -255,7 +255,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               </>
             }
             placeholder={
-              canCreateWithoutProject ? "All projects" : "Select projects..."
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
             }
             value={form.watch("projects") || []}
             options={projectOptions}
