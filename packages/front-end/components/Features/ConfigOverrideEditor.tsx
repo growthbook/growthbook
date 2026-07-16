@@ -3,12 +3,7 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { SchemaField } from "shared/types/feature";
 import { deepMergePatch } from "shared/util";
 import { isEqual } from "lodash";
-import {
-  PiInfo,
-  PiPlusBold,
-  PiTrash,
-  PiArrowCounterClockwise,
-} from "react-icons/pi";
+import { PiInfo, PiPlusBold, PiTrash } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Text from "@/ui/Text";
@@ -281,7 +276,6 @@ function OverrideRow({
   onRemove,
   onRename,
   takenKeys,
-  sparse,
   constantContext,
   disabled,
 }: {
@@ -295,7 +289,6 @@ function OverrideRow({
   onRemove: () => void;
   onRename: (newKey: string) => void;
   takenKeys: Set<string>;
-  sparse: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
@@ -445,15 +438,7 @@ function OverrideRow({
             }}
           >
             <Flex align="center" gap="1">
-              {sparse ? (
-                <>
-                  <PiTrash /> Remove
-                </>
-              ) : (
-                <>
-                  <PiArrowCounterClockwise /> Reset
-                </>
-              )}
+              <PiTrash /> Remove
             </Flex>
           </Link>
         ) : (
@@ -728,7 +713,6 @@ export default function ConfigOverrideEditor({
                         onRemove={() => removeOverride(key)}
                         onRename={(newKey) => renameOverride(key, newKey)}
                         takenKeys={takenKeys}
-                        sparse={sparse}
                         constantContext={constantContext}
                         disabled={disabled}
                       />
@@ -736,7 +720,7 @@ export default function ConfigOverrideEditor({
                   })
                 )}
               </Box>
-              {sparse && (addableFields.length > 0 || extensible) && (
+              {(addableFields.length > 0 || extensible) && (
                 <AddFieldControl
                   addableFields={addableFields}
                   extensible={extensible}
