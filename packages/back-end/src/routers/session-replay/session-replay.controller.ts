@@ -20,8 +20,10 @@ type SessionReplayListItem = Pick<
   | "startedAt"
   | "endedAt"
   | "lastEventAt"
+  | "ingestedAt"
   | "durationMs"
   | "eventCount"
+  | "meaningfulEventCount"
   | "errorCount"
   | "urlFirst"
   | "urlsVisited"
@@ -103,8 +105,10 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     lastEventAt: session.lastEventAt,
+    ingestedAt: session.ingestedAt,
     durationMs: session.durationMs,
     eventCount: session.eventCount,
+    meaningfulEventCount: session.meaningfulEventCount,
     errorCount: session.errorCount,
     urlFirst: session.urlFirst,
     urlsVisited: session.urlsVisited,

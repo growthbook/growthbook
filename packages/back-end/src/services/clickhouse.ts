@@ -186,8 +186,10 @@ export type SessionReplayRow = {
   started_at: string;
   ended_at: string;
   last_event_at: string;
+  ingested_at: string;
   duration_ms: number;
   event_count: number;
+  meaningful_event_count: number;
   error_count: number;
   url_first: string;
   urls_visited: string[];

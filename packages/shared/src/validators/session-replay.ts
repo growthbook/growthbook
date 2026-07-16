@@ -73,8 +73,16 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   startedAt: z.date(),
   endedAt: z.date(),
   lastEventAt: z.date(),
+  // Latest server-side ingest time across the session's chunks. Used (with the
+  // server clock, not client-skewed lastEventAt) to infer whether a session is
+  // still actively recording.
+  ingestedAt: z.date(),
   durationMs: z.number().int().nonnegative(),
   eventCount: z.number().int().nonnegative(),
+  // "Worth reviewing" signal: intentional user actions (clicks, inputs, media,
+  // drags) classified from rrweb events by the ingestor — as opposed to
+  // eventCount, which is the raw rrweb total (mostly mutation/mousemove noise).
+  meaningfulEventCount: z.number().int().nonnegative(),
   errorCount: z.number().int().nonnegative(),
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),

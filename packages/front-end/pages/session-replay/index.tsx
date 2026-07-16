@@ -42,8 +42,10 @@ type SessionReplayRow = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  meaningfulEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -76,8 +78,10 @@ type SessionMetadata = {
   startedAt: string;
   endedAt: string;
   lastEventAt: string;
+  ingestedAt: string;
   durationMs: number;
   eventCount: number;
+  meaningfulEventCount: number;
   errorCount: number;
   urlFirst: string;
   urlsVisited: string[];
@@ -109,6 +113,20 @@ type SessionResponse = {
   events: eventWithTime[];
   metadata: SessionMetadata;
 };
+
+// A session is treated as "still recording" when its most recent chunk was
+// ingested within this window. Aligned to the SDK's ~15-min idle timeout — a
+// live recorder flushes on a timer, so a gap longer than the idle timeout
+// means it has almost certainly stopped. Uses ingestedAt (server clock), never
+// lastEventAt (client clock, subject to skew).
+const LIVE_THRESHOLD_MS = 15 * 60 * 1000;
+
+function isSessionLive(ingestedAt: string | undefined): boolean {
+  if (!ingestedAt) return false;
+  const t = new Date(ingestedAt).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < LIVE_THRESHOLD_MS;
+}
 
 type EvaluationEntry = {
   timestamp: number;
@@ -621,13 +639,34 @@ export default function SessionReplayPage() {
                         </span>
                       </Text>
                     </Box>
-                    <Flex gap="3" mt="1">
+                    <Flex gap="2" mt="1" align="center" wrap="wrap">
                       <Text color="text-low" size="small">
-                        ⌁ {session.eventCount} events
+                        ⌁ {session.meaningfulEventCount.toLocaleString()} key
+                        events
                       </Text>
                       <Text color="text-low" size="small">
                         ⏱ {formatDuration(session.durationMs)}
                       </Text>
+                      {session.errorCount > 0 && (
+                        <Badge
+                          label={`${session.errorCount} error${
+                            session.errorCount === 1 ? "" : "s"
+                          }`}
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
+                      {isSessionLive(session.ingestedAt) && (
+                        <Badge
+                          label="● Recording"
+                          size="xs"
+                          variant="soft"
+                          color="red"
+                          radius="full"
+                        />
+                      )}
                     </Flex>
                   </Box>
                 );
@@ -735,10 +774,40 @@ export default function SessionReplayPage() {
               </Flex>
               <Flex gap="1" align="center">
                 <Text weight="medium" color="text-high">
-                  Events
+                  Key events
                 </Text>
-                <Text color="text-low">{metadata?.eventCount ?? "—"}</Text>
+                <Text color="text-low">
+                  {metadata?.meaningfulEventCount?.toLocaleString() ?? "—"}
+                </Text>
+                {metadata ? (
+                  <Text color="text-low" size="small" ml="1">
+                    ({metadata.eventCount.toLocaleString()} total)
+                  </Text>
+                ) : null}
               </Flex>
+              {metadata && metadata.errorCount > 0 && (
+                <Flex gap="1" align="center">
+                  <Text weight="medium" color="text-high">
+                    Errors
+                  </Text>
+                  <Badge
+                    label={metadata.errorCount.toLocaleString()}
+                    size="sm"
+                    variant="soft"
+                    color="red"
+                    radius="full"
+                  />
+                </Flex>
+              )}
+              {isSessionLive(metadata?.ingestedAt) && (
+                <Badge
+                  label="● Recording"
+                  size="sm"
+                  variant="soft"
+                  color="red"
+                  radius="full"
+                />
+              )}
               {/* Evaluations toggle — pushed to far right */}
               <Box style={{ marginLeft: "auto" }}>
                 <Button
