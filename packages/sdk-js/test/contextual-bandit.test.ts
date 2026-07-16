@@ -176,7 +176,11 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
-  it("fails closed (skips the rule, no exposure) when a required attribute is missing", () => {
+  it("buckets on fallback weights (leafId -1) and tracks when a required attribute is missing", () => {
+    // The user passes global targeting (no rule condition here) but is missing
+    // the required `plan` attribute, so no leaf can be selected. They must be
+    // bucketed on the CB's aggregate/fallback weights and tracked, tagged with
+    // the fallback-leaf sentinel — not dropped.
     const trackingCallback = jest.fn();
     const gb = new GrowthBook({
       attributes: { id: "u1" },
@@ -186,15 +190,47 @@ describe("contextual bandit feature rules", () => {
     });
 
     const res = gb.evalFeature("promo");
-    expect(res.source).toEqual("defaultValue");
-    expect(res.value).toEqual("default");
-    expect(res.experimentResult).toBeUndefined();
-    expect(trackingCallback.mock.calls.length).toEqual(0);
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.inExperiment).toEqual(true);
+    expect(res.experimentResult?.variationId).toEqual(0);
+    expect(res.experimentResult?.leafId).toEqual(-1);
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
+    expect(trackingCallback.mock.calls.length).toEqual(1);
 
     gb.destroy();
   });
 
-  it("fails closed (does not crash) when leaf selection throws", () => {
+  it("buckets on fallback weights (leafId -1) and tracks when no leaf matches", () => {
+    // User passes global targeting and has the required attribute, but matches
+    // none of the leaves (no catch-all present). Fallback leaf, still tracked.
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1", plan: "free" },
+      trackingCallback,
+      features: cbFeatures(),
+      contextualBandits: cbMap({
+        contexts: [
+          { leafId: 1, condition: { plan: "enterprise" }, weights: [1, 0] },
+        ],
+      }),
+    });
+
+    const res = gb.evalFeature("promo");
+    expect(res.source).toEqual("experiment");
+    expect(res.value).toEqual("control");
+    expect(res.experimentResult?.inExperiment).toEqual(true);
+    expect(res.experimentResult?.variationId).toEqual(0);
+    expect(res.experimentResult?.leafId).toEqual(-1);
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
+    expect(trackingCallback.mock.calls.length).toEqual(1);
+
+    gb.destroy();
+  });
+
+  it("does not crash and uses fallback weights (leafId -1) when leaf selection throws", () => {
     const trackingCallback = jest.fn();
     // A condition that throws when evaluated (e.g. a malformed payload).
     const throwingCondition = new Proxy(
@@ -215,15 +251,18 @@ describe("contextual bandit feature rules", () => {
       contextualBandits: bandits,
     });
 
-    // Should not throw; the rule is skipped and we fall through to the default.
+    // Should not throw; the user falls back to aggregate weights rather than
+    // being dropped, and is tracked as a fallback-leaf exposure.
     let res: ReturnType<typeof gb.evalFeature>;
     expect(() => {
       res = gb.evalFeature("promo");
     }).not.toThrow();
-    expect(res!.source).toEqual("defaultValue");
-    expect(res!.value).toEqual("default");
-    expect(res!.experimentResult).toBeUndefined();
-    expect(trackingCallback.mock.calls.length).toEqual(0);
+    expect(res!.source).toEqual("experiment");
+    expect(res!.value).toEqual("control");
+    expect(res!.experimentResult?.leafId).toEqual(-1);
+    expect(res!.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res!.experimentResult?.banditVersion).toEqual(7);
+    expect(trackingCallback.mock.calls.length).toEqual(1);
 
     gb.destroy();
   });
@@ -288,7 +327,10 @@ describe("contextual bandit feature rules", () => {
     gb.destroy();
   });
 
-  it("falls back to marginal weights when contexts[] is empty (MAB behavior)", () => {
+  it("uses marginal weights with fallback-leaf metadata when contexts[] is empty (explore stage)", () => {
+    // An explore-stage CB has no leaves yet. Users are bucketed on the aggregate
+    // weights but the exposure is still attributable via the fallback leaf (-1)
+    // and banditVersion, so it can be tied to a weight generation.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
@@ -299,14 +341,16 @@ describe("contextual bandit feature rules", () => {
     expect(res.source).toEqual("experiment");
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
-    expect(res.experimentResult?.leafId).toBeUndefined();
-    expect(res.experimentResult?.variationWeights).toBeUndefined();
-    expect(res.experimentResult?.banditVersion).toBeUndefined();
+    expect(res.experimentResult?.leafId).toEqual(-1);
+    expect(res.experimentResult?.variationWeights).toEqual([1, 0]);
+    expect(res.experimentResult?.banditVersion).toEqual(7);
 
     gb.destroy();
   });
 
-  it("falls back to marginal weights when the contextualBanditRef is dangling", () => {
+  it("falls back to marginal weights with NO metadata when the contextualBanditRef is dangling", () => {
+    // No CB definition in the payload at all, so there is no banditVersion to
+    // report — the rule runs as a plain MAB experiment with no leaf metadata.
     const gb = new GrowthBook({
       attributes: { id: "u1" },
       features: cbFeatures(),
@@ -318,6 +362,7 @@ describe("contextual bandit feature rules", () => {
     expect(res.value).toEqual("control");
     expect(res.experimentResult?.variationId).toEqual(0);
     expect(res.experimentResult?.leafId).toBeUndefined();
+    expect(res.experimentResult?.variationWeights).toBeUndefined();
     expect(res.experimentResult?.banditVersion).toBeUndefined();
 
     gb.destroy();

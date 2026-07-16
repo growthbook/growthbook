@@ -24,6 +24,7 @@ import {
   chooseVariation,
   decrypt,
   getBucketRanges,
+  getEqualWeights,
   getQueryStringOverride,
   getUrlRegExp,
   hash,
@@ -360,15 +361,10 @@ export function evalFeature<V = unknown>(
 
       // A contextual-bandit rule is identified by the presence of
       // `contextualBanditRef` (the key into the payload's contextualBandits
-      // map). Apply leaf selection; a null result means fail closed (skip).
+      // map). Apply leaf selection in place; the rule always runs (matched
+      // users fall back to aggregate weights rather than being skipped).
       if (rule.contextualBanditRef) {
-        const built = buildContextualBanditExperiment(
-          exp,
-          rule.contextualBanditRef,
-          id,
-          ctx,
-        );
-        if (!built) continue;
+        buildContextualBanditExperiment(exp, rule.contextualBanditRef, id, ctx);
       }
 
       // Only return a value if the user is part of the experiment
@@ -879,20 +875,14 @@ function getContextualBanditLeaf(
   return null;
 }
 
-// Applies contextual bandit leaf selection to an experiment built from a
-// contextual-bandit feature rule. Mutates the experiment in place and returns
-// it, or returns null to signal the rule should be skipped (fail closed).
-//  - Dangling ref or a CB with no contexts yet (e.g. explore stage): leave the
-//    aggregate weights untouched (MAB fallback), no leaf metadata.
-//  - Leaf matched: override weights with the leaf weights and attach the leaf
-//    metadata (leafId / variationWeights / banditVersion) to the experiment.
-//  - Missing required attribute or no matching leaf: return null (skip rule).
+const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
+
 function buildContextualBanditExperiment<T>(
   experiment: Experiment<T>,
   contextualBanditRef: string,
   id: string,
   ctx: EvalContext,
-): Experiment<T> | null {
+): void {
   const cbDefinition = ctx.global.contextualBandits?.[contextualBanditRef];
   if (!cbDefinition) {
     process.env.NODE_ENV !== "production" &&
@@ -900,43 +890,43 @@ function buildContextualBanditExperiment<T>(
         "Contextual bandit ref not found in payload, using aggregate weights",
         { id, contextualBanditRef },
       );
-    return experiment;
+    return;
   }
 
-  // No leaf weights yet (e.g. explore stage): fall through to aggregate weights.
-  if (!cbDefinition.contexts.length) return experiment;
-
-  // Leaf selection evaluates user-supplied leaf conditions, so guard against a
-  // malformed condition throwing and taking down the whole feature evaluation.
-  // On any error, fail closed (skip the rule) like a missing required attribute.
-  let leaf: { leafId: number; weights: number[] } | null;
-  try {
-    leaf = getContextualBanditLeaf(cbDefinition, ctx);
-  } catch (e) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip contextual bandit rule (leaf selection threw)", {
-        id,
-        contextualBanditRef,
-        error: e,
-      });
-    return null;
-  }
-  if (!leaf) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log(
-        "Skip contextual bandit rule (missing required attribute or no matching leaf)",
-        { id, contextualBanditRef },
-      );
-    return null;
+  let leaf: { leafId: number; weights: number[] } | null = null;
+  if (cbDefinition.contexts.length) {
+    try {
+      leaf = getContextualBanditLeaf(cbDefinition, ctx);
+    } catch (e) {
+      process.env.NODE_ENV !== "production" &&
+        ctx.global.log(
+          "Contextual bandit leaf selection threw, using fallback weights",
+          { id, contextualBanditRef, error: e },
+        );
+    }
   }
 
-  experiment.weights = leaf.weights;
+  if (leaf) {
+    experiment.weights = leaf.weights;
+    experiment.contextualBandit = {
+      leafId: leaf.leafId,
+      variationWeights: leaf.weights,
+      banditVersion: cbDefinition.banditVersion,
+    };
+    return;
+  }
+
+  process.env.NODE_ENV !== "production" &&
+    ctx.global.log(
+      "Contextual bandit: no matching leaf, using fallback weights",
+      { id, contextualBanditRef },
+    );
   experiment.contextualBandit = {
-    leafId: leaf.leafId,
-    variationWeights: leaf.weights,
+    leafId: CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID,
+    variationWeights:
+      experiment.weights ?? getEqualWeights(experiment.variations.length),
     banditVersion: cbDefinition.banditVersion,
   };
-  return experiment;
 }
 
 function conditionPasses(
