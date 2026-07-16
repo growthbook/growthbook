@@ -159,6 +159,11 @@ export default function DatePicker({
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
+    // While editing a range, the buffered values are the source of truth.
+    // Parent updates can create new Date objects for unchanged values and
+    // otherwise overwrite an incomplete value that the user is still typing.
+    if (rangeFieldFocused && setDate2) return;
+
     if (date) {
       setBufferedDate(format(parseDateInput(date), dateFormat));
     } else {
@@ -169,7 +174,7 @@ export default function DatePicker({
     } else {
       setBufferedDate2("");
     }
-  }, [date, date2, dateFormat, parseDateInput]);
+  }, [date, date2, dateFormat, parseDateInput, rangeFieldFocused, setDate2]);
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
@@ -289,10 +294,15 @@ export default function DatePicker({
 
       if (startTrim) {
         const parsedDate = parseDateInput(startTrim);
-        const finalDate = clampParsedDate(parsedDate);
-        setDate(finalDate);
-        setBufferedDate(format(finalDate, dateFormat));
-        anchor = finalDate;
+        // Keep incomplete input buffered while the user is typing. Invalid
+        // values fall back to the current date in parseDateInput, so applying
+        // them here would overwrite partial values after the debounce.
+        if (format(parsedDate, dateFormat) === startTrim) {
+          const finalDate = clampParsedDate(parsedDate);
+          setDate(finalDate);
+          setBufferedDate(format(finalDate, dateFormat));
+          anchor = finalDate;
+        }
       } else {
         setDate(undefined);
         setBufferedDate("");
@@ -300,10 +310,12 @@ export default function DatePicker({
 
       if (endTrim) {
         const parsedDate2 = parseDateInput(endTrim);
-        const finalDate2 = clampParsedDate(parsedDate2);
-        setDate2?.(finalDate2);
-        setBufferedDate2(format(finalDate2, dateFormat));
-        anchor = finalDate2;
+        if (format(parsedDate2, dateFormat) === endTrim) {
+          const finalDate2 = clampParsedDate(parsedDate2);
+          setDate2?.(finalDate2);
+          setBufferedDate2(format(finalDate2, dateFormat));
+          anchor = finalDate2;
+        }
       } else {
         setDate2?.(undefined);
         setBufferedDate2("");
