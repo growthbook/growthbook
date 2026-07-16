@@ -25,7 +25,7 @@ import {
   getPayloadKeysForAllEnvs,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutHeavyFields } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -173,7 +173,7 @@ async function getFeaturesAffectedByResolvable(
 ): Promise<FeatureInterface[]> {
   const [resolvables, features] = await Promise.all([
     getResolvableValues(context),
-    getAllFeatures(context, {}),
+    getAllFeaturesWithoutHeavyFields(context, {}),
   ]);
   return featuresAffectedByResolvable(resolvables, features, source, key);
 }
@@ -381,7 +381,7 @@ export async function findRunningExperimentRefsReferencingConstant(
   context: ReqContext | ApiReqContext,
   constantKey: string,
 ): Promise<Set<string>> {
-  const features = await getAllFeatures(context, {});
+  const features = await getAllFeaturesWithoutHeavyFields(context, {});
   const { experimentIds, banditIds } = experimentRefsReferencingConstant(
     features,
     constantKey,
@@ -436,7 +436,7 @@ export async function loadConstantReferences(
     ...constantsReferencingTarget.map((c) => refToken(c.source, c.key)),
   ]);
 
-  const allFeatures = await getAllFeatures(context, {});
+  const allFeatures = await getAllFeaturesWithoutHeavyFields(context, {});
   const features = allFeatures
     .filter((f) => {
       const tokens = featureReferenceTokens(f);
@@ -528,7 +528,7 @@ export async function loadConfigFamilyFeatureReferences(
   const { familyKeys } = resolved;
   const familySet = new Set(familyKeys);
 
-  const allFeatures = await getAllFeatures(context, {});
+  const allFeatures = await getAllFeaturesWithoutHeavyFields(context, {});
   const features: ConfigFamilyFeatureRef[] = [];
   for (const f of allFeatures) {
     const rawDefaultKey = getFeatureBaseConfigKey(f);
@@ -739,7 +739,7 @@ export async function getConfigKeyImplementations(
   // These three reads are independent — run them concurrently.
   const [resolved, allFeatures, drafts] = await Promise.all([
     resolveConfigFamily(context, configId),
-    getAllFeatures(context, {}),
+    getAllFeaturesWithoutHeavyFields(context, {}),
     getRevisionsByStatus(context, [
       "draft",
       "pending-review",
@@ -796,7 +796,7 @@ export async function getConfigKeyImplementations(
 
   for (const rev of drafts) {
     // Drafts come from an unfiltered revision query, so scope them to features
-    // the caller can read (live features already are, via getAllFeatures) — else
+    // the caller can read (live features already are, via the feature loader) — else
     // the UI usage path leaks other-project draft override values. The
     // experiment-guard path passes an admin context that reads every feature, so
     // it still sees all drafts (and ignores non-live rows regardless).

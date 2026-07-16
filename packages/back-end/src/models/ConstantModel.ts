@@ -43,6 +43,26 @@ const BaseClass = MakeModelClass({
 });
 
 export class ConstantModel extends BaseClass {
+  // Request-scoped memoized load: reference/cycle scans (getResolvableValues)
+  // read the whole collection several times per write. Loads once and hands the
+  // same promise to every caller until a write invalidates it; a rejected load
+  // isn't cached, so a later call retries. Mirrors ConfigModel.reconcileSnapshot.
+  private allSnapshot: Promise<ConstantInterface[]> | null = null;
+
+  public getAll(): Promise<ConstantInterface[]> {
+    if (this.allSnapshot === null) {
+      this.allSnapshot = super.getAll().catch((err) => {
+        this.allSnapshot = null;
+        throw err;
+      });
+    }
+    return this.allSnapshot;
+  }
+
+  private invalidateAllSnapshot(): void {
+    this.allSnapshot = null;
+  }
+
   protected canRead(doc: ConstantInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -122,6 +142,7 @@ export class ConstantModel extends BaseClass {
   }
 
   protected async afterCreate(doc: ConstantInterface) {
+    this.invalidateAllSnapshot();
     await logConstantCreatedEvent(this.context, this.toApiInterface(doc));
   }
 
@@ -131,6 +152,7 @@ export class ConstantModel extends BaseClass {
     updates: UpdateProps<ConstantInterface>,
     newDoc: ConstantInterface,
   ) {
+    this.invalidateAllSnapshot();
     if (
       updates.value !== undefined ||
       updates.environmentValues !== undefined ||
@@ -162,6 +184,7 @@ export class ConstantModel extends BaseClass {
 
   // A delete leaves references unresolved, changing the payload.
   protected async afterDelete(doc: ConstantInterface) {
+    this.invalidateAllSnapshot();
     resolvableValueChanged(this.context, "deleted", "constant", doc.key).catch(
       (e) => {
         this.context.logger.error(

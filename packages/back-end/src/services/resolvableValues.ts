@@ -23,17 +23,31 @@ export type ResolvableValue = ConstantInterface & {
 // order) into the value, so resolution, cycle detection, and the reference graph
 // see the full composition. Carries `scopedOverrides` so the resolver can apply
 // the matching env/project flavor patch.
+//
+// Memoized by doc identity: the models' memoized snapshots hand the same doc
+// objects to every caller within a request, so the `$extends` synthesis (a
+// parse + stringify of the full value) runs once per config. A write reloads
+// the snapshot with fresh objects, invalidating naturally. Sharing the result
+// is safe — resolvables are never mutated in place (writers like
+// swapConstantValue copy).
+const resolvableByDoc = new WeakMap<ConfigInterface, ResolvableValue>();
 export function configToResolvable(config: ConfigInterface): ResolvableValue {
+  const cached = resolvableByDoc.get(config);
+  if (cached) return cached;
   const baseKeys = getConfigBaseKeys(config);
-  return {
+  const resolvable: ResolvableValue = {
     ...config,
     type: "json",
     source: "config",
     value: withConfigExtends(config.value, baseKeys),
   };
+  resolvableByDoc.set(config, resolvable);
+  return resolvable;
 }
 
 // Every reference target: constants + configs, each tagged with its `source`.
+// The underlying loads are request-memoized by the models, so repeated calls
+// within one request re-query nothing.
 export async function getResolvableValues(
   context: ReqContext | ApiReqContext,
 ): Promise<ResolvableValue[]> {

@@ -489,18 +489,18 @@ export async function getAllFeatures(
 }
 
 /**
- * Lightweight sibling of {@link getAllFeatures} for the stale-detection and
- * dependents graph. Skips Mongoose hydration via `.lean()` and projects out
- * heavy fields the graph does not read. Same migration + permission filter as
- * `getAllFeatures`, so results are interchangeable for any caller that only
- * needs the dependency graph.
+ * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
+ * never read the heavy metadata fields: the stale-detection/dependents graph
+ * and the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+ * `.lean()` and projects out the heavy fields those callers don't read. Same
+ * migration + permission filter as `getAllFeatures`, so results are otherwise
+ * interchangeable.
  *
  * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
  * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
- * absent at runtime. Only use this for graph/stale callers that don't read
- * those fields — reach for `getAllFeatures` if you need a complete feature.
+ * absent at runtime. Reach for `getAllFeatures` if you need a complete feature.
  */
-export async function getAllFeaturesForStaleGraph(
+export async function getAllFeaturesWithoutHeavyFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {

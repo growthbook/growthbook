@@ -398,6 +398,15 @@ export class ConfigModel extends BaseClass {
     this.reconcileSnapshot = null;
   }
 
+  // Derive the permission-filtered read from the same memoized snapshot instead
+  // of a second full-collection query (getResolvableValues and the reconcile
+  // paths both run per request). Equivalent to the base _find pipeline: this
+  // model has no sanitize override and no foreign refs, so filtering the
+  // already-sanitized snapshot returns exactly what a direct query would.
+  public async getAll(): Promise<ConfigInterface[]> {
+    return this.filterByReadPermissions(await this.getAllForReconcile());
+  }
+
   // Strip from a config's appended schema any field key already owned by a
   // published ancestor (closest base wins), reporting each collision split by
   // whether the re-declaration matches the owner's contract. The model only
