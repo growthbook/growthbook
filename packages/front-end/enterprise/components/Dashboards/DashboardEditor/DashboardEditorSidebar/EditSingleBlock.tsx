@@ -1699,6 +1699,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-scaled-impact" && (
@@ -1706,6 +1707,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-win-rate" && (
@@ -1713,6 +1715,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "experiments-status" && (
@@ -1720,6 +1723,7 @@ export default function EditSingleBlock({
                 block={block}
                 setBlock={setBlock}
                 projects={projects}
+                dashboardGlobalControls={dashboardGlobalControls}
               />
             )}
             {block.type === "metric-exploration" && (

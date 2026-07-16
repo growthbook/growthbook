@@ -2,8 +2,12 @@ import React from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   ExperimentsStatusBlockInterface,
+  DashboardGlobalFilterKey,
   getDateGranularity,
+  getEffectiveExperimentBlock,
+  globalFilterIsSet,
   resolveCompletedExperimentsFilters,
 } from "shared/enterprise";
 import { dateGranularity } from "shared/validators";
@@ -19,6 +23,7 @@ interface Props {
     DashboardBlockInterfaceOrData<ExperimentsStatusBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 const dateGranularityLabels: Record<(typeof dateGranularity)[number], string> =
@@ -35,9 +40,30 @@ export default function ExperimentsStatusSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
-  const window = resolveCompletedExperimentsFilters(block);
-  const granularity = block.dateGranularity || "auto";
+  const onGlobalControlSettingChange = (
+    key: DashboardGlobalFilterKey,
+    enabled: boolean,
+  ) =>
+    setBlock({
+      ...block,
+      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
+    });
+
+  // When the block follows the dashboard date filter, its granularity is driven
+  // by the dashboard too, so reflect the effective values and lock the control.
+  const dateControlled =
+    globalFilterIsSet(dashboardGlobalControls, "dateRange") &&
+    block.globalControlSettings?.dateRange === true;
+  const effectiveBlock = getEffectiveExperimentBlock(block, {
+    globalControls: dashboardGlobalControls,
+  });
+  const window = resolveCompletedExperimentsFilters(effectiveBlock);
+  const granularity =
+    (dateControlled
+      ? dashboardGlobalControls?.dateGranularity
+      : block.dateGranularity) || "auto";
   const autoGranularity = getDateGranularity("auto", window);
   const validGranularities = getValidDateGranularities(window);
 
@@ -49,6 +75,9 @@ export default function ExperimentsStatusSettings({
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
+        dashboardGlobalControls={dashboardGlobalControls}
+        globalControlSettings={block.globalControlSettings}
+        onGlobalControlSettingChange={onGlobalControlSettingChange}
         afterDateRange={
           <Box>
             <Box mb="2">
@@ -58,6 +87,7 @@ export default function ExperimentsStatusSettings({
               size="2"
               value={granularity}
               placeholder="Granularity"
+              disabled={dateControlled}
               setValue={(v) =>
                 setBlock({
                   ...block,

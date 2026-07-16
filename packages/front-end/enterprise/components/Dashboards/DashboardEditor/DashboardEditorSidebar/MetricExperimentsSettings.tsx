@@ -1,8 +1,11 @@
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   MetricExperimentsBlockInterface,
   isDifferenceType,
   DIFFERENCE_TYPE_OPTIONS,
+  DashboardGlobalFilterKey,
+  globalFilterIsSet,
 } from "shared/enterprise";
 import { ExplorationDateRange } from "shared/validators";
 import React, { useState } from "react";
@@ -10,6 +13,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
+import Switch from "@/ui/Switch";
 import { Popover } from "@/ui/Popover";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -24,6 +28,7 @@ import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 import BlockDateRangePicker, {
   PREDEFINED_LABELS,
 } from "./BlockDateRangePicker";
+import GlobalControlField from "./GlobalControlField";
 
 // Short human-readable label for a date range, shown on the filter pill.
 function formatDateRange(dr: ExplorationDateRange): string {
@@ -49,16 +54,46 @@ interface Props {
     DashboardBlockInterfaceOrData<MetricExperimentsBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 export default function MetricExperimentsSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
-  const { projects: allProjects } = useDefinitions();
+  const { projects: allProjects, getExperimentMetricById } = useDefinitions();
   const { experiments } = useExperiments();
   const [columnsOpen, setColumnsOpen] = useState(false);
+
+  const onGlobalControlSettingChange = (
+    key: DashboardGlobalFilterKey,
+    enabled: boolean,
+  ) =>
+    setBlock({
+      ...block,
+      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
+    });
+
+  const metricControlled =
+    globalFilterIsSet(dashboardGlobalControls, "metricId") &&
+    block.globalControlSettings?.metricId === true;
+  const projectsControlled =
+    globalFilterIsSet(dashboardGlobalControls, "projects") &&
+    block.globalControlSettings?.projects === true;
+  const experimentControlled =
+    globalFilterIsSet(dashboardGlobalControls, "experimentSearchString") &&
+    block.globalControlSettings?.experimentSearchString === true;
+
+  const dashboardMetricId = dashboardGlobalControls?.metricId;
+  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
+  const projectName = (id: string) =>
+    allProjects.find((p) => p.id === id)?.name ?? id;
+  const projectsSummary =
+    dashboardProjects.length === 0
+      ? "All projects"
+      : dashboardProjects.map(projectName).join(", ");
 
   const projectOptions = (
     projects.length > 0
@@ -76,9 +111,15 @@ export default function MetricExperimentsSettings({
   const hiddenCount = resolvedColumns.length - visibleLabels.length;
   const columnsSummary = ["Experiment", ...visibleLabels].join(", ");
 
-  const searchValue = block.experimentSearchString;
-  const setSearchValue = (value: string) =>
-    setBlock({ ...block, experimentSearchString: value });
+  // When the experiment text filter follows the dashboard, show the dashboard
+  // value read-only; the block's own start/end date windows below stay editable
+  // (they are never driven by the dashboard filter).
+  const searchValue = experimentControlled
+    ? (dashboardGlobalControls?.experimentSearchString ?? "")
+    : block.experimentSearchString;
+  const setSearchValue = experimentControlled
+    ? () => {}
+    : (value: string) => setBlock({ ...block, experimentSearchString: value });
 
   // Start Date filters on the experiment's phase start (so running experiments
   // can be included); End Date filters on the phase end date.
@@ -123,16 +164,28 @@ export default function MetricExperimentsSettings({
 
   return (
     <Flex direction="column" gap="5">
-      <MetricSelector
+      <GlobalControlField
         label="Metric"
-        labelClassName="font-weight-bold"
-        containerClassName="mb-0"
-        value={block.metricId}
-        onChange={(metricId) => setBlock({ ...block, metricId })}
-        includeFacts={true}
-        projects={projects}
-        placeholder="Select a metric..."
-      />
+        globalActive={globalFilterIsSet(dashboardGlobalControls, "metricId")}
+        controlled={metricControlled}
+        onToggle={(enabled) =>
+          onGlobalControlSettingChange("metricId", enabled)
+        }
+        controlledSummary={
+          dashboardMetricId
+            ? (getExperimentMetricById(dashboardMetricId)?.name ?? "Metric")
+            : ""
+        }
+      >
+        <MetricSelector
+          containerClassName="mb-0"
+          value={block.metricId}
+          onChange={(metricId) => setBlock({ ...block, metricId })}
+          includeFacts={true}
+          projects={projects}
+          placeholder="Select a metric..."
+        />
+      </GlobalControlField>
 
       <SelectField
         label="Difference Type"
@@ -149,22 +202,48 @@ export default function MetricExperimentsSettings({
         sort={false}
       />
 
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Projects Filter</Text>
-        </Box>
+      <GlobalControlField
+        label="Projects Filter"
+        globalActive={globalFilterIsSet(dashboardGlobalControls, "projects")}
+        controlled={projectsControlled}
+        onToggle={(enabled) =>
+          onGlobalControlSettingChange("projects", enabled)
+        }
+        controlledSummary={projectsSummary}
+      >
         <MultiSelectField
           value={block.projects}
           options={projectOptions}
           onChange={(v) => setBlock({ ...block, projects: v })}
           placeholder="All projects"
         />
-      </Box>
+      </GlobalControlField>
 
       <Box>
-        <Box mb="2">
+        <Flex justify="between" align="center" mb="2">
           <Text weight="semibold">Filter Experiments</Text>
-        </Box>
+          {globalFilterIsSet(
+            dashboardGlobalControls,
+            "experimentSearchString",
+          ) ? (
+            <Switch
+              label="Dashboard filter"
+              value={experimentControlled}
+              onChange={(enabled) =>
+                onGlobalControlSettingChange("experimentSearchString", enabled)
+              }
+            />
+          ) : null}
+        </Flex>
+        {experimentControlled ? (
+          <Text size="small" color="text-low" mb="2" as="div">
+            Experiment text filter is set by the dashboard filter:{" "}
+            {dashboardGlobalControls?.experimentSearchString ||
+              "All experiments"}
+          </Text>
+        ) : null}
+        {/* The start/end phase-date windows below are specific to this block and
+            are never driven by the dashboard Date Range filter. */}
         <SidebarExperimentFilters
           searchValue={searchValue}
           setSearchValue={setSearchValue}

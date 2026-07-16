@@ -107,12 +107,16 @@ export default function DashboardDateControlsDropdown({
   onChange,
   onGranularityChange,
   disabled,
+  excludedNote,
 }: {
   value: ExplorationDateRange | null;
   granularity?: (typeof dateGranularity)[number];
   onChange: (dateRange: ExplorationDateRange | null) => void;
   onGranularityChange: (granularity: (typeof dateGranularity)[number]) => void;
   disabled?: boolean;
+  // Optional caveat rendered at the bottom of the popover (e.g. that the date
+  // filter does not apply to Experiments with Lift blocks).
+  excludedNote?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [localLookbackValue, setLocalLookbackValue] = useState("");
@@ -278,6 +282,15 @@ export default function DashboardDateControlsDropdown({
           width={170}
         />
       </Flex>
+
+      {excludedNote ? (
+        <>
+          <Separator size="4" my="2" />
+          <Text size="small" color="text-low">
+            {excludedNote}
+          </Text>
+        </>
+      ) : null}
     </Flex>
   );
 

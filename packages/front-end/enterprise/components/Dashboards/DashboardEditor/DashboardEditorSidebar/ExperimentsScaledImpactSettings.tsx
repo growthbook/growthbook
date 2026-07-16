@@ -1,12 +1,16 @@
 import React from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
+  DashboardInterface,
   ExperimentsScaledImpactBlockInterface,
+  DashboardGlobalFilterKey,
+  globalFilterIsSet,
 } from "shared/enterprise";
-import Text from "@/ui/Text";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
+import GlobalControlField from "./GlobalControlField";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -14,19 +18,46 @@ interface Props {
     DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>
   >;
   projects: string[];
+  dashboardGlobalControls?: DashboardInterface["globalControls"];
 }
 
 export default function ExperimentsScaledImpactSettings({
   block,
   setBlock,
   projects,
+  dashboardGlobalControls,
 }: Props) {
+  const { getExperimentMetricById } = useDefinitions();
+
+  const onGlobalControlSettingChange = (
+    key: DashboardGlobalFilterKey,
+    enabled: boolean,
+  ) =>
+    setBlock({
+      ...block,
+      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
+    });
+
+  const metricControlled =
+    globalFilterIsSet(dashboardGlobalControls, "metricId") &&
+    block.globalControlSettings?.metricId === true;
+  const dashboardMetricId = dashboardGlobalControls?.metricId;
+
   return (
     <Flex direction="column" gap="5">
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Metric</Text>
-        </Box>
+      <GlobalControlField
+        label="Metric"
+        globalActive={globalFilterIsSet(dashboardGlobalControls, "metricId")}
+        controlled={metricControlled}
+        onToggle={(enabled) =>
+          onGlobalControlSettingChange("metricId", enabled)
+        }
+        controlledSummary={
+          dashboardMetricId
+            ? (getExperimentMetricById(dashboardMetricId)?.name ?? "Metric")
+            : ""
+        }
+      >
         <MetricSelector
           value={block.metricId}
           onChange={(metricId) => setBlock({ ...block, metricId })}
@@ -34,12 +65,15 @@ export default function ExperimentsScaledImpactSettings({
           projects={projects}
           placeholder="Select a metric..."
         />
-      </Box>
+      </GlobalControlField>
 
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
+        dashboardGlobalControls={dashboardGlobalControls}
+        globalControlSettings={block.globalControlSettings}
+        onGlobalControlSettingChange={onGlobalControlSettingChange}
       />
     </Flex>
   );

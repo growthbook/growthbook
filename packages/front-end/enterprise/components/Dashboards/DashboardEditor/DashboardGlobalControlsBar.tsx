@@ -4,16 +4,21 @@ import { PiSlidersHorizontal } from "react-icons/pi";
 import {
   canAutoRefreshDashboard,
   autoEnrollDashboardBlocksInDateControl,
+  autoEnrollDashboardBlocksInGlobalFilter,
+  DASHBOARD_GLOBAL_FILTER_KEYS,
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   getDashboardGlobalControlApplicability,
+  getDashboardExperimentFilterApplicability,
+  isEnablingGlobalFilter,
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import DashboardDateControlsDropdown from "./DashboardDateControlsDropdown";
+import DashboardExperimentFilterControls from "./DashboardExperimentFilterControls";
 
 type DashboardDateRange = NonNullable<
   NonNullable<DashboardInterface["globalControls"]>["dateRange"]
@@ -73,6 +78,52 @@ export default function DashboardGlobalControlsBar({
       (datasource) => datasource && !canRunSqlExplorerQueries(datasource),
     );
   const canModifyControls = canEdit && canRunDashboardQueries;
+
+  const experimentApplicability = useMemo(
+    () => getDashboardExperimentFilterApplicability(blocks),
+    [blocks],
+  );
+
+  // Persist a change to one of the experiment-block filters (projects / metric /
+  // experiment search). Unlike the date control, these never trigger a snapshot
+  // refresh — the affected experiment blocks re-render client-side (or re-key
+  // their own query) from the new global controls.
+  const persistExperimentFilter = async (
+    patch: Partial<NonNullable<DashboardInterface["globalControls"]>>,
+  ) => {
+    setSaving(true);
+    try {
+      const nextGlobalControls: NonNullable<
+        DashboardInterface["globalControls"]
+      > = { ...(globalControls ?? {}), ...patch };
+      // Normalize "empty" values back to absent so the filter reads as inactive.
+      if (
+        !nextGlobalControls.projects ||
+        nextGlobalControls.projects.length === 0
+      ) {
+        delete nextGlobalControls.projects;
+      }
+      if (!nextGlobalControls.metricId) delete nextGlobalControls.metricId;
+      if (!nextGlobalControls.experimentSearchString) {
+        delete nextGlobalControls.experimentSearchString;
+      }
+
+      // Auto-enroll supported blocks the first time a filter is enabled.
+      let nextBlocks = blocks;
+      DASHBOARD_GLOBAL_FILTER_KEYS.forEach((key) => {
+        if (isEnablingGlobalFilter(globalControls, nextGlobalControls, key)) {
+          nextBlocks = autoEnrollDashboardBlocksInGlobalFilter(nextBlocks, key);
+        }
+      });
+      const blocksChanged = nextBlocks !== blocks;
+      await onGlobalControlsChange(
+        nextGlobalControls,
+        blocksChanged ? nextBlocks : undefined,
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const persistGlobalControls = async (
     nextGlobalControls: DashboardInterface["globalControls"],
@@ -140,29 +191,45 @@ export default function DashboardGlobalControlsBar({
             Dashboard Filters
           </Heading>
         </Flex>
-        <DashboardDateControlsDropdown
-          value={globalControls?.dateRange ?? null}
-          granularity={globalControls?.dateGranularity ?? "auto"}
-          disabled={!canModifyControls || saving}
-          onChange={(dateRange) => {
-            const nextGlobalControls = { ...(globalControls ?? {}) };
-            if (dateRange) {
-              nextGlobalControls.dateRange = dateRange;
-              nextGlobalControls.dateGranularity ??= "auto";
-            } else {
-              delete nextGlobalControls.dateRange;
-              delete nextGlobalControls.dateGranularity;
+        <Flex align="center" gap="2" wrap="wrap" justify="end">
+          <DashboardExperimentFilterControls
+            globalControls={globalControls}
+            showProjects={experimentApplicability.showProjects}
+            showMetric={experimentApplicability.showMetric}
+            showExperimentSearch={experimentApplicability.showExperimentSearch}
+            disabled={!canModifyControls || saving}
+            projects={projects ?? []}
+            onChange={persistExperimentFilter}
+          />
+          <DashboardDateControlsDropdown
+            value={globalControls?.dateRange ?? null}
+            granularity={globalControls?.dateGranularity ?? "auto"}
+            disabled={!canModifyControls || saving}
+            excludedNote={
+              experimentApplicability.hasDateExcludedBlock
+                ? "The date filter does not apply to Experiments with Lift, which keeps its own start/end date filters."
+                : undefined
             }
-            persistGlobalControls(nextGlobalControls);
-          }}
-          onGranularityChange={(granularity) => {
-            if (!globalControls?.dateRange) return;
-            persistGlobalControls({
-              ...(globalControls ?? {}),
-              dateGranularity: granularity,
-            });
-          }}
-        />
+            onChange={(dateRange) => {
+              const nextGlobalControls = { ...(globalControls ?? {}) };
+              if (dateRange) {
+                nextGlobalControls.dateRange = dateRange;
+                nextGlobalControls.dateGranularity ??= "auto";
+              } else {
+                delete nextGlobalControls.dateRange;
+                delete nextGlobalControls.dateGranularity;
+              }
+              persistGlobalControls(nextGlobalControls);
+            }}
+            onGranularityChange={(granularity) => {
+              if (!globalControls?.dateRange) return;
+              persistGlobalControls({
+                ...(globalControls ?? {}),
+                dateGranularity: granularity,
+              });
+            }}
+          />
+        </Flex>
       </Flex>
     </Flex>
   );
