@@ -46,6 +46,12 @@ function parseString(value: unknown): null | string {
   return typeof value === "string" ? value : null;
 }
 
+function utf8ByteLength(str: string): number {
+  return typeof TextEncoder !== "undefined"
+    ? new TextEncoder().encode(str).length
+    : str.length * 3; // conservative upper bound without TextEncoder
+}
+
 function parseAttributes(attributes: Attributes): {
   nested: Attributes;
   topLevel: {
@@ -168,9 +174,9 @@ async function track({
       credentials: "omit",
       // Let the request outlive the page; exposures fired just before a
       // navigation (e.g. redirect tests) are otherwise cancelled by the
-      // browser. Keepalive bodies share a 64KB in-flight quota and larger
-      // ones are rejected outright, so oversized batches skip it.
-      keepalive: body.length < 60000,
+      // browser. Keepalive bodies share a 64KB in-flight *byte* quota and
+      // larger ones are rejected outright, so oversized batches skip it.
+      keepalive: utf8ByteLength(body) < 60000,
     });
   } catch (e) {
     console.error("Failed to track event", e);

@@ -350,6 +350,12 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
     expect(fetchMock.mock.calls[1][1].keepalive).toBe(false);
 
+    // The quota is in BYTES: this payload is under 60k characters but each
+    // character is 3 bytes in UTF-8
+    gb.logEvent("multibyte", { data: "あ".repeat(25000) });
+    await sleep(150);
+    expect(fetchMock.mock.calls[2][1].keepalive).toBe(false);
+
     gb.destroy();
   });
 
