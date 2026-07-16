@@ -139,6 +139,10 @@ export const configValidator = z
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     project: z.string().optional(),
     archived: z.boolean().optional(),
+    // `.nullish()`, not `.optional()`: `null` is the explicit "clear the schema"
+    // signal (a revert to a schema-less revision); undefined = never had one. Only
+    // `null` survives the revision record's JSON round-trip and the update-diff
+    // filters, both of which drop `undefined`.
     schema: simpleSchemaValidator.nullish(),
     // Whether this family permits extra keys. Only the root config's value applies;
     // absent = inherit the org default (`configsExtensibleByDefault`).

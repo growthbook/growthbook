@@ -153,6 +153,9 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
 export function buildPatchOps(
   changes: Record<string, unknown>,
 ): JsonPatchOperation[] {
+  // Drops `undefined` (absent) AND `null`, so this stream can't express a
+  // field-clear. A path that must clear a nullable field (e.g. `schema: null` on
+  // config revert) builds its patch ops directly rather than routing through here.
   return Object.entries(changes)
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => ({
