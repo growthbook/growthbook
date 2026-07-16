@@ -336,6 +336,59 @@ describe("growthbookTrackingPlugin", () => {
     gb.destroy();
   });
 
+  it("skips keepalive for batches over the 64KB keepalive quota", async () => {
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+
+    gb.logEvent("small");
+    await sleep(150);
+    expect(fetchMock.mock.calls[0][1].keepalive).toBe(true);
+
+    gb.logEvent("big", { data: "x".repeat(70000) });
+    await sleep(150);
+    expect(fetchMock.mock.calls[1][1].keepalive).toBe(false);
+
+    gb.destroy();
+  });
+
+  it("keeps flushing on the timer after an unload flush", async () => {
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+
+    gb.logEvent("a");
+    // Unload flush fires before the 100ms timer would have
+    window.dispatchEvent(new Event("pagehide"));
+    await sleep(10);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Later events must still be flushed by the normal timer
+    gb.logEvent("b");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)[0].event_name).toBe("b");
+
+    gb.destroy();
+  });
+
+  it("removes unload listeners on destroy", () => {
+    const removeWin = jest.spyOn(window, "removeEventListener");
+    const removeDoc = jest.spyOn(document, "removeEventListener");
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [growthbookTrackingPlugin()],
+    });
+    gb.destroy();
+    expect(removeWin).toHaveBeenCalledWith("pagehide", expect.any(Function));
+    expect(removeDoc).toHaveBeenCalledWith(
+      "visibilitychange",
+      expect.any(Function),
+    );
+  });
+
   describe("transport", () => {
     let sendBeaconMock: jest.Mock;
     const installBeacon = (returnValue: boolean) => {

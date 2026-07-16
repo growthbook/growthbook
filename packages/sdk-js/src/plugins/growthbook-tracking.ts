@@ -142,6 +142,8 @@ async function track({
 
   // sendBeacon is queued by the browser and survives page unload even where
   // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
+  // Unlike the fetch below, sendBeacon cannot omit credentials; use
+  // transport "fetch" if cookies must never reach the ingestor origin.
   if (useBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
     try {
       if (
@@ -165,8 +167,10 @@ async function track({
       },
       credentials: "omit",
       // Let the request outlive the page; exposures fired just before a
-      // navigation (e.g. redirect tests) are otherwise cancelled by the browser
-      keepalive: true,
+      // navigation (e.g. redirect tests) are otherwise cancelled by the
+      // browser. Keepalive bodies share a 64KB in-flight quota and larger
+      // ones are rejected outright, so oversized batches skip it.
+      keepalive: body.length < 60000,
     });
   } catch (e) {
     console.error("Failed to track event", e);
@@ -207,22 +211,32 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let promise: Promise<void> | null = null;
+      let flushDone: (() => void) | null = null;
       const flush = async (unloading?: boolean) => {
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
-        events.length &&
-          (await track({
-            clientKey,
-            events,
-            ingestorHost,
-            useBeacon:
-              transport === "beacon" || (transport === "auto" && !!unloading),
-          }));
+        // Release the in-flight promise so later events schedule a new flush
+        // (an unload flush cancels the timer that would have released it,
+        // which would otherwise stall the queue for the rest of the page)
+        const done = flushDone;
+        flushDone = null;
+        promise = null;
+        try {
+          events.length &&
+            (await track({
+              clientKey,
+              events,
+              ingestorHost,
+              useBeacon:
+                transport === "beacon" || (transport === "auto" && !!unloading),
+            }));
+        } finally {
+          done && done();
+        }
       };
-
-      let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
         const data: EventData = {
           eventName,
@@ -279,30 +293,44 @@ export function growthbookTrackingPlugin({
 
         // Only one in-progress promise at a time
         if (!promise) {
-          promise = new Promise((resolve, reject) => {
+          promise = new Promise((resolve) => {
+            flushDone = resolve;
             // Flush the queue after a delay
             timer = setTimeout(() => {
-              flush().then(resolve).catch(reject);
-              promise = null;
+              flush().catch(console.error);
             }, queueFlushInterval);
           });
         }
         await promise;
       });
 
-      // Flush the queue on page unload
+      // Flush the queue on page unload. Listeners are removed on destroy so
+      // SPA re-inits don't accumulate handlers over dead instances.
       if (typeof document !== "undefined" && document.visibilityState) {
-        document.addEventListener("visibilitychange", () => {
+        const onVisibilityChange = () => {
           if (document.visibilityState === "hidden") {
             flush(true).catch(console.error);
           }
-        });
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        "onDestroy" in gb &&
+          gb.onDestroy(() =>
+            document.removeEventListener(
+              "visibilitychange",
+              onVisibilityChange,
+            ),
+          );
       }
       // pagehide fires on navigations where visibilitychange may not
       if (typeof window !== "undefined") {
-        window.addEventListener("pagehide", () => {
+        const onPageHide = () => {
           flush(true).catch(console.error);
-        });
+        };
+        window.addEventListener("pagehide", onPageHide);
+        "onDestroy" in gb &&
+          gb.onDestroy(() =>
+            window.removeEventListener("pagehide", onPageHide),
+          );
       }
 
       // Flush the queue when the growthbook instance is destroyed
