@@ -445,8 +445,8 @@ export default function FactTablesPage() {
         </Box>
       ) : (
         <Box>
-          <Flex justify="between" mb="3" gap="3" align="center">
-            <Box className="relative" width="40%">
+          <Flex justify="between" mb="3" gap="3" align="center" wrap="wrap">
+            <Box className="relative" width={{ initial: "100%", sm: "40%" }}>
               <Field
                 placeholder="Search..."
                 type="search"

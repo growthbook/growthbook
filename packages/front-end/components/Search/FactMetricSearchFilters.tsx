@@ -59,7 +59,7 @@ const FactMetricSearchFilters: FC<
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
   return (
-    <Flex gap="5" align="center">
+    <Flex gap="5" align="center" wrap="wrap">
       <FilterDropdown
         filter="project"
         syntaxFilters={syntaxFilters}

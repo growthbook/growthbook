@@ -74,7 +74,7 @@ const FactTableSearchFilters: FC<
   const hasArchivedFactTables = factTables.some((t) => t.archived);
 
   return (
-    <Flex gap="5" align="center">
+    <Flex gap="5" align="center" wrap="wrap">
       <FilterDropdown
         filter="datasource"
         syntaxFilters={syntaxFilters}

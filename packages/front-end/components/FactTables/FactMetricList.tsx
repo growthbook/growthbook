@@ -366,7 +366,7 @@ export default function FactMetricList({
       <Flex align="center" gap="3" wrap="wrap">
         {metrics.length > 0 && (
           <>
-            <Box>
+            <Box width={{ initial: "100%", sm: "auto" }}>
               <Field
                 placeholder="Search..."
                 type="search"
