@@ -25,6 +25,9 @@ interface Props {
   // Optional control rendered on the right of the "Date Range" label row (e.g.
   // a Compare toggle), mirroring the Metric Explorer editor header.
   dateRangeAccessory?: ReactNode;
+  // Optional content rendered between the Date Range and Projects fields
+  // (e.g. Team Velocity's Date Granularity control).
+  afterDateRange?: ReactNode;
   // Comparison support: when enabled and the range is a Custom Date Range, the
   // picker shows the Prior / Current fields backed by previousTimeFrame.
   comparisonEnabled?: boolean;
@@ -39,6 +42,7 @@ export default function CompletedExperimentsFilterFields({
   onChange,
   availableProjects,
   dateRangeAccessory,
+  afterDateRange,
   comparisonEnabled,
   previousTimeFrame,
   onPreviousTimeFrameChange,
@@ -68,9 +72,11 @@ export default function CompletedExperimentsFilterFields({
         />
       </Box>
 
+      {afterDateRange}
+
       <Box>
         <Box mb="2">
-          <Text weight="semibold">Projects</Text>
+          <Text weight="semibold">Projects Filter</Text>
         </Box>
         <MultiSelectField
           value={value.projects}
@@ -94,6 +100,8 @@ export default function CompletedExperimentsFilterFields({
           // the status filter would be misleading.
           allowDrafts={false}
           showStatusFilter={false}
+          // The "Projects" field above already scopes by project.
+          showProjectFilter={false}
         />
       </Box>
     </>

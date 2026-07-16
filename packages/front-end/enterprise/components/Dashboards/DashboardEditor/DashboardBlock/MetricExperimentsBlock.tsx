@@ -27,6 +27,9 @@ export default function MetricExperimentsBlock({
     if (block.experimentSearchString) {
       params.set("q", block.experimentSearchString);
     }
+    if (block.projects.length > 0) {
+      params.set("projects", block.projects.join(","));
+    }
     params.set("bandits", block.bandits ? "true" : "false");
     // End-date window filters on the experiment's phase end date.
     if (block.endDateRange) {
@@ -48,6 +51,7 @@ export default function MetricExperimentsBlock({
     return params.toString();
   }, [
     block.experimentSearchString,
+    block.projects,
     block.bandits,
     block.startDateRange,
     block.endDateRange,

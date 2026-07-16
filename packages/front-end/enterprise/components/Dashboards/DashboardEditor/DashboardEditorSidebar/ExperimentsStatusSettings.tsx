@@ -49,37 +49,38 @@ export default function ExperimentsStatusSettings({
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
+        afterDateRange={
+          <Box>
+            <Box mb="2">
+              <Text weight="semibold">Date Granularity</Text>
+            </Box>
+            <Select
+              size="2"
+              value={granularity}
+              placeholder="Granularity"
+              setValue={(v) =>
+                setBlock({
+                  ...block,
+                  dateGranularity: v as (typeof dateGranularity)[number],
+                })
+              }
+            >
+              {validGranularities.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g === "auto" ? (
+                    <Flex direction="row" align="center" gap="2">
+                      <Text>{dateGranularityLabels[autoGranularity]}</Text>
+                      <Badge label="Auto" />
+                    </Flex>
+                  ) : (
+                    dateGranularityLabels[g]
+                  )}
+                </SelectItem>
+              ))}
+            </Select>
+          </Box>
+        }
       />
-
-      <Box>
-        <Box mb="2">
-          <Text weight="semibold">Date Granularity</Text>
-        </Box>
-        <Select
-          size="2"
-          value={granularity}
-          placeholder="Granularity"
-          setValue={(v) =>
-            setBlock({
-              ...block,
-              dateGranularity: v as (typeof dateGranularity)[number],
-            })
-          }
-        >
-          {validGranularities.map((g) => (
-            <SelectItem key={g} value={g}>
-              {g === "auto" ? (
-                <Flex direction="row" align="center" gap="2">
-                  <Text>{dateGranularityLabels[autoGranularity]}</Text>
-                  <Badge label="Auto" />
-                </Flex>
-              ) : (
-                dateGranularityLabels[g]
-              )}
-            </SelectItem>
-          ))}
-        </Select>
-      </Box>
     </Flex>
   );
 }

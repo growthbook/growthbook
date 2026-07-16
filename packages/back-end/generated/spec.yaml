@@ -27031,6 +27031,10 @@ paths:
                                 additionalProperties: false
                               metricId:
                                 type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
                               experimentSearchString:
                                 type: string
                               differenceType:
@@ -27131,6 +27135,7 @@ paths:
                               - title
                               - description
                               - metricId
+                              - projects
                               - experimentSearchString
                               - differenceType
                               - bandits
@@ -29514,6 +29519,10 @@ paths:
                                 additionalProperties: false
                               metricId:
                                 type: string
+                              projects:
+                                type: array
+                                items:
+                                  type: string
                               experimentSearchString:
                                 type: string
                               differenceType:
@@ -29617,6 +29626,7 @@ paths:
                               - title
                               - description
                               - metricId
+                              - projects
                               - experimentSearchString
                               - differenceType
                               - bandits
@@ -31904,6 +31914,10 @@ paths:
                             additionalProperties: false
                           metricId:
                             type: string
+                          projects:
+                            type: array
+                            items:
+                              type: string
                           experimentSearchString:
                             type: string
                           differenceType:
@@ -32004,6 +32018,7 @@ paths:
                           - title
                           - description
                           - metricId
+                          - projects
                           - experimentSearchString
                           - differenceType
                           - bandits
@@ -49482,6 +49497,10 @@ components:
                     additionalProperties: false
                   metricId:
                     type: string
+                  projects:
+                    type: array
+                    items:
+                      type: string
                   experimentSearchString:
                     type: string
                   differenceType:
@@ -49585,6 +49604,7 @@ components:
                   - title
                   - description
                   - metricId
+                  - projects
                   - experimentSearchString
                   - differenceType
                   - bandits

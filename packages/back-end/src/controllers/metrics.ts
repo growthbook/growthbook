@@ -27,7 +27,10 @@ import {
   getExperimentsByMetric,
   getExperimentsUsingMetric,
 } from "back-end/src/models/ExperimentModel";
-import { getFilteredExperimentsUsingMetric } from "back-end/src/services/experimentFilters";
+import {
+  getFilteredExperimentsUsingMetric,
+  splitCsv,
+} from "back-end/src/services/experimentFilters";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -538,6 +541,7 @@ export const getMetricExperimentResults = async (
     { id: string },
     {
       q?: string;
+      projects?: string;
       bandits?: string;
       startDate?: string;
       endDate?: string;
@@ -576,6 +580,7 @@ export const getMetricExperimentResults = async (
     context,
     metricId: req.params.id,
     searchString: req.query.q,
+    filters: { projects: splitCsv(req.query.projects) },
     bandits,
     startDate,
     endDate,

@@ -11,12 +11,14 @@ import { PiSlidersHorizontal } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters, {
   ExtraFilter,
 } from "@/components/Search/SidebarExperimentFilters";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { resolveMetricExperimentColumns } from "@/components/MetricExperiments/MetricExperiments";
 import MetricExperimentsColumnSettings from "./MetricExperimentsColumnSettings";
 import BlockDateRangePicker, {
@@ -54,8 +56,15 @@ export default function MetricExperimentsSettings({
   setBlock,
   projects,
 }: Props) {
+  const { projects: allProjects } = useDefinitions();
   const { experiments } = useExperiments();
   const [columnsOpen, setColumnsOpen] = useState(false);
+
+  const projectOptions = (
+    projects.length > 0
+      ? allProjects.filter((p) => projects.includes(p.id))
+      : allProjects
+  ).map((p) => ({ label: p.name, value: p.id }));
 
   const resolvedColumns = resolveMetricExperimentColumns(
     block.columns,
@@ -142,6 +151,18 @@ export default function MetricExperimentsSettings({
 
       <Box>
         <Box mb="2">
+          <Text weight="semibold">Projects Filter</Text>
+        </Box>
+        <MultiSelectField
+          value={block.projects}
+          options={projectOptions}
+          onChange={(v) => setBlock({ ...block, projects: v })}
+          placeholder="All projects"
+        />
+      </Box>
+
+      <Box>
+        <Box mb="2">
           <Text weight="semibold">Filter Experiments</Text>
         </Box>
         <SidebarExperimentFilters
@@ -149,6 +170,7 @@ export default function MetricExperimentsSettings({
           setSearchValue={setSearchValue}
           experiments={experiments}
           extraFilters={dateFilters}
+          showProjectFilter={false}
         />
       </Box>
 

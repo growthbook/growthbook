@@ -7,21 +7,13 @@ import {
 import {
   getFilteredExperimentsUsingMetric,
   parseExperimentSearchString,
+  splitCsv,
   StructuredExperimentFilters,
 } from "back-end/src/services/experimentFilters";
 import {
   _getSnapshots,
   getExperimentMetricById,
 } from "back-end/src/services/experiments";
-
-function splitCsv(value: string | undefined): string[] | undefined {
-  if (!value) return undefined;
-  const parts = value
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  return parts.length > 0 ? parts : undefined;
-}
 
 export const listMetricExperiments = createApiRequestHandler(
   listMetricExperimentsValidator,

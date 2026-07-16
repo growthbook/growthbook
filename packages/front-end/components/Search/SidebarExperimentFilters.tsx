@@ -76,6 +76,10 @@ interface Props {
   experiments: ExperimentInterfaceStringDates[];
   allowDrafts?: boolean;
   showStatusFilter?: boolean;
+  // Set to false when the caller already renders a dedicated Project control
+  // (e.g. a Projects multi-select above this filter list), so Project isn't
+  // offered twice.
+  showProjectFilter?: boolean;
   // Additional non-search-string pill filters (e.g. date ranges).
   extraFilters?: ExtraFilter[];
 }
@@ -94,6 +98,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   experiments,
   allowDrafts = true,
   showStatusFilter = true,
+  showProjectFilter = true,
   extraFilters = [],
 }) => {
   const { searchTerm, syntaxFilters } = useMemo(
@@ -150,7 +155,7 @@ const SidebarExperimentFilters: FC<Props> = ({
   const categories = useMemo<FilterCategory[]>(() => {
     const cats: FilterCategory[] = [];
 
-    if (!project && projects.length > 0) {
+    if (showProjectFilter && !project && projects.length > 0) {
       cats.push({
         key: "project",
         heading: "Project",
@@ -187,6 +192,7 @@ const SidebarExperimentFilters: FC<Props> = ({
 
     return cats;
   }, [
+    showProjectFilter,
     project,
     projects,
     metricItems,

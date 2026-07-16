@@ -835,20 +835,31 @@ export function migrateBlock(
       const legacy = doc as {
         startDate?: string;
         endDate?: string;
+        projects?: string[];
       };
-      if (legacy.startDate === undefined && legacy.endDate === undefined) {
-        return doc;
-      }
       const copy = { ...(doc as Record<string, unknown>) };
-      delete copy.startDate;
-      delete copy.endDate;
-      const toYmd = (iso?: string) =>
-        iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
-      copy.endDateRange = {
-        predefined: "customDateRange",
-        startDate: toYmd(legacy.startDate),
-        endDate: toYmd(legacy.endDate),
-      };
+      let changed = false;
+
+      if (legacy.startDate !== undefined || legacy.endDate !== undefined) {
+        delete copy.startDate;
+        delete copy.endDate;
+        const toYmd = (iso?: string) =>
+          iso ? getValidDate(iso).toISOString().slice(0, 10) : undefined;
+        copy.endDateRange = {
+          predefined: "customDateRange",
+          startDate: toYmd(legacy.startDate),
+          endDate: toYmd(legacy.endDate),
+        };
+        changed = true;
+      }
+
+      // Legacy blocks predate the `projects` field; default to all projects.
+      if (legacy.projects === undefined) {
+        copy.projects = [];
+        changed = true;
+      }
+
+      if (!changed) return doc;
       return copy as unknown as
         | DashboardBlockInterface
         | CreateDashboardBlockInterface;

@@ -538,6 +538,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     metricId: "",
+    projects: [],
     experimentSearchString: "",
     differenceType: "relative",
     bandits: false,

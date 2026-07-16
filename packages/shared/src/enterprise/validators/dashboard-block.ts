@@ -220,6 +220,8 @@ const metricExperimentsBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-experiments"),
     metricId: z.string(),
+    // Project ids to scope to; empty array means all projects.
+    projects: z.array(z.string()),
     experimentSearchString: z.string(), // raw ExperimentSearchFilters query for now
     differenceType: z.enum(differenceTypes),
     bandits: z.boolean(),
