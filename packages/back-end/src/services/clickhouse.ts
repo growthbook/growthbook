@@ -39,6 +39,8 @@ import {
   dangerouslyGetGrowthbookDatasourceBypassPermission,
   clearManagedWarehouseRecreateStatus,
   getManagedWarehouseRecreateState,
+  tryLockManagedWarehouseDatasource,
+  unlockManagedWarehouseDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import {
@@ -649,49 +651,76 @@ function getPreservedLegacyColumns(
 // block (`migrating` stays unset). Mirrors the provisioned flow's metadata steps and
 // its crash-safety: `materializedColumns` is cleared last, so a crash re-runs this on
 // the next sweep or on-read trigger.
+//
+// Runs under the license server's per-datasource lock to mutually exclude
+// event-triggered provisioning: without it, our full-settings write could revert a
+// concurrent provision's `hasBeenProvisioned: true`, or the provision could create
+// legacy DDL from a pre-rewrite settings read. If provisioning wins instead, the doc
+// re-enters the sweep as a provisioned legacy warehouse and the rebuild path handles
+// it.
 async function migrateUnprovisionedManagedWarehouseSettings(
   context: ReqContext | ApiReqContext,
-  datasource: GrowthbookClickhouseDataSource,
 ): Promise<void> {
-  const { migratedIdentifiers, migratedColumns } = getPreservedLegacyColumns(
-    context,
-    datasource,
-  );
-
-  await updateDataSource(
-    context,
-    datasource,
-    {
-      settings: {
-        ...datasource.settings,
-        useJsonColumns: true,
-        migratedIdentifiers,
-        migratedColumns,
-      },
-    },
-    { skipExposureQueryValidation: true },
-  );
-
-  // Mongo-only: regenerates userIdTypes/exposure queries (and the ch_events fact
-  // table, if one exists) for the JSON model.
-  await syncManagedWarehouseIdentifiers(context);
-
-  // Clear materializedColumns last (re-fetch: the sync mutated the datasource
-  // settings); only then is the warehouse fully migrated and out of the legacy set.
-  const synced =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-  if (!synced || synced.type !== "growthbook_clickhouse") {
-    logger.error(
-      `Managed warehouse migration for org ${datasource.organization}: could not re-fetch datasource after sync; migration will re-trigger on next sweep`,
-    );
+  if (!(await tryLockManagedWarehouseDatasource(context, 120))) {
+    // Locked: provisioning (or another operation) is in flight. Skip — the doc
+    // stays in the legacy set and the next sweep pass retries.
     return;
   }
-  await updateDataSource(
-    context,
-    synced,
-    { settings: { ...synced.settings, materializedColumns: undefined } },
-    { skipExposureQueryValidation: true },
-  );
+  try {
+    // Re-read under the lock; the caller's snapshot predates it.
+    const datasource =
+      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    if (
+      !datasource ||
+      datasource.type !== "growthbook_clickhouse" ||
+      !isManagedWarehouseAwaitingProvisioning(datasource) ||
+      !isManagedWarehouseAwaitingJsonMigration(datasource)
+    ) {
+      return;
+    }
+
+    const { migratedIdentifiers, migratedColumns } = getPreservedLegacyColumns(
+      context,
+      datasource,
+    );
+
+    await updateDataSource(
+      context,
+      datasource,
+      {
+        settings: {
+          ...datasource.settings,
+          useJsonColumns: true,
+          migratedIdentifiers,
+          migratedColumns,
+        },
+      },
+      { skipExposureQueryValidation: true },
+    );
+
+    // Mongo-only: regenerates userIdTypes/exposure queries (and the ch_events fact
+    // table, if one exists) for the JSON model.
+    await syncManagedWarehouseIdentifiers(context);
+
+    // Clear materializedColumns last (re-fetch: the sync mutated the datasource
+    // settings); only then is the warehouse fully migrated and out of the legacy set.
+    const synced =
+      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    if (!synced || synced.type !== "growthbook_clickhouse") {
+      logger.error(
+        `Managed warehouse migration for org ${context.org.id}: could not re-fetch datasource after sync; migration will re-trigger on next sweep`,
+      );
+      return;
+    }
+    await updateDataSource(
+      context,
+      synced,
+      { settings: { ...synced.settings, materializedColumns: undefined } },
+      { skipExposureQueryValidation: true },
+    );
+  } finally {
+    await unlockManagedWarehouseDatasource(context);
+  }
 }
 
 // Migrate a legacy (materialized-column) managed warehouse to native JSON columns.
@@ -718,7 +747,7 @@ export async function migrateManagedWarehouseToJson(
   // creates the JSON DDL directly.
   if (isManagedWarehouseAwaitingProvisioning(datasource)) {
     if (isManagedWarehouseAwaitingJsonMigration(datasource)) {
-      await migrateUnprovisionedManagedWarehouseSettings(context, datasource);
+      await migrateUnprovisionedManagedWarehouseSettings(context);
     }
     return;
   }
