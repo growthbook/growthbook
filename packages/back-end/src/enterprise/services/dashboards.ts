@@ -384,8 +384,7 @@ function isProductAnalyticsExplorationBlock(
 export async function updateDashboardExplorations(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
-  // Optional so the future dashboard-wide compare toggle can drive every block
-  // through resolveBlockComparison without changing this signature again.
+  // Dashboard controls are resolved before each exploration is refreshed.
   dashboard?: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
@@ -396,7 +395,7 @@ export async function updateDashboardExplorations(
     try {
       // Re-resolve the comparison every refresh so predefined previous windows
       // roll forward with the primary range (custom windows stay fixed).
-      const comparison = resolveBlockComparison(block, dashboard);
+      const comparison = resolveBlockComparison(block);
       const primaryConfig = dashboard
         ? getEffectiveExplorationConfig(block, dashboard)
         : block.config;

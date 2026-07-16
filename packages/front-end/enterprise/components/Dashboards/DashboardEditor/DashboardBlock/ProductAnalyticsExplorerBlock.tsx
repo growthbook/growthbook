@@ -43,7 +43,7 @@ export default function ProductAnalyticsExplorerBlock({
   // a separate entity produced on refresh; fetch it when present.
   const comparison = resolveBlockComparison(block);
   const compareEnabled = !!comparison?.enabled;
-  const { data: comparisonData } = useApi<{
+  const { data: comparisonData, isLoading: comparisonLoading } = useApi<{
     status: number;
     exploration: ProductAnalyticsExploration;
     query: QueryInterface | null;
@@ -87,6 +87,8 @@ export default function ProductAnalyticsExplorerBlock({
       ),
     [usesDashboardDateRange, submittedConfig, submittedExplorationConfig],
   );
+  const hasStaleComparisonResults =
+    compareEnabled && !block.comparisonExplorerAnalysisId && !comparisonLoading;
   const comparisonPayload = useMemo(() => {
     if (
       !compareEnabled ||
@@ -131,7 +133,7 @@ export default function ProductAnalyticsExplorerBlock({
     );
   }
 
-  if (hasStaleDashboardDateResults) {
+  if (hasStaleDashboardDateResults || hasStaleComparisonResults) {
     return (
       <Box p="4" style={{ textAlign: "center" }}>
         <Callout status="info">

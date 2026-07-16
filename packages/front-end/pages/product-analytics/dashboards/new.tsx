@@ -154,6 +154,7 @@ export default function NewDashboardPage() {
         updateTemporaryDashboard={(update: {
           blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
           globalControls?: DashboardInterface["globalControls"];
+          comparison?: DashboardInterface["comparison"];
         }) => {
           setDashboard((prev) => {
             if (!prev) return prev;
@@ -162,6 +163,9 @@ export default function NewDashboardPage() {
               ...(update.blocks !== undefined ? { blocks: update.blocks } : {}),
               ...(update.globalControls !== undefined
                 ? { globalControls: update.globalControls }
+                : {}),
+              ...(update.comparison !== undefined
+                ? { comparison: update.comparison }
                 : {}),
             } as DashboardInterface;
           });

@@ -26721,6 +26721,50 @@ paths:
                         - month
                         - year
                   additionalProperties: false
+                comparison:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    previousTimeFrame:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                  required:
+                    - enabled
+                  additionalProperties: false
                 blocks:
                   type: array
                   items:
@@ -30470,6 +30514,50 @@ paths:
                         - week
                         - month
                         - year
+                  additionalProperties: false
+                comparison:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    previousTimeFrame:
+                      type: object
+                      properties:
+                        predefined:
+                          type: string
+                          enum:
+                            - today
+                            - last7Days
+                            - last30Days
+                            - last90Days
+                            - customLookback
+                            - customDateRange
+                        lookbackValue:
+                          anyOf:
+                            - type: number
+                            - type: 'null'
+                        lookbackUnit:
+                          anyOf:
+                            - type: string
+                              enum:
+                                - hour
+                                - day
+                                - week
+                                - month
+                            - type: 'null'
+                        startDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        endDate:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                      required:
+                        - predefined
+                      additionalProperties: false
+                  required:
+                    - enabled
                   additionalProperties: false
                 blocks:
                   type: array

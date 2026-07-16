@@ -5,6 +5,7 @@ import {
   snapshotSatisfiesBlock,
   DashboardInterface,
   DashboardBlockInterface,
+  applyDashboardComparisonToBlocks,
   resolveGlobalControlsBlockEnrollment,
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
@@ -103,6 +104,7 @@ export async function createDashboard(
     blocks,
     projects,
     globalControls,
+    comparison,
     userId,
   } = req.body;
 
@@ -114,6 +116,10 @@ export async function createDashboard(
       nextGlobalControls: globalControls,
       nextBlocks: createdBlocks,
     }) ?? createdBlocks;
+  const blocksWithGlobalComparison =
+    comparison !== undefined
+      ? applyDashboardComparisonToBlocks(blocksWithGlobalControls, comparison)
+      : blocksWithGlobalControls;
 
   const dashboard = await context.models.dashboards.create({
     isDefault: false,
@@ -127,7 +133,8 @@ export async function createDashboard(
     title,
     projects,
     globalControls,
-    blocks: blocksWithGlobalControls,
+    comparison,
+    blocks: blocksWithGlobalComparison,
   });
 
   res.status(200).json({
@@ -161,18 +168,35 @@ export async function updateDashboard(
         ? blockData
         : generateDashboardBlockIds(context.org.id, blockData),
     );
-    updates.blocks =
+    const blocksWithGlobalControls =
       resolveGlobalControlsBlockEnrollment({
         existingGlobalControls: dashboard.globalControls,
         nextGlobalControls: updates.globalControls,
         nextBlocks: createdBlocks,
       }) ?? createdBlocks;
+    updates.blocks =
+      updates.comparison !== undefined &&
+      updates.comparison.enabled !== dashboard.comparison?.enabled
+        ? applyDashboardComparisonToBlocks(
+            blocksWithGlobalControls,
+            updates.comparison,
+          )
+        : blocksWithGlobalControls;
   } else {
-    const enrolledBlocks = resolveGlobalControlsBlockEnrollment({
+    const dateEnrolledBlocks = resolveGlobalControlsBlockEnrollment({
       existingGlobalControls: dashboard.globalControls,
       nextGlobalControls: updates.globalControls,
       existingBlocks: dashboard.blocks,
     });
+    const comparisonUpdatedBlocks =
+      updates.comparison !== undefined &&
+      updates.comparison.enabled !== dashboard.comparison?.enabled
+        ? applyDashboardComparisonToBlocks(
+            dateEnrolledBlocks ?? dashboard.blocks,
+            updates.comparison,
+          )
+        : undefined;
+    const enrolledBlocks = comparisonUpdatedBlocks ?? dateEnrolledBlocks;
     if (enrolledBlocks) updates.blocks = enrolledBlocks;
   }
 

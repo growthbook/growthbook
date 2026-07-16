@@ -8,6 +8,7 @@ import {
   dashboardBlockHasIds,
   getEffectiveExplorationConfig,
   getExplorationDateControlFingerprint,
+  resolveBlockComparison,
   restoreBlockLocalDateControls,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
@@ -89,6 +90,7 @@ export default function ProductAnalyticsExplorerSettings({
           getExplorationDateControlFingerprint(exploration.config),
         )
       : false;
+  const effectiveComparison = resolveBlockComparison(block);
   if (!block.config || !effectiveInitialConfig) {
     return <LoadingSpinner />;
   }
@@ -101,20 +103,20 @@ export default function ProductAnalyticsExplorerSettings({
     );
   }
 
-  const initialConfig: ExplorerDraftConfig = block.comparison?.enabled
+  const initialConfig: ExplorerDraftConfig = effectiveComparison?.enabled
     ? {
         ...effectiveInitialConfig,
         previousTimeFrame:
-          block.comparison.previousTimeFrame ??
+          effectiveComparison.previousTimeFrame ??
           buildComparisonDateRange(effectiveInitialConfig.dateRange),
       }
     : effectiveInitialConfig;
   const initialSubmittedConfig: ExplorerDraftConfig | undefined = exploration
-    ? block.comparison?.enabled
+    ? effectiveComparison?.enabled
       ? {
           ...exploration.config,
           previousTimeFrame:
-            block.comparison.previousTimeFrame ??
+            effectiveComparison.previousTimeFrame ??
             buildComparisonDateRange(exploration.config.dateRange),
         }
       : exploration.config
@@ -152,15 +154,8 @@ export default function ProductAnalyticsExplorerSettings({
         setBlock({
           ...block,
           explorerAnalysisId: exploration.id,
-          ...(comparison
-            ? {
-                comparison,
-                comparisonExplorerAnalysisId: comparisonExploration?.id,
-              }
-            : {
-                comparison: undefined,
-                comparisonExplorerAnalysisId: undefined,
-              }),
+          comparison,
+          comparisonExplorerAnalysisId: comparisonExploration?.id,
           config: {
             ...nextConfig,
             chartType: block.config?.chartType || exploration.config?.chartType,
