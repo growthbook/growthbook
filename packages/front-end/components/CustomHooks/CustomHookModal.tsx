@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
-import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  CustomHookInterface,
+  CustomHookType,
+  hookEntityType,
+} from "shared/validators";
 import { CreateProps } from "shared/types/base-model";
 import { Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -80,6 +88,45 @@ const dummyRevision: FeatureRevisionInterface = {
     },
   ],
 };
+const dummyExperiment: ExperimentInterface = {
+  id: "exp_abc123",
+  uid: "abc123",
+  organization: "org_abc123",
+  trackingKey: "my-experiment",
+  name: "My Experiment",
+  project: "",
+  status: "draft",
+  hypothesis: "",
+  description: "",
+  tags: [],
+  owner: "user@example.com",
+  dateCreated: new Date("2024-01-15T00:00:00.000Z"),
+  dateUpdated: new Date("2024-01-15T00:00:00.000Z"),
+  archived: false,
+  autoSnapshots: false,
+  hashAttribute: "id",
+  hashVersion: 2,
+  variations: [
+    { id: "v0", key: "0", name: "Control", screenshots: [] },
+    { id: "v1", key: "1", name: "Variation 1", screenshots: [] },
+  ],
+  phases: [],
+  datasource: "",
+  exposureQueryId: "",
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
+  decisionFrameworkSettings: {},
+  implementation: "code",
+  autoAssign: false,
+  previewURL: "",
+  targetURLRegex: "",
+  releasedVariationId: "",
+  customFields: {
+    contextualAttributes: ["checkout", "mobile"],
+    jiraTicket: "PROJ-123",
+  },
+};
 
 export const hookTypes: Record<
   CustomHookType,
@@ -116,6 +163,16 @@ export const hookTypes: Record<
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
+  validateExperiment: {
+    label: "Validate Experiment",
+    availableArguments: {
+      experiment: {
+        description: "The experiment being created or updated",
+        testValue: stringify(dummyExperiment),
+      },
+    },
+    example: `\n// Block the save (hard error):\nconst attributes = experiment.customFields?.contextualAttributes || [];\nif (!attributes.length) {\n  throw new Error("Select at least one contextual attribute");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!experiment.hypothesis) {\n  addWarning("Consider adding a hypothesis");\n}`,
+  },
 };
 
 export default function CustomHookModal({
@@ -123,6 +180,7 @@ export default function CustomHookModal({
   current,
   onSave,
   feature,
+  experiment,
   revision,
 }: {
   close: () => void;
@@ -130,6 +188,8 @@ export default function CustomHookModal({
   onSave?: () => void;
   // When set, scopes the hook to this feature and hides the Projects field.
   feature?: FeatureInterface;
+  // When set, scopes the hook to this experiment and hides the Projects field.
+  experiment?: ExperimentInterfaceStringDates;
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
 }) {
@@ -156,9 +216,11 @@ export default function CustomHookModal({
         k,
         feature && k === "feature"
           ? stringify(feature)
-          : revision && k === "revision"
-            ? stringify(revision)
-            : v.testValue,
+          : experiment && k === "experiment"
+            ? stringify(experiment)
+            : revision && k === "revision"
+              ? stringify(revision)
+              : v.testValue,
       ]),
     );
 
@@ -195,7 +257,9 @@ export default function CustomHookModal({
         ),
         ...(feature
           ? { entityType: "feature" as const, entityId: feature.id }
-          : {}),
+          : experiment
+            ? { entityType: "experiment" as const, entityId: experiment.id }
+            : {}),
       }),
     });
     setTestResult({
@@ -229,7 +293,13 @@ export default function CustomHookModal({
                 entityType: "feature" as const,
                 entityId: feature.id,
               }
-            : {}),
+            : experiment
+              ? {
+                  projects: [],
+                  entityType: "experiment" as const,
+                  entityId: experiment.id,
+                }
+              : {}),
         };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {
@@ -252,17 +322,25 @@ export default function CustomHookModal({
           <SelectField
             label="Hook Type"
             required
-            options={Object.entries(hookTypes).map(([value, { label }]) => ({
-              value,
-              label,
-            }))}
+            options={Object.entries(hookTypes)
+              .filter(([value]) => {
+                const scopedEntityType =
+                  hookEntityType[value as CustomHookType];
+                if (feature) return scopedEntityType === "feature";
+                if (experiment) return scopedEntityType === "experiment";
+                return true;
+              })
+              .map(([value, { label }]) => ({
+                value,
+                label,
+              }))}
             value={hookType}
             onChange={(value) => {
               form.setValue("hook", value as CustomHookType);
               setTestValues(initialTestValues(value as CustomHookType));
             }}
           />
-          {!feature && (
+          {!feature && !experiment && (
             <MultiSelectField
               label={"Projects"}
               placeholder="All Projects"

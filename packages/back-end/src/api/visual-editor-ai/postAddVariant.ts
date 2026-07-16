@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
+import type { Changeset } from "shared/types/experiment";
 import type {
   ExperimentInterfaceExcludingHoldouts,
   PhaseVariation,
@@ -13,6 +14,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -133,13 +135,15 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     }
   }
 
+  const changes: Changeset = {
+    variations: nextVariations,
+    ...(phases.length > 0 ? { phases } : {}),
+  };
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,
-    changes: {
-      variations: nextVariations,
-      ...(phases.length > 0 ? { phases } : {}),
-    },
+    changes,
   });
 
   // Omitting `id` lets updateVisualChangeset's merge logic mint one. For a

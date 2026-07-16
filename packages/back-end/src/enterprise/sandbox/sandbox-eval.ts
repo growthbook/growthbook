@@ -1,6 +1,7 @@
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterface } from "shared/types/experiment";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -8,6 +9,10 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
+
+export function customHooksActive(context: ReqContextClass): boolean {
+  return !IS_CLOUD && context.hasPremiumFeature("custom-hooks");
+}
 
 export async function runValidateFeatureHooks({
   context,
@@ -52,24 +57,35 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+export async function runValidateExperimentHooks({
+  context,
+  experiment,
+  original,
+}: {
+  context: ReqContextClass;
+  experiment: ExperimentInterface;
+  original: ExperimentInterface | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateExperiment",
+    { experiment },
+    experiment.project || "",
+    experiment.id,
+    original ? { experiment: original } : undefined,
+  );
+}
+
 // Private methods
 async function _runCustomHooks(
   context: ReqContextClass,
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
-  featureId: string = "",
+  entityId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
 ) {
-  // Skip on cloud
-  // The V8 Isolates approach we are using is too big of a risk in a multi-tenant environment
-  // Should be fine for self-hosting though
-  if (IS_CLOUD) return;
-
-  // Skip if org doesn't have the premium feature
-  if (!context.hasPremiumFeature("custom-hooks")) {
-    return;
-  }
+  if (!customHooksActive(context)) return;
 
   // Admin context has no `req` so must read from original context instead
   const ignoreWarnings = context.ignoreWarnings;
@@ -81,7 +97,7 @@ async function _runCustomHooks(
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
     project,
-    featureId,
+    entityId,
   );
 
   const allWarnings: string[] = [];

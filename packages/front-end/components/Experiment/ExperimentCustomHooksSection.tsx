@@ -1,70 +1,24 @@
-import { FeatureInterface } from "shared/types/feature";
-import { CustomHookInterface } from "shared/validators";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { CustomHookInterface } from "shared/validators";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
-import { isCloud } from "@/services/env";
-import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import JSONValidation from "@/components/Features/JSONValidation";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Text from "@/ui/Text";
 import LinkButton from "@/ui/LinkButton";
 
-export default function FeatureValidationTab({
-  feature,
-  revision,
-  mutate,
-  setVersion,
-  revisionList,
+export default function ExperimentCustomHooksSection({
+  experiment,
 }: {
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
-  mutate: () => void;
-  setVersion?: (version: number) => void;
-  revisionList?: MinimalFeatureRevisionInterface[];
-}) {
-  return (
-    <div className="contents container-fluid pagecontents">
-      {/* JSON / simple schema validation (not applicable to boolean flags) */}
-      {feature.valueType !== "boolean" && (
-        <Frame mb="4" px="6" py="4">
-          <JSONValidation
-            feature={feature}
-            mutate={mutate}
-            setVersion={setVersion}
-            revisionList={revisionList || []}
-          />
-        </Frame>
-      )}
-
-      {/* Custom Hooks are self-hosted only */}
-      {!isCloud() && (
-        <Frame mb="4" px="6" py="4">
-          <CustomHooksSection feature={feature} revision={revision} />
-        </Frame>
-      )}
-    </div>
-  );
-}
-
-function CustomHooksSection({
-  feature,
-  revision,
-}: {
-  feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
+  experiment: ExperimentInterfaceStringDates;
 }) {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -79,17 +33,19 @@ function CustomHooksSection({
     { shouldRun: () => hasAccessToCustomHooks },
   );
 
-  const canManage = permissionsUtil.canManageFeatureCustomHooks(feature);
+  const canManage = permissionsUtil.canManageExperimentCustomHooks(experiment);
 
   const applicableHooks = useMemo(
     () =>
       (data?.customHooks || []).filter(
         (h) =>
-          (h.entityType === "feature" && h.entityId === feature.id) ||
-          (!h.entityType &&
-            (!h.projects.length || h.projects.includes(feature.project || ""))),
+          h.hook === "validateExperiment" &&
+          ((h.entityType === "experiment" && h.entityId === experiment.id) ||
+            (!h.entityType &&
+              (!h.projects.length ||
+                h.projects.includes(experiment.project || "")))),
       ),
-    [data, feature.id, feature.project],
+    [data, experiment.id, experiment.project],
   );
 
   let disableReason = "";
@@ -97,7 +53,7 @@ function CustomHooksSection({
     disableReason = "Custom Hooks require an Enterprise plan.";
   } else if (!canManage) {
     disableReason =
-      "You don't have permission to manage custom hooks for this feature.";
+      "You don't have permission to manage custom hooks for this experiment.";
   }
 
   return (
@@ -105,8 +61,7 @@ function CustomHooksSection({
       {modalData && (
         <CustomHookModal
           current={modalData === true ? undefined : modalData}
-          feature={feature}
-          revision={revision}
+          experiment={experiment}
           close={() => setModalData(null)}
           onSave={() => mutate()}
         />
@@ -117,7 +72,7 @@ function CustomHooksSection({
       <Box mb="3">
         <Text color="text-low">
           <em>
-            Run sandboxed JavaScript validation before this feature is saved.
+            Run sandboxed JavaScript validation before this experiment is saved.
           </em>
         </Text>
       </Box>
@@ -125,7 +80,7 @@ function CustomHooksSection({
       {!hasAccessToCustomHooks ? (
         <PremiumCallout
           commercialFeature="custom-hooks"
-          id="custom-hooks-validation-tab"
+          id="experiment-custom-hooks-section"
         >
           Custom Hooks require an Enterprise plan.
         </PremiumCallout>
@@ -133,22 +88,22 @@ function CustomHooksSection({
         <>
           <Flex align="center" justify="between" gap="1" mb="1">
             <Heading as="h4" size="small" mb="0">
-              Feature-specific Hooks
+              Experiment-specific Hooks
             </Heading>
             <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
               <Button
                 onClick={() => setModalData(true)}
                 disabled={!hasAccessToCustomHooks || !canManage}
               >
-                Add Feature Hook
+                Add Experiment Hook
               </Button>
             </Tooltip>
           </Flex>
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !!hook.entityId)}
-            entityType="feature"
-            entityId={feature.id}
-            scopeLabel="Feature"
+            entityType="experiment"
+            entityId={experiment.id}
+            scopeLabel="Experiment"
             canManage={canManage}
             setModalData={setModalData}
             mutate={mutate}
@@ -169,9 +124,9 @@ function CustomHooksSection({
 
           <CustomHooksTable
             hooks={applicableHooks.filter((hook) => !hook.entityId)}
-            entityType="feature"
-            entityId={feature.id}
-            scopeLabel="Feature"
+            entityType="experiment"
+            entityId={experiment.id}
+            scopeLabel="Experiment"
             canManage={canManage}
             setModalData={setModalData}
             mutate={mutate}
