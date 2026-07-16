@@ -313,12 +313,10 @@ const BUILTIN_ATTRIBUTE_TO_IDENTIFIER: Record<string, string> = {
 };
 
 // Resolve the managed-warehouse identifier column (which doubles as the exposure
-// query's userIdType) that a hash attribute maps to, or null when it maps to none.
-//
-// Legacy materialized-column warehouses store the attribute -> SQL column mapping
-// explicitly, so the attribute name may differ from its column. JSON-column
-// warehouses derive it: custom identifiers reuse the attribute property as the
-// column, and built-in attributes fold into user_id/device_id per the SDK.
+// query's userIdType) that a hash attribute maps to. Legacy materialized-column
+// warehouses return the stored SQL column, or null when the attribute isn't an
+// identifier. JSON-column warehouses fold built-ins per BUILTIN_ATTRIBUTE_TO_IDENTIFIER
+// and treat any other attribute as a custom identifier named after the property.
 export function getManagedWarehouseIdentifierForAttribute({
   settings,
   attribute,

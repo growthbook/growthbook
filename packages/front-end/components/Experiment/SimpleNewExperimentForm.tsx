@@ -3,12 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  DataSourceInterfaceWithParams,
-  DataSourceSettings,
-  DataSourceType,
-  GrowthbookClickhouseSettings,
-} from "shared/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
 import {
   getManagedWarehouseExposureQueryIdForAttribute,
@@ -94,16 +89,15 @@ export function getAutoDatasourceId({
 
 // Auto-select an experiment assignment query only when the choice is unambiguous.
 export function getAutoExposureQueryId({
-  dsSettings,
+  datasource,
   hashAttribute,
   templateExposureQueryId,
-  datasourceType,
 }: {
-  dsSettings?: DataSourceSettings;
+  datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
   templateExposureQueryId?: string;
-  datasourceType?: DataSourceType;
 }): string {
+  const dsSettings = datasource?.settings;
   const exposureQueries = dsSettings?.queries?.exposure || [];
 
   if (templateExposureQueryId) {
@@ -115,14 +109,12 @@ export function getAutoExposureQueryId({
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
 
-  // Managed warehouses store an attribute -> identifier column mapping (materialized
-  // columns for legacy warehouses, or the attribute name itself for JSON-column
-  // warehouses), with one exposure query per identifier. Resolve the assignment
-  // query directly from the selected hash attribute rather than relying on
-  // userIdType.attributes links (which managed warehouses don't populate).
-  if (datasourceType === "growthbook_clickhouse" && dsSettings) {
+  // Managed warehouses don't populate userIdType.attributes links, so the generic
+  // lookup below can't resolve the assignment query. Map the hash attribute to its
+  // exposure query directly instead.
+  if (datasource?.type === "growthbook_clickhouse") {
     return getManagedWarehouseExposureQueryIdForAttribute({
-      settings: dsSettings as GrowthbookClickhouseSettings,
+      settings: datasource.settings,
       attribute: hashAttribute,
     });
   }
@@ -297,10 +289,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
   const wouldAutoSelectExposureQuery =
     getAutoExposureQueryId({
-      dsSettings: autoDatasource?.settings,
+      datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
-      datasourceType: autoDatasource?.type,
     }) !== "";
   const showLinkIdentifierCallout =
     !!autoDatasource &&
@@ -381,10 +372,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       ? getDatasourceById(datasource)
       : null;
     const exposureQueryId = getAutoExposureQueryId({
-      dsSettings: selectedDatasource?.settings,
+      datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
-      datasourceType: selectedDatasource?.type,
     });
 
     data = {
