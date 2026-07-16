@@ -77,12 +77,12 @@ export type MetricFormProps = {
   switchToFact?: () => void;
 };
 
-export function usesValueColumn(sql: string) {
-  return !!sql.match(/\{\{[^}]*valueColumn/g);
+export function usesValueColumn(sql?: string | null) {
+  return !!sql?.match(/\{\{[^}]*valueColumn/g);
 }
 
-export function usesEventName(sql: string) {
-  return !!sql.match(/\{\{[^}]*eventName/g);
+export function usesEventName(sql?: string | null) {
+  return !!sql?.match(/\{\{[^}]*eventName/g);
 }
 
 function validateMetricSQL(
