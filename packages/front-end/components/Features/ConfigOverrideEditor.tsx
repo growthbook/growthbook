@@ -3,7 +3,12 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { SchemaField } from "shared/types/feature";
 import { deepMergePatch } from "shared/util";
 import { isEqual } from "lodash";
-import { PiInfo, PiPlusBold, PiTrash } from "react-icons/pi";
+import {
+  PiArrowCounterClockwise,
+  PiInfo,
+  PiPlusBold,
+  PiTrash,
+} from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Text from "@/ui/Text";
@@ -437,7 +442,15 @@ function OverrideRow({
             }}
           >
             <Flex align="center" gap="1">
-              <PiTrash /> Remove
+              {field === null ? (
+                <>
+                  <PiTrash /> Delete
+                </>
+              ) : (
+                <>
+                  <PiArrowCounterClockwise /> Revert
+                </>
+              )}
             </Flex>
           </Link>
         ) : (
