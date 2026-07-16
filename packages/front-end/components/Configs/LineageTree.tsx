@@ -531,16 +531,23 @@ export default function LineageTree({
               </Tooltip>
             )}
             {hasIncompatible && (
-              <PiWarningFill
-                size={12}
-                title={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
-                style={{ flexShrink: 0, color: "var(--amber-11)" }}
-              />
+              <Tooltip
+                content={`Incompatible value(s): ${n.incompatibleFields?.join(", ")}`}
+              >
+                <Box
+                  style={{
+                    display: "inline-flex",
+                    flexShrink: 0,
+                    color: "var(--amber-11)",
+                  }}
+                >
+                  <PiWarningFill size={12} />
+                </Box>
+              </Tooltip>
             )}
             {hasOrphaned && (
-              <PiLinkBreak
-                size={12}
-                title={
+              <Tooltip
+                content={
                   `Undeclared value key(s): ${n.orphanedFields?.join(", ")} — ` +
                   `the effective schema no longer declares them; they still ` +
                   `resolve, but nothing validates them and validation rules ` +
@@ -549,21 +556,37 @@ export default function LineageTree({
                     ? " This family is not extensible, so the next changing publish of this config will be rejected until they are removed or re-declared."
                     : "")
                 }
-                style={{
-                  flexShrink: 0,
-                  color:
-                    extensible === false ? "var(--amber-11)" : "var(--slate-9)",
-                }}
-              />
+              >
+                <Box
+                  style={{
+                    display: "inline-flex",
+                    flexShrink: 0,
+                    color:
+                      extensible === false
+                        ? "var(--amber-11)"
+                        : "var(--slate-9)",
+                  }}
+                >
+                  <PiLinkBreak size={12} />
+                </Box>
+              </Tooltip>
             )}
             {hasViolations && (
-              <PiWarningFill
-                size={12}
-                title={`Violates validation rule(s): ${n.invariantViolations
+              <Tooltip
+                content={`Violates validation rule(s): ${n.invariantViolations
                   ?.map((v) => v.message)
                   .join("; ")}`}
-                style={{ flexShrink: 0, color: "var(--red-11)" }}
-              />
+              >
+                <Box
+                  style={{
+                    display: "inline-flex",
+                    flexShrink: 0,
+                    color: "var(--red-11)",
+                  }}
+                >
+                  <PiWarningFill size={12} />
+                </Box>
+              </Tooltip>
             )}
             {n.fieldCount !== undefined && countBadge(n.fieldCount)}
           </Flex>
