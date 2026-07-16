@@ -356,7 +356,7 @@ export default function EditScheduleModal({
         ctaEnabled={!stopBeforeStart && !endDateMissing}
         size="lg"
         secondaryAction={
-          isApproved ? (
+          isApproved && experiment.status === "draft" ? (
             <Button
               variant="ghost"
               color="red"
@@ -456,6 +456,7 @@ export default function EditScheduleModal({
                   }
                 }}
                 containerStyle={{ minHeight: 38, width: 150 }}
+                disabled={experiment.status !== "draft"}
               />
               {startAt && (
                 <DatePicker
@@ -467,6 +468,7 @@ export default function EditScheduleModal({
                   precision="datetime"
                   scheduleEndDate={stopAt || undefined}
                   disableBefore={now}
+                  disabled={experiment.status !== "draft"}
                 />
               )}
             </Flex>
