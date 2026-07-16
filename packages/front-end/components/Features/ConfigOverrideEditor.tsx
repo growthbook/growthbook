@@ -17,6 +17,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
@@ -403,6 +404,82 @@ function OverrideRow({
   );
 }
 
+// The "add a field to override" control. Declared fields that aren't overridden
+// yet are offered in a select (which commits only on an explicit pick). An
+// extensible config also allows a free-form new key, but that is committed only
+// on Enter or the Add button — never per keystroke. (A createable SelectField
+// with an empty option list degrades to a plain text input whose onChange fires
+// on every keystroke, which here turned each typed character into its own stray
+// one-character override.)
+function AddFieldControl({
+  addableFields,
+  extensible,
+  existingKeys,
+  onAdd,
+  disabled,
+}: {
+  addableFields: SchemaField[];
+  extensible: boolean;
+  existingKeys: Set<string>;
+  onAdd: (key: string) => void;
+  disabled?: boolean;
+}): React.ReactElement {
+  const [newKey, setNewKey] = useState("");
+  const trimmed = newKey.trim();
+  const canAdd = trimmed.length > 0 && !existingKeys.has(trimmed);
+
+  const commit = (key: string) => {
+    const k = key.trim();
+    if (!k || existingKeys.has(k)) return;
+    onAdd(k);
+    setNewKey("");
+  };
+
+  return (
+    <Flex mt="2" gap="3" align="start" wrap="wrap">
+      {addableFields.length > 0 && (
+        <Box style={{ minWidth: 220 }}>
+          <SelectField
+            value=""
+            placeholder="Add a field to override…"
+            options={addableFields.map((f) => ({
+              value: f.key,
+              label: f.key,
+            }))}
+            onChange={(key) => commit(key)}
+            disabled={disabled}
+          />
+        </Box>
+      )}
+      {extensible && (
+        <Flex gap="2" align="center">
+          <Box style={{ width: 200 }}>
+            <Field
+              value={newKey}
+              placeholder="New field name…"
+              onChange={(e) => setNewKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commit(newKey);
+                }
+              }}
+              disabled={disabled}
+            />
+          </Box>
+          <Button
+            variant="soft"
+            disabled={disabled || !canAdd}
+            onClick={() => commit(newKey)}
+          >
+            Add
+          </Button>
+        </Flex>
+      )}
+    </Flex>
+  );
+}
+
 // Schema-aware editor for the override patch applied on top of a config-backed
 // value. The Form tab lists the config's fields with typed controls; the JSON
 // tab is the raw escape hatch.
@@ -573,33 +650,17 @@ export default function ConfigOverrideEditor({
                 )}
               </Box>
               {sparse && (addableFields.length > 0 || extensible) && (
-                <Box mt="2" style={{ maxWidth: 260 }}>
-                  <SelectField
-                    value=""
-                    placeholder={
-                      extensible
-                        ? "Add or create a field…"
-                        : "Add field to override…"
-                    }
-                    // Extensible families tolerate keys beyond the declared
-                    // schema, so allow free-form new keys; strict families are
-                    // limited to declared fields.
-                    createable={extensible}
-                    formatCreateLabel={(v) => `Add "${v}"`}
-                    options={addableFields.map((f) => ({
-                      value: f.key,
-                      label: f.key,
-                    }))}
-                    onChange={(key) => {
-                      if (!key) return;
-                      const field =
-                        data?.effectiveSchema.find((x) => x.key === key) ??
-                        null;
-                      setOverride(key, seedValue(key, field));
-                    }}
-                    disabled={disabled}
-                  />
-                </Box>
+                <AddFieldControl
+                  addableFields={addableFields}
+                  extensible={extensible}
+                  existingKeys={overrideKeys}
+                  onAdd={(key) => {
+                    const field =
+                      data?.effectiveSchema.find((x) => x.key === key) ?? null;
+                    setOverride(key, seedValue(key, field));
+                  }}
+                  disabled={disabled}
+                />
               )}
             </Box>
           )}
