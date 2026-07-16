@@ -6,13 +6,13 @@ import {
 } from "shared/types/experiment";
 import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { useForm } from "react-hook-form";
-import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
 import useApi from "@/hooks/useApi";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 import { useAuth } from "@/services/auth";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 interface DecisionCriteriaSelectorModalProps {
   onSubmit: () => void;
@@ -57,8 +57,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
   });
 
   return (
-    <Modal
-      useRadixButton={false}
+    <ModalStandard
       open={true}
       submit={
         canEdit
@@ -124,7 +123,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
           </>
         )}
       </Flex>
-    </Modal>
+    </ModalStandard>
   );
 };
 
