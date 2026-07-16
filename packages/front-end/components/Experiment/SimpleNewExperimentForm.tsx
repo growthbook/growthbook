@@ -361,15 +361,15 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     );
     const hashVersion = hasSDKWithNoBucketingV2 ? 1 : 2;
 
-    const datasource = getAutoDatasourceId({
+    const datasourceId = getAutoDatasourceId({
       datasources,
       demoDataSourceId,
       defaultDataSource: settings.defaultDataSource,
       project,
       templateDatasource: data.datasource || "",
     });
-    const selectedDatasource = datasource
-      ? getDatasourceById(datasource)
+    const selectedDatasource = datasourceId
+      ? getDatasourceById(datasourceId)
       : null;
     const exposureQueryId = getAutoExposureQueryId({
       datasource: selectedDatasource ?? undefined,
@@ -386,7 +386,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       hypothesis: rawValue.hypothesis || "",
       hashAttribute,
       hashVersion,
-      datasource,
+      datasource: datasourceId,
       exposureQueryId,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
