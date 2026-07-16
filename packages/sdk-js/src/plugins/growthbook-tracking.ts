@@ -120,14 +120,18 @@ function getEventPayload({
   };
 }
 
+export type TrackingTransport = "auto" | "beacon" | "fetch";
+
 async function track({
   clientKey,
   ingestorHost,
   events,
+  useBeacon,
 }: {
   events: EventPayload[];
   clientKey: string;
   ingestorHost?: string;
+  useBeacon?: boolean;
 }) {
   if (!events.length) return;
 
@@ -135,6 +139,21 @@ async function track({
     ingestorHost || "https://us1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
   const body = JSON.stringify(events);
+
+  // sendBeacon is queued by the browser and survives page unload even where
+  // fetch keepalive is unsupported. text/plain keeps it a CORS simple request.
+  if (useBeacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+    try {
+      if (
+        navigator.sendBeacon(endpoint, new Blob([body], { type: "text/plain" }))
+      ) {
+        return;
+      }
+      // Beacon rejected (e.g. payload over the beacon quota) - fall through
+    } catch (e) {
+      // Fall through to fetch
+    }
+  }
 
   try {
     await fetch(endpoint, {
@@ -145,6 +164,9 @@ async function track({
         "Content-Type": "text/plain",
       },
       credentials: "omit",
+      // Let the request outlive the page; exposures fired just before a
+      // navigation (e.g. redirect tests) are otherwise cancelled by the browser
+      keepalive: true,
     });
   } catch (e) {
     console.error("Failed to track event", e);
@@ -159,6 +181,7 @@ export function growthbookTrackingPlugin({
   dedupeCacheSize = 1000,
   dedupeKeyAttributes = [],
   eventFilter,
+  transport = "auto",
 }: {
   // TODO: add option to allow filtering out certain attributes that contain PII
   queueFlushInterval?: number;
@@ -168,6 +191,9 @@ export function growthbookTrackingPlugin({
   dedupeCacheSize?: number;
   dedupeKeyAttributes?: string[];
   eventFilter?: (event: EventData) => boolean;
+  // "auto" (default): fetch with keepalive, plus sendBeacon when the page is
+  // unloading. "beacon": always prefer sendBeacon. "fetch": never use beacon.
+  transport?: TrackingTransport;
 } = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     const clientKey = gb.getClientKey();
@@ -181,12 +207,19 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
-      const flush = async () => {
+      const flush = async (unloading?: boolean) => {
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
-        events.length && (await track({ clientKey, events, ingestorHost }));
+        events.length &&
+          (await track({
+            clientKey,
+            events,
+            ingestorHost,
+            useBeacon:
+              transport === "beacon" || (transport === "auto" && !!unloading),
+          }));
       };
 
       let promise: Promise<void> | null = null;
@@ -261,8 +294,14 @@ export function growthbookTrackingPlugin({
       if (typeof document !== "undefined" && document.visibilityState) {
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
-            flush().catch(console.error);
+            flush(true).catch(console.error);
           }
+        });
+      }
+      // pagehide fires on navigations where visibilitychange may not
+      if (typeof window !== "undefined") {
+        window.addEventListener("pagehide", () => {
+          flush(true).catch(console.error);
         });
       }
 

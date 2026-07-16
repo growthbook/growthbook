@@ -146,9 +146,16 @@ if (tracking !== "none") {
     .map((t) => t.trim());
 
   if (trackers.includes("growthbook")) {
+    const eventTransport = dataContext.eventTransport;
     plugins.push(
       growthbookTrackingPlugin({
         ingestorHost: dataContext.eventIngestorHost,
+        transport:
+          eventTransport === "auto" ||
+          eventTransport === "beacon" ||
+          eventTransport === "fetch"
+            ? eventTransport
+            : undefined,
       }),
     );
   }
