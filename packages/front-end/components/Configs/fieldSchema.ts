@@ -132,6 +132,29 @@ export function fieldTypeSelectValue(field: SchemaField): string {
   }
 }
 
+// Build a synthetic SchemaField from a FIELD_TYPE_OPTIONS token — the inverse of
+// fieldTypeSelectValue. Presets (json/array/any) carry a jsonSchema; scalars set
+// `type`. Used to give a custom (non-schema) override key a selectable type.
+export function fieldForTypeToken(token: string): SchemaField {
+  const base = blankField();
+  if (token in JSON_SCHEMA_PRESETS) {
+    return { ...base, jsonSchema: presetSchemaString(token as PresetKey) };
+  }
+  return { ...base, type: token as SchemaField["type"], jsonSchema: undefined };
+}
+
+// Best-fit FIELD_TYPE_OPTIONS token for a raw JS value, to seed a custom key's
+// type selector from its current value. Defaults to "string".
+export function typeTokenFromValue(value: unknown): string {
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? "integer" : "float";
+  }
+  if (Array.isArray(value)) return "array";
+  if (value !== null && typeof value === "object") return "json";
+  return "string";
+}
+
 // Whether a field admits `null` — either via the `nullable` flag or a raw schema
 // whose top-level `type` is a union that includes `"null"`.
 export function fieldIsNullable(f: SchemaField | null): boolean {

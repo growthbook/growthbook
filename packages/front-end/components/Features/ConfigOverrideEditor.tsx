@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { SchemaField } from "shared/types/feature";
 import { deepMergePatch } from "shared/util";
 import { isEqual } from "lodash";
@@ -12,6 +12,7 @@ import {
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -24,11 +25,14 @@ import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import {
   ResolvedField,
+  FIELD_TYPE_OPTIONS,
+  fieldForTypeToken,
   fieldIsNullable,
   fieldTypeLabel,
   fieldValueType,
   normalizeField,
   typeDefault,
+  typeTokenFromValue,
   valueToDisplayString,
 } from "@/components/Configs/fieldSchema";
 
@@ -38,12 +42,20 @@ type ResolvedResponse = {
   extensible?: boolean;
 };
 
-// Key (150px) / Value (minmax(180px, 1fr)) / Type (110px) / action (auto). Key
-// and Type are fixed and the action column is `auto` so it fits the "+ Override"
-// CTA (a fixed width clipped it); the Value column absorbs the remaining width,
-// with a modest min so the grid still fits narrow containers (e.g. an experiment
-// variation arm) without overflowing.
-const GRID_TEMPLATE = "150px minmax(180px, 1fr) 110px auto";
+// Key (150px) / Value (minmax(180px, 1fr)) / Type (110px) / action (120px).
+// Every column is fixed except Value (1fr, absorbs slack) so the column header
+// and every row share identical geometry. An `auto` action column resolved to
+// 0 in the empty header cell but ~the CTA width in rows, which shifted the Type
+// column out of alignment; 120px fits the widest CTA ("+ Override") without
+// clipping. The modest Value min keeps the grid from overflowing narrow
+// containers (e.g. an experiment variation arm).
+const GRID_TEMPLATE = "150px minmax(180px, 1fr) 110px 120px";
+
+// A custom key picks how to enter a concrete value, so the schema-authoring
+// "Any" type (no value editor of its own) is dropped from its type picker.
+const CUSTOM_FIELD_TYPE_OPTIONS = FIELD_TYPE_OPTIONS.filter(
+  (o) => o.value !== "any",
+);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -296,7 +308,16 @@ function OverrideRow({
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
 }): React.ReactElement {
-  const nf = field ? normalizeField(field) : null;
+  // A custom (non-schema) key carries no declared type, so it gets a selectable
+  // one (default string) that drives the value editor and the value's stored
+  // JSON shape. Declared fields use their schema type as before. Seeded from the
+  // current value so an existing custom override re-opens with the right type.
+  const isCustom = field === null;
+  const [customType, setCustomType] = useState(() =>
+    isCustom ? typeTokenFromValue(value) : "string",
+  );
+  const effectiveField = isCustom ? fieldForTypeToken(customType) : field;
+  const nf = effectiveField ? normalizeField(effectiveField) : null;
   const vt = fieldValueType(nf);
   const nullable = fieldIsNullable(nf);
   const description = nf?.description?.trim();
@@ -362,7 +383,10 @@ function OverrideRow({
               </Flex>
             ) : (
               <OverrideValueInput
-                field={field}
+                // Remount on a custom key's type change so the editor re-seeds
+                // from the coerced value.
+                key={isCustom ? `custom:${customType}` : `field:${fieldKey}`}
+                field={effectiveField}
                 fieldKey={fieldKey}
                 value={value}
                 onChange={onSet}
@@ -422,9 +446,31 @@ function OverrideRow({
       </Box>
 
       <Flex align="center" style={{ minHeight: 32, minWidth: 0 }}>
-        <code style={{ color: "var(--slate-9)", fontSize: "0.8em" }}>
-          {fieldTypeLabel(nf)}
-        </code>
+        {isCustom ? (
+          <Tooltip
+            body="Sets how the value is emitted (its encoding), not a validation rule."
+            style={{ display: "block", width: "100%" }}
+          >
+            <Box style={{ width: "100%" }}>
+              <SelectField
+                value={customType}
+                options={CUSTOM_FIELD_TYPE_OPTIONS}
+                sort={false}
+                disabled={disabled}
+                onChange={(t) => {
+                  if (t === customType) return;
+                  setCustomType(t);
+                  // Coerce the value to the new type's default so it stays valid.
+                  onSet(typeDefault(normalizeField(fieldForTypeToken(t))));
+                }}
+              />
+            </Box>
+          </Tooltip>
+        ) : (
+          <code style={{ color: "var(--slate-9)", fontSize: "0.8em" }}>
+            {fieldTypeLabel(nf)}
+          </code>
+        )}
       </Flex>
 
       <Flex
@@ -514,6 +560,27 @@ function AddFieldControl({
   );
 }
 
+// The Key / Value / Type column labels, shown above each field group.
+function ColumnHeaderRow(): React.ReactElement {
+  return (
+    <Grid columns={GRID_TEMPLATE} gapX="5" pb="1" align="center">
+      {["Key", "Value", "Type"].map((l) => (
+        <Box key={l} style={{ minWidth: 0 }}>
+          <Text
+            size="small"
+            weight="medium"
+            color="text-low"
+            textTransform="uppercase"
+          >
+            {l}
+          </Text>
+        </Box>
+      ))}
+      <Box />
+    </Grid>
+  );
+}
+
 // Schema-aware editor for the override patch applied on top of a config-backed
 // value. The Form tab lists the config's fields with typed controls; the JSON
 // tab is the raw escape hatch.
@@ -583,9 +650,11 @@ export default function ConfigOverrideEditor({
 
   const seedValue = (key: string, field: SchemaField | null): unknown => {
     const base = baseByKey.get(key);
-    return base !== undefined
-      ? base
-      : typeDefault(field ? normalizeField(field) : null);
+    if (base !== undefined) return base;
+    // Custom (non-schema) keys default to an empty string; the row's type
+    // selector changes the type afterward.
+    if (!field) return "";
+    return typeDefault(normalizeField(field));
   };
 
   // Purely visual — the patch is already sparse. Start in the overrides-only
@@ -607,6 +676,38 @@ export default function ConfigOverrideEditor({
   // current override keys.
   const takenKeys = new Set<string>(overrideKeys);
   (data?.effectiveSchema ?? []).forEach((f) => takenKeys.add(f.key));
+
+  // Declared schema fields render first; custom (non-schema) keys are grouped
+  // under their own header since they aren't schema-validated.
+  const declaredRows = visibleRows.filter((r) => r.field !== null);
+  const customRows = visibleRows.filter((r) => r.field === null);
+  const renderRow = ({
+    key,
+    field,
+  }: {
+    key: string;
+    field: SchemaField | null;
+  }) => {
+    const overridden = overrides ? key in overrides : false;
+    const base = baseByKey.get(key);
+    return (
+      <OverrideRow
+        key={`${configKey}:${key}`}
+        field={field}
+        fieldKey={key}
+        base={base}
+        overridden={overridden}
+        value={overridden ? overrides?.[key] : undefined}
+        onStart={() => setOverride(key, seedValue(key, field))}
+        onSet={(v) => setOverride(key, v)}
+        onRemove={() => removeOverride(key)}
+        onRename={(newKey) => renameOverride(key, newKey)}
+        takenKeys={takenKeys}
+        constantContext={constantContext}
+        disabled={disabled}
+      />
+    );
+  };
 
   return (
     <Tabs defaultValue="form">
@@ -648,55 +749,42 @@ export default function ConfigOverrideEditor({
                 p="3"
                 style={{ background: "var(--color-panel-solid)" }}
               >
-                <Grid columns={GRID_TEMPLATE} gapX="5" pb="1" align="center">
-                  {["Key", "Value", "Type"].map((l) => (
-                    <Box key={l} style={{ minWidth: 0 }}>
-                      <Text
-                        size="small"
-                        weight="medium"
-                        color="text-low"
-                        textTransform="uppercase"
-                      >
-                        {l}
-                      </Text>
-                    </Box>
-                  ))}
-                  <Box />
-                </Grid>
                 {visibleRows.length === 0 ? (
-                  <Flex
-                    align="center"
-                    justify="center"
-                    py="3"
-                    style={{ borderTop: "1px solid var(--slate-a4)" }}
-                  >
+                  <Flex align="center" justify="center" py="3">
                     <Text size="small" color="text-low" fontStyle="italic">
                       No overrides — the config&apos;s values apply as-is. Add a
                       field below to override one.
                     </Text>
                   </Flex>
                 ) : (
-                  visibleRows.map(({ key, field }) => {
-                    const overridden = overrides ? key in overrides : false;
-                    const base = baseByKey.get(key);
-                    return (
-                      <OverrideRow
-                        key={`${configKey}:${key}`}
-                        field={field}
-                        fieldKey={key}
-                        base={base}
-                        overridden={overridden}
-                        value={overridden ? overrides?.[key] : undefined}
-                        onStart={() => setOverride(key, seedValue(key, field))}
-                        onSet={(v) => setOverride(key, v)}
-                        onRemove={() => removeOverride(key)}
-                        onRename={(newKey) => renameOverride(key, newKey)}
-                        takenKeys={takenKeys}
-                        constantContext={constantContext}
-                        disabled={disabled}
-                      />
-                    );
-                  })
+                  <>
+                    {declaredRows.length > 0 && (
+                      <>
+                        <Heading as="h4" size="x-small" mb="1">
+                          Schema Fields
+                        </Heading>
+                        <ColumnHeaderRow />
+                      </>
+                    )}
+                    {declaredRows.map(renderRow)}
+                    {customRows.length > 0 && (
+                      <>
+                        <Box mt={declaredRows.length > 0 ? "4" : "0"}>
+                          {declaredRows.length > 0 && (
+                            <Separator size="4" mb="3" />
+                          )}
+                          <Heading as="h4" size="x-small" mb="1">
+                            Custom Overrides
+                          </Heading>
+                          <Text as="div" size="small" color="text-low" mb="2">
+                            Not validated
+                          </Text>
+                        </Box>
+                        <ColumnHeaderRow />
+                      </>
+                    )}
+                    {customRows.map(renderRow)}
+                  </>
                 )}
               </Box>
               {(addableFields.length > 0 || extensible) && (
