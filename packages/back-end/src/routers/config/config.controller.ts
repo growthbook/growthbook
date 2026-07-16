@@ -348,7 +348,15 @@ export const getConfigResolved = async (
   const buildSpineLineage = (rootKey: string) =>
     getConfigSpineSubtree(rootKey, allConfigs).flatMap((key) => {
       const node = byKey.get(key);
-      if (!node) return [];
+      // A spine subtree rooted at a global/shared base spans projects; drop
+      // nodes the caller can't read so their name/count/etc. never ship to a
+      // project-scoped viewer. Filtering at the source covers every consumer
+      // (the target's own lineage, composer families, and the derived maps).
+      if (
+        !node ||
+        !context.permissions.canReadSingleProjectResource(node.project)
+      )
+        return [];
       const { incompatibleFields, orphanedFields } = valueFlagsFor(node.key);
       return [
         {
@@ -405,17 +413,11 @@ export const getConfigResolved = async (
     ),
   ].filter((rk) => rk !== spineRootKey);
 
-  // Gating the family ENTRY (above) isn't enough: a family's spine subtree can
-  // include cross-project nodes the caller can't read (e.g. an unreadable
-  // composer sharing a readable one's spine root), so filter the expanded nodes
-  // by readability too — otherwise their name/fieldCount leak through the tree.
+  // buildSpineLineage already drops nodes the caller can't read (a family's
+  // spine subtree can span projects), so the expanded contents are safe.
   const composerFamilies = composerRootKeys.map((rootKey) => ({
     rootKey,
-    lineage: buildSpineLineage(rootKey).filter((n) =>
-      context.permissions.canReadSingleProjectResource(
-        byKey.get(n.key)?.project,
-      ),
-    ),
+    lineage: buildSpineLineage(rootKey),
   }));
 
   // Own-value field count + display name, keyed by config key, so the lineage
@@ -437,8 +439,9 @@ export const getConfigResolved = async (
   for (const key of referencedKeys) {
     const c = byKey.get(key);
     if (!c) continue;
-    // Belt-and-suspenders: a readable node's own mixin (extendsKeys) can point
-    // at a config in an unreadable project — don't emit its name/count either.
+    // A node's mixin keys (extendsKeys) aren't spine nodes, so buildSpineLineage
+    // doesn't filter them — a readable node can reference a mixin in a project
+    // the caller can't read. Gate the map so that mixin's name/count don't leak.
     if (!context.permissions.canReadSingleProjectResource(c.project)) continue;
     fieldCounts[c.key] = configOwnFieldCount(c.value);
     configNames[c.key] = c.name;
