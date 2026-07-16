@@ -158,6 +158,7 @@ export default function DatePicker({
   );
   const [open, setOpen] = useState(false);
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
+  const [rangeSeparatorEntered, setRangeSeparatorEntered] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
@@ -253,6 +254,7 @@ export default function DatePicker({
     const b = bufferedDate2;
     if (!a && !b) return "";
     if (a && b) return `${a}${RANGE_DISPLAY_SEP}${b}`;
+    if (rangeSeparatorEntered) return `${a}${RANGE_DISPLAY_SEP}${b}`;
     return a || b;
   }, [
     bufferedDate,
@@ -263,6 +265,7 @@ export default function DatePicker({
     parseDateInput,
     precision,
     rangeFieldFocused,
+    rangeSeparatorEntered,
   ]);
 
   const clampParsedDate = useCallback(
@@ -302,7 +305,9 @@ export default function DatePicker({
         if (format(parsedDate, dateFormat) === startTrim) {
           const finalDate = clampParsedDate(parsedDate);
           setDate(finalDate);
-          setBufferedDate(format(finalDate, dateFormat));
+          if (format(finalDate, dateFormat) !== startTrim) {
+            setBufferedDate(format(finalDate, dateFormat));
+          }
           anchor = finalDate;
         }
       } else {
@@ -315,7 +320,9 @@ export default function DatePicker({
         if (format(parsedDate2, dateFormat) === endTrim) {
           const finalDate2 = clampParsedDate(parsedDate2);
           setDate2?.(finalDate2);
-          setBufferedDate2(format(finalDate2, dateFormat));
+          if (format(finalDate2, dateFormat) !== endTrim) {
+            setBufferedDate2(format(finalDate2, dateFormat));
+          }
           anchor = finalDate2;
         }
       } else {
@@ -431,6 +438,7 @@ export default function DatePicker({
                       if (isRange) {
                         const v = e.target.value;
                         const [startPart, endPart] = splitRangeFieldInput(v);
+                        setRangeSeparatorEntered(v.includes(RANGE_DISPLAY_SEP));
                         setBufferedDate(startPart);
                         setBufferedDate2(endPart);
                         debouncedApplyRange(startPart, endPart);
@@ -443,6 +451,7 @@ export default function DatePicker({
                       if (!isRange) return;
                       setRangeFieldFocused(true);
                       if (date && date2) {
+                        setRangeSeparatorEntered(true);
                         setBufferedDate(
                           format(parseDateInput(date), dateFormat),
                         );
@@ -456,6 +465,7 @@ export default function DatePicker({
                       debouncedApplyRange.flush();
                       if (isRange) {
                         setRangeFieldFocused(false);
+                        setRangeSeparatorEntered(false);
                       }
                     }}
                     onClick={(e) => {
@@ -533,8 +543,10 @@ export default function DatePicker({
                       setBufferedDate("");
                     }
                     if (to) {
+                      setRangeSeparatorEntered(true);
                       setBufferedDate2(format(to, dateFormat));
                     } else {
+                      setRangeSeparatorEntered(false);
                       setBufferedDate2("");
                     }
                   }}
