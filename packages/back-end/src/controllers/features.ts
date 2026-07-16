@@ -2136,6 +2136,18 @@ export async function postFeaturePublish(
     await validateExperimentChange({ context, experiment, changes });
   }
 
+  for (const experiment of experimentsToApproveSchedule) {
+    const startAt = experiment.statusUpdateSchedule?.startAt
+      ? getValidDate(experiment.statusUpdateSchedule.startAt)
+      : null;
+    if (!startAt) continue;
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: { nextScheduledStatusUpdate: { type: "start", date: startAt } },
+    });
+  }
+
   const updatedFeature = await publishRevision({
     context,
     feature,
