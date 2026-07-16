@@ -17,6 +17,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
@@ -213,6 +214,62 @@ function OverrideValueInput({
   );
 }
 
+// Inline editor for a CUSTOM (non-schema) override key. Declared fields keep a
+// fixed key; a free-form key can be renamed. Renaming remounts the row (its
+// React key includes the field key), so the draft is local and committed only
+// on blur/Enter — never per keystroke — and a rename onto an existing key is
+// rejected (reverting to the current key).
+function EditableKey({
+  value,
+  taken,
+  onRename,
+  disabled,
+}: {
+  value: string;
+  taken: Set<string>;
+  onRename: (newKey: string) => void;
+  disabled?: boolean;
+}): React.ReactElement {
+  const [draft, setDraft] = useState(value);
+  const trimmed = draft.trim();
+  const collision = trimmed !== value && taken.has(trimmed);
+  const invalid = trimmed.length === 0 || collision;
+
+  const commit = () => {
+    if (trimmed === value) return;
+    if (invalid) {
+      setDraft(value);
+      return;
+    }
+    onRename(trimmed);
+  };
+
+  return (
+    <Box style={{ width: "100%", minWidth: 0 }}>
+      <Field
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          } else if (e.key === "Escape") {
+            setDraft(value);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        disabled={disabled}
+        title={collision ? `"${trimmed}" is already in use` : undefined}
+        style={{
+          fontFamily: "monospace",
+          ...(invalid ? { borderColor: "var(--red-8)" } : {}),
+        }}
+      />
+    </Box>
+  );
+}
+
 function OverrideRow({
   field,
   fieldKey,
@@ -222,6 +279,8 @@ function OverrideRow({
   onStart,
   onSet,
   onRemove,
+  onRename,
+  takenKeys,
   sparse,
   constantContext,
   disabled,
@@ -234,6 +293,8 @@ function OverrideRow({
   onStart: () => void;
   onSet: (value: unknown) => void;
   onRemove: () => void;
+  onRename: (newKey: string) => void;
+  takenKeys: Set<string>;
   sparse: boolean;
   constantContext?: { project?: string; excludeKeys?: string[] };
   disabled?: boolean;
@@ -267,17 +328,27 @@ function OverrideRow({
       style={{ borderTop: "1px solid var(--slate-a4)" }}
     >
       <Flex align="center" gap="1" style={{ minHeight: 32, minWidth: 0 }}>
-        <code
-          style={{
-            color: "var(--slate-12)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-          title={fieldKey}
-        >
-          {fieldKey}
-        </code>
+        {field === null ? (
+          // Custom (non-schema) key — editable; declared keys are fixed.
+          <EditableKey
+            value={fieldKey}
+            taken={takenKeys}
+            onRename={onRename}
+            disabled={disabled}
+          />
+        ) : (
+          <code
+            style={{
+              color: "var(--slate-12)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={fieldKey}
+          >
+            {fieldKey}
+          </code>
+        )}
         {description && (
           <Tooltip body={description}>
             <PiInfo style={{ flexShrink: 0, color: "var(--slate-9)" }} />
@@ -403,6 +474,82 @@ function OverrideRow({
   );
 }
 
+// The "add a field to override" control. Declared fields that aren't overridden
+// yet are offered in a select (which commits only on an explicit pick). An
+// extensible config also allows a free-form new key, but that is committed only
+// on Enter or the Add button — never per keystroke. (A createable SelectField
+// with an empty option list degrades to a plain text input whose onChange fires
+// on every keystroke, which here turned each typed character into its own stray
+// one-character override.)
+function AddFieldControl({
+  addableFields,
+  extensible,
+  existingKeys,
+  onAdd,
+  disabled,
+}: {
+  addableFields: SchemaField[];
+  extensible: boolean;
+  existingKeys: Set<string>;
+  onAdd: (key: string) => void;
+  disabled?: boolean;
+}): React.ReactElement {
+  const [newKey, setNewKey] = useState("");
+  const trimmed = newKey.trim();
+  const canAdd = trimmed.length > 0 && !existingKeys.has(trimmed);
+
+  const commit = (key: string) => {
+    const k = key.trim();
+    if (!k || existingKeys.has(k)) return;
+    onAdd(k);
+    setNewKey("");
+  };
+
+  return (
+    <Flex mt="2" gap="3" align="start" wrap="wrap">
+      {addableFields.length > 0 && (
+        <Box style={{ minWidth: 220 }}>
+          <SelectField
+            value=""
+            placeholder="Add a field to override…"
+            options={addableFields.map((f) => ({
+              value: f.key,
+              label: f.key,
+            }))}
+            onChange={(key) => commit(key)}
+            disabled={disabled}
+          />
+        </Box>
+      )}
+      {extensible && (
+        <Flex gap="2" align="center">
+          <Box style={{ width: 200 }}>
+            <Field
+              value={newKey}
+              placeholder="New field name…"
+              onChange={(e) => setNewKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commit(newKey);
+                }
+              }}
+              disabled={disabled}
+            />
+          </Box>
+          <Button
+            variant="soft"
+            disabled={disabled || !canAdd}
+            onClick={() => commit(newKey)}
+          >
+            Add
+          </Button>
+        </Flex>
+      )}
+    </Flex>
+  );
+}
+
 // Schema-aware editor for the override patch applied on top of a config-backed
 // value. The Form tab lists the config's fields with typed controls; the JSON
 // tab is the raw escape hatch.
@@ -440,6 +587,17 @@ export default function ConfigOverrideEditor({
   const removeOverride = (key: string) => {
     const next = { ...(overrides ?? {}) };
     delete next[key];
+    setPatch(JSON.stringify(next, null, 2));
+  };
+
+  // Rename a custom (non-schema) override key in place, preserving its value and
+  // the surrounding key order.
+  const renameOverride = (oldKey: string, newKey: string) => {
+    const src = overrides ?? {};
+    const next: Record<string, unknown> = {};
+    Object.keys(src).forEach((k) => {
+      next[k === oldKey ? newKey : k] = src[k];
+    });
     setPatch(JSON.stringify(next, null, 2));
   };
 
@@ -481,6 +639,10 @@ export default function ConfigOverrideEditor({
   const addableFields = (data?.effectiveSchema ?? []).filter(
     (f) => !overrideKeys.has(f.key),
   );
+  // Keys a custom key can't be renamed onto: declared schema fields plus the
+  // current override keys.
+  const takenKeys = new Set<string>(overrideKeys);
+  (data?.effectiveSchema ?? []).forEach((f) => takenKeys.add(f.key));
 
   return (
     <Tabs defaultValue="form">
@@ -564,6 +726,8 @@ export default function ConfigOverrideEditor({
                         onStart={() => setOverride(key, seedValue(key, field))}
                         onSet={(v) => setOverride(key, v)}
                         onRemove={() => removeOverride(key)}
+                        onRename={(newKey) => renameOverride(key, newKey)}
+                        takenKeys={takenKeys}
                         sparse={sparse}
                         constantContext={constantContext}
                         disabled={disabled}
@@ -573,33 +737,17 @@ export default function ConfigOverrideEditor({
                 )}
               </Box>
               {sparse && (addableFields.length > 0 || extensible) && (
-                <Box mt="2" style={{ maxWidth: 260 }}>
-                  <SelectField
-                    value=""
-                    placeholder={
-                      extensible
-                        ? "Add or create a field…"
-                        : "Add field to override…"
-                    }
-                    // Extensible families tolerate keys beyond the declared
-                    // schema, so allow free-form new keys; strict families are
-                    // limited to declared fields.
-                    createable={extensible}
-                    formatCreateLabel={(v) => `Add "${v}"`}
-                    options={addableFields.map((f) => ({
-                      value: f.key,
-                      label: f.key,
-                    }))}
-                    onChange={(key) => {
-                      if (!key) return;
-                      const field =
-                        data?.effectiveSchema.find((x) => x.key === key) ??
-                        null;
-                      setOverride(key, seedValue(key, field));
-                    }}
-                    disabled={disabled}
-                  />
-                </Box>
+                <AddFieldControl
+                  addableFields={addableFields}
+                  extensible={extensible}
+                  existingKeys={overrideKeys}
+                  onAdd={(key) => {
+                    const field =
+                      data?.effectiveSchema.find((x) => x.key === key) ?? null;
+                    setOverride(key, seedValue(key, field));
+                  }}
+                  disabled={disabled}
+                />
               )}
             </Box>
           )}
