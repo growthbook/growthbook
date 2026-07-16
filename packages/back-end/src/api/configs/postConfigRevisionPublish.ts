@@ -172,8 +172,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       { armed: false },
       {
         value: (desiredState.value as string | undefined) ?? config.value,
-        schema:
-          (desiredState.schema as SimpleSchema | undefined) ?? config.schema,
+        // Use desiredState.schema directly (it's a full post-merge snapshot, so
+        // this is the authoritative value): `?? config.schema` would resurrect
+        // the live schema on a `null` clear (revert to a schema-less revision).
+        schema: desiredState.schema as SimpleSchema | null | undefined,
         parent: (desiredState.parent as string | undefined) ?? config.parent,
         extends:
           (desiredState.extends as string[] | undefined) ?? config.extends,
@@ -192,8 +194,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       key: config.key,
       name: config.name,
       value: postValue,
-      schema:
-        (desiredState.schema as SimpleSchema | undefined) ?? config.schema,
+      // See the guard call above: direct, not `?? config.schema`, so a `null`
+      // clear isn't resurrected into the live schema.
+      schema: desiredState.schema as SimpleSchema | null | undefined,
       parent: (desiredState.parent as string | undefined) ?? config.parent,
       extends: (desiredState.extends as string[] | undefined) ?? config.extends,
       extensible:

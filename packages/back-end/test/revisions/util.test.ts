@@ -116,6 +116,29 @@ describe("buildMergeDesiredState", () => {
     expect(desired.description).toBe("d-set-out-of-band");
   });
 
+  // The schema-clear linchpin behind the config revert→publish path: a
+  // `replace /schema null` op must land as `schema: null` (a real cleared value),
+  // NOT be dropped or resurrected to the live schema. The publish handler reads
+  // desiredState.schema directly, so this is what lets a null clear survive.
+  it("carries a null clear through instead of resurrecting the live value", () => {
+    const withSchema = new Set(["groupName", "schema"]);
+    const schema = { type: "object", fields: [{ key: "color" }] };
+    const baseSnapshot = { groupName: "v1", schema };
+    const liveEntity = { groupName: "v1", schema };
+    const ops: JsonPatchOperation[] = [
+      { op: "replace", path: "/schema", value: null },
+    ];
+
+    const desired = buildMergeDesiredState(
+      liveEntity,
+      baseSnapshot,
+      ops,
+      withSchema,
+    );
+
+    expect(desired.schema).toBeNull();
+  });
+
   it("drops ops whose path is not in the updatable allowlist", () => {
     const baseSnapshot = { id: "sg-1", organization: "org-1", groupName: "v1" };
     const liveEntity = { id: "sg-1", organization: "org-1", groupName: "v1" };
