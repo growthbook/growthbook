@@ -143,6 +143,10 @@ export default function DatePicker({
         : getValidDateOffsetByUTC(value),
     [precision],
   );
+  const normalizedDate = date ? format(parseDateInput(date), dateFormat) : "";
+  const normalizedDate2 = date2
+    ? format(parseDateInput(date2), dateFormat)
+    : "";
   const [bufferedDate, setBufferedDate] = useState(
     date ? format(getValidDate(date), dateFormat) : "",
   );
@@ -160,24 +164,20 @@ export default function DatePicker({
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const [rangeSeparatorEntered, setRangeSeparatorEntered] = useState(false);
   const fieldClickedTime = useRef(new Date());
-
-  useEffect(() => {
-    // While editing a range, the buffered values are the source of truth.
-    // Parent updates can create new Date objects for unchanged values and
-    // otherwise overwrite an incomplete value that the user is still typing.
-    if (rangeFieldFocused && setDate2) return;
-
-    if (date) {
-      setBufferedDate(format(parseDateInput(date), dateFormat));
-    } else {
-      setBufferedDate("");
-    }
-    if (date2) {
-      setBufferedDate2(format(parseDateInput(date2), dateFormat));
-    } else {
-      setBufferedDate2("");
-    }
-  }, [date, date2, dateFormat, parseDateInput, rangeFieldFocused, setDate2]);
+  const dateRef = useRef(date);
+  const normalizedDateRef = useRef(normalizedDate);
+  const normalizedDate2Ref = useRef(normalizedDate2);
+  const setDateRef = useRef(setDate);
+  const setDate2Ref = useRef(setDate2);
+  const lastEmittedRangeRef = useRef<{
+    date: string;
+    date2: string;
+  } | null>(null);
+  dateRef.current = date;
+  normalizedDateRef.current = normalizedDate;
+  normalizedDate2Ref.current = normalizedDate2;
+  setDateRef.current = setDate;
+  setDate2Ref.current = setDate2;
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
@@ -285,17 +285,26 @@ export default function DatePicker({
     return debounce((value: string) => {
       const parsedDate = parseDateInput(value);
       const finalDate = clampParsedDate(parsedDate);
-      setDate(finalDate);
+      lastEmittedRangeRef.current = {
+        date: format(finalDate, dateFormat),
+        date2: normalizedDate2Ref.current,
+      };
+      setDateRef.current(finalDate);
       setBufferedDate(format(finalDate, dateFormat));
       setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
     }, 500);
-  }, [clampParsedDate, setDate, setCalendarMonth, dateFormat, parseDateInput]);
+  }, [clampParsedDate, setCalendarMonth, dateFormat, parseDateInput]);
 
   const debouncedApplyRange = useMemo(() => {
     return debounce((startStr: string, endStr: string) => {
       const startTrim = startStr.trim();
       const endTrim = endStr.trim();
-      let anchor = getValidDate(date ?? new Date());
+      let anchor = getValidDate(dateRef.current ?? new Date());
+      const emittedRange = {
+        date: normalizedDateRef.current,
+        date2: normalizedDate2Ref.current,
+      };
+      lastEmittedRangeRef.current = emittedRange;
 
       if (startTrim) {
         const parsedDate = parseDateInput(startTrim);
@@ -304,14 +313,16 @@ export default function DatePicker({
         // them here would overwrite partial values after the debounce.
         if (format(parsedDate, dateFormat) === startTrim) {
           const finalDate = clampParsedDate(parsedDate);
-          setDate(finalDate);
+          emittedRange.date = format(finalDate, dateFormat);
+          setDateRef.current(finalDate);
           if (format(finalDate, dateFormat) !== startTrim) {
             setBufferedDate(format(finalDate, dateFormat));
           }
           anchor = finalDate;
         }
       } else {
-        setDate(undefined);
+        emittedRange.date = "";
+        setDateRef.current(undefined);
         setBufferedDate("");
       }
 
@@ -319,28 +330,47 @@ export default function DatePicker({
         const parsedDate2 = parseDateInput(endTrim);
         if (format(parsedDate2, dateFormat) === endTrim) {
           const finalDate2 = clampParsedDate(parsedDate2);
-          setDate2?.(finalDate2);
+          emittedRange.date2 = format(finalDate2, dateFormat);
+          setDate2Ref.current?.(finalDate2);
           if (format(finalDate2, dateFormat) !== endTrim) {
             setBufferedDate2(format(finalDate2, dateFormat));
           }
           anchor = finalDate2;
         }
       } else {
-        setDate2?.(undefined);
+        emittedRange.date2 = "";
+        setDate2Ref.current?.(undefined);
         setBufferedDate2("");
       }
 
       setCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth()));
     }, 500);
-  }, [
-    clampParsedDate,
-    date,
-    dateFormat,
-    parseDateInput,
-    setCalendarMonth,
-    setDate,
-    setDate2,
-  ]);
+  }, [clampParsedDate, dateFormat, parseDateInput, setCalendarMonth]);
+
+  useEffect(() => {
+    const lastEmittedRange = lastEmittedRangeRef.current;
+    if (
+      lastEmittedRange?.date === normalizedDate &&
+      lastEmittedRange.date2 === normalizedDate2
+    ) {
+      lastEmittedRangeRef.current = null;
+      return;
+    }
+
+    lastEmittedRangeRef.current = null;
+    debouncedSetDate.cancel();
+    debouncedApplyRange.cancel();
+    setBufferedDate(normalizedDate);
+    setBufferedDate2(normalizedDate2);
+    setRangeSeparatorEntered(!!normalizedDate && !!normalizedDate2);
+  }, [debouncedApplyRange, debouncedSetDate, normalizedDate, normalizedDate2]);
+
+  useEffect(() => {
+    return () => {
+      debouncedSetDate.cancel();
+      debouncedApplyRange.cancel();
+    };
+  }, [debouncedApplyRange, debouncedSetDate]);
 
   return (
     <div className={clsx(containerClassName, { "mb-0": !label && !label2 })}>
