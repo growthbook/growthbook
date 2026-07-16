@@ -163,6 +163,11 @@ export default function FunnelStepCard({
     setIsEditingName(false);
   };
 
+  const handleStartNameEdit = () => {
+    setNameDraft(step.name);
+    setIsEditingName(true);
+  };
+
   // Collapsed-mode subline: fact-table label (when the step is the first or
   // an override) plus up to 2 filter previews, joined by " · " on one line.
   // Passing the full steps array lets the helper strip universal
@@ -241,23 +246,31 @@ export default function FunnelStepCard({
               style={{ flex: 1, minWidth: 0 }}
             />
           ) : (
-            <Box
-              style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
-              onDoubleClick={() => {
-                setNameDraft(step.name);
-                setIsEditingName(true);
-              }}
-            >
-              <Text
-                weight="medium"
-                truncate
-                as="div"
-                whiteSpace="nowrap"
-                title="Double-click to rename"
+            <>
+              <Box
+                style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
+                onDoubleClick={handleStartNameEdit}
               >
-                {step.name}
-              </Text>
-            </Box>
+                <Text
+                  weight="medium"
+                  truncate
+                  as="div"
+                  whiteSpace="nowrap"
+                  title="Double-click to rename"
+                >
+                  {step.name}
+                </Text>
+              </Box>
+              <Button
+                className={styles.editBtn}
+                variant="ghost"
+                size="xs"
+                onClick={handleStartNameEdit}
+                title="Edit name"
+              >
+                <PiPencilSimple size={14} />
+              </Button>
+            </>
           )}
         </Flex>
         <Flex align="center" style={{ flexShrink: 0 }}>
