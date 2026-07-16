@@ -540,7 +540,7 @@ export default function FactMetricPage() {
         </Flex>
         <Flex align="center" gap="2" pr="2">
           {canOpenInExplorer && (
-            <Tooltip content="Open this Fact Metric in Product Analytics to chart and break down its values.">
+            <Tooltip content="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric.">
               <LinkButton
                 href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
                   factMetric.id,

@@ -284,7 +284,7 @@ export default function FactTablePage() {
         </Flex>
         <Flex align="center" gap="2" pr="2">
           {canOpenInExplorer && (
-            <ButtonTooltip content="Open this Fact Table in Product Analytics to chart its activity.">
+            <ButtonTooltip content="Open this Fact Table in the Product Analytics Explorer and view trends, compare time periods, and slice/dice your data.">
               <LinkButton
                 href={`/product-analytics/explore/fact-table?factTableId=${encodeURIComponent(
                   factTable.id,

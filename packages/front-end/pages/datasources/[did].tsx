@@ -224,7 +224,7 @@ const DataSourcePage: FC = () => {
         </Flex>
         <Flex align="center" gap="2" pr="2">
           {canOpenInExplorer && (
-            <Tooltip content="Open this Data Source in Product Analytics to choose a table and visualize its data.">
+            <Tooltip content="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data.">
               <LinkButton
                 href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
                   d.id,
