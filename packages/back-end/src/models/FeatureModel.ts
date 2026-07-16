@@ -490,9 +490,10 @@ export async function getAllFeatures(
 
 /**
  * Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
- * never read the heavy metadata fields: the stale-detection/dependents graph
- * and the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
- * `.lean()` and projects out the heavy fields those callers don't read. Same
+ * read a feature's behavior (rules, environment settings, values, links) but
+ * never its editor/authoring fields: the stale-detection/dependents graph and
+ * the `@const:`/`@config:` reference scanners. Skips Mongoose hydration via
+ * `.lean()` and projects out the editor fields (they can be large). Same
  * migration + permission filter as `getAllFeatures`, so results are otherwise
  * interchangeable.
  *
@@ -502,7 +503,7 @@ export async function getAllFeatures(
  * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
  * need a complete feature.
  */
-export async function getAllFeaturesWithoutHeavyFields(
+export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
   { includeArchived = false }: { includeArchived?: boolean } = {},
 ): Promise<FeatureInterface[]> {

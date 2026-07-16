@@ -25,7 +25,7 @@ import {
   getPayloadKeysForAllEnvs,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { getAllFeaturesWithoutHeavyFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -173,7 +173,7 @@ async function getFeaturesAffectedByResolvable(
 ): Promise<FeatureInterface[]> {
   const [resolvables, features] = await Promise.all([
     getResolvableValues(context),
-    getAllFeaturesWithoutHeavyFields(context, {}),
+    getAllFeaturesWithoutEditorFields(context, {}),
   ]);
   return featuresAffectedByResolvable(resolvables, features, source, key);
 }
@@ -381,7 +381,7 @@ export async function findRunningExperimentRefsReferencingConstant(
   context: ReqContext | ApiReqContext,
   constantKey: string,
 ): Promise<Set<string>> {
-  const features = await getAllFeaturesWithoutHeavyFields(context, {});
+  const features = await getAllFeaturesWithoutEditorFields(context, {});
   const { experimentIds, banditIds } = experimentRefsReferencingConstant(
     features,
     constantKey,
@@ -436,7 +436,7 @@ export async function loadConstantReferences(
     ...constantsReferencingTarget.map((c) => refToken(c.source, c.key)),
   ]);
 
-  const allFeatures = await getAllFeaturesWithoutHeavyFields(context, {});
+  const allFeatures = await getAllFeaturesWithoutEditorFields(context, {});
   const features = allFeatures
     .filter((f) => {
       const tokens = featureReferenceTokens(f);
@@ -528,7 +528,7 @@ export async function loadConfigFamilyFeatureReferences(
   const { familyKeys } = resolved;
   const familySet = new Set(familyKeys);
 
-  const allFeatures = await getAllFeaturesWithoutHeavyFields(context, {});
+  const allFeatures = await getAllFeaturesWithoutEditorFields(context, {});
   const features: ConfigFamilyFeatureRef[] = [];
   for (const f of allFeatures) {
     const rawDefaultKey = getFeatureBaseConfigKey(f);
@@ -739,7 +739,7 @@ export async function getConfigKeyImplementations(
   // These three reads are independent — run them concurrently.
   const [resolved, allFeatures, drafts] = await Promise.all([
     resolveConfigFamily(context, configId),
-    getAllFeaturesWithoutHeavyFields(context, {}),
+    getAllFeaturesWithoutEditorFields(context, {}),
     getRevisionsByStatus(context, [
       "draft",
       "pending-review",

@@ -30,7 +30,7 @@ import {
   resolvableDependencyClosure,
   featuresAffectedByResolvable,
 } from "back-end/src/services/constants";
-import { getAllFeaturesWithoutHeavyFields } from "back-end/src/models/FeatureModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
 import { collectFeatureConfigBackedValues } from "back-end/src/services/configValidation";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -446,7 +446,7 @@ async function constantSchemaBreakViolations(
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
   const [resolvables, features] = await Promise.all([
     getResolvableValues(scanContext),
-    getAllFeaturesWithoutHeavyFields(scanContext),
+    getAllFeaturesWithoutEditorFields(scanContext),
   ]);
   const allConfigs = await scanContext.models.configs.getAllForReconcile();
 
