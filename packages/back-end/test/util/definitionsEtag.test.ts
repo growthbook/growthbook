@@ -169,4 +169,13 @@ describe("definitionsScope", () => {
     expect(definitionsScope([""])).toBe("global");
     expect(definitionsScope(["proj_a", ""])).toEqual(["proj_a"]);
   });
+
+  it("falls back to global for ids a Mongo field path can't represent", () => {
+    // A dotted/$-prefixed id would nest under `projectVersions.<id>` on write
+    // while the reader looks up the flat key — never matching, i.e. permanent
+    // stale 304s. Global over-invalidates but can never serve stale.
+    expect(definitionsScope(["proj.a"])).toBe("global");
+    expect(definitionsScope(["$proj"])).toBe("global");
+    expect(definitionsScope(["proj_a", "proj.b"])).toBe("global");
+  });
 });

@@ -50,7 +50,14 @@ export function definitionsScope(
   const projects = new Set<string>();
   for (const list of projectLists) {
     if (!list || list.length === 0) return "global";
-    for (const p of list) if (p) projects.add(p);
+    for (const p of list) {
+      if (!p) continue;
+      // An id with Mongo field-path metacharacters can't round-trip through
+      // the `projectVersions.<id>` $inc path (the write would nest, the read
+      // side would never see it) — bump globally rather than serve stale.
+      if (p.includes(".") || p.startsWith("$")) return "global";
+      projects.add(p);
+    }
   }
   return projects.size ? [...projects] : "global";
 }
@@ -108,6 +115,30 @@ export async function touchDefinitionsVersion(
         );
       }
     }
+  }
+}
+
+/**
+ * Drop a deleted project's counter so the per-org doc doesn't accumulate dead
+ * keys. Call after the project delete commits. Failures are logged, never
+ * propagated — a leftover counter only adds a constant to future ETags.
+ */
+export async function pruneDefinitionsVersionProject(
+  organization: string,
+  project: string,
+): Promise<void> {
+  // Ids the field path can't represent are never written (see definitionsScope).
+  if (!project || project.includes(".") || project.startsWith("$")) return;
+  try {
+    await getCollection<DefinitionsVersion>(COLLECTION).updateOne(
+      { organization },
+      { $unset: { [`projectVersions.${project}`]: "" } },
+    );
+  } catch (e) {
+    logger.error(
+      e,
+      `Failed to prune definitions version counter for project ${project}`,
+    );
   }
 }
 

@@ -406,7 +406,10 @@ export async function getMetricsByOrganization(
   return findMetrics(context, query);
 }
 
-const METRIC_DEFINITION_EXCLUDED_FIELDS = [
+// Exported for MetricModel.test.ts, which enforces that this stays a superset
+// of FIELDS_NOT_REQUIRING_DATE_UPDATED and METRIC_QUERY_STATUS_FIELDS — the
+// write paths that skip the definitions-version bump.
+export const METRIC_DEFINITION_EXCLUDED_FIELDS = [
   "sql",
   "templateVariables",
   "conditions",
@@ -576,7 +579,7 @@ const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "runStarted",
 ];
 
-const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
+export const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
   "analysis",
   "analysisError",
   "queries",
@@ -600,9 +603,16 @@ function addDateUpdatedToUpdates(
   return updates;
 }
 
+// The fields updateMetricQueriesAndStatus may write. It skips the
+// definitions-version bump entirely, which is safe only while every field here
+// is excluded from the definitions payload (enforced by MetricModel.test.ts).
+export const METRIC_QUERY_STATUS_FIELDS = ["queries", "analysisError"] as const;
+
 export async function updateMetricQueriesAndStatus(
   metric: MetricInterface,
-  updates: Partial<Pick<MetricInterface, "queries" | "analysisError">>,
+  updates: Partial<
+    Pick<MetricInterface, (typeof METRIC_QUERY_STATUS_FIELDS)[number]>
+  >,
 ) {
   await MetricModel.updateOne(
     {

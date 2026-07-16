@@ -6,7 +6,10 @@ import {
 } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
-import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
+import {
+  pruneDefinitionsVersionProject,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 function slugify(text: string): string {
@@ -54,6 +57,12 @@ export class ProjectModel extends BaseClass {
 
   protected canDelete(doc: ProjectInterface) {
     return this.context.permissions.canDeleteProject(doc.id);
+  }
+
+  protected async afterDelete(doc: ProjectInterface) {
+    // Drop the deleted project's definitions-version counter; the delete
+    // itself bumps globally via affectsDefinitionsVersion.
+    await pruneDefinitionsVersionProject(this.context.org.id, doc.id);
   }
 
   protected migrate(doc: MigratedProject) {

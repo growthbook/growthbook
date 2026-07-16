@@ -54,10 +54,17 @@ export async function getDefinitionsData(context: ReqContext) {
     context.models.webhookSecrets.getAllForFrontEnd(),
   ]);
 
+  // A dimension inherits project access from its datasource, so drop any whose
+  // datasource is inaccessible or no longer exists.
+  const readableDatasourceIds = new Set(datasources.map((ds) => ds.id));
+  const visibleDimensions = dimensions.filter((dimension) =>
+    readableDatasourceIds.has(dimension.datasource),
+  );
+
   return {
     metrics,
     datasources,
-    dimensions,
+    dimensions: visibleDimensions,
     segments,
     metricGroups,
     tags,
