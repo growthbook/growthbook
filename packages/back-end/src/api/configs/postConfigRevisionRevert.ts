@@ -64,6 +64,17 @@ export const postConfigRevisionRevert = createApiRequestHandler(
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (config as unknown as Record<string, unknown>)[field];
     if (isEqual(targetValue, liveValue)) continue;
+    // A schema is absent (undefined) OR cleared (null) — both mean "no schema".
+    // isEqual treats those as different, so normalize before deciding it changed;
+    // otherwise reverting an already-cleared config to a pre-schema revision would
+    // record a no-op "revert".
+    if (
+      field === "schema" &&
+      (targetValue ?? null) === null &&
+      (liveValue ?? null) === null
+    ) {
+      continue;
+    }
     if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
     } else if (field === "parent") {

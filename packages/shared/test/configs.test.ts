@@ -1722,43 +1722,46 @@ describe("classifyAncestorOwnedFields", () => {
   });
 });
 
-// The descendant-reconcile core the revert's schema-clear depends on: clearing a
-// base's schema (revert to a schema-less revision) must un-own its fields so a
-// descendant that re-declared them keeps its own definition again. This is the
-// getAncestorSchemaKeys → stripAncestorOwnedFields pair the server cascade runs.
-describe("clearing a base schema (null) un-strips descendant fields", () => {
+// The reconcile input the revert's schema-clear depends on: a base whose schema
+// is cleared (revert to a schema-less revision) owns zero field keys, so the
+// strip cascade (getAncestorSchemaKeys → stripAncestorOwnedFields, strip-only)
+// stops treating a descendant's own keys as ancestor-owned. (It does not re-add a
+// previously-stripped field — clearing just removes the base's ownership.)
+describe("clearing a base schema (null) makes it own no field keys", () => {
   type Node = {
     parent?: string;
     extends?: string[];
     schema?: SimpleSchema | null;
   };
 
-  it("strips a base-owned field while the base has the schema, keeps it once cleared", () => {
+  it("owns a field's key while the base has the schema, none once cleared", () => {
     const child = { parent: "base", schema: objSchema("color", "weight") };
-    // Base owns "color": the child's "color" is stripped (base wins).
+    // Base declares "color": it's ancestor-owned, so the child's "color" strips.
     const withBase = new Map<string, Node>([
       ["base", { schema: objSchema("color") }],
       ["child", child],
     ]);
-    const strippedWhileOwned = stripAncestorOwnedFields(
-      child.schema,
-      getAncestorSchemaKeys(child, withBase),
-    );
-    expect(strippedWhileOwned?.map((f) => f.key)).toEqual(["weight"]);
+    expect([...getAncestorSchemaKeys(child, withBase)]).toEqual(["color"]);
+    expect(
+      stripAncestorOwnedFields(
+        child.schema,
+        getAncestorSchemaKeys(child, withBase),
+      )?.map((f) => f.key),
+    ).toEqual(["weight"]);
 
-    // Clear the base's schema (the revert): it now owns nothing, so the child's
-    // own "color" is no longer ancestor-owned and there is nothing left to strip.
+    // Clear the base's schema: it owns nothing, so no key of the child's is
+    // ancestor-owned and the strip cascade removes nothing from it.
     const cleared = new Map<string, Node>([
       ["base", { schema: null }],
       ["child", child],
     ]);
+    expect(getAncestorSchemaKeys(child, cleared).size).toBe(0);
     expect(
       stripAncestorOwnedFields(
         child.schema,
         getAncestorSchemaKeys(child, cleared),
       ),
     ).toBeNull();
-    expect(getAncestorSchemaKeys(child, cleared).size).toBe(0);
   });
 });
 
