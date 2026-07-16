@@ -29,10 +29,6 @@ import {
 } from "back-end/src/services/constants";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
-  AsyncSnapshot,
-  createAsyncSnapshot,
-} from "back-end/src/util/asyncSnapshot";
-import {
   logConfigCreatedEvent,
   logConfigUpdatedEvent,
   logConfigDeletedEvent,
@@ -63,15 +59,12 @@ const BaseClass = MakeModelClass({
 });
 
 export class ConfigModel extends BaseClass {
-  // Request-scoped snapshot of every config (the reconciliation feed). One
-  // schema/lineage write reads the whole collection many times — normalize +
+  // Request-scoped memoized snapshot of every config (the reconciliation feed).
+  // One schema/lineage write reads the whole collection many times — normalize +
   // value validation + descendant dry-run + the cycle/composition hooks — all
-  // against unchanged data. Memoize that fetch and invalidate on any write so
-  // the post-write descendant reconcile still sees fresh data.
-  private reconcileSnapshot: AsyncSnapshot<ConfigInterface[]> =
-    createAsyncSnapshot(() =>
-      this._find({}, { bypassReadPermissionChecks: true }),
-    );
+  // against unchanged data. `getAllForReconcile` loads it once; every write
+  // invalidates it so the post-write descendant reconcile still sees fresh data.
+  private reconcileSnapshot: Promise<ConfigInterface[]> | null = null;
 
   protected canRead(doc: ConfigInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
@@ -297,7 +290,7 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async afterCreate(doc: ConfigInterface) {
-    this.reconcileSnapshot.invalidate();
+    this.invalidateReconcileSnapshot();
     // A new config can satisfy a `@config:` ref that a feature already embeds
     // (e.g. an imported/dangling reference), so refresh the SDK payload.
     resolvableValueChanged(this.context, "updated", "config", doc.key).catch(
@@ -317,7 +310,7 @@ export class ConfigModel extends BaseClass {
     updates: UpdateProps<ConfigInterface>,
     newDoc: ConfigInterface,
   ) {
-    this.reconcileSnapshot.invalidate();
+    this.invalidateReconcileSnapshot();
     if (
       updates.parent !== undefined ||
       updates.extends !== undefined ||
@@ -350,7 +343,7 @@ export class ConfigModel extends BaseClass {
   }
 
   protected async afterDelete(doc: ConfigInterface) {
-    this.reconcileSnapshot.invalidate();
+    this.invalidateReconcileSnapshot();
     // Drop any parent's scopedOverrides entry that pointed at this config, so a
     // deleted flavor never dangles on its parent's selection list. Runs after
     // the snapshot invalidate so it reads post-delete state.
@@ -385,8 +378,24 @@ export class ConfigModel extends BaseClass {
   // schema-reconciliation pass, which must see the whole lineage (ancestors and
   // descendants may live in projects the acting user can't read) to enforce
   // "base wins" on field collisions.
+  // Loads once and returns the same in-flight/resolved promise to every caller
+  // until a write invalidates it. A rejected load isn't cached, so a later call
+  // retries.
   public getAllForReconcile(): Promise<ConfigInterface[]> {
-    return this.reconcileSnapshot.get();
+    if (this.reconcileSnapshot === null) {
+      this.reconcileSnapshot = this._find(
+        {},
+        { bypassReadPermissionChecks: true },
+      ).catch((err) => {
+        this.reconcileSnapshot = null;
+        throw err;
+      });
+    }
+    return this.reconcileSnapshot;
+  }
+
+  private invalidateReconcileSnapshot(): void {
+    this.reconcileSnapshot = null;
   }
 
   // Strip from a config's appended schema any field key already owned by a
