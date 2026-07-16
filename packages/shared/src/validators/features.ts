@@ -1550,7 +1550,7 @@ const updateFeatureBody = z
       .string()
       .nullable()
       .describe(
-        'Key of the config backing this flag ("Config mode"), or null to detach. Requires `valueType: "json"` and a live config. Omit to leave unchanged.',
+        'The config backing this flag ("Config mode"), fixed at creation. Cannot be changed by an update — resend the current value or omit it; a different value (or null to detach) is rejected.',
       )
       .optional(),
     tags: z

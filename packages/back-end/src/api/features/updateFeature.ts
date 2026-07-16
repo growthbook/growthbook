@@ -18,6 +18,7 @@ import {
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -158,6 +159,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             feature.valueType,
           )
         : null;
+
+    // The backing config is fixed at creation — reject any attempt to change it
+    // (a no-op resend of the same value is allowed). Matches the UI, which only
+    // sets baseConfig when the feature is created.
+    if (
+      req.body.baseConfig !== undefined &&
+      (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
+    ) {
+      throw new BadRequestError(
+        `The backing config cannot be changed after creation (existing: ${
+          feature.baseConfig ? `"${feature.baseConfig}"` : "none"
+        }, provided: ${
+          req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"
+        }).`,
+      );
+    }
 
     // Config mode: validate the effective baseConfig (live + JSON) and that it
     // doesn't coexist with an enabled JSON schema.

@@ -1615,9 +1615,10 @@ paths:
                   type: string
                 baseConfig:
                   description: >-
-                    Key of the config backing this flag ("Config mode"), or null
-                    to detach. Requires `valueType: "json"` and a live config.
-                    Omit to leave unchanged.
+                    The config backing this flag ("Config mode"), fixed at
+                    creation. Cannot be changed by an update — resend the
+                    current value or omit it; a different value (or null to
+                    detach) is rejected.
                   anyOf:
                     - type: string
                     - type: 'null'
@@ -6735,11 +6736,9 @@ paths:
                   type: string
                 baseConfig:
                   description: >-
-                    Key of the config backing this flag ("Config mode").
-                    Requires `valueType: "json"` and a live config. The config
-                    supplies the base JSON and schema; `defaultValue` and rule
-                    values are override patches on top. null or omitted for a
-                    plain flag.
+                    The config backing this flag, fixed at creation. Cannot be
+                    changed by an update — resend the current value or omit it;
+                    a different value is rejected.
                   anyOf:
                     - type: string
                     - type: 'null'
