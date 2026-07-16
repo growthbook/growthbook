@@ -21,11 +21,11 @@ export const getConfigLineage = createApiRequestHandler(
   }
 
   // Build the family from the unfiltered set since lineage can span projects the
-  // caller can't read (read access to the target was gated above by `getByKey`).
-  //
-  // Intentional disclosure: the tree surfaces keys/names/field-counts (not
-  // values) of cross-project lineage members — lineage is meaningless without
-  // the full family.
+  // caller can't read (read access to the target was gated above by `getByKey`) —
+  // resolution/depth would silently truncate otherwise. Node METADATA is then
+  // filtered to readable projects below, matching the internal lineage view:
+  // bare keys of unreadable members remain (structure needs them, and the
+  // internal view exposes them via parentKey), names/projects/flags do not.
   const all = await req.context.models.configs.getAllForReconcile();
   const byKey = new Map(all.map((c) => [c.key, c]));
 
@@ -83,7 +83,12 @@ export const getConfigLineage = createApiRequestHandler(
     if (!c) return [];
     const p = getConfigParentKey(c);
     const d = key === root ? 0 : (depth.get(p ?? "") ?? 0) + 1;
+    // Depth is computed for every family member (children of an unreadable
+    // middle node still need its depth) before unreadable nodes are dropped.
     depth.set(key, d);
+    if (!req.context.permissions.canReadSingleProjectResource(c.project)) {
+      return [];
+    }
     const { incompatibleFields, orphanedFields } = valueFlagsFor(c.key);
     return [
       {
@@ -101,8 +106,14 @@ export const getConfigLineage = createApiRequestHandler(
     ];
   });
 
+  // Descendant keys are pure disclosure (nothing structural hangs off them), so
+  // unlike ancestor keys they're filtered to readable projects outright.
   const descendants = getConfigSubtree(config.key, all).filter(
-    (k) => k !== config.key,
+    (k) =>
+      k !== config.key &&
+      req.context.permissions.canReadSingleProjectResource(
+        byKey.get(k)?.project,
+      ),
   );
 
   return { root, target: config.key, ancestors, descendants, nodes };
