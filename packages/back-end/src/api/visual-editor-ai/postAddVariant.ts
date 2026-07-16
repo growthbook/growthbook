@@ -79,7 +79,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   const sourceVariation = sourceVariationId
     ? experiment.variations.find((v) => v.id === sourceVariationId)
     : undefined;
-  if (sourceVariationId && !sourceChange) {
+  if (sourceVariationId && (!sourceChange || !sourceVariation)) {
     return context.throwBadRequestError(
       "Source variation not found in this changeset",
     );
