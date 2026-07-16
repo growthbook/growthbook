@@ -14,6 +14,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 
 export const updateConstant = createApiRequestHandler(updateConstantValidator)(
@@ -93,6 +94,24 @@ export const updateConstant = createApiRequestHandler(updateConstantValidator)(
           req.context,
         ),
       };
+    }
+
+    // Deferred-publish guards (direct publish → armed:false): every non-throwing
+    // path below applies live, and none of them run assertPublishable, so
+    // enforce the guards here — mirroring the config REST update. Skipped for a
+    // metadata-only update (can't rewrite a served value).
+    if (
+      fieldsToUpdate.value !== undefined ||
+      fieldsToUpdate.environmentValues !== undefined
+    ) {
+      await assertConstantPublishGuards(
+        req.context,
+        constant,
+        { armAcknowledgments: undefined },
+        { armed: false },
+        fieldsToUpdate.value ?? constant.value,
+        fieldsToUpdate.environmentValues ?? constant.environmentValues,
+      );
     }
 
     // Change-aware approval gate (a value change always requires review when the
