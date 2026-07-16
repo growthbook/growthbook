@@ -405,9 +405,17 @@ export const getConfigResolved = async (
     ),
   ].filter((rk) => rk !== spineRootKey);
 
+  // Gating the family ENTRY (above) isn't enough: a family's spine subtree can
+  // include cross-project nodes the caller can't read (e.g. an unreadable
+  // composer sharing a readable one's spine root), so filter the expanded nodes
+  // by readability too — otherwise their name/fieldCount leak through the tree.
   const composerFamilies = composerRootKeys.map((rootKey) => ({
     rootKey,
-    lineage: buildSpineLineage(rootKey),
+    lineage: buildSpineLineage(rootKey).filter((n) =>
+      context.permissions.canReadSingleProjectResource(
+        byKey.get(n.key)?.project,
+      ),
+    ),
   }));
 
   // Own-value field count + display name, keyed by config key, so the lineage
@@ -429,6 +437,9 @@ export const getConfigResolved = async (
   for (const key of referencedKeys) {
     const c = byKey.get(key);
     if (!c) continue;
+    // Belt-and-suspenders: a readable node's own mixin (extendsKeys) can point
+    // at a config in an unreadable project — don't emit its name/count either.
+    if (!context.permissions.canReadSingleProjectResource(c.project)) continue;
     fieldCounts[c.key] = configOwnFieldCount(c.value);
     configNames[c.key] = c.name;
     if (c.archived) archivedByKey[c.key] = true;
