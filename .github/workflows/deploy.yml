@@ -25,6 +25,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      docker_sha: ${{ steps.metadata.outputs.docker_sha }}
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -68,6 +71,7 @@ jobs:
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push image to Docker Hub and ECR
+        id: build
         uses: depot/build-push-action@v1
         with:
           push: true
@@ -152,11 +156,51 @@ jobs:
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: app
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+      # Pin each service to the exact image digest we just built, rather than
+      # re-pulling the mutable :latest tag. Each step registers a new task
+      # definition revision (based on the current one, so env/secrets defined
+      # in Terraform carry over) and rolls the service to it.
+      - name: Render API task definition
+        id: taskdef-api
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api
+          container-name: api
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+      - name: Deploy ECS for GrowthBook Cloud API
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-api.outputs.task-definition }}
+          service: prod-api
+          cluster: prod-api
+          wait-for-service-stability: true
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud Jobs
-        run: aws ecs update-service --cluster prod-api-jobs --service prod-api-jobs --force-new-deployment --region us-east-1
+      - name: Render Jobs task definition
+        id: taskdef-jobs
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api-jobs
+          container-name: api-jobs
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+      - name: Deploy ECS for GrowthBook Cloud Jobs
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-jobs.outputs.task-definition }}
+          service: prod-api-jobs
+          cluster: prod-api-jobs
+          wait-for-service-stability: true
 
-      - name: Deploy docker image to ECS for GrowthBook Cloud Python
-        run: aws ecs update-service --cluster prod-api-python --service prod-api-python --force-new-deployment --region us-east-1
+      - name: Render Python task definition
+        id: taskdef-python
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: prod-api-python
+          container-name: api-python
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+      - name: Deploy ECS for GrowthBook Cloud Python
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef-python.outputs.task-definition }}
+          service: prod-api-python
+          cluster: prod-api-python
+          wait-for-service-stability: true
