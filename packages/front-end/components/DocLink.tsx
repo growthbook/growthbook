@@ -53,6 +53,7 @@ const docSections = {
   "customHooks#validateconfig": "/features/custom-hooks#validateconfig",
   "customHooks#validateconfigrevision":
     "/features/custom-hooks#validateconfigrevision",
+  "customHooks#validateexperiment": "/features/custom-hooks#validateexperiment",
   customRoles: "/account/user-permissions#custom-roles",
   //DataSourceType
   athena: "/app/datasources#aws-athena",

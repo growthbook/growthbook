@@ -7,10 +7,15 @@ export const hooks = [
   "validateFeatureRevision",
   "validateConfig",
   "validateConfigRevision",
+  "validateExperiment",
 ] as const;
 
 // Resource types a hook can be scoped to via entityType/entityId.
-export const customHookEntityTypes = ["feature", "config"] as const;
+export const customHookEntityTypes = [
+  "feature",
+  "config",
+  "experiment",
+] as const;
 
 export const customHookValidator = z
   .object({
@@ -45,6 +50,7 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateFeatureRevision: "feature",
   validateConfig: "config",
   validateConfigRevision: "config",
+  validateExperiment: "experiment",
 };
 
 // External REST API. Validators carry the OpenAPI route metadata.

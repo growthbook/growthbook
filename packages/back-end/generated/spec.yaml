@@ -22102,6 +22102,7 @@ paths:
                     - validateFeatureRevision
                     - validateConfig
                     - validateConfigRevision
+                    - validateExperiment
                 code:
                   type: string
                 enabled:
@@ -22117,6 +22118,7 @@ paths:
                   enum:
                     - feature
                     - config
+                    - experiment
                 entityId:
                   type: string
                 incrementalChangesOnly:
@@ -22175,6 +22177,7 @@ paths:
                   enum:
                     - feature
                     - config
+                    - experiment
                 entityId:
                   type: string
               required:
@@ -22274,6 +22277,7 @@ paths:
                     - validateFeatureRevision
                     - validateConfig
                     - validateConfigRevision
+                    - validateExperiment
                 code:
                   type: string
                 enabled:
@@ -22292,6 +22296,7 @@ paths:
                       enum:
                         - feature
                         - config
+                        - experiment
                     - type: 'null'
                 entityId:
                   description: >-
@@ -48581,6 +48586,7 @@ components:
             - validateFeatureRevision
             - validateConfig
             - validateConfigRevision
+            - validateExperiment
         code:
           description: >-
             JavaScript function body executed in the sandbox. Throw an Error to
@@ -48601,6 +48607,7 @@ components:
           enum:
             - feature
             - config
+            - experiment
         entityId:
           description: >-
             The scoped resource: a feature id, or a config key. A config-scoped

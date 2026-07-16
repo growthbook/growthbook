@@ -24,7 +24,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
-import CustomHookModal from "@/components/Features/CustomHookModal";
+import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
 import Badge from "@/ui/Badge";
 import PremiumCallout from "@/ui/PremiumCallout";

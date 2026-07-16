@@ -7,6 +7,7 @@ import {
 } from "shared/validators";
 import { getConfigAncestorKeys } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
+import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { MakeModelClass } from "./BaseModel";
 
@@ -45,10 +46,14 @@ const BaseClass = MakeModelClass({
 });
 
 export class CustomHookModel extends BaseClass {
-  // Resolve the referenced feature synchronously (foreign refs are populated first).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
     if (doc.entityType !== "feature" || !doc.entityId) return null;
     return this.getForeignRefs(doc, false).feature ?? null;
+  }
+
+  private experimentRef(doc: CustomHookInterface): ExperimentInterface | null {
+    if (doc.entityType !== "experiment" || !doc.entityId) return null;
+    return this.getForeignRefs(doc, false).experiment ?? null;
   }
 
   // Config-scoped hooks fall through to the generic `canCreate/Update/Delete
@@ -60,15 +65,31 @@ export class CustomHookModel extends BaseClass {
 
   protected canCreate(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canCreateCustomHook(doc);
+    if (feature) {
+      return this.context.permissions.canManageFeatureCustomHooks(feature);
+    }
+    const experiment = this.experimentRef(doc);
+    if (experiment) {
+      return this.context.permissions.canManageExperimentCustomHooks(
+        experiment,
+      );
+    }
+    return this.context.permissions.canCreateCustomHook(doc);
   }
   protected canRead(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canReadSingleProjectResource(feature.project)
-      : this.context.permissions.canReadMultiProjectResource(doc.projects);
+    if (feature) {
+      return this.context.permissions.canReadSingleProjectResource(
+        feature.project,
+      );
+    }
+    const experiment = this.experimentRef(doc);
+    if (experiment) {
+      return this.context.permissions.canReadSingleProjectResource(
+        experiment.project,
+      );
+    }
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canUpdate(
     existing: CustomHookInterface,
@@ -80,17 +101,31 @@ export class CustomHookModel extends BaseClass {
     // to another). When the scope doesn't change this is a single check.
     const canManage = (doc: CustomHookInterface): boolean => {
       const feature = this.featureRef(doc);
-      return feature
-        ? this.context.permissions.canManageFeatureCustomHooks(feature)
-        : this.context.permissions.canUpdateCustomHook(existing, newDoc);
+      if (feature) {
+        return this.context.permissions.canManageFeatureCustomHooks(feature);
+      }
+      const experiment = this.experimentRef(doc);
+      if (experiment) {
+        return this.context.permissions.canManageExperimentCustomHooks(
+          experiment,
+        );
+      }
+      return this.context.permissions.canUpdateCustomHook(existing, newDoc);
     };
     return canManage(existing) && canManage(newDoc);
   }
   protected canDelete(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
-    return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(feature)
-      : this.context.permissions.canDeleteCustomHook(doc);
+    if (feature) {
+      return this.context.permissions.canManageFeatureCustomHooks(feature);
+    }
+    const experiment = this.experimentRef(doc);
+    if (experiment) {
+      return this.context.permissions.canManageExperimentCustomHooks(
+        experiment,
+      );
+    }
+    return this.context.permissions.canDeleteCustomHook(doc);
   }
 
   // Ensure scoped hooks are well-formed and point at a real resource.
@@ -142,6 +177,10 @@ export class CustomHookModel extends BaseClass {
       if (!config) {
         throw new Error(`Could not find config for custom hook: ${entityId}`);
       }
+    }
+
+    if (entityType === "experiment" && this.experimentRef(doc) === null) {
+      throw new Error(`Could not find experiment for custom hook: ${entityId}`);
     }
   }
 

@@ -10,6 +10,10 @@ import { Flex, Kbd, Separator } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -30,6 +34,7 @@ const EXAMPLE_DOC_SECTIONS: Record<CustomHookType, DocSection> = {
   validateFeatureRevision: "customHooks#validatefeaturerevision",
   validateConfig: "customHooks#validateconfig",
   validateConfigRevision: "customHooks#validateconfigrevision",
+  validateExperiment: "customHooks#validateexperiment",
 };
 
 const dummyFeature: FeatureInterface = {
@@ -92,6 +97,45 @@ const dummyRevision: FeatureRevisionInterface = {
       timestamp: new Date(),
     },
   ],
+};
+const dummyExperiment: ExperimentInterface = {
+  id: "exp_abc123",
+  uid: "abc123",
+  organization: "org_abc123",
+  trackingKey: "my-experiment",
+  name: "My Experiment",
+  project: "",
+  status: "draft",
+  hypothesis: "",
+  description: "",
+  tags: [],
+  owner: "user@example.com",
+  dateCreated: new Date("2024-01-15T00:00:00.000Z"),
+  dateUpdated: new Date("2024-01-15T00:00:00.000Z"),
+  archived: false,
+  autoSnapshots: false,
+  hashAttribute: "id",
+  hashVersion: 2,
+  variations: [
+    { id: "v0", key: "0", name: "Control", screenshots: [] },
+    { id: "v1", key: "1", name: "Variation 1", screenshots: [] },
+  ],
+  phases: [],
+  datasource: "",
+  exposureQueryId: "",
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
+  decisionFrameworkSettings: {},
+  implementation: "code",
+  autoAssign: false,
+  previewURL: "",
+  targetURLRegex: "",
+  releasedVariationId: "",
+  customFields: {
+    contextualAttributes: ["checkout", "mobile"],
+    jiraTicket: "PROJ-123",
+  },
 };
 
 // Parse a JSON string for the test prefill; leave non-JSON text as-is.
@@ -239,6 +283,16 @@ export const hookTypes: Record<
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
+  validateExperiment: {
+    label: "Validate Experiment",
+    availableArguments: {
+      experiment: {
+        description: "The experiment being created or updated",
+        testValue: stringify(dummyExperiment),
+      },
+    },
+    example: `\n// Block the save (hard error):\nconst attributes = experiment.customFields?.contextualAttributes || [];\nif (!attributes.length) {\n  throw new Error("Select at least one contextual attribute");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!experiment.hypothesis) {\n  addWarning("Consider adding a hypothesis");\n}`,
+  },
 };
 
 export default function CustomHookModal({
@@ -246,6 +300,7 @@ export default function CustomHookModal({
   current,
   onSave,
   feature,
+  experiment,
   revision,
   config,
 }: {
@@ -254,6 +309,8 @@ export default function CustomHookModal({
   onSave?: () => void;
   // When set, scopes the hook to this feature and hides the Projects field.
   feature?: FeatureInterface;
+  // When set, scopes the hook to this experiment and hides the Projects field.
+  experiment?: ExperimentInterfaceStringDates;
   // Prefills the revision test argument
   revision?: FeatureRevisionInterface;
   // When set, scopes the hook to this config and hides the Projects field.
@@ -276,14 +333,20 @@ export default function CustomHookModal({
 }) {
   // The entity this modal is scoped to (feature or config), if any. Drives the
   // hook-type options, the hidden Projects field, and the submit/test scope.
-  const scope: "feature" | "config" | null = feature
+  const scope: "feature" | "config" | "experiment" | null = feature
     ? "feature"
-    : config
-      ? "config"
-      : null;
+    : experiment
+      ? "experiment"
+      : config
+        ? "config"
+        : null;
   const defaultHook: CustomHookType =
     current?.hook ||
-    (scope === "config" ? "validateConfigRevision" : "validateFeature");
+    (scope === "config"
+      ? "validateConfigRevision"
+      : scope === "experiment"
+        ? "validateExperiment"
+        : "validateFeature");
 
   const form = useForm<CreateProps<CustomHookInterface>>({
     defaultValues: {
@@ -316,18 +379,20 @@ export default function CustomHookModal({
         k,
         feature && k === "feature"
           ? stringify(feature)
-          : revision && k === "revision"
-            ? stringify(revision)
-            : config && k === "config"
-              ? // Mirror the runtime shape: parsed value + this config as the
-                // hook's pinned target (a hook created here scopes to it).
-                stringify({
-                  ...config,
-                  value: parseJSON(config.value),
-                  hookTargetKey: config.key,
-                  isHookTarget: true,
-                })
-              : v.testValue,
+          : experiment && k === "experiment"
+            ? stringify(experiment)
+            : revision && k === "revision"
+              ? stringify(revision)
+              : config && k === "config"
+                ? // Mirror the runtime shape: parsed value + this config as the
+                  // hook's pinned target (a hook created here scopes to it).
+                  stringify({
+                    ...config,
+                    value: parseJSON(config.value),
+                    hookTargetKey: config.key,
+                    isHookTarget: true,
+                  })
+                : v.testValue,
       ]),
     );
 
@@ -365,9 +430,11 @@ export default function CustomHookModal({
           ),
           ...(feature
             ? { entityType: "feature" as const, entityId: feature.id }
-            : config
-              ? { entityType: "config" as const, entityId: config.key }
-              : {}),
+            : experiment
+              ? { entityType: "experiment" as const, entityId: experiment.id }
+              : config
+                ? { entityType: "config" as const, entityId: config.key }
+                : {}),
         }),
       });
       setTestResult({
@@ -404,13 +471,19 @@ export default function CustomHookModal({
                 entityType: "feature" as const,
                 entityId: feature.id,
               }
-            : config
+            : experiment
               ? {
                   projects: [],
-                  entityType: "config" as const,
-                  entityId: config.key,
+                  entityType: "experiment" as const,
+                  entityId: experiment.id,
                 }
-              : {}),
+              : config
+                ? {
+                    projects: [],
+                    entityType: "config" as const,
+                    entityId: config.key,
+                  }
+                : {}),
         };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {

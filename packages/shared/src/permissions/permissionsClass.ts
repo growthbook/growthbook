@@ -1540,6 +1540,12 @@ export class Permissions {
     return this.canUpdateFeature(feature, {});
   };
 
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
+  };
+
   public canCreateEventForwarderConfig = (
     config: Pick<EventForwarderConfigInterface, "projects">,
   ): boolean => {

@@ -9,11 +9,14 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import Code from "@/components/SyntaxHighlighting/Code";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { isCloud } from "@/services/env";
-import CustomHookModal from "@/components/Features/CustomHookModal";
+import CustomHookModal, {
+  hookTypes,
+} from "@/components/CustomHooks/CustomHookModal";
 import CompareCustomHookEventsModal from "@/components/Features/CompareCustomHookEventsModal";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import CustomHookCodeModal from "@/components/CustomHooks/CustomHookCodeModal";
 import Table, {
   TableHeader,
   TableBody,
@@ -23,28 +26,6 @@ import Table, {
 } from "@/ui/Table";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
-
-function CustomHookCodeModal({
-  hook,
-  close,
-}: {
-  hook: CustomHookInterface;
-  close: () => void;
-}) {
-  return (
-    <ModalStandard
-      open
-      header={hook.name}
-      subheader={hook.hook}
-      close={close}
-      closeCta="Close"
-      size="lg"
-      trackingEventModalType=""
-    >
-      <Code language="javascript" code={hook.code} />
-    </ModalStandard>
-  );
-}
 
 // Feature- and config-scoped hooks render identical tables, differing only in
 // their labels and the entity link target.
@@ -88,7 +69,7 @@ function EntityScopedHooksSection({
                   <Badge color="gray" label="Disabled" ml="2" />
                 ) : null}
               </TableCell>
-              <TableCell>{hook.hook}</TableCell>
+              <TableCell>{hookTypes[hook.hook]?.label ?? hook.hook}</TableCell>
               <TableCell>
                 <Link href={entityHref(hook)}>{hook.entityId}</Link>
               </TableCell>
@@ -158,6 +139,7 @@ export default function CustomHooksPage() {
   const hooks = allHooks.filter((h) => !h.entityType);
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
   const configHooks = allHooks.filter((h) => h.entityType === "config");
+  const experimentHooks = allHooks.filter((h) => h.entityType === "experiment");
 
   return (
     <div className="container-fluid pagecontents">
@@ -241,7 +223,9 @@ export default function CustomHooksPage() {
                           <Badge color="gray" label="Disabled" ml="2" />
                         ) : null}
                       </TableCell>
-                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
                       <TableCell>
                         {hook.projects.length ? (
                           hook.projects.join(", ")
@@ -331,6 +315,74 @@ export default function CustomHooksPage() {
             onViewCode={setViewCodeHook}
             onHistory={setHistoryHook}
           />
+
+          {experimentHooks.length > 0 && (
+            <div className="mt-5">
+              <h2>Experiment-specific Hooks</h2>
+              <p className="text-muted">
+                These hooks are scoped to a single experiment. Experiment hooks
+                are now managed as global hooks above; you can remove any
+                leftover scoped hooks here.
+              </p>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Experiment</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 50 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {experimentHooks.map((hook) => (
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {hookTypes[hook.hook]?.label ?? hook.hook}
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/experiment/${hook.entityId}`}>
+                          {hook.entityId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <MoreMenu iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
+                          >
+                            Preview Code
+                          </a>
+                          <DeleteButton
+                            useRadix={false}
+                            useIcon={false}
+                            text="Delete"
+                            displayName="custom hook"
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                            className="dropdown-item text-danger"
+                          />
+                        </MoreMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </>
       )}
     </div>
