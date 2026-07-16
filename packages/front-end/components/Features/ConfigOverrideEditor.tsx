@@ -12,7 +12,6 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
-import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
@@ -459,13 +458,12 @@ function OverrideRow({
   );
 }
 
-// The "add a field to override" control. Declared fields that aren't overridden
-// yet are offered in a select (which commits only on an explicit pick). An
-// extensible config also allows a free-form new key, but that is committed only
-// on Enter or the Add button — never per keystroke. (A createable SelectField
-// with an empty option list degrades to a plain text input whose onChange fires
-// on every keystroke, which here turned each typed character into its own stray
-// one-character override.)
+// The "add a field to override" control: one combobox. Declared fields that
+// aren't overridden yet are the options; an extensible config also lets you
+// create a new key by typing it and pressing Enter (or picking the "Add …"
+// entry). Createable commits only on select/Enter/Tab/blur, never per keystroke,
+// and keepCreatableWhenEmpty keeps that behavior even with no options left
+// (otherwise SelectField degrades to a per-keystroke plain input).
 function AddFieldControl({
   addableFields,
   extensible,
@@ -479,59 +477,27 @@ function AddFieldControl({
   onAdd: (key: string) => void;
   disabled?: boolean;
 }): React.ReactElement {
-  const [newKey, setNewKey] = useState("");
-  const trimmed = newKey.trim();
-  const canAdd = trimmed.length > 0 && !existingKeys.has(trimmed);
-
-  const commit = (key: string) => {
-    const k = key.trim();
-    if (!k || existingKeys.has(k)) return;
-    onAdd(k);
-    setNewKey("");
-  };
-
   return (
-    <Flex mt="2" gap="3" align="start" wrap="wrap">
-      {addableFields.length > 0 && (
-        <Box style={{ minWidth: 220 }}>
-          <SelectField
-            value=""
-            placeholder="Add a field to override…"
-            options={addableFields.map((f) => ({
-              value: f.key,
-              label: f.key,
-            }))}
-            onChange={(key) => commit(key)}
-            disabled={disabled}
-          />
-        </Box>
-      )}
-      {extensible && (
-        <Flex gap="2" align="center">
-          <Box style={{ width: 200 }}>
-            <Field
-              value={newKey}
-              placeholder="New field name…"
-              onChange={(e) => setNewKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  commit(newKey);
-                }
-              }}
-              disabled={disabled}
-            />
-          </Box>
-          <Button
-            variant="soft"
-            disabled={disabled || !canAdd}
-            onClick={() => commit(newKey)}
-          >
-            Add
-          </Button>
-        </Flex>
-      )}
-    </Flex>
+    <Box mt="2" style={{ maxWidth: 260 }}>
+      <SelectField
+        value=""
+        placeholder={
+          extensible ? "Add or create a field…" : "Add a field to override…"
+        }
+        createable={extensible}
+        keepCreatableWhenEmpty
+        formatCreateLabel={(v) => `Add "${v}"`}
+        options={addableFields.map((f) => ({ value: f.key, label: f.key }))}
+        onChange={(key) => {
+          const k = key.trim();
+          // Ignore an empty pick or a key that already exists (declared field
+          // already overridden, or an existing custom key).
+          if (!k || existingKeys.has(k)) return;
+          onAdd(k);
+        }}
+        disabled={disabled}
+      />
+    </Box>
   );
 }
 
