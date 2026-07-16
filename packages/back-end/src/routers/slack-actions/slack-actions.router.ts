@@ -6,6 +6,7 @@ import { EventWebHookModel } from "back-end/src/models/EventWebhookModel";
 import { snoozeSlackExperimentNotifications } from "back-end/src/models/SlackNotificationSnoozeModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { resolveSlackAssistantTarget } from "back-end/src/services/slack/slackIdentity";
 import { logger } from "back-end/src/util/logger";
 import {
   queueSlackAssistantMention,
@@ -188,18 +189,34 @@ router.post(
       return res.json({ text: "GrowthBook action received." });
     }
 
-    const webhook = await findSlackWebhook({
-      teamId: payload.team?.id,
-      channelId: payload.channel?.id,
-    });
     const experimentId = action.value;
-    if (!webhook || !experimentId) {
+    if (!experimentId) {
       return res.json({ text: "Unable to snooze this notification." });
     }
 
+    // Authorize like the confirm/cancel path: the clicking Slack user must be a
+    // linked GrowthBook member of this channel's org AND able to read the
+    // experiment. Otherwise any (even unlinked) channel member could suppress a
+    // channel's notifications. resolveSlackAssistantTarget also gives us the
+    // channel's webhook + org, scoped to that user.
+    const target = await resolveSlackAssistantTarget({
+      teamId: payload.team?.id,
+      channelId: payload.channel?.id || "",
+      slackUserId: payload.user?.id || "",
+    });
+    if (!target.ok) {
+      return res.json({ response_type: "ephemeral", text: target.message });
+    }
+    if (!(await getExperimentById(target.context, experimentId))) {
+      return res.json({
+        response_type: "ephemeral",
+        text: "You don't have access to snooze notifications for this experiment.",
+      });
+    }
+
     await snoozeSlackExperimentNotifications({
-      organizationId: webhook.organizationId,
-      eventWebHookId: webhook.id,
+      organizationId: target.organizationId,
+      eventWebHookId: target.eventWebHookId,
       experimentId,
       snoozedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
