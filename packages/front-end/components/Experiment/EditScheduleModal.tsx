@@ -555,7 +555,7 @@ export default function EditScheduleModal({
             </Flex>
           </Flex>
 
-          {scheduleIsInThePast && (
+          {scheduleIsInThePast && experiment.status === "draft" && (
             <Helpertext status="warning">Scheduled start has passed</Helpertext>
           )}
           {stopBeforeStart && (
