@@ -1,3 +1,4 @@
+import type { DataType } from "shared/types/integrations";
 import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
@@ -22,6 +23,10 @@ export const redshiftDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_CREATE_SKETCH(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_CARDINALITY(${col})`,
+  // HLL_CREATE_SKETCH/HLL_COMBINE return HLLSKETCH; casting to VARBINARY fails, so cast to HLLSKETCH (no-op) instead.
+  getDataType: (dataType: DataType): string => {
+    return dataType === "hll" ? "HLLSKETCH" : baseDialect.getDataType(dataType);
+  },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
       .split(".")
