@@ -1775,7 +1775,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                     </Box>
 
                     <TabsContent value="form">
-                      <Box>
+                      {/* Horizontal scroll for the fixed-min-width table (the
+                          inner `minWidth: 800` box) instead of squeezing the
+                          columns — but only below the breakpoint, where the
+                          header also goes static (see .config-table-scroll). */}
+                      <Box className="config-table-scroll">
                         {canEditInline && reconciliationPreview.length > 0 && (
                           <Callout status="info" mt="3">
                             Publishing will remove{" "}
@@ -1847,6 +1851,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                         )}
                         <Box style={{ minWidth: 800 }}>
                           <Grid
+                            className="config-table-sticky-header"
                             columns={FIELD_GRID_TEMPLATE}
                             gapX="5"
                             align="start"
@@ -1855,8 +1860,10 @@ export default function ConfigDetailPage(): React.ReactElement {
                             px="3"
                             style={{
                               borderBottom: "1px solid var(--slate-a4)",
-                              position: "sticky",
-                              // Pin below the fixed 56px top nav; the page scrolls the document.
+                              // Sticky below the fixed 56px top nav on wide
+                              // screens; the class drops it to static once
+                              // x-scroll turns on (an overflow-x ancestor breaks
+                              // document-sticky). `top` is inert when static.
                               top: 56,
                               zIndex: 2,
                               background: "var(--color-panel-solid)",

@@ -20,6 +20,15 @@
 // in a horizontal-scroll ScrollArea that hijacks the sticky container.
 .gridTable {
   width: 100%;
+  // Below the breakpoint the flexible columns would otherwise overflow their
+  // container (they floor at their minmax mins); scroll instead of squeezing.
+  // Only below the breakpoint — an always-on overflow-x ancestor would break the
+  // sticky header at every width. Wider breakpoint than the field table's
+  // .config-table-scroll (global.scss) because this grid is wider — both are
+  // hand-tuned to their layout, not shared. Keep in sync with .headerRow below.
+  @media (max-width: 1530px) {
+    overflow-x: auto;
+  }
 }
 
 .headerRow {
@@ -27,11 +36,18 @@
   align-items: center;
   column-gap: var(--space-4);
   // Stick below the fixed top nav as the page scrolls (same as the field table).
+  // Dropped to static below the breakpoint, where x-scroll turns on (an
+  // overflow-x ancestor breaks document-sticky). Keep the breakpoint in sync
+  // with .gridTable above.
   position: sticky;
   top: 56px;
   z-index: 1;
   background: var(--color-panel-solid);
   box-shadow: inset 0 -1px var(--slate-a4);
+
+  @media (max-width: 1530px) {
+    position: static;
+  }
 
   > * {
     padding: var(--space-2) 0;
