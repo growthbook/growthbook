@@ -383,13 +383,15 @@ export class ConfigModel extends BaseClass {
   // retries.
   public getAllForReconcile(): Promise<ConfigInterface[]> {
     if (this.reconcileSnapshot === null) {
-      this.reconcileSnapshot = this._find(
-        {},
-        { bypassReadPermissionChecks: true },
-      ).catch((err) => {
-        this.reconcileSnapshot = null;
-        throw err;
-      });
+      const load = this._find({}, { bypassReadPermissionChecks: true }).catch(
+        (err) => {
+          // Clear only our own failed load — a write may have invalidated it
+          // and a newer healthy load may already be memoized.
+          if (this.reconcileSnapshot === load) this.reconcileSnapshot = null;
+          throw err;
+        },
+      );
+      this.reconcileSnapshot = load;
     }
     return this.reconcileSnapshot;
   }

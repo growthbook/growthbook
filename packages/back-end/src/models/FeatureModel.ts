@@ -498,7 +498,9 @@ export async function getAllFeatures(
  *
  * NOTE: the return type is `FeatureInterface[]`, but the projected-out fields
  * (`description` / `jsonSchema` / `customFields` / legacy `draft`) will be
- * absent at runtime. Reach for `getAllFeatures` if you need a complete feature.
+ * absent at runtime — and so will `legacyDraft`, which the v0 migration
+ * synthesizes from the projected-out `draft`. Reach for `getAllFeatures` if you
+ * need a complete feature.
  */
 export async function getAllFeaturesWithoutHeavyFields(
   context: ReqContext | ApiReqContext,

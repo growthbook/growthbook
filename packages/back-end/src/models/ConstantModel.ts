@@ -47,14 +47,19 @@ export class ConstantModel extends BaseClass {
   // read the whole collection several times per write. Loads once and hands the
   // same promise to every caller until a write invalidates it; a rejected load
   // isn't cached, so a later call retries. Mirrors ConfigModel.reconcileSnapshot.
+  // Callers share one array instance — treat the result as read-only and copy
+  // before sorting/mutating.
   private allSnapshot: Promise<ConstantInterface[]> | null = null;
 
   public getAll(): Promise<ConstantInterface[]> {
     if (this.allSnapshot === null) {
-      this.allSnapshot = super.getAll().catch((err) => {
-        this.allSnapshot = null;
+      const load = super.getAll().catch((err) => {
+        // Clear only our own failed load — a write may have invalidated it and
+        // a newer healthy load may already be memoized.
+        if (this.allSnapshot === load) this.allSnapshot = null;
         throw err;
       });
+      this.allSnapshot = load;
     }
     return this.allSnapshot;
   }
