@@ -230,7 +230,7 @@ export default function EditScheduleModal({
       cta={hasSchedule ? "Update" : "Done"}
       ctaColor="violet"
       ctaEnabled={!stopBeforeStart && !endDateMissing}
-      size="md-lg"
+      size="lg"
       secondaryAction={
         isApproved ? (
           <Button
