@@ -292,7 +292,7 @@ const DataSourceForm: FC<{
                 />
               </>
             }
-            placeholder="All projects"
+            placeholder="All Projects"
             value={datasource.projects || []}
             options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}

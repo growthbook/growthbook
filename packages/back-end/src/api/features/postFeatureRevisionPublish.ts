@@ -21,7 +21,10 @@ import {
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -244,14 +247,13 @@ export async function publishFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    feature,
-    version: req.params.version,
-  });
-  const finalRevision = updated ?? revision;
+  // Re-read so the event carries the published status; falls back to the
+  // in-memory revision instead of failing the already-committed publish.
+  const finalRevision = await getPublishedRevisionForEvents(
+    req.context,
+    updatedFeature,
+    revision,
+  );
 
   await dispatchFeatureRevisionEvent(
     req.context,

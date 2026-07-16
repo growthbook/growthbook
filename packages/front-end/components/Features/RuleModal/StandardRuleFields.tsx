@@ -223,7 +223,9 @@ export default function StandardRuleFields({
 
     setScheduleToggleEnabled(false);
     if (saved) {
-      setRampSectionState(saved.ramp);
+      // Start-approval is a ramp-only concept; never carry it into a non-ramp
+      // mode, or the rule publishes disabled with no way to clear it here.
+      setRampSectionState({ ...saved.ramp, requiresStartApproval: false });
       form.setValue("coverage", saved.coverage);
     } else {
       setRampSectionState({
@@ -232,6 +234,7 @@ export default function StandardRuleFields({
         steps: [],
         startDate: "",
         endScheduleAt: "",
+        requiresStartApproval: false,
       });
       if (leavingRamp) form.setValue("coverage", 1);
     }

@@ -14,6 +14,7 @@ import {
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
 import {
+  DataSourceInterface,
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
@@ -373,9 +374,14 @@ export async function syncManagedWarehouseIdentifiers(
   // Pass the freshly-updated schema; context.org may still be stale post-mutation.
   attributeSchema: SDKAttributeSchema | undefined = context.org.settings
     ?.attributeSchema,
+  // Optionally reconcile a specific (already-fetched) warehouse instead of
+  // re-selecting by org — callers that just mutated one datasource pass it so the
+  // rebuild targets the same doc.
+  providedDatasource: DataSourceInterface | null = null,
 ): Promise<void> {
   const datasource =
-    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
+    providedDatasource ??
+    (await dangerouslyGetGrowthbookDatasourceBypassPermission(context));
   if (
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
@@ -549,6 +555,48 @@ export async function syncManagedWarehouseIdentifiersOnAttributeChange(
       "Failed to sync managed warehouse identifiers after attribute change",
     );
   }
+}
+
+// Drop a preserved legacy identifier from a managed warehouse. The JSON migration
+// keeps legacy join keys (identifiers present pre-migration but no longer in the
+// attribute schema) in `migratedIdentifiers` so historical experiments don't break —
+// but there was no way to remove one that's since gone dead (e.g. a renamed attribute).
+// Only entries in `migratedIdentifiers` are removable; builtins and current
+// hashAttribute identifiers are managed via the attribute schema, not here. The re-sync
+// rebuilds userIdTypes / exposure queries and drops the identifier's fact-table column.
+export async function removeManagedWarehouseLegacyIdentifier(
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface,
+  identifier: string,
+): Promise<void> {
+  if (datasource.type !== "growthbook_clickhouse") {
+    throw new Error("Not a managed warehouse datasource");
+  }
+
+  const migrated = datasource.settings.migratedIdentifiers || [];
+  if (!migrated.includes(identifier)) {
+    throw new Error(
+      `"${identifier}" is not a removable legacy identifier. Only preserved legacy identifiers can be removed; current identifiers are managed through your attributes.`,
+    );
+  }
+
+  const updatedSettings = {
+    ...datasource.settings,
+    migratedIdentifiers: migrated.filter((t) => t !== identifier),
+  };
+  await updateDataSource(
+    context,
+    datasource,
+    { settings: updatedSettings },
+    { skipExposureQueryValidation: true },
+  );
+
+  // Reconcile the same datasource we just updated (with its post-removal settings),
+  // rather than letting the sync re-select a warehouse by org.
+  await syncManagedWarehouseIdentifiers(context, undefined, {
+    ...datasource,
+    settings: updatedSettings,
+  });
 }
 
 // Kick off the async table rebuild. The license server acks and rebuilds in the
