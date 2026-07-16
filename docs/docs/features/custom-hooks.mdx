@@ -246,7 +246,7 @@ if (revision.status === "published") {
 
 ### validateExperiment
 
-Called whenever an experiment is about to be created or updated. Receives the full experiment object, including any Custom Field values under `experiment.customFields`. It runs on create, edit, start, and stop, so a thrown error blocks that action.
+Called whenever an experiment is about to be created or updated. Receives the full experiment object, including any Custom Field values under `experiment.customFields`. It runs on create, edit, and start, so a thrown error blocks that action.
 
 :::note Not every field is populated at creation.
 
@@ -265,14 +265,14 @@ if (!experiment.hypothesis) {
 
 :::
 
-Example: Require at least one contextual attribute, and require a linked ticket when the "checkout" attribute is selected. This validates one multi-select Custom Field against another.
+Example: Require at least one experiment surface in a custom field, and require a linked ticket when the "checkout" surface is selected. This validates one multi-select Custom Field against another.
 
 ```js
-const attributes = experiment.customFields?.contextualAttributes || [];
-if (attributes.length === 0) {
-  throw new Error("Select at least one contextual attribute.");
+const surfaces = experiment.customFields?.experimentSurfaces || [];
+if (surfaces.length === 0) {
+  throw new Error("Select at least one experiment surface.");
 }
-if (attributes.includes("checkout") && !experiment.customFields?.jiraTicket) {
+if (surfaces.includes("checkout") && !experiment.customFields?.jiraTicket) {
   throw new Error("Checkout experiments must reference a Jira ticket.");
 }
 ```
@@ -294,7 +294,7 @@ if (!result.isValid) {
 Example: Warn without blocking when an experiment has no hypothesis.
 
 ```js
-if (!experiment.hypothesis) {
+if (!experiment.hypothesis && experiment.status !== "draft") {
   addWarning("Consider adding a hypothesis before starting this experiment.");
 }
 ```
