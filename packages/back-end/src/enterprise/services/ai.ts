@@ -620,7 +620,7 @@ export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
     throw new Error("Vectors must be of the same length");
   }
-  const dot = vec1.reduce((sum, val, _i) => sum + val * val, 0);
+  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
   const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
   return dot / (normA * normB);

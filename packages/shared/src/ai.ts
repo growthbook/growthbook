@@ -465,6 +465,7 @@ export const AI_PROMPT_TYPES = [
   "visual-editor-ai-image-gen",
   "visual-editor-ai-figma",
   "product-analytics-chat",
+  "find-insights-context",
   "general-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
@@ -503,6 +504,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
   "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
+  "find-insights-context": "", // Org-specific context appended when finding cross-experiment insights
   "general-chat": "",
 };
 
@@ -511,7 +513,8 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
-    key === "product-analytics-chat",
+    key === "product-analytics-chat" ||
+    key === "find-insights-context",
 ) as AIPromptType[];
 
 export interface AIUsageData {

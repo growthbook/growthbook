@@ -341,6 +341,28 @@ export interface OrganizationSettings {
   postStratificationDisabled?: boolean;
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
+  learningStatuses?: LearningStatus[];
+}
+
+export type LearningStatusColor =
+  | "gray"
+  | "blue"
+  | "cyan"
+  | "indigo"
+  | "violet"
+  | "purple"
+  | "amber"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "red"
+  | "pink";
+
+export interface LearningStatus {
+  id: string;
+  label: string;
+  color?: LearningStatusColor;
 }
 
 export interface OrganizationConnections {

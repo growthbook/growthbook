@@ -306,6 +306,11 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
+  - name: Insights
+    x-displayName: Insights
+    description: >-
+      Saved learnings captured across experiments, including AI-discovered
+      patterns.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -495,6 +500,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: Insight_model
+    x-displayName: Insight
+    description: <SchemaDefinition schemaRef="#/components/schemas/Insight" />
   - name: LookbackOverride_model
     x-displayName: Lookback Override
     description: <SchemaDefinition schemaRef="#/components/schemas/LookbackOverride" />
@@ -37771,6 +37779,286 @@ paths:
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/ramp-schedules/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/insights/{id}:
+    get:
+      operationId: getInsight
+      summary: Get a single insight
+      tags:
+        - Insights
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insight:
+                    $ref: '#/components/schemas/Insight'
+                required:
+                  - insight
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/insights/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteInsight
+      summary: Delete a single insight
+      tags:
+        - Insights
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/insights/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateInsight
+      summary: Update a single insight
+      tags:
+        - Insights
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                text:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                supportingExperimentIds:
+                  type: array
+                  items:
+                    type: string
+                contraryEvidence:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                status:
+                  description: >-
+                    ID of a learning status configured at the org level
+                    (Settings → General → Experiment Settings). Omit or pass an
+                    empty string for no status.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insight:
+                    $ref: '#/components/schemas/Insight'
+                required:
+                  - insight
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/insights/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/insights:
+    post:
+      operationId: createInsight
+      summary: Create a single insight
+      tags:
+        - Insights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                text:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                supportingExperimentIds:
+                  type: array
+                  items:
+                    type: string
+                contraryEvidence:
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                status:
+                  description: >-
+                    ID of a learning status configured at the org level
+                    (Settings → General → Experiment Settings). Omit or pass an
+                    empty string for no status.
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+              required:
+                - title
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insight:
+                    $ref: '#/components/schemas/Insight'
+                required:
+                  - insight
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/insights' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listInsights
+      summary: Get all insights
+      tags:
+        - Insights
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: experimentId
+          in: query
+          description: Only return insights that reference this experiment
+          schema:
+            description: Only return insights that reference this experiment
+            type: string
+        - $ref: '#/components/parameters/tag'
+        - name: status
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Insight'
+                required:
+                  - insights
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/insights' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/insights/search:
+    post:
+      operationId: searchInsights
+      summary: Semantically search saved insights (learnings) by a query
+      tags:
+        - Insights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  description: Natural-language query to rank insights against
+                  type: string
+                limit:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 50
+                projectId:
+                  type: string
+              required:
+                - query
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  insights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/insights'
+                required:
+                  - insights
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/insights/search' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -38268,6 +38556,12 @@ components:
           - preferred
           - required
           - never
+    tag:
+      name: tag
+      in: query
+      description: ''
+      schema:
+        type: string
   schemas:
     FeatureV1:
       type: object
@@ -50055,6 +50349,72 @@ components:
         - steps
         - order
       additionalProperties: false
+    Insight:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        supportingExperimentIds:
+          type: array
+          items:
+            type: string
+        contraryEvidence:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        source:
+          type: string
+          enum:
+            - ai
+            - manual
+            - api
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - authors
+        - title
+        - text
+        - tags
+        - supportingExperimentIds
+        - contraryEvidence
+        - projects
+        - status
+        - source
+      additionalProperties: false
     ConstantReferences:
       type: object
       properties:
@@ -52981,6 +53341,76 @@ components:
       required:
         - mode
       additionalProperties: false
+    insights:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        authors:
+          type: array
+          items:
+            type: string
+        title:
+          type: string
+        text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        supportingExperimentIds:
+          type: array
+          items:
+            type: string
+        contraryEvidence:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        source:
+          type: string
+          enum:
+            - ai
+            - manual
+            - api
+        similarity:
+          description: Cosine similarity of the insight to the query (0-1)
+          type: number
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - authors
+        - title
+        - text
+        - tags
+        - supportingExperimentIds
+        - contraryEvidence
+        - projects
+        - status
+        - source
+        - similarity
+      additionalProperties: false
   securitySchemes:
     bearerAuth:
       type: http
@@ -53052,6 +53482,7 @@ x-tagGroups:
       - ExperimentTemplates
       - AnalyticsExplorations
       - RampScheduleTemplates
+      - Insights
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -53107,6 +53538,7 @@ x-tagGroups:
       - FeatureWithRevisionsV2_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - Insight_model
       - LookbackOverride_model
       - Member_model
       - Metric_model

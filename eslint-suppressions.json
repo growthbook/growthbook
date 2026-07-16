@@ -1139,11 +1139,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/learnings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/metric-effects.tsx": {
     "no-restricted-imports": {
       "count": 2
