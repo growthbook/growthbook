@@ -172,8 +172,57 @@ export function decideExperimentGuard({
 
 // ── Service layer (I/O) ─────────────────────────────────────────────────────
 
+// Every config key whose RESOLVED value a publish of `configKey` changes: the
+// config itself, plus (transitively, cycle-safe) every base that selects it as a
+// scoped-override flavor — publishing a flavor rewrites its selecting base's
+// per-environment resolved value. That flavor→base edge is NOT a lineage edge,
+// so each affected config's own subtree must be evaluated separately (the
+// lineage subtree walk can't cross it). Mirrors the reverse-scopedOverrides edge
+// the lock/refresh dependency closure already follows. Pure; exported for tests.
+export function configPublishAffectedRoots(
+  allConfigs: Pick<ConfigInterface, "key" | "scopedOverrides">[],
+  configKey: string,
+): string[] {
+  const visited = new Set<string>([configKey]);
+  const queue = [configKey];
+  while (queue.length) {
+    const cur = queue.shift() as string;
+    for (const c of allConfigs) {
+      if (visited.has(c.key)) continue;
+      if ((c.scopedOverrides ?? []).some((o) => o.config === cur)) {
+        visited.add(c.key);
+        queue.push(c.key);
+      }
+    }
+  }
+  return [...visited];
+}
+
+// Conflicts from publishing a single config `key`: guarded configs in its subtree
+// (itself + descendants, base-wins) whose live value backs a running experiment.
+// Empty (cheap, no usage scan) when nothing guarded is in the subtree.
+async function conflictsForConfigPublish(
+  scanContext: Context,
+  allConfigs: ConfigInterface[],
+  byKey: Map<string, ConfigInterface>,
+  key: string,
+  id: string,
+): Promise<Set<string>> {
+  const guardedConfigKeys = new Set(
+    getConfigSubtree(key, allConfigs).filter(
+      (k) => byKey.get(k)?.experimentGuard,
+    ),
+  );
+  if (guardedConfigKeys.size === 0) return new Set<string>();
+  const impl = await getConfigKeyImplementations(scanContext, id);
+  return computeExperimentGuardConflictKeys(
+    impl?.implementations ?? [],
+    guardedConfigKeys,
+  );
+}
+
 // The live conflict set for publishing this config. Empty when no guarded config
-// in this config's subtree is currently serving a running experiment.
+// whose value this publish changes is currently serving a running experiment.
 export async function evaluateConfigExperimentGuardConflicts(
   context: Context,
   config: ConfigInterface,
@@ -184,26 +233,30 @@ export async function evaluateConfigExperimentGuardConflicts(
   // publish rewrites that experiment's live arm. (The UI usage table keeps the
   // request context; only this guard path needs global coverage.)
   const scanContext = getContextForAgendaJobByOrgObject(context.org);
-
-  // Publishing this config rewrites the resolved value of every config in its
-  // subtree (itself + descendants, base-wins), so the relevant guard flags are
-  // the subtree's — NOT just this config's. A guarded descendant fed by an
-  // unguarded ancestor must still be protected. Nothing guarded in the subtree →
-  // nothing to enforce (cheap out before the heavier usage scan).
   const allConfigs = await scanContext.models.configs.getAllForReconcile();
   const byKey = new Map(allConfigs.map((c) => [c.key, c]));
-  const guardedConfigKeys = new Set(
-    getConfigSubtree(config.key, allConfigs).filter(
-      (k) => byKey.get(k)?.experimentGuard,
-    ),
-  );
-  if (guardedConfigKeys.size === 0) return new Set<string>();
 
-  const impl = await getConfigKeyImplementations(scanContext, config.id);
-  return computeExperimentGuardConflictKeys(
-    impl?.implementations ?? [],
-    guardedConfigKeys,
-  );
+  // Publishing this config rewrites the resolved value of its own subtree AND of
+  // every base that selects it as a flavor (the flavor→base edge). Evaluate each
+  // affected root's subtree independently — `getConfigKeyImplementations` scopes
+  // its implementations + relation classification to the config it's called on,
+  // so a selecting base's usage is only seen when that base is the evaluated
+  // root, not by widening the current config's guarded-key set.
+  const conflicts = new Set<string>();
+  for (const rootKey of configPublishAffectedRoots(allConfigs, config.key)) {
+    const root = byKey.get(rootKey);
+    if (!root) continue;
+    for (const k of await conflictsForConfigPublish(
+      scanContext,
+      allConfigs,
+      byKey,
+      root.key,
+      root.id,
+    )) {
+      conflicts.add(k);
+    }
+  }
+  return conflicts;
 }
 
 // Enforce the experiment guard for a config publish. `armed` = a deferred merge

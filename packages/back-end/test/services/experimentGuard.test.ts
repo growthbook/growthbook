@@ -2,6 +2,7 @@ import {
   computeExperimentGuardConflictKeys,
   experimentGuardConflictsAcknowledged,
   decideExperimentGuard,
+  configPublishAffectedRoots,
 } from "back-end/src/services/experimentGuard";
 
 type Impl = Parameters<typeof computeExperimentGuardConflictKeys>[0][number];
@@ -205,5 +206,55 @@ describe("decideExperimentGuard", () => {
         }).action,
       ).toBe("block-deferred");
     });
+  });
+});
+
+describe("configPublishAffectedRoots", () => {
+  type Node = Parameters<typeof configPublishAffectedRoots>[0][number];
+  const cfg = (key: string, selects?: string[]): Node => ({
+    key,
+    scopedOverrides: selects?.map((config) => ({ config })),
+  });
+
+  it("returns just the config itself when nothing selects it as a flavor", () => {
+    const all = [cfg("base"), cfg("child")];
+    expect(configPublishAffectedRoots(all, "child")).toEqual(["child"]);
+  });
+
+  it("includes a base that selects the config as a scoped-override flavor", () => {
+    // Publishing flavor `prod-theme` rewrites `theme`'s per-env resolved value.
+    const all = [cfg("theme", ["prod-theme"]), cfg("prod-theme")];
+    expect(configPublishAffectedRoots(all, "prod-theme").sort()).toEqual([
+      "prod-theme",
+      "theme",
+    ]);
+  });
+
+  it("follows the flavor→base edge transitively", () => {
+    const all = [
+      cfg("a", ["b"]), // a selects flavor b
+      cfg("b", ["c"]), // b selects flavor c
+      cfg("c"),
+      cfg("unrelated"),
+    ];
+    expect(configPublishAffectedRoots(all, "c").sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("is cycle-safe when scopedOverrides form a loop", () => {
+    const all = [cfg("x", ["y"]), cfg("y", ["x"])];
+    expect(configPublishAffectedRoots(all, "x").sort()).toEqual(["x", "y"]);
+  });
+
+  it("does not pull in a base that selects a DIFFERENT flavor", () => {
+    const all = [
+      cfg("base", ["other-flavor"]),
+      cfg("flavor"),
+      cfg("other-flavor"),
+    ];
+    expect(configPublishAffectedRoots(all, "flavor")).toEqual(["flavor"]);
   });
 });
