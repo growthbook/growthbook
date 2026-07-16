@@ -5,14 +5,8 @@ import { databricksDialect } from "back-end/src/integrations/dialects/databricks
 import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { castToHllDataType } from "back-end/src/integrations/sql/primitives/cast-to-hll-data-type";
 
-// Every dialect that implements hllAggregate (i.e. supports "count distinct"
-// fact metrics) must also override getDataType("hll") to match whatever type
-// its HLL functions actually return. If a dialect's HLL sketch type isn't
-// castable to the base default of VARBINARY, castToHllDataType() produces
-// invalid SQL. See growthbook/growthbook#<issue> — Redshift previously fell
-// through to VARBINARY even though HLL_CREATE_SKETCH returns HLLSKETCH,
-// which cannot be cast to VARBINARY/VARBYTE and errored with
-// "cannot cast type hllsketch to binary varying".
+// Dialects supporting HLL count-distinct must override getDataType("hll")
+// to match their sketch type, or castToHllDataType() emits invalid SQL.
 describe("SqlDialect getDataType('hll') matches each dialect's HLL sketch type", () => {
   const cases: [
     string,

@@ -23,38 +23,9 @@ export const redshiftDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_CREATE_SKETCH(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_CARDINALITY(${col})`,
-  // HLL_CREATE_SKETCH/HLL_COMBINE already return Redshift's native HLLSKETCH
-  // type. The base dialect's default of VARBINARY doesn't apply here — Redshift
-  // has no cast path from HLLSKETCH to VARBINARY/VARBYTE, so CAST(... AS
-  // VARBINARY) fails with "cannot cast type hllsketch to binary varying".
-  // Casting to HLLSKETCH instead is a no-op that keeps the column typed
-  // correctly for later HLL_COMBINE/HLL_CARDINALITY calls.
+  // HLL_CREATE_SKETCH/HLL_COMBINE return HLLSKETCH; casting to VARBINARY fails, so cast to HLLSKETCH (no-op) instead.
   getDataType: (dataType: DataType): string => {
-    switch (dataType) {
-      case "string":
-        return "VARCHAR";
-      case "integer":
-        return "INTEGER";
-      case "float":
-        return "DOUBLE";
-      case "boolean":
-        return "BOOLEAN";
-      case "date":
-        return "DATE";
-      case "timestamp":
-        return "TIMESTAMP";
-      case "hll":
-        return "HLLSKETCH";
-      case "quantileSketch":
-        // Quantile sketches aren't supported on Redshift (quantileSketchInit
-        // etc. fall back to the base dialect's "not supported" errors), so
-        // this value is never actually used to build SQL.
-        return "VARBINARY";
-      default: {
-        const _: never = dataType;
-        throw new Error(`Unsupported data type: ${dataType}`);
-      }
-    }
+    return dataType === "hll" ? "HLLSKETCH" : baseDialect.getDataType(dataType);
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
