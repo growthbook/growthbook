@@ -447,9 +447,7 @@ export class ConfigModel extends BaseClass {
       owner: config.owner,
       ownerEmail: "",
       parent: config.parent,
-      // Coalesce a legacy `null` (from an earlier clear bug) to undefined so the
-      // optional-array API field validates.
-      extends: config.extends ?? undefined,
+      extends: config.extends,
       // Stored as a JSON string; the external API exposes it as native JSON.
       value: config.value ? JSON.parse(config.value) : undefined,
       // Ordered env/project variant selection (flavor configs). Omitted when the

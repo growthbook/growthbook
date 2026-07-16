@@ -18520,14 +18520,6 @@ paths:
                     omitted, it defaults to the user associated with the
                     request's Personal Access Token (PAT), if one is being used.
                   type: string
-                bypassApproval:
-                  deprecated: true
-                  description: >-
-                    Deprecated and ignored on create: a brand-new constant
-                    publishes immediately and never enters the approval flow, so
-                    this flag has no effect. Approvals apply only to later
-                    changes via the update endpoint.
-                  type: boolean
               required:
                 - key
                 - name
@@ -19929,14 +19921,6 @@ paths:
                       - name
                       - rule
                     additionalProperties: false
-                bypassApproval:
-                  deprecated: true
-                  description: >-
-                    Deprecated and ignored on create: a brand-new config
-                    publishes immediately and never enters the approval flow, so
-                    this flag has no effect. Approvals apply only to later
-                    changes via the update endpoint.
-                  type: boolean
               required:
                 - key
                 - name

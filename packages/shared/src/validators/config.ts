@@ -478,15 +478,6 @@ const bypassApprovalField = z
   )
   .optional();
 
-// No-op on create (configs publish immediately); retained deprecated for compatibility.
-const bypassApprovalCreateField = z
-  .boolean()
-  .describe(
-    "Deprecated and ignored on create: a brand-new config publishes immediately and never enters the approval flow, so this flag has no effect. Approvals apply only to later changes via the update endpoint.",
-  )
-  .optional()
-  .meta({ deprecated: true });
-
 const postConfigApiBody = z
   .object({
     key: keyField.describe(
@@ -538,7 +529,6 @@ const postConfigApiBody = z
         "Cross-field validation rules. Each rule's expression is a mongo condition (mongrule). Stored on the config schema and enforced at publish.",
       )
       .optional(),
-    bypassApproval: bypassApprovalCreateField,
   })
   .strict();
 

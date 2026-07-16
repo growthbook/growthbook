@@ -1046,8 +1046,7 @@ export async function assertScopedOverridesValid(
     scopedOverrides?: ScopedOverrideEntry[];
   },
   // The entries already on the config, so checks below only reject NEWLY-added
-  // refs — a parent whose flavor was later archived (or attached elsewhere by
-  // legacy data) stays editable.
+  // refs — a parent whose flavor was later archived stays editable.
   prevOverrides: ScopedOverrideEntry[] = [],
 ): Promise<void> {
   const overrides = config.scopedOverrides ?? [];

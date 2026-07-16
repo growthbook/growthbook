@@ -45,14 +45,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class CustomHookModel extends BaseClass {
-  // Config-scoped hooks now always apply to descendants, so drop the legacy
-  // per-hook `includeDescendants` toggle from stored docs on read.
-  protected migrate(legacy: unknown): CustomHookInterface {
-    const doc = { ...(legacy as Record<string, unknown>) };
-    delete doc.includeDescendants;
-    return doc as CustomHookInterface;
-  }
-
   // Resolve the referenced feature synchronously (foreign refs are populated first).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
     if (doc.entityType !== "feature" || !doc.entityId) return null;

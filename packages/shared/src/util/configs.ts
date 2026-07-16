@@ -808,7 +808,7 @@ export function resolveConfigChain(chain: ConfigChainNode[]): {
   }
 
   // Field set = declared schema fields plus any value keys not in the schema
-  // (so stray/legacy values still surface in the editor).
+  // (so stray values still surface in the editor).
   const fieldKeys = [...new Set([...schemaByKey.keys(), ...valueByKey.keys()])];
   const fields: ResolvedConfigField[] = fieldKeys.map((key) => {
     const set = valueByKey.get(key);
