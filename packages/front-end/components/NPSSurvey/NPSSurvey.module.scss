@@ -63,7 +63,7 @@
   --c6: var(--red-6);
   --c9: var(--red-9);
   --c11: var(--red-11);
-  --con: #fff;
+  --con: var(--red-contrast);
 }
 
 .catPassive {
@@ -71,7 +71,7 @@
   --c6: var(--amber-6);
   --c9: var(--amber-9);
   --c11: var(--amber-11);
-  --con: #1c2024;
+  --con: var(--amber-contrast);
 }
 
 .catPromoter {
@@ -79,7 +79,7 @@
   --c6: var(--green-6);
   --c9: var(--green-9);
   --c11: var(--green-11);
-  --con: #fff;
+  --con: var(--green-contrast);
 }
 
 .cell:hover {
