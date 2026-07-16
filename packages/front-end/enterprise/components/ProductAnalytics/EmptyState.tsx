@@ -1,7 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
 import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
@@ -10,7 +8,6 @@ import {
   PiChartBar,
   PiCode,
   PiDatabase,
-  PiFunnel,
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -34,10 +31,6 @@ import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 export default function EmptyState() {
   const router = useRouter();
-  const gb = useGrowthBook<AppFeatures>();
-  // Funnel explorer is behind a staged-rollout flag; only surface the entry
-  // affordance when it's enabled so there's no link to a 404'd page.
-  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
   const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -289,24 +282,6 @@ export default function EmptyState() {
                       <Text weight="medium">Data Source</Text>
                     </Flex>
                   </LinkButton>
-                  {funnelExplorerEnabled && (
-                    <LinkButton
-                      href="/product-analytics/explore/funnel"
-                      variant="outline"
-                      disabled={
-                        !permissionsUtil.canRunFactQueries({
-                          projects: [project],
-                        }) &&
-                        !permissionsUtil.canRunFactQueries({ projects: [] })
-                      }
-                      style={buttonStyle}
-                    >
-                      <Flex direction="column" align="center" gap="1">
-                        <PiFunnel size={24} />
-                        <Text weight="medium">Funnel</Text>
-                      </Flex>
-                    </LinkButton>
-                  )}
                   <LinkButton
                     href="/sql-explorer"
                     variant="outline"
