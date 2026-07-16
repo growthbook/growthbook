@@ -258,8 +258,9 @@ export default function CustomHooksPage() {
             <div className="mt-5">
               <h2>Experiment-specific Hooks</h2>
               <p className="text-muted">
-                These hooks are scoped to a single experiment and managed from
-                that experiment&apos;s Setup tab.
+                These hooks are scoped to a single experiment. Experiment hooks
+                are now managed as global hooks above; you can remove any
+                leftover scoped hooks here.
               </p>
               <Table variant="list" stickyHeader roundedCorners>
                 <TableHeader>
@@ -299,6 +300,19 @@ export default function CustomHooksPage() {
                           >
                             Preview Code
                           </a>
+                          <DeleteButton
+                            useRadix={false}
+                            useIcon={false}
+                            text="Delete"
+                            displayName="custom hook"
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                            className="dropdown-item text-danger"
+                          />
                         </MoreMenu>
                       </TableCell>
                     </TableRow>

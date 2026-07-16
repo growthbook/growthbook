@@ -21,10 +21,9 @@ You can create multiple hooks of the same type for flexible, granular validation
 
 - **Global** — runs for every feature or experiment (depending on hook type).
 - **Project** — runs only for resources in the selected projects.
-- **Feature** — runs only for a single feature (`validateFeature` and `validateFeatureRevision` hooks).
-- **Experiment** — runs only for a single experiment (`validateExperiment` hooks).
+- **Feature** — runs only for a single feature.
 
-Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. Experiment-scoped hooks are created and managed from an experiment's **Setup** tab by anyone who can edit that experiment; that tab also lists any global and project hooks that apply to the experiment.
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. We currently do not support creating custom hooks that are Experiment-scoped, meaning that `validateExperiment` needs to be either global or project-scoped.
 
 ### Limits
 
@@ -249,7 +248,22 @@ if (revision.status === "published") {
 
 Called whenever an experiment is about to be created or updated. Receives the full experiment object, including any Custom Field values under `experiment.customFields`. It runs on create, edit, start, and stop, so a thrown error blocks that action.
 
-Internal bookkeeping writes skip this hook. For example, when GrowthBook flips the flag that tracks whether an experiment has visual changes or URL redirects, your validation rules are not run, so those actions never fail because of an unrelated validation rule.
+:::note Not every field is populated at creation.
+
+An experiment created in the UI starts as a draft, and most of the work — assigning metrics, choosing a hash attribute, configuring variations — happens afterwards, before it is started. The hook still runs on creation, so a rule that requires one of those later fields would block the draft from ever being created. Experiments created through the import flow or the API often do have those fields available up front.
+
+If a rule should only apply once an experiment is ready to start, skip drafts early:
+
+```js
+// Skip draft experiments; validate only when starting or later.
+if (experiment.status === "draft") return;
+
+if (!experiment.hypothesis) {
+  throw new Error("Add a hypothesis before starting this experiment.");
+}
+```
+
+:::
 
 Example: Require at least one contextual attribute, and require a linked ticket when the "checkout" attribute is selected. This validates one multi-select Custom Field against another.
 
