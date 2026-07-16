@@ -22,6 +22,10 @@ const bodySchema = z
   .object({
     visualChangesetId: z.string(),
     name: z.string().min(1).max(120).optional(),
+    // When set, the new variant is a duplicate: its css / js / domMutations
+    // are copied from this existing variation (matched on the internal
+    // `variation` id). Omit for a blank variant.
+    sourceVariationId: z.string().optional(),
   })
   .strict();
 
@@ -43,7 +47,7 @@ const validation = {
 export const postAddVariant = createApiRequestHandler(validation)(async (
   req,
 ) => {
-  const { visualChangesetId, name } = req.body;
+  const { visualChangesetId, name, sourceVariationId } = req.body;
   const context = req.context;
   requireUserAuth(context);
 
@@ -65,11 +69,30 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
+  // For a duplicate, resolve the source variation's visual change (matched
+  // on the internal `variation` id) and the source variation itself (for the
+  // default "(copy)" name). Fail loudly on an unknown id rather than silently
+  // creating a blank variant.
+  const sourceChange = sourceVariationId
+    ? changeset.visualChanges.find((vc) => vc.variation === sourceVariationId)
+    : undefined;
+  const sourceVariation = sourceVariationId
+    ? experiment.variations.find((v) => v.id === sourceVariationId)
+    : undefined;
+  if (sourceVariationId && !sourceChange) {
+    return context.throwBadRequestError(
+      "Source variation not found in this changeset",
+    );
+  }
+
   // Internal `id` (not API-level `variationId`) — that's what
   // visualChange.variation references and getLatestPhaseVariations matches.
   const nextIndex = experiment.variations.length;
   const newVariationId = uuidv4();
-  const newVariationName = name?.trim() || `Variant ${nextIndex}`;
+  const defaultName = sourceVariation
+    ? `${sourceVariation.name} (copy)`
+    : `Variant ${nextIndex}`;
+  const newVariationName = name?.trim() || defaultName;
   const newVariationKey = `${nextIndex}`;
 
   const nextVariations = [
@@ -119,15 +142,17 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     },
   });
 
-  // Omitting `id` lets updateVisualChangeset's merge logic mint one.
+  // Omitting `id` lets updateVisualChangeset's merge logic mint one. For a
+  // duplicate we copy the source's css / js / domMutations (deep-copying each
+  // mutation so the two variations don't share object references).
   const nextVisualChanges = [
     ...changeset.visualChanges,
     {
       variation: newVariationId,
       description: newVariationName,
-      css: "",
-      js: "",
-      domMutations: [],
+      css: sourceChange?.css ?? "",
+      js: sourceChange?.js ?? "",
+      domMutations: (sourceChange?.domMutations ?? []).map((m) => ({ ...m })),
     },
   ];
 
