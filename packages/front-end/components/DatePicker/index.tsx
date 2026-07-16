@@ -42,6 +42,7 @@ type Props = {
   wrapRangeInputs?: boolean;
   compact?: boolean;
   disabled?: boolean;
+  inputStyle?: React.CSSProperties;
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -116,6 +117,7 @@ export default function DatePicker({
   wrapRangeInputs = false,
   compact = false,
   disabled,
+  inputStyle,
   fixedSpanMode,
 }: Props) {
   const inputHeight = compact ? 32 : 38;
@@ -404,6 +406,7 @@ export default function DatePicker({
                       minHeight: inputHeight,
                       cursor: "pointer",
                       ...compactFieldStyle,
+                      ...inputStyle,
                     }}
                     className={clsx("date-picker-field", {
                       "text-muted": isRange ? !date || !date2 : !date,

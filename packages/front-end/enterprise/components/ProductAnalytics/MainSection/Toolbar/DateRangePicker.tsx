@@ -15,6 +15,10 @@ import {
 } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import { useMergedDateRangeUpdates } from "./useMergedDateRangeUpdates";
 
+const DATE_RANGE_INPUT_STYLE: React.CSSProperties = {
+  backgroundColor: "transparent",
+};
+
 function MicroLabel({ children }: { children: ReactNode }) {
   return (
     <Text size="small" color="text-low" weight="regular">
@@ -235,6 +239,7 @@ function CurrentCustomRangeField({
       compact
       wrapRangeInputs={fullWidth ? false : shouldWrap}
       disabled={disabled}
+      inputStyle={DATE_RANGE_INPUT_STYLE}
       date={
         value.startDate ? getValidDateOffsetByUTC(value.startDate) : undefined
       }
@@ -415,6 +420,7 @@ function ComparisonPreviousRangePicker({
       containerClassName="mb-0"
       compact
       wrapRangeInputs={fullWidth ? false : shouldWrap}
+      inputStyle={DATE_RANGE_INPUT_STYLE}
       date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
       date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
       setDate={(d) => {
