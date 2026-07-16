@@ -15,6 +15,8 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  apiFeatureDefaultValueOverride,
+  postFeatureDefaultValueOverride,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -113,6 +115,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         .record(z.string(), z.boolean())
         .describe(
           "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
+        )
+        .optional(),
+      defaultValueOverrides: z
+        .array(apiFeatureDefaultValueOverride)
+        .describe(
+          "Ordered, first-match-wins default value overrides captured in this revision (only present when an override is set)",
         )
         .optional(),
       envPrerequisites: z
@@ -447,6 +455,12 @@ export const postFeatureBodyV2 = z
       .describe(
         "Default value when feature is enabled. Type must match `valueType`.",
       ),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Resolved at payload-build time; rules still take precedence.",
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     rules: z
       .array(postFeatureRuleV2)
@@ -486,6 +500,12 @@ export const updateFeatureBodyV2 = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Replaces the full list when provided.",
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(

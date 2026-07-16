@@ -1521,6 +1521,10 @@ export default function ReviewAndPublish({
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        // full-replace when the merge carries it; else unchanged from live.
+        defaultValueOverrides:
+          mergeResult.result.defaultValueOverrides ??
+          filledLive.defaultValueOverrides,
         rampActions: revision.rampActions,
       };
       effectiveBase = filledLive;

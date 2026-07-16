@@ -29,6 +29,7 @@ import {
   isScheduledPublishPending,
   isScheduledPublishLockActive,
   isRevisionEditLockedBySchedule,
+  getUnreachableDefaultValueOverrideIndexes,
 } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
@@ -57,6 +58,7 @@ import {
   useEnvironments,
   getPrerequisites,
   getRules,
+  useFeatureRulesEnv,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -105,6 +107,9 @@ import {
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
 import FeatureRules from "./FeatureRules";
+import FeatureEnvironmentTabs from "./FeatureEnvironmentTabs";
+import RuleEnvScopeBadges from "./RuleEnvScopeBadges";
+import FeatureValueCard from "./FeatureValueCard";
 
 export const featureStatusColors = {
   on: "var(--green-10)",
@@ -277,6 +282,33 @@ export default function FeaturesOverview({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
+
+  // Selected env tab, shared by the environment tab bar, the Default Value
+  // section, and the Rules section. Owned here (not in FeatureRules) because
+  // `useLocalStorage` is not reactive across instances. `null` = "All
+  // environments". A stored value referencing a stale env falls back to All for
+  // this render without persisting.
+  const [storedRuleEnv, setRuleEnv] = useFeatureRulesEnv();
+  const selectedEnv =
+    storedRuleEnv !== null && !envs.includes(storedRuleEnv)
+      ? null
+      : storedRuleEnv;
+  // Reveal the base default value when it's hidden because the selected env is
+  // fully overridden. Reset on env tab switch so it doesn't carry across envs.
+  const [revealOverriddenBase, setRevealOverriddenBase] = useState(false);
+  useEffect(() => {
+    setRevealOverriddenBase(false);
+  }, [selectedEnv]);
+  // Rule-list display toggles surfaced in the tab bar's "More" menu; shared with
+  // the Rules section for filtering.
+  const [hideInactiveRules, setHideInactiveRules] = useLocalStorage(
+    "hide-disabled-rules",
+    false,
+  );
+  const [showOrphanedRules, setShowOrphanedRules] = useLocalStorage(
+    "show-orphaned-rules",
+    false,
+  );
 
   const { dependents: dependentsData } = useFeatureDependents(feature?.id);
   const dependentFeatures = dependentsData?.features ?? [];
@@ -1518,8 +1550,26 @@ export default function FeaturesOverview({
         {revision && (
           <>
             <Frame mt="4" px="6" py="4">
-              <Flex align="center" justify="between">
-                <Flex align="center" gap="1" mb="3">
+              {/* Shared env tab bar — governs both the Default Value and the
+                  Rules sections below. `null` = "All environments". */}
+              {environments.length > 0 && (
+                <FeatureEnvironmentTabs
+                  environments={environments}
+                  feature={feature}
+                  baseFeature={baseFeature}
+                  holdout={holdout}
+                  experimentsMap={experimentsMap}
+                  value={selectedEnv}
+                  setValue={setRuleEnv}
+                  hideInactive={hideInactiveRules}
+                  setHideInactive={setHideInactiveRules}
+                  showOrphaned={showOrphanedRules}
+                  setShowOrphaned={setShowOrphanedRules}
+                />
+              )}
+
+              <Flex align="end" justify="between" mb="3">
+                <Flex align="center" gap="2">
                   <Heading as="h4" size="small" mb="0">
                     Default Value
                   </Heading>
@@ -1534,22 +1584,139 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Box mt="2" mb="1">
-                <Flex width="100%">
-                  <Box flexGrow="1">
-                    <ForceSummary
-                      value={getFeatureDefaultValue(feature)}
-                      feature={feature}
-                    />
-                  </Box>
-                </Flex>
-              </Box>
+              {(() => {
+                // Overrides shown for the current view: all on "All
+                // environments", else those scoped to the selected env. Each is
+                // paired with its full-list index (the row's identity for
+                // reachability and React keys).
+                const allOverrides = feature.defaultValueOverrides ?? [];
+                const shown = allOverrides
+                  .map((o, index) => ({ o, index }))
+                  .filter(
+                    ({ o }) =>
+                      selectedEnv === null ||
+                      o.environments.length === 0 ||
+                      o.environments.includes(selectedEnv),
+                  );
+                // On a specific env a matching override always serves (first
+                // match wins), so hide the base; on "All environments" (or no
+                // match) the base is the served/fallback value, so show it.
+                const showBase = selectedEnv === null || shown.length === 0;
+                const pluralOverrides =
+                  shown.length > 1 ||
+                  (shown.length === 1 && shown[0].o.environments.length !== 1);
+                const unreachableIndexes =
+                  getUnreachableDefaultValueOverrideIndexes(allOverrides, {
+                    treatEmptyAsMatchAll: true,
+                  });
+                return (
+                  <>
+                    {showBase ? (
+                      <Box mt="2" mb="1">
+                        <FeatureValueCard>
+                          <ForceSummary
+                            value={getFeatureDefaultValue(feature)}
+                            feature={feature}
+                          />
+                        </FeatureValueCard>
+                      </Box>
+                    ) : (
+                      // Base is fully overridden for this env; the served
+                      // override(s) below lead, but it stays revealable.
+                      <Box mt="2" mb="3">
+                        {revealOverriddenBase ? (
+                          <FeatureValueCard>
+                            <ForceSummary
+                              value={getFeatureDefaultValue(feature)}
+                              feature={feature}
+                            />
+                          </FeatureValueCard>
+                        ) : (
+                          <Flex align="center" gap="2" mb="4">
+                            <span className="text-muted">
+                              <em>Default value overridden.</em>
+                            </span>
+                            <Link onClick={() => setRevealOverriddenBase(true)}>
+                              <em>Show</em>
+                            </Link>
+                          </Flex>
+                        )}
+                      </Box>
+                    )}
+                    {shown.length > 0 && (
+                      <Box mt={showBase ? "4" : "2"}>
+                        <div className="font-weight-bold mb-2">
+                          Environment override{pluralOverrides ? "s" : ""}
+                        </div>
+                        <Flex direction="column" gap="4">
+                          {shown.map(({ o, index }, shownPos) => {
+                            // On "All environments", global reachability applies;
+                            // on a specific env only the first match serves, so
+                            // later matches are shadowed for that env even if
+                            // they serve elsewhere.
+                            const shadowed =
+                              selectedEnv === null
+                                ? unreachableIndexes.has(index)
+                                : shownPos > 0;
+                            return (
+                              <FeatureValueCard
+                                key={index}
+                                sideColor={shadowed ? "unreachable" : "active"}
+                              >
+                                <Flex
+                                  align="start"
+                                  justify="between"
+                                  gap="2"
+                                  mb="2"
+                                >
+                                  <Box flexGrow="1" style={{ minWidth: 0 }}>
+                                    <RuleEnvScopeBadges
+                                      activeEnvironmentIds={
+                                        o.environments.length === 0
+                                          ? "all"
+                                          : o.environments
+                                      }
+                                      environments={environments}
+                                      my="0"
+                                    />
+                                  </Box>
+                                  {shadowed && (
+                                    <Tooltip
+                                      body={
+                                        selectedEnv === null
+                                          ? "Every environment this override targets is already served by an earlier override, so this one is never used."
+                                          : "An earlier override already serves this environment, so this one isn't used here."
+                                      }
+                                    >
+                                      <Badge
+                                        label={
+                                          selectedEnv === null
+                                            ? "Unreachable"
+                                            : "Shadowed"
+                                        }
+                                        color="orange"
+                                        variant="soft"
+                                        radius="full"
+                                        size="sm"
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </Flex>
+                                <ForceSummary
+                                  value={o.value}
+                                  feature={feature}
+                                />
+                              </FeatureValueCard>
+                            );
+                          })}
+                        </Flex>
+                      </Box>
+                    )}
+                  </>
+                );
+              })()}
 
-              <Box
-                mt="6"
-                pt="4"
-                style={{ borderTop: "1px solid var(--gray-a4)" }}
-              >
+              <Box mt="6">
                 <Heading as="h4" size="small" mb="2">
                   Rules
                 </Heading>
@@ -1580,6 +1747,10 @@ export default function FeaturesOverview({
                       revisionList={revisionList || []}
                       rampSchedules={rampSchedules}
                       draftRevision={revision}
+                      env={selectedEnv}
+                      setEnv={setRuleEnv}
+                      hideInactive={hideInactiveRules}
+                      showOrphaned={showOrphanedRules}
                       baseRevision={baseRevision}
                     />
                   </>

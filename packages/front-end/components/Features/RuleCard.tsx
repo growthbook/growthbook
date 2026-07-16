@@ -15,7 +15,9 @@ export type RuleCardSideColor =
   | "unreachable"
   | "removed";
 
-const sideColorVar: Record<RuleCardSideColor, string> = {
+// Single source for the rule-card side-bar palette, shared with the Box-based
+// FeatureCardChrome so the override cards can't drift from the rule cards.
+export const sideColorVar: Record<RuleCardSideColor, string> = {
   active: "var(--green-9)",
   skipped: "var(--amber-7)",
   disabled: "var(--gray-5)",

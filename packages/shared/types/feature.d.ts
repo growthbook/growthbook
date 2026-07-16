@@ -16,6 +16,7 @@ export {
   FeatureRule,
   FeatureInterface,
   FeatureEnvironment,
+  FeatureDefaultValueOverride,
   FeatureValueType,
   ForceRule,
   ExperimentValue,

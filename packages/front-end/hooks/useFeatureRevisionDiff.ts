@@ -6,6 +6,7 @@ import { RevisionMetadata } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
+  renderDefaultValueOverrides,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
@@ -52,6 +53,8 @@ export const revisionToFeatureRevisionDiffInput = (
     defaultValue: r.defaultValue,
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    defaultValueOverrides:
+      r.defaultValueOverrides ?? fallback?.defaultValueOverrides,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
     archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
@@ -74,6 +77,7 @@ export const featureToFeatureRevisionDiffInput = (
     defaultValue: feature.defaultValue,
     rules: feature.rules ?? [],
     environmentsEnabled,
+    defaultValueOverrides: feature.defaultValueOverrides ?? [],
     prerequisites: feature.prerequisites,
     archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
@@ -114,6 +118,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "defaultValue"
   | "rules"
   | "environmentsEnabled"
+  | "defaultValueOverrides"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -309,6 +314,31 @@ export function useFeatureRevisionDiff({
       }
     });
 
+    // 2b. Default value overrides — diff the ordered list as a whole (like
+    // rules) rather than per-env effective values, so structural changes that
+    // don't alter any env's served value (a shadowed/unreachable override added,
+    // or a reorder) still surface.
+    const currentOverrides = current.defaultValueOverrides ?? [];
+    const draftOverrides = draft.defaultValueOverrides ?? [];
+    if (!isEqual(currentOverrides, draftOverrides)) {
+      diffs.push({
+        key: "defaultValueOverrides",
+        title: "Environment overrides",
+        a: JSON.stringify(currentOverrides, null, 2),
+        b: JSON.stringify(draftOverrides, null, 2),
+        customRender: renderDefaultValueOverrides(
+          currentOverrides,
+          draftOverrides,
+        ),
+        badges: [
+          {
+            label: "Edit environment overrides",
+            action: "edit environment overrides",
+          },
+        ],
+      });
+    }
+
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
       const currentPrereqs = current.prerequisites || [];
@@ -434,6 +464,10 @@ export function mergeResultToDiffInput(
     ...(result.environmentsEnabled !== undefined
       ? { environmentsEnabled: result.environmentsEnabled }
       : {}),
+    // full-replace when present; else fall back to current so the diff doesn't
+    // read as a removal.
+    defaultValueOverrides:
+      result.defaultValueOverrides ?? current.defaultValueOverrides,
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }
       : {}),

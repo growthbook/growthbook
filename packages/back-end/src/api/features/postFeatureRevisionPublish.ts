@@ -149,6 +149,10 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
+    // full-replace when the merge carries it; else unchanged from live.
+    defaultValueOverrides:
+      mergeResult.result.defaultValueOverrides ??
+      filledLive.defaultValueOverrides,
     // rampActions live on the draft revision; autoMerge doesn't carry them
     // through MergeResultChanges, so we must re-attach them explicitly so
     // that checkIfRevisionNeedsReview can inspect the ramp-schedule changes.

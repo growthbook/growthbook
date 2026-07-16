@@ -10,9 +10,13 @@ import {
   ExperimentRefVariation,
   FeatureInterface,
   FeatureEnvironment,
+  FeatureDefaultValueOverride,
 } from "shared/types/feature";
 import { RevisionMetadata } from "shared/types/feature-revision";
-import { toV2FeatureSnapshot } from "shared/util";
+import {
+  toV2FeatureSnapshot,
+  getDefaultValueOverrideForEnvironment,
+} from "shared/util";
 import { datetime } from "shared/dates";
 import type {
   RevisionRampAction,
@@ -1013,6 +1017,34 @@ export function renderFeatureDefaultValue(
   return <ValueChangedField pre={preFormatted} post={postFormatted} />;
 }
 
+// Serialize the ordered override list to a readable multi-line block so a
+// before/after diff surfaces every structural change — adds, removes, reorders,
+// value edits, and shadowed/unreachable entries (which don't change any env's
+// served value and so wouldn't show in a per-env diff).
+function overridesToDiffText(
+  overrides: FeatureDefaultValueOverride[] | undefined,
+): string {
+  if (!overrides || overrides.length === 0) return "(no overrides)";
+  return overrides
+    .map((o, i) => {
+      const scope = o.environments.length
+        ? o.environments.join(", ")
+        : "all environments";
+      return `${i + 1}. [${scope}]\n${formatValue(o.value)}`;
+    })
+    .join("\n\n");
+}
+
+export function renderDefaultValueOverrides(
+  pre: FeatureDefaultValueOverride[] | undefined,
+  post: FeatureDefaultValueOverride[] | undefined,
+): ReactNode | null {
+  const preText = overridesToDiffText(pre);
+  const postText = overridesToDiffText(post);
+  if (preText === postText) return null;
+  return <ValueChangedField pre={preText} post={postText} />;
+}
+
 export type RuleChangeSummary = {
   added: FeatureRule[];
   removed: FeatureRule[];
@@ -1363,6 +1395,57 @@ export function renderFeatureDefaultValueSection(
       post={formatValue(postStr)}
     />
   );
+}
+
+// Default value override section. Resolves the effective override per env
+// (first-match-wins over the ordered `defaultValueOverrides` list) on both sides
+// and renders one ValueChangedField row per env whose resolved override changed
+// (added, removed, or modified). Returns null when nothing changed.
+export function renderFeatureEnvironmentDefaultsSection(
+  pre: FeaturePartial,
+  post: Partial<FeatureInterface>,
+): ReactNode | null {
+  const envs = new Set([
+    ...Object.keys(pre?.environmentSettings ?? {}),
+    ...Object.keys(post.environmentSettings ?? {}),
+    ...(pre?.defaultValueOverrides ?? []).flatMap((o) => o.environments),
+    ...(post.defaultValueOverrides ?? []).flatMap((o) => o.environments),
+  ]);
+
+  const rows: ReactNode[] = [];
+  for (const env of envs) {
+    const preOverride = getDefaultValueOverrideForEnvironment(
+      pre?.defaultValueOverrides,
+      env,
+    );
+    const postOverride = getDefaultValueOverrideForEnvironment(
+      post.defaultValueOverrides,
+      env,
+    );
+    // Only surface envs whose override changed; base-value-only changes are
+    // covered by the default-value section.
+    if (preOverride === postOverride) continue;
+    // Show what the env actually served each side: its override, else the base
+    // default it falls back to (so a removed override reads as "→ base", not
+    // "→ unset").
+    const preServed = preOverride ?? pre?.defaultValue ?? "";
+    const postServed = postOverride ?? post.defaultValue ?? "";
+    if (preServed === postServed) continue;
+    rows.push(
+      <div key={`env-default-${env}`} className="mb-2">
+        <Heading as="h6" size="small" color="text-mid" mb="2">
+          {`Default value (${env})`}
+        </Heading>
+        <ValueChangedField
+          pre={preServed ? formatValue(preServed) : null}
+          post={postServed ? formatValue(postServed) : null}
+        />
+      </div>,
+    );
+  }
+
+  if (rows.length === 0) return null;
+  return <>{rows}</>;
 }
 
 // Rules section: per-env enable-toggle rows + a single rules diff off the

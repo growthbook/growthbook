@@ -8,6 +8,7 @@ import {
   checkIfRevisionNeedsReview,
   getRevertValueValidationWarnings,
   getRulesForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { revertFeatureValidator } from "shared/validators";
@@ -75,6 +76,9 @@ export async function revertFeatureCore(
     throw new Error("Can only revert to previously published revisions");
   }
 
+  // Revert copies concrete values from a published target revision. Default
+  // value overrides use full-replace semantics: `changes.defaultValueOverrides`
+  // carries the COMPLETE target ordered snapshot. See the assembly below.
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
@@ -114,7 +118,33 @@ export async function revertFeatureCore(
       changes.environmentsEnabled[env] = revision.environmentsEnabled[env];
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
+
+    // Track envs whose resolved override value differs from live, for
+    // permission gating; the full-replace is assembled below.
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
+        revision.defaultValueOverrides,
+        feature.defaultValueOverrides,
+        env,
+      ) &&
+      !changedEnvs.includes(env)
+    ) {
+      changedEnvs.push(env);
+    }
   });
+  // Full-replace default value overrides: when the target snapshot differs from
+  // the live list, carry the COMPLETE target snapshot so createRevision records
+  // exactly it.
+  if (
+    revision.defaultValueOverrides !== undefined &&
+    !isEqual(
+      revision.defaultValueOverrides,
+      feature.defaultValueOverrides ?? [],
+    )
+  ) {
+    changes.defaultValueOverrides = [...revision.defaultValueOverrides];
+  }
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;
   }

@@ -28,6 +28,8 @@ import {
   ruleAppliesToEnv,
   namespacesToMap,
   stemRuleId,
+  getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -1545,7 +1547,11 @@ export function evaluateFeature({
       env: env.id,
       result: null,
       enabled: false,
-      defaultValue: revision.defaultValue,
+      defaultValue:
+        getDefaultValueOverrideForEnvironment(
+          revision.defaultValueOverrides,
+          env.id,
+        ) ?? revision.defaultValue,
     };
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
@@ -1744,7 +1750,11 @@ export async function evaluateAllFeatures({
         env: env.id,
         result: null,
         enabled: false,
-        defaultValue: revision.defaultValue,
+        defaultValue:
+          getDefaultValueOverrideForEnvironment(
+            revision.defaultValueOverrides,
+            env.id,
+          ) ?? revision.defaultValue,
       };
       if (featureDefinitions[feature.id]) {
         const settings = feature.environmentSettings[env.id] ?? null;
@@ -2091,6 +2101,9 @@ export function revisionToApiInterface(
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
     }),
+    ...(rev.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: rev.defaultValueOverrides,
+    }),
     ...(rev.prerequisites !== undefined && {
       prerequisites: rev.prerequisites,
     }),
@@ -2162,6 +2175,9 @@ export function revisionToApiInterfaceV2(
     rules,
     ...(rev.environmentsEnabled !== undefined && {
       environmentsEnabled: rev.environmentsEnabled,
+    }),
+    ...(rev.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: rev.defaultValueOverrides,
     }),
     ...(rev.prerequisites !== undefined && {
       // Strip internal condition field — v2 only exposes the flag ID.
@@ -2301,7 +2317,13 @@ export function getApiFeatureObjV2({
       safeRolloutMap,
       organization,
     });
-    featureEnvironments[env] = { enabled, defaultValue };
+    // Resolve the default value override for this env, falling back to the base.
+    const envDefaultValue =
+      getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      ) ?? defaultValue;
+    featureEnvironments[env] = { enabled, defaultValue: envDefaultValue };
     if (definition) {
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
@@ -2323,6 +2345,9 @@ export function getApiFeatureObjV2({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
+    ...(feature.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: feature.defaultValueOverrides,
+    }),
     rules: apiRules,
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
@@ -2413,9 +2438,15 @@ export function getApiFeatureObj({
       organization,
     });
 
+    // Resolve the default value override for this env, falling back to the base.
+    const envDefaultValue =
+      getDefaultValueOverrideForEnvironment(
+        feature.defaultValueOverrides,
+        env,
+      ) ?? defaultValue;
     featureEnvironments[env] = {
       enabled,
-      defaultValue,
+      defaultValue: envDefaultValue,
       rules: rules as ApiFeatureRule[],
     };
     if (definition) {
@@ -2501,6 +2532,9 @@ export function getApiFeatureObj({
       ...(rev.environmentsEnabled !== undefined && {
         environmentsEnabled: rev.environmentsEnabled,
       }),
+      ...(rev.defaultValueOverrides !== undefined && {
+        defaultValueOverrides: rev.defaultValueOverrides,
+      }),
       ...(rev.prerequisites !== undefined && {
         prerequisites: rev.prerequisites,
       }),
@@ -2525,6 +2559,9 @@ export function getApiFeatureObj({
     dateCreated: feature.dateCreated.toISOString(),
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
+    ...(feature.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: feature.defaultValueOverrides,
+    }),
     environments: featureEnvironments,
     prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
@@ -3314,6 +3351,22 @@ export async function getMergeResultPublishEnvs({
             ),
         );
   const changedToggleEnvs = Object.keys(result.environmentsEnabled || {});
+  // A default value override is a served-value change for the envs it resolves
+  // to, so permission-check it like a rule/toggle change. `result` carries a
+  // COMPLETE ordered snapshot; resolve the first-match value per env on both the
+  // snapshot and the live feature and keep envs where it differs (covers adds,
+  // changes, and clears) — mirroring checkIfRevisionNeedsReview /
+  // getDraftAffectedEnvironments.
+  const changedDefaultEnvs: string[] =
+    result.defaultValueOverrides === undefined
+      ? []
+      : environmentIds.filter((env) =>
+          defaultValueOverrideDiffersForEnv(
+            result.defaultValueOverrides,
+            feature.defaultValueOverrides,
+            env,
+          ),
+        );
   const holdoutEnvs = await collectHoldoutAffectedEnvs(
     context,
     feature,
@@ -3322,7 +3375,12 @@ export async function getMergeResultPublishEnvs({
   );
 
   const envScoped = Array.from(
-    new Set([...changedRuleEnvs, ...changedToggleEnvs, ...holdoutEnvs]),
+    new Set([
+      ...changedRuleEnvs,
+      ...changedToggleEnvs,
+      ...changedDefaultEnvs,
+      ...holdoutEnvs,
+    ]),
   );
   return envScoped.length > 0 ? envScoped : allEnabledEnvs;
 }

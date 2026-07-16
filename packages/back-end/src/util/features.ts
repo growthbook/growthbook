@@ -20,6 +20,9 @@ import {
   buildExperimentDependencyIndex,
   ExperimentDependencyIndex,
   parsePlainJSONObject,
+  getDefaultValueOverrideForEnvironment,
+  defaultValueOverrideDiffersForEnv,
+  validateFeatureValue,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
@@ -50,6 +53,7 @@ import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
   FeatureRule,
+  FeatureDefaultValueOverride,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import {
@@ -332,6 +336,52 @@ export function getSDKPayloadKeys(
   return keys;
 }
 
+// Throw if any incoming environment key isn't a real org environment. Shared by
+// the feature create/update paths (rule env keys, default-value override envs)
+// so the error is consistent everywhere.
+export const validateEnvKeys = (
+  orgEnvKeys: string[],
+  incomingEnvKeys: string[],
+) => {
+  const invalidEnvKeys = incomingEnvKeys.filter((k) => !orgEnvKeys.includes(k));
+
+  if (invalidEnvKeys.length) {
+    throw new Error(
+      `Environment key(s) '${invalidEnvKeys.join(
+        "', '",
+      )}' not recognized. Please create the environment or remove it from your environment settings and try again.`,
+    );
+  }
+};
+
+// Validate + canonicalize a client-supplied default-value override list (shared
+// by the REST create/update paths and the dashboard endpoint): reject unknown
+// env keys, validate each value against the feature's type, and sort each scope
+// so a reordered `environments` set never reads as a change. `requireEnv` blocks
+// the empty (match-all) scope reserved for a future release.
+export function validateAndNormalizeDefaultValueOverrides(
+  feature: FeatureInterface,
+  overrides: { value: string; environments?: string[] }[],
+  orgEnvKeys: string[],
+  { requireEnv = false }: { requireEnv?: boolean } = {},
+): FeatureDefaultValueOverride[] {
+  validateEnvKeys(
+    orgEnvKeys,
+    overrides.flatMap((o) => o.environments ?? []),
+  );
+  return overrides.map((o) => {
+    if (requireEnv && !o.environments?.length) {
+      throw new Error(
+        "Each default value override must target at least one environment",
+      );
+    }
+    return {
+      value: validateFeatureValue(feature, o.value),
+      environments: [...(o.environments ?? [])].sort(),
+    };
+  });
+}
+
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -417,11 +467,36 @@ export function getSDKPayloadKeysByDiff(
       return;
     }
 
-    // Otherwise, if the environment settings are not equal
+    // Otherwise, if the environment settings (enabled, prerequisites, …) are
+    // not equal, invalidate this env.
     if (!isEqual(oldSettings, newSettings)) {
       environments.add(e);
     }
   });
+
+  // Default value overrides are a top-level ordered list; a change to it alters
+  // the served default only for the environments whose first-match override
+  // resolves differently (an empty-scope override matches — and so invalidates —
+  // every env). Invalidate exactly those relevant envs.
+  if (
+    !isEqual(
+      originalFeature.defaultValueOverrides ?? [],
+      updatedFeature.defaultValueOverrides ?? [],
+    )
+  ) {
+    allEnvs.forEach((e) => {
+      if (!envIsRelevant(e)) return;
+      if (
+        defaultValueOverrideDiffersForEnv(
+          originalFeature.defaultValueOverrides,
+          updatedFeature.defaultValueOverrides,
+          e,
+        )
+      ) {
+        environments.add(e);
+      }
+    });
+  }
 
   const projects = new Set([
     "",
@@ -589,9 +664,24 @@ export function getFeatureDefinition({
     return null;
   }
 
-  const defaultValue = revision
-    ? (revision.defaultValue ?? feature.defaultValue)
-    : feature.defaultValue;
+  // Resolve the default value, preferring the first-match override for this env.
+  // A revision carrying an override snapshot is authoritative for that revision —
+  // resolve against it, NOT the published overrides, so a draft that cleared an
+  // override doesn't preview the stale published value.
+  const defaultValue =
+    revision?.defaultValueOverrides !== undefined
+      ? (getDefaultValueOverrideForEnvironment(
+          revision.defaultValueOverrides,
+          environment,
+        ) ??
+        revision.defaultValue ??
+        feature.defaultValue)
+      : (getDefaultValueOverrideForEnvironment(
+          feature.defaultValueOverrides,
+          environment,
+        ) ??
+        revision?.defaultValue ??
+        feature.defaultValue);
 
   // For `json` features, parse the default value once so rules flagged `sparse`
   // can merge their partial object onto it. Null when the default isn't a plain
@@ -1079,10 +1169,9 @@ export function getFeatureDefinition({
             const clampedCoverage =
               r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;
 
-            const defaultValue = revision
-              ? (revision.defaultValue ?? feature.defaultValue)
-              : feature.defaultValue;
-
+            // Control arm serves the env's resolved default (`defaultValue`
+            // above already applies any default-value override), matching the
+            // non-monitored rollout path.
             rule.variations = [
               valueForSDK(r.value, r.sparse),
               getJSONValue(feature.valueType, defaultValue),

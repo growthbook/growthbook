@@ -124,6 +124,60 @@ describe("computeRevisionMergeChanges", () => {
     expect(changes.environmentSettings?.production.enabled).toBe(true);
   });
 
+  it("full-replaces the default value override list from the snapshot", () => {
+    const overrides = [
+      { id: "a", value: "false", environments: ["production"] },
+    ];
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature(),
+      REVISION,
+      { defaultValueOverrides: overrides },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(changes.defaultValueOverrides).toEqual(overrides);
+    // Overrides live top-level now — environmentSettings is untouched.
+    expect(changes.environmentSettings).toBeUndefined();
+  });
+
+  it("clears all overrides for an empty list", () => {
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature({
+        defaultValueOverrides: [
+          { id: "a", value: "live-prod", environments: ["production"] },
+        ],
+      }),
+      REVISION,
+      { defaultValueOverrides: [] },
+    );
+
+    expect(hasChanges).toBe(true);
+    expect(changes.defaultValueOverrides).toEqual([]);
+  });
+
+  it("composes an override change with an enabled toggle without clobbering either", () => {
+    const overrides = [
+      { id: "a", value: "false", environments: ["production"] },
+    ];
+    const { changes, hasChanges } = computeRevisionMergeChanges(
+      mockContext(),
+      makeFeature(),
+      REVISION,
+      {
+        defaultValueOverrides: overrides,
+        environmentsEnabled: { dev: true },
+      },
+    );
+
+    expect(hasChanges).toBe(true);
+    // The enabled toggle landed on dev...
+    expect(changes.environmentSettings?.dev.enabled).toBe(true);
+    // ...and the override list is set top-level.
+    expect(changes.defaultValueOverrides).toEqual(overrides);
+  });
+
   it("flags holdout removal without setting changes.holdout", () => {
     const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
       mockContext(),

@@ -1,7 +1,11 @@
 import { validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
 import { updateFeatureV2Validator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureDefaultValueOverride,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -23,14 +27,17 @@ import {
   getNextScheduledUpdate,
   getSavedGroupMap,
 } from "back-end/src/services/features";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
+} from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
@@ -163,6 +170,19 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
+  // Default value overrides: a COMPLETE list (full-replace) when present.
+  let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
+  if (req.body.defaultValueOverrides !== undefined) {
+    nextDefaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+      feature,
+      req.body.defaultValueOverrides,
+      orgEnvs,
+    );
+  }
+  const hasEnvDefaultChanges =
+    nextDefaultValueOverrides !== undefined &&
+    !isEqual(nextDefaultValueOverrides, feature.defaultValueOverrides ?? []);
+
   let updates: Partial<FeatureInterface> = {
     ...(ownerInput !== undefined ? { owner: owner ?? "" } : {}),
     ...(archived != null ? { archived } : {}),
@@ -242,6 +262,7 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
+    hasEnvDefaultChanges ||
     hasRuleChanges ||
     hasMetadataChanges ||
     hasPrereqChanges ||
@@ -252,6 +273,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
+        : {}),
+      ...(hasEnvDefaultChanges
+        ? { defaultValueOverrides: nextDefaultValueOverrides }
         : {}),
       ...(hasRuleChanges || hasEnvEnabledChanges
         ? {

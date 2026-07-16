@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   checkIfRevisionNeedsReview,
   getRulesForEnvironment,
+  defaultValueOverrideDiffersForEnv,
 } from "shared/util";
 import { isEqual } from "lodash";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -131,6 +132,20 @@ export async function revertFeatureRevision(
         targetRevision.environmentsEnabled[env];
       if (!changedEnvs.includes(env)) changedEnvs.push(env);
     }
+
+    // Track envs whose resolved override value differs from live, for
+    // permission gating; the full-replace snapshot is assembled below.
+    if (
+      targetRevision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
+        targetRevision.defaultValueOverrides,
+        feature.defaultValueOverrides,
+        env,
+      ) &&
+      !changedEnvs.includes(env)
+    ) {
+      changedEnvs.push(env);
+    }
   });
   if (anyRulesChanged) {
     changes.rules = targetRulesFlat;
@@ -237,6 +252,13 @@ export async function revertFeatureRevision(
   };
   if (targetRevision.environmentsEnabled !== undefined) {
     revisionChanges.environmentsEnabled = targetRevision.environmentsEnabled;
+  }
+  if (targetRevision.defaultValueOverrides !== undefined) {
+    // The target revision's overrides are a COMPLETE ordered snapshot. Pass it
+    // through verbatim; createRevision treats it as authoritative (full-replace).
+    revisionChanges.defaultValueOverrides = [
+      ...targetRevision.defaultValueOverrides,
+    ];
   }
   if (targetRevision.prerequisites !== undefined) {
     revisionChanges.prerequisites = targetRevision.prerequisites;

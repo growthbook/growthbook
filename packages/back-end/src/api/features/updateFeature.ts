@@ -5,7 +5,11 @@ import {
 } from "shared/util";
 import { isEqual, omit } from "lodash";
 import { updateFeatureValidator } from "shared/validators";
-import { FeatureInterface, FeatureRule } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureRule,
+  FeatureDefaultValueOverride,
+} from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -27,7 +31,11 @@ import {
   getSavedGroupMap,
   updateInterfaceEnvSettingsFromApiEnvSettings,
 } from "back-end/src/services/features";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
+} from "back-end/src/util/features";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -42,7 +50,6 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { logger } from "back-end/src/util/logger";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
@@ -224,7 +231,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           settings.enabled !== feature.environmentSettings?.[env]?.enabled
         ) {
           changedEnvEnabled[env] = settings.enabled;
-          // Exclude enabled from the direct-write path to avoid applying it twice.
+          // Exclude enabled from the direct-write path to avoid applying it
+          // twice. The per-env `defaultValue` override is stripped from the
+          // direct-write path below and routed through the revision instead.
           updates.environmentSettings[env] = {
             ...updates.environmentSettings[env],
             enabled: feature.environmentSettings?.[env]?.enabled ?? false,
@@ -232,6 +241,20 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
       }
     }
+
+    // 1b. default value overrides: a COMPLETE list (full-replace) when present,
+    // routed through the revision like defaultValue.
+    let nextDefaultValueOverrides: FeatureDefaultValueOverride[] | undefined;
+    if (req.body.defaultValueOverrides !== undefined) {
+      nextDefaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+        feature,
+        req.body.defaultValueOverrides,
+        orgEnvs,
+      );
+    }
+    const hasEnvDefaultChanges =
+      nextDefaultValueOverrides !== undefined &&
+      !isEqual(nextDefaultValueOverrides, feature.defaultValueOverrides ?? []);
 
     // 2. rules / defaultValue
     // v2: rules live on feature.rules (flat). Normalize inbound per-env rules
@@ -424,6 +447,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const hasRevisionChanges =
       hasEnvEnabledChanges ||
+      hasEnvDefaultChanges ||
       hasRuleChanges ||
       hasMetadataChanges ||
       hasPrereqChanges ||
@@ -434,6 +458,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       const revisionChanges: Partial<FeatureRevisionInterface> = {
         ...(hasEnvEnabledChanges
           ? { environmentsEnabled: changedEnvEnabled }
+          : {}),
+        ...(hasEnvDefaultChanges
+          ? { defaultValueOverrides: nextDefaultValueOverrides }
           : {}),
         ...(hasRuleChanges || hasEnvEnabledChanges
           ? {

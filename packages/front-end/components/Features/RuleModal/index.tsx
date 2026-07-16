@@ -16,6 +16,7 @@ import {
   stemRuleId,
   parsePlainJSONObject,
   stripDefaultsForSparse,
+  getDefaultValueOverrideForEnvironment,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -371,9 +372,20 @@ export default function RuleModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
+  // Seed a new rule's value from what the current view actually serves: in an
+  // env-scoped view (a tab selected), use that env's first-match default value
+  // override; otherwise (all-envs view or no matching override) the base default.
+  const seedDefaultValue =
+    (environment
+      ? getDefaultValueOverrideForEnvironment(
+          feature.defaultValueOverrides,
+          environment,
+        )
+      : undefined) ?? getFeatureDefaultValue(feature);
+
   const defaultRuleValues = {
     ...getDefaultRuleValue({
-      defaultValue: getFeatureDefaultValue(feature),
+      defaultValue: seedDefaultValue,
       ruleType: defaultType,
       attributeSchema,
       isSafeRolloutAutoRollbackEnabled: true,
@@ -749,7 +761,7 @@ export default function RuleModal({
     const existingSeed = form.watch("seed");
     const newVal = {
       ...getDefaultRuleValue({
-        defaultValue: getFeatureDefaultValue(feature),
+        defaultValue: seedDefaultValue,
         ruleType: v,
         attributeSchema,
         settings,
@@ -794,7 +806,7 @@ export default function RuleModal({
       settings?.sparseJSONRulesByDefault &&
       sparseSupportedType
     ) {
-      const def = getFeatureDefaultValue(feature);
+      const def = seedDefaultValue;
       if (feature.valueType === "json" && parsePlainJSONObject(def) !== null) {
         nv.sparse = true;
         if (typeof nv.value === "string") {

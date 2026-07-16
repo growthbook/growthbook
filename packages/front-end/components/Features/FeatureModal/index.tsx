@@ -101,6 +101,7 @@ const genFormDefaultValues = ({
   | "id"
   | "environmentSettings"
   | "rules"
+  | "defaultValueOverrides"
   | "customFields"
   | "holdout"
   | "jsonSchema"
@@ -130,6 +131,7 @@ const genFormDefaultValues = ({
         tags: featureToDuplicate.tags,
         environmentSettings,
         rules: featureToDuplicate.rules ?? [],
+        defaultValueOverrides: featureToDuplicate.defaultValueOverrides,
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout?.id
           ? featureToDuplicate.holdout

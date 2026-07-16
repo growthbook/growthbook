@@ -93,6 +93,9 @@ const featureRevisionSchema = new mongoose.Schema({
   rules: {},
   // Revision envelopes — only present when explicitly changed
   environmentsEnabled: {},
+  // Complete ordered snapshot. default: undefined keeps [] (all cleared)
+  // distinct from undefined (revision predates the field).
+  defaultValueOverrides: { type: [{}], default: undefined },
   prerequisites: [{}],
   archived: Boolean,
   metadata: {},
@@ -664,6 +667,7 @@ const SPARSE_REVISION_PROJECTION = {
   rules: 0,
   defaultValue: 0,
   environmentsEnabled: 0,
+  defaultValueOverrides: 0,
   prerequisites: 0,
   archived: 0,
   metadata: 0,
@@ -765,6 +769,12 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
+  // Seed the initial published revision with a COMPLETE ordered snapshot of the
+  // feature's default value overrides (full-replace semantics). Every other
+  // revision builder writes `defaultValueOverrides`; omitting it here would make
+  // the create-with-override path produce a published revision with no snapshot.
+  const defaultValueOverrides = feature.defaultValueOverrides ?? [];
+
   date = date || new Date();
 
   const doc = await FeatureRevisionModel.create({
@@ -782,6 +792,7 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
     environmentsEnabled,
+    defaultValueOverrides,
     prerequisites: feature.prerequisites || [],
     archived: feature.archived ?? false,
     metadata: {
@@ -842,6 +853,10 @@ export async function createRevision({
   user: EventUser;
   environments: string[];
   baseVersion?: number;
+  // `defaultValueOverrides` is a COMPLETE ordered snapshot. When provided in
+  // `changes`, it is authoritative and REPLACES the live feature's overrides for
+  // the new draft. When omitted, the draft is seeded from the live feature's
+  // current overrides.
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
   comment?: string;
@@ -883,6 +898,14 @@ export async function createRevision({
         false,
     ]),
   );
+  // Complete ordered snapshot of default value overrides. When the caller
+  // provides `changes.defaultValueOverrides`, it is authoritative and REPLACES
+  // the live overrides wholesale. Otherwise seed the draft from the live
+  // feature's current overrides so it starts at the live state.
+  const defaultValueOverrides =
+    changes?.defaultValueOverrides !== undefined
+      ? changes.defaultValueOverrides
+      : (feature.defaultValueOverrides ?? []);
   const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
   const archived = changes?.archived ?? feature.archived ?? false;
   const featureMetadataSnapshot: RevisionMetadata = {
@@ -945,6 +968,7 @@ export async function createRevision({
     defaultValue,
     rules,
     environmentsEnabled,
+    defaultValueOverrides,
     prerequisites,
     archived,
     metadata,
@@ -1005,6 +1029,7 @@ export async function createRevision({
         defaultValue,
         rules,
         environmentsEnabled,
+        defaultValueOverrides,
         prerequisites,
         archived,
         metadata,
@@ -1044,6 +1069,7 @@ export function computeRevisionUpdate(
     "defaultValue",
     "rules",
     "environmentsEnabled",
+    "defaultValueOverrides",
     "prerequisites",
     "archived",
     "metadata",

@@ -5,6 +5,7 @@ import { OVERFLOW_SECTION_LABEL } from "@/components/AuditHistoryExplorer/useAud
 import {
   normalizeFeatureSnapshot,
   renderFeatureDefaultValueSection,
+  renderFeatureEnvironmentDefaultsSection,
   renderFeatureRulesSection,
   getFeatureRulesBadges,
   renderFeatureMetadataSection,
@@ -76,6 +77,15 @@ const FEATURE_DIFF_CONFIG: AuditDiffConfig<FeatureInterface> = {
       label: "Default value",
       keys: ["defaultValue"],
       render: renderFeatureDefaultValueSection,
+    },
+    {
+      // Overrides live in the top-level ordered `defaultValueOverrides` list;
+      // `environmentSettings` is also claimed so the renderer has the env
+      // universe to resolve first-match per env. One row per changed env.
+      label: "Environment default values",
+      keys: ["environmentSettings", "defaultValueOverrides"],
+      suppressCardLabel: true,
+      render: renderFeatureEnvironmentDefaultsSection,
     },
     {
       label: "Rules",

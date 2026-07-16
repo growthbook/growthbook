@@ -12,6 +12,7 @@ import {
 } from "shared/validators";
 import {
   FeatureInterface,
+  FeatureDefaultValueOverride,
   FeaturePrerequisite,
   FeatureRule,
   ForceRule,
@@ -152,6 +153,64 @@ export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
   } as T;
 }
 
+// First-match-wins resolution: the value of the first override whose scope
+// matches the environment (empty `environments` matches all), or undefined to
+// inherit the base default. Future scope axes (tags/projects) AND in here.
+export function getDefaultValueOverrideForEnvironment(
+  overrides: FeatureDefaultValueOverride[] | undefined,
+  environment: string,
+): string | undefined {
+  if (!overrides) return undefined;
+  for (const o of overrides) {
+    if (o.environments.length === 0 || o.environments.includes(environment)) {
+      return o.value;
+    }
+  }
+  return undefined;
+}
+
+// Whether two override lists serve a different value in the given environment —
+// the behavioral (payload-affecting) diff, ignoring ordering/scope-shape churn.
+export function defaultValueOverrideDiffersForEnv(
+  a: FeatureDefaultValueOverride[] | undefined,
+  b: FeatureDefaultValueOverride[] | undefined,
+  environment: string,
+): boolean {
+  return (
+    getDefaultValueOverrideForEnvironment(a, environment) !==
+    getDefaultValueOverrideForEnvironment(b, environment)
+  );
+}
+
+// Indexes of overrides that can never serve: walking top-to-bottom (first match
+// wins), every environment an override targets is already claimed by an earlier
+// override. `treatEmptyAsMatchAll` controls how an empty `environments` array is
+// read: for saved data it matches all environments (and shadows everything
+// below), but while editing an empty row is just an incomplete draft, so it
+// neither covers nor is flagged.
+export function getUnreachableDefaultValueOverrideIndexes(
+  overrides: { environments: string[] }[] | undefined,
+  { treatEmptyAsMatchAll = false }: { treatEmptyAsMatchAll?: boolean } = {},
+): Set<number> {
+  const indexes = new Set<number>();
+  if (!overrides) return indexes;
+  const covered = new Set<string>();
+  let coversAll = false;
+  overrides.forEach((o, i) => {
+    const matchesAll = o.environments.length === 0;
+    if (matchesAll && !treatEmptyAsMatchAll) return;
+    const reachable = coversAll
+      ? false
+      : matchesAll
+        ? true
+        : o.environments.some((e) => !covered.has(e));
+    if (!reachable) indexes.add(i);
+    if (matchesAll) coversAll = true;
+    else o.environments.forEach((e) => covered.add(e));
+  });
+  return indexes;
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -176,6 +235,12 @@ export function mergeRevision(
       envSettings[env].enabled = revision.environmentsEnabled[env];
     }
   });
+
+  // Default value overrides are a top-level, ordered COMPLETE snapshot;
+  // full-replace when the revision carries the field (legacy revisions omit it).
+  if (revision.defaultValueOverrides !== undefined) {
+    newFeature.defaultValueOverrides = revision.defaultValueOverrides;
+  }
 
   if (revision.prerequisites !== undefined) {
     newFeature.prerequisites = revision.prerequisites;
@@ -1038,10 +1103,15 @@ export interface MergeConflict {
   revision: string;
 }
 export type MergeStrategy = "" | "overwrite" | "discard";
+
 export type MergeResultChanges = {
   defaultValue?: string;
   rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
+  // Default value overrides — the AUTHORITATIVE COMPLETE ordered snapshot of the
+  // draft's overrides whenever present. Publishing full-replaces
+  // `feature.defaultValueOverrides` from this snapshot.
+  defaultValueOverrides?: FeatureDefaultValueOverride[];
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
   metadata?: RevisionMetadata;
@@ -1064,6 +1134,7 @@ export type RevisionFields = Pick<
   | "rules"
   | "version"
   | "environmentsEnabled"
+  | "defaultValueOverrides"
   | "prerequisites"
   | "archived"
   | "metadata"
@@ -1089,6 +1160,10 @@ const revisionFieldFillers: Partial<{
     ),
     ...(current ?? {}),
   }),
+  // Default value overrides are a top-level ordered complete snapshot; fall back
+  // to the live feature's list when the revision didn't touch them.
+  defaultValueOverrides: (feature, current) =>
+    current ?? feature.defaultValueOverrides ?? [],
   // Backfill valueType for old revisions that predate this field.
   metadata: (feature, current) =>
     current?.valueType != null
@@ -1142,6 +1217,8 @@ export function liveRevisionFromFeature(
         !!val.enabled,
       ]),
     ),
+    // Complete ordered snapshot of default value overrides.
+    defaultValueOverrides: feature.defaultValueOverrides ?? [],
     archived: feature.archived ?? false,
     prerequisites: feature.prerequisites ?? [],
     holdout:
@@ -1171,6 +1248,9 @@ export function buildEffectiveDraft(
     rules: draftRevision.rules,
     ...(draftRevision.environmentsEnabled !== undefined && {
       environmentsEnabled: draftRevision.environmentsEnabled,
+    }),
+    ...(draftRevision.defaultValueOverrides !== undefined && {
+      defaultValueOverrides: draftRevision.defaultValueOverrides,
     }),
     ...(draftRevision.prerequisites !== undefined && {
       prerequisites: draftRevision.prerequisites,
@@ -1215,6 +1295,13 @@ export function draftDiffersFromLive(
   )
     return true;
   if (
+    !isEqual(
+      draft.defaultValueOverrides ?? [],
+      filledLive.defaultValueOverrides ?? [],
+    )
+  )
+    return true;
+  if (
     JSON.stringify(draft.prerequisites ?? []) !==
     JSON.stringify(filledLive.prerequisites ?? [])
   )
@@ -1248,6 +1335,10 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   // (including an explicit `[]` meaning "all rules deleted") is meaningful.
   if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
+  // defaultValueOverrides is a complete snapshot emitted only when it differs
+  // from base/live (including `[]` meaning "all overrides cleared"), so
+  // presence — not length — signals a change.
+  if (r.defaultValueOverrides !== undefined) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;
   if ("holdout" in r) return true;
@@ -1297,6 +1388,15 @@ export function getLiveChangesSinceBase(
         name: `Env Enabled - ${env}`,
       });
     }
+  }
+
+  if (
+    !isEqual(live.defaultValueOverrides ?? [], base.defaultValueOverrides ?? [])
+  ) {
+    changes.push({
+      key: "defaultValueOverrides",
+      name: "Default Value Overrides",
+    });
   }
 
   if (!isEqual(live.prerequisites ?? [], base.prerequisites ?? [])) {
@@ -1458,6 +1558,16 @@ export function draftHasChangesOutsideTargetRef(
   const effective = buildEffectiveDraft(draftRevision, filledLive);
 
   if (effective.defaultValue !== filledLive.defaultValue) return true;
+  // A default-value override change alters the served payload, so it counts as
+  // an unrelated change (like `defaultValue`) and must block experiment-start
+  // auto-publish.
+  if (
+    !isEqual(
+      effective.defaultValueOverrides ?? [],
+      filledLive.defaultValueOverrides ?? [],
+    )
+  )
+    return true;
   if ((effective.archived ?? false) !== (filledLive.archived ?? false))
     return true;
   if (!isEqual(effective.prerequisites ?? [], filledLive.prerequisites ?? []))
@@ -1776,6 +1886,16 @@ export function autoMerge(
       }
     }
 
+    // defaultValueOverrides — full-array-replace. The draft's list is the
+    // authoritative COMPLETE ordered snapshot; when it differs from base, emit
+    // the whole list so publishing full-replaces `feature.defaultValueOverrides`.
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      !isEqual(revision.defaultValueOverrides, base.defaultValueOverrides ?? [])
+    ) {
+      result.defaultValueOverrides = [...revision.defaultValueOverrides];
+    }
+
     // prerequisites
     if (
       revision.prerequisites !== undefined &&
@@ -1909,6 +2029,38 @@ export function autoMerge(
       } else {
         result.environmentsEnabled = result.environmentsEnabled || {};
         result.environmentsEnabled[env] = revVal;
+      }
+    }
+  }
+
+  // defaultValueOverrides (ordered, first-match-wins list) — treated as a flat
+  // array snapshot with the same 3-way conflict handling as prerequisites: the
+  // draft's list is authoritative and full-replaces on publish; a conflict is
+  // raised only when live also diverged from base.
+  if (revision.defaultValueOverrides !== undefined) {
+    const revVal = revision.defaultValueOverrides;
+    const baseVal = base.defaultValueOverrides || [];
+    const liveVal = live.defaultValueOverrides || [];
+    if (!isEqual(revVal, baseVal) && !isEqual(revVal, liveVal)) {
+      if (!isEqual(liveVal, baseVal) && !isEqual(liveVal, revVal)) {
+        const conflictInfo: MergeConflict = {
+          name: "Default Value Overrides",
+          key: "defaultValueOverrides",
+          base: JSON.stringify(baseVal, null, 2),
+          live: JSON.stringify(liveVal, null, 2),
+          revision: JSON.stringify(revVal, null, 2),
+          resolved: false,
+        };
+        const strategy = strategies["defaultValueOverrides"];
+        if (strategy === "overwrite") {
+          conflictInfo.resolved = true;
+          result.defaultValueOverrides = revVal;
+        } else if (strategy === "discard") {
+          conflictInfo.resolved = true;
+        }
+        conflicts.push(conflictInfo);
+      } else {
+        result.defaultValueOverrides = revVal;
       }
     }
   }
@@ -2859,6 +3011,17 @@ export function getDraftAffectedEnvironments(
     ) {
       envs.add(env);
     }
+    // Mark the env when the draft's resolved override value differs from base.
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
+        revision.defaultValueOverrides,
+        baseRevision.defaultValueOverrides,
+        env,
+      )
+    ) {
+      envs.add(env);
+    }
   }
   // rampActions target a specific rule by ruleId; the environments that rule
   // is active in are affected by the ramp. Step patches can also widen the
@@ -3019,7 +3182,19 @@ export function checkIfRevisionNeedsReview({
     const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
       normalizeRuleForDiff,
     );
-    return !isEqual(revRules, baseRules);
+    if (!isEqual(revRules, baseRules)) return true;
+    // A served-value change, so it gates like a rule/value change (not a kill
+    // switch).
+    if (
+      revision.defaultValueOverrides !== undefined &&
+      defaultValueOverrideDiffersForEnv(
+        revision.defaultValueOverrides,
+        baseRevision.defaultValueOverrides,
+        env,
+      )
+    )
+      return true;
+    return false;
   });
   const envKillSwitchChanges = affected.filter(
     (env) =>

@@ -142,6 +142,9 @@ const featureSchema = new mongoose.Schema({
   version: Number,
   valueType: String,
   defaultValue: String,
+  // Mixed array (validated in Zod). default: undefined keeps [] (cleared)
+  // distinct from undefined (never set).
+  defaultValueOverrides: { type: [{}], default: undefined },
   environments: [String],
   tags: [String],
   // `rules` and `environmentSettings` are declared Mixed intentionally —
@@ -1447,29 +1450,6 @@ export async function removeProjectFromFeatures(
   });
 }
 
-export async function setDefaultValue(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  defaultValue: string,
-  user: EventUser,
-  requireReview: boolean,
-) {
-  return updateRevision(
-    context,
-    feature,
-    revision,
-    { defaultValue },
-    {
-      user,
-      action: "edit default value",
-      subject: ``,
-      value: JSON.stringify({ defaultValue }),
-    },
-    requireReview,
-  );
-}
-
 export async function setJsonSchema(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1566,8 +1546,11 @@ export function computeRevisionMergeChanges(
 
   if (result.environmentsEnabled) {
     const envs = getEnvironmentIdsFromOrg(context.org);
-    const nextEnvSettings = cloneDeep(feature.environmentSettings || {});
+    const nextEnvSettings = cloneDeep(
+      changes.environmentSettings || feature.environmentSettings || {},
+    );
     let envChanged = false;
+
     envs.forEach((env) => {
       const desired = result.environmentsEnabled?.[env];
       if (desired === undefined) return;
@@ -1576,10 +1559,18 @@ export function computeRevisionMergeChanges(
       if (current.enabled !== desired) envChanged = true;
       nextEnvSettings[env] = { ...current, enabled: desired };
     });
+
     if (envChanged) {
       changes.environmentSettings = nextEnvSettings;
       hasChanges = true;
     }
+  }
+
+  // Default value overrides are a top-level ordered list. `result` carries the
+  // AUTHORITATIVE COMPLETE snapshot, so full-replace `feature.defaultValueOverrides`.
+  if (result.defaultValueOverrides !== undefined) {
+    changes.defaultValueOverrides = result.defaultValueOverrides;
+    hasChanges = true;
   }
 
   if (result.prerequisites !== undefined) {
@@ -2626,12 +2617,15 @@ export async function createAndPublishRevision({
   } as FeatureRevisionInterface;
 
   // Synthetic revision for the review check; caller-supplied rules replace
-  // the live array wholesale (same as autoMerge).
+  // the live array wholesale (same as autoMerge). `changes.defaultValueOverrides`
+  // is a complete snapshot when provided; otherwise fall back to live's.
   const syntheticRevision: FeatureRevisionInterface = {
     ...liveBase,
     ...(changes ?? {}),
     rules: changes?.rules ?? liveBase.rules ?? [],
-  };
+    defaultValueOverrides:
+      changes?.defaultValueOverrides ?? liveBase.defaultValueOverrides,
+  } as FeatureRevisionInterface;
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
     baseRevision: liveBase,
@@ -2662,12 +2656,22 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
+  // When the caller supplies `defaultValueOverrides`, it is the authoritative
+  // COMPLETE ordered snapshot (full-replace semantics, including an empty `[]`
+  // that clears all overrides). Restore the caller's authoritative snapshot on
+  // the revision passed to the merge so the full-replace (including clears) is
+  // honored regardless of how the persisted+reloaded doc came back.
+  const mergeRevision: FeatureRevisionInterface =
+    changes && "defaultValueOverrides" in changes
+      ? { ...revision, defaultValueOverrides: changes.defaultValueOverrides }
+      : revision;
+
   // Merge the new revision against the live-feature baseline. base === live
   // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
     liveBase,
     liveBase,
-    revision,
+    mergeRevision,
     allEnvironments,
     {},
   );

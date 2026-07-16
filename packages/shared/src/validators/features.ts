@@ -248,6 +248,19 @@ export const featureEnvironment = z
 
 export type FeatureEnvironment = z.infer<typeof featureEnvironment>;
 
+// One entry in the ordered, first-match-wins override list for a feature's base
+// `defaultValue`. Empty `environments` matches all envs; rules still win over it.
+export const featureDefaultValueOverride = z
+  .object({
+    value: z.string(),
+    environments: z.array(z.string()),
+  })
+  .strict();
+
+export type FeatureDefaultValueOverride = z.infer<
+  typeof featureDefaultValueOverride
+>;
+
 // ---------------------------------------------------------------------------
 // v1 (legacy) validators
 // ---------------------------------------------------------------------------
@@ -605,6 +618,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     rules: revisionRulesSchema,
     // Revision envelopes — only present when explicitly changed
     environmentsEnabled: z.record(z.string(), z.boolean()).optional(),
+    // Ordered, first-match-wins default value overrides (see
+    // `featureDefaultValueOverride`). A complete snapshot of the draft's
+    // overrides; only present when explicitly changed in the draft.
+    defaultValueOverrides: z.array(featureDefaultValueOverride).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
     archived: z.boolean().optional(),
     metadata: revisionMetadataSchema.optional(),
@@ -668,6 +685,7 @@ export const revisionChangesSchema = featureRevisionInterface
     rules: true,
     baseVersion: true,
     environmentsEnabled: true,
+    defaultValueOverrides: true,
     prerequisites: true,
     archived: true,
     metadata: true,
@@ -698,6 +716,9 @@ export const featureInterface = z
     // Repurposes the pre-existing but previously-unused `rules` field in the Mongoose schema
     // so no DB migration is needed.
     rules: z.array(featureRule),
+    // Ordered, first-match-wins overrides of `defaultValue`, scoped by
+    // environment (future: tags/projects). Resolved at payload-build time.
+    defaultValueOverrides: z.array(featureDefaultValueOverride).optional(),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
     customFields: z.record(z.string(), z.any()).optional(),
@@ -1098,6 +1119,19 @@ export const apiRevisionPrerequisite = z.object({
   condition: z.string(),
 });
 
+// API shape of a single default value override (see featureDefaultValueOverride).
+export const apiFeatureDefaultValueOverride = z.object({
+  value: z
+    .string()
+    .describe("Override value (string form, matching the feature's valueType)"),
+  environments: z
+    .array(z.string())
+    .describe("Environments this override applies to; empty matches all"),
+});
+export type ApiFeatureDefaultValueOverride = z.infer<
+  typeof apiFeatureDefaultValueOverride
+>;
+
 // v2 prerequisite shapes: condition is always {"value":true} and not exposed
 // as a settable field — only the prerequisite flag's ID is accepted/returned.
 export const apiRevisionPrerequisiteV2 = z.object({
@@ -1183,6 +1217,12 @@ export const apiFeatureRevisionValidator = namedSchema(
           "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
         )
         .optional(),
+      defaultValueOverrides: z
+        .array(apiFeatureDefaultValueOverride)
+        .describe(
+          "Ordered, first-match-wins default value overrides captured in this revision (only present when an override is set)",
+        )
+        .optional(),
       envPrerequisites: z
         .record(z.string(), z.array(apiRevisionPrerequisite))
         .describe(
@@ -1221,6 +1261,12 @@ export const apiFeatureValidator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      defaultValueOverrides: z
+        .array(apiFeatureDefaultValueOverride)
+        .describe(
+          "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Resolved at payload-build time; rules still take precedence.",
+        )
+        .optional(),
       tags: z.array(z.string()),
       environments: z.record(z.string(), apiFeatureEnvironmentValidator),
       prerequisites: z
@@ -1412,6 +1458,19 @@ const postFeatureEnvironment = z.object({
     .optional(),
 });
 
+// Body shape for a single default value override on create/update requests.
+export const postFeatureDefaultValueOverride = z.object({
+  value: z
+    .string()
+    .describe("Override value (string form, matching the feature's valueType)"),
+  // MVP: an override must target at least one environment. An empty array
+  // (match-all) is reserved for a future release that adds project scoping.
+  environments: z
+    .array(z.string())
+    .min(1)
+    .describe("Environments this override applies to (at least one required)"),
+});
+
 // ---- Shared sub-schemas for route validators ----
 
 const idParams = z
@@ -1449,6 +1508,12 @@ const postFeatureBody = z
       .describe(
         "Default value when feature is enabled. Type must match `valueType`.",
       ),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Resolved at payload-build time; rules still take precedence.",
+      )
+      .optional(),
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1482,6 +1547,12 @@ const updateFeatureBody = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    defaultValueOverrides: z
+      .array(postFeatureDefaultValueOverride)
+      .describe(
+        "Ordered, first-match-wins overrides of `defaultValue`, scoped by environment. Replaces the full list when provided.",
+      )
+      .optional(),
     tags: z
       .array(z.string())
       .describe(

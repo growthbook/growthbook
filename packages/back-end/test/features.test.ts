@@ -29,6 +29,8 @@ import {
   getParsedCondition,
   getSDKPayloadKeysByDiff,
   roundVariationWeight,
+  validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
 } from "back-end/src/util/features";
 
 // Minimal constant fixture for payload-resolution tests.
@@ -1025,6 +1027,108 @@ describe("Detecting Feature Changes", () => {
         environment: "dev",
       },
     ]);
+  });
+
+  it("Invalidates only the env whose default value override resolves differently", () => {
+    const feature = cloneDeep(baseFeature);
+    const updatedFeature = cloneDeep(baseFeature);
+    updatedFeature.defaultValueOverrides = [
+      { value: "false", environments: ["production"] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([{ project: "", environment: "production" }]);
+  });
+
+  it("An all-environments (empty-scope) override invalidates every enabled env", () => {
+    const feature = cloneDeep(baseFeature);
+    const updatedFeature = cloneDeep(baseFeature);
+    updatedFeature.defaultValueOverrides = [
+      { value: "false", environments: [] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([
+      { project: "", environment: "dev" },
+      { project: "", environment: "production" },
+    ]);
+  });
+
+  it("Reordering overrides that target disjoint envs invalidates nothing", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.defaultValueOverrides = [
+      { value: "false", environments: ["production"] },
+      { value: "true", environments: ["dev"] },
+    ];
+    const updatedFeature = cloneDeep(feature);
+    updatedFeature.defaultValueOverrides = [
+      { value: "true", environments: ["dev"] },
+      { value: "false", environments: ["production"] },
+    ];
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("validateEnvKeys", () => {
+  it("passes when every incoming key is a known org environment", () => {
+    expect(() =>
+      validateEnvKeys(["prod", "dev"], ["prod", "dev"]),
+    ).not.toThrow();
+    expect(() => validateEnvKeys(["prod", "dev"], [])).not.toThrow();
+  });
+
+  it("throws listing the unrecognized keys", () => {
+    expect(() => validateEnvKeys(["prod"], ["prod", "nope"])).toThrow(/nope/);
+  });
+});
+
+describe("validateAndNormalizeDefaultValueOverrides", () => {
+  const feature = cloneDeep(baseFeature);
+  const orgEnvKeys = ["dev", "prod"];
+
+  it("sorts each override's environment scope (so reorders aren't changes)", () => {
+    expect(
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: ["prod", "dev"] }],
+        orgEnvKeys,
+      ),
+    ).toEqual([{ value: "false", environments: ["dev", "prod"] }]);
+  });
+
+  it("rejects unknown environment keys", () => {
+    expect(() =>
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: ["nope"] }],
+        orgEnvKeys,
+      ),
+    ).toThrow(/nope/);
+  });
+
+  it("with requireEnv, throws on an empty (match-all) scope", () => {
+    expect(() =>
+      validateAndNormalizeDefaultValueOverrides(
+        feature,
+        [{ value: "false", environments: [] }],
+        orgEnvKeys,
+        { requireEnv: true },
+      ),
+    ).toThrow(/at least one environment/);
   });
 });
 

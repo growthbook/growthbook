@@ -8,7 +8,11 @@ import {
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  getEnabledEnvironments,
+  validateEnvKeys,
+  validateAndNormalizeDefaultValueOverrides,
+} from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   createInterfaceEnvSettingsFromApiEnvSettings,
@@ -22,7 +26,6 @@ import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
-import { validateEnvKeys } from "./postFeature";
 import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
@@ -120,6 +123,14 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     );
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+
+    if (req.body.defaultValueOverrides !== undefined) {
+      feature.defaultValueOverrides = validateAndNormalizeDefaultValueOverrides(
+        feature,
+        req.body.defaultValueOverrides,
+        orgEnvs.map((e) => e.id),
+      );
+    }
 
     if (
       !req.context.permissions.canPublishFeature(

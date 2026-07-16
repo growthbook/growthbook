@@ -357,6 +357,47 @@ describe("buildFeatureRevisionInterface", () => {
       expect(out.dateUpdated).toEqual(BASE_REVISION.dateCreated);
     });
   });
+
+  // The complete override snapshot is preserved verbatim on read (the
+  // serving/precedence layer relies on `defaultValueOverrides` being the
+  // authoritative ordered list). Legacy revisions that predate the field stay
+  // `undefined` (the apply layer treats that as "don't touch").
+  describe("defaultValueOverrides (ordered override snapshot)", () => {
+    it("preserves a complete override list through the read", () => {
+      const overrides = [
+        { id: "a", value: "prod-override", environments: ["production"] },
+      ];
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+        defaultValueOverrides: overrides,
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.defaultValueOverrides).toEqual(overrides);
+    });
+
+    it("preserves an empty (all-cleared) list as []", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+        defaultValueOverrides: [],
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.defaultValueOverrides).toEqual([]);
+    });
+
+    it("leaves the field undefined for a legacy revision that predates it", () => {
+      const raw = {
+        ...BASE_REVISION,
+        rules: [],
+      } as unknown as FeatureRevisionInterface;
+
+      const out = buildFeatureRevisionInterface(raw, mockContext());
+      expect(out.defaultValueOverrides).toBeUndefined();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

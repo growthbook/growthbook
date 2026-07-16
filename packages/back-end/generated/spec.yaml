@@ -689,6 +689,32 @@ paths:
                     Default value when feature is enabled. Type must match
                     `valueType`.
                   type: string
+                defaultValueOverrides:
+                  description: >-
+                    Ordered, first-match-wins overrides of `defaultValue`,
+                    scoped by environment. Resolved at payload-build time; rules
+                    still take precedence.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      value:
+                        description: >-
+                          Override value (string form, matching the feature's
+                          valueType)
+                        type: string
+                      environments:
+                        description: >-
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - value
+                      - environments
+                    additionalProperties: false
                 tags:
                   description: List of associated tags
                   type: array
@@ -1531,6 +1557,31 @@ paths:
                   type: string
                 defaultValue:
                   type: string
+                defaultValueOverrides:
+                  description: >-
+                    Ordered, first-match-wins overrides of `defaultValue`,
+                    scoped by environment. Replaces the full list when provided.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      value:
+                        description: >-
+                          Override value (string form, matching the feature's
+                          valueType)
+                        type: string
+                      environments:
+                        description: >-
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - value
+                      - environments
+                    additionalProperties: false
                 tags:
                   description: >-
                     List of associated tags. Will override tags completely with
@@ -5979,6 +6030,32 @@ paths:
                     Default value when feature is enabled. Type must match
                     `valueType`.
                   type: string
+                defaultValueOverrides:
+                  description: >-
+                    Ordered, first-match-wins overrides of `defaultValue`,
+                    scoped by environment. Resolved at payload-build time; rules
+                    still take precedence.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      value:
+                        description: >-
+                          Override value (string form, matching the feature's
+                          valueType)
+                        type: string
+                      environments:
+                        description: >-
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - value
+                      - environments
+                    additionalProperties: false
                 tags:
                   description: List of associated tags
                   type: array
@@ -6519,6 +6596,31 @@ paths:
                   type: string
                 defaultValue:
                   type: string
+                defaultValueOverrides:
+                  description: >-
+                    Ordered, first-match-wins overrides of `defaultValue`,
+                    scoped by environment. Replaces the full list when provided.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      value:
+                        description: >-
+                          Override value (string form, matching the feature's
+                          valueType)
+                        type: string
+                      environments:
+                        description: >-
+                          Environments this override applies to (at least one
+                          required)
+                        minItems: 1
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - value
+                      - environments
+                    additionalProperties: false
                 tags:
                   description: >-
                     List of associated tags. Will override tags completely with
@@ -10656,6 +10758,21 @@ paths:
                           type: string
                         additionalProperties:
                           type: boolean
+                      defaultValueOverrides:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            value:
+                              type: string
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - value
+                            - environments
+                          additionalProperties: false
                       prerequisites:
                         type: array
                         items:
@@ -10818,6 +10935,21 @@ paths:
                           type: string
                         additionalProperties:
                           type: boolean
+                      defaultValueOverrides:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            value:
+                              type: string
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - value
+                            - environments
+                          additionalProperties: false
                       prerequisites:
                         type: array
                         items:
@@ -38304,6 +38436,27 @@ components:
             - json
         defaultValue:
           type: string
+        defaultValueOverrides:
+          description: >-
+            Ordered, first-match-wins overrides of `defaultValue`, scoped by
+            environment. Resolved at payload-build time; rules still take
+            precedence.
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                description: Override value (string form, matching the feature's valueType)
+                type: string
+              environments:
+                description: Environments this override applies to; empty matches all
+                type: array
+                items:
+                  type: string
+            required:
+              - value
+              - environments
+            additionalProperties: false
         tags:
           type: array
           items:
@@ -39226,6 +39379,26 @@ components:
             type: string
           additionalProperties:
             type: boolean
+        defaultValueOverrides:
+          description: >-
+            Ordered, first-match-wins default value overrides captured in this
+            revision (only present when an override is set)
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                description: Override value (string form, matching the feature's valueType)
+                type: string
+              environments:
+                description: Environments this override applies to; empty matches all
+                type: array
+                items:
+                  type: string
+            required:
+              - value
+              - environments
+            additionalProperties: false
         envPrerequisites:
           description: >-
             Per-environment prerequisites captured in this revision (only
@@ -40427,6 +40600,26 @@ components:
             type: string
           additionalProperties:
             type: boolean
+        defaultValueOverrides:
+          description: >-
+            Ordered, first-match-wins default value overrides captured in this
+            revision (only present when an override is set)
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                description: Override value (string form, matching the feature's valueType)
+                type: string
+              environments:
+                description: Environments this override applies to; empty matches all
+                type: array
+                items:
+                  type: string
+            required:
+              - value
+              - environments
+            additionalProperties: false
         envPrerequisites:
           description: >-
             Per-environment prerequisites captured in this revision (only
@@ -52186,6 +52379,21 @@ components:
             type: string
           additionalProperties:
             type: boolean
+        defaultValueOverrides:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              environments:
+                type: array
+                items:
+                  type: string
+            required:
+              - value
+              - environments
+            additionalProperties: false
         prerequisites:
           type: array
           items:

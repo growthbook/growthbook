@@ -159,6 +159,13 @@ export async function rebaseFeatureRevision(
       feature.environmentSettings?.[env]?.enabled ??
       false;
   });
+  // Full-replace from the merge result when present; else re-anchor onto the
+  // LIVE feature — NOT the draft's stale snapshot, which would revert overrides
+  // published since the draft was created.
+  const newDefaultValueOverrides =
+    mergeResult.result.defaultValueOverrides ??
+    feature.defaultValueOverrides ??
+    [];
 
   const featureMetadataSnapshot: RevisionMetadata = {
     description: feature.description,
@@ -209,6 +216,7 @@ export async function rebaseFeatureRevision(
       defaultValue: mergeResult.result.defaultValue ?? feature.defaultValue,
       rules: newRules,
       environmentsEnabled: newEnvironmentsEnabled,
+      defaultValueOverrides: newDefaultValueOverrides,
       prerequisites:
         mergeResult.result.prerequisites ?? feature.prerequisites ?? [],
       archived: mergeResult.result.archived ?? feature.archived ?? false,
