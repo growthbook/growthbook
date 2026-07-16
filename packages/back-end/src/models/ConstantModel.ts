@@ -47,8 +47,8 @@ export class ConstantModel extends BaseClass {
   // read the whole collection several times per write. Loads once and hands the
   // same promise to every caller until a write invalidates it; a rejected load
   // isn't cached, so a later call retries. Mirrors ConfigModel.reconcileSnapshot.
-  // Callers share one array instance — treat the result as read-only and copy
-  // before sorting/mutating.
+  // Each caller gets its own shallow copy (safe to sort/filter in place); the
+  // doc objects themselves are shared — treat them as read-only.
   private allSnapshot: Promise<ConstantInterface[]> | null = null;
 
   public getAll(): Promise<ConstantInterface[]> {
@@ -61,7 +61,7 @@ export class ConstantModel extends BaseClass {
       });
       this.allSnapshot = load;
     }
-    return this.allSnapshot;
+    return this.allSnapshot.then((docs) => docs.slice());
   }
 
   private invalidateAllSnapshot(): void {
