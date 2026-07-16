@@ -847,7 +847,7 @@ export default function UpgradeModal({
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}
           </div>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
         </Modal>
       )}
     </>

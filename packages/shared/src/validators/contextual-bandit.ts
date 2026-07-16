@@ -358,7 +358,7 @@ export const getContextualBanditCurrentWeightsValidator = {
     .strict(),
   summary: "Get current Contextual Bandit leaf weights and latest event",
   operationId: "getContextualBanditCurrentWeights",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/current",
 };
@@ -377,7 +377,7 @@ export const listContextualBanditSnapshotsValidator = {
     .strict(),
   summary: "List Contextual Bandit snapshots",
   operationId: "listContextualBanditSnapshots",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/snapshots",
 };
@@ -391,7 +391,7 @@ export const getContextualBanditSnapshotValidator = {
     .strict(),
   summary: "Get a single Contextual Bandit snapshot",
   operationId: "getContextualBanditSnapshot",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/snapshots/:snapshotId",
 };
@@ -410,7 +410,7 @@ export const listContextualBanditEventsValidator = {
     .strict(),
   summary: "List Contextual Bandit weight-update events",
   operationId: "listContextualBanditEvents",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/events",
 };
@@ -424,7 +424,7 @@ export const getContextualBanditEventValidator = {
     .strict(),
   summary: "Get a single Contextual Bandit weight-update event",
   operationId: "getContextualBanditEvent",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/events/:eventId",
 };
@@ -531,7 +531,7 @@ export const getContextualBanditResultsValidator = {
   description:
     "Returns the latest contextual-bandit stats engine output (per-context responses, the context-to-leaf map, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
   operationId: "getContextualBanditResults",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/results",
 };
@@ -550,7 +550,7 @@ export const getContextualBanditLinkedFeaturesValidator = {
   description:
     "Returns the features that reference this contextual bandit via a `contextual-bandit-ref` rule, enriched with each feature's live/draft state, per-environment rule state, and variation values. Same payload the GrowthBook UI uses to render the Linked Features section.",
   operationId: "getContextualBanditLinkedFeatures",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/linked-features",
 };
@@ -564,7 +564,7 @@ export const deleteContextualBanditLinkedFeatureValidator = {
   description:
     "Detaches a feature from this contextual bandit by removing it from the bandit's linked-feature list and cancelling any queued draft auto-publish. The feature's `contextual-bandit-ref` rule itself is left untouched.",
   operationId: "deleteContextualBanditLinkedFeature",
-  tags: ["contextual-bandits"],
+  tags: ["ContextualBandits"],
   method: "delete" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
 };

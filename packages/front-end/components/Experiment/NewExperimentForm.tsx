@@ -325,7 +325,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? [
               {
                 ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
@@ -854,14 +854,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 You are creating an experiment under the demo datasource
                 project. This experiment will be deleted when the demo
                 datasource project is deleted.
-              </div>
+              </Callout>
             )}
             {hasCommercialFeature("templates") &&
               availableTemplates.length >= 1 &&

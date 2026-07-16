@@ -10,6 +10,7 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+import type { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
 /**
  * Apply a set of JSON Patch ops to a snapshot, returning a new object.
@@ -284,4 +285,29 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
   });
+}
+
+/**
+ * True when the revision's base snapshot no longer matches the live entity on
+ * any updatable field.
+ *
+ * Both sides pass through the adapter's `buildSnapshot` before comparing. The
+ * stored snapshot was normalized that way at capture time, but the live
+ * entity comes straight from the database and can carry representation-only
+ * differences — explicit nulls on optional fields, leftover fields removed
+ * from the schema — that no API response or merge check ever surfaces.
+ * Comparing the raw document against the normalized snapshot makes every
+ * draft of such an entity read as diverged forever: rebasing cannot clear it,
+ * because the next snapshot is normalized again.
+ */
+export function isRevisionDiverged(
+  adapter: EntityRevisionAdapter,
+  snapshot: Record<string, unknown>,
+  entity: Record<string, unknown>,
+): boolean {
+  const base = adapter.buildSnapshot(snapshot);
+  const live = adapter.buildSnapshot(entity);
+  return [...adapter.getUpdatableFields()].some(
+    (key) => !isEqual(base[key], live[key]),
+  );
 }

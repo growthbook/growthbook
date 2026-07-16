@@ -14,8 +14,10 @@
 | **[feature.rampSchedule.actions.completed](#featurerampScheduleactionscompleted)** | Triggered when a feature ramp schedule completes all steps |
 | **[feature.rampSchedule.actions.rolledBack](#featurerampScheduleactionsrolledBack)** | Triggered when a feature ramp schedule is rolled back or reset to start |
 | **[feature.rampSchedule.actions.jumped](#featurerampScheduleactionsjumped)** | Triggered when a feature ramp schedule is jumped to a specific step |
-| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances to the next step |
+| **[feature.rampSchedule.actions.step.advanced](#featurerampScheduleactionsstepadvanced)** | Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually. |
 | **[feature.rampSchedule.actions.step.approvalRequired](#featurerampScheduleactionsstepapprovalRequired)** | Triggered when a feature ramp step is waiting for approval |
+| **[feature.rampSchedule.actions.awaitingStartApproval](#featurerampScheduleactionsawaitingStartApproval)** | Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval |
+| **[feature.rampSchedule.actions.startApproved](#featurerampScheduleactionsstartApproved)** | Triggered when a held ramp schedule's start is approved by a user |
 | **[feature.revision.created](#featurerevisioncreated)** | Triggered when a new draft revision is created for a feature |
 | **[feature.revision.updated](#featurerevisionupdated)** | Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation. |
 | **[feature.revision.reviewRequested](#featurerevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
@@ -605,6 +607,7 @@ Triggered when a feature ramp schedule completes all steps
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {
@@ -730,7 +733,7 @@ Triggered when a feature ramp schedule is jumped to a specific step
 
 ### feature.rampSchedule.actions.step.advanced
 
-Triggered when a feature ramp schedule advances to the next step
+Triggered when a feature ramp schedule advances. Overdue steps are caught up in a single advance: when `currentStepIndex - previousStepIndex > 1`, the intermediate steps were folded into this one event (one revision publish) rather than fired individually.
 
 <details>
   <summary>Payload</summary>
@@ -748,6 +751,7 @@ Triggered when a feature ramp schedule advances to the next step
             orgId: string;
             currentStepIndex: number;
             status: string;
+            previousStepIndex?: number | undefined;
         };
     };
     user: {
@@ -796,6 +800,100 @@ Triggered when a feature ramp step is waiting for approval
             currentStepIndex: number;
             status: string;
             approvalNotes?: (string | null) | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.awaitingStartApproval
+
+Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.awaitingStartApproval";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.rampSchedule.actions.startApproved
+
+Triggered when a held ramp schedule's start is approved by a user
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.rampSchedule.actions.startApproved";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            rampScheduleId: string;
+            rampName: string;
+            orgId: string;
+            currentStepIndex: number;
+            status: string;
         };
     };
     user: {
@@ -2622,6 +2720,10 @@ Triggered when a warning condition is detected on an experiment
             maxAttempts: number;
             willRetry: boolean;
             reason: string;
+        } | {
+            type: "underpowered";
+            experimentName: string;
+            experimentId: string;
         };
     };
     user: {

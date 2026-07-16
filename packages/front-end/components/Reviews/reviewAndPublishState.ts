@@ -77,6 +77,11 @@ export interface RnPState {
   canRecallReview: boolean;
   // Reviewer retracts their own verdict → back to pending-review.
   canUndoReview: boolean;
+  // The draft sits in pending review with no primary action for this viewer.
+  // Consumers must render an explicit waiting status in the CTA's place —
+  // with no reviewer verdicts yet, the page otherwise shows nothing but a
+  // status badge and reads as stuck.
+  waitingForReview: boolean;
 }
 
 function publishLabel(
@@ -167,6 +172,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       hasSubmit: true,
       canRecallReview,
       canUndoReview,
+      waitingForReview: false,
     };
   }
 
@@ -198,6 +204,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
   const hasSubmit = !isPendingReview || approved;
 
+  // Only "pending-review" waits on someone else; "changes-requested" hands
+  // the ball back to the author, who has edit actions elsewhere on the page.
+  // (hasNextStep requires approved, so !approved already excludes it.)
+  const waitingForReview = status === "pending-review" && !approved;
+
   const ctaEnabled =
     !(experimentsStep && checklistBlocked && !adminPublish) &&
     (!publishLocked || adminPublish) &&
@@ -215,5 +226,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     hasSubmit,
     canRecallReview,
     canUndoReview,
+    waitingForReview,
   };
 }

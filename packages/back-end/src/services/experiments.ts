@@ -2778,6 +2778,7 @@ export async function toExperimentApiInterface(
             const ranges = getNamespaceRanges(p.namespace);
             return {
               namespaceId: p.namespace.name,
+              enabled: p.namespace.enabled,
               range: ranges[0] ?? [0, 0],
               ranges,
             };
@@ -3912,6 +3913,27 @@ function toPhaseNamespaceValue(
 }
 
 /**
+ * Maps the GET-response `trafficSplit` shape ([{ variationId, weight }]) back
+ * to the internal `variationWeights` array, ordered to match `variationIds`.
+ * Each weight is resolved by `variationId` so a reordered/filtered trafficSplit
+ * is still assigned correctly, falling back to positional order when an id has
+ * no match (e.g. create, where variation ids are freshly generated). Returns
+ * undefined when no trafficSplit is provided so callers can fall through to
+ * their own default (e.g. an even split).
+ */
+function phaseWeightsFromTrafficSplit(
+  trafficSplit: { variationId: string; weight: number }[] | undefined,
+  variationIds: string[],
+): number[] | undefined {
+  if (!trafficSplit) return undefined;
+  return variationIds.map(
+    (id, i) =>
+      (trafficSplit.find((e) => e.variationId === id) ?? trafficSplit[i])
+        ?.weight ?? 0,
+  );
+}
+
+/**
  * Converts an API lookbackOverride payload to the internal representation.
  * Validates that "date" values are strings (not raw numbers) and that
  * "window" values are non-negative numbers with a valid unit.
@@ -3970,7 +3992,10 @@ export function postExperimentApiPayloadToInterface(
     variationIds.map((id) => ({ id, status: "active" as const }));
 
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
-    const conditionRes = validateCondition(p.condition);
+    // Accept the GET-response field names as aliases so a GET -> POST
+    // round-trip is lossless. The POST-only fields take precedence when set.
+    const condition = p.condition || p.targetingCondition || "{}";
+    const conditionRes = validateCondition(condition);
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
@@ -3987,9 +4012,9 @@ export function postExperimentApiPayloadToInterface(
       ...p,
       dateStarted: new Date(p.dateStarted),
       dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-      reason: p.reason || "",
+      reason: p.reason || p.reasonForStopping || "",
       coverage: p.coverage != null ? p.coverage : 1,
-      condition: p.condition || "{}",
+      condition,
       prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
@@ -4001,6 +4026,7 @@ export function postExperimentApiPayloadToInterface(
       ),
       variationWeights:
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(p.trafficSplit, variationIds) ||
         payload.variations.map(() => 1 / payload.variations.length),
       variations: toPhaseVariations(variationIds),
     };
@@ -4223,7 +4249,10 @@ function resolveExperimentUpdateVariationsAndPhases(
 
   if (hasPhasePayload) {
     resolvedPhases = phases.map((p, phaseIndex) => {
-      const conditionRes = validateCondition(p.condition);
+      // Accept the GET-response field names as aliases so a GET -> POST
+      // round-trip is lossless. The POST-only fields take precedence when set.
+      const condition = p.condition || p.targetingCondition || "{}";
+      const conditionRes = validateCondition(condition);
       if (!conditionRes.success) {
         throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
       }
@@ -4246,14 +4275,18 @@ function resolveExperimentUpdateVariationsAndPhases(
 
       const variationWeights =
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(
+          p.trafficSplit,
+          phaseVariations.map((v) => v.id),
+        ) ||
         phaseVariations.map((_) => 1 / phaseVariations.length);
       return {
         ...p,
         dateStarted: new Date(p.dateStarted),
         dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-        reason: p.reason || "",
+        reason: p.reason || p.reasonForStopping || "",
         coverage: p.coverage != null ? p.coverage : 1,
-        condition: p.condition || "{}",
+        condition,
         prerequisites: p.prerequisites || [],
         savedGroups: (p.savedGroupTargeting || []).map((s) => ({
           match: s.matchType,

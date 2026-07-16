@@ -943,7 +943,7 @@ export default function CompareAuditEvents<T>({
 
             {/* Diff content */}
             {displayFailed.length > 0 ? (
-              <Callout status="error" contentsAs="div" mt="4">
+              <Callout status="error" mt="4">
                 <Flex direction="column" gap="2" align="start">
                   <span>
                     Could not load change

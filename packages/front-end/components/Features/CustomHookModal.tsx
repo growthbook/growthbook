@@ -265,7 +265,7 @@ export default function CustomHookModal({
           {!feature && (
             <MultiSelectField
               label={"Projects"}
-              placeholder="All projects"
+              placeholder="All Projects"
               value={form.watch("projects") || []}
               options={projectOptions}
               onChange={(v) => form.setValue("projects", v)}
@@ -286,7 +286,7 @@ export default function CustomHookModal({
             )}
           </ul>
 
-          <Callout status="info" mb="4" contentsAs="div">
+          <Callout status="info" mb="4">
             <Flex align="center" wrap={"wrap"} gapX={"2"}>
               <Text as="span">Call</Text>
               <InlineCode

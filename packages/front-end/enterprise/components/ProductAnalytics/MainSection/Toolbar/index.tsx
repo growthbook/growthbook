@@ -15,7 +15,7 @@ export default function Toolbar() {
     submittedExploreState,
     compareEnabled,
     setCompareEnabled,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   } = useExplorerContext();
 
   const showComparisonDateControls =
@@ -64,9 +64,7 @@ export default function Toolbar() {
             label="Compare"
             value={compareEnabled}
             onChange={setCompareEnabled}
-            disabled={
-              !submittedExploreState || managedWarehouseAwaitingProvisioning
-            }
+            disabled={!submittedExploreState || managedWarehouseUnavailable}
           />
           {showComparisonDateControls ? (
             <ComparisonDateControls

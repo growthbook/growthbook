@@ -587,6 +587,157 @@ describe("attributes API", () => {
     });
   });
 
+  it("keeps allowed values (enum) when creating an array attribute", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [],
+        },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "roles",
+        datatype: "string[]",
+        enum: "admin,editor,viewer",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "roles",
+        datatype: "string[]",
+        enum: "admin,editor,viewer",
+        projects: [],
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          {
+            property: "roles",
+            datatype: "string[]",
+            enum: "admin,editor,viewer",
+            projects: [],
+          },
+        ],
+      },
+    });
+  });
+
+  it("clears allowed values (enum) when the datatype does not support them", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [],
+        },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "flag",
+        datatype: "boolean",
+        enum: "a,b,c",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "flag",
+        datatype: "boolean",
+        enum: "",
+        projects: [],
+      },
+    });
+  });
+
+  it("clears stale allowed values (enum) when changing to an unsupported datatype", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            {
+              property: "attr1",
+              datatype: "enum",
+              enum: "a,b,c",
+            },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr1")
+      .send({
+        datatype: "string",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr1",
+        datatype: "string",
+        enum: "",
+        projects: [],
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          {
+            property: "attr1",
+            datatype: "string",
+            enum: "",
+            projects: [],
+          },
+        ],
+      },
+    });
+  });
+
   it("allows attribute create when events-forwarder commercial feature is disabled and no forwarder exists", async () => {
     orgHasPremiumFeatureMock.mockReturnValue(false);
     setReqContext({

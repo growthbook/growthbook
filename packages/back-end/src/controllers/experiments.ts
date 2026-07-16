@@ -138,7 +138,7 @@ import {
   getFeaturesByIds,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getNonDiscardedRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
+import { getLinkageSyncRevisionSummaries } from "back-end/src/models/FeatureRevisionModel";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 import {
@@ -1449,6 +1449,7 @@ export async function postExperiment(
       phaseEndDate?: string;
       variationWeights?: number[];
       coverage?: number;
+      isVariationKeyReconciliation?: boolean;
     },
     { id: string }
   >,
@@ -1461,7 +1462,13 @@ export async function postExperiment(
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const { id } = req.params;
-  const { phaseStartDate, phaseEndDate, currentPhase, ...data } = req.body;
+  const {
+    phaseStartDate,
+    phaseEndDate,
+    currentPhase,
+    isVariationKeyReconciliation,
+    ...data
+  } = req.body;
 
   const experiment = await getExperimentById(context, id);
   const aiSettings = getAISettingsForOrg(context);
@@ -1641,16 +1648,18 @@ export async function postExperiment(
   const variationKeysChanged =
     !!data.variations &&
     data.variations.some((v) => v.key !== existingKeyById.get(v.id));
-  const variationsChanged = variationIdsChanged || variationKeysChanged;
   const coverageChanged =
     data.coverage !== undefined && data.coverage !== latestPhase?.coverage;
   const variationWeightsChanged =
     data.variationWeights !== undefined &&
     !isEqual(data.variationWeights, latestPhase?.variationWeights);
-  if (
-    experiment.status === "running" &&
-    (variationsChanged || coverageChanged || variationWeightsChanged)
-  ) {
+
+  const changesLivePayload =
+    variationIdsChanged ||
+    (variationKeysChanged && !isVariationKeyReconciliation) ||
+    coverageChanged ||
+    variationWeightsChanged;
+  if (experiment.status === "running" && changesLivePayload) {
     const linkedFeaturesForPayload = await getFeaturesByIds(
       context,
       experiment.linkedFeatures || [],
@@ -2221,11 +2230,14 @@ export async function postExperimentUnarchive(
     if (linkedFeatureIds.length > 0) {
       Promise.all(
         linkedFeatureIds.map(async (featureId) => {
-          const revisions = await getNonDiscardedRevisionSummaries(
-            context.org.id,
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          return syncFeatureExperimentLinkages(
+            context,
             featureId,
+            openDrafts,
+            liveRevision,
           );
-          return syncFeatureExperimentLinkages(context, featureId, revisions);
         }),
       ).catch((e) => {
         logger.error(e, "syncFeatureExperimentLinkages failed on unarchive");
@@ -3248,6 +3260,10 @@ export async function postSnapshot(
     throw new Error("Could not find datasource for this experiment");
   }
 
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const force = !!req.query["force"];
   if (
     dimension &&
@@ -3408,6 +3424,10 @@ export async function postBanditSnapshot(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource for this experiment");
+  }
+
+  if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   // We wait until the snapshot is fully updated, which can

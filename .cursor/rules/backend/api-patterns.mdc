@@ -1,0 +1,8 @@
+---
+description: "Backend API patterns for both internal and external APIs"
+globs: packages/back-end/src/**/*.ts
+alwaysApply: false
+---
+# Back-end API Patterns
+
+Before changing back-end API code, read and follow `.agents/guides/backend/api-patterns.md`.

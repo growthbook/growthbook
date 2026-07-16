@@ -1,0 +1,7 @@
+---
+description: "Critical package import restrictions enforced by ESLint - must be strictly followed"
+alwaysApply: true
+---
+# Package Boundaries
+
+Before changing package code, read and follow `.agents/guides/package-boundaries.md`.
