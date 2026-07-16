@@ -504,7 +504,13 @@ export default function FeatureModal({
               }}
               sort={false}
               required
-              helpText="The config that backs this flag. The default value and any rules override it with a patch."
+              helpText={
+                <>
+                  The config that backs this flag. The default value and any
+                  rules override it with a patch.{" "}
+                  <strong>Cannot be changed later!</strong>
+                </>
+              }
             />
           )}
 
