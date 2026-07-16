@@ -607,6 +607,11 @@ export const apiRampScheduleInterface = namedSchema(
       .describe(
         "Approval record for the current step. Valid only while `stepApproval.stepIndex === currentStepIndex`.",
       ),
+    awaitingApproval: z
+      .boolean()
+      .describe(
+        "Computed at read time: whether a human approval is the gate blocking the schedule right now — either the start-approval gate (`requiresStartApproval` before step 0) or the current step's `holdConditions.requiresApproval` once its time hold (if any) has elapsed. Paused schedules report `false` (the pause is the blocking gate). For monitored steps the approve-step endpoint may still reject an approval until analysis-based gates clear.",
+      ),
     monitoringStartDate: z.iso
       .datetime()
       .nullish()
