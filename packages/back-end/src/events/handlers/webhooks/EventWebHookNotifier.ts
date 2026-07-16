@@ -477,6 +477,17 @@ export class EventWebHookNotifier implements Notifier {
       return;
     }
 
+    // A webhook disabled during the coalesce window must not deliver its
+    // buffered digest — match the immediate fan-out, which excludes disabled
+    // webhooks. The bucket is already claimed above, so returning drops it.
+    if (!eventWebHook.enabled) {
+      logger.info(
+        { eventWebHookId, organizationId },
+        "Coalesce flush: webhook disabled, dropping bucket",
+      );
+      return;
+    }
+
     const organization = await findOrganizationById(organizationId);
     if (!organization) {
       logger.error(
