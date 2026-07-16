@@ -1430,6 +1430,7 @@ export async function postExperiments(
       experiment,
     });
   } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
     res.status(400).json({
       status: 400,
       message: e.message,

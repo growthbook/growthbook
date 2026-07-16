@@ -59,6 +59,7 @@ import {
   notifyLicenseServerEvent,
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -706,6 +707,12 @@ export async function createExperiment({
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
+  });
 
   const exp = await ExperimentModel.create(experimentToCreate);
 
