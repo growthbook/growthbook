@@ -76,7 +76,6 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
-import MetricExplorationPreview from "@/enterprise/components/ProductAnalytics/MetricExplorationPreview";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -723,13 +722,6 @@ export default function FactMetricPage() {
           )}
         </Flex>
       </Box>
-
-      {canOpenInExplorer && (
-        <MetricExplorationPreview
-          factMetric={factMetric}
-          defaultUnit={factTable?.userIdTypes?.[0] ?? null}
-        />
-      )}
 
       <div className="row">
         <div className="col-12 col-md-8">
