@@ -393,7 +393,7 @@ All attributes sent with your events are stored in a native ClickHouse JSON colu
 Identifiers — the attributes used to split traffic in experiments — come from your organization's [attribute settings](/features/targeting#defining-attributes-in-growthbook):
 
 1. `user_id` and `device_id` are built in and always available.
-2. Any other attribute marked as an **Identifier** under **SDK Connections** &rarr; **Attributes** (for example `account_id`) is automatically exposed as a top-level column on your fact tables and available for experiment assignment.
+2. Any other scalar attribute marked as an **Identifier** under **SDK Connections** &rarr; **Attributes** (for example `account_id`) is automatically exposed as a top-level column on your fact tables and available for experiment assignment.
 
 :::note
 Because identifiers are read from the `attributes` JSON column, marking an attribute as an identifier applies retroactively to all past events that included it.
