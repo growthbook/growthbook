@@ -2,49 +2,118 @@ import {
   buildDefinitionsEtag,
   ifNoneMatchMatches,
 } from "back-end/src/util/definitionsEtag";
+import { definitionsScope } from "back-end/src/models/DefinitionsVersionModel";
+
+const etagFor = (
+  args: Partial<Parameters<typeof buildDefinitionsEtag>[0]> = {},
+) =>
+  buildDefinitionsEtag({
+    version: 0,
+    organization: "org_1",
+    permissionsFingerprint: "abc",
+    ...args,
+  });
 
 describe("definitions ETag helpers", () => {
   describe("buildDefinitionsEtag", () => {
     it("composes version, org, and permissions fingerprint into a strong ETag", () => {
-      expect(buildDefinitionsEtag(0, "org_1", "abc")).toBe('"v0-org_1-abc"');
-      expect(buildDefinitionsEtag(42, "org_2", "deadbeef")).toBe(
-        '"v42-org_2-deadbeef"',
-      );
+      expect(etagFor()).toBe('"v0-org_1-abc"');
+      expect(
+        etagFor({
+          version: 42,
+          organization: "org_2",
+          permissionsFingerprint: "deadbeef",
+        }),
+      ).toBe('"v42-org_2-deadbeef"');
     });
 
     it("appends the config file hash only when using file config", () => {
-      expect(buildDefinitionsEtag(1, "org_1", "abc", "filehash")).toBe(
+      expect(etagFor({ version: 1, configFileHash: "filehash" })).toBe(
         '"v1-org_1-abc-filehash"',
       );
-      expect(buildDefinitionsEtag(1, "org_1", "abc", null)).toBe(
+      expect(etagFor({ version: 1, configFileHash: null })).toBe(
         '"v1-org_1-abc"',
       );
       // File config toggling on/off or the file changing must change the ETag.
-      expect(buildDefinitionsEtag(1, "org_1", "abc", "filehash")).not.toBe(
-        buildDefinitionsEtag(1, "org_1", "abc", null),
+      expect(etagFor({ version: 1, configFileHash: "filehash" })).not.toBe(
+        etagFor({ version: 1, configFileHash: null }),
       );
-      expect(buildDefinitionsEtag(1, "org_1", "abc", "hash1")).not.toBe(
-        buildDefinitionsEtag(1, "org_1", "abc", "hash2"),
+      expect(etagFor({ version: 1, configFileHash: "hash1" })).not.toBe(
+        etagFor({ version: 1, configFileHash: "hash2" }),
       );
     });
 
     it("varies by version, org, and fingerprint", () => {
-      expect(buildDefinitionsEtag(1, "org_1", "abc")).not.toBe(
-        buildDefinitionsEtag(2, "org_1", "abc"),
-      );
+      expect(etagFor({ version: 1 })).not.toBe(etagFor({ version: 2 }));
       // Same version + fingerprint across two orgs must not collide — the URL
       // is shared across orgs, so this is what prevents a cross-org 304.
-      expect(buildDefinitionsEtag(1, "org_1", "abc")).not.toBe(
-        buildDefinitionsEtag(1, "org_2", "abc"),
+      expect(etagFor({ version: 1, organization: "org_1" })).not.toBe(
+        etagFor({ version: 1, organization: "org_2" }),
       );
-      expect(buildDefinitionsEtag(1, "org_1", "abc")).not.toBe(
-        buildDefinitionsEtag(1, "org_1", "xyz"),
+      expect(etagFor({ version: 1, permissionsFingerprint: "abc" })).not.toBe(
+        etagFor({ version: 1, permissionsFingerprint: "xyz" }),
       );
+    });
+
+    describe("per-project versions", () => {
+      const projectVersions = { proj_a: 1, proj_b: 2 };
+
+      it("ignores project versions for projects the user cannot read", () => {
+        // A reader of only proj_a is unaffected by a proj_b bump.
+        expect(etagFor({ projectVersions, readableProjects: ["proj_a"] })).toBe(
+          etagFor({
+            projectVersions: { ...projectVersions, proj_b: 999 },
+            readableProjects: ["proj_a"],
+          }),
+        );
+      });
+
+      it("changes when a readable project's version changes", () => {
+        expect(
+          etagFor({ projectVersions, readableProjects: ["proj_a"] }),
+        ).not.toBe(
+          etagFor({
+            projectVersions: { ...projectVersions, proj_a: 5 },
+            readableProjects: ["proj_a"],
+          }),
+        );
+      });
+
+      it("omits the project part when the reader has no relevant versions", () => {
+        // Never-written project → no entry → identical to the bare ETag.
+        expect(etagFor({ projectVersions, readableProjects: ["proj_x"] })).toBe(
+          etagFor(),
+        );
+      });
+
+      it("is order-independent in the project versions", () => {
+        expect(
+          etagFor({
+            projectVersions: { proj_a: 1, proj_b: 2 },
+            readableProjects: ["proj_a", "proj_b"],
+          }),
+        ).toBe(
+          etagFor({
+            projectVersions: { proj_b: 2, proj_a: 1 },
+            readableProjects: ["proj_b", "proj_a"],
+          }),
+        );
+      });
+
+      it("folds in every project for a global reader (readableProjects=null)", () => {
+        // A global reader must be invalidated by any project bump.
+        expect(etagFor({ projectVersions, readableProjects: null })).not.toBe(
+          etagFor({
+            projectVersions: { ...projectVersions, proj_b: 3 },
+            readableProjects: null,
+          }),
+        );
+      });
     });
   });
 
   describe("ifNoneMatchMatches", () => {
-    const etag = buildDefinitionsEtag(5, "org_1", "abc");
+    const etag = etagFor({ version: 5 });
 
     it("returns false when the header is absent", () => {
       expect(ifNoneMatchMatches(undefined, etag)).toBe(false);
@@ -56,9 +125,7 @@ describe("definitions ETag helpers", () => {
     });
 
     it("does not match a different ETag", () => {
-      expect(
-        ifNoneMatchMatches(buildDefinitionsEtag(4, "org_1", "abc"), etag),
-      ).toBe(false);
+      expect(ifNoneMatchMatches(etagFor({ version: 4 }), etag)).toBe(false);
     });
 
     it("matches within a comma-separated list", () => {
@@ -78,5 +145,28 @@ describe("definitions ETag helpers", () => {
     it("does not treat the wildcard as a match (safe direction: extra 200)", () => {
       expect(ifNoneMatchMatches("*", etag)).toBe(false);
     });
+  });
+});
+
+describe("definitionsScope", () => {
+  it("returns global when any list is empty or undefined (all projects)", () => {
+    expect(definitionsScope([])).toBe("global");
+    expect(definitionsScope(undefined)).toBe("global");
+    expect(definitionsScope(["proj_a"], [])).toBe("global");
+    expect(definitionsScope(["proj_a"], undefined)).toBe("global");
+  });
+
+  it("returns the union of the given project lists", () => {
+    expect(definitionsScope(["proj_a"])).toEqual(["proj_a"]);
+    expect(
+      [
+        ...(definitionsScope(["proj_a"], ["proj_b", "proj_a"]) as string[]),
+      ].sort(),
+    ).toEqual(["proj_a", "proj_b"]);
+  });
+
+  it("drops empty-string project ids", () => {
+    expect(definitionsScope([""])).toBe("global");
+    expect(definitionsScope(["proj_a", ""])).toEqual(["proj_a"]);
   });
 });

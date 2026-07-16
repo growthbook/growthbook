@@ -19,7 +19,10 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { projectFilterQuery } from "back-end/src/util/mongo.util";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deferAggregatedFactTableToNextSlot } from "back-end/src/services/aggregatedFactTables";
-import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "back-end/src/models/DefinitionsVersionModel";
 
 const audit = createModelAuditLogger({
   entity: "factTable",
@@ -326,7 +329,10 @@ export async function createFactTable(
   const factTable = toInterface(doc);
 
   await audit.logCreate(context, factTable);
-  await touchDefinitionsVersion(context.org.id);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(factTable.projects),
+  );
 
   return factTable;
 }
@@ -384,7 +390,13 @@ export async function updateFactTable(
   );
 
   await audit.logUpdate(context, factTable, { ...factTable, ...changes });
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(
+      factTable.projects,
+      changes.projects ?? factTable.projects,
+    ),
+  );
 }
 
 const ALLOWED_COLUMN_UPDATE_FIELDS = [
@@ -428,7 +440,10 @@ export async function updateFactTableColumns(
     ([k, v]) => !isEqual(factTable[k as keyof FactTableInterface], v),
   );
   if (changedDefinitionFields) {
-    await touchDefinitionsVersion(factTable.organization);
+    await touchDefinitionsVersion(
+      factTable.organization,
+      definitionsScope(factTable.projects),
+    );
   }
 
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
@@ -493,7 +508,10 @@ export async function dangerouslySyncManagedWarehouseFactTable(
       },
     },
   );
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 // Detect columns that were removed or had auto slice disabled
@@ -619,7 +637,10 @@ export async function updateColumn({
       },
     },
   );
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
   if (
@@ -680,7 +701,10 @@ export async function createFactFilter(
       },
     },
   );
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   return filter;
 }
@@ -722,7 +746,10 @@ export async function updateFactFilter(
       },
     },
   );
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export async function deleteFactTable(
@@ -754,7 +781,10 @@ export async function deleteFactTable(
   });
 
   await audit.logDelete(context, factTable);
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export async function deleteAllFactTablesForAProject({
@@ -810,7 +840,10 @@ export async function deleteFactFilter(
       },
     },
   );
-  await touchDefinitionsVersion(factTable.organization);
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 }
 
 export function toFactTableApiInterface(

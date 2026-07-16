@@ -8,6 +8,7 @@ const BaseClass = MakeModelClass({
   schema: metricGroupValidator,
   collectionName: "metricgroups",
   affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "mg_",
   auditLog: {
     entity: "metricGroup",

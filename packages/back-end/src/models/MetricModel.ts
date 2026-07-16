@@ -26,7 +26,10 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
-import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
+import {
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "./DefinitionsVersionModel";
 
 const audit = createModelAuditLogger({
   entity: "metric",
@@ -199,7 +202,10 @@ export async function insertMetric(
 
   const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
-  await touchDefinitionsVersion(context.org.id);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(created.projects),
+  );
   return created;
 }
 
@@ -236,7 +242,10 @@ export async function insertMetrics(
   for (const metric of created) {
     await audit.logAutocreate(context, metric);
   }
-  await touchDefinitionsVersion(context.org.id);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(...created.map((m) => m.projects)),
+  );
   return created;
 }
 
@@ -276,7 +285,10 @@ export async function deleteMetricById(
   });
 
   await audit.logDelete(context, metric);
-  await touchDefinitionsVersion(context.org.id);
+  await touchDefinitionsVersion(
+    context.org.id,
+    definitionsScope(metric.projects),
+  );
 }
 
 /**
@@ -658,7 +670,10 @@ export async function updateMetric(
   await audit.logUpdate(context, metric, { ...metric, ...updates });
 
   if (changedDefinitionFields) {
-    await touchDefinitionsVersion(context.org.id);
+    await touchDefinitionsVersion(
+      context.org.id,
+      definitionsScope(metric.projects, updates.projects ?? metric.projects),
+    );
   }
 }
 

@@ -19,6 +19,10 @@ const BaseClass = MakeModelClass({
   schema: constantValidator,
   collectionName: "constants",
   affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "project",
+  // `value`/`environmentValues` are projected out of the definitions response
+  // (getAllWithoutValues); constants are designed to change value over time.
+  definitionsVersionExcludedFields: ["value", "environmentValues"],
   idPrefix: "const_",
   auditLog: {
     entity: "constant",

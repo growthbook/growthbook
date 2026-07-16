@@ -36,6 +36,7 @@ const BaseClass = MakeModelClass({
   schema: factMetricValidator,
   collectionName: "factmetrics",
   affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "fact__",
   auditLog: {
     entity: "metric",

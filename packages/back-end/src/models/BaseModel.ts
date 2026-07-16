@@ -36,7 +36,11 @@ import {
 } from "back-end/src/api/ApiModel";
 import { CrudAction } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
-import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import {
+  DefinitionsVersionScope,
+  definitionsScope,
+  touchDefinitionsVersion,
+} from "back-end/src/models/DefinitionsVersionModel";
 import { generateId } from "back-end/src/util/uuid";
 import {
   resolveOwnerEmail,
@@ -232,6 +236,20 @@ export interface ModelConfig<
   // this hook and need a manual `touchDefinitionsVersion` call;
   // `_dangerousBulkWriteCrossOrganization` throws when this flag is set.
   affectsDefinitionsVersion?: boolean;
+  // Scopes the definitions-version bump (only meaningful with
+  // `affectsDefinitionsVersion`). The response is permission-filtered by
+  // project, so set this to the field holding the doc's project(s) — a
+  // `string[]` (empty = all projects) or a single `project` string ("" =
+  // global) — and writes bump only the affected projects' counters instead of
+  // the org-wide one. Omit for org-wide models, or when the response is not
+  // project-filtered (e.g. it returns all rows regardless of project); those
+  // bump globally. On an update the bump covers the union of the old and new
+  // values so a project reassignment invalidates readers of either side.
+  definitionsVersionProjectField?: keyof z.infer<T>;
+  // Fields that must NOT bump the definitions version when they are the only
+  // change — e.g. values the `/organization/definitions` response projects out.
+  // Unlike `skipDateUpdatedFields`, `dateUpdated` still moves for these.
+  definitionsVersionExcludedFields?: (keyof z.infer<T>)[];
   skipAuditLogFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
@@ -1027,10 +1045,31 @@ export abstract class BaseModel<
     }
 
     if (this.config.affectsDefinitionsVersion) {
-      await touchDefinitionsVersion(this.context.org.id);
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc),
+      );
     }
 
     return doc;
+  }
+
+  // Which readers a definitions-version bump should invalidate, derived from the
+  // configured project field across the given docs (pass old + new on an update
+  // so a project reassignment covers both sides). Defaults to "global".
+  private definitionsVersionScope(
+    ...docs: (z.infer<T> | undefined)[]
+  ): DefinitionsVersionScope {
+    const field = this.config.definitionsVersionProjectField;
+    if (!field) return "global";
+    return definitionsScope(
+      ...docs.map((doc) => {
+        const value = doc?.[field];
+        if (Array.isArray(value)) return value as string[];
+        if (typeof value === "string") return value ? [value] : undefined;
+        return undefined;
+      }),
+    );
   }
 
   protected async _updateOne(
@@ -1173,9 +1212,21 @@ export abstract class BaseModel<
     }
 
     // Gate on setDateUpdated so a no-meaningful-change / skipDateUpdatedFields
-    // update doesn't churn the version and tank the ETag hit rate.
-    if (this.config.affectsDefinitionsVersion && setDateUpdated) {
-      await touchDefinitionsVersion(this.context.org.id);
+    // update doesn't churn the version, and skip when every changed field is
+    // excluded (e.g. values the response projects out) — both tank the ETag hit
+    // rate without changing the response.
+    const bumpsDefinitionsVersion = updatedFields.some(
+      (field) => !this.config.definitionsVersionExcludedFields?.includes(field),
+    );
+    if (
+      this.config.affectsDefinitionsVersion &&
+      setDateUpdated &&
+      bumpsDefinitionsVersion
+    ) {
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc, newDoc),
+      );
     }
 
     return newDoc;
@@ -1251,7 +1302,10 @@ export abstract class BaseModel<
       { ignoreUndefined: true },
     );
     if (this.config.affectsDefinitionsVersion) {
-      await touchDefinitionsVersion(this.context.org.id);
+      // Ops are raw, so per-doc projects aren't reliably known here — bump
+      // globally (a safe superset). No affectsDefinitionsVersion model uses
+      // bulkWrite today; revisit if one needs project-scoped bumps.
+      await touchDefinitionsVersion(this.context.org.id, "global");
     }
     return result;
   }
@@ -1279,7 +1333,10 @@ export abstract class BaseModel<
     await this.afterDelete(doc, writeOptions);
 
     if (this.config.affectsDefinitionsVersion) {
-      await touchDefinitionsVersion(this.context.org.id);
+      await touchDefinitionsVersion(
+        this.context.org.id,
+        this.definitionsVersionScope(doc),
+      );
     }
   }
 

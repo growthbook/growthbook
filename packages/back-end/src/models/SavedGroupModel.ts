@@ -28,6 +28,9 @@ const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
   collectionName: "savedgroups",
   affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
+  // `values` are projected out of the definitions response (getAllWithoutValues).
+  definitionsVersionExcludedFields: ["values"],
   idPrefix: "grp_",
   auditLog: {
     entity: "savedGroup",

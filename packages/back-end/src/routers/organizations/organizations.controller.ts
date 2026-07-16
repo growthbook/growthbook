@@ -99,7 +99,7 @@ import {
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile, getConfigFileHash } from "back-end/src/init/config";
 import { getDefinitionsData } from "back-end/src/services/definitions";
-import { getDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import { getDefinitionsVersionState } from "back-end/src/models/DefinitionsVersionModel";
 import {
   buildDefinitionsEtag,
   ifNoneMatchMatches,
@@ -177,20 +177,25 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   });
 
   // Short-circuit with a cheap 304 before the expensive reads below when the
-  // client's cached copy is still current. The ETag combines the org's
-  // definitions version (bumped by every relevant write via
-  // touchDefinitionsVersion) with the user's permission fingerprint (the
-  // response is permission-filtered) and, under config.yml, the parsed file's
-  // hash (file-managed resources bypass the Mongo writes that bump the
-  // version). Gated behind a feature flag.
+  // client's cached copy is still current. The ETag combines the org's global
+  // definitions version and the versions of the projects this user can read
+  // (both bumped by relevant writes via touchDefinitionsVersion) with the
+  // user's permission fingerprint (the response is permission-filtered) and,
+  // under config.yml, the parsed file's hash (file-managed resources bypass the
+  // Mongo writes that bump the version). Gated behind a feature flag.
   if (req.gb?.isOn("definitions-etag-304")) {
-    const version = await getDefinitionsVersion(orgId);
-    const etag = buildDefinitionsEtag(
+    const { version, projectVersions } =
+      await getDefinitionsVersionState(orgId);
+    const etag = buildDefinitionsEtag({
       version,
-      orgId,
-      context.getPermissionsFingerprint(),
-      getConfigFileHash(),
-    );
+      projectVersions,
+      organization: orgId,
+      permissionsFingerprint: context.getPermissionsFingerprint(),
+      // null = the user can read all projects, so every project's version counts.
+      readableProjects:
+        context.permissions.getProjectsWithPermission("readData"),
+      configFileHash: getConfigFileHash(),
+    });
     // Make the browser behavior we rely on explicit: store, but always
     // revalidate (private keeps shared caches out). Vary on the org header so
     // the cache doesn't reuse one org's entry for another.
