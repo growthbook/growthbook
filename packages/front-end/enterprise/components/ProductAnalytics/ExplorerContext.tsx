@@ -21,6 +21,7 @@ import { QueryInterface } from "shared/types/query";
 import {
   buildComparisonDateRange,
   buildContiguousPreviousCustomDateRange,
+  computeExplorationComparisonPayload,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { isManagedWarehouseUnavailable } from "shared/util";
@@ -455,6 +456,11 @@ export function ExplorerProvider({
       hasEverFetchedRef.current = true;
       const requestId = ++submitRequestIdRef.current;
 
+      setExplorerState((prev) => ({
+        ...prev,
+        error: null,
+      }));
+
       const startTime = Date.now();
       const {
         data: fetchResult,
@@ -477,20 +483,6 @@ export function ExplorerProvider({
         return;
       }
 
-      if (comparison) {
-        setComparisonExploration(comparison.exploration);
-        setComparisonQuery(comparison.query ?? null);
-        setComparisonComputed({
-          bigNumberTrends: comparison.bigNumberTrends,
-          tableTrendsByRow: comparison.tableTrendsByRow,
-          previousPeriod: comparison.previousPeriod,
-        });
-      } else {
-        setComparisonExploration(null);
-        setComparisonQuery(null);
-        setComparisonComputed(null);
-      }
-
       const submittedConfig: ExplorerDraftConfig = previousForRequest
         ? { ...configToSubmit, previousTimeFrame: previousForRequest }
         : configToSubmit;
@@ -502,6 +494,17 @@ export function ExplorerProvider({
         result: ProductAnalyticsExploration | null,
         resultQuery: QueryInterface | null,
         resultError: string | null,
+        resultComparison: ProductAnalyticsExploration | null = comparison?.exploration ??
+          null,
+        resultComparisonQuery: QueryInterface | null = comparison?.query ??
+          null,
+        resultComparisonComputed: ExplorerContextValue["comparisonComputed"] = comparison
+          ? {
+              bigNumberTrends: comparison.bigNumberTrends,
+              tableTrendsByRow: comparison.tableTrendsByRow,
+              previousPeriod: comparison.previousPeriod,
+            }
+          : null,
       ) => {
         if (requestId !== submitRequestIdRef.current) return;
         setPolling(false);
@@ -515,12 +518,11 @@ export function ExplorerProvider({
           query: resultQuery,
           error: resultError || result?.error || null,
         }));
+        setComparisonExploration(resultComparison);
+        setComparisonQuery(resultComparisonQuery);
+        setComparisonComputed(resultComparisonComputed);
         if (result && !resultError) {
-          onRunComplete?.(
-            result,
-            comparison?.exploration ?? null,
-            previousForRequest,
-          );
+          onRunComplete?.(result, resultComparison, previousForRequest);
         }
         if (trackingSource) {
           const datasourceType =
@@ -559,47 +561,124 @@ export function ExplorerProvider({
         pollTimerRef.current = null;
       }
 
-      // If the backend returned a still-running exploration (query exceeded the
-      // ~5s sync budget), don't treat the empty in-progress model as final —
-      // keep the loading state and poll by id until it reaches a terminal
-      // state. The warehouse query keeps running server-side regardless.
-      if (!fetchError && fetchResult?.status === "running" && fetchResult.id) {
+      const comparisonResult = comparison?.exploration ?? null;
+      const primaryIsRunning =
+        !fetchError && fetchResult?.status === "running" && !!fetchResult.id;
+      const comparisonIsRunning =
+        comparisonResult?.status === "running" && !!comparisonResult.id;
+
+      // Primary and comparison explorations run independently. If either
+      // exceeds the backend's sync budget, poll both running ids until each is
+      // terminal, then rebuild the shared comparison payload from final rows.
+      if (primaryIsRunning || comparisonIsRunning) {
         setSubmittedExploreState(submittedConfig);
         setIsStale(false);
-        // Clear any prior result so the chart shows loading, not stale data.
         setExplorerState((prev) => ({
           ...prev,
-          exploration: null,
-          query: null,
+          exploration: primaryIsRunning ? null : fetchResult,
+          query: primaryIsRunning ? null : query,
           error: null,
         }));
+        setComparisonExploration(comparisonIsRunning ? null : comparisonResult);
+        setComparisonQuery(
+          comparisonIsRunning ? null : (comparison?.query ?? null),
+        );
+        setComparisonComputed(null);
         setPolling(true);
-        const explorationId = fetchResult.id;
+
+        let latestPrimary = fetchResult;
+        let latestPrimaryQuery = query;
+        let latestPrimaryError = fetchError;
+        let latestComparison = comparisonResult;
+        let latestComparisonQuery = comparison?.query ?? null;
+
         const poll = async () => {
           pollTimerRef.current = null;
           if (requestId !== submitRequestIdRef.current) return;
-          const {
-            data: polled,
-            query: polledQuery,
-            error: polledError,
-          } = await fetchExplorationById(explorationId);
+
+          const primaryPoll =
+            latestPrimary?.status === "running" && latestPrimary.id
+              ? fetchExplorationById(latestPrimary.id)
+              : Promise.resolve(null);
+          const comparisonPoll =
+            latestComparison?.status === "running" && latestComparison.id
+              ? fetchExplorationById(latestComparison.id)
+              : Promise.resolve(null);
+          const [polledPrimary, polledComparison] = await Promise.all([
+            primaryPoll,
+            comparisonPoll,
+          ]);
+
+          if (polledPrimary) {
+            latestPrimary = polledPrimary.data;
+            latestPrimaryQuery = polledPrimary.query;
+            latestPrimaryError = polledPrimary.error;
+          }
+
+          if (polledComparison) {
+            latestComparison = polledComparison.data;
+            latestComparisonQuery = polledComparison.query;
+          }
+
           if (requestId !== submitRequestIdRef.current) return;
-          if (!polledError && polled?.status === "running") {
+
+          const primaryStillRunning =
+            !latestPrimaryError && latestPrimary?.status === "running";
+          const comparisonStillRunning = latestComparison?.status === "running";
+          if (primaryStillRunning || comparisonStillRunning) {
             const delay = explorationPollDelayMs(
               Math.floor((Date.now() - startTime) / 1000),
             );
             if (delay <= 0) {
-              finalize(
-                null,
-                polledQuery,
-                "This query is taking longer than expected. Try a shorter date range or fewer steps, then run again.",
-              );
+              if (primaryStillRunning) {
+                finalize(
+                  null,
+                  latestPrimaryQuery,
+                  "This query is taking longer than expected. Try a shorter date range or fewer steps, then run again.",
+                  null,
+                  latestComparisonQuery,
+                  null,
+                );
+              } else {
+                finalize(
+                  latestPrimary,
+                  latestPrimaryQuery,
+                  latestPrimaryError,
+                  null,
+                  latestComparisonQuery,
+                  null,
+                );
+              }
               return;
             }
             pollTimerRef.current = setTimeout(poll, delay);
             return;
           }
-          finalize(polled, polledQuery, polledError);
+
+          const finalComparisonPayload =
+            latestPrimary && previousForRequest
+              ? computeExplorationComparisonPayload(
+                  latestPrimary,
+                  latestComparison,
+                  configToSubmit,
+                  previousForRequest,
+                  (id) => getFactMetricById(id) ?? null,
+                )
+              : null;
+          finalize(
+            latestPrimary,
+            latestPrimaryQuery,
+            latestPrimaryError,
+            finalComparisonPayload?.exploration ?? latestComparison,
+            latestComparisonQuery,
+            finalComparisonPayload
+              ? {
+                  bigNumberTrends: finalComparisonPayload.bigNumberTrends,
+                  tableTrendsByRow: finalComparisonPayload.tableTrendsByRow,
+                  previousPeriod: finalComparisonPayload.previousPeriod,
+                }
+              : null,
+          );
         };
         pollTimerRef.current = setTimeout(poll, explorationPollDelayMs(0));
         return;
@@ -618,6 +697,7 @@ export function ExplorerProvider({
       managedWarehouseUnavailable,
       trackingSource,
       getDatasourceById,
+      getFactMetricById,
     ],
   );
 

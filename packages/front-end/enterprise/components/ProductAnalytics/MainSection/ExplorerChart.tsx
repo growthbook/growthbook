@@ -28,6 +28,7 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useDashboardCharts } from "@/enterprise/components/Dashboards/DashboardChartsContext";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -766,6 +767,19 @@ export default function ExplorerChart({
     })
   )
     return null;
+
+  if (loading && !exploration) {
+    return (
+      <Flex
+        p="4"
+        style={{ flex: 1, minHeight: 0 }}
+        align="center"
+        justify="center"
+      >
+        <LoadingSpinner />
+      </Flex>
+    );
+  }
 
   // Funnels have a wholly different visualization than metric/fact-table/
   // data-source datasets. Render the funnel-specific chart and bypass the
