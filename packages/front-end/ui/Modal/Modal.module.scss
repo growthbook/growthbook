@@ -1,4 +1,11 @@
 .body {
+  // Radix's ScrollArea forces its direct child (this body) to `width:
+  // fit-content`, which otherwise lets a wide child (e.g. a results table)
+  // stretch the whole modal and put a horizontal scrollbar on the entire
+  // dialog. Clamping to the viewport width keeps wide content scrolling within
+  // its own overflow container instead.
+  max-width: 100%;
+
   label:not(.rt-Text) {
     color: var(--text-color-main);
     font-weight: var(--font-weight-bold);

@@ -186,6 +186,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                 into the WHERE clause.{" "}
                 <a
                   href="#"
+                  style={{ whiteSpace: "nowrap" }}
                   onClick={(e) => {
                     e.preventDefault();
                     setShowExamples(!showExamples);
