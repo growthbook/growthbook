@@ -23,11 +23,11 @@ export const updateDimension = createApiRequestHandler(
   const organization = req.organization.id;
   const dimension = await findDimensionById(req.params.id, organization);
 
-  if (
-    !dimension ||
-    !(await hasDimensionDatasourceAccess(req.context, dimension))
-  ) {
+  if (!dimension) {
     throw new Error("Could not find dimension with that id");
+  }
+  if (!(await hasDimensionDatasourceAccess(req.context, dimension))) {
+    throw new Error("You don't have access to this dimension");
   }
   if (req.body.datasourceId) {
     const datasourceDoc = await getDataSourceById(

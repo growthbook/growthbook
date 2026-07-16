@@ -152,8 +152,11 @@ export const putDimension = async (
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+  if (!dimension) {
     throw new Error("Could not find dimension");
+  }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
   }
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
@@ -207,8 +210,11 @@ export const deleteDimension = async (
   const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
-  if (!dimension || !(await hasDimensionDatasourceAccess(context, dimension))) {
+  if (!dimension) {
     throw new Error("Could not find dimension");
+  }
+  if (!(await hasDimensionDatasourceAccess(context, dimension))) {
+    throw new Error("You don't have access to this dimension");
   }
   try {
     await deleteDimensionById(context, dimension);
