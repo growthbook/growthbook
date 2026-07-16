@@ -12665,6 +12665,78 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/all-analyses:
+    get:
+      operationId: getExperimentAllAnalyses
+      summary: Get all analyses for an experiment
+      description: >-
+        Returns every snapshot for an experiment generated within a date window,
+        as a flat list of result items that reuse the `ExperimentResults` shape.
+
+
+        Each snapshot expands into one item per dimension. Items from the same
+        snapshot share `snapshotId`, and each difference type (relative,
+        absolute, scaled) computed for the run is folded into each variation's
+        `analyses` array.
+
+
+        Snapshot type and dimension breakdown are independent, explicit signals:
+
+        - `type` is one of `standard`, `exploratory`, or `report`; report
+        snapshots also include `reportId`.
+
+        - `dimension` describes the breakdown; `dimension.precomputed` marks
+        precomputed dimensions while `dimension.type` resolves to the underlying
+        kind (never `precomputed`).
+
+
+        Pagination semantics:
+
+        - `total` is the count of snapshots matching the filters.
+
+        - `count` is the number of snapshots included on this page; a single
+        snapshot may contribute multiple `results` items.
+
+        - `hasMore` and `nextOffset` advance over snapshots, not over returned
+        result items.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/dateStart'
+        - $ref: '#/components/parameters/dateEnd'
+        - name: phase
+          in: query
+          description: Filter to a single experiment phase index.
+          schema:
+            description: Filter to a single experiment phase index.
+            type: string
+        - $ref: '#/components/parameters/type'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ExperimentResults'
+                    required:
+                      - results
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/all-analyses' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
@@ -38061,6 +38133,38 @@ components:
       description: ''
       schema:
         type: string
+    dateStart:
+      name: dateStart
+      in: query
+      required: true
+      description: Return snapshots generated on or after this date (ISO 8601 date-time).
+      schema:
+        description: Return snapshots generated on or after this date (ISO 8601 date-time).
+        format: date-time
+        type: string
+    dateEnd:
+      name: dateEnd
+      in: query
+      description: >-
+        Return snapshots generated on or before this date (ISO 8601 date-time).
+        Defaults to now.
+      schema:
+        description: >-
+          Return snapshots generated on or before this date (ISO 8601
+          date-time). Defaults to now.
+        format: date-time
+        type: string
+    type:
+      name: type
+      in: query
+      description: Filter to a single snapshot type. By default all types are returned.
+      schema:
+        description: Filter to a single snapshot type. By default all types are returned.
+        type: string
+        enum:
+          - standard
+          - exploratory
+          - report
     variationId:
       name: variationId
       in: path
@@ -42393,11 +42497,25 @@ components:
       properties:
         id:
           type: string
+        snapshotId:
+          type: string
         dateUpdated:
+          type: string
+        dateCreated:
           type: string
         experimentId:
           type: string
         phase:
+          type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - exploratory
+            - report
+        triggeredBy:
+          type: string
+        reportId:
           type: string
         dateStart:
           type: string
@@ -42410,6 +42528,8 @@ components:
               type: string
             id:
               type: string
+            precomputed:
+              type: boolean
           required:
             - type
           additionalProperties: false
@@ -42466,6 +42586,12 @@ components:
                                   enum:
                                     - bayesian
                                     - frequentist
+                                differenceType:
+                                  type: string
+                                  enum:
+                                    - relative
+                                    - absolute
+                                    - scaled
                                 numerator:
                                   type: number
                                 denominator:

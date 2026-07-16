@@ -866,14 +866,27 @@ export const apiExperimentResultsValidator = namedSchema(
   z
     .object({
       id: z.string(),
+      // Present when this item is part of an all-analyses response; items from
+      // the same snapshot run share this id.
+      snapshotId: z.string().optional(),
       dateUpdated: z.string(),
+      // When the snapshot was generated (all-analyses response only).
+      dateCreated: z.string().optional(),
       experimentId: z.string(),
       phase: z.string(),
+      // Snapshot type; only populated by the all-analyses response.
+      type: z.enum(["standard", "exploratory", "report"]).optional(),
+      // What triggered the snapshot run (all-analyses response only).
+      triggeredBy: z.string().optional(),
+      // Report id when type === "report" (all-analyses response only).
+      reportId: z.string().optional(),
       dateStart: z.string(),
       dateEnd: z.string(),
       dimension: z.object({
         type: z.string(),
         id: z.string().optional(),
+        // `precomputed` is orthogonal to `type`; `type` is never "precomputed".
+        precomputed: z.boolean().optional(),
       }),
       settings: apiExperimentAnalysisSettingsValidator,
       queryIds: z.array(z.string()),
@@ -896,6 +909,9 @@ export const apiExperimentResultsValidator = namedSchema(
                   analyses: z.array(
                     z.object({
                       engine: z.enum(["bayesian", "frequentist"]),
+                      differenceType: z
+                        .enum(["relative", "absolute", "scaled"])
+                        .optional(),
                       numerator: z.coerce.number(),
                       denominator: z.coerce.number(),
                       mean: z.coerce.number(),
@@ -1893,6 +1909,64 @@ export const getExperimentResultsValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/results",
+};
+
+export const getExperimentAllAnalysesValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      dateStart: z
+        .string()
+        .describe(
+          "Return snapshots generated on or after this date (ISO 8601 date-time).",
+        )
+        .meta({ format: "date-time" }),
+      dateEnd: z
+        .string()
+        .describe(
+          "Return snapshots generated on or before this date (ISO 8601 date-time). Defaults to now.",
+        )
+        .meta({ format: "date-time" })
+        .optional(),
+      phase: z
+        .string()
+        .describe("Filter to a single experiment phase index.")
+        .optional(),
+      type: z
+        .enum(["standard", "exploratory", "report"])
+        .describe(
+          "Filter to a single snapshot type. By default all types are returned.",
+        )
+        .optional(),
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z.intersection(
+    z.object({
+      results: z.array(apiExperimentResultsValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get all analyses for an experiment",
+  description: [
+    "Returns every snapshot for an experiment generated within a date window, as a flat list of result items that reuse the `ExperimentResults` shape.",
+    "",
+    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each difference type (relative, absolute, scaled) computed for the run is folded into each variation's `analyses` array.",
+    "",
+    "Snapshot type and dimension breakdown are independent, explicit signals:",
+    "- `type` is one of `standard`, `exploratory`, or `report`; report snapshots also include `reportId`.",
+    "- `dimension` describes the breakdown; `dimension.precomputed` marks precomputed dimensions while `dimension.type` resolves to the underlying kind (never `precomputed`).",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of snapshots matching the filters.",
+    "- `count` is the number of snapshots included on this page; a single snapshot may contribute multiple `results` items.",
+    "- `hasMore` and `nextOffset` advance over snapshots, not over returned result items.",
+  ].join("\n"),
+  operationId: "getExperimentAllAnalyses",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/all-analyses",
 };
 
 export const listExperimentResultsValidator = {

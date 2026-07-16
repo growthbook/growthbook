@@ -96,6 +96,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotMetric,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
@@ -123,9 +124,10 @@ import {
 import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   ExperimentReportAnalysisSettings,
+  ExperimentReportResultDimension,
   MetricSnapshotSettings,
 } from "shared/types/report";
-import { StatsEngine } from "shared/types/stats";
+import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -2903,6 +2905,100 @@ function safeFloat(n: number | undefined, fallback = 0): number {
   return parseFloat(n.toFixed(20));
 }
 
+// Resolve a snapshot/analysis dimension id into an API-friendly descriptor.
+// `type` is never "precomputed": precomputed is an orthogonal execution detail
+// (the dimension was computed eagerly in one pass), so we resolve to the
+// underlying dimension kind and expose a separate boolean.
+function parseApiResultDimension(
+  dimensionId: string,
+  precomputedUnitDimensionIds: string[],
+): { type: string; id?: string; precomputed: boolean } {
+  if (!dimensionId) {
+    return { type: "none", precomputed: false };
+  }
+
+  const precomputed = isDimensionPrecomputed(
+    dimensionId,
+    precomputedUnitDimensionIds,
+  );
+
+  // Precomputed experiment dimensions carry the `precomputed:` prefix.
+  if (dimensionId.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
+    return {
+      type: "experiment",
+      id: dimensionId.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
+      precomputed: true,
+    };
+  }
+  if (dimensionId.startsWith("exp:")) {
+    return {
+      type: "experiment",
+      id: dimensionId.substring(4),
+      precomputed,
+    };
+  }
+  if (dimensionId.startsWith("pre:")) {
+    return { type: dimensionId.substring(4), precomputed };
+  }
+  // Otherwise a unit/user dimension id (possibly a precomputed unit dimension).
+  return { type: "user", id: dimensionId, precomputed };
+}
+
+// Builds a metric display-name resolver that formats slice metrics as
+// "Parent (col: val, ...)" so payloads are self-describing.
+function buildResultMetricNameResolver(
+  metricIds: Iterable<string>,
+  metricsById: Map<string, ExperimentMetricInterface>,
+): (id: string) => string | undefined {
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const baseMetricsById = new Map(
+    baseMetricIds.flatMap((id) => {
+      const m = metricsById.get(id);
+      return m ? [[id, m] as const] : [];
+    }),
+  );
+  return (id: string): string | undefined => {
+    const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
+    const baseName = baseMetricsById.get(baseMetricId)?.name;
+    if (!baseName) return undefined;
+    if (!sliceLevels.length) return baseName;
+    const sliceContext = sliceLevels
+      .map(
+        (s) =>
+          `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+      )
+      .join(", ");
+    return `${baseName} (${sliceContext})`;
+  };
+}
+
+// Maps a single per-variation SnapshotMetric into an API analysis entry for a
+// given stats engine + difference type.
+function toApiResultAnalysis(
+  engine: StatsEngine,
+  differenceType: DifferenceType,
+  data: SnapshotMetric | undefined,
+) {
+  return {
+    engine,
+    differenceType,
+    numerator: safeFloat(data?.value),
+    denominator: safeFloat(data?.denominator ?? data?.users),
+    mean: safeFloat(data?.stats?.mean),
+    stddev: safeFloat(data?.stats?.stddev),
+    percentChange: safeFloat(data?.expected),
+    ciLow: safeFloat(data?.ci?.[0]),
+    ciHigh: safeFloat(data?.ci?.[1]),
+    pValue: safeFloat(data?.pValue),
+    risk: safeFloat(data?.risk?.[1]),
+    chanceToBeatControl: safeFloat(data?.chanceToWin),
+  };
+}
+
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
@@ -2951,30 +3047,7 @@ export function toSnapshotApiInterface(
   // Resolve display names for every metric that appears in the results, using
   // the canonical "Parent (col: val, ...)" format for slice metrics so the
   // payload is self-describing.
-  const baseMetricIds = Array.from(
-    new Set(
-      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
-    ),
-  );
-  const baseMetricsById = new Map(
-    baseMetricIds.flatMap((id) => {
-      const m = metricsById.get(id);
-      return m ? [[id, m]] : [];
-    }),
-  );
-  const getMetricName = (id: string): string | undefined => {
-    const { baseMetricId, sliceLevels } = parseSliceMetricId(id);
-    const baseName = baseMetricsById.get(baseMetricId)?.name;
-    if (!baseName) return undefined;
-    if (!sliceLevels.length) return baseName;
-    const sliceContext = sliceLevels
-      .map(
-        (s) =>
-          `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
-      )
-      .join(", ");
-    return `${baseName} (${sliceContext})`;
-  };
+  const getMetricName = buildResultMetricNameResolver(metricIds, metricsById);
 
   return {
     id: snapshot.id,
@@ -3034,20 +3107,11 @@ export function toSnapshotApiInterface(
                 ...(variationName ? { variationName } : null),
                 users: v.users,
                 analyses: [
-                  {
-                    engine:
-                      analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-                    numerator: safeFloat(data?.value),
-                    denominator: safeFloat(data?.denominator ?? data?.users),
-                    mean: safeFloat(data?.stats?.mean),
-                    stddev: safeFloat(data?.stats?.stddev),
-                    percentChange: safeFloat(data?.expected),
-                    ciLow: safeFloat(data?.ci?.[0]),
-                    ciHigh: safeFloat(data?.ci?.[1]),
-                    pValue: safeFloat(data?.pValue),
-                    risk: safeFloat(data?.risk?.[1]),
-                    chanceToBeatControl: safeFloat(data?.chanceToWin),
-                  },
+                  toApiResultAnalysis(
+                    analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+                    analysis?.settings?.differenceType ?? "relative",
+                    data,
+                  ),
                 ],
               };
             }),
@@ -3056,6 +3120,163 @@ export function toSnapshotApiInterface(
       };
     }),
   };
+}
+
+// Serializes a single snapshot into one ExperimentResults-shaped item per
+// dimension. Every difference-type / engine variant stored on the snapshot is
+// folded into each variation's `analyses` array so callers see them side by
+// side. The special hardcoded frequentist covariate-as-response analysis is an
+// internal helper (not a user-facing difference type) and is skipped.
+export function toExperimentSnapshotResultsApiInterface(
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface,
+  metricsById: Map<string, ExperimentMetricInterface>,
+): ApiExperimentResults[] {
+  const phase = experiment.phases[snapshot.phase];
+  const phaseVariations = getPhaseVariations(experiment, snapshot.phase);
+  const variationIds = phaseVariations.map((v) => v.id);
+  const variationNames = phaseVariations.map((v) => v.name);
+
+  const activationMetric =
+    snapshot.settings.activationMetric || experiment.activationMetric;
+
+  const precomputedUnitDimensionIds =
+    snapshot.settings.precomputedUnitDimensionIds ?? [];
+
+  // Group successful analyses by dimension (analysis.settings.dimensions[0]).
+  const analysesByDimension = new Map<string, ExperimentSnapshotAnalysis[]>();
+  for (const analysis of snapshot.analyses) {
+    if (analysis.settings.useCovariateAsResponse) continue;
+    if (analysis.status !== "success") continue;
+    const dimensionId = analysis.settings.dimensions[0] || "";
+    const existing = analysesByDimension.get(dimensionId);
+    if (existing) {
+      existing.push(analysis);
+    } else {
+      analysesByDimension.set(dimensionId, [analysis]);
+    }
+  }
+
+  const dateStart = phase?.dateStarted?.toISOString() || "";
+  const dateEnd =
+    phase?.dateEnded?.toISOString() || snapshot.runStarted?.toISOString() || "";
+
+  // Data-generation settings are identical across dimensions of one snapshot;
+  // only the per-analysis statsEngine is added per item below.
+  const baseSettings = {
+    datasourceId: experiment.datasource || "",
+    assignmentQueryId: experiment.exposureQueryId || "",
+    experimentId: experiment.trackingKey,
+    segmentId: snapshot.settings.segment,
+    queryFilter: snapshot.settings.queryFilter,
+    inProgressConversions: snapshot.settings.skipPartialData
+      ? ("exclude" as const)
+      : ("include" as const),
+    attributionModel: experiment.attributionModel || "firstExposure",
+    goals: experiment.goalMetrics.map((m) =>
+      getExperimentMetric(experiment, m),
+    ),
+    secondaryMetrics: experiment.secondaryMetrics.map((m) =>
+      getExperimentMetric(experiment, m),
+    ),
+    guardrails: experiment.guardrailMetrics.map((m) =>
+      getExperimentMetric(experiment, m),
+    ),
+    ...(activationMetric
+      ? { activationMetric: getExperimentMetric(experiment, activationMetric) }
+      : null),
+  };
+
+  const queryIds = snapshot.queries.map((q) => q.query);
+
+  const items: ApiExperimentResults[] = [];
+
+  for (const [dimensionId, analyses] of analysesByDimension) {
+    // The default (first) analysis establishes the result structure; every
+    // analysis in the group contributes an inner analysis entry.
+    const baseAnalysis = analyses[0];
+
+    const metricIds = new Set<string>();
+    analyses.forEach((a) => {
+      (a.results || []).forEach((s) => {
+        s.variations.forEach((v) => {
+          Object.keys(v.metrics).forEach((m) => metricIds.add(m));
+        });
+      });
+    });
+
+    const getMetricName = buildResultMetricNameResolver(metricIds, metricsById);
+
+    // Index each analysis's result dimensions by slice name so difference
+    // types align even if analyses order their slices differently.
+    const sliceByNamePerAnalysis = analyses.map((a) => {
+      const sliceByName = new Map<string, ExperimentReportResultDimension>();
+      (a.results || []).forEach((s) => sliceByName.set(s.name, s));
+      return { analysis: a, sliceByName };
+    });
+
+    const dimension = parseApiResultDimension(
+      dimensionId,
+      precomputedUnitDimensionIds,
+    );
+
+    items.push({
+      id: snapshot.id,
+      snapshotId: snapshot.id,
+      dateUpdated: snapshot.dateCreated.toISOString(),
+      dateCreated: snapshot.dateCreated.toISOString(),
+      experimentId: snapshot.experiment,
+      phase: snapshot.phase + "",
+      type: snapshot.type ?? "standard",
+      ...(snapshot.triggeredBy ? { triggeredBy: snapshot.triggeredBy } : null),
+      ...(snapshot.report ? { reportId: snapshot.report } : null),
+      dimension,
+      dateStart,
+      dateEnd,
+      settings: {
+        ...baseSettings,
+        statsEngine: baseAnalysis.settings.statsEngine || DEFAULT_STATS_ENGINE,
+      },
+      queryIds,
+      results: (baseAnalysis.results || []).map((s) => {
+        return {
+          dimension: s.name,
+          totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
+          checks: {
+            srm: s.srm,
+          },
+          metrics: Array.from(metricIds).map((m) => {
+            const metricName = getMetricName(m);
+            return {
+              metricId: m,
+              ...(metricName ? { metricName } : null),
+              variations: s.variations.map((v, i) => {
+                const variationName = variationNames[i];
+                return {
+                  variationId: variationIds[i],
+                  ...(variationName ? { variationName } : null),
+                  users: v.users,
+                  analyses: sliceByNamePerAnalysis.map(
+                    ({ analysis, sliceByName }) => {
+                      const data = sliceByName.get(s.name)?.variations[i]
+                        ?.metrics[m];
+                      return toApiResultAnalysis(
+                        analysis.settings.statsEngine || DEFAULT_STATS_ENGINE,
+                        analysis.settings.differenceType,
+                        data,
+                      );
+                    },
+                  ),
+                };
+              }),
+            };
+          }),
+        };
+      }),
+    });
+  }
+
+  return items;
 }
 
 /**

@@ -889,6 +889,60 @@ export async function findSnapshotsByIds(
   return populateSnapshotAnalyses(context, snapshots);
 }
 
+export async function findSnapshotsByExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    dateStart,
+    dateEnd,
+    phase,
+    type,
+    limit,
+    offset,
+  }: {
+    experiment: string;
+    dateStart: Date;
+    dateEnd: Date;
+    phase?: number;
+    type?: SnapshotType;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ snapshots: ExperimentSnapshotInterface[]; total: number }> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    status: "success",
+    dateCreated: { $gte: dateStart, $lte: dateEnd },
+  };
+  if (phase !== undefined) {
+    query.phase = phase;
+  }
+  // Only filter by type when requested; by default include every type
+  // (standard, exploratory, and report) since this endpoint dumps all runs.
+  if (type) {
+    query.type = type;
+  }
+
+  // Paginate over snapshots at the DB level (backed by the
+  // { experiment: 1, dateCreated: -1 } index) since hydrating chunked
+  // analyses per snapshot is expensive.
+  const total = await ExperimentSnapshotModel.countDocuments(query);
+
+  const docs = await ExperimentSnapshotModel.find(query, null, {
+    sort: { dateCreated: -1 },
+    skip: offset,
+    limit,
+  }).exec();
+
+  const snapshots = await populateSnapshotAnalyses(
+    context,
+    docs.map(toInterface),
+  );
+
+  return { snapshots, total };
+}
+
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
   // Only look for matches in the past 24 hours to make the query more efficient
   // Older snapshots should not still be running anyway
