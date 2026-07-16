@@ -1,7 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { BsGraphUpArrow } from "react-icons/bs";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { PiArrowsClockwise, PiDotsSix } from "react-icons/pi";
+import { PiArrowsClockwise, PiChartLineUp, PiDotsSix } from "react-icons/pi";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -175,7 +174,7 @@ export default function ExplorerMainSection() {
               </>
             ) : (
               <>
-                <BsGraphUpArrow size={48} className="text-muted" />
+                <PiChartLineUp size={48} style={{ color: "var(--gray-a9)" }} />
 
                 <Text size="large" weight="medium">
                   Configure your explorer to visualize data
