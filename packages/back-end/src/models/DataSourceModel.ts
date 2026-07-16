@@ -204,6 +204,44 @@ export async function clearManagedWarehouseRecreateStatus(
   );
 }
 
+/**
+ * Best-effort acquire of the license server's per-datasource lock (`lockUntil` —
+ * top-level and schema-less like the recreate fields, with matching semantics) so
+ * app-side managed-warehouse mutations can mutually exclude license-server
+ * operations (provision/recreate) on the same doc. Returns false when the lock is
+ * already held; pair with `unlockManagedWarehouseDatasource` in a `finally`.
+ */
+export async function tryLockManagedWarehouseDatasource(
+  context: ReqContext | ApiReqContext,
+  seconds: number,
+): Promise<boolean> {
+  const now = new Date();
+  const result = await getCollection<{ lockUntil?: Date | null }>(
+    "datasources",
+  ).updateOne(
+    {
+      organization: context.org.id,
+      type: "growthbook_clickhouse",
+      $or: [
+        { lockUntil: { $exists: false } },
+        { lockUntil: null },
+        { lockUntil: { $lte: now } },
+      ],
+    },
+    { $set: { lockUntil: new Date(now.getTime() + seconds * 1000) } },
+  );
+  return result.matchedCount > 0;
+}
+
+export async function unlockManagedWarehouseDatasource(
+  context: ReqContext | ApiReqContext,
+): Promise<void> {
+  await getCollection<{ lockUntil?: Date | null }>("datasources").updateOne(
+    { organization: context.org.id, type: "growthbook_clickhouse" },
+    { $set: { lockUntil: null } },
+  );
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
