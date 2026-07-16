@@ -704,12 +704,19 @@ export async function createFeature(
     }
   }
 
-  // A config-backed default must be exactly a config. Enforced at this shared
-  // create choke point so every entry point is covered, not just REST handlers.
-  assertConfigBackedDefaultHasNoOverrides(
-    featureToCreate,
-    featureToCreate.defaultValue,
-  );
+  // A config-backed feature's default AND rule values must conform to the
+  // backing config's effective schema. Enforced at this shared create choke
+  // point so every entry point is covered — not just the v2 REST handlers.
+  // Legacy/internal create paths (v1 POST, internal postFeatures) reach here
+  // without their own net, and creation writes a published revision directly
+  // (no publish-time re-check), so an unchecked create would ship a
+  // schema-violating value on version 1. `rules` is canonical here:
+  // buildFeatureUpdate scrubs env-settings rules into the flat top-level array.
+  // No-op for non-json / non-config features and when skipSchemaValidation is set.
+  await assertConfigBackedFeatureValuesValid(context, featureToCreate, {
+    defaultValue: featureToCreate.defaultValue,
+    rules: featureToCreate.rules as FeatureRule[] | undefined,
+  });
 
   // Run any custom hooks for this feature
   await runValidateFeatureHooks({
