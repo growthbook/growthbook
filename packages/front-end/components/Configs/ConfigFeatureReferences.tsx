@@ -5,6 +5,7 @@ import { LineageNode } from "@/components/Configs/fieldSchema";
 import { ConfigFamilyReferences } from "@/hooks/useConstantReferences";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import styles from "./ConfigFeatureReferences.module.scss";
 
 const ROW_HEIGHT = 30;
@@ -98,29 +99,22 @@ export default function ConfigFeatureReferences({
     );
   }
 
+  // Config rows navigate in-app (matching the Configs tab); feature rows open a
+  // new tab (leaving the config page you're inspecting).
   const configRow = (key: string) => {
     const node = nodeOf(key);
     const isCurrent = key === currentKey;
-    return (
+    const row = (
       <Flex
-        key={key}
         align="center"
         gap="1"
         pl="1"
         pr="2"
         className={styles.row}
-        onClick={
-          isCurrent
-            ? undefined
-            : (e) => {
-                e.stopPropagation();
-                window.open(`/configs/${key}`, "_blank", "noopener,noreferrer");
-              }
-        }
         style={{
           height: ROW_HEIGHT,
           borderRadius: "var(--radius-2)",
-          cursor: isCurrent ? "default" : "pointer",
+          cursor: isCurrent ? "default" : undefined,
           background: isCurrent ? "var(--violet-a3)" : undefined,
         }}
       >
@@ -153,6 +147,18 @@ export default function ConfigFeatureReferences({
         </span>
       </Flex>
     );
+    return isCurrent ? (
+      <Box key={key}>{row}</Box>
+    ) : (
+      <Link
+        key={key}
+        href={`/configs/${key}`}
+        underline="none"
+        style={{ display: "block", color: "inherit" }}
+      >
+        {row}
+      </Link>
+    );
   };
 
   const groupLabel = (label: string) => (
@@ -172,43 +178,47 @@ export default function ConfigFeatureReferences({
     <Box>
       {references.features.map((f) => (
         <Box key={f.id} mb="2">
-          <Flex
-            align="center"
-            gap="1"
-            pl="1"
-            pr="2"
-            className={styles.row}
-            onClick={() =>
-              window.open(`/features/${f.id}`, "_blank", "noopener,noreferrer")
-            }
-            style={{
-              height: ROW_HEIGHT,
-              borderRadius: "var(--radius-2)",
-              cursor: "pointer",
-            }}
+          <Link
+            href={`/features/${f.id}`}
+            target="_blank"
+            rel="noreferrer"
+            underline="none"
+            style={{ display: "block", color: "inherit" }}
           >
             <Flex
               align="center"
-              justify="center"
-              style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
-            >
-              <PiFlag size={13} />
-            </Flex>
-            <span
-              title={f.name}
+              gap="1"
+              pl="1"
+              pr="2"
+              className={styles.row}
               style={{
-                minWidth: 0,
-                marginLeft: 4,
-                fontSize: "var(--font-size-1)",
-                fontWeight: 500,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                height: ROW_HEIGHT,
+                borderRadius: "var(--radius-2)",
               }}
             >
-              {f.name}
-            </span>
-          </Flex>
+              <Flex
+                align="center"
+                justify="center"
+                style={{ width: 14, flexShrink: 0, color: "var(--slate-11)" }}
+              >
+                <PiFlag size={13} />
+              </Flex>
+              <span
+                title={f.name}
+                style={{
+                  minWidth: 0,
+                  marginLeft: 4,
+                  fontSize: "var(--font-size-1)",
+                  fontWeight: 500,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {f.name}
+              </span>
+            </Flex>
+          </Link>
           <Branch>
             {f.defaultConfigKey && (
               <Box>
