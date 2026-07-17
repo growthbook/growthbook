@@ -11,10 +11,7 @@ import {
   MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN,
   MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES,
 } from "shared/util";
-import {
-  DataSourceInterface,
-  GrowthbookClickhouseDataSource,
-} from "shared/types/datasource";
+import { DataSourceInterface } from "shared/types/datasource";
 import { SDKAttributeSchema } from "shared/types/organization";
 import type {
   ExperimentEvalItem,
