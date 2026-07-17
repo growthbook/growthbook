@@ -109,6 +109,36 @@ describe("computeExperimentGuardConflictKeys", () => {
     );
     expect([...keys]).toEqual(["base"]);
   });
+
+  it("keys conflicts per (config, experiment) — a different experiment is a new conflict", () => {
+    // The arm-time fingerprint must go stale when a DIFFERENT experiment starts
+    // on an acknowledged config: with config-key-only identity, E1 stopping and
+    // E2 starting between arm and fire kept the set equal and published over E2.
+    const armTime = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", experimentId: "exp_1" })],
+      new Set(["base"]),
+    );
+    const fireTime = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", experimentId: "exp_2" })],
+      new Set(["base"]),
+    );
+    expect([...armTime]).toEqual(["base|exp:exp_1"]);
+    expect(experimentGuardConflictsAcknowledged(fireTime, [...armTime])).toBe(
+      false,
+    );
+    // The acknowledged experiment stopping is still a covered subset.
+    expect(
+      experimentGuardConflictsAcknowledged(new Set<string>(), [...armTime]),
+    ).toBe(true);
+  });
+
+  it("keys a contextual-bandit arm by its bandit id", () => {
+    const keys = computeExperimentGuardConflictKeys(
+      [impl({ configKey: "base", contextualBanditId: "cb_1" })],
+      new Set(["base"]),
+    );
+    expect([...keys]).toEqual(["base|cb:cb_1"]);
+  });
 });
 
 describe("experimentGuardConflictsAcknowledged", () => {

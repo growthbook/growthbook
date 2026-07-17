@@ -33,17 +33,58 @@ import { logger } from "back-end/src/util/logger";
 // The service layer feeds it the live usage implementations and the arm-time
 // fingerprint; the adapter/handlers act on the returned decision.
 
-// The config keys in the conflict set: configs affected by publishing this config
+// A conflict key names BOTH the served config and the running experiment (or
+// contextual bandit) reading it — `<configKey>|exp:<id>` / `<configKey>|cb:<id>`
+// — so the arm-time acknowledgment fingerprint goes stale when a DIFFERENT
+// experiment starts on an already-acknowledged config between arm and fire.
+// (Config-key-only identity let that publish slip through as "acknowledged",
+// silently disrupting an experiment the armer never saw.) Falls back to the
+// bare config key when the implementation carries no experiment identity.
+function experimentGuardConflictKey(
+  impl: Pick<
+    ConfigKeyImplementation,
+    "configKey" | "experimentId" | "contextualBanditId"
+  >,
+): string {
+  const subject = impl.experimentId
+    ? `exp:${impl.experimentId}`
+    : impl.contextualBanditId
+      ? `cb:${impl.contextualBanditId}`
+      : null;
+  return subject ? `${impl.configKey}|${subject}` : impl.configKey;
+}
+
+// Human-readable rendering of composite conflict keys for warning messages.
+function describeConfigConflictKey(key: string): string {
+  const sep = key.indexOf("|");
+  if (sep === -1) return `config "${key}"`;
+  const configKey = key.slice(0, sep);
+  const subject = key.slice(sep + 1);
+  const noun = subject.startsWith("cb:") ? "bandit" : "experiment";
+  return `config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
+}
+
+function describeConfigConflictKeys(keys: string[]): string {
+  return keys.map(describeConfigConflictKey).join(", ");
+}
+
+// The conflict set for publishing this config: configs affected by the publish
 // (itself or a descendant, via base-wins inheritance) whose LIVE value backs a
-// running experiment's variation arm AND that have the guard enabled. Guarding is
-// a property of the SERVED config, not the edited one — so publishing an unguarded
-// ancestor still conflicts when a guarded descendant it feeds serves a running
-// experiment. Ancestors and lateral mixins are excluded — publishing this config
-// doesn't change their value.
+// running experiment's variation arm AND that have the guard enabled, keyed per
+// (config, experiment). Guarding is a property of the SERVED config, not the
+// edited one — so publishing an unguarded ancestor still conflicts when a
+// guarded descendant it feeds serves a running experiment. Ancestors and
+// lateral mixins are excluded — publishing this config doesn't change their
+// value.
 export function computeExperimentGuardConflictKeys(
   implementations: Pick<
     ConfigKeyImplementation,
-    "configKey" | "relation" | "experimentStatus" | "state"
+    | "configKey"
+    | "relation"
+    | "experimentStatus"
+    | "state"
+    | "experimentId"
+    | "contextualBanditId"
   >[],
   guardedConfigKeys: Set<string>,
 ): Set<string> {
@@ -56,7 +97,7 @@ export function computeExperimentGuardConflictKeys(
     if (impl.relation !== "self" && impl.relation !== "descendant") continue;
     // Only when the config actually serving the value opted into the guard.
     if (!guardedConfigKeys.has(impl.configKey)) continue;
-    keys.add(impl.configKey);
+    keys.add(experimentGuardConflictKey(impl));
   }
   return keys;
 }
@@ -343,15 +384,15 @@ export async function assertConfigExperimentGuard(
     return;
   }
 
-  const keyList = decision.conflictKeys.join(", ");
+  const keyList = describeConfigConflictKeys(decision.conflictKeys);
   if (decision.action === "block-immediate") {
     throw new SoftWarningError(
-      `Publishing this config rewrites the live value served to a running experiment (config keys: ${keyList}). Re-submit with ignoreWarnings to proceed.`,
+      `Publishing this config rewrites the live value served to a running experiment (${keyList}). Re-submit with ignoreWarnings to proceed.`,
       decision.conflictKeys,
     );
   }
   throw new TerminalPublishError(
-    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (config keys now: ${keyList}). Re-open the draft and re-confirm to publish.`,
+    `Config publish blocked by the experiment guard: the running experiments affected have changed since this publish was scheduled (now: ${keyList}). Re-open the draft and re-confirm to publish.`,
   );
 }
 
@@ -426,8 +467,8 @@ export async function captureConfigExperimentGuardAcknowledgment(
     });
   if (!override) {
     throw new SoftWarningError(
-      `Scheduling this publish will rewrite the live value served to a running experiment (config keys: ${sortedKeys.join(
-        ", ",
+      `Scheduling this publish will rewrite the live value served to a running experiment (${describeConfigConflictKeys(
+        sortedKeys,
       )}). Re-submit with ignoreWarnings to acknowledge and schedule.`,
       sortedKeys,
     );
@@ -496,13 +537,15 @@ export async function evaluateConstantExperimentGuardConflicts(
   return conflicts;
 }
 
-// Human-readable rendering of the mixed constant conflict-key set — config keys
-// (config-backed path) and `exp:<id>` tokens (direct experiment-ref path) — for
-// the warning message.
+// Human-readable rendering of the mixed constant conflict-key set — composite
+// config keys (config-backed path) and bare `exp:<id>` tokens (direct
+// experiment-ref path) — for the warning message.
 function describeConstantConflictKeys(keys: string[]): string {
   return keys
     .map((k) =>
-      k.startsWith("exp:") ? `experiment ${k.slice(4)}` : `config "${k}"`,
+      k.startsWith("exp:")
+        ? `experiment ${k.slice(4)}`
+        : describeConfigConflictKey(k),
     )
     .join(", ");
 }
