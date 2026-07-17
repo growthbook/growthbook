@@ -162,7 +162,7 @@ function PreLaunchChecklistUI({
   ) : (
     <Box className={styles.drawerBodyInner}>
       {completeItems.length > 0 && (
-        <Box style={{ marginBottom: 19 }}>
+        <Box className={styles.showCompletedToggle}>
           <Switch
             value={showCompleted}
             onChange={setShowCompleted}

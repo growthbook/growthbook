@@ -90,7 +90,11 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     >
       <Flex gap="2">
         {checkboxTooltip ? (
-          <Tooltip body={checkboxTooltip} tipPosition="top">
+          <Tooltip
+            body={checkboxTooltip}
+            tipPosition="top"
+            popperStyle={{ maxWidth: "300px" }}
+          >
             {checkboxEl}
           </Tooltip>
         ) : (
