@@ -154,22 +154,22 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   constants: {
     display: "Constants",
     description:
-      "Reusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array.",
   },
   "constant-revisions": {
     display: "Constant Revisions",
     description:
-      'Draft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   configs: {
     display: "Configs",
     description:
-      "Reusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves like a `json` constant, composed via `$extends`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves like a `json` constant, composed via `$extends`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
   },
   "config-revisions": {
     display: "Config Revisions",
     description:
-      'Draft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   "custom-hooks": {
     display: "Custom Hooks",

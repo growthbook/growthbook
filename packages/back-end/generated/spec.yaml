@@ -233,6 +233,10 @@ tags:
   - name: constants
     x-displayName: Constants
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Reusable named values referenced from feature flag values as `@const:key`
       and resolved into the SDK payload at build time. String constants are
       interpolated via `{{ @const:key }}`; JSON (object) constants are composed
@@ -240,12 +244,20 @@ tags:
   - name: constant-revisions
     x-displayName: Constant Revisions
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Draft revisions for constants, including pending changes, approvals, and
       lifecycle (publish, discard, revert). Pass `version: "new"` on edit
       endpoints to auto-create a draft.
   - name: configs
     x-displayName: Configs
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Reusable, typed, inheritable JSON objects referenced from feature flag
       values as `@config:key`. A config carries a field `schema` (with
       TypeScript/JSON Schema import-export) and a lineage `parent`; it resolves
@@ -256,6 +268,10 @@ tags:
   - name: config-revisions
     x-displayName: Config Revisions
     description: >-
+      **Beta** — these endpoints are new and may change in
+      backwards-incompatible ways.
+
+
       Draft revisions for configs, including value and schema edits, schema
       import (JSON Schema / TypeScript / inferred), approvals, and lifecycle
       (publish, discard, revert). Publishing a schema change cascades the "base
