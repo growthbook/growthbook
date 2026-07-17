@@ -23,12 +23,10 @@ const QUEUE_EXPERIMENT_STATUS_UPDATES = "queueScheduledExperimentStatusUpdates";
 
 const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 
-// Caps retries of a scheduled status transition. The QUEUE_* job runs every
-// minute, so without a cap a persistently-failing experiment (e.g. a linked
-// feature draft with a merge conflict) would re-queue forever. Each failure
-// increments `nextScheduledStatusUpdate.failedAttempts`; once the count hits
-// this cap the job clears `nextScheduledStatusUpdate` and emits a terminal
-// `experiment.warning` event so the user can re-schedule manually.
+// The QUEUE_* job runs every minute, so without a cap a persistently-failing
+// experiment would re-queue forever. Past this many failed attempts, the job
+// clears `nextScheduledStatusUpdate` and emits a terminal `experiment.warning`
+// instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 export default async function (agenda: Agenda) {
@@ -82,14 +80,10 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  // A stopped/archived experiment can't be started or stopped; per-type
-  // preconditions (draft for start, running for stop) are enforced in the
-  // switch below.
   if (experiment.archived || experiment.status === "stopped") {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
-    // Clear the scheduled update so it doesn't get re-processed
     await updateExperiment({
       context,
       experiment,
@@ -163,17 +157,14 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
-        // Applies shippingCriteria: ship a winner (auto/forced) and stop, do a
-        // hard stop with no rollout, or — for a soft "notify" end — leave the
-        // experiment running. A stop refreshes the SDK payload as a side effect.
+        // A stop refreshes the SDK payload as a side effect.
         const outcome = await applyScheduledExperimentStop({
           context,
           experiment,
         });
 
-        // Consume the staged update either way (one-shot). Re-load first so we
-        // act on fresh state — the experiment is stopped for shipped/stopped
-        // outcomes, still running for kept-running.
+        // Re-load: stopExperiment may have already mutated the experiment, and
+        // the notification below needs fresh state either way.
         const latest =
           (await getExperimentById(context, experiment.id)) ?? experiment;
         if (latest.nextScheduledStatusUpdate) {
@@ -233,10 +224,9 @@ const updateSingleExperimentStatus = async (
       );
     }
 
-    // Persist the new attempt count (or clear the schedule once we've hit
-    // the cap). Wrapped because if executeExperimentStart already wrote to
-    // the experiment we may hit a stale-revision error here, and a failure
-    // to record state must not mask the original error in the logs.
+    // Wrapped: executeExperimentStart may have already written to the
+    // experiment, so this can hit a stale-revision error that must not mask
+    // the original failure being logged above.
     try {
       await updateExperiment({
         context,

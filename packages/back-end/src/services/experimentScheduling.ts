@@ -24,10 +24,8 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { stopExperiment } from "./experimentChanges/changeExperimentStatus";
 
-// Auto-ship is a Pro+ feature and rides on the decision framework — the winner
-// is whatever the org's decision criteria consider a clear ship. Requires both
-// the commercial feature and the org's decision-framework toggle (mirrors the
-// UI gate and getExperimentResultStatus's internal check).
+// Mirrors the UI gate: auto-ship needs both the commercial feature and the
+// org's decision-framework toggle enabled.
 function canAutoShip(context: Context): boolean {
   return (
     orgHasPremiumFeature(context.org, "decision-framework") &&
@@ -36,9 +34,7 @@ function canAutoShip(context: Context): boolean {
   );
 }
 
-// Relative lift of `metricId` per variation id, from the latest successful
-// snapshot's default analysis. Used only to break an ambiguous multi-winner
-// tie. Returns null when the data isn't available (→ treated as no winner).
+// Used only to break an ambiguous multi-winner tie; null means "no winner".
 async function getTiebreakerLiftMap(
   context: Context,
   experiment: ExperimentInterface,
@@ -80,24 +76,18 @@ async function getTiebreakerLiftMap(
 }
 
 export type ScheduledStopOutcome =
-  // Stopped and rolled out a variation (auto-ship winner, or a forced variation).
   | { kind: "shipped"; variationId: string; forced: boolean }
-  // Stopped with no rollout (mode "stop" / hard deadline).
   | { kind: "stopped" }
-  // Soft end: the experiment was left running and only notified.
   | { kind: "kept-running"; recommendedVariationId: string | null };
 
-// The EDF + tiebreaker verdict, recorded as analytical metadata independent of
-// what actually rolls out. Null when the decision framework isn't available.
+// Recorded as analytical metadata, independent of what actually rolls out.
 type ScheduledVerdict = {
   results: "won" | "lost" | "inconclusive";
   winnerIndex: number; // -1 when there's no winner
   winnerVariationId: string | null;
 };
 
-// Run the decision framework (+ tiebreaker) and translate it into a
-// won/lost/inconclusive verdict. Gated on the decision framework (Pro); returns
-// null when unavailable so callers can skip metadata tagging.
+// Null when auto-ship isn't available, so callers can skip metadata tagging.
 async function computeScheduledVerdict(
   context: Context,
   experiment: ExperimentInterface,
@@ -189,10 +179,8 @@ async function computeScheduledVerdict(
 const variationExists = (experiment: ExperimentInterface, id?: string) =>
   !!id && experiment.variations.some((v) => v.id === id);
 
-// The variation to force-ship: the configured one, or control (the first
-// variation) if it no longer exists, so a "hard cutoff" still ships something
-// rather than silently degrading to keep-running. Null only if the experiment
-// has no variations at all (shouldn't happen).
+// Falls back to control if the configured variation no longer exists, so a
+// hard cutoff still ships something rather than degrading to keep-running.
 const resolveForceShipTarget = (
   experiment: ExperimentInterface,
   id?: string,
@@ -201,12 +189,6 @@ const resolveForceShipTarget = (
     ? (id as string)
     : (experiment.variations[0]?.id ?? null);
 
-// Apply an experiment's scheduled end per its shippingCriteria. Rollout and the
-// analytical verdict are decoupled: "auto-ship" ships the EDF winner; "force-
-// ship" rolls out a chosen variation; "stop" is a hard stop with no rollout;
-// "notify" is soft — the experiment keeps running and is only flagged. For
-// force-ship/stop the EDF verdict (when available) is recorded as metadata but
-// never changes what's shipped.
 export async function applyScheduledExperimentStop({
   context,
   experiment,
@@ -218,7 +200,6 @@ export async function applyScheduledExperimentStop({
   const mode = shipping?.mode ?? "notify";
   const tiebreakerMetricId = shipping?.tiebreakerMetricId;
 
-  // ── Auto-ship: ship the EDF winner; otherwise fall back. ──
   if (mode === "auto-ship" && canAutoShip(context)) {
     const verdict = await computeScheduledVerdict(
       context,
@@ -244,7 +225,6 @@ export async function applyScheduledExperimentStop({
       };
     }
 
-    // No clear winner → force-ship fallback (stop + rollout) or notify (soft).
     const fallbackTarget =
       shipping?.fallback === "force-ship"
         ? resolveForceShipTarget(experiment, shipping.fallbackVariationId)
@@ -278,7 +258,6 @@ export async function applyScheduledExperimentStop({
     };
   }
 
-  // ── Force-ship a specific variation (basic; EDF verdict is bonus metadata). ──
   const forceShipTarget =
     mode === "force-ship"
       ? resolveForceShipTarget(experiment, shipping?.fallbackVariationId)
@@ -305,7 +284,6 @@ export async function applyScheduledExperimentStop({
     return { kind: "shipped", variationId: forceShipTarget, forced: true };
   }
 
-  // ── Stop: hard deadline, no rollout (EDF verdict is bonus metadata). ──
   if (mode === "stop") {
     const verdict = await computeScheduledVerdict(
       context,
@@ -325,7 +303,6 @@ export async function applyScheduledExperimentStop({
     return { kind: "stopped" };
   }
 
-  // ── Notify (default): soft — keep the experiment running. ──
   const verdict = await computeScheduledVerdict(
     context,
     experiment,
@@ -340,8 +317,6 @@ export async function applyScheduledExperimentStop({
   };
 }
 
-// ─── Scheduled-stop config (REST + generic update service layer) ─────────────
-
 function assertSchedulable(experiment: ExperimentInterface) {
   if (experiment.type === "multi-armed-bandit") {
     throw new BadRequestError(
@@ -355,9 +330,8 @@ function assertSchedulable(experiment: ExperimentInterface) {
   }
 }
 
-// Set the experiment's scheduled end. Absolute `stopAt` is stored directly; a
-// relative `stopAfter` is resolved now for a running experiment (off its actual
-// start) or deferred for a draft (resolved at start by executeExperimentStart).
+// A relative `stopAfter` is resolved now for a running experiment, but
+// deferred for a draft (resolved at start by executeExperimentStart).
 export async function setExperimentScheduledStop({
   context,
   experiment,
@@ -408,7 +382,7 @@ export async function setExperimentScheduledStop({
   return { experiment: updated, warnings };
 }
 
-// Clear the scheduled end, preserving any scheduled start.
+// Preserves any scheduled start; only the stop is cleared.
 export async function clearExperimentScheduledStop({
   context,
   experiment,
