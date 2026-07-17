@@ -10,6 +10,7 @@ import {
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -473,7 +474,9 @@ export const postFeatureRevisionPublishV2Validator = {
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
 

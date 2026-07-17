@@ -8,6 +8,7 @@ import {
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -219,7 +220,9 @@ export const postFeatureRevisionPublishValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postFeatureRevisionRevertValidator = {

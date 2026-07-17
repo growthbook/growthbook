@@ -34,7 +34,8 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import {
-  assertPublishGates,
+  evaluatePublishGates,
+  PublishBlockedError,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -123,28 +124,28 @@ export async function publishFeatureRevision(
   // `req.context.ignoreWarnings`: armed publishes re-enter this function with a
   // background context whose ignoreWarnings is always true, and force-merge for
   // those must stay gated on the schedule's persisted bypass intent (mergeNow).
-  // Evaluated here, enforced below after the aggregated publish-gate check.
+  // Computed unconditionally (it's a cheap in-memory check, no DB scan) so a
+  // force-merged publish can still report the stale-base gate it bypassed;
+  // enforced below after the aggregated publish-gate check.
   const canBypassGovernance =
     req.context.permissions.canBypassApprovalChecks(feature);
   const forceMergeRequested =
     !!req.body.mergeNow || req.body.ignoreWarnings === true;
-  const rebaseGovernance =
-    req.organization.settings?.requireRebaseBeforePublish &&
-    !(forceMergeRequested && canBypassGovernance)
-      ? evaluatePublishGovernance({
-          revisionStatus: revision.status,
-          baseVersion: revision.baseVersion,
-          liveVersion: feature.version,
-          mergeSuccess: mergeResult.success,
-          liveChanges: getLiveChangesSinceBase(
-            liveRevisionFromFeature(live, feature),
-            fillRevisionFromFeature(base, feature),
-            environmentIds,
-          ),
-          approvedBaseVersion: revision.approvedBaseVersion ?? null,
-          requireRebaseBeforePublish: true,
-        })
-      : null;
+  const rebaseGovernance = req.organization.settings?.requireRebaseBeforePublish
+    ? evaluatePublishGovernance({
+        revisionStatus: revision.status,
+        baseVersion: revision.baseVersion,
+        liveVersion: feature.version,
+        mergeSuccess: mergeResult.success,
+        liveChanges: getLiveChangesSinceBase(
+          liveRevisionFromFeature(live, feature),
+          fillRevisionFromFeature(base, feature),
+          environmentIds,
+        ),
+        approvedBaseVersion: revision.approvedBaseVersion ?? null,
+        requireRebaseBeforePublish: true,
+      })
+    : null;
 
   const filledLive = {
     ...live,
@@ -199,39 +200,57 @@ export async function publishFeatureRevision(
     req.context.permissions.canBypassApprovalChecks(feature);
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
-  // structured 422 naming each gate and the body flag that clears it. The
-  // sequential checks below stay in place as the enforcement backstop.
+  // structured 422 naming each gate, the flag that clears it, and a callable
+  // resolution route. Gates are assembled for every ACTIVE condition (whether
+  // or not the caller can bypass it) so a successful publish can report the ones
+  // that were bypassed. The sequential checks below stay in place as the
+  // enforcement backstop.
+  const version = revision.version;
   const gates: PublishGate[] = [];
-  if (rebaseGovernance?.rebaseRequired && !canBypassGovernance) {
+  if (rebaseGovernance?.rebaseRequired) {
     gates.push({
       type: "stale-base",
       severity: "blocker",
-      messages: [
-        `${rebaseGovernance.blockReason} Rebase the revision (POST .../rebase) first.`,
-      ],
+      messages: ["This revision was created against an older version."],
       override: "ignoreWarnings",
       requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "rebase",
+        method: "POST",
+        path: `/features/${feature.id}/revisions/${version}/rebase`,
+      },
     });
   }
-  if (requiresReview && revision.status !== "approved" && !canBypass) {
+  if (requiresReview && revision.status !== "approved") {
     gates.push({
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
+        `Requires approval before publishing (status: "${revision.status}").`,
       ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "request-review",
+        method: "POST",
+        path: `/features/${feature.id}/revisions/${version}/request-review`,
+      },
     });
   }
-  assertPublishGates(
-    gates,
-    {
-      ignoreWarnings: forceMergeRequested,
-      skipSchemaValidation: req.context.skipSchemaValidation,
-    },
-    (permission) =>
-      permission === "bypassApprovalChecks" &&
+  // Feature governance gates rebase on the bypass-approval permission alone (not
+  // the org REST setting), so `canForceMergeStaleBase` is the permission — matching
+  // the sequential backstop below. Approval, however, is also bypassed by the REST
+  // setting (`canUseRestApiBypass`).
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: forceMergeRequested,
+    bypassApprovalPermission:
       req.context.permissions.canBypassApprovalChecks(feature),
-  );
+    restApiBypassesReviews: canUseRestApiBypass,
+    canForceMergeStaleBase: canBypassGovernance,
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
+  }
 
   if (rebaseGovernance?.rebaseRequired) {
     if (forceMergeRequested && !canBypassGovernance) {
@@ -327,15 +346,22 @@ export async function publishFeatureRevision(
     {},
   );
 
-  return { feature, revision: finalRevision };
+  return {
+    feature,
+    revision: finalRevision,
+    bypassedGates: bypassed.length ? bypassed : undefined,
+  };
 }
 
 export const postFeatureRevisionPublish = createApiRequestHandler(
   postFeatureRevisionPublishValidator,
 )(async (req) => {
-  const { feature, revision } = await publishFeatureRevision(
+  const { feature, revision, bypassedGates } = await publishFeatureRevision(
     req,
     canUseRestApiBypassSetting(req),
   );
-  return { revision: toApiRevision(revision, req.context, feature) };
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    ...(bypassedGates?.length ? { bypassedGates } : {}),
+  };
 });

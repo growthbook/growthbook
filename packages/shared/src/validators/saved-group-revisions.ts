@@ -5,6 +5,7 @@ import {
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
   bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -350,7 +351,9 @@ export const postSavedGroupRevisionPublishValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postSavedGroupRevisionRevertValidator = {

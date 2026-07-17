@@ -1,12 +1,25 @@
 // Aggregated publish-gate reporting for the REST revision-publish endpoints.
-// A blocked publish returns ONE structured 422 naming every gate and (when one
-// exists) the body flag that clears it, so a caller discovers all required
-// override flags in a single round trip. For the config and constant publish
-// handlers the collected guard gates plus assertPublishGates ARE the
-// enforcement; the approval/stale-base/value-validation asserts in the
-// handlers remain as backstops behind their gates.
+// A blocked publish returns ONE structured 422 naming every gate with a uniform
+// set of fields (override flag, required permission, and a callable resolution
+// route), so a caller discovers every way past every gate in a single round
+// trip. On a SUCCESSFUL publish, any gate that WOULD have blocked but was
+// bypassed is reported in `bypassedGates`, so an audit trail records what the
+// caller's authority skipped. For the config and constant publish handlers the
+// collected guard gates plus this evaluation ARE the enforcement; the
+// approval/stale-base/value-validation asserts in the handlers remain as
+// backstops behind their gates.
 
 export type PublishGateOverride = "ignoreWarnings" | "skipSchemaValidation";
+
+/** The non-flag way past a gate, expressed as a callable REST route. */
+export type PublishGateResolution = {
+  /** Short verb naming the action, e.g. "unlock", "request-review", "rebase". */
+  action: string;
+  /** HTTP method to call the route with. */
+  method: string;
+  /** Route path (same relative form as the OpenAPI paths). */
+  path: string;
+};
 
 export type PublishGate = {
   /** Stable identifier for the gate, e.g. "approval-required", "stale-base". */
@@ -15,13 +28,21 @@ export type PublishGate = {
   /** Human-readable detail; the first entry is the gate's one-line summary. */
   messages: string[];
   /**
-   * The request-body flag that clears this gate on a retry. Absent when no
+   * The request-body flag that clears this gate on a retry, or `null` when no
    * flag clears it (e.g. approval-required, which needs the revision approved
-   * or a caller whose permission bypasses approval implicitly).
+   * or a caller whose permission bypasses approval implicitly). Always present.
    */
-  override?: PublishGateOverride;
-  /** Permission the caller must hold for the override flag to take effect. */
-  requiresPermission?: string;
+  override: PublishGateOverride | null;
+  /**
+   * Permission the caller must hold for the override flag to take effect, or
+   * `null` when the flag alone suffices. Always present.
+   */
+  requiresPermission: string | null;
+  /**
+   * The non-flag way out, as a callable route, or `null` when the override flag
+   * is the only path. Always present.
+   */
+  resolution: PublishGateResolution | null;
 };
 
 export type PublishOverrideFlags = {
@@ -29,11 +50,52 @@ export type PublishOverrideFlags = {
   skipSchemaValidation?: boolean;
 };
 
+/** A gate that would have blocked the publish but was bypassed by the caller. */
+export type BypassedGate = {
+  type: string;
+  outcome: "bypassed";
+  /**
+   * The bypass source: an override flag ("ignoreWarnings"), the caller's
+   * permission ("bypassApprovalChecks"), or the org setting
+   * ("restApiBypassesReviews").
+   */
+  via: string;
+};
+
+/** Soft-guard gate types (config/constant): cleared by ignoreWarnings, or by the
+ * bypass-approval permission alone. */
+const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
+  "experiment-guard",
+  "config-lock",
+  "schema-break",
+]);
+
 /**
- * The gates a request does NOT clear: a gate is cleared only when it has an
- * override flag, that flag was passed, AND (when the gate names a required
- * permission) the caller holds that permission. A gate without an override is
- * never cleared here. Pure — exported for unit tests.
+ * The clearing signals a request carries, used to decide each gate's
+ * disposition. Handlers assemble this from their own bypass computations so the
+ * gate evaluation matches the sequential backstops exactly.
+ */
+export type PublishGateClearance = {
+  /** The request asked to force past warnings (body `ignoreWarnings`/`mergeNow`). */
+  ignoreWarnings: boolean;
+  /** The caller holds the bypassApprovalChecks permission on the entity's scope. */
+  bypassApprovalPermission: boolean;
+  /** The org's REST-bypass setting clears approval for this caller. */
+  restApiBypassesReviews: boolean;
+  /**
+   * Whether the caller may force-merge a stale base — each handler's governance
+   * bypass authority (permission, and for most entities the REST setting too;
+   * features gate rebase on the permission alone).
+   */
+  canForceMergeStaleBase: boolean;
+};
+
+/**
+ * The gates a request does NOT clear via a request-body flag: a gate is cleared
+ * only when it has an override flag, that flag was passed, AND (when the gate
+ * names a required permission) the caller holds that permission. A gate without
+ * an override is never cleared here. Pure — the flag-clearing primitive shared
+ * by the disposition logic and exported for unit tests.
  */
 export function unclearedGates(
   gates: PublishGate[],
@@ -48,6 +110,83 @@ export function unclearedGates(
     }
     return false;
   });
+}
+
+export type PublishGateDisposition =
+  | { outcome: "blocking" }
+  | { outcome: "bypassed"; via: string };
+
+/**
+ * Decide whether a single active gate blocks the publish or is bypassed (and by
+ * what). Pure — exported for unit tests. The flag path reuses `unclearedGates`
+ * (so its requiresPermission handling stays the single source of truth); the
+ * non-flag paths encode each gate kind's authority:
+ *  - config-locked: never bypassed on publish (unlock is a separate action).
+ *  - approval-required: bypassed by the bypass-approval permission or the org
+ *    REST setting (labeled by which was the reason).
+ *  - stale-base: bypassed only by ignoreWarnings + force-merge authority.
+ *  - soft guards: bypassed by ignoreWarnings, or the bypass-approval permission.
+ */
+export function classifyPublishGate(
+  gate: PublishGate,
+  clearance: PublishGateClearance,
+): PublishGateDisposition {
+  const flags: PublishOverrideFlags = {
+    ignoreWarnings: clearance.ignoreWarnings,
+  };
+  const hasPermission = (permission: string) =>
+    permission === "bypassApprovalChecks" && clearance.canForceMergeStaleBase;
+  if (unclearedGates([gate], flags, hasPermission).length === 0) {
+    // Only ignoreWarnings-override gates are flag-clearable here.
+    return { outcome: "bypassed", via: "ignoreWarnings" };
+  }
+
+  if (gate.type === "config-locked") return { outcome: "blocking" };
+
+  if (gate.type === "approval-required") {
+    if (clearance.restApiBypassesReviews) {
+      return { outcome: "bypassed", via: "restApiBypassesReviews" };
+    }
+    if (clearance.bypassApprovalPermission) {
+      return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    return { outcome: "blocking" };
+  }
+
+  if (SOFT_GUARD_GATE_TYPES.has(gate.type)) {
+    if (clearance.bypassApprovalPermission) {
+      return { outcome: "bypassed", via: "bypassApprovalChecks" };
+    }
+    return { outcome: "blocking" };
+  }
+
+  // stale-base (not flag-cleared) and any unrecognized gate: blocking.
+  return { outcome: "blocking" };
+}
+
+/**
+ * Partition every active gate into the set that still blocks the publish and the
+ * set the caller's authority bypasses. Pure — the single entry the handlers use.
+ */
+export function evaluatePublishGates(
+  gates: PublishGate[],
+  clearance: PublishGateClearance,
+): { blocking: PublishGate[]; bypassed: BypassedGate[] } {
+  const blocking: PublishGate[] = [];
+  const bypassed: BypassedGate[] = [];
+  for (const gate of gates) {
+    const disposition = classifyPublishGate(gate, clearance);
+    if (disposition.outcome === "blocking") {
+      blocking.push(gate);
+    } else {
+      bypassed.push({
+        type: gate.type,
+        outcome: "bypassed",
+        via: disposition.via,
+      });
+    }
+  }
+  return { blocking, bypassed };
 }
 
 function formatGateLine(gate: PublishGate): string {
@@ -80,25 +219,5 @@ export class PublishBlockedError extends Error {
     this.warnings = gates
       .filter((gate) => gate.override === "ignoreWarnings")
       .flatMap((gate) => gate.messages);
-  }
-}
-
-/**
- * Throw a PublishBlockedError (422) listing every gate the request's override
- * flags don't clear. Callers assemble gates only for conditions that would
- * actually block them (a caller whose authority implicitly bypasses a check
- * gets no gate for it) and pass `hasPermission` bound to the target entity's
- * project scope, so a flag-plus-permission override is honored exactly where
- * the equivalent assert would honor it.
- */
-export function assertPublishGates(
-  gates: PublishGate[],
-  flags: PublishOverrideFlags,
-  hasPermission: (permission: string) => boolean,
-): void {
-  if (!gates.length) return;
-  const remaining = unclearedGates(gates, flags, hasPermission);
-  if (remaining.length) {
-    throw new PublishBlockedError(remaining);
   }
 }

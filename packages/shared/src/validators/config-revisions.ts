@@ -7,6 +7,7 @@ import {
   schemaValidationQueryFields,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -317,7 +318,9 @@ export const postConfigRevisionPublishValidator = {
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConfigRevisionRevertValidator = {

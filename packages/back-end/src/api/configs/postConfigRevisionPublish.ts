@@ -15,7 +15,8 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
-  assertPublishGates,
+  evaluatePublishGates,
+  PublishBlockedError,
   PublishGate,
 } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
@@ -76,36 +77,50 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   );
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
-  // structured 422 naming each gate and the body flag that clears it. The
-  // lock, approval, stale-base, and value-validation checks below stay in
-  // place as the enforcement backstop; the adapter-collected guard gates are
-  // enforced solely here.
+  // structured 422 naming each gate, the flag that clears it, and a callable
+  // resolution route. Gates are assembled for every ACTIVE condition (whether
+  // or not the caller can bypass it) so a successful publish can report the ones
+  // that were bypassed. The lock, approval, stale-base, and value-validation
+  // checks below stay in place as the enforcement backstop; the adapter-
+  // collected guard gates are enforced solely here.
+  const version = req.params.version;
   const gates: PublishGate[] = [];
-  // Hard lock (the entity's own revision pin): no inline bypass exists — the
-  // only escape is an explicit unlock — so the gate carries no override flag.
-  // Emitted here (instead of throwing up front) so a locked publish reports
-  // alongside every other gate; assertConfigNotLocked below is the backstop.
+  // Hard lock (the entity's own revision pin): no inline bypass exists on the
+  // publish path — the only escape is an explicit unlock — so the gate carries
+  // no override flag and points at the unlock route. assertConfigNotLocked below
+  // is the backstop.
   if (isConfigLocked(config)) {
     gates.push({
       type: "config-locked",
       severity: "blocker",
-      messages: [
-        `Locked at revision v${config.lock?.version} — unlock first via POST /configs/${config.key}/unlock (requires the bypassApprovalChecks permission).`,
-      ],
+      messages: [`Locked at revision v${config.lock?.version}.`],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "unlock",
+        method: "POST",
+        path: `/configs/${config.key}/unlock`,
+      },
     });
   }
-  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+  if (approvalRequired && revision.status !== "approved") {
     gates.push({
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
+        `Requires approval before publishing (status: "${revision.status}").`,
       ],
+      override: null,
+      requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "request-review",
+        method: "POST",
+        path: `/configs-revisions/${config.key}/${version}/request-review`,
+      },
     });
   }
   if (
     req.organization.settings?.requireRebaseBeforePublish &&
-    !canBypass &&
     isRevisionDiverged(
       adapter,
       revision.target.snapshot as Record<string, unknown>,
@@ -115,11 +130,14 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     gates.push({
       type: "stale-base",
       severity: "blocker",
-      messages: [
-        "This revision was created against an older version of the config. Rebase the revision first.",
-      ],
+      messages: ["This revision was created against an older version."],
       override: "ignoreWarnings",
       requiresPermission: "bypassApprovalChecks",
+      resolution: {
+        action: "rebase",
+        method: "POST",
+        path: `/configs-revisions/${config.key}/${version}/rebase`,
+      },
     });
   }
   gates.push(
@@ -130,16 +148,18 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
-  assertPublishGates(
-    gates,
-    {
-      ignoreWarnings: req.context.ignoreWarnings,
-      skipSchemaValidation: req.context.skipSchemaValidation,
-    },
-    (permission) =>
-      permission === "bypassApprovalChecks" &&
-      adapter.canBypassApproval(req.context, config as Record<string, unknown>),
-  );
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: req.context.ignoreWarnings,
+    bypassApprovalPermission: adapter.canBypassApproval(
+      req.context,
+      config as Record<string, unknown>,
+    ),
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    canForceMergeStaleBase: canBypass,
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
+  }
 
   // Locked-config backstop behind the config-locked gate above — still well
   // before the merge is claimed, so a blocked publish leaves the draft open.
@@ -234,7 +254,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     await dispatchConfigRevisionEvent(req.context, merged, {
       type: merged.revertedFrom ? "reverted" : "published",
     });
-    return { revision: await toApiConfigRevision(merged, req.context) };
+    return {
+      revision: await toApiConfigRevision(merged, req.context),
+      ...(bypassed.length ? { bypassedGates: bypassed } : {}),
+    };
   }
 
   // Experiment/lock/schema-break guards were enforced above via the adapter's
@@ -310,5 +333,8 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     type: merged.revertedFrom ? "reverted" : "published",
   });
 
-  return { revision: await toApiConfigRevision(merged, req.context) };
+  return {
+    revision: await toApiConfigRevision(merged, req.context),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
+  };
 });

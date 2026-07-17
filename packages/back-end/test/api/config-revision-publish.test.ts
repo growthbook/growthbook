@@ -128,9 +128,17 @@ describe("POST /api/v1/configs-revisions/:key/:version/publish", () => {
     );
     expect(lockGate).toBeDefined();
     expect(lockGate.severity).toBe("blocker");
-    // The gate carries no override flag — nothing clears it inline.
-    expect(lockGate.override).toBeUndefined();
-    expect(lockGate.messages[0]).toMatch(/unlock/i);
+    // The gate carries no override flag — nothing clears it inline. The uniform
+    // fields are explicit: override is null and the escape is a callable unlock
+    // route in `resolution`, not inline prose.
+    expect(lockGate.override).toBeNull();
+    expect(lockGate.requiresPermission).toBe("bypassApprovalChecks");
+    expect(lockGate.messages[0]).toMatch(/locked/i);
+    expect(lockGate.resolution).toEqual({
+      action: "unlock",
+      method: "POST",
+      path: `/configs/${key}/unlock`,
+    });
     // config-locked is not ignoreWarnings-clearable, so it never appears in the
     // acknowledge-and-retry `warnings` channel.
     expect(blockedRes.body.warnings).not.toContain(lockGate.messages[0]);

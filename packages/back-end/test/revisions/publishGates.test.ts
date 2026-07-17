@@ -1,28 +1,40 @@
 import {
+  BypassedGate,
   PublishBlockedError,
   PublishGate,
-  assertPublishGates,
+  PublishGateClearance,
+  classifyPublishGate,
+  evaluatePublishGates,
   unclearedGates,
 } from "back-end/src/revisions/publishGates";
 
-// No override flag: cleared only by approving the revision or by a caller
-// whose permission bypasses approval implicitly (in which case the handler
-// never emits the gate).
+// No override flag: cleared only by approving the revision, by a caller whose
+// permission bypasses approval, or by the org REST-bypass setting.
 const approvalGate: PublishGate = {
   type: "approval-required",
   severity: "blocker",
-  messages: [
-    "Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly.",
-  ],
+  messages: ['Requires approval before publishing (status: "draft").'],
+  override: null,
+  requiresPermission: "bypassApprovalChecks",
+  resolution: {
+    action: "request-review",
+    method: "POST",
+    path: "/configs-revisions/pricing/3/request-review",
+  },
 };
 
-// No override flag: a hard lock's only escape is an explicit unlock.
+// No override flag: a hard lock's only escape is an explicit unlock action.
 const configLockedGate: PublishGate = {
   type: "config-locked",
   severity: "blocker",
-  messages: [
-    "Locked at revision v3 — unlock first via POST /configs/pricing/unlock (requires the bypassApprovalChecks permission).",
-  ],
+  messages: ["Locked at revision v3."],
+  override: null,
+  requiresPermission: "bypassApprovalChecks",
+  resolution: {
+    action: "unlock",
+    method: "POST",
+    path: "/configs/pricing/unlock",
+  },
 };
 
 const staleBaseGate: PublishGate = {
@@ -31,6 +43,11 @@ const staleBaseGate: PublishGate = {
   messages: ["This revision was created against an older version."],
   override: "ignoreWarnings",
   requiresPermission: "bypassApprovalChecks",
+  resolution: {
+    action: "rebase",
+    method: "POST",
+    path: "/configs-revisions/pricing/3/rebase",
+  },
 };
 
 const experimentGuardGate: PublishGate = {
@@ -38,6 +55,8 @@ const experimentGuardGate: PublishGate = {
   severity: "warning",
   messages: ["Publishing rewrites a value served to a running experiment."],
   override: "ignoreWarnings",
+  requiresPermission: null,
+  resolution: null,
 };
 
 const schemaBreakGate: PublishGate = {
@@ -48,10 +67,51 @@ const schemaBreakGate: PublishGate = {
     'config "pricing" field "tier" expects a string',
   ],
   override: "ignoreWarnings",
+  requiresPermission: null,
+  resolution: null,
 };
 
 const allPermissions = () => true;
 const noPermissions = () => false;
+
+// A clearance with every signal off; individual tests override the fields they exercise.
+const noClearance: PublishGateClearance = {
+  ignoreWarnings: false,
+  bypassApprovalPermission: false,
+  restApiBypassesReviews: false,
+  canForceMergeStaleBase: false,
+};
+const clearance = (
+  overrides: Partial<PublishGateClearance>,
+): PublishGateClearance => ({ ...noClearance, ...overrides });
+
+describe("uniform gate fields", () => {
+  it("every gate carries override, requiresPermission, and resolution (null or set)", () => {
+    const gates = [
+      approvalGate,
+      configLockedGate,
+      staleBaseGate,
+      experimentGuardGate,
+      schemaBreakGate,
+    ];
+    for (const gate of gates) {
+      expect(gate).toHaveProperty("override");
+      expect(gate).toHaveProperty("requiresPermission");
+      expect(gate).toHaveProperty("resolution");
+    }
+    // Explicit null where no flag / permission / route applies.
+    expect(approvalGate.override).toBeNull();
+    expect(experimentGuardGate.requiresPermission).toBeNull();
+    expect(experimentGuardGate.resolution).toBeNull();
+    // Set where they apply.
+    expect(staleBaseGate.override).toBe("ignoreWarnings");
+    expect(configLockedGate.resolution).toEqual({
+      action: "unlock",
+      method: "POST",
+      path: "/configs/pricing/unlock",
+    });
+  });
+});
 
 describe("unclearedGates", () => {
   it("returns every gate when no override flags are passed", () => {
@@ -133,40 +193,150 @@ describe("unclearedGates", () => {
   });
 });
 
-describe("assertPublishGates", () => {
-  it("does nothing when every gate is cleared", () => {
-    expect(() =>
-      assertPublishGates(
-        [staleBaseGate, experimentGuardGate],
-        { ignoreWarnings: true },
-        allPermissions,
+describe("classifyPublishGate", () => {
+  it("keeps a hard lock blocking even with full clearance", () => {
+    expect(
+      classifyPublishGate(
+        configLockedGate,
+        clearance({
+          ignoreWarnings: true,
+          bypassApprovalPermission: true,
+          restApiBypassesReviews: true,
+          canForceMergeStaleBase: true,
+        }),
       ),
-    ).not.toThrow();
+    ).toEqual({ outcome: "blocking" });
   });
 
-  it("throws a PublishBlockedError carrying only the uncleared gates", () => {
-    let caught: unknown;
-    try {
-      assertPublishGates(
-        [approvalGate, experimentGuardGate],
-        { ignoreWarnings: true },
-        allPermissions,
-      );
-    } catch (e) {
-      caught = e;
-    }
-    expect(caught).toBeInstanceOf(PublishBlockedError);
-    expect((caught as PublishBlockedError).gates).toEqual([approvalGate]);
+  describe("approval-required", () => {
+    it("blocks without any bypass authority", () => {
+      expect(classifyPublishGate(approvalGate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+
+    it("is bypassed by the bypass-approval permission", () => {
+      expect(
+        classifyPublishGate(
+          approvalGate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalChecks" });
+    });
+
+    it("is bypassed (and labeled) by the org REST setting, which wins over the permission", () => {
+      expect(
+        classifyPublishGate(
+          approvalGate,
+          clearance({
+            bypassApprovalPermission: true,
+            restApiBypassesReviews: true,
+          }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "restApiBypassesReviews" });
+    });
   });
 
-  it("consults the caller-supplied permission check for flag overrides", () => {
-    expect(() =>
-      assertPublishGates(
-        [staleBaseGate],
-        { ignoreWarnings: true },
-        noPermissions,
-      ),
-    ).toThrow(PublishBlockedError);
+  describe("stale-base", () => {
+    it("blocks when only ignoreWarnings is set (no force-merge authority)", () => {
+      expect(
+        classifyPublishGate(staleBaseGate, clearance({ ignoreWarnings: true })),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("blocks when force-merge authority exists but ignoreWarnings is absent", () => {
+      expect(
+        classifyPublishGate(
+          staleBaseGate,
+          clearance({ canForceMergeStaleBase: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is bypassed only by ignoreWarnings + force-merge authority", () => {
+      expect(
+        classifyPublishGate(
+          staleBaseGate,
+          clearance({ ignoreWarnings: true, canForceMergeStaleBase: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "ignoreWarnings" });
+    });
+  });
+
+  describe("soft guards", () => {
+    it("is bypassed by ignoreWarnings", () => {
+      expect(
+        classifyPublishGate(
+          experimentGuardGate,
+          clearance({ ignoreWarnings: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "ignoreWarnings" });
+    });
+
+    it("is bypassed by the bypass-approval permission alone", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ bypassApprovalPermission: true }),
+        ),
+      ).toEqual({ outcome: "bypassed", via: "bypassApprovalChecks" });
+    });
+
+    it("is NOT bypassed by the REST setting alone (permission-only, matching the collector)", () => {
+      expect(
+        classifyPublishGate(
+          schemaBreakGate,
+          clearance({ restApiBypassesReviews: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("blocks with no clearance", () => {
+      expect(classifyPublishGate(experimentGuardGate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+  });
+});
+
+describe("evaluatePublishGates", () => {
+  it("partitions active gates into blocking and bypassed", () => {
+    const { blocking, bypassed } = evaluatePublishGates(
+      [approvalGate, staleBaseGate, experimentGuardGate, configLockedGate],
+      clearance({
+        ignoreWarnings: true,
+        bypassApprovalPermission: true,
+        canForceMergeStaleBase: true,
+      }),
+    );
+    // config-locked never bypasses; the rest are cleared by the clearance.
+    expect(blocking).toEqual([configLockedGate]);
+    const expectedBypassed: BypassedGate[] = [
+      {
+        type: "approval-required",
+        outcome: "bypassed",
+        via: "bypassApprovalChecks",
+      },
+      { type: "stale-base", outcome: "bypassed", via: "ignoreWarnings" },
+      { type: "experiment-guard", outcome: "bypassed", via: "ignoreWarnings" },
+    ];
+    expect(bypassed).toEqual(expectedBypassed);
+  });
+
+  it("returns no bypassed entries when nothing is cleared", () => {
+    const { blocking, bypassed } = evaluatePublishGates(
+      [approvalGate, staleBaseGate],
+      noClearance,
+    );
+    expect(blocking).toEqual([approvalGate, staleBaseGate]);
+    expect(bypassed).toEqual([]);
+  });
+
+  it("returns empty partitions for an empty gate list", () => {
+    expect(evaluatePublishGates([], noClearance)).toEqual({
+      blocking: [],
+      bypassed: [],
+    });
   });
 });
 

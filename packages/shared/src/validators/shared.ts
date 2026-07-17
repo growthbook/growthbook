@@ -162,3 +162,29 @@ export const bypassApprovalPublishBodyField = z
   .describe(
     "Has no effect and is accepted only for backwards compatibility. Callers with the `bypassApprovalChecks` permission (or under the org-level REST bypass setting) bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
   );
+
+// Reported on a SUCCESSFUL publish when a gate that would otherwise have blocked
+// the publish was bypassed by the caller's authority. Omitted entirely when no
+// gate was bypassed, so a clean publish response stays lean.
+export const publishBypassedGatesField = z
+  .array(
+    z
+      .object({
+        type: z
+          .string()
+          .describe(
+            'The gate that was bypassed (e.g. "approval-required", "stale-base", "schema-break").',
+          ),
+        outcome: z.literal("bypassed"),
+        via: z
+          .string()
+          .describe(
+            'The bypass source: an override flag ("ignoreWarnings"), the caller\'s permission ("bypassApprovalChecks"), or the org setting ("restApiBypassesReviews").',
+          ),
+      })
+      .strict(),
+  )
+  .optional()
+  .describe(
+    "Gates that would have blocked this publish but were bypassed by the caller's authority. Present only when at least one gate was bypassed.",
+  );

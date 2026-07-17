@@ -95,12 +95,20 @@ info:
 
     - **422** - Soft Warning - The request failed, but can be re-submitted with
     `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
-    publishes also include a `gates` array naming every blocking gate and, when
-    one exists, the body flag that clears it (`ignoreWarnings` or
-    `skipSchemaValidation`), so one response lists all required overrides. A
-    gate without an override flag (approval required) clears by getting the
-    revision approved, or implicitly for callers with the `bypassApprovalChecks`
-    permission.
+    publishes include a `gates` array, one entry per blocking gate, each
+    carrying a uniform set of fields: `type`, `severity`, `messages`, `override`
+    (the body flag that clears it — `ignoreWarnings` or `skipSchemaValidation` —
+    or `null` when no flag applies), `requiresPermission` (a permission the
+    override needs, or `null`), and `resolution` (the non-flag way out as a
+    callable `{ action, method, path }` route, or `null`). So one response lists
+    every way past every gate. A gate with `override: null` (approval required)
+    clears by getting the revision approved, or implicitly for callers with the
+    `bypassApprovalChecks` permission; a locked config clears by calling its
+    `resolution` unlock route. On a SUCCESSFUL publish (200), if a gate that
+    would have blocked was bypassed by the caller's authority, the response
+    includes a `bypassedGates` array (`{ type, outcome: "bypassed", via }`,
+    where `via` is `ignoreWarnings`, `bypassApprovalChecks`, or
+    `restApiBypassesReviews`); the key is omitted when nothing was bypassed.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -6159,6 +6167,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV1'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -11859,6 +11875,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -18995,6 +19019,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/SavedGroupRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -20363,6 +20395,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConstantRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -22905,6 +22945,14 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/ConfigRevision'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - revision
                 additionalProperties: false
@@ -61754,6 +61802,28 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    bypassedGates:
+      type: object
+      properties:
+        type:
+          description: >-
+            The gate that was bypassed (e.g. "approval-required", "stale-base",
+            "schema-break").
+          type: string
+        outcome:
+          type: string
+          const: bypassed
+        via:
+          description: >-
+            The bypass source: an override flag ("ignoreWarnings"), the caller's
+            permission ("bypassApprovalChecks"), or the org setting
+            ("restApiBypassesReviews").
+          type: string
+      required:
+        - type
+        - outcome
+        - via
       additionalProperties: false
     log:
       type: object

@@ -5,6 +5,7 @@ import {
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
   bypassApprovalPublishBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
@@ -318,7 +319,9 @@ export const postConstantRevisionPublishValidator = {
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postConstantRevisionRevertValidator = {

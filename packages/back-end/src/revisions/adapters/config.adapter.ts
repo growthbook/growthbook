@@ -355,11 +355,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
 
   // Publish-guard evaluation for the REST publish handler's aggregated 422
   // (see EntityRevisionAdapter.collectPublishGates). Runs the same evaluators
-  // assertConfigPublishGuards uses; on the REST publish path this plus
-  // assertPublishGates IS the guard enforcement (the handler runs no sequential
-  // asserts). A synchronous override (a live ignoreWarnings or bypass-approval
-  // permission) clears every guard, but the overridden conflicts are still
-  // logged, matching the asserts' override logging.
+  // assertConfigPublishGuards uses; on the REST publish path this plus the
+  // handler's evaluatePublishGates IS the guard enforcement (the handler runs no
+  // sequential asserts). Every active conflict is returned as a gate regardless
+  // of the caller's authority, so the handler can classify it as blocking or
+  // bypassed; a synchronous override (a live ignoreWarnings or bypass-approval
+  // permission) is still logged here, matching the asserts' override logging.
   async collectPublishGates(
     context: Context,
     entity: ConfigInterface,
@@ -395,18 +396,19 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           },
           "Config experiment guard overridden on a direct publish",
         );
-      } else {
-        gates.push({
-          type: "experiment-guard",
-          severity: "warning",
-          messages: [
-            `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
-              experimentConflicts,
-            )}).`,
-          ],
-          override: "ignoreWarnings",
-        });
       }
+      gates.push({
+        type: "experiment-guard",
+        severity: "warning",
+        messages: [
+          `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
+            experimentConflicts,
+          )}).`,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
     }
 
     const lockConflicts = [
@@ -427,18 +429,19 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           },
           "Config-lock guard overridden on a direct publish",
         );
-      } else {
-        gates.push({
-          type: "config-lock",
-          severity: "warning",
-          messages: [
-            `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
-              ", ",
-            )}.`,
-          ],
-          override: "ignoreWarnings",
-        });
       }
+      gates.push({
+        type: "config-lock",
+        severity: "warning",
+        messages: [
+          `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
+            ", ",
+          )}.`,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
     }
 
     // Presence-aware for the clearable fields (schema/parent/extends), matching
@@ -473,17 +476,18 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           },
           "Schema-break guard overridden on a direct publish",
         );
-      } else {
-        gates.push({
-          type: "schema-break",
-          severity: "warning",
-          messages: [
-            "Publishing this config would make its resolved value violate its schema or validation rules:",
-            ...schemaBreaks,
-          ],
-          override: "ignoreWarnings",
-        });
       }
+      gates.push({
+        type: "schema-break",
+        severity: "warning",
+        messages: [
+          "Publishing this config would make its resolved value violate its schema or validation rules:",
+          ...schemaBreaks,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
     }
 
     return gates;
