@@ -88,6 +88,8 @@ export const databricksDialect: SqlDialect = {
     };
   },
 
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
+
   // approx_top_k(expr, k, maxItemsTracked) returns ARRAY<STRUCT<item, count>>
   // per column; explode the array of per-column named_structs, then inline each
   // column's items.

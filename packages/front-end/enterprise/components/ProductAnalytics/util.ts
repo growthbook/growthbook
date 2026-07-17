@@ -1,7 +1,7 @@
 import {
   ColumnInterface,
   FactMetricInterface,
-  FactTableInterface,
+  FactTableDefinition,
   RowFilter,
 } from "shared/types/fact-table";
 import type {
@@ -173,7 +173,7 @@ export function createEmptyDataset(type: DatasetType): ExplorationDataset {
 
 export function getCommonColumns(
   dataset: ExplorationDataset | null,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): Pick<ColumnInterface, "column" | "name">[] {
   if (!dataset || !dataset.values || dataset.values.length === 0) return [];
@@ -274,7 +274,7 @@ export function getValidDateGranularities(
  *  Returns a new config with the allowed dimensions (same config object if no changes were made). */
 export function validateDimensions(
   config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
   const columns = getCommonColumns(
@@ -324,7 +324,7 @@ export function validateDimensions(
  */
 export function fillMissingUnits(
   config: ExplorationConfig,
-  getFactTableById: (id: string) => FactTableInterface | null,
+  getFactTableById: (id: string) => FactTableDefinition | null,
   getFactMetricById: (id: string) => FactMetricInterface | null,
 ): ExplorationConfig {
   if (!config.dataset || config.dataset.type !== "metric") return config;

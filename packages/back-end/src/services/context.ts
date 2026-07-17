@@ -60,6 +60,7 @@ import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
@@ -73,6 +74,10 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
@@ -123,6 +128,7 @@ export type ModelName =
   | "sdkWebhooks"
   | "savedGroups"
   | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
@@ -133,6 +139,10 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
+  | "contextualBandits"
+  | "contextualBanditQueries"
+  | "contextualBanditSnapshots"
+  | "contextualBanditEvents"
   | "sessionReplays"
   | "eventForwarderConfigs";
 
@@ -168,6 +178,7 @@ export const modelClasses = {
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
   constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
@@ -178,6 +189,10 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
   eventForwarderConfigs: EventForwarderConfigModel,
 };
@@ -231,6 +246,7 @@ export class ReqContextClass {
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
       constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
@@ -241,6 +257,10 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),
       eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
@@ -342,6 +362,23 @@ export class ReqContextClass {
     const v = this.req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (`?skipSchemaValidation=true`). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`bypassApprovalChecks` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  public get skipSchemaValidation(): boolean {
+    if (!this.req) return false;
+    const v = this.req.query?.skipSchemaValidation;
+    if (typeof v !== "string" || !stringToBoolean(v)) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
   }
 
   public throwBadRequestError(message: string): never {

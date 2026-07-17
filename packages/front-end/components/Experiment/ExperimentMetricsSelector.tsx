@@ -7,7 +7,7 @@ import {
   isFactMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import { FactTableMap } from "shared/types/fact-table";
+import { FactTableDefinitionMap } from "shared/types/fact-table";
 import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -37,6 +37,7 @@ export interface Props {
   filterConversionWindowMetrics?: boolean;
   excludeQuantiles?: boolean;
   experimentId?: string;
+  requireDatasource?: boolean;
   experimentType: ExperimentType | undefined;
 }
 
@@ -62,6 +63,7 @@ export default function ExperimentMetricsSelector({
   filterConversionWindowMetrics,
   excludeQuantiles = false,
   experimentId,
+  requireDatasource = false,
   experimentType,
 }: Props) {
   const {
@@ -198,7 +200,7 @@ export default function ExperimentMetricsSelector({
     }
 
     // Build factTableMap for getUserIdTypes
-    const factTableMap: FactTableMap = new Map();
+    const factTableMap: FactTableDefinitionMap = new Map();
     factTables.forEach((ft) => {
       factTableMap.set(ft.id, ft);
     });
@@ -248,6 +250,7 @@ export default function ExperimentMetricsSelector({
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
+            requireDatasource={requireDatasource}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
           {hasIdentifierTypeMismatch && (

@@ -51,6 +51,7 @@ import {
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
+  ContextualBanditRefRule,
   ExperimentRefRule,
   FeatureInterface,
   FeaturePrerequisite,
@@ -89,7 +90,7 @@ import {
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
-  getAllFeaturesForStaleGraph,
+  getAllFeaturesWithoutEditorFields,
   getFeature,
   getFeaturesByIds,
   getFeatureMetaInfoById,
@@ -121,6 +122,8 @@ import {
   assertCanAutoPublish,
   revisionRequiresReview,
 } from "back-end/src/services/features";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
@@ -140,6 +143,7 @@ import {
 import {
   dispatchFeatureRevisionEvent,
   dispatchRevisionReviewEvent,
+  getPublishedRevisionForEvents,
   recordRevisionUpdate,
 } from "back-end/src/services/featureRevisionEvents";
 import {
@@ -206,7 +210,10 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
-import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  approveScheduledExperimentStart,
+  validateExperimentChange,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
@@ -2128,6 +2135,22 @@ export async function postFeaturePublish(
     }
   }
 
+  for (const { experiment, changes } of experimentsToUpdate) {
+    await validateExperimentChange({ context, experiment, changes });
+  }
+
+  for (const experiment of experimentsToApproveSchedule) {
+    const startAt = experiment.statusUpdateSchedule?.startAt
+      ? getValidDate(experiment.statusUpdateSchedule.startAt)
+      : null;
+    if (!startAt) continue;
+    await validateExperimentChange({
+      context,
+      experiment,
+      changes: { nextScheduledStatusUpdate: { type: "start", date: startAt } },
+    });
+  }
+
   const updatedFeature = await publishRevision({
     context,
     feature,
@@ -2150,17 +2173,17 @@ export async function postFeaturePublish(
     }),
   });
 
-  const publishedRevision = await getRevision({
+  // Re-read so the event carries the published status; falls back to the
+  // in-memory revision instead of failing the already-committed publish.
+  const publishedRevision = await getPublishedRevisionForEvents(
     context,
-    organization: org.id,
-    featureId: feature.id,
-    feature,
-    version: parseInt(version),
-  });
+    updatedFeature,
+    revision,
+  );
   await dispatchFeatureRevisionEvent(
     context,
     updatedFeature,
-    publishedRevision ?? revision,
+    publishedRevision,
     "revision.published",
     {},
   );
@@ -2495,12 +2518,30 @@ export async function postFeatureRevert(
     }),
   });
 
-  await dispatchFeatureRevisionEvent(
+  // Re-read so dispatched events carry the published status; falls back to
+  // the in-memory revision instead of failing the already-committed revert.
+  const finalRevision = await getPublishedRevisionForEvents(
     context,
     updatedFeature,
     newRevision,
+  );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
     "revision.reverted",
     { revertedToVersion: revision.version },
+  );
+
+  // A revert publishes a new revision, so emit the same lifecycle event as a
+  // regular publish — consumers watching `revision.published` see reverts too.
+  await dispatchFeatureRevisionEvent(
+    context,
+    updatedFeature,
+    finalRevision,
+    "revision.published",
+    {},
   );
 
   res.status(200).json({
@@ -2968,6 +3009,7 @@ export async function postFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId: rule.id,
       };
       rampActionsUpdate = createAction;
@@ -3016,6 +3058,14 @@ export async function postFeatureRule(
     );
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
+
+  // A config-backed rule value must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the newly added rule
+  // so a pre-existing violation elsewhere can't block this edit. No-op unless
+  // the feature is config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [stampedRule],
+  });
 
   // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
   await prevalidateRevisionUpdate(
@@ -3399,6 +3449,13 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
+  // Experiment/MAB-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
   // autoPublish always starts from live so the merge stays clean.
   const targetVersion = autoPublish
     ? feature.version
@@ -3524,6 +3581,215 @@ export async function postFeatureExperimentRefRule(
     feature.id,
     experiment,
   );
+
+  res.status(200).json({
+    status: 200,
+    version: updatedRevision.version,
+    published,
+  });
+}
+
+export async function postFeatureContextualBanditRefRule(
+  req: AuthRequest<
+    {
+      rule: ContextualBanditRefRule;
+      autoPublish?: boolean;
+      draftVersion?: number;
+      forceNewDraft?: boolean;
+    },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; version: number; published: boolean },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { org, environments } = context;
+  const { id } = req.params;
+  const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
+
+  if (
+    rule.type !== "contextual-bandit-ref" ||
+    !rule.contextualBanditId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid contextual bandit rule");
+  }
+
+  if (!environments.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags",
+    );
+  }
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const contextualBandit = await context.models.contextualBandits.getById(
+    rule.contextualBanditId,
+  );
+  if (!contextualBandit) {
+    throw new Error("Invalid contextual bandit selected");
+  }
+
+  let scopedRule: FeatureRule;
+  if (rule.allEnvironments === true) {
+    scopedRule = {
+      ...omit(rule, ["environments"]),
+      id: generateRuleId(),
+      allEnvironments: true,
+    } as FeatureRule;
+  } else if (
+    rule.allEnvironments === false &&
+    Array.isArray(rule.environments)
+  ) {
+    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
+  } else {
+    scopedRule = stampRuleForEnvs(
+      { ...rule, id: generateRuleId() } as FeatureRule,
+      environments,
+    );
+  }
+
+  const ruleEnvFootprint = scopedRule.allEnvironments
+    ? environments
+    : (scopedRule.environments ?? []);
+
+  if (!context.permissions.canPublishFeature(feature, ruleEnvFootprint)) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Contextual-bandit-served values must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. No-op unless the feature is
+  // config-backed JSON.
+  await assertConfigBackedFeatureValuesValid(context, feature, {
+    rules: [scopedRule],
+  });
+
+  const targetVersion = autoPublish
+    ? feature.version
+    : forceNewDraft
+      ? feature.version
+      : (draftVersion ?? feature.version);
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  const baseEnvEnabled: Record<string, boolean> = {
+    ...Object.fromEntries(
+      environments.map((e) => [
+        e,
+        feature.environmentSettings?.[e]?.enabled ?? false,
+      ]),
+    ),
+    ...(revision.environmentsEnabled ?? {}),
+  };
+  const envToggles: Record<string, boolean> = {};
+  for (const envId of ruleEnvFootprint) {
+    if (!environments.includes(envId)) continue;
+    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
+  }
+
+  const existingRules = cloneDeep(revision.rules ?? []);
+  const nextRules = [...existingRules, scopedRule];
+
+  const combinedChanges: Partial<FeatureRevisionInterface> = {
+    rules: nextRules,
+  };
+  if (Object.keys(envToggles).length > 0) {
+    combinedChanges.environmentsEnabled = {
+      ...(revision.environmentsEnabled ?? {}),
+      ...envToggles,
+    };
+  }
+  const bundlingIntoExistingDraft =
+    !!draftVersion && !forceNewDraft && !autoPublish;
+  if (!bundlingIntoExistingDraft && !revision.title) {
+    combinedChanges.title = "Publish contextual bandit";
+  }
+
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: ruleEnvFootprint,
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  const auditSubject = scopedRule.allEnvironments
+    ? "to all environments"
+    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
+  const updatedRevision =
+    (await updateRevision(
+      context,
+      feature,
+      revision,
+      combinedChanges,
+      {
+        user: res.locals.eventAudit,
+        action: "add contextual bandit rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      },
+      resetReview,
+    )) ?? revision;
+  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+    environments: ruleEnvFootprint,
+  });
+
+  let published = false;
+  if (autoPublish) {
+    await assertCanAutoPublish(context, feature, updatedRevision);
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision: updatedRevision,
+    });
+    const orgEnvIds = environments;
+    const mergeResult = autoMerge(live, base, updatedRevision, orgEnvIds, {});
+    if (!mergeResult.success) {
+      throw new Error(
+        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      );
+    }
+    const updatedFeature = await publishRevision({
+      context,
+      feature,
+      revision: updatedRevision,
+      result: mergeResult.result,
+      comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
+      bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    });
+    await req.audit({
+      event: "feature.publish",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: updatedRevision.version,
+        comment: `Add contextual bandit rule for "${contextualBandit.name}"`,
+      }),
+    });
+    published = true;
+  } else {
+    await context.models.contextualBandits.addPendingFeatureDraft(
+      contextualBandit.id,
+      feature.id,
+      updatedRevision.version,
+    );
+  }
+
+  if (!contextualBandit.linkedFeatures?.includes(feature.id)) {
+    await context.models.contextualBandits.addLinkedFeature(
+      contextualBandit.id,
+      feature.id,
+    );
+  }
 
   res.status(200).json({
     status: 200,
@@ -4083,6 +4349,7 @@ export async function putFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId,
       };
       rampActionsUpdate = createAction;
@@ -4134,6 +4401,7 @@ export async function putFeatureRule(
         cutoffDate: rampSchedulePayload.cutoffDate,
         monitoringConfig: rampSchedulePayload.monitoringConfig,
         lockdownConfig: rampSchedulePayload.lockdownConfig,
+        requiresStartApproval: rampSchedulePayload.requiresStartApproval,
         ruleId,
       };
       rampActionsUpdate = updateAction;
@@ -4155,6 +4423,18 @@ export async function putFeatureRule(
     }
     return merged;
   });
+
+  // A config-backed rule value (incl. running-experiment / bandit variations
+  // edited from the feature) must satisfy the backing Config's schema +
+  // invariants, the same as a REST publish. Validate only the edited rule so a
+  // pre-existing violation elsewhere can't block this edit. No-op unless the
+  // feature is config-backed JSON.
+  const ruleToValidate = nextRules.find((r) => r.id === ruleId);
+  if (ruleToValidate) {
+    await assertConfigBackedFeatureValuesValid(context, feature, {
+      rules: [ruleToValidate],
+    });
+  }
 
   const combinedChanges: Record<string, unknown> = { rules: nextRules };
   if (rampSchedulePayload?.mode === "clear") {
@@ -4986,7 +5266,7 @@ export async function postFeatureEvaluate(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
-  const constants = await context.models.constants.getAll();
+  const constants = await getResolvableValues(context);
   const results = evaluateFeature({
     feature,
     revision,
@@ -6474,7 +6754,7 @@ export async function getFeaturesStaleStates(
     : undefined;
 
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesForStaleGraph(context),
+    getAllFeaturesWithoutEditorFields(context),
     getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
@@ -6590,7 +6870,7 @@ export async function getFeaturesDependents(
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
   const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeaturesForStaleGraph(context, { includeArchived: true }),
+    getAllFeaturesWithoutEditorFields(context, { includeArchived: true }),
     getAllExperimentsForStaleGraph(context, { includeArchived: true }),
   ]);
 

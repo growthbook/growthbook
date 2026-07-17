@@ -1,13 +1,15 @@
 import { FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  DataSourceInterfaceWithParams,
-  DataSourceSettings,
-} from "shared/types/datasource";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getEqualWeights } from "shared/experiments";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getManagedWarehouseExposureQueryIdForAttribute,
+  isProjectListValidForProject,
+} from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -38,6 +40,10 @@ import {
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Text from "@/ui/Text";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -83,14 +89,15 @@ export function getAutoDatasourceId({
 
 // Auto-select an experiment assignment query only when the choice is unambiguous.
 export function getAutoExposureQueryId({
-  dsSettings,
+  datasource,
   hashAttribute,
   templateExposureQueryId,
 }: {
-  dsSettings?: DataSourceSettings;
+  datasource?: DataSourceInterfaceWithParams;
   hashAttribute: string;
   templateExposureQueryId?: string;
 }): string {
+  const dsSettings = datasource?.settings;
   const exposureQueries = dsSettings?.queries?.exposure || [];
 
   if (templateExposureQueryId) {
@@ -101,6 +108,17 @@ export function getAutoExposureQueryId({
   }
 
   if (exposureQueries.length === 1) return exposureQueries[0].id;
+
+  // Managed warehouses don't populate userIdType.attributes links, so the generic
+  // lookup below can't resolve the assignment query. Map the hash attribute to its
+  // exposure query directly instead.
+  if (datasource?.type === "growthbook_clickhouse") {
+    return getManagedWarehouseExposureQueryIdForAttribute({
+      settings: datasource.settings,
+      attribute: hashAttribute,
+    });
+  }
+
   if (exposureQueries.length > 1) {
     // A hash attribute can be linked to multiple identifier types, each with
     // its own query. Only auto-select when exactly one query is linked across
@@ -141,6 +159,12 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   } = useTemplates();
   const { experimentsMap, holdoutsMap } = useHoldouts();
   const { demoDataSourceId } = useDemoDataSourceProject();
+  const { data: sdkConnectionsData, isLoading: sdkConnectionsLoading } =
+    useSDKConnections();
+
+  const showSwitchToOldExpCreate = useFeatureIsOn(
+    "show-switch-to-old-exp-create",
+  );
 
   const initialProject = ctxProject || "";
 
@@ -209,6 +233,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     ? permissionsUtil.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
+  const canSubmit = hasProjectPermission && !sdkConnectionsLoading;
+
   // When the project changes, drop any selection that's no longer valid there
   useEffect(() => {
     const templateId = form.getValues("templateId");
@@ -237,6 +263,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hashAttributeHoldoutMismatch =
+    !!holdoutHashAttribute &&
+    form.watch("hashAttribute") !== holdoutHashAttribute;
+
   const watchedHashAttribute = form.watch("hashAttribute") || "id";
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
@@ -259,12 +289,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   ).some((t) => t.attributes?.includes(watchedHashAttribute));
   const wouldAutoSelectExposureQuery =
     getAutoExposureQueryId({
-      dsSettings: autoDatasource?.settings,
+      datasource: autoDatasource ?? undefined,
       hashAttribute: watchedHashAttribute,
       templateExposureQueryId: watchedTemplate?.exposureQueryId,
     }) !== "";
   const showLinkIdentifierCallout =
     !!autoDatasource &&
+    autoDatasource.type !== "growthbook_clickhouse" &&
     permissionsUtil.canUpdateDataSourceSettings(autoDatasource) &&
     autoDsExposureQueries.length > 0 &&
     !hashAttributeLinkedToIdentifier &&
@@ -324,17 +355,24 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       throw new Error("You must select an assignment attribute");
     }
 
-    const datasource = getAutoDatasourceId({
+    const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+      sdkConnectionsData?.connections,
+      project,
+    );
+    const hashVersion = hasSDKWithNoBucketingV2 ? 1 : 2;
+
+    const datasourceId = getAutoDatasourceId({
       datasources,
       demoDataSourceId,
       defaultDataSource: settings.defaultDataSource,
       project,
       templateDatasource: data.datasource || "",
     });
+    const selectedDatasource = datasourceId
+      ? getDatasourceById(datasourceId)
+      : null;
     const exposureQueryId = getAutoExposureQueryId({
-      dsSettings: datasource
-        ? getDatasourceById(datasource)?.settings
-        : undefined,
+      datasource: selectedDatasource ?? undefined,
       hashAttribute: hashAttribute || "",
       templateExposureQueryId: data.exposureQueryId || "",
     });
@@ -347,7 +385,8 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       name,
       hypothesis: rawValue.hypothesis || "",
       hashAttribute,
-      datasource,
+      hashVersion,
+      datasource: datasourceId,
       exposureQueryId,
       templateId: rawValue.templateId || "",
       holdoutId: rawValue.holdoutId || undefined,
@@ -397,19 +436,39 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       header="Create Experiment"
       cta="Create"
       size="lg"
-      ctaEnabled={hasProjectPermission}
+      ctaEnabled={canSubmit}
       submit={onSubmit}
       close={() => onClose?.()}
       trackingEventModalType="simple-new-experiment-create"
       trackingEventModalSource={source}
       headerAction={
-        onSwitchToLegacy ? (
+        onSwitchToLegacy && showSwitchToOldExpCreate ? (
           <Link onClick={onSwitchToLegacy} color="gray">
             Switch to old experience
           </Link>
         ) : undefined
       }
     >
+      <Flex direction="column" gap="4" mb="4">
+        {showSwitchToOldExpCreate && (
+          <Callout
+            status="info"
+            dismissible
+            id="new-experiment-create-flow-callout"
+          >
+            Other experiment configuration steps now live on the experiment
+            overview page.
+          </Callout>
+        )}
+        <SDKCapabilityWarning
+          capability="bucketingV2"
+          project={selectedProject}
+          someMessage="Using V1 hashing algorithm as some of your SDK Connections may not support V2 hashing."
+          noneMessage="Using V1 hashing algorithm as none of your SDK Connections support V2 hashing."
+          popoverTriggerText="Show incompatible SDKs"
+          size="medium"
+        />
+      </Flex>
       <Field
         label="Experiment Name"
         required
@@ -420,7 +479,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       {projects.length >= 1 && (
         <SelectField
           label="Project"
-          value={form.watch("project") ?? ""}
+          value={selectedProject}
           onChange={(p) => form.setValue("project", p)}
           name="project"
           initialOption={allowAllProjects ? "All Projects" : undefined}
@@ -495,9 +554,19 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
       <SelectField
         required
-        label="Assignment Attribute"
+        label={
+          <>
+            <Text weight="semibold" mb="1">
+              Assignment Attribute
+            </Text>
+            <Text as="div" color="text-mid">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
+          </>
+        }
+        className={hashAttributeHoldoutMismatch ? "warning" : undefined}
         value={form.watch("hashAttribute") ?? ""}
-        helpText="Will be hashed together with the Tracking Key to determine which variation to assign"
         onChange={(v) => form.setValue("hashAttribute", v)}
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -517,15 +586,15 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             {o.label}
           </AttributeOptionWithTooltip>
         )}
+        helpText={
+          hashAttributeHoldoutMismatch ? (
+            <HelperText status="warning" size="sm" mt="2">
+              The hash attribute of this experiment does not match the hash
+              attribute of the holdout this experiment will belong to.
+            </HelperText>
+          ) : undefined
+        }
       />
-      {!!holdoutHashAttribute &&
-        form.watch("hashAttribute") !== holdoutHashAttribute && (
-          <HelperText status="warning" size="sm" mb="2">
-            The hash attribute of this experiment does not match the hash
-            attribute of the holdout this experiment will belong to.
-          </HelperText>
-        )}
-
       {showLinkIdentifierCallout && autoDatasource && (
         <Callout status="info" mb="3">
           Link the <strong>{watchedHashAttribute}</strong> attribute to an

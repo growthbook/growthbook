@@ -57,6 +57,7 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
 RUN pnpm install --frozen-lockfile --offline
 # Apply patches
@@ -72,6 +73,7 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && rm -rf packages/shared/node_modules \
+  && rm -rf packages/stats-ts/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && pnpm install --frozen-lockfile --prod --no-optional \

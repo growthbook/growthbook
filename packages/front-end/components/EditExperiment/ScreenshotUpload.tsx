@@ -20,6 +20,7 @@ type props = {
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
+  noDrag?: boolean;
 };
 
 const ScreenshotUpload = ({
@@ -27,6 +28,7 @@ const ScreenshotUpload = ({
   variation,
   onSuccess,
   children,
+  noDrag,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
@@ -87,7 +89,10 @@ const ScreenshotUpload = ({
       }
     }
   };
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    noDrag,
+  });
 
   // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement
   const rootProps: unknown = getRootProps();
@@ -100,15 +105,17 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        onPaste={onPaste}
+        onPaste={noDrag ? undefined : onPaste}
         tabIndex={0}
-        className={clsx(styles.droparea, "my-1", {
+        className={clsx(styles.droparea, {
           [styles.dragging]: isDragActive,
         })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        <div className={styles.message}>Drop or paste image here...</div>
+        {!noDrag && (
+          <div className={styles.message}>Drop or paste image here...</div>
+        )}
         {children}
       </div>
     </>

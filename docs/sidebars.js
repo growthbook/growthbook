@@ -61,8 +61,10 @@ export default {
             "features/rules", // Rules (overview, choosing a rule type, all rule types)
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
+            "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
             "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
           ],
         },
         {
@@ -443,6 +445,28 @@ export default {
             },
           ],
         },
+        // {
+        //   type: "category",
+        //   label: "Contextual Bandits",
+        //   collapsed: true,
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/overview",
+        //       label: "Overview",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/config",
+        //       label: "Setting up a Contextual Bandit",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/contextual-bandit-via-api",
+        //       label: "Driving a Contextual Bandit via API",
+        //     },
+        //   ],
+        // },
         {
           type: "doc",
           id: "running-experiments/running-holdouts",

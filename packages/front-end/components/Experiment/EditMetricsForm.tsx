@@ -10,7 +10,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
@@ -42,7 +42,7 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
+  getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null,
   settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
@@ -234,7 +234,7 @@ const EditMetricsForm: FC<{
       {!hasCommercialFeature("metric-groups") ? (
         <PremiumCallout
           commercialFeature="metric-groups"
-          dismissable={true}
+          dismissible={true}
           id="metrics-list-metric-group-promo"
           docSection="metricGroups"
           mb="4"

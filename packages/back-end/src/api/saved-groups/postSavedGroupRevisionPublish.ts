@@ -12,7 +12,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -102,6 +105,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     savedGroup as unknown as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(
@@ -120,10 +124,10 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const forceMerge = !!req.body.mergeNow && canBypass;
     if (!forceMerge) {
-      const snapshot = revision.target.snapshot as Record<string, unknown>;
-      const liveEntity = savedGroup as unknown as Record<string, unknown>;
-      const diverged = [...updatableFields].some(
-        (key) => !isEqual(snapshot[key], liveEntity[key]),
+      const diverged = isRevisionDiverged(
+        adapter,
+        revision.target.snapshot as Record<string, unknown>,
+        savedGroup as unknown as Record<string, unknown>,
       );
       if (diverged && !canBypass) {
         throw new ConflictError(

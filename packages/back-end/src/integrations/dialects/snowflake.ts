@@ -120,6 +120,9 @@ export const snowflakeDialect: SqlDialect = {
   //     set operations.
   unpivotLabeledPairs: indicesTableUnpivot,
 
+  arrayElement: (arrayCol: string, index: number) =>
+    snowflakeDialect.castToFloat(`${arrayCol}[${index}]`),
+
   // APPROX_TOP_K(expr, k, counters) returns an ARRAY of [value, count] pairs per
   // column; pack the per-column results into OBJECTs, then FLATTEN the outer
   // array and each column's items.

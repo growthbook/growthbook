@@ -647,6 +647,28 @@ pre {
   }
 }
 
+// Wide config tables (the field editor + the usage tables on the config page).
+// Same trade-off as .experiment-results-wrapper: an `overflow-x` ancestor breaks
+// a document-sticky header AND would clip the inline edit-field dropdowns, so we
+// only enable x-scroll once the viewport is too narrow to show the table without
+// squeezing/truncating, and drop the sticky header at that same breakpoint.
+// Above it there is no scroll container (header sticks, dropdowns aren't
+// clipped); below it we trade the sticky header for horizontal scroll. Viewport
+// (not container) query on purpose — a container-query ancestor would establish a
+// containing block that re-clips the `position: fixed` react-select menus.
+// Keep the breakpoint in the two rules in sync.
+.config-table-scroll {
+  @media (max-width: 1400px) {
+    overflow-x: auto;
+  }
+}
+.config-table-sticky-header {
+  position: sticky;
+  @media (max-width: 1400px) {
+    position: static;
+  }
+}
+
 .experiment-results,
 .bandit-summary-results {
   tbody {
@@ -736,12 +758,16 @@ pre {
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
+        font-weight: var(--font-weight-bold);
+        color: var(--color-text-high);
       }
 
       &.label {
         color: var(--color-text-mid);
-        font-size: 13px;
+        font-size: 12px;
+        font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
+        line-height: 16px;
       }
     }
   }
@@ -2049,17 +2075,6 @@ main.main {
     }
   }
 
-  &.with-variation-border-bottom {
-    border-bottom: 7px solid var(--slate-11);
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        border-bottom: 7px solid $color;
-      }
-    }
-  }
   &.with-small-border {
     border-top: 4px solid var(--slate-11);
     @for $i from 0 through 99 {
@@ -2078,18 +2093,6 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         background-color: $color;
-      }
-    }
-  }
-
-  &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 var(--slate-11) inset;
-
-    @for $i from 0 through 99 {
-      $color-index: $i % length($colors);
-      $color: nth($colors, $color-index + 1);
-      &.variation#{$i} {
-        box-shadow: -3px 0 0 $color inset;
       }
     }
   }
@@ -2616,11 +2619,16 @@ li.metrics a span img {
   }
   .carousel-control-next-icon,
   .carousel-control-prev-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 30px;
     height: 30px;
     border-radius: 50px;
-    background-size: 50%;
+    background-image: none;
     background-color: colors.$gray-600;
+    color: #fff;
+    font-size: 18px;
   }
   .carousel-inner {
     overflow: visible;
@@ -3428,15 +3436,6 @@ input:disabled {
 
   .alert-link {
     color: var(--text-color-main);
-  }
-}
-
-.alert-cool-1 {
-  border-radius: 5px;
-  color: #4d7693;
-  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
-  .btn-link {
-    color: #007bff;
   }
 }
 

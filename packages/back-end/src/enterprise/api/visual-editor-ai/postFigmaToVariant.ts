@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { v4 as uuidv4 } from "uuid";
 import { pickVisionModel } from "shared/ai";
 import { findVisualChangesetById } from "back-end/src/models/VisualChangesetModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -19,6 +18,11 @@ import {
 } from "back-end/src/services/figma";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import { scopeCss } from "back-end/src/api/visual-editor-ai/scopeCss";
+import {
+  buildInsertJs,
+  makeScopeToken,
+  wrapWithScope,
+} from "back-end/src/api/visual-editor-ai/insertPrimitive";
 
 // Reuse the reference-image shape from image-gen: plain base64, mimeType
 // enum, 8 MB cap. No `data:` URL → no SSRF on the mockup-image path.
@@ -154,7 +158,9 @@ If the requested design is too large or structural to be a single in-page compon
 
 type InjectionMode = "append" | "set" | "before" | "after";
 
-// insertAdjacentHTML position for each insert mode.
+// insertAdjacentHTML position for each insert mode. (A narrow subset of the
+// shared InsertPosition type — Figma only ever inserts before/after/append,
+// never afterbegin. Assignable to buildInsertJs's wider position param.)
 const INSERT_POSITION: Record<
   Exclude<InjectionMode, "set">,
   "beforeend" | "beforebegin" | "afterend"
@@ -179,28 +185,6 @@ function placementSentence(
     default:
       return `The component will be APPENDED inside the target element (${targetSelector}).`;
   }
-}
-
-// Build a self-contained, idempotent insertion script for the variation's
-// `js` field. It runs once in the SDK (and our preview), guards on the
-// unique scope class so it never double-inserts, and waits (bounded) for
-// late/SPA-rendered targets before giving up — so it never loops.
-function buildInsertJs({
-  scopeToken,
-  targetSelector,
-  position,
-  html,
-}: {
-  scopeToken: string;
-  targetSelector: string;
-  position: "beforeend" | "beforebegin" | "afterend";
-  html: string;
-}): string {
-  const S = JSON.stringify(scopeToken);
-  const T = JSON.stringify(targetSelector);
-  const P = JSON.stringify(position);
-  const H = JSON.stringify(html);
-  return `(function(){var S=${S};function ins(){if(document.querySelector("."+S))return true;var t=document.querySelector(${T});if(!t)return false;t.insertAdjacentHTML(${P},${H});return true;}if(ins())return;var mo=new MutationObserver(function(){if(ins())mo.disconnect();});mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);})();`;
 }
 
 function buildFigmaUserPrompt({
@@ -332,7 +316,7 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
 
   // Unique per-request scope token the model must use verbatim. Generated
   // server-side so the model can't reuse a colliding class across turns.
-  const scopeToken = `gbf-${uuidv4().replace(/-/g, "").slice(0, 8)}`;
+  const scopeToken = makeScopeToken();
   const scopeClass = `.${scopeToken}`;
 
   let instructions = baseInstructions.replace(/SCOPE_CLASS/g, scopeToken);
@@ -408,9 +392,7 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   // Guarantee the injected markup's root carries the scope class so the
   // scoped CSS actually applies (the model is told to wrap it, but wrap
   // defensively when it didn't).
-  const html = rawHtml.includes(scopeToken)
-    ? rawHtml
-    : `<div class="${scopeToken}">${rawHtml}</div>`;
+  const html = wrapWithScope(rawHtml, scopeToken);
 
   const scopedCss = result.css ? scopeCss(result.css, scopeClass) : "";
 

@@ -18,7 +18,7 @@ import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   getMetricLink,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -225,7 +225,7 @@ export function getRenderLabelColumn({
     row,
     maxRows,
   }: {
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row?: ExperimentTableRow;
     maxRows?: number;
   }) {

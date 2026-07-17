@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Flex, Grid, Text } from "@radix-ui/themes";
+import { Flex, Grid } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 
 export interface DataListItem {
   label: string;
@@ -48,12 +49,12 @@ export default function DataList({
       >
         {data.map(({ label, value, tooltip }, index) => (
           <Flex direction="column" key={index}>
-            <Text weight="bold" mb="2">
+            <Text color="text-high" weight="semibold" mb="2">
               {label}
               {tooltip ? (
                 <Tooltip body={tooltip}>
-                  <Text color="violet" ml="1" size="3">
-                    <PiInfo />
+                  <Text ml="1" size="large">
+                    <PiInfo style={{ color: "var(--violet-11)" }} />
                   </Text>
                 </Tooltip>
               ) : null}

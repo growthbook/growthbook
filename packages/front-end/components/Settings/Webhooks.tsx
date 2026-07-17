@@ -10,6 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
@@ -20,7 +21,7 @@ const Webhooks: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

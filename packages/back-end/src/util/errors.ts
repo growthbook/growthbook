@@ -158,6 +158,36 @@ export class SoftWarningError extends Error {
   }
 }
 
+// A publish failure that cannot become publishable on a later tick — a stale
+// experiment-guard fingerprint (the acknowledged conflict set no longer matches)
+// or a missing arming user. Thrown from a publish path so the scheduled-publish
+// poller gives up on the FIRST occurrence — parks the draft and fires
+// `revision.publishFailed` — instead of retrying to the attempt cap. Failures a
+// later tick could still resolve (merge conflicts, an incomplete pre-launch
+// checklist, a schema/invariant violation the config's schema or value may yet
+// be edited to satisfy) stay ordinary errors and retry to the cap. The
+// `terminalPublishFailure` flag lets the classifier recognize it even across
+// module/re-throw boundaries where `instanceof` can be unreliable. Still a 400
+// for synchronous (manual) callers.
+export class TerminalPublishError extends Error {
+  status = 400;
+  readonly terminalPublishFailure = true;
+  constructor(message: string) {
+    super(message);
+    this.name = "TerminalPublishError";
+  }
+}
+
+export function isTerminalPublishError(error: unknown): boolean {
+  if (error instanceof TerminalPublishError) return true;
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as { terminalPublishFailure?: unknown }).terminalPublishFailure ===
+      true
+  );
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {
@@ -170,6 +200,16 @@ export class ConcurrentIncrementalRefreshError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConcurrentIncrementalRefreshError";
+  }
+}
+
+// Another advance holds a ramp schedule's advance lock. Transient: callers
+// either retry briefly (user-initiated actions) or defer to the scheduler.
+export class RampAdvanceLockBusyError extends Error {
+  status = 409;
+  constructor(message: string) {
+    super(message);
+    this.name = "RampAdvanceLockBusyError";
   }
 }
 

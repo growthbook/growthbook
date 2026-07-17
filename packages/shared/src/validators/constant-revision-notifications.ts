@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { apiConstantRevisionValidator } from "./constant-revisions";
+import { revisionPublishFailedExtension } from "./revision-publish-failed";
 
 const reviewer = z
   .object({
@@ -103,4 +104,12 @@ export const constantRevisionRevertedPayload = constantRevisionWebhookPayload
   .strict();
 export type ConstantRevisionRevertedPayload = z.infer<
   typeof constantRevisionRevertedPayload
+>;
+
+export const constantRevisionPublishFailedPayload =
+  constantRevisionWebhookPayload
+    .extend(revisionPublishFailedExtension)
+    .strict();
+export type ConstantRevisionPublishFailedPayload = z.infer<
+  typeof constantRevisionPublishFailedPayload
 >;

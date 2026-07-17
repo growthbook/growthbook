@@ -54,7 +54,7 @@ export default function MarketingBanner({
   if (dismissible && dismissed) return null;
 
   return (
-    <Callout status="info" icon={null} contentsAs="div" mb="5">
+    <Callout status="info" icon={null} mb="5">
       <Flex align="center" gap="4" wrap="wrap">
         <Flex align="center" gap="3" flexGrow="1" style={{ minWidth: 0 }}>
           <Badge
@@ -86,7 +86,7 @@ export default function MarketingBanner({
           <LinkButton
             href={cta.link}
             external={external}
-            color="violet"
+            color="inherit"
             size="sm"
           >
             {cta.copy}

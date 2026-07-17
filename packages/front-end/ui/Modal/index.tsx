@@ -219,7 +219,7 @@ function Header({ children }: { children: ReactNode }) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <Dialog.Title size="5" mb="0">
+    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
       {children}
     </Dialog.Title>
   );
