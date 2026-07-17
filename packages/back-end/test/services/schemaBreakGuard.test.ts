@@ -1,7 +1,9 @@
 import { ConfigInterface } from "shared/types/config";
+import { FeatureInterface } from "shared/types/feature";
 import {
   collectConfigOwnBreaks,
   collectConstantConfigBreaks,
+  collectConstantFeatureBreaks,
   unacknowledgedSchemaBreakViolations,
 } from "back-end/src/services/schemaBreakGuard";
 import { ResolvableValue } from "back-end/src/services/resolvableValues";
@@ -220,6 +222,77 @@ describe("collectConstantConfigBreaks", () => {
       proposedEnvironmentValues: { prod: '{"port":9090}' },
     });
     expect(out).toEqual([]);
+  });
+});
+
+describe("collectConstantFeatureBreaks", () => {
+  it("keeps identical breaks in two same-type rules distinguishable (fingerprint identity)", () => {
+    // Two force rules whose shipped values break the same way once the constant
+    // changes. The violation strings double as the arm-time acknowledgment
+    // fingerprint, so they must stay distinct per rule — collapsed entries would
+    // let a NEW break in one rule masquerade as the acknowledged break of the
+    // other at a deferred fire.
+    const schema = {
+      ...portIntegerSchema,
+      fields: [
+        ...portIntegerSchema.fields,
+        {
+          key: "label",
+          type: "string" as const,
+          required: false,
+          default: "",
+          description: "",
+          enum: [],
+        },
+      ],
+    };
+    const configResolvable = {
+      key: "c",
+      type: "json",
+      value: '{"$extends":["@const:t"]}',
+      project: "",
+      source: "config",
+    } as unknown as ResolvableValue;
+    const configNode = {
+      key: "c",
+      project: "",
+      value: '{"$extends":["@const:t"]}',
+      schema,
+      extensible: false,
+    } as unknown as ConfigInterface;
+    const feature = {
+      id: "f",
+      project: "",
+      valueType: "json",
+      baseConfig: "c",
+      defaultValue: '{"$extends":["@config:c"]}',
+      rules: [
+        {
+          type: "force",
+          id: "fr_1",
+          value: '{"$extends":["@config:c"],"label":"a"}',
+        },
+        {
+          type: "force",
+          id: "fr_2",
+          value: '{"$extends":["@config:c"],"label":"b"}',
+        },
+      ],
+    } as unknown as FeatureInterface;
+
+    const out = collectConstantFeatureBreaks({
+      resolvables: [configResolvable, constant("t", '{"port":8080}')],
+      features: [feature],
+      allConfigs: [configNode],
+      environments: [],
+      extensibleDefault: false,
+      constantKey: "t",
+      proposedValue: '{"port":"bad"}',
+    });
+    expect(out).toEqual([
+      expect.stringContaining('feature "f" Rule fr_1 value'),
+      expect.stringContaining('feature "f" Rule fr_2 value'),
+    ]);
   });
 });
 

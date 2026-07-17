@@ -500,21 +500,29 @@ export function collectFeatureConfigBackedValues(
     backed.push({ config, patch: getConfigBackingPatch(raw), label });
   };
   add(values.defaultValue, "Default value");
-  for (const rule of values.rules ?? []) {
+  (values.rules ?? []).forEach((rule, ruleIndex) => {
+    // Name the specific rule: the labels prefix validation errors AND feed the
+    // schema-break guard's acknowledgment fingerprint, so two rules of the same
+    // type must not collapse to identical strings.
+    const ruleRef = `Rule ${rule.id || `#${ruleIndex + 1}`}`;
     if (rule.type === "force" || rule.type === "rollout") {
-      add(rule.value, "Rule value");
+      add(rule.value, `${ruleRef} value`);
     } else if (
       rule.type === "experiment-ref" ||
       rule.type === "contextual-bandit-ref"
     ) {
-      rule.variations?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+      rule.variations?.forEach((v, i) =>
+        add(v.value, `${ruleRef} variation ${i + 1}`),
+      );
     } else if (rule.type === "experiment") {
-      rule.values?.forEach((v, i) => add(v.value, `Variation ${i + 1}`));
+      rule.values?.forEach((v, i) =>
+        add(v.value, `${ruleRef} variation ${i + 1}`),
+      );
     } else if (rule.type === "safe-rollout") {
-      add(rule.controlValue, "Control value");
-      add(rule.variationValue, "Variation value");
+      add(rule.controlValue, `${ruleRef} control value`);
+      add(rule.variationValue, `${ruleRef} variation value`);
     }
-  }
+  });
   return backed;
 }
 

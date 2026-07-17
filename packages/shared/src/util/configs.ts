@@ -931,7 +931,11 @@ export function collectResolvedConfigValueViolations({
       invByName.set(inv.name, inv);
   }
   for (const vi of evaluateInvariants(value, [...invByName.values()])) {
-    errors.push(vi.message);
+    // Name the rule, not just its message: these strings double as the
+    // schema-break guard's acknowledgment fingerprint, so two rules sharing a
+    // message must stay distinguishable or a new break can masquerade as an
+    // already-acknowledged one.
+    errors.push(`validation rule "${vi.name}": ${vi.message}`);
   }
   return errors;
 }
