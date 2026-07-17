@@ -356,7 +356,7 @@ const EditDOMMutationsModal: FC<{
             Global CSS
             {newVisualChange.css ? (
               <small className="ml-2 float-right">
-                <Link className="text-danger" onClick={deleteGlobalCSS}>
+                <Link color="red" onClick={deleteGlobalCSS}>
                   clear
                 </Link>
               </small>
@@ -381,7 +381,7 @@ const EditDOMMutationsModal: FC<{
             Custom JS
             {newVisualChange.js ? (
               <small className="ml-2 float-right">
-                <Link className="text-danger" onClick={deleteCustomJS}>
+                <Link color="red" onClick={deleteCustomJS}>
                   clear
                 </Link>
               </small>

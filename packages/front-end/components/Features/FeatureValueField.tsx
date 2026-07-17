@@ -54,7 +54,6 @@ import RadioGroup from "@/ui/RadioGroup";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import SparseTabbedEditor from "@/components/Features/SparseTabbedEditor";

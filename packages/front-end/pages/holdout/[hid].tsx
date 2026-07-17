@@ -22,7 +22,7 @@ import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargeting
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
-import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
+import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/StartHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
