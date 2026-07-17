@@ -1,12 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  DEFAULT_DECISION_FRAMEWORK_ENABLED,
-  DEFAULT_TARGET_MDE,
-} from "shared/constants";
-import { getScopedSettings } from "shared/settings";
-import { expandMetricGroups, isFactMetric } from "shared/experiments";
+import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { PiArrowSquareOut, PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -45,11 +40,6 @@ const DEFAULT_END_AFTER_DAYS = 30;
 // auto-ship later starts from the intended default rather than a stale value.
 const DEFAULT_SHIPPING_FALLBACK: ShippingFallback = "force-ship";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
 export default function EditScheduleModal({
   experiment,
   mutate,
@@ -59,9 +49,8 @@ export default function EditScheduleModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { hasCommercialFeature, organization } = useUser();
-  const { getExperimentMetricById, getMetricById, metricGroups } =
-    useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const { getExperimentMetricById } = useDefinitions();
   const { decisionFrameworkEnabled } = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { getDecisionCriteria } = useRunningExperimentStatus();
@@ -77,42 +66,6 @@ export default function EditScheduleModal({
 
   const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
 
-  // Mirror DecisionMakingSettings: resolve each goal metric's target MDE using
-  // the scoped-settings hierarchy so the summary matches what actually drives
-  // the decision framework.
-  const goalsWithTargetMDE = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      experiment.goalMetrics,
-      metricGroups,
-    );
-    return expandedGoals.flatMap((m) => {
-      const metric = getExperimentMetricById(m);
-      if (!metric) return [];
-      const denominatorMetric =
-        !isFactMetric(metric) && metric.denominator
-          ? getMetricById(metric.denominator)
-          : undefined;
-      const { settings: scopedSettings } = getScopedSettings({
-        organization,
-        experiment,
-        metric,
-        denominatorMetric: denominatorMetric ?? undefined,
-      });
-      return [
-        {
-          name: metric.name,
-          computedTargetMDE:
-            scopedSettings.targetMDE.value ?? DEFAULT_TARGET_MDE,
-        },
-      ];
-    });
-  }, [
-    experiment,
-    metricGroups,
-    getExperimentMetricById,
-    getMetricById,
-    organization,
-  ]);
   // Auto-ship needs both the paid feature AND the org's decision-framework
   // toggle enabled — matches the back-end apply-time gate.
   const hasDecisionFrameworkFeature =
@@ -621,12 +574,15 @@ export default function EditScheduleModal({
               </Box>
 
               {mode === "auto-ship" && (
+                // TODO: Replace with ui/Panel component when it's ready
                 <Box
                   p="3"
                   style={{
                     backgroundColor: "var(--slate-2)",
                     borderRadius: "var(--radius-1)",
                     borderColor: "var(--slate-a3)",
+                    borderWidth: "1px",
+                    borderStyle: "solid",
                   }}
                 >
                   <Flex align="center" justify="between" mb="1" gap="2">
@@ -647,23 +603,6 @@ export default function EditScheduleModal({
                     {decisionCriteria.description
                       ? `: ${decisionCriteria.description}`
                       : ""}
-                  </Text>
-                  <Text as="div" size="small">
-                    <Text size="small" weight="semibold" color="text-high">
-                      Target MDE:{" "}
-                    </Text>
-                    <Text size="small" color="text-mid">
-                      {goalsWithTargetMDE.length
-                        ? goalsWithTargetMDE
-                            .map(
-                              (m) =>
-                                `${m.name} (${percentFormatter.format(
-                                  m.computedTargetMDE,
-                                )})`,
-                            )
-                            .join(", ")
-                        : "--"}
-                    </Text>
                   </Text>
                 </Box>
               )}
