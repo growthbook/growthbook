@@ -381,12 +381,15 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         { armed: !!options?.deferred },
         {
           value: (filteredChanges.value as string | undefined) ?? entity.value,
+          // Presence-aware for the clearable fields: `?? entity` can't tell
+          // "unchanged" from "cleared" (schema clears to null, parent/extends to
+          // ""/[]), which would resurrect the pre-clear value and desync this
+          // fire from the arm-time capture (applyPatchToSnapshot) — bricking the
+          // deferred publish with a terminal guard error.
           schema:
-            (filteredChanges.schema as ConfigInterface["schema"] | undefined) ??
-            entity.schema,
-          // Presence-aware for the clearable lineage fields: `?? entity` can't
-          // tell "unchanged" from "cleared", which would desync this fire's
-          // lineage from the arm-time capture (applyPatchToSnapshot).
+            "schema" in filteredChanges
+              ? (filteredChanges.schema as ConfigInterface["schema"])
+              : entity.schema,
           parent:
             "parent" in filteredChanges
               ? (filteredChanges.parent as string | undefined)
