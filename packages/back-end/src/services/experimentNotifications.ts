@@ -189,8 +189,13 @@ export const notifyScheduledStatusUpdateApplied = ({
   shippedVariationId?: string;
   forced?: boolean;
   recommendedVariationId?: string;
-}) =>
-  dispatchEvent({
+}) => {
+  const variationName = (id?: string) =>
+    id ? experiment.variations.find((v) => v.id === id)?.name : undefined;
+  const shippedVariationName = variationName(shippedVariationId);
+  const recommendedVariationName = variationName(recommendedVariationId);
+
+  return dispatchEvent({
     context,
     experiment,
     event: "info.scheduled-status-update",
@@ -201,11 +206,14 @@ export const notifyScheduledStatusUpdateApplied = ({
         action,
         ...(shipped !== undefined ? { shipped } : {}),
         ...(shippedVariationId ? { shippedVariationId } : {}),
+        ...(shippedVariationName ? { shippedVariationName } : {}),
         ...(forced !== undefined ? { forced } : {}),
         ...(recommendedVariationId ? { recommendedVariationId } : {}),
+        ...(recommendedVariationName ? { recommendedVariationName } : {}),
       },
     },
   });
+};
 
 export const notifyMultipleExposures = async ({
   context,
@@ -643,6 +651,44 @@ async function getDecisionCriteria(
 
   return decisionCriteria;
 }
+
+// The scheduled end passing can itself flip the EDF status to decisive
+// (getExperimentResultStatus forces a decision once the end date is past), and
+// no snapshot update happens at that moment — the snapshot-driven
+// notifyDecision would see identical before/after statuses and never fire.
+// Detect the flip by comparing the status with and without the schedule.
+export const notifyScheduledEndDecision = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework"),
+  );
+  const decisionCriteria = await getDecisionCriteria(
+    context,
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+      context.org.settings?.defaultDecisionCriteriaId,
+  );
+
+  const currentStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings,
+    decisionCriteria,
+  });
+  if (!currentStatus) return false;
+
+  const lastStatus = getExperimentResultStatus({
+    experimentData: { ...experiment, statusUpdateSchedule: null },
+    healthSettings,
+    decisionCriteria,
+  });
+
+  return notifyDecision({ context, experiment, currentStatus, lastStatus });
+};
 
 export const notifyExperimentChange = async ({
   context,

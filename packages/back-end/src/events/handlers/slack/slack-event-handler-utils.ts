@@ -12,6 +12,7 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import {
   ExperimentWarningNotificationPayload,
   ExperimentInfoSignificancePayload,
+  ExperimentInfoScheduledStatusUpdatePayload,
   ExperimentDecisionNotificationPayload,
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
@@ -107,9 +108,10 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object,
       );
 
-    // TODO: Add a slack message for scheduled-status-update event; the event still reaches web hooks.
     case "experiment.info.scheduled-status-update":
-      return null;
+      return buildSlackMessageForExperimentScheduledStatusUpdateEvent(
+        event.data.object,
+      );
 
     case "experiment.deleted":
       return await buildSlackMessageForExperimentDeletedEvent(
@@ -1415,6 +1417,51 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
             ),
             variationName: `*${variationName}*`,
           }),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentScheduledStatusUpdateEvent = (
+  data: ExperimentInfoScheduledStatusUpdatePayload,
+): SlackMessage => {
+  const shippedVariation = data.shippedVariationName ?? data.shippedVariationId;
+  const recommendedVariation =
+    data.recommendedVariationName ?? data.recommendedVariationId;
+
+  const text = (experimentName: string): string => {
+    switch (data.action) {
+      case "started":
+        return `Experiment ${experimentName} was automatically started as scheduled.`;
+      case "stopped":
+        if (data.shipped && shippedVariation) {
+          return data.forced
+            ? `Experiment ${experimentName} reached its scheduled end date with no clear winner; the pre-selected variation "${shippedVariation}" was shipped.`
+            : `Experiment ${experimentName} reached its scheduled end date and the winning variation "${shippedVariation}" was automatically shipped.`;
+        }
+        return `Experiment ${experimentName} was automatically stopped at its scheduled end date. No variation was shipped.`;
+      case "kept-running":
+        return recommendedVariation
+          ? `Experiment ${experimentName} reached its scheduled end date and was kept running. Recommended variation to ship: "${recommendedVariation}".`
+          : `Experiment ${experimentName} reached its scheduled end date and was kept running. There is no clear winner yet.`;
+      default: {
+        const exhaustiveCheck: never = data.action;
+        return exhaustiveCheck;
+      }
+    }
+  };
+
+  return {
+    text: text(data.experimentName),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`) +
+            getExperimentUrlFormatted(data.experimentId),
         },
       },
     ],

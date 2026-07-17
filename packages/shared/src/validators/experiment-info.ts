@@ -31,12 +31,14 @@ export const experimentInfoScheduledStatusUpdate = z
     // Stop-only: whether a variation was auto-shipped/force-shipped and which.
     shipped: z.boolean().optional(),
     shippedVariationId: z.string().optional(),
+    shippedVariationName: z.string().optional(),
     // True when no clear winner was found and the configured fallback
     // variation was force-shipped.
     forced: z.boolean().optional(),
     // kept-running only: the EDF-recommended winning variation (if any), so the
     // notification can suggest an outcome + link to stop and choose one.
     recommendedVariationId: z.string().optional(),
+    recommendedVariationName: z.string().optional(),
   })
   .strict();
 

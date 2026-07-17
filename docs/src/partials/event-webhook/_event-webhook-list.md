@@ -2765,8 +2765,10 @@ Triggered when a scheduled start or stop is automatically applied to an experime
             action: "started" | "stopped" | "kept-running";
             shipped?: boolean | undefined;
             shippedVariationId?: string | undefined;
+            shippedVariationName?: string | undefined;
             forced?: boolean | undefined;
             recommendedVariationId?: string | undefined;
+            recommendedVariationName?: string | undefined;
         };
     };
     user: {

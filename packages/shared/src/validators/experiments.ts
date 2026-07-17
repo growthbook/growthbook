@@ -348,9 +348,7 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
-// Enum option arrays — the single source of truth for both the Zod schemas
-// below and the (hand-written) Mongoose experiment schema, which imports these
-// so the DB layer enforces the same values and the two can't drift.
+// Also imported by the Mongoose experiment schema so the two can't drift.
 export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
 export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
 export const SHIPPING_MODES = [
@@ -361,55 +359,30 @@ export const SHIPPING_MODES = [
 ] as const;
 export const SHIPPING_FALLBACKS = ["notify", "force-ship"] as const;
 
-// A relative end offset. Deferred: `stopAt` is resolved from this at the
-// experiment's actual start (or immediately off `dateStarted` when already
-// running), so "end 7 days after start" tracks the real start time.
+// A relative end offset, resolved to a concrete `stopAt` at the experiment's
+// actual start.
 export const scheduleStopAfterValidator = z.object({
-  // Whole units only: the resolver uses date-fns addDays/addHours, which floor
-  // fractional amounts (0.5 days → +0), so a non-integer offset would silently
-  // skew or drop the scheduled end.
+  // Whole units only: the date-fns resolvers floor fractional amounts.
   value: z.number().int().positive(),
   unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
 });
 export type ScheduleStopAfter = z.infer<typeof scheduleStopAfterValidator>;
 
-// Both bounds are optional: a schedule can set just a start (scheduled start),
-// just a stop (hard cutoff for an already-running experiment), or both. The end
-// can be absolute (`stopAt`) or a deferred relative offset (`stopAfter`) that
-// resolves to `stopAt` at start.
 export const statusUpdateScheduleValidator = z
   .object({
     startAt: z.date().optional(),
     stopAt: z.date().optional(),
     stopAfter: scheduleStopAfterValidator.optional().nullable(),
   })
-  // The end is one or the other — never both. Allowing both is ambiguous
-  // (stopAfter resolves to a stopAt at start and would clobber the explicit one).
+  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
+  // would clobber the explicit one.
   .refine((s) => !(s.stopAt && s.stopAfter), {
     message: "Provide either stopAt or stopAfter, not both.",
     path: ["stopAfter"],
   });
 
-// What happens at the scheduled end date. Absent = "notify".
-//  - "notify" (soft): the experiment KEEPS RUNNING; you're just notified the
-//    target end date was reached. No stop, no rollout.
-//  - "auto-ship" (Pro, decision framework): ship the winning variation and
-//    stop. Multi-winner ties break by higher lift on `tiebreakerMetricId`.
-//    With no clear winner, `fallback` decides: "notify" keeps the experiment
-//    running; "force-ship" ships `fallbackVariationId` and stops.
-//  - "force-ship" (basic): stop and roll out `fallbackVariationId`. If the
-//    decision framework is available, the EDF + tiebreaker verdict is recorded
-//    as metadata (results/winner) but does not change what's shipped.
-//  - "stop" (basic): a hard deadline — stop the experiment with no rollout. If
-//    the decision framework is available, the EDF + tiebreaker verdict is
-//    recorded as metadata.
-// `tiebreakerMetricId` applies to auto-ship, force-ship, and stop (for the EDF
-// verdict). No auto-rollback.
-// A `fallbackVariationId` is required whenever the config actually force-ships
-// a variation — either the top-level "force-ship" mode, or auto-ship with a
-// force-ship fallback. Enforced here so every write path (generic PUT, internal
-// controller, action endpoint) rejects the incomplete config, not just the
-// dedicated shipping-criteria service.
+// Enforced in the schema so every write path rejects an incomplete config,
+// not just the dedicated shipping-criteria service.
 const forceShipCriteriaHasVariation = (c: {
   mode: string;
   fallback: string;

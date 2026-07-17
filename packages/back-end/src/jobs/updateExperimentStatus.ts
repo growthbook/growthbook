@@ -10,6 +10,7 @@ import { executeExperimentStart } from "back-end/src/services/experimentChanges/
 import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
+  notifyScheduledEndDecision,
   notifyScheduledStatusUpdateApplied,
   notifyScheduledStatusUpdateFailed,
 } from "back-end/src/services/experimentNotifications";
@@ -182,6 +183,9 @@ const updateSingleExperimentStatus = async (
             action: "kept-running",
             recommendedVariationId: outcome.recommendedVariationId ?? undefined,
           });
+          // The end date passing can flip the EDF status to decisive without
+          // a snapshot update, so fire any resulting decision event now.
+          await notifyScheduledEndDecision({ context, experiment: latest });
         } else {
           await notifyScheduledStatusUpdateApplied({
             context,
