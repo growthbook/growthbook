@@ -9,11 +9,13 @@ import {
   MetricExplorationBlockInterface,
   FactTableExplorationBlockInterface,
   DataSourceExplorationBlockInterface,
+  FunnelExplorationBlockInterface,
 } from "shared/enterprise";
 import {
   MetricExplorationConfig,
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
+  FunnelExplorationConfig,
   ExplorationDateRange,
   dateGranularity,
 } from "shared/validators";
@@ -94,12 +96,14 @@ type DashboardGlobalControlSupportedBlock = DashboardBlockInterfaceOrData<
   | MetricExplorationBlockInterface
   | FactTableExplorationBlockInterface
   | DataSourceExplorationBlockInterface
+  | FunnelExplorationBlockInterface
 >;
 
 const dashboardGlobalControlSupportedBlockTypes = new Set<DashboardBlockType>([
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "funnel-exploration",
 ]);
 
 export function getTemporaryDashboardBlockId(index: number): string {
@@ -210,7 +214,8 @@ type DateGranularity = (typeof dateGranularity)[number];
 type DashboardGlobalControlSupportedConfig =
   | MetricExplorationConfig
   | FactTableExplorationConfig
-  | DataSourceExplorationConfig;
+  | DataSourceExplorationConfig
+  | FunnelExplorationConfig;
 
 function applyDateGranularity<T extends DashboardGlobalControlSupportedBlock>(
   config: T["config"],
@@ -683,6 +688,19 @@ export const CREATE_BLOCK_TYPE: {
         "data-source-exploration",
         initialValues?.config?.datasource ?? "",
       ) as DataSourceExplorationConfig),
+    ...(initialValues || {}),
+  }),
+  "funnel-exploration": ({ initialValues }) => ({
+    type: "funnel-exploration",
+    title: "",
+    description: "",
+    explorerAnalysisId: "",
+    config:
+      initialValues?.config ??
+      (getInitialConfigByBlockType(
+        "funnel-exploration",
+        initialValues?.config?.datasource ?? "",
+      ) as FunnelExplorationConfig),
     ...(initialValues || {}),
   }),
 };

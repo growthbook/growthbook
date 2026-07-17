@@ -37,6 +37,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   metric: "Metric",
   fact_table: "Fact Table",
   data_source: "Data Source",
+  funnel: "Funnel",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -120,7 +121,11 @@ function ExplorerContent() {
 
         {/* Sidebar */}
         <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-          <ShadowedScrollArea height="calc(100vh - 160px)">
+          {/* Let the scroll area fill the panel (which already sizes itself
+              against the parent group's height) instead of a hardcoded
+              `calc(100vh - 160px)` — the latter left ~88px dead space at
+              the bottom and caused unnecessary scrolling. */}
+          <ShadowedScrollArea height="100%">
             <ExplorerSideBar />
           </ShadowedScrollArea>
         </Panel>
@@ -206,12 +211,26 @@ function ExplorerInner({ type }: { type: DatasetType }) {
 
   const configError = deriveConfigError(urlConfig, rawParam, type);
 
+  const [configErrorModal, setConfigErrorModal] = useState<string | null>(
+    () => configError,
+  );
+
+  // Funnels manage their initial state via createEmptyDataset (which seeds
+  // one empty step); the other dataset types still seed an empty value here
+  // so the sidebar opens with one ready-to-edit row.
   const defaultDataset = createEmptyDataset(type);
   const defaultDraftState = {
     ...DEFAULT_EXPLORE_STATE,
     type,
     datasource: defaultDataSourceId,
-    dataset: { ...defaultDataset, values: [createEmptyValue(type)] },
+    dataset:
+      type === "funnel"
+        ? defaultDataset
+        : { ...defaultDataset, values: [createEmptyValue(type)] },
+    // Funnels don't render time-series charts, so the default date dimension
+    // from DEFAULT_EXPLORE_STATE doesn't apply — start with no dimensions and
+    // let the user add one explicitly via "Group By".
+    ...(type === "funnel" ? { dimensions: [] } : {}),
   } as ExplorerDraftConfig;
 
   let seedError: string | null = null;
@@ -267,9 +286,6 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   }
 
   const restorationError = configError ?? seedError;
-  const [configErrorModal, setConfigErrorModal] = useState<string | null>(
-    () => restorationError,
-  );
 
   useEffect(() => {
     if (restorationError) {

@@ -1,5 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import {
   DashboardInterface,
   DashboardBlockInterfaceOrData,
@@ -302,9 +304,12 @@ export default function DashboardWorkspace({
     cloneDeep(dashboard),
   );
 
+  const gb = useGrowthBook<AppFeatures>();
+  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
+
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
     // Validate that the block type is allowed for this dashboard type
-    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard, funnelExplorerEnabled)) {
       console.warn(
         `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
       );
@@ -326,7 +331,8 @@ export default function DashboardWorkspace({
     const isExplorationBlock =
       bType === "metric-exploration" ||
       bType === "fact-table-exploration" ||
-      bType === "data-source-exploration";
+      bType === "data-source-exploration" ||
+      bType === "funnel-exploration";
     // TypeScript can't correlate block type with its config in a discriminated union
     const createBlock = CREATE_BLOCK_TYPE[bType] as (args: {
       experiment: ExperimentInterfaceStringDates;

@@ -77,7 +77,7 @@ export default function GranularitySelector() {
   const dateDimension = draftExploreState.dimensions.find(
     (d) => d.dimensionType === "date",
   );
-  const granularity = dateDimension?.dateGranularity || "day";
+  const granularity = dateDimension?.dateGranularity || "auto";
 
   return (
     <ControlledGranularitySelector

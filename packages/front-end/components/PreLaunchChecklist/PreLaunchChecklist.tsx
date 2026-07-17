@@ -5,17 +5,10 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
-import {
-  PiCaretDown,
-  PiCaretDownFill,
-  PiCaretRightFill,
-  PiCaretUp,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -28,6 +21,7 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
+import Switch from "@/ui/Switch";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
 import styles from "./PreLaunchChecklist.module.scss";
@@ -129,6 +123,11 @@ function PreLaunchChecklistUI({
               ? "You don't have permission to mark this as completed"
               : undefined
           }
+          checkboxTooltip={
+            isReadonlyIncomplete
+              ? "Automatically detected and marked as 'complete' when task is finished"
+              : undefined
+          }
           containerClassName={clsx({
             [styles.readonly]: isReadonly,
             [styles.readonlyIncomplete]: isReadonlyIncomplete,
@@ -148,11 +147,7 @@ function PreLaunchChecklistUI({
           description={
             item.hideDescription || item.status === "complete"
               ? undefined
-              : item.description !== undefined
-                ? item.description
-                : item.type === "auto"
-                  ? "GrowthBook will mark this as completed automatically when you finish the task."
-                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+              : item.description
           }
           error={item.warning}
           errorLevel="warning"
@@ -161,37 +156,31 @@ function PreLaunchChecklistUI({
     );
   };
 
+  const itemsBelowToggle = showCompleted
+    ? incompleteItems.length > 0 || completeItems.length > 0
+    : incompleteItems.length > 0;
+
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <Box>
-      {incompleteItems.map((item, i) => renderItem(item, i))}
+    <Box className={styles.drawerBodyInner}>
       {completeItems.length > 0 && (
-        <Box mt="4">
-          <Link
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowCompleted((prev) => !prev);
-            }}
-          >
-            <Flex as="span" align="center" gap="1">
-              View completed items
-              {showCompleted ? (
-                <PiCaretDownFill size={13} />
-              ) : (
-                <PiCaretRightFill size={13} />
-              )}
-            </Flex>
-          </Link>
-          {showCompleted && (
-            <Box mt="2">
-              {completeItems.map((item, i) =>
-                renderItem(item, `complete-${i}`),
-              )}
-            </Box>
-          )}
+        <Box
+          className={styles.showCompletedToggle}
+          style={{ marginBottom: itemsBelowToggle ? "19px" : "var(--space-2)" }}
+        >
+          <Switch
+            value={showCompleted}
+            onChange={setShowCompleted}
+            label="Show completed"
+          />
         </Box>
       )}
+      <Box className={styles.itemsScroll}>
+        {incompleteItems.map((item, i) => renderItem(item, i))}
+        {showCompleted &&
+          completeItems.map((item, i) => renderItem(item, `complete-${i}`))}
+      </Box>
     </Box>
   );
 
@@ -304,8 +293,6 @@ export function PreLaunchChecklistForDraftFeature({
 
   const isLoading = checklistLoading || expLoading;
 
-  const showAnalysisSetupItems = useFeatureIsOn("simple-experiment-flow");
-
   const checklist = useMemo(
     () =>
       getChecklistItems({
@@ -316,16 +303,8 @@ export function PreLaunchChecklistForDraftFeature({
         checkLinkedChanges: true,
         connections,
         publishingFeatureId: feature.id,
-        showAnalysisSetupItems,
       }),
-    [
-      experiment,
-      experimentData,
-      checklistData,
-      connections,
-      feature.id,
-      showAnalysisSetupItems,
-    ],
+    [experiment, experimentData, checklistData, connections, feature.id],
   );
 
   const failedRequired = checklist.some(
@@ -367,16 +346,7 @@ export function PreLaunchChecklistDrawer() {
     setShowScheduleModal,
   } = usePreLaunchChecklist();
 
-  const [open, setOpen] = useLocalStorage<boolean>(
-    `prelaunchChecklistOpen__${experiment.id}`,
-    true,
-  );
-
-  useEffect(() => {
-    if (checklistItemsRemaining === 0) {
-      setOpen(false);
-    }
-  }, [checklistItemsRemaining, setOpen]);
+  const [open, setOpen] = useState(false);
 
   return (
     <>
