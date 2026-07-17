@@ -111,11 +111,12 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/product-analytics/custom-sql",
         path: /^product-analytics\/custom-sql/,
       },
-      // {
-      //   name: "Funnel Builder",
-      //   href: "/product-analytics/funnel-builder",
-      //   path: /^product-analytics\/funnel-builder/,
-      // },
+      {
+        name: "Funnel Builder",
+        href: "/product-analytics/funnel-builder",
+        path: /^product-analytics\/funnel-builder/,
+        filter: ({ gb }) => !!gb?.isOn("product-analytics-funnels"),
+      },
       {
         name: "Dashboards",
         href: "/product-analytics/dashboards",
