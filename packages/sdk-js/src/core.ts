@@ -894,7 +894,7 @@ function buildContextualBanditExperiment<T>(
   }
 
   let leaf: { leafId: number; weights: number[] } | null = null;
-  if (cbDefinition.contexts.length) {
+  if (cbDefinition.contexts && cbDefinition.contexts.length) {
     try {
       leaf = getContextualBanditLeaf(cbDefinition, ctx);
     } catch (e) {

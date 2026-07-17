@@ -24,6 +24,7 @@ import {
   ContextualBanditResultsQueryRunner,
   ContextualBanditSrmResult,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
   ContextualBanditStatsSettings,
@@ -237,12 +238,18 @@ export function leafWeightsFromContextualBanditResult(
     if (!updatedWeights || updatedWeights.length === 0) {
       continue;
     }
+    const contexts = indices.map((i) => leafMap[i]?.context ?? {});
+    logger.info(
+      {
+        leafId,
+        contexts,
+        attributeOrder,
+      },
+      "Building contextual bandit leaf condition from stats engine contexts",
+    );
     leafWeights.push({
       leafId,
-      condition: leafConditionFromContexts(
-        indices.map((i) => leafMap[i]?.context ?? {}),
-        attributeOrder,
-      ),
+      condition: leafConditionFromContexts(contexts, attributeOrder),
       weights: updatedWeights.map((weight, i) => ({
         variationId: variations[i]?.id ?? String(i),
         weight,
