@@ -93,6 +93,8 @@ li[data-item-id^="tag/"][data-item-id$="-v2"] > label::after,
   }
 }
 
+@include beta-tag("ContextualBandits");
+@include beta-tag("ContextualBanditQueries");
 @include beta-tag("constants");
 @include beta-tag("constant-revisions");
 @include beta-tag("configs");
