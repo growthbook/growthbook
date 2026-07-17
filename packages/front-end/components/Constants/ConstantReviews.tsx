@@ -115,10 +115,14 @@ const ConstantReviews: FC = () => {
     return Array.from(authorSet).filter(Boolean);
   }, [rows]);
 
-  const reviewItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-  }));
+  const reviewItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
+    }),
+    [getUserDisplay],
+  );
 
   const {
     items,
@@ -217,7 +221,7 @@ const ConstantReviews: FC = () => {
       1,
       Math.ceil(statusFilteredItems.length / ITEMS_PER_PAGE),
     );
-    if (currentPage > lastPage) setCurrentPage(1);
+    if (currentPage > lastPage) setCurrentPage(lastPage);
   }, [statusFilteredItems.length, currentPage]);
 
   const paginatedItems = useMemo(() => {

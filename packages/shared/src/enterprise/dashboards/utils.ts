@@ -41,6 +41,18 @@ import { getInitialConfigByBlockType } from "../product-analytics/utils";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 
+// Single source of truth for the Difference Type selector's options (label +
+// value), shared by every block editor that renders the control so the option
+// set can't drift between copies. Ordered as shown in the UI.
+export const DIFFERENCE_TYPE_OPTIONS: {
+  label: string;
+  value: (typeof differenceTypes)[number];
+}[] = [
+  { label: "Relative", value: "relative" },
+  { label: "Absolute", value: "absolute" },
+  { label: "Scaled", value: "scaled" },
+];
+
 export const DEFAULT_DASHBOARD_GLOBAL_CONTROLS = {
   dateRange: {
     predefined: "last30Days",
@@ -524,6 +536,49 @@ export const CREATE_BLOCK_TYPE: {
     metricTagFilter: [],
     sortBy: null,
     sortDirection: null,
+    ...(initialValues || {}),
+  }),
+  "metric-experiments": ({ initialValues }) => ({
+    type: "metric-experiments",
+    title: "",
+    description: "",
+    metricId: "",
+    projects: [],
+    experimentSearchString: "",
+    differenceType: "relative",
+    bandits: false,
+    ...(initialValues || {}),
+  }),
+  "experiments-scaled-impact": ({ initialValues }) => ({
+    type: "experiments-scaled-impact",
+    title: "Scaled Impact",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    metricId: "",
+    ...(initialValues || {}),
+  }),
+  "experiments-win-rate": ({ initialValues }) => ({
+    type: "experiments-win-rate",
+    title: "Win Percentage",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    showProjectBreakdown: true,
+    comparison: { enabled: false },
+    ...(initialValues || {}),
+  }),
+  "experiments-status": ({ initialValues }) => ({
+    type: "experiments-status",
+    title: "Team Velocity",
+    description: "",
+    dateRange: { predefined: "last90Days" },
+    projects: [],
+    experimentSearchString: "",
+    dateGranularity: "auto",
+    comparison: { enabled: false },
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
