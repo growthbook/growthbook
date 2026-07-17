@@ -95,6 +95,13 @@ export const updateConfig = createApiRequestHandler(updateConfigValidator)(
     ) {
       req.context.permissions.throwPermissionError();
     }
+    if (guardToggle !== undefined) {
+      // A locked config is frozen — its protections included. Unlock first
+      // (same permission as turning the guard off) to change the guard. A
+      // guard-only update short-circuits below, so the general lock gate on
+      // publishing changes never runs for it.
+      assertConfigNotLocked(config);
+    }
     const commitGuardToggle = async (): Promise<Partial<ConfigInterface>> => {
       if (guardToggle === undefined) return {};
       await req.context.models.configs.dangerousUpdateBypassPermission(config, {

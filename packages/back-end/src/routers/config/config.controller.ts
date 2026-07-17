@@ -1204,6 +1204,9 @@ export const setConfigExperimentGuard = async (
   // Idempotent; the BaseModel update emits the audit-log entry.
   let result = config;
   if (!!config.experimentGuard !== enabled) {
+    // A locked config is frozen — its protections included. Unlock first
+    // (same permission as turning the guard off) to change the guard.
+    assertConfigNotLocked(config);
     result = await context.models.configs.dangerousUpdateBypassPermission(
       config,
       { experimentGuard: enabled },
