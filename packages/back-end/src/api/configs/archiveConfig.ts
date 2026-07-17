@@ -16,6 +16,7 @@ import {
 } from "back-end/src/revisions/util";
 import { assertConfigArchivable } from "back-end/src/services/constants";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
+import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 async function buildResponse(context: ApiReqContext, config: ConfigInterface) {
@@ -47,12 +48,25 @@ async function setArchivedState(
     return buildResponse(context, config);
   }
 
-  // Block archiving a still-referenced config or one with live children, or a
-  // locked one (archiving advances live state). Unarchiving is always allowed.
+  // Either transition advances live state (resolution scrubs archived refs, so
+  // archiving blanks consumers' values and unarchiving re-activates them), so a
+  // locked config is frozen in its current archived state too.
+  assertConfigNotLocked(config);
+  // Block archiving a still-referenced config or one with live children.
   if (archived) {
-    assertConfigNotLocked(config);
     await assertConfigArchivable(context, config);
   }
+  // Deferred-publish guards (direct publish → armed:false): warn (bypassably)
+  // when the transition rewrites a value served to a running experiment or
+  // feeding a locked dependent. The config's own value/schema are unchanged,
+  // so the proposed state is the config as-is.
+  await assertConfigPublishGuards(
+    context,
+    config,
+    { armAcknowledgments: undefined },
+    { armed: false },
+    config,
+  );
 
   // Metadata-only, but still respect the approval gate so it can't bypass
   // required metadata reviews. No body, so bypass is only via the org's

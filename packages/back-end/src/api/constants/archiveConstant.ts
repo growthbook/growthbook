@@ -16,6 +16,7 @@ import {
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 
 async function buildResponse(
   context: ApiReqContext,
@@ -55,7 +56,21 @@ async function setArchivedState(
     await assertConstantArchivable(context, constant.id);
   }
 
-  // Archiving/unarchiving is a metadata-only change to the constant. Respect the
+  // Deferred-publish guards (direct publish → armed:false): archived refs are
+  // stripped at resolution, so either transition rewrites the value served to
+  // anything referencing this constant — warn (bypassably) when that reaches a
+  // running experiment or a locked dependent config. The constant's own values
+  // are unchanged, so the proposed values are the current ones.
+  await assertConstantPublishGuards(
+    context,
+    constant,
+    { armAcknowledgments: undefined },
+    { armed: false },
+    constant.value,
+    constant.environmentValues,
+  );
+
+  // For the review model this transition is metadata-only. Respect the
   // same approval gate as the dashboard archive flow and the REST update
   // endpoint — otherwise these endpoints would be a way to bypass required
   // (metadata) reviews. These endpoints take no body, so bypass is only via the
