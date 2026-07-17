@@ -25,6 +25,12 @@ You can create multiple hooks of the same type for flexible, granular validation
 
 Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature. We currently do not support creating custom hooks that are Experiment-scoped, meaning that `validateExperiment` needs to be either global or project-scoped.
 
+The same mechanism applies to [Configs](/features/configs): the `validateConfig` and `validateConfigRevision` hook types run on config saves and publishes, scoped Global / Project / Config. Config-scoped hooks are created and managed from a config's **Validation** tab (and listed under Settings → Custom Hooks).
+
+A config-scoped hook always covers the whole family: it runs for the scoped config _and_ every config that inherits from it — via `parent` or `extends`, transitively. Family membership is evaluated against the lineage being published, so a config that is re-parented into the family is validated by the family's hooks on that same publish. Descendant pages list inherited family hooks alongside their own.
+
+A hook's scope (`entityType`/`entityId`) can be changed after creation via the REST API — retargeting requires permission on both the old and the new target. Pass `entityType: null, entityId: null` to turn an entity-scoped hook into a global/project one.
+
 ### Limits
 
 Custom Hooks are executed in a V8 Isolate, which provides a secure and efficient environment for running untrusted code. All modern JavaScript language features are supported (including async/await and fetch), but certain global objects like `process.env` are not available for security reasons.
@@ -42,7 +48,7 @@ A hook may execute **multiple times for a single save**. GrowthBook runs hooks e
 
 ### Debugging
 
-If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
+If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected. Hook errors are prefixed with `Custom hook:`, which distinguishes them from schema-conformance errors (prefixed with the offending field, e.g. `value: …`) and from validation-rule failures (which surface the rule's own message).
 
 When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 
@@ -241,6 +247,70 @@ if (revision.status === "published") {
   if (!approvals.some((r) => seniorReviewers.includes(r.userId))) {
     throw new Error("At least one approval must come from a senior reviewer.");
   }
+}
+```
+
+### validateConfig
+
+Called whenever a [config](/features/configs) is created or updated. Receives the config (its fields, staged `value`, a `lineage` object, `isHookTarget` / `hookTargetKey`, and — when the config is an [environment/project override](/features/configs#environment-overrides) — a `scopedConfig` object) as input. `config.value` is a parsed JSON object — read its keys directly, no `JSON.parse` needed. Since a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only for the exact config the hook is pinned to. When present, `config.scopedConfig` is `{ parent, environments, projects }` — the base this config overrides and the scope it applies to — so you can enforce environment-specific rules (e.g. require a field in the `production` override).
+
+Example: Require a config to have a name and a non-empty value.
+
+```js
+if (!config.name || Object.keys(config.value || {}).length === 0) {
+  throw new Error("Configs must have a name and a value.");
+}
+```
+
+### validateConfigRevision
+
+Called on every config publish path (manual publish, direct REST update, auto-publish-on-approval, and scheduled publish), before the change is committed — so throwing blocks the publish and leaves the draft editable. Runs even for bypass-approval publishes, so it works as a hard gate. Receives:
+
+- `config` — the config's published content: `key`, `name`, `project`, staged `value` (a parsed JSON object), `schema`, and lineage (`parent`/`extends`, plus a `lineage` object with `ancestors`, `descendants`, `hasParent`, `hasChildren`, `isRoot`, `isLeaf`). Because a config-scoped hook also runs for descendants, `config.isHookTarget` is `true` only when this is the exact config the hook is pinned to (and `false` for a descendant it inherited); `config.hookTargetKey` names that pinned config (`null` for project/global hooks). Use these to enforce a rule only on the target config, or on the whole family. When the config is an [environment/project override](/features/configs#environment-overrides), `config.scopedConfig` is `{ parent, environments, projects }` (its base and the scope it applies to) — absent otherwise — so you can gate environment-specific rules.
+- `revision` — the revision being published (when publishing a reviewed draft): `version`, `status`, `comment`, `authorId`, `contributors`, and `reviews`. Each review is `{ userId, decision, comment, stale, dateCreated }` where `decision` is `"approve"` / `"request-changes"` / `"comment"` and `userId` is the reviewer's user ID (or the API key ID for a service account). `revision` is absent on direct (non-draft) writes.
+
+Example: Block publishing a value that exceeds a limit. `config.value` is already a parsed object.
+
+```js
+if ((config.value?.maxItems ?? 0) > 100) {
+  throw new Error("maxItems cannot exceed 100.");
+}
+```
+
+Example: Enforce a rule only on the config the hook is pinned to, not on the descendants it also runs for.
+
+```js
+if (config.isHookTarget && !config.value?.owner) {
+  throw new Error("The base config must set an owner.");
+}
+```
+
+Example: Enforce an approval policy — require a service-account approval plus at least one human (mirrors the feature-flag `validateFeatureRevision` gate). Disable **Incremental Changes Only** for this hook so it runs on every publish.
+
+```js
+if (revision) {
+  const approvals = (revision.reviews || []).filter(
+    (r) => r.decision === "approve" && !r.stale
+  );
+  if (!approvals.some((r) => r.userId === "key_abc123")) {
+    throw new Error("Publishing requires approval from the release-bot service account.");
+  }
+  if (!approvals.some((r) => r.userId !== "key_abc123")) {
+    throw new Error("Publishing requires at least one human approval.");
+  }
+}
+```
+
+Example: Require an external check to pass before publish.
+
+```js
+const res = await fetch("https://example.com/validate-config", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ key: config.key, value: config.value }),
+});
+if (!(await res.json()).isValid) {
+  throw new Error("External config validation failed.");
 }
 ```
 

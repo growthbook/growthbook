@@ -6,6 +6,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
+  schemaValidationQueryFields,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -166,6 +167,13 @@ const targetingRuleCreateInputV2 = namedSchema(
           'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
+      config: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+        ),
       sparse: z
         .boolean()
         .optional()
@@ -212,7 +220,17 @@ const experimentRefCreateInputV2 = namedSchema(
       experimentId: z.string().describe("ID of the linked experiment."),
       variations: z.array(
         z
-          .object({ variationId: z.string().optional(), value: z.string() })
+          .object({
+            variationId: z.string().optional(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+              ),
+          })
           .strict(),
       ),
       sparse: z
@@ -292,6 +310,13 @@ const rulePatchSchemaV2 = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    config: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "Force/rollout rules only. Key of a config to back the value (or null to detach). When set, `value` is a JSON override patch merged on top of the config. Omit to leave the existing config backing unchanged.",
+      ),
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
@@ -299,7 +324,21 @@ const rulePatchSchemaV2 = z
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
-      .array(z.object({ variationId: z.string(), value: z.string() }).strict())
+      .array(
+        z
+          .object({
+            variationId: z.string(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value (or null to detach). When set, `value` is a JSON override patch merged on top of the config.",
+              ),
+          })
+          .strict(),
+      )
       .optional(),
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
@@ -425,7 +464,7 @@ export const postFeatureRevisionPublishV2Validator = {
         ),
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -855,9 +894,23 @@ export const putFeatureRevisionDefaultValueV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z
+        .string()
+        .describe(
+          'New default value. In Config mode (feature has `baseConfig`), the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
+        ),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of a config within the feature's `baseConfig` family that the default value resolves to (the base itself or a descendant). The default is exactly that config with no overrides; pass `null` to use `baseConfig`. Do not embed `@config:` in `defaultValue` — use this field.",
+        )
+        .optional(),
+      ...newDraftMetadataFields,
+    })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -980,7 +1033,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -1030,7 +1083,7 @@ export const putFeatureRevisionRuleV2Validator = {
       ...newDraftMetadataFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };

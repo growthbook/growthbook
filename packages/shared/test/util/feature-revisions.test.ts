@@ -711,6 +711,7 @@ describe("mergeRevision with new envelopes", () => {
         tags: ["tag-x"],
         neverStale: true,
         valueType: "string",
+        baseConfig: "purchase-flow",
       },
     });
     const merged = mergeRevision(baseFeature, revision, []);
@@ -720,6 +721,7 @@ describe("mergeRevision with new envelopes", () => {
     expect(merged.tags).toEqual(["tag-x"]);
     expect(merged.neverStale).toBe(true);
     expect(merged.valueType).toBe("string");
+    expect(merged.baseConfig).toBe("purchase-flow");
   });
 
   it("does not override feature fields if envelope is not present in revision", () => {
@@ -1043,6 +1045,19 @@ describe("draftDiffersFromLive", () => {
     const draft: RevisionFields = {
       ...liveRevision,
       environmentsEnabled: { production: false, staging: false },
+    };
+    expect(
+      draftDiffersFromLive(draft, liveRevision, feature, [
+        "production",
+        "staging",
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns true when baseConfig (Config mode) differs", () => {
+    const draft: RevisionFields = {
+      ...liveRevision,
+      metadata: { baseConfig: "purchase-flow" },
     };
     expect(
       draftDiffersFromLive(draft, liveRevision, feature, [
