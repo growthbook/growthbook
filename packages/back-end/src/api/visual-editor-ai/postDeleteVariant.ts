@@ -141,7 +141,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
       ? { phases: experiment.phases.map((p) => ({ ...p })) }
       : {}),
   };
-  await updateExperiment({ context, experiment, changes });
+  const deleted = await updateExperiment({ context, experiment, changes });
   try {
     await updateVisualChangeset({
       visualChangeset: changeset,
@@ -151,7 +151,15 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     });
   } catch (e) {
     try {
-      await updateExperiment({ context, experiment, changes: rollback });
+      // Restore against the POST-delete experiment (`deleted`), not the
+      // original: updateExperiment early-returns when hasActualChanges finds
+      // no diff, so diffing the rollback against the unchanged original object
+      // would silently skip the write and leave the variation deleted.
+      await updateExperiment({
+        context,
+        experiment: deleted,
+        changes: rollback,
+      });
     } catch (rollbackErr) {
       // Rollback also failed: the variation is gone but its visual change is
       // still stored (orphaned). Content isn't lost — log for cleanup.
