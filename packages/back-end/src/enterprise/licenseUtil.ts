@@ -992,7 +992,10 @@ export function getLicenseError(org: MinimalOrganization): string {
   if (
     shouldLimitAccessDueToExpiredLicense(
       licenseData,
-      isAirGappedLicenseKey(key),
+      // Use licenseData.id, not the org's key: licenseInit may have fallen
+      // back to the LICENSE_KEY env var license and cached it under the
+      // org's key, so `key` can describe a different license than the data.
+      isAirGappedLicenseKey(licenseData.id),
     )
   ) {
     return "License expired";

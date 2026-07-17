@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
@@ -1214,6 +1215,48 @@ describe("src/license", () => {
           await licenseInit(orgWithOldKey);
 
           expect(getLicenseError(orgWithOldKey)).toBe("License expired");
+        });
+
+        describe("when falling back to a connected LICENSE_KEY env var license", () => {
+          let verifySpy: jest.SpyInstance;
+
+          afterEach(() => {
+            verifySpy.mockRestore();
+          });
+
+          it("should not apply the air-gapped grace period to the connected license cached under the org's air-gapped key", async () => {
+            // The fallback license has no precomputed signature, so bypass
+            // signature verification for this test.
+            verifySpy = jest.spyOn(crypto, "verify").mockReturnValue(true);
+
+            // A connected license that expired past the air-gapped grace
+            // period, but is still valid per the license server (non-trial
+            // and not remotely downgraded).
+            const connectedLicense = cloneDeep(licenseData);
+            connectedLicense.isTrial = false;
+            const twentyDaysAgo = new Date(now);
+            twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
+            connectedLicense.dateExpires = twentyDaysAgo.toISOString();
+
+            const mockedResponse: Response = {
+              ok: true,
+              json: jest.fn().mockResolvedValueOnce(connectedLicense),
+            } as unknown as Response;
+            mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+
+            // The org's own air-gapped license expired 2023-11-19, so
+            // licenseInit falls back to the env var license and caches it
+            // under the org's air-gapped key.
+            process.env.LICENSE_KEY = licenseKey;
+            await licenseInit(
+              orgWithOldKey,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+            );
+
+            expect(getLicense(oldLicenseKey)).toEqual(connectedLicense);
+            expect(getLicenseError(orgWithOldKey)).toBe("");
+          });
         });
       });
 
