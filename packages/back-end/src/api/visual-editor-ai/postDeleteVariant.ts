@@ -91,32 +91,35 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     (v) => v.id !== variationId,
   );
 
-  // Drop the variation from every phase. variationWeights is positionally
-  // aligned with experiment.variations (see toExperimentApiInterface). When a
-  // phase's weight count matches that alignment, remove the weight at the
-  // deleted variation's index `idx` and renormalize the REMAINING weights so
-  // they still sum to 1 — preserving the phase's original allocation ratios
-  // instead of flattening historical phases to an equal split. If a phase's
-  // weights don't line up (legacy / malformed data), we can't map by index,
-  // so fall back to an equal split of the correct new length. Also remove the
-  // variation from the phase's own variations list so no phase references a
-  // variation the experiment no longer has.
+  // Only edit the LATEST phase — older phases are historical records and are
+  // left untouched (matching add-variant and the rest of our endpoints; we
+  // don't rewrite past traffic allocations). In the latest phase, drop the
+  // deleted variation from its variations list and remove its weight.
+  // variationWeights is index-aligned with experiment.variations (see
+  // toExperimentApiInterface), so remove the weight at index `idx` and
+  // renormalize the rest to preserve the phase's ratios; fall back to an equal
+  // split only if the phase's weights don't line up (legacy data).
   const originalCount = experiment.variations.length;
-  const phases = (experiment.phases || []).map((p) => {
-    const next = { ...p };
-    if (next.variations !== undefined) {
-      next.variations = next.variations.filter((pv) => pv.id !== variationId);
+  const phases = (experiment.phases || []).map((p) => ({ ...p }));
+  if (phases.length > 0) {
+    const latest = phases[phases.length - 1];
+    if (latest.variations !== undefined) {
+      latest.variations = latest.variations.filter(
+        (pv) => pv.id !== variationId,
+      );
     }
-    if (next.variationWeights !== undefined && next.variationWeights.length) {
-      next.variationWeights =
-        next.variationWeights.length === originalCount
+    if (
+      latest.variationWeights !== undefined &&
+      latest.variationWeights.length
+    ) {
+      latest.variationWeights =
+        latest.variationWeights.length === originalCount
           ? renormalizeWeights(
-              next.variationWeights.filter((_, i) => i !== idx),
+              latest.variationWeights.filter((_, i) => i !== idx),
             )
           : renormalizeWeights(new Array(nextVariations.length).fill(1));
     }
-    return next;
-  });
+  }
 
   const changes: Changeset = {
     variations: nextVariations,
