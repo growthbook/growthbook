@@ -338,7 +338,10 @@ export async function revokeToken(params: {
   // Try as refresh token first, then access token (apikeys)
   const refresh = await OAuthRefreshTokenModel.dangerousFindByHash(tokenHash);
   if (refresh) {
-    if (params.clientId && refresh.clientId !== params.clientId) return;
+    // Require ownership: the caller must present the client_id the token was
+    // issued to. A missing client_id (undefined) can't match the stored id,
+    // so omitting it is a no-op and can't be used to bypass the check.
+    if (refresh.clientId !== params.clientId) return;
     const org = await getOrgForGrant(refresh.organization);
     const context = await getTeardownContext(org, refresh.userId);
     await tearDownGrant(context, refresh.clientId, refresh.userId);
@@ -348,19 +351,18 @@ export async function revokeToken(params: {
   if (params.token.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)) {
     const apiKey = await ApiKeyModel.dangerousFindByKeyHash(tokenHash);
     if (!apiKey) return;
-    if (
-      params.clientId &&
-      apiKey.oauthClientId &&
-      apiKey.oauthClientId !== params.clientId
-    ) {
-      return;
-    }
 
-    if (apiKey.oauthClientId && apiKey.userId && apiKey.organization) {
-      const org = await getOrgForGrant(apiKey.organization);
-      const context = await getTeardownContext(org, apiKey.userId);
-      await tearDownGrant(context, apiKey.oauthClientId, apiKey.userId);
-      return;
+    // OAuth-issued access tokens carry their owning client. Same ownership
+    // rule as refresh tokens: the caller must present the matching client_id,
+    // and omitting it must not tear down another client's grant.
+    if (apiKey.oauthClientId) {
+      if (apiKey.oauthClientId !== params.clientId) return;
+      if (apiKey.userId && apiKey.organization) {
+        const org = await getOrgForGrant(apiKey.organization);
+        const context = await getTeardownContext(org, apiKey.userId);
+        await tearDownGrant(context, apiKey.oauthClientId, apiKey.userId);
+        return;
+      }
     }
 
     await ApiKeyModel.dangerousDisableByKeyHash(tokenHash);

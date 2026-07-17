@@ -234,6 +234,41 @@ describe("revokeToken", () => {
       "org-1",
     );
   });
+
+  it("does not tear down a refresh-token grant when client_id is omitted", async () => {
+    mockDangerousFindByHash.mockResolvedValue({
+      tokenHash: "rhash",
+      clientId: "client-a",
+      userId: "user-1",
+      organization: "org-1",
+      expiresAt: new Date(Date.now() + 60_000),
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    const { deleteForGrant } = mockOrgContext();
+
+    await revokeToken({ token: OAUTH_REFRESH_TOKEN_PREFIX + "secret" });
+
+    expect(deleteForGrant).not.toHaveBeenCalled();
+    expect(mockDangerousDisableOAuthGrant).not.toHaveBeenCalled();
+  });
+
+  it("does not tear down an access-token grant when client_id is omitted", async () => {
+    mockDangerousFindByHash.mockResolvedValue(null);
+    mockDangerousFindByKeyHash.mockResolvedValue({
+      key: "hash",
+      oauthClientId: "client-a",
+      userId: "user-1",
+      organization: "org-1",
+    } as never);
+    const { deleteForGrant } = mockOrgContext();
+
+    await revokeToken({ token: OAUTH_ACCESS_TOKEN_PREFIX + "secret" });
+
+    expect(deleteForGrant).not.toHaveBeenCalled();
+    expect(mockDangerousDisableOAuthGrant).not.toHaveBeenCalled();
+    expect(mockDangerousDisableByKeyHash).not.toHaveBeenCalled();
+  });
 });
 
 describe("exchangeRefreshToken expiry", () => {
