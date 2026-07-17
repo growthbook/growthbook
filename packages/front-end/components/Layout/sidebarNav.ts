@@ -102,22 +102,24 @@ export const navlinks: SidebarLinkProps[] = [
     Icon: GBProductAnalytics,
     subLinks: [
       {
-        name: "Explore",
+        name: "AI Explorer",
         href: "/product-analytics/explore",
         path: /^product-analytics\/explore(\/|$)/,
-        beta: true,
       },
+      {
+        name: "SQL Explorer",
+        href: "/product-analytics/custom-sql",
+        path: /^product-analytics\/custom-sql/,
+      },
+      // {
+      //   name: "Funnel Builder",
+      //   href: "/product-analytics/funnel-builder",
+      //   path: /^product-analytics\/funnel-builder/,
+      // },
       {
         name: "Dashboards",
         href: "/product-analytics/dashboards",
         path: /^product-analytics\/dashboards/,
-      },
-      {
-        name: "Session Replay",
-        href: "/session-replay",
-        path: /^session-replay/,
-        beta: true,
-        filter: ({ gb }) => !!gb?.isOn("session-replays"),
       },
     ],
   },

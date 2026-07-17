@@ -4,9 +4,11 @@ import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
-  PiCaretRightBold,
   PiChartBar,
   PiCode,
+  PiDatabase,
+  PiFunnel,
+  PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
@@ -15,15 +17,16 @@ import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
-import { useUser } from "@/services/UserContext";
-import { useAISettings } from "@/hooks/useOrgSettings";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import DataSourceTypeSelector from "@/components/Settings/DataSourceTypeSelector";
+import { useAISettings } from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
 import { PA_AI_CHAT_INITIAL_MESSAGE_KEY } from "./util";
 import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
@@ -33,8 +36,9 @@ export default function EmptyState() {
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
-
   const { aiEnabled } = useAISettings();
+
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
   const [newModalData, setNewModalData] =
     useState<null | Partial<DataSourceInterfaceWithParams>>(null);
@@ -57,21 +61,19 @@ export default function EmptyState() {
     },
     [handleSubmit],
   );
-
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const canRunMetricQueries =
+    permissionsUtil.canRunMetricQueries({ projects: [project] }) ||
+    permissionsUtil.canRunMetricQueries({ projects: [] });
+  const canRunFactQueries =
+    permissionsUtil.canRunFactQueries({ projects: [project] }) ||
+    permissionsUtil.canRunFactQueries({ projects: [] });
 
   const chatDisabledReason = !aiEnabled
     ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
     : !hasAISuggestions
       ? "Your current plan does not include AI Chat."
       : null;
-
-  const buttonStyle = {
-    height: "160px",
-    paddingTop: "16px",
-    paddingBottom: "16px",
-    width: "360px",
-  };
 
   return (
     <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
@@ -90,32 +92,48 @@ export default function EmptyState() {
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "start",
+          justifyContent: "center",
           flexDirection: "column",
           flex: 1,
+          minHeight: 0,
+          position: "relative",
           border: "1px solid var(--slate-a3)",
           borderRadius: "4px",
-          padding: "60px 80px",
+          padding: "40px 80px",
         }}
       >
+        {!isDataSourceEmpty && !chatDisabledReason ? (
+          <Box style={{ position: "absolute", top: 24, right: 24 }}>
+            <Link href="/product-analytics/explore/ai-chat">
+              View chat history
+            </Link>
+          </Box>
+        ) : null}
         <Flex
           direction="column"
           align="center"
-          pb={isDataSourceEmpty ? "2" : "6"}
+          justify="center"
+          gap="3"
+          width="100%"
+          style={{ maxWidth: 760 }}
         >
-          <Heading as="h2" size="x-large" weight="medium">
-            {isDataSourceEmpty
-              ? "No data sources selected"
-              : "Ask AI about your data"}
-          </Heading>
-          <Text color="text-low" align="center" size="large">
-            {isDataSourceEmpty
-              ? "Connect to a data source to start exploring your data."
-              : "Our agent can explore your data and build charts and other visualizations for you."}
-          </Text>
-        </Flex>
+          <Flex direction="column" align="center" pb="2">
+            <Flex align="center" gap="2">
+              <BsStars
+                size={20}
+                style={{ color: "var(--violet-a11)", flexShrink: 0 }}
+              />
+              <Heading as="h2" size="x-large" weight="medium">
+                Ask AI about your data
+              </Heading>
+            </Flex>
+            {isDataSourceEmpty && (
+              <Text color="text-low" align="center" size="large">
+                Connect to a data source to start exploring your data.
+              </Text>
+            )}
+          </Flex>
 
-        <Flex direction="column" gap="3">
           {isDataSourceEmpty ? (
             <Flex direction="column" gap="3" align="center">
               <Button
@@ -163,29 +181,37 @@ export default function EmptyState() {
             </Flex>
           ) : (
             <>
-              <Flex align="center" gap="4" direction="column" justify="center">
-                <Flex gap="2" width="100%" align="center" justify="center">
-                  <BsStars
-                    size={20}
-                    style={{ color: "var(--violet-a11)", flexShrink: 0 }}
+              <Box width="100%" style={{ maxWidth: 680, position: "relative" }}>
+                <Tooltip
+                  enabled={!!chatDisabledReason}
+                  content={chatDisabledReason ?? ""}
+                >
+                  <Field
+                    textarea
+                    minRows={4}
+                    maxRows={8}
+                    placeholder="Ask about your metrics, experiments, or more advanced questions like 'Build a conversion funnel for me'..."
+                    containerStyle={{ width: "100%" }}
+                    style={{
+                      borderRadius: "var(--radius-5)",
+                      padding: "16px 56px 40px 16px",
+                      resize: "none",
+                    }}
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={!!chatDisabledReason}
                   />
-                  <Tooltip
-                    enabled={!!chatDisabledReason}
-                    content={chatDisabledReason ?? ""}
-                  >
-                    <Field
-                      placeholder="Ask about metrics, experiments, or setup..."
-                      containerStyle={{
-                        width: "60vw",
-                      }}
-                      style={{ height: "40px" }}
-                      ref={inputRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={!!chatDisabledReason}
-                    />
-                  </Tooltip>
+                </Tooltip>
+                <Box
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    bottom: 12,
+                    zIndex: 1,
+                  }}
+                >
                   <Tooltip
                     enabled={!!chatDisabledReason}
                     content={chatDisabledReason ?? ""}
@@ -199,12 +225,8 @@ export default function EmptyState() {
                     >
                       <Button
                         onClick={handleSubmit}
-                        disabled={
-                          !!chatDisabledReason ||
-                          !input.trim() ||
-                          isDataSourceEmpty
-                        }
-                        size="md"
+                        disabled={!!chatDisabledReason || isDataSourceEmpty}
+                        size="sm"
                         style={
                           chatDisabledReason
                             ? { pointerEvents: "none" }
@@ -215,67 +237,92 @@ export default function EmptyState() {
                       </Button>
                     </span>
                   </Tooltip>
-                </Flex>
-                {!chatDisabledReason && (
-                  <LinkButton
-                    href="/product-analytics/explore/ai-chat"
-                    variant="ghost"
-                    size="sm"
-                  >
-                    <Flex align="center" gap="1">
-                      View Chat History
-                      <PiCaretRightBold size={12} />
-                    </Flex>
-                  </LinkButton>
-                )}
-              </Flex>
+                </Box>
+              </Box>
 
-              <Flex justify="center" direction="column" gap="5" mt="3">
-                <TextDivider width={435}>or explore manually</TextDivider>
-                <Flex gap="4" justify="center">
-                  <LinkButton
-                    href="/product-analytics/explore/metrics"
-                    variant="outline"
-                    disabled={
-                      !permissionsUtil.canRunMetricQueries({
-                        projects: [project],
-                      }) &&
-                      !permissionsUtil.canRunMetricQueries({ projects: [] })
-                    }
-                    style={buttonStyle}
+              <Flex
+                justify="center"
+                direction="column"
+                mt="4"
+                width="100%"
+                style={{ position: "relative" }}
+              >
+                <TextDivider width={435}>
+                  Want to explore manually?{" "}
+                  <Link
+                    onClick={() => setShowAdvancedOptions((open) => !open)}
+                    aria-expanded={showAdvancedOptions}
                   >
-                    <Flex direction="column" align="start" gap="1">
-                      <PiChartBar size={30} />
-                      <Text weight="medium" size="large">
-                        Metric Analysis
-                      </Text>
-                      <Text color="text-low" size="medium">
-                        Chart your existing GrowthBook Metrics
-                      </Text>
-                    </Flex>
-                  </LinkButton>
-                  <LinkButton
-                    href="/sql-explorer"
-                    variant="outline"
-                    style={buttonStyle}
-                    disabled={
-                      !permissionsUtil.canRunFactQueries({
-                        projects: [project],
-                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
-                    }
+                    {showAdvancedOptions ? "Hide tools" : "Show tools"}
+                  </Link>
+                </TextDivider>
+                {showAdvancedOptions ? (
+                  <Flex
+                    direction="column"
+                    gap="3"
+                    align="center"
+                    style={{
+                      left: 0,
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 12px)",
+                      zIndex: 1,
+                    }}
                   >
-                    <Flex direction="column" align="start" gap="1">
-                      <PiCode size={30} />
-                      <Text weight="medium" size="large">
-                        Custom SQL Explorer
-                      </Text>
-                      <Text color="text-low" size="medium">
-                        Write one-off SQL queries to build advanced data
-                        visualizations
-                      </Text>
+                    <Text color="text-low" align="center">
+                      Choose one of our exploration tools to manually explore
+                      your data. If you&apos;re unsure where to start, we
+                      suggest starting with the AI Analyst.
+                    </Text>
+                    <Flex
+                      gap="3"
+                      justify="center"
+                      wrap="wrap"
+                      style={{ maxWidth: 720 }}
+                    >
+                      <LinkButton
+                        href="/product-analytics/explore/metrics"
+                        variant="outline"
+                        icon={<PiChartBar size={16} />}
+                        disabled={!canRunMetricQueries}
+                      >
+                        Metric explorer
+                      </LinkButton>
+                      <LinkButton
+                        href="/product-analytics/explore/fact-table"
+                        variant="outline"
+                        icon={<PiTable size={16} />}
+                        disabled={!canRunFactQueries}
+                      >
+                        Fact table explorer
+                      </LinkButton>
+                      <LinkButton
+                        href="/product-analytics/explore/data-source"
+                        variant="outline"
+                        icon={<PiDatabase size={16} />}
+                        disabled={!canRunFactQueries}
+                      >
+                        Data Source explorer
+                      </LinkButton>
+                      <LinkButton
+                        href="/product-analytics/funnel-builder"
+                        variant="outline"
+                        icon={<PiFunnel size={16} />}
+                        disabled={!canRunFactQueries}
+                      >
+                        Funnel explorer
+                      </LinkButton>
+                      <LinkButton
+                        href="/sql-explorer"
+                        variant="outline"
+                        icon={<PiCode size={16} />}
+                        disabled={!canRunFactQueries}
+                      >
+                        Custom SQL explorer
+                      </LinkButton>
                     </Flex>
-                  </LinkButton>
-                </Flex>
+                  </Flex>
+                ) : null}
               </Flex>
             </>
           )}
