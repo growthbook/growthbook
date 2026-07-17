@@ -7,7 +7,6 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -294,8 +293,6 @@ export function PreLaunchChecklistForDraftFeature({
 
   const isLoading = checklistLoading || expLoading;
 
-  const showAnalysisSetupItems = useFeatureIsOn("simple-experiment-flow");
-
   const checklist = useMemo(
     () =>
       getChecklistItems({
@@ -306,16 +303,8 @@ export function PreLaunchChecklistForDraftFeature({
         checkLinkedChanges: true,
         connections,
         publishingFeatureId: feature.id,
-        showAnalysisSetupItems,
       }),
-    [
-      experiment,
-      experimentData,
-      checklistData,
-      connections,
-      feature.id,
-      showAnalysisSetupItems,
-    ],
+    [experiment, experimentData, checklistData, connections, feature.id],
   );
 
   const failedRequired = checklist.some(

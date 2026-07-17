@@ -132,7 +132,6 @@ export type AppFeatures = {
   "oe-general-agent-gate": boolean;
   "event-forwarder-multi-step": string;
   "events-forwarder-multi-step": string;
-  "simple-experiment-flow": boolean;
   "ai-visual-editor-callout": boolean;
   "nps-survey": boolean;
   "home-marketing-banner": Record<string, unknown>;
