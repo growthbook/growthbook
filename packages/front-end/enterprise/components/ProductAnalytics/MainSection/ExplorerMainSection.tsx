@@ -163,7 +163,7 @@ export default function ExplorerMainSection() {
                   }
                   onClick={async () => {
                     collapseFunnelStepsForAnalyze();
-                    await handleSubmit({ force: true });
+                    await handleSubmit();
                   }}
                 >
                   <Flex align="center" gap="2">

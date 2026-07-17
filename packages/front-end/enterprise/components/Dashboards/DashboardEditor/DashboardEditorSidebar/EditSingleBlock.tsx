@@ -1715,6 +1715,7 @@ export default function EditSingleBlock({
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
                 saveAndCloseTrigger={saveAndCloseTrigger}
                 onSaveAndClose={submit}
               />

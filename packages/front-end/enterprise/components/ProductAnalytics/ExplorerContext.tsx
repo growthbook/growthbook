@@ -726,7 +726,7 @@ export function ExplorerProvider({
       if (submitOptions?.force) {
         await doSubmit({ cache: "never", config: submitOptions?.config });
       } else {
-        await doSubmit({ config: submitOptions?.config });
+        await doSubmit({ cache: "preferred", config: submitOptions?.config });
       }
     },
     [doSubmit, setDraftExploreState],
