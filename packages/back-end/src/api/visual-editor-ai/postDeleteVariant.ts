@@ -15,6 +15,7 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { requireDraftExperiment } from "./requireDraftExperiment";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -67,6 +68,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   if (!context.permissions.canUpdateVisualChange(experiment)) {
     context.permissions.throwPermissionError();
   }
+  requireDraftExperiment(context, experiment);
 
   const idx = experiment.variations.findIndex((v) => v.id === variationId);
   if (idx < 0) {

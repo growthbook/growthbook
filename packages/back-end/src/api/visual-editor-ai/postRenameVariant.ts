@@ -7,6 +7,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireDraftExperiment } from "./requireDraftExperiment";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -59,6 +60,7 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
+  requireDraftExperiment(context, experiment);
 
   const idx = experiment.variations.findIndex((v) => v.id === variationId);
   if (idx < 0) {
@@ -71,7 +73,7 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
   // invalidate SDK payload caches).
   const trimmed = name.trim();
   if (trimmed === experiment.variations[idx].name) {
-    return { name: trimmed };
+    return { variationId, name: trimmed };
   }
 
   const nextVariations = experiment.variations.map((v, i) =>
@@ -81,5 +83,5 @@ export const postRenameVariant = createApiRequestHandler(validation)(async (
   await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({ context, experiment, changes });
 
-  return { name: trimmed };
+  return { variationId, name: trimmed };
 });
