@@ -90,7 +90,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       {...containerProps}
     >
       <Flex gap="2">
-        {checkboxTooltip ? (
+        {checkboxTooltip && !disabled ? (
           <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
             {checkboxEl}
           </RadixTooltip>
