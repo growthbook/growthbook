@@ -6,10 +6,7 @@ import {
   applyManagedWarehouseJsonErgonomics,
   syncManagedWarehouseIdentifiers,
 } from "back-end/src/services/clickhouse";
-import {
-  dangerouslyGetGrowthbookDatasourceBypassPermission,
-  updateDataSource,
-} from "back-end/src/models/DataSourceModel";
+import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
 import { getBackendFeatureValue } from "back-end/src/services/growthbook";
 import { logger } from "back-end/src/util/logger";
 
@@ -67,20 +64,17 @@ const syncManagedWarehouseJsonErgonomics = async (job: SyncJob) => {
     // sweep retries once the warehouse is ready.
     if (!(await applyManagedWarehouseJsonErgonomics(context))) return;
 
-    // Record the applied version (re-fetch: the sync mutated settings).
-    const synced =
-      await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
-    if (!synced || synced.type !== "growthbook_clickhouse") return;
-    await updateDataSource(
-      context,
-      synced,
+    // Record the applied version with a targeted $set: a full settings write
+    // from a snapshot could revert a concurrent update (provisioning flipping
+    // hasBeenProvisioned, an attribute sync writing typedAttributeColumns).
+    await getCollection("datasources").updateOne(
+      { organization: orgId, id: datasource.id },
       {
-        settings: {
-          ...synced.settings,
-          jsonErgonomicsVersion: MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
+        $set: {
+          "settings.jsonErgonomicsVersion":
+            MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION,
         },
       },
-      { skipExposureQueryValidation: true },
     );
   } catch (e) {
     // Version stays behind, so the next sweep pass retries this org.
