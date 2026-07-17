@@ -989,7 +989,12 @@ export function getLicenseError(org: MinimalOrganization): string {
     }
   }
 
-  if (shouldLimitAccessDueToExpiredLicense(licenseData)) {
+  if (
+    shouldLimitAccessDueToExpiredLicense(
+      licenseData,
+      isAirGappedLicenseKey(key),
+    )
+  ) {
     return "License expired";
   }
 
@@ -1062,12 +1067,18 @@ export function getOrgLimits(
   });
 }
 
+// Air-gapped licenses never contact the license server, so they can't be
+// remotely downgraded. Instead, access ends locally once the license has been
+// expired for longer than this grace period.
+export const AIR_GAPPED_EXPIRATION_GRACE_PERIOD_DAYS = 14;
+
 /**
  * Checks if the license is expired.
  * @returns {boolean} True if the license is expired, false otherwise.
  */
 function shouldLimitAccessDueToExpiredLicense(
   licenseData: Partial<LicenseInterface>,
+  isAirGapped: boolean,
 ): boolean {
   // If licenseData is not available, consider it as not expired
   if (!licenseData) {
@@ -1093,6 +1104,19 @@ function shouldLimitAccessDueToExpiredLicense(
 
     if (expirationDate < new Date()) {
       // The license is expired
+      return true;
+    }
+  }
+
+  // Air-gapped licenses end access after a grace period past the expiration
+  // date, since they can't be remotely downgraded.
+  if (isAirGapped && licenseData.dateExpires) {
+    const graceEndDate = new Date(licenseData.dateExpires);
+    graceEndDate.setDate(
+      graceEndDate.getDate() + AIR_GAPPED_EXPIRATION_GRACE_PERIOD_DAYS,
+    );
+
+    if (graceEndDate < new Date()) {
       return true;
     }
   }

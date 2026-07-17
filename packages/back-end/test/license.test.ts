@@ -1183,6 +1183,40 @@ describe("src/license", () => {
         );
       });
 
+      describe("expiration", () => {
+        it("should not return a license error during the grace period after a non-trial license expires", async () => {
+          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          nonTrialData.trial = false;
+          jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
+
+          // The license expired 2023-11-19 and now is 2023-11-21, two days
+          // into the two week grace period.
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("");
+        });
+
+        it("should return a license error once the grace period after a non-trial license expires has passed", async () => {
+          const nonTrialData = cloneDeep(oldLicenseOrginalData);
+          nonTrialData.trial = false;
+          jest.spyOn(JSON, "parse").mockReturnValue(nonTrialData);
+
+          // The license expired 2023-11-19, fifteen days before this date.
+          jest.setSystemTime(new Date("2023-12-04T12:00:00.000Z"));
+
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("License expired");
+        });
+
+        it("should return a license error immediately when a trial license expires, with no grace period", async () => {
+          // The trial license expired 2023-11-19 and now is 2023-11-21.
+          await licenseInit(orgWithOldKey);
+
+          expect(getLicenseError(orgWithOldKey)).toBe("License expired");
+        });
+      });
+
       it("should automatically assume enterprise plan if no plan is specified", async () => {
         const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
         // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes
