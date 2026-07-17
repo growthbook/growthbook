@@ -88,15 +88,17 @@ export async function handleSlackLinkShared(
       ]
         .filter(Boolean)
         .join("  ·  ");
+      // Show the tracking key only when it differs from the name — many
+      // experiments use the same string for both, which reads as a duplicate.
+      const keyPart =
+        card.key && card.key !== card.name ? `  \`${card.key}\`` : "";
       unfurls[url] = {
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `*${card.name}*  \`${card.key}\`${
-                summary ? `\n${summary}` : ""
-              }`,
+              text: `*${card.name}*${keyPart}${summary ? `\n${summary}` : ""}`,
             },
           },
         ],
