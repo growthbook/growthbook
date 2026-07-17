@@ -60,7 +60,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 24px 32px 40px;
+  padding: 24px 32px 32px;
   background-color: var(--color-landmark, #0c1225);
   color: #fff;
   border: 1px solid var(--slate-a3);
@@ -115,15 +115,20 @@
 .readonly {
   &,
   & :global(.rt-CheckboxRoot) {
-    cursor: default;
+    cursor: not-allowed;
   }
 }
 
 // Mute the checkbox itself (not the label text) so the box reads as
 // "filled in automatically" rather than an action the user should take.
 .readonlyIncomplete :global(.rt-CheckboxRoot)::before {
-  background-color: var(--gray-a2);
-  &:hover {
-    background-color: var(--gray-a2);
-  }
+  box-shadow: inset 0 0 0 1px var(--gray-a6);
+  background-color: var(--gray-a3);
+}
+
+:global(.rt-CheckboxItem).readonlyIncomplete:not(:global(.disabled)):hover
+  :global(.rt-BaseCheckboxRoot):not([data-state="checked"]):not(
+    [data-state="indeterminate"]
+  )::before {
+  background-color: var(--gray-a3);
 }

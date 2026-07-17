@@ -27,6 +27,7 @@ export type Props = {
   disabledMessage?: string;
   value: boolean | "indeterminate";
   size?: Size;
+  checkboxTooltip?: string;
   error?: string;
   errorLevel?: "error" | "warning";
   description?: string | ReactElement;
@@ -45,6 +46,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     disabledMessage,
     value,
     size = "md",
+    checkboxTooltip,
     setValue,
     description,
     error,
@@ -57,6 +59,18 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   ref,
 ) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
+
+  const checkboxEl = (
+    <RadixCheckbox
+      checked={value}
+      onCheckedChange={(v) => setValue(!!v)}
+      disabled={disabled}
+      color={checkboxColor}
+      size={getRadixSize(size)}
+      id={id}
+      required={required}
+    />
+  );
 
   const labelEl = (
     <Text
@@ -75,15 +89,13 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       {...containerProps}
     >
       <Flex gap="2">
-        <RadixCheckbox
-          checked={value}
-          onCheckedChange={(v) => setValue(!!v)}
-          disabled={disabled}
-          color={checkboxColor}
-          size={getRadixSize(size)}
-          id={id}
-          required={required}
-        />
+        {checkboxTooltip ? (
+          <Tooltip body={checkboxTooltip} tipPosition="top">
+            {checkboxEl}
+          </Tooltip>
+        ) : (
+          checkboxEl
+        )}
         <Flex direction="column" gap="1">
           <Text weight={weight}>{label}</Text>
           {description && (

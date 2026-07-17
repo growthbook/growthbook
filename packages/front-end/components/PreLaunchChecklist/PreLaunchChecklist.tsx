@@ -125,6 +125,11 @@ function PreLaunchChecklistUI({
               ? "You don't have permission to mark this as completed"
               : undefined
           }
+          checkboxTooltip={
+            isReadonlyIncomplete
+              ? "Automatically detected and marked as 'complete' when task is finished"
+              : undefined
+          }
           containerClassName={clsx({
             [styles.readonly]: isReadonly,
             [styles.readonlyIncomplete]: isReadonlyIncomplete,
@@ -146,9 +151,7 @@ function PreLaunchChecklistUI({
               ? undefined
               : item.description !== undefined
                 ? item.description
-                : item.type === "auto"
-                  ? "GrowthBook will mark this as completed automatically when you finish the task."
-                  : "You must manually mark this as complete. GrowthBook is unable to detect this automatically."
+                : undefined
           }
           error={item.warning}
           errorLevel="warning"
