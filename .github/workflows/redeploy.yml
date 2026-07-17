@@ -1,0 +1,53 @@
+name: Redeploy
+
+# Re-pin each service's currently-running image onto the LATEST task-definition
+# revision, then roll to it. Use this to pick up a Terraform-owned task-def
+# change (sidecar bump, role, env/secret) right away, without waiting for a code
+# deploy. No image is built — the running image is preserved.
+on:
+  workflow_dispatch:
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    strategy:
+      matrix:
+        include:
+          - { service: prod-api, container: api }
+          - { service: prod-api-jobs, container: api-jobs }
+          - { service: prod-api-python, container: api-python }
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Read currently-running image
+        id: current
+        run: |
+          CURRENT_ARN=$(aws ecs describe-services --cluster ${{ matrix.service }} --services ${{ matrix.service }} \
+            --query 'services[0].taskDefinition' --output text --region us-east-1)
+          IMAGE=$(aws ecs describe-task-definition --task-definition "$CURRENT_ARN" \
+            --query "taskDefinition.containerDefinitions[?name=='${{ matrix.container }}'].image | [0]" \
+            --output text --region us-east-1)
+          echo "Re-pinning ${{ matrix.service }} image: $IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Render task definition (latest base + current image)
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: ${{ matrix.service }}
+          container-name: ${{ matrix.container }}
+          image: ${{ steps.current.outputs.image }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ matrix.service }}
+          cluster: ${{ matrix.service }}
+          wait-for-service-stability: true
