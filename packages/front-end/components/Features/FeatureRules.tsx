@@ -19,7 +19,6 @@ import track from "@/services/track";
 import {
   getRules,
   isRuleInactive,
-  useFeatureRulesEnv,
   FEATURE_RULES_ALL_ENVS,
 } from "@/services/features";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -56,6 +55,8 @@ export default function FeatureRules({
   baseRevision,
   pendingRuleEdit,
   onPendingRuleEditHandled,
+  rulesEnv,
+  setRulesEnv,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -79,10 +80,14 @@ export default function FeatureRules({
   baseRevision?: FeatureRevisionInterface | null;
   pendingRuleEdit?: { environment: string; ruleId: string } | null;
   onPendingRuleEditHandled?: () => void;
+  // Selected env tab, lifted to the parent so the Default Value display can
+  // resolve for the same environment. null = "All environments" view.
+  rulesEnv: string | null;
+  setRulesEnv: (v: string | null) => void;
 }) {
   const envs = environments.map((e) => e.id);
-  // null = "All environments" view.
-  const [storedEnv, setEnv] = useFeatureRulesEnv();
+  const storedEnv = rulesEnv;
+  const setEnv = setRulesEnv;
   const [hideInactive, setHideInactive] = useLocalStorage(
     "hide-disabled-rules",
     false,

@@ -1,5 +1,9 @@
 import { ConstantInterface } from "shared/types/constant";
-import { Revision, getConstantRevisionChange } from "shared/enterprise";
+import {
+  Revision,
+  getConstantRevisionChange,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import {
   constantRequiresReview,
   constantResetReviewOnChange,
@@ -14,10 +18,19 @@ import {
   EntityRevisionAdapter,
   filterUpdatableChanges,
 } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  ArmAcknowledgments,
+  buildArmAcknowledgments,
+} from "back-end/src/services/armGuards";
+import { captureConstantExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
+import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
+import { captureConstantSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
-// so the two can't drift. The snapshot validator runs in `.strict()` mode, so a
-// leftover legacy field on a stored entity would otherwise fail validation.
+// so the two can't drift. The snapshot validator runs in `.strict()` mode, so
+// stray non-schema keys (e.g. MongoDB `_id`) would otherwise fail validation.
 const SNAPSHOT_ALLOWED_KEYS = Object.keys(constantValidator.shape) as Array<
   keyof ConstantInterface
 >;
@@ -71,8 +84,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
 
   buildSnapshot(entity: ConstantInterface): ConstantInterface {
     // Pick only schema-defined keys and drop nullish optional fields. This
-    // strips MongoDB internals (`_id`) as well as any legacy fields that may
-    // still exist on stored docs from earlier schema versions.
+    // strips MongoDB internals (`_id`) so the `.strict()` snapshot validator passes.
     const source = entity as Record<string, unknown>;
     const snapshot: Record<string, unknown> = {};
     for (const key of SNAPSHOT_ALLOWED_KEYS) {
@@ -187,5 +199,81 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       entity,
       filteredChanges as Parameters<typeof context.models.constants.update>[1],
     );
+  },
+
+  // Snapshot the deferred-publish guard fingerprints when arming (schedule /
+  // auto-publish-on-approval); each guard throws (bypassably) on unacknowledged
+  // live conflicts. Mirrors the config adapter.
+  async captureArmAcknowledgment(
+    context: Context,
+    entity: ConstantInterface,
+    proposedChanges: unknown,
+  ): Promise<ArmAcknowledgments | undefined> {
+    const change = getConstantRevisionChange(entity, proposedChanges);
+    const valueAffecting =
+      change.valueChanged || change.changedEnvironments.length > 0;
+    // The base + per-environment values this schedule would publish, for the
+    // schema-break fingerprint (must match what the deferred fire re-checks).
+    const proposedSnapshot = applyPatchToSnapshot(
+      entity as unknown as Record<string, unknown>,
+      normalizeProposedChanges(proposedChanges),
+    ) as { value?: string; environmentValues?: Record<string, string> };
+    const proposedValue = proposedSnapshot.value ?? entity.value;
+    const proposedEnvironmentValues =
+      proposedSnapshot.environmentValues ?? entity.environmentValues;
+    return buildArmAcknowledgments({
+      experiment: await captureConstantExperimentGuardAcknowledgment(
+        context,
+        entity,
+        proposedChanges,
+      ),
+      "config-lock": valueAffecting
+        ? await captureConfigLockAcknowledgment(context, {
+            source: "constant",
+            key: entity.key,
+            project: entity.project,
+          })
+        : undefined,
+      "schema-break": valueAffecting
+        ? await captureConstantSchemaBreakAcknowledgment(
+            context,
+            { key: entity.key, project: entity.project },
+            proposedValue,
+            proposedEnvironmentValues,
+          )
+        : undefined,
+    });
+  },
+
+  // Pre-merge gate for deferred publishes (scheduled poller, auto-publish-on-
+  // approval). Warns when this value change would reach a running experiment
+  // through a guarded config; the deferred fire re-confirms against the arm-time
+  // acknowledgment. Metadata-only changes skip the check.
+  async assertPublishable(
+    context: Context,
+    entity: ConstantInterface,
+    desiredState: Record<string, unknown>,
+    revision: Revision,
+    options?: { isRevert?: boolean; deferred?: boolean },
+  ): Promise<void> {
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
+      await assertConstantPublishGuards(
+        context,
+        entity,
+        revision,
+        { armed: !!options?.deferred },
+        (filteredChanges.value as string | undefined) ?? entity.value,
+        "environmentValues" in filteredChanges
+          ? (filteredChanges.environmentValues as
+              | Record<string, string>
+              | undefined)
+          : entity.environmentValues,
+      );
+    }
   },
 };

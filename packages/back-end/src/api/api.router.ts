@@ -33,6 +33,8 @@ import { environmentsRoutes } from "./environments/environments.router";
 import { attributesRoutes } from "./attributes/attributes.router";
 import { savedGroupsRoutes } from "./saved-groups/saved-groups.router";
 import { constantsRoutes } from "./constants/constants.router";
+import { configsRoutes } from "./configs/configs.router";
+import { customHooksRoutes } from "./custom-hooks/custom-hooks.router";
 import { sdkConnectionsRoutes } from "./sdk-connections/sdk-connections.router";
 import { sdkPayloadRoutes } from "./sdk-payload/sdk-payload.router";
 import { dataSourcesRoutes } from "./data-sources/data-sources.router";
@@ -170,6 +172,8 @@ export const allRoutes = [
   ...visualChangesetsRoutes,
   ...savedGroupsRoutes,
   ...constantsRoutes,
+  ...configsRoutes,
+  ...customHooksRoutes,
   ...organizationsRoutes,
   ...sdkPayloadRoutes,
   ...factTablesRoutes,

@@ -260,6 +260,7 @@ export const entityEvents = {
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
   constant: ["created", "updated", "deleted"],
+  config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
@@ -276,7 +277,7 @@ export const entityEvents = {
   dashboardTemplate: ["create", "update", "delete"],
   incrementalRefresh: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
-  customHook: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete", "revert"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
   rampSchedule: [

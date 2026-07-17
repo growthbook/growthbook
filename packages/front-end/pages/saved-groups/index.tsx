@@ -20,7 +20,12 @@ import HelperText from "@/ui/HelperText";
 
 export default function SavedGroupsPage() {
   const router = useRouter();
-  const { mutateDefinitions, savedGroups, error } = useDefinitions();
+  const {
+    mutateDefinitions,
+    savedGroups,
+    _savedGroupsIncludingArchived: allSavedGroups,
+    error,
+  } = useDefinitions();
 
   const { refreshOrganization } = useUser();
 
@@ -192,14 +197,16 @@ export default function SavedGroupsPage() {
             </TabsList>
 
             <TabsContent value="conditionGroups">
+              {/* Pass the archived-inclusive list so the `is:archived` facet can
+                  surface archived groups (the list hides them by default). */}
               <ConditionGroups
-                groups={savedGroups}
+                groups={allSavedGroups}
                 mutate={mutateDefinitions}
               />
             </TabsContent>
 
             <TabsContent value="idLists">
-              <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+              <IdLists groups={allSavedGroups} mutate={mutateDefinitions} />
             </TabsContent>
 
             <TabsContent value="drafts">
