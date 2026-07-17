@@ -61,23 +61,15 @@ jobs:
         id: login-ecr-prod
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Services pin by digest, so re-tagging :latest doesn't roll anything
-      # back — resolve the digest of the target git-<sha> image and deploy it.
-      - name: Resolve rollback image digest
-        id: digest
-        run: |
-          DIGEST=$(aws ecr describe-images --repository-name growthbook \
-            --image-ids imageTag=git-${{ inputs.sha }} \
-            --query 'imageDetails[0].imageDigest' --output text --region us-east-1)
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-
+      # Services pin the git-<sha> tag, so re-tagging :latest no longer rolls
+      # anything back — point each service's task def at the target git-<sha>.
       - name: Render API task definition
         id: taskdef-api
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition-family: prod-api
           container-name: api
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ steps.digest.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ inputs.sha }}
       - name: Deploy ECS for GrowthBook Cloud API
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -92,7 +84,7 @@ jobs:
         with:
           task-definition-family: prod-api-python
           container-name: api-python
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ steps.digest.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ inputs.sha }}
       - name: Deploy ECS for GrowthBook Cloud Python
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -107,7 +99,7 @@ jobs:
         with:
           task-definition-family: prod-api-jobs
           container-name: api-jobs
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ steps.digest.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ inputs.sha }}
       - name: Deploy ECS for GrowthBook Cloud Jobs
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:

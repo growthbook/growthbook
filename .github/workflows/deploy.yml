@@ -27,7 +27,6 @@ jobs:
       id-token: write
     outputs:
       docker_sha: ${{ steps.metadata.outputs.docker_sha }}
-      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -71,7 +70,6 @@ jobs:
           echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build, tag, and push image to Docker Hub and ECR
-        id: build
         uses: depot/build-push-action@v1
         with:
           push: true
@@ -156,7 +154,7 @@ jobs:
           SENTRY_ORG: growthbook
           SENTRY_PROJECT: app
 
-      # Pin each service to the exact image digest we just built, rather than
+      # Pin each service to the git-<sha> image we just built, rather than
       # re-pulling the mutable :latest tag. Each step registers a new task
       # definition revision (based on the current one, so env/secrets defined
       # in Terraform carry over) and rolls the service to it.
@@ -166,7 +164,7 @@ jobs:
         with:
           task-definition-family: prod-api
           container-name: api
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
       - name: Deploy ECS for GrowthBook Cloud API
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -181,7 +179,7 @@ jobs:
         with:
           task-definition-family: prod-api-jobs
           container-name: api-jobs
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
       - name: Deploy ECS for GrowthBook Cloud Jobs
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -196,7 +194,7 @@ jobs:
         with:
           task-definition-family: prod-api-python
           container-name: api-python
-          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook@${{ needs.docker.outputs.digest }}
+          image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
       - name: Deploy ECS for GrowthBook Cloud Python
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
