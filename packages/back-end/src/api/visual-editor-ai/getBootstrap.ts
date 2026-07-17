@@ -6,7 +6,7 @@ import {
   findVisualChangesetsByExperimentIds,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  findExperimentsByName,
+  findVisualExperimentsByName,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -66,14 +66,17 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       ...(a.description ? { description: a.description } : {}),
     }));
 
-  // Search mode queries experiments by name directly, then fetches THEIR
-  // changesets — so a target outside the newest-changeset window is still
-  // reachable. Default mode keeps the fast "newest changesets" path.
+  // Search mode queries VISUAL experiments by name directly, then fetches
+  // THEIR changesets — so a target outside the newest-changeset window is
+  // still reachable. Scoping the name query to visual experiments keeps
+  // non-visual experiments (feature flags, redirects) out of the results and
+  // spends the cap on visual matches. Default mode keeps the fast "newest
+  // changesets" path.
   const search = (req.query.search ?? "").trim();
   let changesets: VisualChangesetInterface[];
   let experiments: ExperimentInterface[];
   if (search) {
-    experiments = await findExperimentsByName(
+    experiments = await findVisualExperimentsByName(
       context,
       search,
       SEARCH_EXPERIMENT_CAP,
@@ -140,13 +143,21 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
     });
   }
-  // Draft experiments first (they're the ones you can edit), then by most-
-  // recently-updated within each group. Sorting drafts ahead of the trim
-  // means they win the MAX_RECENT slots over older running/stopped ones.
+  // Default (non-search) list: draft experiments first (they're the ones you
+  // can edit), then by most-recently-updated within each group. Sorting drafts
+  // ahead of the trim means they win the MAX_RECENT slots over older
+  // running/stopped ones.
+  //
+  // Search mode: rank by recency only. The user is looking for a SPECIFIC
+  // experiment by name regardless of status, so a draft-first bias here would
+  // push running/stopped name-matches out of the MAX_RECENT trim window and
+  // make them unfindable.
   const statusRank = (s: string) => (s === "draft" ? 0 : 1);
   recentExperiments.sort((a, b) => {
-    const byStatus = statusRank(a.status) - statusRank(b.status);
-    if (byStatus !== 0) return byStatus;
+    if (!search) {
+      const byStatus = statusRank(a.status) - statusRank(b.status);
+      if (byStatus !== 0) return byStatus;
+    }
     return b.updatedAt.localeCompare(a.updatedAt);
   });
   const trimmed = recentExperiments.slice(0, MAX_RECENT);

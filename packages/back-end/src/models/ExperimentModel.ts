@@ -434,7 +434,13 @@ async function findExperiments(
 // (via findExperiments), newest-first, capped by `limit`. Used by the visual
 // editor's experiment picker so experiments outside the recent window are
 // still findable.
-export async function findExperimentsByName(
+// Find VISUAL experiments (those with at least one visual changeset) whose
+// name matches `name`, most-recently-updated first. Scoping to visual
+// experiments via the maintained `hasVisualChangesets` flag means the visual
+// editor's name search never surfaces non-visual experiments — and the `limit`
+// is spent on visual matches instead of being crowded out by non-visual
+// experiments that merely share the search term.
+export async function findVisualExperimentsByName(
   context: ReqContext | ApiReqContext,
   name: string,
   limit: number,
@@ -447,6 +453,7 @@ export async function findExperimentsByName(
     {
       organization: context.org.id,
       name: { $regex: escaped, $options: "i" },
+      hasVisualChangesets: true,
     },
     limit,
     { dateUpdated: -1 },
