@@ -12,6 +12,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  assertPublishGates,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   buildMergeDesiredState,
@@ -61,6 +65,63 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(req.context, constant as Record<string, unknown>);
 
+  // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
+  // writes to fields the revision didn't touch are preserved.
+  const desiredState = buildMergeDesiredState(
+    constant as unknown as Record<string, unknown>,
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+    adapter.getUpdatableFields(),
+  );
+
+  // Aggregate every publish gate up front so a blocked publish returns ONE
+  // structured 422 naming each gate and the body flag that clears it. The
+  // sequential checks below stay in place as the enforcement backstop.
+  const gates: PublishGate[] = [];
+  if (approvalRequired && revision.status !== "approved" && !canBypass) {
+    gates.push({
+      type: "approval-required",
+      severity: "blocker",
+      messages: [
+        `This revision requires approval before publishing (status: "${revision.status}").`,
+      ],
+      override: "bypassApproval",
+      requiresPermission: "bypassApprovalChecks",
+    });
+  }
+  if (
+    req.organization.settings?.requireRebaseBeforePublish &&
+    !canBypass &&
+    isRevisionDiverged(
+      adapter,
+      revision.target.snapshot as Record<string, unknown>,
+      constant as unknown as Record<string, unknown>,
+    )
+  ) {
+    gates.push({
+      type: "stale-base",
+      severity: "blocker",
+      messages: [
+        "This revision was created against an older version of the constant. Rebase the revision first.",
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: "bypassApprovalChecks",
+    });
+  }
+  gates.push(
+    ...((await adapter.collectPublishGates?.(
+      req.context,
+      constant as unknown as Record<string, unknown>,
+      revision,
+      desiredState,
+    )) ?? []),
+  );
+  await assertPublishGates(req.context, gates, {
+    bypassApproval: req.body.bypassApproval === true,
+    ignoreWarnings: req.context.ignoreWarnings,
+    skipSchemaValidation: req.context.skipSchemaValidation,
+  });
+
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
       `This revision requires approval before publishing (status: "${revision.status}"). ` +
@@ -70,15 +131,6 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
-
-  // Layer proposed changes on top of LIVE (not the snapshot) so out-of-band
-  // writes to fields the revision didn't touch are preserved.
-  const desiredState = buildMergeDesiredState(
-    constant as unknown as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
 
   // The live check above covers the source project. If the revision moves the
   // constant to a different project, also require update permission on the

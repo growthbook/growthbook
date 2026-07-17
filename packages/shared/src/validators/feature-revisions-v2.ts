@@ -8,6 +8,7 @@ import {
   booleanQueryField,
   schemaValidationQueryFields,
   publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -462,6 +463,7 @@ export const postFeatureRevisionPublishV2Validator = {
         .optional()
         .describe("Deprecated — pass `ignoreWarnings: true` instead.")
         .meta({ deprecated: true }),
+      bypassApproval: bypassApprovalPublishBodyField,
       ...publishOverrideBodyFields,
     })
     .strict(),

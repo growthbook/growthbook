@@ -466,7 +466,7 @@ export function collectConstantFeatureBreaks({
 // dependent configs (per env) and config-backed feature values, combined. Loads
 // each collection ONCE and shares the per-env maps across both checks (the two
 // used to reload configs/constants independently and rebuild maps per entity).
-async function constantSchemaBreakViolations(
+export async function constantSchemaBreakViolations(
   context: Context,
   constant: Pick<ConstantInterface, "key" | "project">,
   proposedValue: string,

@@ -4,6 +4,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
@@ -310,7 +311,12 @@ export const postConstantRevisionPublishValidator = {
     "Publishes a draft revision, making it the live state of the constant. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
+  bodySchema: z
+    .object({
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };

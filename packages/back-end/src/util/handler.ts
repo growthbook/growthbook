@@ -11,6 +11,7 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
+import { PublishBlockedError } from "back-end/src/revisions/publishGates";
 import { ApiError, MergeConflictError, SoftWarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -184,6 +185,13 @@ export async function runApiHandler(
       if (e instanceof MergeConflictError) {
         body.conflicts = e.details.conflicts;
       }
+    }
+    // Aggregated publish gates: the typed `gates` list names each blocking
+    // gate and the body flag that clears it, plus a flattened `warnings`
+    // array so existing SoftWarningError-style retry flows keep working.
+    if (e instanceof PublishBlockedError) {
+      body.gates = e.gates;
+      body.warnings = e.warnings;
     }
     // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {

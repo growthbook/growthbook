@@ -6,6 +6,7 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -211,6 +212,7 @@ export const postFeatureRevisionPublishValidator = {
         .optional()
         .describe("Deprecated — pass `ignoreWarnings: true` instead.")
         .meta({ deprecated: true }),
+      bypassApproval: bypassApprovalPublishBodyField,
       ...publishOverrideBodyFields,
     })
     .strict(),

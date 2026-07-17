@@ -37,10 +37,19 @@ import {
   captureConfigExperimentGuardAcknowledgment,
   configChangeAffectsServedValue,
   configRevisionAffectsServedValue,
+  describeConfigConflictKeys,
+  evaluateConfigExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
-import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
-import { captureConfigSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConfigLockAcknowledgment,
+  evaluateConfigLockConflicts,
+} from "back-end/src/services/configLockGuard";
+import {
+  captureConfigSchemaBreakAcknowledgment,
+  evaluateConfigOwnSchemaBreakConflicts,
+} from "back-end/src/services/schemaBreakGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { BadRequestError } from "back-end/src/util/errors";
 import { normalizeConfigChangesAgainstAncestors } from "./configSchemaNormalize";
@@ -341,6 +350,108 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
           })
         : undefined,
     });
+  },
+
+  // Non-throwing publish-guard survey for the REST publish handler's aggregated
+  // 422 (see EntityRevisionAdapter.collectPublishGates). Evaluates the same
+  // guards assertConfigPublishGuards enforces, using the same evaluators, and
+  // skips entirely when the caller's disposition/authority would clear them all
+  // anyway (a live ignoreWarnings or bypass-approval permission — the asserts'
+  // synchronous override) since the evaluators are org-wide scans.
+  async collectPublishGates(
+    context: Context,
+    entity: ConfigInterface,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]> {
+    void revision;
+    if (context.ignoreWarnings || canBypassApprovalForConfig(context, entity)) {
+      return [];
+    }
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    // A metadata-only publish can't rewrite any served value, so none of these
+    // guards apply (matches the asserts' gating).
+    if (!configChangeAffectsServedValue(Object.keys(filteredChanges))) {
+      return [];
+    }
+
+    const gates: PublishGate[] = [];
+
+    const experimentConflicts = [
+      ...(await evaluateConfigExperimentGuardConflicts(context, entity)),
+    ].sort();
+    if (experimentConflicts.length) {
+      gates.push({
+        type: "experiment-guard",
+        severity: "warning",
+        messages: [
+          `Publishing this config rewrites the live value served to a running experiment (${describeConfigConflictKeys(
+            experimentConflicts,
+          )}).`,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    const lockConflicts = [
+      ...(await evaluateConfigLockConflicts(context, {
+        source: "config",
+        key: entity.key,
+        project: entity.project,
+      })),
+    ].sort();
+    if (lockConflicts.length) {
+      gates.push({
+        type: "config-lock",
+        severity: "warning",
+        messages: [
+          `Publishing this config changes the resolved value of locked config(s): ${lockConflicts.join(
+            ", ",
+          )}.`,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    // Presence-aware for the clearable fields (schema/parent/extends), matching
+    // assertPublishable: `?? entity` would resurrect a cleared value.
+    const schemaBreaks = await evaluateConfigOwnSchemaBreakConflicts(context, {
+      key: entity.key,
+      project: entity.project,
+      value: (filteredChanges.value as string | undefined) ?? entity.value,
+      schema:
+        "schema" in filteredChanges
+          ? (filteredChanges.schema as ConfigInterface["schema"])
+          : entity.schema,
+      parent:
+        "parent" in filteredChanges
+          ? (filteredChanges.parent as string | undefined)
+          : entity.parent,
+      extends:
+        "extends" in filteredChanges
+          ? (filteredChanges.extends as string[] | undefined)
+          : entity.extends,
+      extensible:
+        (filteredChanges.extensible as boolean | undefined) ??
+        entity.extensible,
+    });
+    if (schemaBreaks.length) {
+      gates.push({
+        type: "schema-break",
+        severity: "warning",
+        messages: [
+          "Publishing this config would make its resolved value violate its schema or validation rules:",
+          ...schemaBreaks,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    return gates;
   },
 
   // Pre-merge gate (see EntityRevisionAdapter.assertPublishable): runs the full

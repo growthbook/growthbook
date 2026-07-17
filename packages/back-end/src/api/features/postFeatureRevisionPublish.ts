@@ -33,12 +33,21 @@ import {
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import {
+  assertPublishGates,
+  PublishGate,
+} from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string; mergeNow?: boolean; ignoreWarnings?: boolean };
+    body: {
+      comment?: string;
+      mergeNow?: boolean;
+      ignoreWarnings?: boolean;
+      bypassApproval?: boolean;
+    };
   },
   canUseRestApiBypass: boolean,
 ) {
@@ -115,40 +124,28 @@ export async function publishFeatureRevision(
   // `req.context.ignoreWarnings`: armed publishes re-enter this function with a
   // background context whose ignoreWarnings is always true, and force-merge for
   // those must stay gated on the schedule's persisted bypass intent (mergeNow).
-  if (req.organization.settings?.requireRebaseBeforePublish) {
-    const canBypassGovernance =
-      req.context.permissions.canBypassApprovalChecks(feature);
-    const forceMergeRequested =
-      !!req.body.mergeNow || req.body.ignoreWarnings === true;
-    const forceMerge = forceMergeRequested && canBypassGovernance;
-    if (!forceMerge) {
-      const governance = evaluatePublishGovernance({
-        revisionStatus: revision.status,
-        baseVersion: revision.baseVersion,
-        liveVersion: feature.version,
-        mergeSuccess: mergeResult.success,
-        liveChanges: getLiveChangesSinceBase(
-          liveRevisionFromFeature(live, feature),
-          fillRevisionFromFeature(base, feature),
-          environmentIds,
-        ),
-        approvedBaseVersion: revision.approvedBaseVersion ?? null,
-        requireRebaseBeforePublish: true,
-      });
-      if (
-        governance.rebaseRequired &&
-        forceMergeRequested &&
-        !canBypassGovernance
-      ) {
-        req.context.permissions.throwPermissionError();
-      }
-      if (governance.rebaseRequired && !canBypassGovernance) {
-        throw new ConflictError(
-          `${governance.blockReason} Rebase the revision (POST .../rebase) first, or pass \`"ignoreWarnings": true\` to force-merge (requires the bypass-approval permission).`,
-        );
-      }
-    }
-  }
+  // Evaluated here, enforced below after the aggregated publish-gate check.
+  const canBypassGovernance =
+    req.context.permissions.canBypassApprovalChecks(feature);
+  const forceMergeRequested =
+    !!req.body.mergeNow || req.body.ignoreWarnings === true;
+  const rebaseGovernance =
+    req.organization.settings?.requireRebaseBeforePublish &&
+    !(forceMergeRequested && canBypassGovernance)
+      ? evaluatePublishGovernance({
+          revisionStatus: revision.status,
+          baseVersion: revision.baseVersion,
+          liveVersion: feature.version,
+          mergeSuccess: mergeResult.success,
+          liveChanges: getLiveChangesSinceBase(
+            liveRevisionFromFeature(live, feature),
+            fillRevisionFromFeature(base, feature),
+            environmentIds,
+          ),
+          approvedBaseVersion: revision.approvedBaseVersion ?? null,
+          requireRebaseBeforePublish: true,
+        })
+      : null;
 
   const filledLive = {
     ...live,
@@ -201,6 +198,49 @@ export async function publishFeatureRevision(
   const canBypass =
     canUseRestApiBypass ||
     req.context.permissions.canBypassApprovalChecks(feature);
+
+  // Aggregate every publish gate up front so a blocked publish returns ONE
+  // structured 422 naming each gate and the body flag that clears it. The
+  // sequential checks below stay in place as the enforcement backstop.
+  const gates: PublishGate[] = [];
+  if (rebaseGovernance?.rebaseRequired && !canBypassGovernance) {
+    gates.push({
+      type: "stale-base",
+      severity: "blocker",
+      messages: [
+        `${rebaseGovernance.blockReason} Rebase the revision (POST .../rebase) first.`,
+      ],
+      override: "ignoreWarnings",
+      requiresPermission: "bypassApprovalChecks",
+    });
+  }
+  if (requiresReview && revision.status !== "approved" && !canBypass) {
+    gates.push({
+      type: "approval-required",
+      severity: "blocker",
+      messages: [
+        `This revision requires approval before publishing (status: "${revision.status}").`,
+      ],
+      override: "bypassApproval",
+      requiresPermission: "bypassApprovalChecks",
+    });
+  }
+  await assertPublishGates(req.context, gates, {
+    bypassApproval: req.body.bypassApproval === true,
+    ignoreWarnings: forceMergeRequested,
+    skipSchemaValidation: req.context.skipSchemaValidation,
+  });
+
+  if (rebaseGovernance?.rebaseRequired) {
+    if (forceMergeRequested && !canBypassGovernance) {
+      req.context.permissions.throwPermissionError();
+    }
+    if (!canBypassGovernance) {
+      throw new ConflictError(
+        `${rebaseGovernance.blockReason} Rebase the revision (POST .../rebase) first, or pass \`"ignoreWarnings": true\` to force-merge (requires the bypass-approval permission).`,
+      );
+    }
+  }
 
   if (requiresReview && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

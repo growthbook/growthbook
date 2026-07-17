@@ -6,6 +6,7 @@ import {
   apiPaginationFieldsValidator,
   schemaValidationQueryFields,
   publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
 } from "./shared";
 import {
   apiConfigValidator,
@@ -309,7 +310,12 @@ export const postConfigRevisionPublishValidator = {
     "Publishes a draft revision, making it the live state of the config. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Publishing a schema change cascades the 'base wins' normalization to descendant configs.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
+  bodySchema: z
+    .object({
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
 };

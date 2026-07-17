@@ -26,10 +26,19 @@ import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,
   constantRevisionAffectsServedValue,
+  describeConstantConflictKeys,
+  evaluateConstantExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
-import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
-import { captureConstantSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConfigLockAcknowledgment,
+  evaluateConfigLockConflicts,
+} from "back-end/src/services/configLockGuard";
+import {
+  captureConstantSchemaBreakAcknowledgment,
+  constantSchemaBreakViolations,
+} from "back-end/src/services/schemaBreakGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
@@ -245,6 +254,103 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
           )
         : undefined,
     });
+  },
+
+  // Non-throwing publish-guard survey for the REST publish handler's aggregated
+  // 422 (see EntityRevisionAdapter.collectPublishGates). Mirrors the config
+  // adapter: same evaluators as assertConstantPublishGuards, skipped entirely
+  // when the caller's disposition/authority would clear every guard anyway.
+  async collectPublishGates(
+    context: Context,
+    entity: ConstantInterface,
+    revision: Revision,
+    desiredState: Record<string, unknown>,
+  ): Promise<PublishGate[]> {
+    void revision;
+    if (
+      context.ignoreWarnings ||
+      canBypassApprovalForConstant(context, entity)
+    ) {
+      return [];
+    }
+    const filteredChanges = filterUpdatableChanges(
+      desiredState,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
+    // Metadata-only publishes can't rewrite any served value.
+    if (!constantChangeAffectsServedValue(Object.keys(filteredChanges))) {
+      return [];
+    }
+
+    const gates: PublishGate[] = [];
+
+    const experimentConflicts = [
+      ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
+    ].sort();
+    if (experimentConflicts.length) {
+      gates.push({
+        type: "experiment-guard",
+        severity: "warning",
+        messages: [
+          `Publishing this constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
+            experimentConflicts,
+          )}).`,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    const lockConflicts = [
+      ...(await evaluateConfigLockConflicts(context, {
+        source: "constant",
+        key: entity.key,
+        project: entity.project,
+      })),
+    ].sort();
+    if (lockConflicts.length) {
+      gates.push({
+        type: "config-lock",
+        severity: "warning",
+        messages: [
+          `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
+            ", ",
+          )}.`,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    // Without a proposed base value there's nothing to resolve-and-check; fail
+    // open like assertConstantSchemaBreakGuard (soft advisory, not a gate).
+    const proposedValue =
+      (filteredChanges.value as string | undefined) ?? entity.value;
+    const schemaBreaks =
+      proposedValue === undefined
+        ? []
+        : await constantSchemaBreakViolations(
+            context,
+            { key: entity.key, project: entity.project },
+            proposedValue,
+            "environmentValues" in filteredChanges
+              ? (filteredChanges.environmentValues as
+                  | Record<string, string>
+                  | undefined)
+              : entity.environmentValues,
+          );
+    if (schemaBreaks.length) {
+      gates.push({
+        type: "schema-break",
+        severity: "warning",
+        messages: [
+          "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
+          ...schemaBreaks,
+        ],
+        override: "ignoreWarnings",
+      });
+    }
+
+    return gates;
   },
 
   // Pre-merge gate for deferred publishes (scheduled poller, auto-publish-on-

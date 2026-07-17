@@ -94,7 +94,10 @@ info:
     - **404** - Not Found - Unknown API route or requested resource
 
     - **422** - Soft Warning - The request failed, but can be re-submitted with
-    `"ignoreWarnings": true` in the request body to proceed anyway.
+    `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
+    publishes also include a `gates` array naming every blocking gate and the
+    body flag that clears it (`bypassApproval`, `ignoreWarnings`, or
+    `skipSchemaValidation`), so one response lists all required overrides.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -5995,6 +5998,14 @@ paths:
                   description: 'Deprecated — pass `ignoreWarnings: true` instead.'
                   deprecated: true
                   type: boolean
+                bypassApproval:
+                  description: >-
+                    Publish a revision that has not been approved when the org
+                    requires approvals. Requires the `bypassApprovalChecks`
+                    permission (or the org-level REST bypass setting, either of
+                    which bypasses automatically). When approvals aren't
+                    required, this flag has no effect.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed despite soft warnings: guard
@@ -11554,6 +11565,14 @@ paths:
                 mergeNow:
                   description: 'Deprecated — pass `ignoreWarnings: true` instead.'
                   deprecated: true
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Publish a revision that has not been approved when the org
+                    requires approvals. Requires the `bypassApprovalChecks`
+                    permission (or the org-level REST bypass setting, either of
+                    which bypasses automatically). When approvals aren't
+                    required, this flag has no effect.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -18574,6 +18593,14 @@ paths:
                   description: 'Deprecated — pass `ignoreWarnings: true` instead.'
                   deprecated: true
                   type: boolean
+                bypassApproval:
+                  description: >-
+                    Publish a revision that has not been approved when the org
+                    requires approvals. Requires the `bypassApprovalChecks`
+                    permission (or the org-level REST bypass setting, either of
+                    which bypasses automatically). When approvals aren't
+                    required, this flag has no effect.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed despite soft warnings: guard
@@ -19969,6 +19996,14 @@ paths:
             schema:
               type: object
               properties:
+                bypassApproval:
+                  description: >-
+                    Publish a revision that has not been approved when the org
+                    requires approvals. Requires the `bypassApprovalChecks`
+                    permission (or the org-level REST bypass setting, either of
+                    which bypasses automatically). When approvals aren't
+                    required, this flag has no effect.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed despite soft warnings: guard
@@ -22510,6 +22545,14 @@ paths:
             schema:
               type: object
               properties:
+                bypassApproval:
+                  description: >-
+                    Publish a revision that has not been approved when the org
+                    requires approvals. Requires the `bypassApprovalChecks`
+                    permission (or the org-level REST bypass setting, either of
+                    which bypasses automatically). When approvals aren't
+                    required, this flag has no effect.
+                  type: boolean
                 ignoreWarnings:
                   description: >-
                     Acknowledge and proceed despite soft warnings: guard

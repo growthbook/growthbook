@@ -64,7 +64,7 @@ function describeConfigConflictKey(key: string): string {
   return `config "${configKey}" serving ${noun} ${subject.slice(subject.indexOf(":") + 1)}`;
 }
 
-function describeConfigConflictKeys(keys: string[]): string {
+export function describeConfigConflictKeys(keys: string[]): string {
   return keys.map(describeConfigConflictKey).join(", ");
 }
 
@@ -540,7 +540,7 @@ export async function evaluateConstantExperimentGuardConflicts(
 // Human-readable rendering of the mixed constant conflict-key set — composite
 // config keys (config-backed path) and bare `exp:<id>` tokens (direct
 // experiment-ref path) — for the warning message.
-function describeConstantConflictKeys(keys: string[]): string {
+export function describeConstantConflictKeys(keys: string[]): string {
   return keys
     .map((k) =>
       k.startsWith("exp:")

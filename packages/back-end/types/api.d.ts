@@ -6,6 +6,7 @@ import { FeatureDefinition } from "shared/types/sdk";
 import { UserInterface } from "shared/types/user";
 import { ApiErrorCode, ApiErrorDetails } from "shared/validators";
 import { PermissionFunctions } from "back-end/src/types/AuthRequest";
+import { PublishGate } from "back-end/src/revisions/publishGates";
 import { ReqContext } from "./request";
 
 export interface ExperimentOverride {
@@ -47,6 +48,8 @@ type ApiErrorResponseBase = {
   conflicts?: unknown[];
   // Populated on 422 soft-warning responses; re-submit with ?ignoreWarnings=true to proceed.
   warnings?: string[];
+  // Populated on 422 blocked-publish responses: every blocking gate and the body flag that clears it.
+  gates?: PublishGate[];
 };
 type ApiErrorResponseStructured = {
   [C in ApiErrorCode]: {
@@ -56,6 +59,7 @@ type ApiErrorResponseStructured = {
     /** @deprecated Read `details.conflicts` instead. Populated only when code === "conflict" for backwards compatibility. */
     conflicts?: unknown[];
     warnings?: string[];
+    gates?: PublishGate[];
   };
 }[ApiErrorCode];
 
