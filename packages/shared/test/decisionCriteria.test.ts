@@ -200,6 +200,53 @@ describe("default decision tree is correct", () => {
     expect(somewhatNegDecision).toEqual(undefined);
   });
 
+  it("renders underpowered decisions when forceDecisionReady is set", () => {
+    // winning stat sig triggers a rec despite missing power, but the
+    // returned powerReached stays honest
+    const shipDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      forceDecisionReady: true,
+    });
+    expect(shipDecision).toEqual({
+      status: "ship-now",
+      variations: [
+        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to ship.",
+    });
+
+    // neutral falls through to the default action (review)
+    const reviewDecision = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: {
+          "1": { status: "neutral", superStatSigStatus: "neutral" },
+        },
+      }),
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+      forceDecisionReady: true,
+    });
+    expect(reviewDecision).toEqual({
+      status: "ready-for-review",
+      variations: [{ variationId: "1", decidingRule: null }],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to be reviewed.",
+    });
+  });
+
   it("returns the correct powered decisions", () => {
     const daysNeeded = 0;
 

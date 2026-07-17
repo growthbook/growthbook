@@ -124,14 +124,14 @@ async function computeScheduledVerdict(
   }
 
   // The experiment is ending regardless, so evaluate the decision criteria on
-  // the results as they stand — pass daysNeeded: 0 to skip the target-power
-  // (MDE) gate that getExperimentResultStatus would apply mid-experiment.
+  // the results as they stand, skipping the target-power (MDE) gate that
+  // would apply mid-experiment.
   const resultStatus = getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria,
     goalMetrics: experiment.goalMetrics,
     guardrailMetrics: experiment.guardrailMetrics,
-    daysNeeded: 0,
+    forceDecisionReady: true,
   });
   if (!resultStatus) return inconclusive;
 

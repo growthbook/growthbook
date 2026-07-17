@@ -331,6 +331,7 @@ export type ExperimentDataForStatusStringDates = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {
@@ -357,6 +358,7 @@ export type ExperimentDataForStatus = Omit<
     | "datasource"
     | "decisionFrameworkSettings"
     | "nextScheduledStatusUpdate"
+    | "statusUpdateSchedule"
   >,
   "type"
 > & {

@@ -28,7 +28,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "../../constants";
-import { daysBetween } from "../../dates";
+import { daysBetween, getValidDate } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   PRESET_DECISION_CRITERIA,
@@ -266,19 +266,24 @@ export function getDecisionFrameworkStatus({
   goalMetrics,
   guardrailMetrics,
   daysNeeded,
+  forceDecisionReady,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
+  // For experiments that are over regardless of power (e.g. a scheduled end
+  // date has passed). The returned `powerReached` stays honest.
+  forceDecisionReady?: boolean;
 }): ExperimentResultStatusData | undefined {
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
   // Rendering a decision with regular stat sig metrics is only valid
   // if you have reached your needed power or if you used sequential testing
-  const decisionReady = powerReached || sequentialTesting;
+  const decisionReady =
+    powerReached || sequentialTesting || !!forceDecisionReady;
 
   const rollbackTooltip = `The test variation(s) should be rolled back.`;
   const shipTooltip = `A test variation is ready to ship.`;
@@ -290,7 +295,7 @@ export function getDecisionFrameworkStatus({
       decisionCriteria,
       goalMetrics,
       guardrailMetrics,
-      powerReached,
+      powerReached: powerReached || !!forceDecisionReady,
     });
 
     const allRollbackNow =
@@ -321,7 +326,7 @@ export function getDecisionFrameworkStatus({
 
     // only return ready for review if power is reached, not for premature
     // sequential results
-    if (powerReached) {
+    if (powerReached || forceDecisionReady) {
       const reviewVariations = variationDecisions.filter(
         (d) => d.decisionCriteriaAction === "review",
       );
@@ -443,6 +448,14 @@ export function getExperimentResultStatus({
       ? healthSummary.power.additionalDaysNeeded
       : undefined;
 
+  // Past its scheduled end, the experiment is over regardless of power, so
+  // render a decision even if the target MDE hasn't been reached.
+  const scheduledStopAt = experimentData.statusUpdateSchedule?.stopAt;
+  const scheduledEndPassed =
+    experimentData.status === "running" &&
+    !!scheduledStopAt &&
+    getValidDate(scheduledStopAt) <= new Date();
+
   // Fully skip decision framework if there are no goal metrics
   // TODO @dmf-experiment: Add front-end information about this
   let decisionStatus: ExperimentResultStatusData | undefined = undefined;
@@ -453,6 +466,7 @@ export function getExperimentResultStatus({
       goalMetrics: experimentData.goalMetrics,
       guardrailMetrics: experimentData.guardrailMetrics,
       daysNeeded,
+      forceDecisionReady: scheduledEndPassed,
     });
   }
 
