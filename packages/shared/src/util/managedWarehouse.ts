@@ -104,25 +104,6 @@ export function isManagedWarehouseAwaitingProvisioning(
 }
 
 /**
- * A managed warehouse still on the legacy materialized-column model, i.e. not yet
- * fully migrated to native JSON columns. "Migrated" means `useJsonColumns` is set
- * AND `materializedColumns` has been cleared, so a partially-migrated warehouse
- * (flag flipped but matcols not yet cleared) still counts as awaiting migration.
- */
-export function isManagedWarehouseAwaitingJsonMigration(
-  datasource: Pick<DataSourceInterface, "type" | "settings">,
-): boolean {
-  if (!isManagedWarehouse(datasource)) {
-    return false;
-  }
-  const settings = datasource.settings as {
-    useJsonColumns?: boolean;
-    materializedColumns?: unknown[];
-  };
-  return !(settings?.useJsonColumns && !settings.materializedColumns?.length);
-}
-
-/**
  * A provisioned managed warehouse whose per-org tables are mid-recreate for the
  * JSON-columns migration. Transient and distinct from never-provisioned — the UI
  * shows an "upgrading" state rather than the "no events sent" onboarding copy.

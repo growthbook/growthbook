@@ -16,7 +16,6 @@ import {
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
-  isManagedWarehouseAwaitingJsonMigration,
   isManagedWarehouseMigrating,
   isManagedWarehouseUnavailable,
   isManagedWarehouseNoEventsGuidanceMessage,
@@ -35,51 +34,6 @@ describe("isManagedWarehouse", () => {
     expect(isManagedWarehouse({ type: "clickhouse" })).toBe(false);
     expect(isManagedWarehouse({ type: "bigquery" })).toBe(false);
     expect(isManagedWarehouse({ type: "snowflake" })).toBe(false);
-  });
-});
-
-describe("isManagedWarehouseAwaitingJsonMigration", () => {
-  const ds = (settings: Record<string, unknown>) =>
-    ({ type: "growthbook_clickhouse", settings }) as Parameters<
-      typeof isManagedWarehouseAwaitingJsonMigration
-    >[0];
-
-  it("is false for non-managed warehouses", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration({
-        type: "clickhouse",
-        settings: {},
-      }),
-    ).toBe(false);
-  });
-
-  it("is true for a legacy warehouse (no useJsonColumns)", () => {
-    expect(isManagedWarehouseAwaitingJsonMigration(ds({}))).toBe(true);
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(ds({ useJsonColumns: false })),
-    ).toBe(true);
-  });
-
-  it("is true for a partially-migrated warehouse (flag set, matcols not cleared)", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(
-        ds({
-          useJsonColumns: true,
-          materializedColumns: [{ columnName: "plan" }],
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it("is false once fully migrated (flag set, matcols cleared/empty/absent)", () => {
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(ds({ useJsonColumns: true })),
-    ).toBe(false);
-    expect(
-      isManagedWarehouseAwaitingJsonMigration(
-        ds({ useJsonColumns: true, materializedColumns: [] }),
-      ),
-    ).toBe(false);
   });
 });
 
