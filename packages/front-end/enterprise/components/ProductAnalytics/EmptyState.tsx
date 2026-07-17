@@ -4,6 +4,8 @@ import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
 import {
   PiArrowRightBold,
+  PiCaretDown,
+  PiCaretRight,
   PiChartBar,
   PiCode,
   PiDatabase,
@@ -134,11 +136,11 @@ export default function EmptyState() {
                 Ask AI about your data
               </Heading>
             </Flex>
-            {isDataSourceEmpty && (
-              <Text color="text-low" align="center" size="large">
-                Connect to a data source to start exploring your data.
-              </Text>
-            )}
+            <Text color="text-low" align="center" size="large" mt="1">
+              {isDataSourceEmpty
+                ? "Connect to a data source to start exploring your data."
+                : "Ask a question in plain language and easily build charts and other visualizations"}
+            </Text>
           </Flex>
 
           {isDataSourceEmpty ? (
@@ -197,7 +199,7 @@ export default function EmptyState() {
                     textarea
                     minRows={4}
                     maxRows={8}
-                    placeholder="Ask about your metrics, experiments, or more advanced questions like 'Build a conversion funnel for me'..."
+                    placeholder="What's my revenue trend look like over the last year?..."
                     containerStyle={{ width: "100%" }}
                     style={{
                       borderRadius: "var(--radius-5)",
@@ -248,32 +250,51 @@ export default function EmptyState() {
               </Box>
 
               <Flex
-                justify="center"
+                align="start"
                 direction="column"
-                mt="4"
                 width="100%"
-                style={{ position: "relative" }}
+                style={{
+                  position: "relative",
+                  maxWidth: 680,
+                  marginInline: "auto",
+                }}
               >
-                <TextDivider width={435}>
+                <Box width="100%" style={{ maxWidth: 435, textAlign: "left" }}>
                   {chatDisabledReason ? (
                     "Explore manually"
                   ) : (
-                    <>
-                      Want to explore manually?{" "}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Text color="text-mid" size="medium">
+                        Build visualizations manually
+                      </Text>
                       <Link
                         onClick={() => setShowAdvancedOptions((open) => !open)}
                         aria-expanded={showAdvancedOptions}
+                        aria-label={
+                          showAdvancedOptions ? "Hide tools" : "Show tools"
+                        }
+                        style={{ display: "inline-flex", alignItems: "center" }}
                       >
-                        {showAdvancedOptions ? "Hide tools" : "Show tools"}
+                        {showAdvancedOptions ? (
+                          <PiCaretDown size={14} aria-hidden />
+                        ) : (
+                          <PiCaretRight size={14} aria-hidden />
+                        )}
                       </Link>
-                    </>
+                    </span>
                   )}
-                </TextDivider>
+                </Box>
                 {toolsExpanded ? (
                   <Flex
                     direction="column"
                     gap="3"
-                    align="center"
+                    align="start"
                     style={{
                       left: 0,
                       position: "absolute",
@@ -282,15 +303,15 @@ export default function EmptyState() {
                       zIndex: 1,
                     }}
                   >
-                    <Text color="text-low" align="center">
-                      Choose one of our exploration tools to manually explore
-                      your data.
+                    <Text color="text-low" align="left">
+                      Explore your existing metrics, fact tables, and other
+                      data. View trends, build custom funnels, and more.
                       {!chatDisabledReason &&
-                        " If you're unsure where to start, we suggest starting with the AI Analyst."}
+                        " Not sure where to start? Ask AI above."}
                     </Text>
                     <Flex
                       gap="3"
-                      justify="center"
+                      justify="start"
                       wrap="wrap"
                       style={{ maxWidth: 720 }}
                     >
