@@ -355,7 +355,7 @@ describe("buildFunnelSql — launch subset (real dialects)", () => {
     expect(sql).toMatch(
       /CAST\s*\(\s*DATETIME_DIFF\([^)]*MILLISECOND\s*\)\s*AS FLOAT64\s*\)/,
     );
-    expect(sql).toMatch(/AS FLOAT64\s*\)\s*\*\s*CAST\s*\(\s*DATETIME_DIFF/);
+    expect(sql).toMatch(/\/\s*3600000\s*\)\s*\*\s*\(/);
     // First-touch dimension uses ANY_VALUE(... HAVING MIN ...). `IGNORE NULLS`
     // is invalid in this form (it IS valid on ARRAY_AGG, so only guard the
     // HAVING MIN clause).
