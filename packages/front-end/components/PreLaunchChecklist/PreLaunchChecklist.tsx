@@ -148,9 +148,7 @@ function PreLaunchChecklistUI({
           description={
             item.hideDescription || item.status === "complete"
               ? undefined
-              : item.description !== undefined
-                ? item.description
-                : undefined
+              : item.description
           }
           error={item.warning}
           errorLevel="warning"
