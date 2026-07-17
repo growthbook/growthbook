@@ -1016,6 +1016,58 @@ describe("canManageFeatureCustomHooks", () => {
   });
 });
 
+describe("canManageExperimentCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const experimentResource = { project: "" };
+
+  it("lets admins manage experiment hooks", () => {
+    expect(
+      getPermissions("admin").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets experiment editors manage experiment hooks", () => {
+    expect(
+      getPermissions("experimenter").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not let users without experiment edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageExperimentCustomHooks(
+        experimentResource,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("getEffectiveRolesForProject", () => {
   const team = (
     id: string,

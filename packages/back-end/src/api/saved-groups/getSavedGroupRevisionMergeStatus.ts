@@ -38,6 +38,7 @@ export const getSavedGroupRevisionMergeStatus = createApiRequestHandler(
     baseSnapshot,
     liveSnapshot,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
 
   return {

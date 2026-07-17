@@ -2,6 +2,7 @@ import { deleteConstantValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { assertConstantArchivable } from "back-end/src/services/constants";
 
 export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
   async (req) => {
@@ -28,6 +29,12 @@ export const deleteConstant = createApiRequestHandler(deleteConstantValidator)(
           "Archive the constant first, or enable the bypass setting in organization settings.",
       );
     }
+
+    // Deleting a still-referenced constant makes its `@const:` refs resolve
+    // verbatim. The archive-first gate normally enforces this (archive runs the
+    // same check), but the REST bypass skips that gate — so check unconditionally
+    // (mirrors deleteConfig).
+    await assertConstantArchivable(req.context, constant.id);
 
     await req.context.models.constants.delete(constant);
 

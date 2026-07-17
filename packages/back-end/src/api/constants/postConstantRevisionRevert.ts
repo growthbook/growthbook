@@ -8,12 +8,15 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import {
   applyPatchToSnapshot,
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -55,9 +58,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   for (const field of Object.keys(constantUpdatableFieldsSchema.shape)) {
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (constant as unknown as Record<string, unknown>)[field];
-    if (targetValue !== undefined && !isEqual(targetValue, liveValue)) {
+    if (isEqual(targetValue, liveValue)) continue;
+    if (targetValue !== undefined) {
       fieldsToUpdate[field] = targetValue;
+    } else if (field === "environmentValues") {
+      // Absent in target but set live → clear the per-env overrides.
+      fieldsToUpdate[field] = {};
     }
+    // Other optional fields absent in the target are left as-is.
   }
 
   if (Object.keys(fieldsToUpdate).length === 0) {
@@ -71,6 +79,13 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   const strategy =
     req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
+
+  // Reverting to a historically-archived state re-archives the constant; enforce
+  // the same referenced-constant guard as the archive endpoint (an archived-only
+  // change doesn't otherwise trip a dependency check). Mirrors the config twin.
+  if (isPublish && fieldsToUpdate.archived === true) {
+    await assertConstantArchivable(req.context, constant.id);
+  }
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
     ([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }),
@@ -91,7 +106,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
           } as unknown as Revision)
         : adapter.isApprovalRequired(req.context);
     canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         req.context,
         constant as Record<string, unknown>,
@@ -129,6 +144,25 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       type: "created",
     });
     return { revision: await toApiConstantRevision(draft, req.context) };
+  }
+
+  // Guards (direct publish → armed:false): a revert-to-publish rewrites the
+  // constant's live value like any other publish, so it must clear the guards
+  // too. Other publish paths enforce them via assertPublishable, but this path
+  // calls applyChanges directly (which doesn't), so enforce them here —
+  // mirroring the config revert handler. Skipped for a metadata-only revert
+  // (can't rewrite a served value).
+  if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+    await assertConstantPublishGuards(
+      req.context,
+      constant,
+      targetRevision,
+      { armed: false },
+      (fieldsToUpdate.value as string | undefined) ?? constant.value,
+      "environmentValues" in fieldsToUpdate
+        ? (fieldsToUpdate.environmentValues as Record<string, string>)
+        : constant.environmentValues,
+    );
   }
 
   // Record the already-merged revert revision FIRST, then apply it to the live
