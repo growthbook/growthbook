@@ -5,6 +5,7 @@ import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Field from "@/components/Forms/Field";
+import Callout from "@/ui/Callout";
 import { AreaWithHeader } from "./SqlExplorerModal";
 
 export default function SchemaBrowserWrapper({
@@ -54,10 +55,10 @@ export default function SchemaBrowserWrapper({
                           ).toLocaleString()}`}
                         </div>
                         {!canRunQueries ? (
-                          <div className="alert alert-warning mt-2">
+                          <Callout status="warning" mt="2">
                             You do not have permission to refresh this
                             information schema.
-                          </div>
+                          </Callout>
                         ) : null}
                       </div>
                     }

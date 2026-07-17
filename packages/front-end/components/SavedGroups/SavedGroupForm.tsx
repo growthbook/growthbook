@@ -316,7 +316,6 @@ const SavedGroupForm: FC<{
       trackingEventModalType="saved-group-form"
       close={close}
       open={true}
-      useRadixButton={true}
       size="lg"
       header={
         editInfoOnly

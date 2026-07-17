@@ -153,7 +153,6 @@ export const DataSourceInlineEditIdentityJoins: FC<
                       <>
                         <DeleteButton
                           onClick={handleActionDeleteClicked(idx)}
-                          useRadix={true}
                           displayName={identityJoin.ids.join(" ↔ ")}
                           deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
                             " ↔ ",

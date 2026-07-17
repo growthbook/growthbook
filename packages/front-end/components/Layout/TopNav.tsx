@@ -420,6 +420,7 @@ const TopNav: FC<{
       </Head>
       {editUserOpen && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setEditUserOpen(false)}
           submit={onSubmitEditProfile}

@@ -17,15 +17,24 @@
 
 import type {
   RampScheduleInterface,
+  RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
+  isAwaitingStartApproval,
+  startApprovalPending,
+  resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
+  computeAutoAdvanceTarget,
+  stepIsCollapsible,
+  withRampScheduleAdvanceLock,
+  withRampScheduleAdvanceLockRetry,
+  runLockedRampScheduleAction,
   computePhaseStartAfterApproval,
   applyPatchToRule,
   computeEffectivePatch,
@@ -87,6 +96,7 @@ jest.mock("back-end/src/util/secrets", () => ({
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { createRevision } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
+import { RampAdvanceLockBusyError } from "back-end/src/util/errors";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
@@ -230,7 +240,12 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
       },
     },
     updateById,
@@ -276,6 +291,24 @@ describe("applyPatchToRule", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
+  });
+
+  it("preserves the rule's sparse flag when applying a force patch", () => {
+    // A ramp step sets a new (partial) value on a sparse rule; the sparse flag
+    // must survive so the SDK payload still merges it onto the default.
+    const sparseRule = {
+      ...base,
+      type: "force",
+      value: JSON.stringify({ b: 1 }),
+      sparse: true,
+    } as FeatureRule;
+    const result = applyPatchToRule(sparseRule, {
+      force: JSON.stringify({ b: 9 }),
+    });
+    expect((result as { value?: unknown }).value).toBe(
+      JSON.stringify({ b: 9 }),
+    );
+    expect((result as { sparse?: boolean }).sparse).toBe(true);
   });
 
   it("allEnvironments:true wins when both allEnvironments and environments appear in the same patch", () => {
@@ -963,6 +996,452 @@ describe("computeNextStepAt", () => {
     const schedule = makeSchedule({ steps: [] });
     const result = computeNextStepAt(schedule, 0, now);
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("computeAutoAdvanceTarget", () => {
+  const phaseStart = new Date("2025-01-01T00:00:00Z");
+  const plainStep = (interval: number) => ({ interval, actions: [] });
+
+  it("does not advance when the next step's timer has not elapsed", () => {
+    const now = new Date("2025-01-01T00:01:00Z"); // 60s in; step 0 fires at 300s
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: new Date("2025-01-01T00:05:00Z"),
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(-1);
+  });
+
+  it("chains through all due purely-time-gated steps to completion", () => {
+    const now = new Date("2025-01-01T01:00:00Z"); // all gates elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300)],
+    });
+    // steps.length signals "advance past the last step to completion"
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(2);
+  });
+
+  it("stops at (does not skip past) an approval hold", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [
+        plainStep(300),
+        {
+          interval: 600,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+      ],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("stops at a monitored step", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), { interval: 600, monitored: true, actions: [] }],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("advances only through the steps whose timers have elapsed", () => {
+    // 720s in: steps 0 (300s) and 1 (600s) are due; step 2 (900s) is not.
+    const now = new Date("2025-01-01T00:12:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300), plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(2);
+  });
+
+  it("does not advance out of a hold step it is already sitting on", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [
+        plainStep(300),
+        {
+          interval: 600,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+        plainStep(300),
+      ],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("stops at (does not fold past) a step with non-idempotent side effects", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    // Simulate a hypothetical future per-step side effect (e.g. a webhook
+    // dispatch) via a non-"feature-rule" action so the collapse must land on
+    // the step individually rather than skip its effect.
+    const sideEffectStep = {
+      interval: 600,
+      actions: [
+        {
+          targetType: "webhook",
+          targetId: TARGET_ID,
+          patch: {},
+        } as unknown as RampStepAction,
+      ],
+    };
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), sideEffectStep, plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("advances OUT of a non-collapsible step it is sitting on (no wedge)", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    // The landing already happened for the current step, so its
+    // non-collapsibility must not gate exit — only unvisited steps are
+    // protected from folding.
+    const sideEffectStep = {
+      interval: 600,
+      actions: [
+        {
+          targetType: "webhook",
+          targetId: TARGET_ID,
+          patch: {},
+        } as unknown as RampStepAction,
+      ],
+    };
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      nextStepAt: phaseStart, // gate to leave step 1 already elapsed
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), sideEffectStep, plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(3);
+  });
+
+  it("currentStepCleared bypasses the first hop's hold and gate only", () => {
+    const now = new Date("2025-01-01T00:00:30Z"); // step timers NOT elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      nextStepAt: null, // monitored steps have no nextStepAt gate
+      phaseStartedAt: phaseStart,
+      steps: [
+        { interval: 300, monitored: true, actions: [] },
+        plainStep(300),
+        plainStep(300),
+      ],
+    });
+
+    // Without the option, the monitored current step blocks everything.
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(0);
+    // With it, the evaluator-verified step is cleared, but subsequent steps
+    // still respect their own (unelapsed) time gates.
+    expect(
+      computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
+    ).toBe(1);
+  });
+
+  it("currentStepCleared folds the due backlog behind the cleared step", () => {
+    const now = new Date("2025-01-01T01:00:00Z"); // all timers elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      nextStepAt: null,
+      phaseStartedAt: phaseStart,
+      steps: [
+        { interval: 300, monitored: true, actions: [] },
+        plainStep(300),
+        plainStep(300),
+      ],
+    });
+    expect(
+      computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
+    ).toBe(3);
+  });
+});
+
+describe("advanceStep past-end with a lapsed cutoff", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(undefined);
+  });
+
+  it("completes WITH disableActiveTargets so the rule doesn't stay enabled past its end date", async () => {
+    // Regression: a catch-up fold can land past the end after the cutoff
+    // lapsed (hook race, or the cutoff lapsing during a slow evaluate); the
+    // completion must honor the cutoff's disable semantics.
+    const schedule = makeSchedule({
+      currentStepIndex: 2, // last step done
+      status: "running",
+      cutoffDate: new Date(Date.now() - 60_000), // lapsed
+    });
+    const { ctx } = makeContext();
+
+    await advanceStep(ctx as never, schedule, schedule.steps.length);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(false);
+  });
+});
+
+describe("advanceStep target clamp", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("refuses a non-forward target from a stale caller instead of rewinding coverage", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2, status: "running" });
+    const updateById = jest.fn();
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    const result = await advanceStep(ctx as never, schedule, 1);
+
+    expect(result).toBe(schedule);
+    expect(updateById).not.toHaveBeenCalled();
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+});
+
+describe("withRampScheduleAdvanceLock", () => {
+  const makeLockCtx = (acquired: boolean) => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(acquired);
+    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    // The doc exists — a failed acquire is diagnosed as contention, not 404.
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const ctx = {
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
+    };
+    return { ctx, acquireAdvanceLock, releaseAdvanceLock, getById };
+  };
+
+  it("runs fn and releases the lock when acquired", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    const fn = jest.fn().mockResolvedValue("done");
+
+    const result = await withRampScheduleAdvanceLock(ctx as never, "rs_1", fn);
+
+    expect(result).toBe("done");
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(releaseAdvanceLock).toHaveBeenCalledWith("rs_1", expect.any(String));
+  });
+
+  it("throws and does not run fn when the lock is held by another advance", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(false);
+    const fn = jest.fn();
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow();
+    expect(fn).not.toHaveBeenCalled();
+    expect(releaseAdvanceLock).not.toHaveBeenCalled();
+  });
+
+  it("releases the lock even if fn throws", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("boom");
+    expect(releaseAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws RampAdvanceLockBusyError (not a generic error) on contention", async () => {
+    const { ctx } = makeLockCtx(false);
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
+  });
+
+  it("does not let a failing release mask the error fn threw", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    releaseAdvanceLock.mockRejectedValue(new Error("mongo down"));
+    const fn = jest.fn().mockRejectedValue(new Error("real failure"));
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("real failure");
+  });
+});
+
+describe("withRampScheduleAdvanceLockRetry", () => {
+  it("retries contention and succeeds once the lock frees up (fn runs once)", async () => {
+    const acquireAdvanceLock = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const ctx = {
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
+    };
+    const fn = jest.fn().mockResolvedValue("done");
+
+    const result = await withRampScheduleAdvanceLockRetry(
+      ctx as never,
+      "rs_1",
+      fn,
+    );
+    expect(result).toBe("done");
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces the busy error after exhausting attempts", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue({ id: "rs_1" }),
+        },
+      },
+    };
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn(), 2),
+    ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
+  }, 15_000);
+
+  it("fails fast with 404 semantics when the schedule was deleted", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+      },
+    };
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toThrow("no longer exists");
+    // No retry ladder for a missing doc.
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry non-contention errors from fn", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(true);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    };
+    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("boom");
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("runLockedRampScheduleAction", () => {
+  it("passes the fresh in-lock read to fn, not the caller's snapshot", async () => {
+    const freshDoc = { id: "rs_1", status: "completed" };
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          getById: jest.fn().mockResolvedValue(freshDoc),
+        },
+      },
+    };
+    const fn = jest.fn().mockResolvedValue("ok");
+
+    await runLockedRampScheduleAction(ctx as never, "rs_1", fn);
+    expect(fn).toHaveBeenCalledWith(freshDoc, expect.any(Function));
+  });
+
+  it("throws when the schedule was deleted while waiting for the lock", async () => {
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+      },
+    };
+
+    await expect(
+      runLockedRampScheduleAction(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toThrow("no longer exists");
+  });
+});
+
+describe("stepIsCollapsible", () => {
+  it("is true for a step whose actions are all feature-rule patches", () => {
+    expect(
+      stepIsCollapsible({
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.5 },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("is true for a step with no actions", () => {
+    expect(stepIsCollapsible({ interval: 300, actions: [] })).toBe(true);
+  });
+
+  it("is false when a step carries a non-feature-rule (side-effecting) action", () => {
+    expect(
+      stepIsCollapsible({
+        interval: 300,
+        actions: [
+          {
+            targetType: "webhook",
+            targetId: TARGET_ID,
+            patch: {},
+          } as unknown as RampStepAction,
+        ],
+      }),
+    ).toBe(false);
   });
 });
 
@@ -1878,7 +2357,12 @@ describe("resumeSchedule", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById },
+        rampSchedules: {
+          updateById,
+          getById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
       },
     };
 
@@ -2249,13 +2733,14 @@ describe("advanceUntilBlocked", () => {
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      // Overdue backlog: every time gate has elapsed, so the catch-up would
+      // reach the monitored step. It must still stop there (monitored steps
+      // need the evaluator's snapshot data before advancing).
+      phaseStartedAt: new Date(Date.now() - 10_000_000),
       status: "running",
       steps,
     });
 
-    // After advancing to step 0, return a schedule where step 1 is already due
-    // (simulates a late agenda tick). The loop must stop at step 1 because it's
-    // monitored, even though its timer has elapsed.
     let callCount = 0;
     const updateById = jest
       .fn()
@@ -2285,9 +2770,10 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Advances step 0 (not monitored, continues) then step 1 (monitored, stops).
-    expect(callCount).toBe(2);
-    const [, lastUpdates] = updateById.mock.calls[1];
+    // Collapses steps 0→1 into one jump, landing on the monitored step 1 and
+    // stopping there (a single publish rather than one per step).
+    expect(callCount).toBe(1);
+    const [, lastUpdates] = updateById.mock.calls[0];
     expect(lastUpdates.currentStepIndex).toBe(1);
   });
 
@@ -2319,6 +2805,8 @@ describe("advanceUntilBlocked", () => {
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      // Overdue backlog so the catch-up reaches the minSampleSize step.
+      phaseStartedAt: new Date(Date.now() - 10_000_000),
       status: "running",
       steps,
     });
@@ -2351,9 +2839,10 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Advances step 0 (no minSampleSize, continues) then step 1 (has minSampleSize, stops).
-    expect(callCount).toBe(2);
-    const [, lastUpdates] = updateById.mock.calls[1];
+    // Collapses steps 0→1 into one jump, landing on the minSampleSize step 1
+    // and stopping there (needs the evaluator + snapshot before advancing).
+    expect(callCount).toBe(1);
+    const [, lastUpdates] = updateById.mock.calls[0];
     expect(lastUpdates.currentStepIndex).toBe(1);
   });
 
@@ -2392,9 +2881,13 @@ describe("advanceUntilBlocked", () => {
         ],
       },
     ];
+    // phaseStartedAt is set so steps 0 and 1's time gates have elapsed but step
+    // 2's has not: the catch-up should advance through 0→1→2 and stop on step 2
+    // (still inside its interval), without completing.
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      phaseStartedAt: new Date(Date.now() - 700_000),
       status: "running",
       steps,
     });
@@ -2407,7 +2900,6 @@ describe("advanceUntilBlocked", () => {
           callCount++;
           const newStepIndex =
             updates.currentStepIndex ?? schedule.currentStepIndex;
-          // Steps 0 and 1 are due; step 2 lands in the future.
           const nextStepAt = newStepIndex < 2 ? past : future;
           return {
             ...schedule,
@@ -2429,10 +2921,9 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Chains through steps 0, 1, and 2 (all due, all purely time-gated); stops
-    // when the loop exhausts the step array after landing on step 2.
-    expect(callCount).toBe(3);
-    const lastCall = updateById.mock.calls[callCount - 1];
+    // Collapses the 0→1→2 backlog into a single jump/publish landing on step 2.
+    expect(callCount).toBe(1);
+    const lastCall = updateById.mock.calls[0];
     expect(lastCall[1].currentStepIndex).toBe(2);
   });
 
@@ -2616,6 +3107,42 @@ describe("advanceUntilBlocked", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r) => r.id === RULE_ID);
     expect(patched?.enabled).toBe(true);
+  });
+
+  // ------------------------------------------------------------------------
+  // Collapse straight past the end (never-started backlog + future cutoff)
+  // ------------------------------------------------------------------------
+
+  it("injects enabled:true when a never-started backlog collapses past the end (future cutoff)", async () => {
+    // Regression: the -1 → past-end jump routes through
+    // applyEndActionsAndAwaitCutoff, which must fold enabled:true like every
+    // other landing — otherwise the rule sits at 100% coverage but disabled
+    // and never serves traffic.
+    const past = new Date(Date.now() - 10_000_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "running",
+      nextStepAt: new Date(Date.now() - 1000),
+      phaseStartedAt: past, // every step's time gate elapsed
+      cutoffDate: new Date(Date.now() + 24 * 60 * 60_000),
+    });
+    const { ctx, updateById } = makeContext();
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+    expect((patched as { coverage?: number })?.coverage).toBe(1.0);
+
+    // Lands past the end, awaiting cutoff, recorded as a jump (not a
+    // single-step advance).
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.currentStepIndex).toBe(schedule.steps.length);
+    const lastEvent = updates.eventHistory?.[updates.eventHistory.length - 1];
+    expect(lastEvent?.type).toBe("step-jumped");
   });
 });
 
@@ -2848,6 +3375,40 @@ describe("completeRollout", () => {
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"a":"1"}');
   });
+
+  it("refuses to complete a held approval-gated schedule (would enable without approval)", async () => {
+    // Held at -1, awaiting start approval: completing would inject enabled:true
+    // and serve traffic without the recorded approval — the gate must block it.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(completeRollout(ctx as never, schedule)).rejects.toThrow(
+      /start approval/i,
+    );
+    // Threw before publishing, so no revision was created.
+    expect(mockCreateRevision).not.toHaveBeenCalled();
+  });
+
+  it("still completes a held approval-gated schedule when disabling (cutoff path never serves)", async () => {
+    // disableActiveTargets disables the rule (e.g. cutoff-driven completion), so
+    // there's no -1 → serving crossing to gate — it must not be blocked.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(
+      completeRollout(ctx as never, schedule, { disableActiveTargets: true }),
+    ).resolves.toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2914,7 +3475,14 @@ describe("startReadyScheduleNow", () => {
         canPublishFeature: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById, deleteById },
+        rampSchedules: {
+          updateById,
+          getById,
+          deleteById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
+        },
         safeRollout: {
           getById: safeRolloutGetById,
           create: safeRolloutCreate,
@@ -3008,19 +3576,15 @@ describe("startReadyScheduleNow", () => {
   it("sets nextStepAt≈now for multi-step schedules", async () => {
     // Multi-step schedule with a far-future cutoffDate to keep advanceUntilBlocked
     // from completing. nextStepAt in the initial update must be ≈ now so step 0
-    // is immediately eligible.
-    const { ctx, updateById } = makeStartNowCtx();
-    const multiStepSchedule = makeSchedule({
-      status: "ready",
-      currentStepIndex: -1,
+    // is immediately eligible. The steps live on the stored doc (the in-lock
+    // fresh read is authoritative, not the caller's snapshot).
+    const { ctx, updateById, schedule } = makeStartNowCtx({
+      steps: makeSchedule({}).steps,
       nextStepAt: null,
-      startedAt: null,
-      phaseStartedAt: null,
-      cutoffDate: new Date(Date.now() + 24 * 60 * 60_000),
     });
 
     const before = Date.now();
-    await startReadyScheduleNow(ctx as never, multiStepSchedule);
+    await startReadyScheduleNow(ctx as never, schedule);
     const after = Date.now();
 
     // The first updateById call is the transition; subsequent calls may come
@@ -3190,12 +3754,20 @@ describe("startReadyScheduleNow", () => {
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(async () => ({
-            ...base,
-            status: "running",
-            nextStepAt: new Date(Date.now() + 3_600_000),
-          })),
+          // First read is the lock wrapper's freshness check (must be ready);
+          // later reads reflect the post-start running state.
+          getById: jest
+            .fn()
+            .mockImplementationOnce(async () => base)
+            .mockImplementation(async () => ({
+              ...base,
+              status: "running",
+              nextStepAt: new Date(Date.now() + 3_600_000),
+            })),
           deleteById: jest.fn().mockResolvedValue(undefined),
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
         },
         safeRollout: {
           getById: jest.fn().mockResolvedValue(null),
@@ -3781,6 +4353,116 @@ describe("isAwaitingApproval", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isAwaitingStartApproval
+// ---------------------------------------------------------------------------
+
+describe("isAwaitingStartApproval", () => {
+  const held = {
+    status: "ready" as const,
+    currentStepIndex: -1,
+    requiresStartApproval: true,
+    startApprovedAt: null,
+  };
+
+  it("returns true for a ready, unapproved, pre-start approval schedule", () => {
+    expect(isAwaitingStartApproval(held)).toBe(true);
+  });
+
+  it("returns false once approved", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the schedule does not require approval", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        requiresStartApproval: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false once past step -1 (already crossed into a step)", () => {
+    expect(isAwaitingStartApproval({ ...held, currentStepIndex: 0 })).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a running schedule (only the ready hold counts)", () => {
+    expect(
+      isAwaitingStartApproval({ ...held, status: "running" as const }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// startApprovalPending — the status-independent invariant used at the crossing
+// ---------------------------------------------------------------------------
+
+describe("startApprovalPending", () => {
+  it("is true when required and not yet approved (any status)", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: null,
+      }),
+    ).toBe(true);
+    // Status-independent: still pending even mid-transition to running.
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false once approved", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when approval isn't required", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: false,
+        startApprovedAt: null,
+      }),
+    ).toBe(false);
+    expect(startApprovalPending({})).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveStartApproval — tri-state (true/false/null = set, undefined = keep)
+// ---------------------------------------------------------------------------
+
+describe("resolveStartApproval", () => {
+  it("uses the action value when explicitly set", () => {
+    expect(resolveStartApproval(true, false)).toBe(true);
+    expect(resolveStartApproval(false, true)).toBe(false);
+  });
+
+  it("treats null as an explicit off (does not fall back to base)", () => {
+    expect(resolveStartApproval(null, true)).toBe(false);
+  });
+
+  it("falls back to the base value when the action omits it (undefined)", () => {
+    expect(resolveStartApproval(undefined, true)).toBe(true);
+    expect(resolveStartApproval(undefined, false)).toBe(false);
+    expect(resolveStartApproval(undefined, null)).toBe(false);
+    expect(resolveStartApproval(undefined, undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isReadyForApproval — approval is gated behind the step's interval
 // ---------------------------------------------------------------------------
 
@@ -3916,6 +4598,26 @@ describe("computeNextProcessAt", () => {
   it("ready: returns null when no startDate", () => {
     const result = computeNextProcessAt({ status: "ready" });
     expect(result).toBeNull();
+  });
+
+  it("ready: returns null while awaiting start approval, even with a startDate", () => {
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: new Date("2026-06-05T00:00:00Z"),
+      requiresStartApproval: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: arms for startDate once the start is approved", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+      requiresStartApproval: true,
+      startApprovedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    expect(result).toEqual(start);
   });
 
   it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {

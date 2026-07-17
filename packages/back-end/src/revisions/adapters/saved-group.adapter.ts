@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   Revision,
@@ -10,7 +9,10 @@ import {
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  EntityRevisionAdapter,
+  filterUpdatableChanges,
+} from "back-end/src/revisions/EntityRevisionAdapter";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the
 // schema so the two can't drift. The snapshot validator runs in `.strict()`
@@ -135,16 +137,11 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     changes: Record<string, unknown>,
     options?: { isRevert?: boolean },
   ): Promise<void> {
-    // Filter to updatable fields and only include fields that actually differ
-    const filteredChanges: Record<string, unknown> = {};
-    for (const key of Object.keys(changes)) {
-      if (!UPDATABLE_FIELDS.has(key)) continue;
-      const newVal = changes[key];
-      const currentVal = (entity as Record<string, unknown>)[key];
-      if (newVal !== undefined && !isEqual(newVal, currentVal)) {
-        filteredChanges[key] = newVal;
-      }
-    }
+    const filteredChanges = filterUpdatableChanges(
+      changes,
+      entity as Record<string, unknown>,
+      UPDATABLE_FIELDS,
+    );
 
     if (Object.keys(filteredChanges).length === 0) return;
 

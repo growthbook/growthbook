@@ -30,7 +30,7 @@ import { getValidDate } from "shared/dates";
 import { MetricTimeSeries } from "shared/validators";
 import { Flex } from "@radix-ui/themes";
 import {
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
   ExperimentSortBy,
   SetExperimentSortBy,
   isFactMetric,
@@ -55,6 +55,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import HelperText from "@/ui/HelperText";
+import VariationLabel from "@/ui/VariationLabel";
 import { useMetricDrilldownContext } from "@/components/MetricDrilldown/useMetricDrilldownContext";
 import { DrilldownTooltip, isInteractiveElement } from "./DrilldownTooltip";
 import AlignedGraph from "./AlignedGraph";
@@ -96,7 +97,7 @@ export type ResultsTableProps = {
     location,
   }: {
     label: string | ReactElement;
-    metric: ExperimentMetricInterface;
+    metric: ExperimentMetricDefinition;
     row: ExperimentTableRow;
     maxRows?: number;
     numDimensions?: number;
@@ -277,11 +278,11 @@ export default function ResultsTable({
     };
 
     const getIcon = () => {
-      if (!isActive) return <FaSort size={16} />;
+      if (!isActive) return <FaSort size={15} />;
       return sortDirection === "desc" ? (
-        <FaSortDown size={16} />
+        <FaSortDown size={15} />
       ) : (
-        <FaSortUp size={16} />
+        <FaSortUp size={15} />
       );
     };
 
@@ -290,6 +291,7 @@ export default function ResultsTable({
         usePortal={true}
         innerClassName={"text-left"}
         body={getTooltipText()}
+        style={{ display: "inline-flex", alignItems: "center" }}
       >
         <button
           type="button"
@@ -299,6 +301,9 @@ export default function ResultsTable({
             marginLeft: "2px",
             color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
             userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            lineHeight: 0,
           }}
         >
           {getIcon()}
@@ -574,7 +579,7 @@ export default function ResultsTable({
                                   editMetrics();
                                 }}
                               >
-                                <PiPencilSimpleFill />
+                                <PiPencilSimpleFill size={15} />
                               </button>
                             </div>
                           ) : null}
@@ -635,10 +640,10 @@ export default function ResultsTable({
                             })}
                           >
                             {statsEngine === "bayesian" ? (
-                              <>
+                              <Flex align="center">
                                 Chance to Win
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             ) : sequentialTestingEnabled ||
                               appliedPValueCorrection ? (
                               <Tooltip
@@ -656,15 +661,17 @@ export default function ResultsTable({
                                   </div>
                                 }
                               >
-                                {appliedPValueCorrection ? "Adj. " : ""}
-                                P-value
-                                <SortButton column="significance" />
+                                <Flex align="center">
+                                  {appliedPValueCorrection ? "Adj. " : ""}
+                                  P-value
+                                  <SortButton column="significance" />
+                                </Flex>
                               </Tooltip>
                             ) : (
-                              <>
+                              <Flex align="center">
                                 P-value
                                 <SortButton column="significance" />
-                              </>
+                              </Flex>
                             )}
                           </th>
                         )}
@@ -1010,32 +1017,22 @@ export default function ResultsTable({
                                       >
                                         {!compactResults ? (
                                           <div
-                                            className={`d-flex align-items-center ${
+                                            className={`d-flex align-items-center ml-2 ${
                                               row.isSliceRow
                                                 ? "pl-4"
                                                 : dimension
                                                   ? "pl-2" // less padding because no expansion buttons
                                                   : "pl-3"
                                             }`}
+                                            style={{
+                                              width: 200 * tableCellScale,
+                                            }}
                                           >
-                                            <span
-                                              className="label ml-2"
-                                              style={{
-                                                width: 20,
-                                                height: 20,
-                                              }}
-                                            >
-                                              {v.index}
-                                            </span>
-                                            <span
-                                              className="d-inline-block text-ellipsis"
-                                              title={v.name}
-                                              style={{
-                                                width: 200 * tableCellScale,
-                                              }}
-                                            >
-                                              {v.name}
-                                            </span>
+                                            <VariationLabel
+                                              number={v.index}
+                                              name={v.name}
+                                              size="medium"
+                                            />
                                           </div>
                                         ) : (
                                           renderLabelColumn({

@@ -14,36 +14,58 @@ import {
   ProductAnalyticsValue,
   DatasetType,
   ProductAnalyticsExploration,
+  ExplorationDateRange,
+  type ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { QueryInterface } from "shared/types/query";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  buildComparisonDateRange,
+  buildContiguousPreviousCustomDateRange,
+} from "shared/enterprise";
+import { isEqual } from "lodash";
+import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
   clearInapplicableShowAs,
   compareConfig,
   createEmptyDataset,
   createEmptyValue,
+  ExplorerDraftConfig,
   fillMissingUnits,
   generateUniqueValueName,
   getCommonColumns,
   isSubmittableConfig,
+  stripExplorerDraftFields,
   validateDimensions,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 
+function customPrimaryBoundsKey(
+  dateRange: ExplorationConfig["dateRange"],
+): string | null {
+  if (
+    dateRange.predefined !== "customDateRange" ||
+    !dateRange.startDate ||
+    !dateRange.endDate
+  ) {
+    return null;
+  }
+  return `${dateRange.startDate}|${dateRange.endDate}`;
+}
+
 type SetDraftStateAction =
-  | ExplorationConfig
-  | ((prevState: ExplorationConfig) => ExplorationConfig);
+  | ExplorerDraftConfig
+  | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
 
 export interface ExplorerContextValue {
   // ─── State ─────────────────────────────────────────────────────────────
-  draftExploreState: ExplorationConfig;
-  submittedExploreState: ExplorationConfig | null;
+  draftExploreState: ExplorerDraftConfig;
+  submittedExploreState: ExplorerDraftConfig | null;
   exploration: ProductAnalyticsExploration | null;
   query: QueryInterface | null;
   loading: boolean;
@@ -53,14 +75,24 @@ export interface ExplorerContextValue {
   needsFetch: boolean;
   needsUpdate: boolean;
   isSubmittable: boolean;
-  managedWarehouseAwaitingProvisioning: boolean;
+  managedWarehouseUnavailable: boolean;
   trackingSource: string | undefined;
+
+  compareEnabled: boolean;
+  submittedPreviousTimeFrame: ExplorationDateRange | null;
+  comparisonExploration: ProductAnalyticsExploration | null;
+  comparisonQuery: QueryInterface | null;
+  comparisonComputed: Pick<
+    ProductAnalyticsRunComparisonPayload,
+    "bigNumberTrends" | "tableTrendsByRow" | "previousPeriod"
+  > | null;
+  setCompareEnabled: (value: boolean) => void;
 
   // ─── Modifiers ─────────────────────────────────────────────────────────
   setDraftExploreState: (action: SetDraftStateAction) => void;
   handleSubmit: (options?: {
     force?: boolean;
-    config?: ExplorationConfig;
+    config?: ExplorerDraftConfig;
     setDraft?: boolean;
   }) => Promise<void>;
   addValueToDataset: (datasetType: DatasetType) => void;
@@ -72,7 +104,7 @@ export interface ExplorerContextValue {
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
-export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
+const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
   "product-analytics:explorer:datasource" as const;
 
 export function useDefaultDataSourceId(): string | undefined {
@@ -92,15 +124,21 @@ export function useDefaultDataSourceId(): string | undefined {
 
 interface ExplorerProviderProps {
   children: ReactNode;
-  initialConfig: ExplorationConfig;
+  initialConfig: ExplorerDraftConfig;
+  initialSubmittedConfig?: ExplorerDraftConfig;
   hasExistingResults?: boolean;
-  onRunComplete?: (exploration: ProductAnalyticsExploration) => void;
+  onRunComplete?: (
+    exploration: ProductAnalyticsExploration,
+    comparisonExploration: ProductAnalyticsExploration | null,
+    previousTimeFrame: ExplorationDateRange | null,
+  ) => void;
   trackingSource?: string;
 }
 
 export function ExplorerProvider({
   children,
   initialConfig,
+  initialSubmittedConfig,
   hasExistingResults = false,
   onRunComplete,
   trackingSource,
@@ -119,8 +157,8 @@ export function ExplorerProvider({
   );
 
   const [explorerState, setExplorerState] = useState<{
-    draftState: ExplorationConfig;
-    submittedState: ExplorationConfig | null;
+    draftState: ExplorerDraftConfig;
+    submittedState: ExplorerDraftConfig | null;
     exploration: ProductAnalyticsExploration | null;
     error: string | null;
     query: QueryInterface | null;
@@ -134,20 +172,53 @@ export function ExplorerProvider({
       withUnits,
       getFactMetricById,
     );
+    const normalizedSubmitted = initialSubmittedConfig
+      ? clearInapplicableShowAs(
+          fillMissingUnits(
+            initialSubmittedConfig,
+            getFactTableById,
+            getFactMetricById,
+          ),
+          getFactMetricById,
+        )
+      : normalizedInitial;
     return {
       draftState: normalizedInitial,
-      submittedState: hasExistingResults ? normalizedInitial : null,
+      submittedState: hasExistingResults ? normalizedSubmitted : null,
       exploration: null,
       error: null,
       query: null,
     };
   });
   const [isStale, setIsStale] = useState(false);
-  const hasEverFetchedRef = useRef(false);
+  const [comparisonExploration, setComparisonExploration] =
+    useState<ProductAnalyticsExploration | null>(null);
+  const [comparisonQuery, setComparisonQuery] = useState<QueryInterface | null>(
+    null,
+  );
+  const [comparisonComputed, setComparisonComputed] =
+    useState<ExplorerContextValue["comparisonComputed"]>(null);
+
+  const normalizedInitialDateRange = useMemo(() => {
+    const withUnits = fillMissingUnits(
+      initialConfig,
+      getFactTableById,
+      getFactMetricById,
+    );
+    return clearInapplicableShowAs(withUnits, getFactMetricById).dateRange;
+  }, [initialConfig, getFactTableById, getFactMetricById]);
+
+  const lastCustomPrimaryBoundsRef = useRef<string | null>(
+    customPrimaryBoundsKey(normalizedInitialDateRange),
+  );
+
+  const hasEverFetchedRef = useRef(hasExistingResults);
   const skipNextAutoSubmitRef = useRef(false);
   const submitRequestIdRef = useRef(0);
 
-  const draftExploreState: ExplorationConfig = explorerState.draftState;
+  const draftExploreState: ExplorerDraftConfig = explorerState.draftState;
+
+  const compareEnabled = draftExploreState.previousTimeFrame != null;
 
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
@@ -212,17 +283,15 @@ export function ExplorerProvider({
     return datasource?.type === "growthbook_clickhouse";
   }, [getDatasourceById, draftExploreState.datasource]);
 
-  const managedWarehouseAwaitingProvisioning = useMemo(() => {
+  const managedWarehouseUnavailable = useMemo(() => {
     if (!draftExploreState.datasource) return false;
     const datasource = datasources.find(
       (d) => d.id === draftExploreState.datasource,
     );
-    return datasource
-      ? isManagedWarehouseAwaitingProvisioning(datasource)
-      : false;
+    return datasource ? isManagedWarehouseUnavailable(datasource) : false;
   }, [datasources, draftExploreState.datasource]);
 
-  const setSubmittedExploreState = useCallback((state: ExplorationConfig) => {
+  const setSubmittedExploreState = useCallback((state: ExplorerDraftConfig) => {
     setExplorerState((prev) => ({
       ...prev,
       submittedState: state,
@@ -233,6 +302,69 @@ export function ExplorerProvider({
   const error = explorerState.error;
   const submittedExploreState = explorerState.submittedState;
   const query = explorerState.query;
+
+  const submittedPreviousTimeFrame =
+    submittedExploreState?.previousTimeFrame ?? null;
+
+  useEffect(() => {
+    if (draftExploreState.previousTimeFrame == null) return;
+
+    const dr = draftExploreState.dateRange;
+    const customKey = customPrimaryBoundsKey(dr);
+
+    if (customKey !== null) {
+      // Seed a sensible default prior only the first time we enter a custom
+      // range with none set for it yet. We intentionally don't keep the prior
+      // locked to the current range afterward — once seeded, the user can freely
+      // adjust it, and changing the current range won't overwrite their choice.
+      if (lastCustomPrimaryBoundsRef.current === null) {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: buildContiguousPreviousCustomDateRange(
+            dr.startDate as string,
+            dr.endDate as string,
+            dr.lookbackValue ?? null,
+            dr.lookbackUnit ?? null,
+          ),
+        }));
+      }
+      lastCustomPrimaryBoundsRef.current = customKey;
+      return;
+    }
+
+    lastCustomPrimaryBoundsRef.current = null;
+    const aligned = buildComparisonDateRange(dr);
+    if (!isEqual(draftExploreState.previousTimeFrame, aligned)) {
+      setDraftExploreState((prev) => ({
+        ...prev,
+        previousTimeFrame: aligned,
+      }));
+    }
+  }, [
+    draftExploreState.dateRange,
+    draftExploreState.previousTimeFrame,
+    setDraftExploreState,
+  ]);
+
+  const setCompareEnabled = useCallback(
+    (value: boolean) => {
+      if (value) {
+        setDraftExploreState((prev) => ({
+          ...prev,
+          previousTimeFrame: buildComparisonDateRange(prev.dateRange),
+        }));
+      } else {
+        setDraftExploreState((prev) => {
+          const { previousTimeFrame: _, ...rest } = prev;
+          return rest;
+        });
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonComputed(null);
+      }
+    },
+    [setDraftExploreState],
+  );
 
   const commonColumns = useMemo(() => {
     return getCommonColumns(
@@ -248,30 +380,49 @@ export function ExplorerProvider({
 
   const baselineConfig = submittedExploreState ?? null;
   const { needsFetch, needsUpdate } = useMemo(() => {
-    return compareConfig(baselineConfig, cleanedDraftExploreState);
-  }, [baselineConfig, cleanedDraftExploreState]);
+    return compareConfig(baselineConfig, cleanedDraftExploreState, {
+      lastPreviousTimeFrame: submittedPreviousTimeFrame,
+      newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
+    });
+  }, [
+    baselineConfig,
+    cleanedDraftExploreState,
+    submittedPreviousTimeFrame,
+    draftExploreState.previousTimeFrame,
+  ]);
 
   const isSubmittable = useMemo(() => {
     return isSubmittableConfig(cleanedDraftExploreState);
   }, [cleanedDraftExploreState]);
 
   const doSubmit = useCallback(
-    async (options?: { cache?: CacheOption; config?: ExplorationConfig }) => {
-      const configToSubmit = cleanConfigForSubmission(
-        options?.config ?? draftExploreState,
-      );
+    async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
+      const sourceConfig = options?.config ?? draftExploreState;
+      const configToSubmit = cleanConfigForSubmission(sourceConfig);
+      const previousForRequest = sourceConfig.previousTimeFrame ?? null;
       if (!isSubmittableConfig(configToSubmit)) return;
 
-      if (managedWarehouseAwaitingProvisioning) {
+      if (managedWarehouseUnavailable) {
         return;
       }
+
+      // When comparison is first enabled, the prior-period query has never
+      // been computed. A "required" fetch would return null for it (cache-only)
+      // and the comparison would silently stay empty until a page refresh, so
+      // run it like a first load instead.
+      const enablingComparison =
+        previousForRequest != null && submittedPreviousTimeFrame == null;
 
       let cache: CacheOption;
       if (options?.cache) {
         // explicitly set the cache option
         cache = options.cache;
-      } else if (!hasEverFetchedRef.current || isManagedWarehouse) {
-        // first load or managed warehouse: use preferred cache
+      } else if (
+        !hasEverFetchedRef.current ||
+        isManagedWarehouse ||
+        enablingComparison
+      ) {
+        // first load, managed warehouse, or newly-enabled comparison: run if missing
         cache = "preferred";
       } else {
         // otherwise, use required cache
@@ -281,12 +432,17 @@ export function ExplorerProvider({
       const requestId = ++submitRequestIdRef.current;
 
       const startTime = Date.now();
-      // Do the fetch (we keep previous exploration/submitted state visible until result arrives)
       const {
         data: fetchResult,
         query,
+        comparison,
         error: fetchError,
-      } = await fetchData(configToSubmit, { cache });
+      } = await fetchData(configToSubmit, {
+        cache,
+        ...(previousForRequest
+          ? { previousTimeFrame: previousForRequest }
+          : {}),
+      });
       const durationMs = Date.now() - startTime;
 
       // Ignore out-of-order responses from older in-flight requests.
@@ -298,15 +454,33 @@ export function ExplorerProvider({
         return;
       }
 
+      if (comparison) {
+        setComparisonExploration(comparison.exploration);
+        setComparisonQuery(comparison.query ?? null);
+        setComparisonComputed({
+          bigNumberTrends: comparison.bigNumberTrends,
+          tableTrendsByRow: comparison.tableTrendsByRow,
+          previousPeriod: comparison.previousPeriod,
+        });
+      } else {
+        setComparisonExploration(null);
+        setComparisonQuery(null);
+        setComparisonComputed(null);
+      }
+
+      const submittedConfig: ExplorerDraftConfig = previousForRequest
+        ? { ...configToSubmit, previousTimeFrame: previousForRequest }
+        : configToSubmit;
+
       // Clear staleness when there is an error
       if (fetchError) {
         setIsStale(false);
-        setSubmittedExploreState(configToSubmit);
+        setSubmittedExploreState(submittedConfig);
       }
 
       // Set staleness to false and update submitted state when there is a result
       if (fetchResult) {
-        setSubmittedExploreState(configToSubmit);
+        setSubmittedExploreState(submittedConfig);
         setIsStale(false);
       }
 
@@ -316,7 +490,13 @@ export function ExplorerProvider({
         query,
         error: fetchError || fetchResult?.error || null,
       }));
-      if (fetchResult) onRunComplete?.(fetchResult);
+      if (fetchResult) {
+        onRunComplete?.(
+          fetchResult,
+          comparison?.exploration ?? null,
+          previousForRequest,
+        );
+      }
 
       if (trackingSource) {
         const datasourceType =
@@ -347,11 +527,12 @@ export function ExplorerProvider({
     },
     [
       draftExploreState,
+      submittedPreviousTimeFrame,
       setSubmittedExploreState,
       fetchData,
       onRunComplete,
       isManagedWarehouse,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       trackingSource,
       getDatasourceById,
     ],
@@ -360,7 +541,7 @@ export function ExplorerProvider({
   const handleSubmit = useCallback(
     async (submitOptions?: {
       force?: boolean;
-      config?: ExplorationConfig;
+      config?: ExplorerDraftConfig;
       setDraft?: boolean;
     }) => {
       if (submitOptions?.setDraft && submitOptions.config) {
@@ -379,7 +560,7 @@ export function ExplorerProvider({
 
   /** Handle auto-submit based on needsFetch and needsUpdate */
   useEffect(() => {
-    if (managedWarehouseAwaitingProvisioning) return;
+    if (managedWarehouseUnavailable) return;
     if (!isSubmittable) return;
     if (skipNextAutoSubmitRef.current) {
       skipNextAutoSubmitRef.current = false;
@@ -388,16 +569,24 @@ export function ExplorerProvider({
     if (needsFetch) {
       doSubmit();
     } else if (needsUpdate && !needsFetch) {
-      setSubmittedExploreState(cleanedDraftExploreState);
+      const submittedConfig: ExplorerDraftConfig =
+        draftExploreState.previousTimeFrame
+          ? {
+              ...cleanedDraftExploreState,
+              previousTimeFrame: draftExploreState.previousTimeFrame,
+            }
+          : cleanedDraftExploreState;
+      setSubmittedExploreState(submittedConfig);
     }
   }, [
     needsFetch,
     needsUpdate,
     doSubmit,
     cleanedDraftExploreState,
+    draftExploreState.previousTimeFrame,
     setSubmittedExploreState,
     isSubmittable,
-    managedWarehouseAwaitingProvisioning,
+    managedWarehouseUnavailable,
   ]);
 
   /** Clear staleness when draft matches submitted (known state) */
@@ -507,18 +696,10 @@ export function ExplorerProvider({
       }
       setDraftExploreState((prev) => {
         let dimensions = prev.dimensions;
-        let dataset = prev.dataset;
 
-        // Big Number: normalize to single value and no dimensions so config matches what we display
+        // Big Number: no dimensions; keep full dataset values unchanged
         if (chartType === "bigNumber") {
           dimensions = [];
-          const values = prev.dataset?.values ?? [];
-          if (values.length > 1) {
-            dataset = {
-              ...prev.dataset,
-              values: values.slice(0, 1),
-            } as ExplorationConfig["dataset"];
-          }
         } else {
           // Time-series charts (line, area) need date dimensions
           const isTimeSeriesChart =
@@ -539,7 +720,7 @@ export function ExplorerProvider({
             ];
           }
         }
-        return { ...prev, chartType, dimensions, dataset } as ExplorationConfig;
+        return { ...prev, chartType, dimensions } as ExplorationConfig;
       });
     },
     [
@@ -552,6 +733,10 @@ export function ExplorerProvider({
 
   const clearAllDatasets = useCallback(
     (newDatasourceId?: string) => {
+      lastCustomPrimaryBoundsRef.current = null;
+      setComparisonExploration(null);
+      setComparisonQuery(null);
+      setComparisonComputed(null);
       const datasourceId: string = newDatasourceId ?? datasources[0]?.id ?? "";
       setIsStale(false);
       if (datasourceId) {
@@ -577,13 +762,13 @@ export function ExplorerProvider({
         const type = prev.draftState.dataset.type;
         return {
           draftState: {
-            ...initialConfig,
+            ...stripExplorerDraftFields(initialConfig),
             datasource: datasourceId,
             dataset: {
               ...createEmptyDataset(type),
               values: [createDefaultValue(type)],
             },
-          } as ExplorationConfig,
+          } as ExplorerDraftConfig,
           submittedState: null,
           exploration: null,
           error: null,
@@ -622,33 +807,45 @@ export function ExplorerProvider({
       needsFetch,
       needsUpdate,
       isSubmittable,
-      managedWarehouseAwaitingProvisioning,
+      managedWarehouseUnavailable,
       clearAllDatasets,
       query,
       trackingSource,
+      compareEnabled,
+      submittedPreviousTimeFrame,
+      comparisonExploration,
+      comparisonQuery,
+      comparisonComputed,
+      setCompareEnabled,
     }),
     [
-      draftExploreState,
-      submittedExploreState,
-      data,
-      loading,
-      error,
-      commonColumns,
-      setDraftExploreState,
-      handleSubmit,
       addValueToDataset,
-      updateValueInDataset,
-      deleteValueFromDataset,
-      updateTimestampColumn,
       changeChartType,
+      clearAllDatasets,
+      commonColumns,
+      compareEnabled,
+      comparisonComputed,
+      comparisonExploration,
+      comparisonQuery,
+      data,
+      deleteValueFromDataset,
+      draftExploreState,
+      error,
+      handleSubmit,
       isStale,
+      isSubmittable,
+      loading,
+      managedWarehouseUnavailable,
       needsFetch,
       needsUpdate,
-      isSubmittable,
-      managedWarehouseAwaitingProvisioning,
-      clearAllDatasets,
       query,
+      setCompareEnabled,
+      setDraftExploreState,
+      submittedExploreState,
+      submittedPreviousTimeFrame,
       trackingSource,
+      updateTimestampColumn,
+      updateValueInDataset,
     ],
   );
 

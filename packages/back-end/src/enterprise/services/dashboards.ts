@@ -8,12 +8,14 @@ import {
   getBlockAnalysisSettings,
   getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
+  getEffectiveExplorationConfig,
   snapshotSatisfiesBlock,
   DashboardInterface,
   MetricExplorerBlockInterface,
   DashboardBlockInterface,
+  resolveBlockComparison,
+  resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -222,6 +224,7 @@ export async function updateExperimentDashboards({
     const explorationsUpdated = await updateDashboardExplorations(
       context,
       editableBlocks,
+      dashboard,
     );
     if (metricAnalysesUpdated || explorationsUpdated) {
       await context.models.dashboards.dangerousUpdateBypassPermission(
@@ -240,7 +243,7 @@ export async function updateNonExperimentDashboard(
   const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   await updateDashboardMetricAnalyses(context, newBlocks);
   await updateDashboardSavedQueries(context, newBlocks);
-  await updateDashboardExplorations(context, newBlocks);
+  await updateDashboardExplorations(context, newBlocks, dashboard);
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
@@ -312,6 +315,37 @@ export async function updateDashboardMetricAnalyses(
       block.metricAnalysisId = queryRunner.model.id;
       block.analysisSettings.startDate = startDate;
       block.analysisSettings.endDate = endDate;
+
+      // Keep the compare-to-previous-period analysis in sync with the rolled
+      // window. The previous window is derived (never reserved) — an adjacent
+      // window of equal length immediately preceding the current one — so it
+      // rolls alongside the primary on every manual/scheduled refresh. Resolved
+      // through the shared seam so a future dashboard-wide compare toggle drives
+      // this the same way the per-block setting does.
+      //
+      // COST NOTE / revisit: this runs a second metric analysis per
+      // compare-enabled block, so a dashboard with N such blocks issues up to 2N
+      // analyses per refresh cycle. Fine today (they run concurrently via the
+      // Promise.all below), but if query costs run up — e.g. dashboards with many
+      // metric blocks on a tight updateSchedule — consider batching the current
+      // and previous windows into a single analysis/query instead of two.
+      if (resolveBlockComparison(block)?.enabled) {
+        const spanMs = endDate.getTime() - startDate.getTime();
+        const comparisonSettings: MetricAnalysisSettings = {
+          ...settings,
+          startDate: new Date(startDate.getTime() - spanMs),
+          endDate: startDate,
+        };
+        const comparisonQueryRunner = await createMetricAnalysis(
+          context,
+          metric,
+          comparisonSettings,
+          "metric",
+          false,
+        );
+        block.comparisonMetricAnalysisId = comparisonQueryRunner.model.id;
+      }
+
       return true;
     }),
   );
@@ -325,12 +359,14 @@ const PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES = [
   "data-source-exploration",
 ] as const;
 
+type ProductAnalyticsExplorationBlock = Extract<
+  DashboardInterface["blocks"][number],
+  { type: (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number] }
+>;
+
 function isProductAnalyticsExplorationBlock(
   block: DashboardInterface["blocks"][number],
-): block is DashboardInterface["blocks"][number] & {
-  explorerAnalysisId: string;
-  config: ExplorationConfig;
-} {
+): block is ProductAnalyticsExplorationBlock {
   return (
     PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES.includes(
       block.type as (typeof PRODUCT_ANALYTICS_EXPLORATION_BLOCK_TYPES)[number],
@@ -348,6 +384,9 @@ function isProductAnalyticsExplorationBlock(
 export async function updateDashboardExplorations(
   context: ReqContext | ApiReqContext,
   blocks: DashboardInterface["blocks"],
+  // Optional so the future dashboard-wide compare toggle can drive every block
+  // through resolveBlockComparison without changing this signature again.
+  dashboard?: Pick<DashboardInterface, "globalControls" | "comparison">,
 ): Promise<boolean> {
   const explorationBlocks = blocks.filter(isProductAnalyticsExplorationBlock);
   if (explorationBlocks.length === 0) return false;
@@ -355,16 +394,59 @@ export async function updateDashboardExplorations(
   let anyUpdated = false;
   for (const block of explorationBlocks) {
     try {
-      const exploration = await runProductAnalyticsExploration(
-        context,
-        block.config,
-        { cache: "never" },
-      );
+      // Re-resolve the comparison every refresh so predefined previous windows
+      // roll forward with the primary range (custom windows stay fixed).
+      const comparison = resolveBlockComparison(block, dashboard);
+      const primaryConfig = dashboard
+        ? getEffectiveExplorationConfig(block, dashboard)
+        : block.config;
+      // allSettled (not all): a comparison failure (timeout, upstream schema
+      // change, transient warehouse issue) must not block the primary refresh
+      // and leave the whole block frozen at its last refresh.
+      const [primaryResult, comparisonResult] = await Promise.allSettled([
+        runProductAnalyticsExploration(context, primaryConfig, {
+          cache: "never",
+        }),
+        comparison
+          ? runProductAnalyticsExploration(
+              context,
+              {
+                ...primaryConfig,
+                dateRange: resolveComparisonPreviousTimeFrame(
+                  primaryConfig.dateRange,
+                  comparison,
+                ),
+              },
+              { cache: "never" },
+            )
+          : Promise.resolve(null),
+      ]);
+      if (primaryResult.status === "rejected") {
+        throw primaryResult.reason;
+      }
       // This should never happen when cache="never", but just in case
-      if (!exploration) {
+      if (!primaryResult.value) {
         throw new Error("Failed run to run product analytics query");
       }
-      block.explorerAnalysisId = exploration.id;
+      block.explorerAnalysisId = primaryResult.value.id;
+      if (comparisonResult.status === "fulfilled") {
+        if (comparisonResult.value) {
+          block.comparisonExplorerAnalysisId = comparisonResult.value.id;
+        } else {
+          // Clear a stale comparison id when comparison is off.
+          delete block.comparisonExplorerAnalysisId;
+        }
+      } else {
+        // Keep the previous comparison id so the primary still refreshes.
+        logger.warn(
+          {
+            err: comparisonResult.reason,
+            blockId: block.id,
+            blockType: block.type,
+          },
+          "Failed to refresh product analytics comparison; keeping previous comparison",
+        );
+      }
       anyUpdated = true;
     } catch (e) {
       logger.warn(

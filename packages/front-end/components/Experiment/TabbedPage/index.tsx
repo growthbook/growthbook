@@ -14,7 +14,6 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { Text } from "@radix-ui/themes";
 import {
   getAvailableMetricsFilters,
   getAvailableMetricTags,
@@ -83,7 +82,9 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
-  editTraffic?: (() => void) | null;
+  editTraffic?: ((variationId?: string) => void) | null;
+  addVariation?: (() => void) | null;
+  editNamespace?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   editSchedule?: (() => void) | null;
@@ -106,6 +107,8 @@ export default function TabbedPage({
   urlRedirects,
   editTargeting,
   editTraffic,
+  addVariation,
+  editNamespace,
   newPhase,
   editPhases,
   editMetrics,
@@ -445,6 +448,7 @@ export default function TabbedPage({
       )}
       {watchersModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           open={true}
           header="Experiment Watchers"
@@ -560,11 +564,9 @@ export default function TabbedPage({
           ((!isBandit && tab === "results") ||
             (isBandit && tab === "explore")) && (
             <Callout status="info">
-              <Text>
-                {isHoldout
-                  ? "You are viewing the results of the entire holdout period."
-                  : "You are viewing the results of a previous experiment phase."}
-              </Text>
+              {isHoldout
+                ? "You are viewing the results of the entire holdout period."
+                : "You are viewing the results of a previous experiment phase."}
               <Link
                 ml="2"
                 onClick={() => setPhase(experiment.phases.length - 1)}
@@ -616,6 +618,8 @@ export default function TabbedPage({
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
             editTraffic={editTraffic}
+            addVariation={addVariation}
+            editNamespace={editNamespace}
             linkedFeatures={linkedFeatures}
             envs={envs}
             visualChangesetEnvStates={visualChangesetEnvStates}
@@ -663,7 +667,7 @@ export default function TabbedPage({
         {showMetricGroupPromo() ? (
           <PremiumCallout
             commercialFeature="metric-groups"
-            dismissable={true}
+            dismissible={true}
             id="metrics-list-metric-group-promo"
             docSection="metricGroups"
             mb="2"

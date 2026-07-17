@@ -45,6 +45,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
@@ -120,6 +121,8 @@ const featureRevisionSchema = new mongoose.Schema({
   scheduledPublishBypassApproval: Boolean,
   scheduledPublishAttempts: Number,
   scheduledPublishLastError: String,
+  scheduledPublishNextAttemptAt: Date,
+  scheduledPublishGaveUpAt: Date,
   log: [
     {
       _id: false,
@@ -335,23 +338,41 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
-/** Returns the version/status/rules of all non-discarded revisions for a feature.
- * Used by syncFeatureExperimentLinkages callers that don't already have the
- * Mongoose model in scope. */
-export async function getNonDiscardedRevisionSummaries(
+/** Returns only the revisions that syncFeatureExperimentLinkages/
+ * syncFeatureContextualBanditLinkages need — open drafts, plus the single
+ * latest published revision — pre-split so callers don't have to re-derive
+ * the distinction themselves. A feature's older superseded published
+ * revisions are irrelevant to linkage syncing and deliberately excluded. */
+export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
-): Promise<Pick<FeatureRevisionInterface, "version" | "status" | "rules">[]> {
-  const docs = await FeatureRevisionModel.find({
-    organization,
-    featureId,
-    status: { $nin: ["discarded"] },
-  }).select("version status rules");
-  return docs.map((d) => ({
-    version: d.version,
-    status: d.status,
-    rules: d.rules,
-  }));
+): Promise<{
+  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
+  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+}> {
+  const [openDraftDocs, liveDoc] = await Promise.all([
+    FeatureRevisionModel.find({
+      organization,
+      featureId,
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    }).select("version rules"),
+    FeatureRevisionModel.findOne({
+      organization,
+      featureId,
+      status: "published",
+    })
+      .sort({ version: -1 })
+      .select("version rules"),
+  ]);
+  return {
+    openDrafts: openDraftDocs.map((d) => ({
+      version: d.version,
+      rules: d.rules,
+    })),
+    liveRevision: liveDoc
+      ? { version: liveDoc.version, rules: liveDoc.rules }
+      : null,
+  };
 }
 
 export async function getMinimalRevisions(
@@ -774,6 +795,7 @@ export async function createInitialRevision(
       customFields: feature.customFields,
       jsonSchema: feature.jsonSchema,
       valueType: feature.valueType,
+      baseConfig: feature.baseConfig ?? null,
     },
   });
 
@@ -875,6 +897,7 @@ export async function createRevision({
     customFields: feature.customFields,
     jsonSchema: feature.jsonSchema,
     valueType: feature.valueType,
+    baseConfig: feature.baseConfig ?? null,
   };
   // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
   // are merged on top so other metadata fields aren't silently dropped.
@@ -1199,27 +1222,25 @@ export async function updateRevision(
 
   // Fire-and-forget linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
-    FeatureRevisionModel.find({
-      organization: revision.organization,
-      featureId: revision.featureId,
-      status: { $nin: ["discarded"] },
-    })
-      .then((docs) =>
-        syncFeatureExperimentLinkages(
-          context,
-          revision.featureId,
-          docs.map((d) => ({
-            version: d.version,
-            status: d.status,
-            rules: d.rules,
-          })),
-        ),
+    getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+      .then(({ openDrafts, liveRevision }) =>
+        Promise.all([
+          syncFeatureExperimentLinkages(
+            context,
+            revision.featureId,
+            openDrafts,
+            liveRevision,
+          ),
+          syncFeatureContextualBanditLinkages(
+            context,
+            revision.featureId,
+            openDrafts,
+            liveRevision,
+          ),
+        ]),
       )
       .catch((e) => {
-        logger.error(
-          e,
-          "syncFeatureExperimentLinkages failed in updateRevision",
-        );
+        logger.error(e, "feature linkage sync failed in updateRevision");
       });
   }
 
@@ -1446,6 +1467,8 @@ export async function setAutoPublishOnApproval(
 const SCHEDULED_PUBLISH_FAILURE_UNSET = {
   scheduledPublishAttempts: 1,
   scheduledPublishLastError: 1,
+  scheduledPublishNextAttemptAt: 1,
+  scheduledPublishGaveUpAt: 1,
 } as const;
 
 // Schedule fields cleared together on cancel or when leaving the review cycle.
@@ -1623,6 +1646,60 @@ export async function recordScheduledPublishFailure(
     { new: true },
   ).select("scheduledPublishAttempts");
   return doc?.scheduledPublishAttempts ?? 0;
+}
+
+// Delay the next poller retry of a failing scheduled publish (backoff). The
+// due-but-failing revision is skipped until this time so doomed retries space
+// out instead of firing every tick. Raw write, like the failure recorder.
+export async function setScheduledPublishNextAttempt(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+  nextAttemptAt: Date,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { $set: { scheduledPublishNextAttemptAt: nextAttemptAt } },
+  );
+}
+
+// Give up on a failing scheduled publish: clear the schedule (so the poller
+// stops selecting it), disarm auto-publish, and stamp scheduledPublishGaveUpAt
+// so the UI can flag the abandoned schedule. The draft is left open with
+// scheduledPublishLastError preserved for context. Raw write (no dateUpdated
+// bump) like the failure recorder — the revision.publishFailed webhook is the
+// user-facing signal.
+export async function parkScheduledPublish(
+  revision: Pick<
+    FeatureRevisionInterface,
+    "organization" | "featureId" | "version"
+  >,
+): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: {
+        scheduledPublishGaveUpAt: new Date(),
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        scheduledPublishAt: 1,
+        scheduledPublishLockEdits: 1,
+        scheduledPublishLockOthers: 1,
+        scheduledPublishBypassApproval: 1,
+        scheduledPublishNextAttemptAt: 1,
+      },
+    },
+  );
 }
 
 // Cross-org poller query for the Agenda job: every armed revision whose date has
@@ -2233,20 +2310,13 @@ export async function reopenRevision(
     });
 
   // Sync linkages — the reopened revision's rules count as "open drafts" again.
-  FeatureRevisionModel.find({
-    organization: revision.organization,
-    featureId: revision.featureId,
-    status: { $nin: ["discarded"] },
-  })
-    .then((docs) =>
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then(({ openDrafts, liveRevision }) =>
       syncFeatureExperimentLinkages(
         context,
         revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
+        openDrafts,
+        liveRevision,
       ),
     )
     .catch((e) => {
@@ -2296,27 +2366,25 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
-  FeatureRevisionModel.find({
-    organization: revision.organization,
-    featureId: revision.featureId,
-    status: { $nin: ["discarded"] },
-  })
-    .then((docs) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
-      ),
+  getLinkageSyncRevisionSummaries(revision.organization, revision.featureId)
+    .then(({ openDrafts, liveRevision }) =>
+      Promise.all([
+        syncFeatureExperimentLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+        syncFeatureContextualBanditLinkages(
+          context,
+          revision.featureId,
+          openDrafts,
+          liveRevision,
+        ),
+      ]),
     )
     .catch((e) => {
-      logger.error(
-        e,
-        "syncFeatureExperimentLinkages failed in discardRevision",
-      );
+      logger.error(e, "feature linkage sync failed in discardRevision");
     });
 }
 

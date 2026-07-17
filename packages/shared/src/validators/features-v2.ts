@@ -4,12 +4,20 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
+  schemaValidationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
-import { ownerInputField, optionalOwnerInputField } from "./owner-field";
+import {
+  ownerInputField,
+  requiredUnlessPatOwnerInputField,
+} from "./owner-field";
 import {
   apiEventUserValidator,
-  apiFeatureRuleValidator,
+  apiFeatureBaseRuleValidator,
+  apiFeatureForceRuleValidator,
+  apiFeatureRolloutRuleValidator,
+  apiFeatureExperimentRuleValidator,
+  apiFeatureSafeRolloutRuleValidator,
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
@@ -44,9 +52,120 @@ const apiRuleScopeExtension = z
 
 // ---- FeatureRuleV2 (schemas/FeatureRuleV2.yaml) ----
 
+// Config-backing surfaced as a discrete field instead of the internal
+// `$extends: ["@config:…"]` directive. When set, the accompanying value is a
+// JSON override patch merged on top of the config's resolved JSON (the patch's
+// own keys win). `@const:` extends are never config-backing and pass through
+// untouched inside the raw value. Force/rollout carry a single rule-level
+// config; experiment-ref carries one per variation (each variation value can
+// back a different config in the family).
+const apiRuleConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    "Key of the config backing this value, or null when the value is not config-backed. The config supplies the base JSON (and its schema); the value is an override patch merged on top.",
+  )
+  .optional();
+
+// Feature-level "Config mode": the config a JSON flag is backed by. The config
+// supplies the base JSON + schema; `defaultValue` and rule values are override
+// patches on top. null/omitted for a plain flag. `@config:` never appears raw in
+// any value string — this field is the only way to set it (`@const:` refs still
+// pass through inside values).
+const apiBaseConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config. The config supplies the base JSON and schema; `defaultValue` and rule values are override patches on top. null or omitted for a plain flag.',
+  )
+  .optional();
+
+// Same field on update, where the backing config is fixed at creation: an
+// update that changes it is rejected, so callers may only resend the current
+// value or omit it.
+const apiBaseConfigUpdateField = z
+  .string()
+  .nullable()
+  .describe(
+    "The config backing this flag, fixed at creation. Cannot be changed by an update — resend the current value or omit it; a different value is rejected.",
+  )
+  .optional();
+
+// Selects which config the DEFAULT value resolves to: a config within
+// `baseConfig`'s family, else `baseConfig` itself. The default is exactly that
+// config with no overrides of its own (unlike rules, which patch their config).
+const apiDefaultValueConfigField = z
+  .string()
+  .nullable()
+  .describe(
+    "Optional. A config within `baseConfig`'s family that the default value resolves to instead of `baseConfig` itself. null or omitted means the default is `baseConfig`. The default is exactly this config and carries no overrides of its own.",
+  )
+  .optional();
+
+const apiFeatureForceRuleV2 = z.intersection(
+  apiFeatureForceRuleValidator,
+  z.object({ config: apiRuleConfigField }),
+);
+
+const apiFeatureRolloutRuleV2 = z.intersection(
+  apiFeatureRolloutRuleValidator,
+  z.object({ config: apiRuleConfigField }),
+);
+
+// Rebuilt (rather than intersected) so each variation can carry its own
+// `config`; intersecting the v1 experiment-ref shape would leave the v1
+// variation array (without config) in place.
+const apiFeatureExperimentRefRuleV2 = z.intersection(
+  apiFeatureBaseRuleValidator,
+  z.object({
+    type: z.literal("experiment-ref"),
+    variations: z.array(
+      z.object({
+        value: z.string(),
+        variationId: z.string(),
+        config: apiRuleConfigField,
+      }),
+    ),
+    experimentId: z.string(),
+    sparse: z
+      .boolean()
+      .describe(
+        "JSON features only. When true, each variation `value` is a partial object merged onto the feature's default value instead of replacing it.",
+      )
+      .optional(),
+  }),
+);
+
+// Rebuilt (like experiment-ref above) so each variation can carry its own
+// `config`.
+const apiFeatureContextualBanditRefRuleV2 = z.intersection(
+  apiFeatureBaseRuleValidator,
+  z.object({
+    type: z.literal("contextual-bandit-ref"),
+    variations: z.array(
+      z.object({
+        value: z.string(),
+        variationId: z.string(),
+        config: apiRuleConfigField,
+      }),
+    ),
+    contextualBanditId: z.string(),
+  }),
+);
+
 export const apiFeatureRuleV2Validator = namedSchema(
   "FeatureRuleV2",
-  z.intersection(apiFeatureRuleValidator, apiRuleScopeExtension),
+  z.intersection(
+    z.union([
+      apiFeatureForceRuleV2,
+      apiFeatureRolloutRuleV2,
+      apiFeatureExperimentRuleValidator,
+      apiFeatureExperimentRefRuleV2,
+      apiFeatureContextualBanditRefRuleV2,
+      apiFeatureSafeRolloutRuleValidator,
+    ]),
+    apiRuleScopeExtension,
+  ),
 );
 export type ApiFeatureRuleV2 = z.infer<typeof apiFeatureRuleV2Validator>;
 
@@ -92,8 +211,11 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       publishedBy: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
-        .describe("The default value at the time this revision was created")
+        .describe(
+          "The default value at the time this revision was created. When the feature is in Config mode, this is the JSON override patch merged on top of the config (its own keys win); otherwise it is the full value.",
+        )
         .optional(),
+      defaultValueConfig: apiDefaultValueConfigField,
       rules: z
         .array(apiFeatureRuleV2Validator)
         .describe(
@@ -234,6 +356,8 @@ export const apiFeatureV2Validator = namedSchema(
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
       defaultValue: z.string(),
+      baseConfig: apiBaseConfigField,
+      defaultValueConfig: apiDefaultValueConfigField,
       tags: z.array(z.string()),
       rules: z
         .array(apiFeatureRuleV2Validator)
@@ -331,6 +455,24 @@ const apiScheduleRule = z.object({
   enabled: z.boolean(),
 });
 
+const v2SparseRuleField = z
+  .boolean()
+  .describe(
+    "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+  )
+  .optional();
+
+// When set on a write, `value` is treated as a JSON override patch and stored
+// as `$extends: ["@config:<config>"]` + the patch under the hood. null/omitted
+// stores `value` verbatim (a plain value, or `@const:`-extended JSON).
+const v2RuleConfigInput = z
+  .string()
+  .nullable()
+  .optional()
+  .describe(
+    "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+  );
+
 const v2RuleForceBase = z.object({
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
@@ -341,6 +483,8 @@ const v2RuleForceBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("force"),
   value: z.string(),
+  config: v2RuleConfigInput,
+  sparse: v2SparseRuleField,
 });
 
 const v2RuleRolloutBase = z.object({
@@ -353,6 +497,8 @@ const v2RuleRolloutBase = z.object({
   enabled: z.boolean().optional(),
   type: z.literal("rollout"),
   value: z.string(),
+  config: v2RuleConfigInput,
+  sparse: v2SparseRuleField,
   coverage: z.number(),
   hashAttribute: z.string(),
   hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
@@ -367,8 +513,15 @@ const v2RuleExperimentRefBase = z.object({
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
   scheduleRules: z.array(apiScheduleRule).optional(),
-  variations: z.array(z.object({ value: z.string(), variationId: z.string() })),
+  variations: z.array(
+    z.object({
+      value: z.string(),
+      variationId: z.string(),
+      config: v2RuleConfigInput,
+    }),
+  ),
   experimentId: z.string(),
+  sparse: v2SparseRuleField,
 });
 
 // Preserve-only shape for safe-rollout rules. The bulk POST/PUT v2 endpoints
@@ -427,7 +580,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: optionalOwnerInputField,
+    owner: requiredUnlessPatOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -435,8 +588,10 @@ export const postFeatureBodyV2 = z
     defaultValue: z
       .string()
       .describe(
-        "Default value when feature is enabled. Type must match `valueType`.",
+        'Default value when feature is enabled. Type must match `valueType`. In Config mode (`baseConfig` set) the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
       ),
+    baseConfig: apiBaseConfigField,
+    defaultValueConfig: apiDefaultValueConfigField,
     tags: z.array(z.string()).describe("List of associated tags").optional(),
     rules: z
       .array(postFeatureRuleV2)
@@ -476,6 +631,8 @@ export const updateFeatureBodyV2 = z
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
     defaultValue: z.string().optional(),
+    baseConfig: apiBaseConfigUpdateField,
+    defaultValueConfig: apiDefaultValueConfigField,
     tags: z
       .array(z.string())
       .describe(
@@ -559,12 +716,29 @@ export const listFeaturesV2Validator = {
 
 export const postFeatureV2Validator = {
   bodySchema: postFeatureBodyV2,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: z.never(),
   responseSchema: featureV2ResponseSchema,
   summary: "Create a single feature",
   description:
-    "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.",
+    "Creates a new feature. Rules are supplied as a top-level `rules` array; each rule includes `allEnvironments` / `environments` scope fields.\n\n" +
+    "### Config-backed features (Config mode)\n\n" +
+    'A JSON feature can be backed by a shared **config** — the config supplies the base JSON value and schema, and the feature\'s *rule* values become override *patches* merged on top (nested objects deep-merge; arrays and scalars replace). The default value is exactly a config with no overrides (see below). Config backing is set exclusively through dedicated fields — never a raw `$extends: ["@config:…"]` inside a value string (that is rejected). `@const:` references inside values still work.\n\n' +
+    '- **Top-level (`baseConfig`):** set `valueType: "json"` and `baseConfig: "<configKey>"` to put the flag in Config mode. The config must be live. This is the family root and the base the default value patches.\n' +
+    "- **Default value:** unlike rules, the default is exactly a config with no overrides of its own — send `defaultValue: \"{}\"` to use `baseConfig`. To resolve the default to a *descendant* of `baseConfig` instead, set `defaultValueConfig` to that descendant's key (it must be within `baseConfig`'s family); omit/null to use `baseConfig` directly.\n" +
+    "- **Rules & experiment variations:** each carries its own `config` field naming the family config that value patches (omit/null to patch the base). `value` is the override patch.\n\n" +
+    "Example:\n\n" +
+    "```json\n" +
+    "{\n" +
+    '  "id": "checkout-config",\n' +
+    '  "valueType": "json",\n' +
+    '  "baseConfig": "purchase-flow",\n' +
+    '  "defaultValue": "{}",\n' +
+    '  "rules": [\n' +
+    '    { "type": "force", "config": "purchase-flow-vip", "value": "{\\"maxItems\\": 20}", "allEnvironments": true }\n' +
+    "  ]\n" +
+    "}\n" +
+    "```",
   operationId: "postFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -599,7 +773,7 @@ export const getFeatureV2Validator = {
 
 export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema,
   summary: "Partially update a feature",

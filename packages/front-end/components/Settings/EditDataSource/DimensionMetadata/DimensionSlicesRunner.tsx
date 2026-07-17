@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { QueryStatus } from "shared/types/query";
+import { AppFeatures } from "shared/types/app-features";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -14,9 +15,9 @@ import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
-import { AppFeatures } from "@/types/app-features";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -124,7 +125,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
   const ErrorBox = (
     <>
       {(status === "failed" || error !== "") && dimensionSlices ? (
-        <div className="alert alert-danger mt-2">
+        <Callout status="error" mt="2">
           <Flex direction="column" gap="1">
             <Box>
               <strong>Error updating data</strong>
@@ -133,10 +134,10 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
             <Box>{lookbackField}</Box>
             <Box>{asyncQueriesButton}</Box>
           </Flex>
-        </div>
+        </Callout>
       ) : null}
       {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
-        <div className="alert alert-warning mt-2">
+        <Callout status="warning" mt="2">
           <p className="mb-0">
             <strong>
               No experiment assignment rows found in data source.
@@ -148,7 +149,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
           </p>
           {lookbackField}
           {asyncQueriesButton}
-        </div>
+        </Callout>
       ) : null}
     </>
   );
@@ -203,7 +204,6 @@ const RefreshData = ({
           </Flex>
         ) : null}
         <RunQueriesButton
-          useRadixButton={true}
           radixVariant="soft"
           cta={`${dimensionSlices ? "Refresh" : "Query"} Traffic Data`}
           icon={dimensionSlices ? "refresh" : "run"}

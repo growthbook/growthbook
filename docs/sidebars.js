@@ -61,7 +61,10 @@ export default {
             "features/rules", // Rules (overview, choosing a rule type, all rule types)
             "features/targeting", // Targeting Conditions (attributes, conditions, saved groups)
             "features/safe-rollouts", // Safe Rollouts
+            "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
+            "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
           ],
         },
         {
@@ -327,9 +330,60 @@ export default {
           label: "Feature Flag Experiments",
         },
         {
-          type: "doc",
-          id: "visual-editor",
+          type: "category",
           label: "Visual Editor",
+          className: "beta",
+          link: {
+            type: "doc",
+            id: "visual-editor",
+          },
+          items: [
+            {
+              type: "doc",
+              id: "visual-editor/install-and-connect",
+              label: "Install and connect",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/ai-mode",
+              label: "AI mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/manual-mode",
+              label: "Manual mode",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/images",
+              label: "Images",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/design-import",
+              label: "Figma & image import",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/running-on-your-site",
+              label: "Running on your site",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/preview-and-qa",
+              label: "Preview and QA",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/troubleshooting",
+              label: "Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "visual-editor/legacy",
+              label: "Legacy (in-page) editor",
+            },
+          ],
         },
         {
           type: "doc",
@@ -391,6 +445,28 @@ export default {
             },
           ],
         },
+        // {
+        //   type: "category",
+        //   label: "Contextual Bandits",
+        //   collapsed: true,
+        //   items: [
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/overview",
+        //       label: "Overview",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/config",
+        //       label: "Setting up a Contextual Bandit",
+        //     },
+        //     {
+        //       type: "doc",
+        //       id: "contextual-bandits/contextual-bandit-via-api",
+        //       label: "Driving a Contextual Bandit via API",
+        //     },
+        //   ],
+        // },
         {
           type: "doc",
           id: "running-experiments/running-holdouts",
@@ -846,6 +922,11 @@ export default {
           type: "doc",
           id: "kb/glossary",
           label: "Glossary",
+        },
+        {
+          type: "doc",
+          id: "command-palette",
+          label: "Command Palette",
         },
       ],
     },

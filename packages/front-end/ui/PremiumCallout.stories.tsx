@@ -44,15 +44,15 @@ export default function PremiumCalloutStories() {
         </PremiumCallout>
         <PremiumCallout
           commercialFeature="multi-armed-bandits"
-          id="design-system-dismissable"
+          id="design-system-dismissible"
           docSection="bandits"
-          dismissable={true}
+          dismissible={true}
           renderWhenDismissed={(undismiss) => (
             <Link onClick={() => undismiss()}>Un-dismiss</Link>
           )}
         >
           You already have access to this premium feature. This gives you a docs
-          link and is dismissable.
+          link and is dismissible.
         </PremiumCallout>
       </Flex>
     </UserContext.Provider>

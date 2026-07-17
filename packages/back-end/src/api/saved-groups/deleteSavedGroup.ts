@@ -1,5 +1,7 @@
 import { deleteSavedGroupValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator,
@@ -9,7 +11,7 @@ export const deleteSavedGroup = createApiRequestHandler(
   );
 
   if (!savedGroup) {
-    throw new Error("Unable to delete saved group. No group found.");
+    throw new NotFoundError("Unable to delete saved group. No group found.");
   }
 
   if (!req.context.permissions.canDeleteSavedGroup(savedGroup)) {
@@ -18,9 +20,13 @@ export const deleteSavedGroup = createApiRequestHandler(
 
   // Match the internal controller: archive-then-delete. Archive is reversible
   // and flows through the approval system; delete bypasses approval but is
-  // gated on the archive having already been published.
-  if (!savedGroup.archived) {
-    throw new Error("Saved group must be archived before it can be deleted");
+  // gated on the archive having already been published — unless the org has
+  // opted into unrestricted REST writes (mirrors feature deletion).
+  if (!savedGroup.archived && !canUseRestApiBypassSetting(req)) {
+    throw new BadRequestError(
+      "Saved group must be archived before it can be deleted via the REST API, " +
+        "or enable 'REST API always bypasses approval requirements' in organization settings.",
+    );
   }
 
   await req.context.models.savedGroups.deleteById(req.params.id);

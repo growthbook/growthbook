@@ -8,6 +8,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Callout from "@/ui/Callout";
 
 const actionValues = ["append", "set", "remove"];
 
@@ -327,6 +328,7 @@ const EditDOMMutationsModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open
       close={close}
@@ -343,11 +345,11 @@ const EditDOMMutationsModal: FC<{
     >
       <div>
         {experiment.status === "running" && (
-          <div className="alert alert-warning">
+          <Callout status="warning">
             <strong>Warning:</strong> This experiment is currently running. Any
             changes made here may introduce unpredictable effects in your
             experiment results.
-          </div>
+          </Callout>
         )}
         <div className="mb-4">
           <h4>

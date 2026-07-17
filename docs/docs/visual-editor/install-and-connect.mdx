@@ -1,5 +1,4 @@
 ---
-draft: true
 title: Install and Connect the GrowthBook Visual Editor
 description: Install the GrowthBook DevTools Chrome extension and connect it to your GrowthBook account with a single click. No copying API tokens by hand.
 sidebar_label: Install and connect
@@ -11,44 +10,40 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="visual-editor" />
 
-The GrowthBook Visual Editor is a stand along Chrome extension. Setup is two clicks and about thirty seconds — install the extension, then click **Connect with GrowthBook**.
+The GrowthBook Visual Editor is a standalone Chrome extension. Setup is two clicks and about thirty seconds — install the extension, then click **Connect with GrowthBook**.
 
 ## 1. Install the extension
 
-The Visual Editor browser extension. Install it from your browser's extension store:
+Install **GrowthBook Visual Editor** from the Chrome Web Store (Chrome, Edge, Brave, Dia, and most Chromium browsers).
 
-- **Chrome, Edge, Brave, Arc, and most Chromium browsers** — [GrowthBook DevTools on the Chrome Web Store](https://chrome.google.com/webstore/detail/growthbook-devtools/REPLACE_WITH_ACTUAL_ID)
+During beta, the link is emailed after you [sign up for early access](https://www.growthbook.io/events/early-access-ai-visual-editor).
 
-Firefox support coming soon.
+{/* Is firefox support coming soon? */}
+{/* Firefox support coming soon. */}
 
 ## 2. Open the side panel
 
 <MaxWidthImage maxWidth={300}>
   ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step1.png)
 </MaxWidthImage>
-Open the extension menu from the top right, and choose the GrowthBook Visual Editor Extension.
 
-The first time you open the side panel, you'll see a **Connect with GrowthBook** button.
+Open the extension menu (top right) and choose **GrowthBook Visual Editor**. The first time you open the side panel, you'll see a **Connect with GrowthBook** button.
 
 ## 3. Click "Connect with GrowthBook"
 
-<MaxWidthImage maxWidth={300}>
-  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step2.png)
-</MaxWidthImage>
+Click **Connect with GrowthBook**. A new tab opens to GrowthBook:
 
-Click the `connect` button. A new tab opens to GrowthBook. If you're already signed in, the page silently generates a Visual Editor
-access key tied to your account and hands it back to the extension via a secure browser-side message. The tab closes itself,
-the side panel updates to show you're connected, and you're done.
+<img
+  src="/images/visual-editor/ve-connect-step2.png"
+  alt="Connect with GrowthBook button to be signed in"
+  style={{ float: "right", width: "100%", maxWidth: "320px", marginLeft: "24px", marginBottom: "16px" }}
+/>
 
-If you're not already signed in, you'll see the GrowthBook login page first. If you are only part of one organization,
-the key generation will happen automatically. If you part of multiple organizations, you'll see a dropdown to choose
-which one to connect to. After you choose, the key is generated and passed to the extension.
+1. **Already signed in, one org** — a Visual Editor access key is generated and passed back to the extension automatically. The tab closes; the side panel shows you're connected.
+2. **Not signed in** — log in first, then the flow continues as above.
+3. **Multiple orgs** — pick which org to connect to from a dropdown, then the key is generated.
 
-That's it. No copying tokens, no pasting strings, no remembering where the personal-access-token page lives.
-
-<MaxWidthImage maxWidth={300}>
-  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step3.png)
-</MaxWidthImage>
+No copying tokens or pasting strings.
 
 ### Where the key is stored
 
@@ -56,11 +51,16 @@ The access key is stored in the extension's local storage on your machine. It's 
 
 ### Self-hosted GrowthBook
 
-The one-click flow works on GrowthBook Cloud and any self-hosted instance the extension has previously synced with. If you're on a fresh extension install pointing at a self-hosted instance, you may need to:
+:::tip Self-hosted GrowthBook Visual Editor support is coming soon.
+:::
 
-1. Open the gear menu → **API host** and set your host (e.g., `https://api.growthbook.io` or `https://localhost:3100`).
-2. Paste in your personal access token from your GrowthBook. You can generate a PAT from https://app.growthbook.io/account/personal-access-tokens or the equalivent page on your self-hosted instance.
+The one-click flow works on GrowthBook Cloud and self-hosted instances the extension has synced with before. On a fresh install pointing at self-hosted:
+
+1. Open the gear menu → **API host** and set your host (e.g. `https://api.growthbook.io` or `https://localhost:3100`).
+2. Paste a [personal access token](https://app.growthbook.io/account/personal-access-tokens) (or the equivalent on your instance).
 3. Click **Connect with GrowthBook**.
+
+Still failing? See [Troubleshooting → Extension can't connect](/app/visual/troubleshooting#extension-cant-connect-to-my-self-hosted-growthbook).
 
 ## 4. The gear menu
 
@@ -70,11 +70,9 @@ Once connected, there's a gear icon in the side panel header. Open it for:
 - **Language** — change the side panel's language. Independent of your GrowthBook web UI language.
 - **Dark mode** — toggles the side panel's UI theme. Independent of your GrowthBook web UI theme.
 - **Change Connection** — change which GrowthBook host you're talking to (e.g., switch from production to staging, or set a self-hosted host) or change the personal access token.
-- **Disconnect** — clear the stored key, and . Use this when handing off the browser to someone else.
+- **Disconnect** — clear the stored key and return to the disconnected state. Use this when handing off the browser to someone else.
 
 ## Next steps
 
-- **[Running on your site](/app/visual/running-on-your-site)** — install the SDK so your variations actually render in production.
-- **[AI mode](/app/visual/ai-mode)** — write your first AI-generated variation.
-- **[Manual mode](/app/visual/manual-mode)** — full reference for the point-and-click editor.
-- **[Visual Editor overview](/app/visual)** — back to the main page.
+- **[AI mode](/app/visual/ai-mode)** — write your first variation.
+- **[Running on your site](/app/visual/running-on-your-site)** — install the SDK so variations render in production.

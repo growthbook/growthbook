@@ -19,6 +19,7 @@ import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResul
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -73,6 +74,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -164,7 +166,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           />
 
           {showExamples && (
-            <div className="alert alert-info">
+            <Callout status="info">
               <div className="mb-2">Here are some examples of Filter SQL:</div>
               <table className="table gbtable">
                 <tbody>
@@ -191,7 +193,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </Callout>
           )}
 
           <Button

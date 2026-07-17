@@ -9,7 +9,7 @@ import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCar
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -138,7 +138,7 @@ export default function HealthTab({
       );
     }
     return (
-      <Callout status="info" mt="3" contentsAs="div">
+      <Callout status="info" mt="3">
         <Flex gap="4">
           {runHealthTrafficQuery === undefined
             ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
@@ -147,7 +147,8 @@ export default function HealthTab({
             <>
               click the button on the right.
               <Button
-                className="ml-2"
+                color="inherit"
+                ml="2"
                 style={{ width: "200px" }}
                 onClick={async () => {
                   track("Health Tab Onboarding Opened", {
@@ -232,8 +233,8 @@ export default function HealthTab({
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     if (loading) {
       return (
-        <Callout status="info" mt="3">
-          <LoadingSpinner /> Snapshot refreshing, health data loading...
+        <Callout status="info" mt="3" icon={<LoadingSpinner />}>
+          Snapshot refreshing, health data loading...
         </Callout>
       );
     }

@@ -203,6 +203,7 @@ const IdeaPage = (): ReactElement => {
                   <FaArchive /> {idea.archived ? "Unarchive" : "Archive"}
                 </DropdownLink>
                 <DeleteButton
+                  useRadix={false}
                   displayName="Idea"
                   link={true}
                   className="dropdown-item text-dark"

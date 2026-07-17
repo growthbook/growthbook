@@ -51,7 +51,7 @@ export default function ReportResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu autoCloseOnClick={false} useRadix={true} className="ml-2">
+    <MoreMenu autoCloseOnClick={false} className="ml-2">
       {setNameModalOpen ? (
         <button
           className="dropdown-item py-2"
@@ -116,6 +116,7 @@ export default function ReportResultMoreMenu({
         <>
           <hr className="mx-4 my-2" />
           <DeleteButton
+            useRadix={false}
             className="dropdown-item text-danger"
             useIcon={false}
             text="Delete report"

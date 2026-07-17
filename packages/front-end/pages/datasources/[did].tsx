@@ -9,7 +9,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -19,6 +19,7 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
+import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
@@ -37,7 +38,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
@@ -56,6 +56,7 @@ function quotePropertyName(name: string) {
 }
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -96,8 +97,12 @@ const DataSourcePage: FC = () => {
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
+  const contextualBanditsEnabled = useFeatureIsOn("contextual-bandits");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  // Only the never-provisioned state replaces the settings UI with the onboarding
+  // callout. A transient migration must NOT blank the config page — query sub-surfaces
+  // (SQL explorer, schema browser) gate themselves on the broader "unavailable" check.
   const managedWarehouseAwaitingProvisioning = d
     ? isManagedWarehouseAwaitingProvisioning(d)
     : false;
@@ -148,9 +153,9 @@ const DataSourcePage: FC = () => {
   if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           {error || currentDataSourceError?.message}
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -160,9 +165,9 @@ const DataSourcePage: FC = () => {
   if (!d) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Datasource <code>{did}</code> does not exist.
-        </div>
+        </Callout>
       </div>
     );
   }
@@ -181,12 +186,17 @@ const DataSourcePage: FC = () => {
       />
 
       {d.decryptionError && (
-        <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
-          <strong>Error Decrypting Data Source Credentials.</strong>{" "}
-          <DocLink docSection="env_prod" className="btn btn-primary">
-            View instructions for fixing
-          </DocLink>
-        </div>
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <DocLink docSection="env_prod" useRadix>
+              View instructions for fixing
+            </DocLink>
+          }
+        >
+          <strong>Error Decrypting Data Source Credentials.</strong>
+        </Callout>
       )}
       <Flex align="center" justify="between">
         <Flex align="center" gap="3">
@@ -251,6 +261,7 @@ const DataSourcePage: FC = () => {
                 }}
               >
                 <DocLink
+                  useRadix={false}
                   docSection={d.type as DocSection}
                   fallBackSection="datasources"
                 >
@@ -313,6 +324,16 @@ const DataSourcePage: FC = () => {
           </Flex>
         )}
       </Flex>
+      {d.type === "mixpanel" && (
+        <Callout status="warning" mt="3">
+          Using Mixpanel as a direct data source is deprecated and no longer
+          supported, because Mixpanel has placed their query language (JQL) in
+          maintenance mode. To keep using Mixpanel data in GrowthBook, export it
+          to a data warehouse (e.g. BigQuery or Snowflake) and connect that
+          warehouse instead.{" "}
+          <DocLink docSection="mixpanel">View migration guide</DocLink>
+        </Callout>
+      )}
       <Flex align="center" gap="4" my="2">
         <Text color="text-mid">
           <Text weight="medium">Type:</Text>{" "}
@@ -437,7 +458,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       Sending Events
                     </Heading>
                     <Text>
-                      <DocLink docSection="managedWarehouseTracking">
+                      <DocLink
+                        useRadix={false}
+                        docSection="managedWarehouseTracking"
+                      >
                         Read our full docs
                       </DocLink>{" "}
                       with instructions on how to send events from your app to
@@ -445,16 +469,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers dataSource={d} />
-                    ) : (
-                      <ClickhouseMaterializedColumns
-                        dataSource={d}
-                        onCancel={() => undefined}
-                        canEdit={canUpdateDataSourceSettings}
-                        mutate={mutateDefinitions}
-                      />
-                    )}
+                    <ClickhouseManagedWarehouseIdentifiers
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={async () => {
+                        await Promise.all([
+                          mutateDefinitions({}),
+                          mutateCurrentDataSource(),
+                        ]);
+                      }}
+                    />
                   </Frame>
                 </>
               )
@@ -502,6 +526,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
+
+                {contextualBanditsEnabled &&
+                  hasCommercialFeature("contextual-bandits") && (
+                    <Frame id={CBAQ_ANCHOR_ID}>
+                      <ContextualBanditAssignmentQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
 
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (

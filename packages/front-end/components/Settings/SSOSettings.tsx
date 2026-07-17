@@ -4,6 +4,7 @@ import { isDefined } from "shared/util";
 import { isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   ssoConnection: Partial<SSOConnectionInterface> | null;
@@ -16,7 +17,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
   if (!ssoConnection) return null;
 
   return (
-    <div className="alert alert-info">
+    <Callout status="info">
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
@@ -61,6 +62,6 @@ export default function SSOSettings({ ssoConnection }: Props) {
           code={JSON.stringify(ssoConnection, null, 2)}
         />
       )}
-    </div>
+    </Callout>
   );
 }

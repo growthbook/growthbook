@@ -4,6 +4,7 @@ import { FaUpload } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
+import Callout from "@/ui/Callout";
 
 export default function ImportSettings({
   hasFileConfig,
@@ -19,33 +20,38 @@ export default function ImportSettings({
   return (
     <>
       {hasFileConfig && (
-        <div className="alert alert-info my-3">
+        <Callout status="info" my="3">
           The below settings are controlled through your <code>config.yml</code>{" "}
           file and cannot be changed through the web UI.{" "}
           <DocLink
+            useRadix={false}
             docSection="config_organization_settings"
             className="font-weight-bold"
           >
-            View Documentation
+            View docs
           </DocLink>
           .
-        </div>
+        </Callout>
       )}
 
       {!hasFileConfig && (
-        <div className="alert alert-info my-3">
-          <h3>Import/Export config.yml</h3>
+        <Callout status="info" my="3">
+          <h3>Import &amp; Export config.yml</h3>
           <p>
             {isCloud ? "GrowthBook Cloud stores" : "You are currently storing"}{" "}
-            all organization settings, data sources, metrics, and dimensions in
+            all organization settings, Data Sources, metrics, and dimensions in
             a database.
           </p>
           <p>
             You can import/export these settings to a <code>config.yml</code>{" "}
             file to more easily move between GrowthBook Cloud accounts and/or
             self-hosted environments.{" "}
-            <DocLink docSection="config_yml" className="font-weight-bold">
-              Learn More
+            <DocLink
+              useRadix={false}
+              docSection="config_yml"
+              className="font-weight-bold"
+            >
+              View docs
             </DocLink>
           </p>
           <div className="row mb-3">
@@ -61,14 +67,14 @@ export default function ImportSettings({
           </div>
           <div className="text-muted">
             <strong>Note:</strong> For security reasons, the exported file does
-            not include data source connection secrets such as passwords. You
+            not include Data Source connection secrets such as passwords. You
             must edit the file and add these yourself.
           </div>
-        </div>
+        </Callout>
       )}
 
       <div className="bg-white p-3 border position-relative my-3">
-        <h3>Import from another service</h3>
+        <h3>Import from Another Service</h3>
         <p>
           Import your data from another feature flag and/or experimentation
           service.

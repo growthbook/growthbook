@@ -16,6 +16,7 @@ import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -98,7 +99,7 @@ export default function ExperimentGraph({
     projects.forEach((p) => {
       pMap.set(p.id, p.name);
     });
-    pMap.set("all", "All projects");
+    pMap.set("all", "All Projects");
     return pMap;
   }, [projects]);
 
@@ -207,11 +208,7 @@ export default function ExperimentGraph({
   );
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -304,7 +301,7 @@ export default function ExperimentGraph({
           />
         </div>
         <div className="pt-2">
-          <MoreMenu>
+          <MoreMenu useRadix={false}>
             <div className="p-2 px-3">Download data as CSV...</div>
             <DropdownLink
               onClick={() => {
@@ -425,7 +422,7 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                    ? "All projects"
+                                    ? "All Projects"
                                     : k}
                               </div>
                               <div className={styles.tooltipValue}>
@@ -604,7 +601,7 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                              ? "All projects"
+                              ? "All Projects"
                               : k}
                         </div>
                       </div>

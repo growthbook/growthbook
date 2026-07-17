@@ -1,17 +1,75 @@
 import { getValidDate } from "shared/dates";
 import {
+  getExperimentOutdatedReasonLabel,
   isFactMetric,
+  isExperimentOutdatedReasonField,
   quantileMetricType,
-  ExperimentMetricInterface,
+  ExperimentMetricDefinition,
 } from "shared/experiments";
 import type {
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
-import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "shared/types/experiment-snapshot";
 import type { ExperimentInterface } from "shared/types/experiment";
 import type { PipelineIntegration } from "shared/types/integrations";
+
+// Keep this order stable: the settings hash depends on JSON.stringify key order.
+export const INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS = [
+  "activationMetric",
+  "attributionModel",
+  "queryFilter",
+  "segment",
+  "skipPartialData",
+  "datasourceId",
+  "exposureQueryId",
+  "startDate",
+  "regressionAdjustmentEnabled",
+  "experimentId",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+
+export type IncrementalFullRefreshComparable = Pick<
+  ExperimentSnapshotSettings,
+  (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number]
+>;
+
+// Keep this aligned with snapshotSettings so UI labels match backend hash checks.
+export function normalizeIncrementalFullRefreshField(
+  field: (typeof INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS)[number],
+  settings: IncrementalFullRefreshComparable,
+): string | number | boolean | null {
+  if (field === "startDate") {
+    return getValidDate(settings.startDate).getTime();
+  }
+  if (field === "attributionModel") {
+    return settings.attributionModel || "firstExposure";
+  }
+  const value = settings[field];
+  return value ? value : null;
+}
+
+export function getIncrementalFullRefreshReasons(
+  current: IncrementalFullRefreshComparable,
+  baseline: IncrementalFullRefreshComparable,
+): string[] {
+  const reasons: string[] = [];
+  for (const field of INCREMENTAL_FULL_REFRESH_SETTINGS_FIELDS) {
+    if (!isExperimentOutdatedReasonField(field)) continue;
+
+    const changed =
+      normalizeIncrementalFullRefreshField(field, current) !==
+      normalizeIncrementalFullRefreshField(field, baseline);
+
+    if (changed) {
+      reasons.push(getExperimentOutdatedReasonLabel(field));
+    }
+  }
+  return reasons;
+}
 
 /**
  * Whether a data source's Incremental Pipeline configuration *covers* this
@@ -42,7 +100,7 @@ export function getUnsupportedIncrementalExperimentTypeReason(
   experimentType: ExperimentInterface["type"],
 ): string | null {
   if (experimentType !== undefined && experimentType !== "standard") {
-    return `Experiment type "${experimentType}" is not supported for incremental refresh.`;
+    return `Experiment type "${experimentType}" is not supported for Incremental Pipeline mode.`;
   }
   return null;
 }
@@ -88,7 +146,7 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   orgHasIncrementalPipelineFeature: boolean;
   skipPartialData: boolean;
   activationMetric: string | null | undefined;
-  metrics: ExperimentMetricInterface[];
+  metrics: ExperimentMetricDefinition[];
   experimentType: ExperimentInterface["type"];
 }): string | null {
   if (!params.orgHasIncrementalPipelineFeature) {
@@ -300,6 +358,26 @@ export function getExperimentSourceSnapshotRef(
     id: snapshot.sourceSnapshotId,
     dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
   };
+}
+
+export const OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON =
+  "Overall Results were last updated without the Incremental Pipeline";
+
+// True when the latest Overall Results snapshot was not the incremental run
+// that built the current units table.
+export function overallResultsBuiltWithoutIncrementalPipeline({
+  unitsTableFullName,
+  materializedBySnapshotId,
+  latestOverallSnapshotId,
+}: {
+  unitsTableFullName: string | null;
+  materializedBySnapshotId: string | undefined;
+  latestOverallSnapshotId: string | null;
+}): boolean {
+  if (!unitsTableFullName) return false;
+  if (!materializedBySnapshotId) return false;
+  if (!latestOverallSnapshotId) return false;
+  return materializedBySnapshotId !== latestOverallSnapshotId;
 }
 
 export function isNewerOverallResultsDataAvailable(

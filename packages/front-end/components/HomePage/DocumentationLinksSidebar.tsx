@@ -18,7 +18,11 @@ export default function DocumentationLinksSidebar() {
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               Read our{" "}
-              <DocLink docSection="user_guide" className="font-weight-bold">
+              <DocLink
+                useRadix={false}
+                docSection="user_guide"
+                className="font-weight-bold"
+              >
                 User Guide
               </DocLink>
             </div>
@@ -43,7 +47,11 @@ export default function DocumentationLinksSidebar() {
           <div className="d-flex flex-row">
             <div className="p-1 w-100">
               View docs for our{" "}
-              <DocLink docSection="sdks" className="font-weight-bold">
+              <DocLink
+                useRadix={false}
+                docSection="sdks"
+                className="font-weight-bold"
+              >
                 SDKs
               </DocLink>
             </div>

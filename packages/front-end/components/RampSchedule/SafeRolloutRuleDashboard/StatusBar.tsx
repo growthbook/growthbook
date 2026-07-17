@@ -480,7 +480,6 @@ export function MonitoringControls({
                     runStarted: latestSnap?.runStarted ?? null,
                   }}
                   icon="refresh"
-                  useRadixButton
                   radixVariant="outline"
                   size="xs"
                   onSubmit={async () => {

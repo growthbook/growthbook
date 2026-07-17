@@ -313,3 +313,53 @@ export const deleteSavedGroupValidator = {
   path: "/saved-groups/:id",
   exampleRequest: { params: { id: "abc123" } },
 };
+
+export const apiSavedGroupReferencesValidator = namedSchema(
+  "SavedGroupReferences",
+  z
+    .object({
+      features: z.array(
+        z
+          .object({
+            id: z.string(),
+            name: z.string().optional(),
+            project: z.string().optional(),
+          })
+          .strict(),
+      ),
+      experiments: z.array(
+        z
+          .object({
+            id: z.string(),
+            name: z.string().optional(),
+            project: z.string().optional(),
+            projects: z.array(z.string()).optional(),
+          })
+          .strict(),
+      ),
+      savedGroups: z.array(
+        z
+          .object({
+            id: z.string(),
+            groupName: z.string().optional(),
+            projects: z.array(z.string()).optional(),
+          })
+          .strict(),
+      ),
+    })
+    .strict(),
+);
+
+export const getSavedGroupReferencesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: apiSavedGroupReferencesValidator,
+  summary:
+    "Get features, experiments, and saved groups that reference this saved group",
+  operationId: "getSavedGroupReferences",
+  tags: ["saved-groups"],
+  method: "get" as const,
+  path: "/saved-groups/:id/references",
+  exampleRequest: { params: { id: "abc123" } },
+};

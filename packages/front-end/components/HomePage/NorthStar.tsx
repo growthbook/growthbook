@@ -153,6 +153,7 @@ const NorthStar: FC<{
       )}
       {openNorthStarModal && (
         <Modal
+          useRadixButton={false}
           trackingEventModalType=""
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}

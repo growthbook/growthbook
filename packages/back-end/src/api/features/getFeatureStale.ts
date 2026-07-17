@@ -5,8 +5,8 @@ import {
 } from "shared/validators";
 import { isFeatureStale } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
-import { getAllFeaturesForStaleGraph } from "back-end/src/models/FeatureModel";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
+import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { buildFeatureLookups } from "back-end/src/util/features";
@@ -29,8 +29,8 @@ export async function computeFeatureStale(
 
   const idSet = new Set(ids);
   const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesForStaleGraph(context),
-    getAllExperiments(context, { includeArchived: false }),
+    getAllFeaturesWithoutEditorFields(context),
+    getAllExperimentsForStaleGraph(context),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
     }),

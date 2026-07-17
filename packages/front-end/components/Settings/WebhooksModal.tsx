@@ -20,6 +20,7 @@ import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const methodTypes: WebhookMethod[] = [
   "GET",
@@ -217,6 +218,7 @@ export function CreateSDKWebhookModal({
         />
       )}
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         close={close}
         header="Create New SDK Webhook"
@@ -357,14 +359,16 @@ export function CreateSDKWebhookModal({
                     ""
                   )}
                   . Supports{" "}
-                  <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>
+                  <DocLink useRadix={false} docSection="webhookSecrets">
+                    Webhook Secrets
+                  </DocLink>
                   .
                 </>
               }
               key="http_endpoint_url"
             />
             {form.watch("endpoint").match(/localhost/) && (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 <strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}
                 <Link
@@ -375,7 +379,7 @@ export function CreateSDKWebhookModal({
                   ngrok
                 </Link>{" "}
                 instead.
-              </div>
+              </Callout>
             )}
 
             <SelectField
@@ -404,13 +408,13 @@ export function CreateSDKWebhookModal({
               helpText={
                 <>
                   {!validHeaders ? (
-                    <div className="alert alert-danger mr-auto">
+                    <Callout status="error" mr="auto">
                       Invalid JSON
-                    </div>
+                    </Callout>
                   ) : (
                     <div>
                       JSON format for headers. Supports{" "}
-                      <DocLink docSection="webhookSecrets">
+                      <DocLink useRadix={false} docSection="webhookSecrets">
                         Webhook Secrets
                       </DocLink>
                       .
@@ -460,7 +464,10 @@ export function CreateSDKWebhookModal({
                   disabled={form.watch("httpMethod") === "GET"}
                   sort={false}
                   helpText={
-                    <DocLink docSection="sdkWebhooks#payload-format">
+                    <DocLink
+                      useRadix={false}
+                      docSection="sdkWebhooks#payload-format"
+                    >
                       Learn More <FaExternalLinkAlt />
                     </DocLink>
                   }
@@ -577,7 +584,9 @@ const EditSDKWebhooksModal: FC<{
       helpText={
         <>
           {!validHeaders ? (
-            <div className="alert alert-danger mr-auto">Invalid JSON</div>
+            <Callout status="error" mr="auto">
+              Invalid JSON
+            </Callout>
           ) : (
             <div>JSON format for headers.</div>
           )}
@@ -588,6 +597,7 @@ const EditSDKWebhooksModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header={current.id ? "Update Webhook" : "Create New Webhook"}
@@ -619,7 +629,7 @@ const EditSDKWebhooksModal: FC<{
         }
       />
       {form.watch("endpoint").match(/localhost/) && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
           <Link
             href="https://www.npmjs.com/package/ngrok"
@@ -629,7 +639,7 @@ const EditSDKWebhooksModal: FC<{
             ngrok
           </Link>{" "}
           instead.
-        </div>
+        </Callout>
       )}
 
       <SelectField
@@ -691,7 +701,7 @@ const EditSDKWebhooksModal: FC<{
             disabled={form.watch("httpMethod") === "GET"}
             sort={false}
             helpText={
-              <DocLink docSection="sdkWebhooks#payload-format">
+              <DocLink useRadix={false} docSection="sdkWebhooks#payload-format">
                 Learn More <FaExternalLinkAlt />
               </DocLink>
             }

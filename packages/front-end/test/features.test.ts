@@ -1,5 +1,10 @@
 import stringify from "json-stringify-pretty-compact";
-import { AttributeData, condToJson, jsonToConds } from "@/services/features";
+import {
+  AttributeData,
+  condToJson,
+  getDefaultOperator,
+  jsonToConds,
+} from "@/services/features";
 
 describe("json <-> conds", () => {
   const attributeMap: Map<string, AttributeData> = new Map();
@@ -48,6 +53,22 @@ describe("json <-> conds", () => {
     datatype: "number",
     array: true,
     enum: [],
+    identifier: false,
+    archived: false,
+  });
+  attributeMap.set("str_arr_enum", {
+    attribute: "str_arr_enum",
+    datatype: "string",
+    array: true,
+    enum: ["a", "b", "c"],
+    identifier: false,
+    archived: false,
+  });
+  attributeMap.set("num_arr_enum", {
+    attribute: "num_arr_enum",
+    datatype: "number",
+    array: true,
+    enum: ["1", "2", "3"],
     identifier: false,
     archived: false,
   });
@@ -246,6 +267,26 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
+  it("str_arr_enum - $in", () => {
+    const json = stringify({ str_arr_enum: { $in: ["a", "b"] } });
+    const conds = [[{ field: "str_arr_enum", operator: "$in", value: "a, b" }]];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("str_arr_enum - $nin", () => {
+    const json = stringify({ str_arr_enum: { $nin: ["a", "b"] } });
+    const conds = [
+      [{ field: "str_arr_enum", operator: "$nin", value: "a, b" }],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("num_arr_enum - $in coerces to numbers", () => {
+    const json = stringify({ num_arr_enum: { $in: [1, 2] } });
+    const conds = [[{ field: "num_arr_enum", operator: "$in", value: "1, 2" }]];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
   it("$savedGroups $in", () => {
     const json = stringify({ $savedGroups: ["sg_1", "sg_2"] });
     const conds = [
@@ -374,4 +415,34 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(null);
   });
   */
+});
+
+describe("getDefaultOperator", () => {
+  const attr = (overrides: Partial<AttributeData>): AttributeData => ({
+    attribute: "a",
+    datatype: "string",
+    array: false,
+    enum: [],
+    identifier: false,
+    archived: false,
+    ...overrides,
+  });
+
+  it("returns $true for booleans", () => {
+    expect(getDefaultOperator(attr({ datatype: "boolean" }))).toBe("$true");
+  });
+  it("returns $includes for an unconstrained array", () => {
+    expect(getDefaultOperator(attr({ array: true }))).toBe("$includes");
+  });
+  it("returns $in for an enum-constrained array", () => {
+    expect(getDefaultOperator(attr({ array: true, enum: ["a", "b"] }))).toBe(
+      "$in",
+    );
+  });
+  it("returns $veq for version-formatted strings", () => {
+    expect(getDefaultOperator(attr({ format: "version" }))).toBe("$veq");
+  });
+  it("returns $eq for a plain string", () => {
+    expect(getDefaultOperator(attr({}))).toBe("$eq");
+  });
 });

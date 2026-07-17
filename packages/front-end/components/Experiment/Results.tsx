@@ -34,6 +34,8 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
+import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { ExperimentTab } from "./TabbedPage";
 
 export type AnalysisBarSettings = {
@@ -105,6 +107,7 @@ const Results: FC<{
   const {
     error,
     snapshot,
+    dimensionless,
     analysis,
     latestSummary: latest,
     phase,
@@ -132,6 +135,8 @@ const Results: FC<{
 
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
+  const incrementalPipelineUnsupportedReason =
+    useIncrementalPipelineUnsupportedReason(experiment);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -210,6 +215,17 @@ const Results: FC<{
   const datasource = experiment.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
+  // Keep this in sync with ResultMoreMenu's incremental refresh check.
+  const isIncrementalActive =
+    getIsExperimentIncludedInIncrementalRefresh(
+      datasource ?? undefined,
+      experiment.id,
+      experiment.type,
+    ) && !incrementalPipelineUnsupportedReason;
+  const dimensionNeedsOverallResultsFirst =
+    !!analysisBarSettings.dimension &&
+    isIncrementalActive &&
+    !(dimensionless && !dimensionless.dimension);
 
   const hasMetrics =
     experiment.goalMetrics.length > 0 ||
@@ -228,7 +244,7 @@ const Results: FC<{
       )}
 
       {!hasMetrics && (
-        <div className="alert alert-info m-3">
+        <Callout status="info" m="3">
           Add at least 1 metric to view results.{" "}
           {editMetrics && (
             <button
@@ -242,7 +258,7 @@ const Results: FC<{
               Add Metrics
             </button>
           )}
-        </div>
+        </Callout>
       )}
 
       {status === "failed" && !hasData && !snapshotLoading ? (
@@ -267,6 +283,7 @@ const Results: FC<{
         status !== "running" &&
         !snapshot?.unknownVariations?.length &&
         hasMetrics &&
+        !dimensionNeedsOverallResultsFirst &&
         !snapshotLoading && (
           <Callout status="info" mx="3" mb="4">
             No data yet.{" "}
@@ -327,6 +344,7 @@ const Results: FC<{
                     key: ids[i] ?? v.key,
                   };
                 }),
+                isVariationKeyReconciliation: true,
               }),
             });
 

@@ -93,6 +93,7 @@ const ImportExperimentModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType="import-experiment"
       header="Import Experiment"
       open={true}

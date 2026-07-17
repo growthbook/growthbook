@@ -41,6 +41,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
             </button>
 
             <DeleteButton
+              useRadix={false}
               displayName={slackIntegration.name}
               onClick={onDelete}
               outline={true}
@@ -115,7 +116,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
             </p>
             <div className="flex-grow-1  d-flex flex-wrap">
               {slackIntegration.projects.length === 0 ? (
-                <span className="text-muted">All projects</span>
+                <span className="text-muted">All Projects</span>
               ) : (
                 slackIntegration.projects.map((project) => (
                   <span key={project} className="mr-2 badge badge-purple">

@@ -8,6 +8,7 @@ import {
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
+  explorationDateRangeValidator,
 } from "../../validators/product-analytics";
 import { differenceTypes, pinSources } from "../dashboards/utils";
 
@@ -302,6 +303,17 @@ export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
 >;
 
+// Period comparison for a dashboard block. `enabled` turns the comparison on;
+// `previousTimeFrame` is only persisted for fixed windows (custom date ranges) —
+// predefined/rolling primaries re-derive (and roll) the previous period on each
+// refresh. Kept as a structured object so a future dashboard-wide compare toggle
+// can resolve to the same shape (see resolveBlockComparison).
+export const blockComparisonValidator = z.object({
+  enabled: z.boolean(),
+  previousTimeFrame: explorationDateRangeValidator.optional(),
+});
+export type BlockComparison = z.infer<typeof blockComparisonValidator>;
+
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-explorer"),
@@ -313,6 +325,15 @@ const metricExplorerBlockInterface = baseBlockInterface
     visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
     valueType: z.enum(["avg", "sum"]),
     metricAnalysisId: z.string(),
+    // Compare-to-previous-period. The metric-explorer uses a rolling lookback,
+    // so we intentionally don't reserve a `comparison.previousTimeFrame` — the
+    // previous window is derived from the current one on each refresh. The id of
+    // that derived analysis is tracked here so it can be fetched and rendered.
+    comparison: blockComparisonValidator.optional(),
+    comparisonMetricAnalysisId: z.preprocess(
+      (value) => (value === null ? undefined : value),
+      z.string().optional(),
+    ),
   })
   .strict();
 
@@ -324,23 +345,58 @@ export type MetricExplorerBlockInterface = z.infer<
   typeof metricExplorerBlockInterface
 >;
 
+const globalControlSettingsValidator = z
+  .object({
+    dateRange: z.boolean().optional(),
+  })
+  .strict();
+
+// Fields shared by every product-analytics exploration block. `comparison` and
+// `comparisonExplorerAnalysisId` are optional so pre-existing blocks read as
+// "no comparison".
+const explorationBlockCommon = {
+  explorerAnalysisId: z.string(),
+  comparison: blockComparisonValidator.optional(),
+  comparisonExplorerAnalysisId: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    z.string().optional(),
+  ),
+  globalControlSettings: globalControlSettingsValidator.optional(),
+};
+
 const metricExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("metric-exploration"),
-  explorerAnalysisId: z.string(),
+  ...explorationBlockCommon,
   config: metricExplorationConfigValidator,
 });
 
 const factTableExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("fact-table-exploration"),
-  explorerAnalysisId: z.string(),
+  ...explorationBlockCommon,
   config: factTableExplorationConfigValidator,
 });
 
 const dataSourceExplorationBlockInterface = baseBlockInterface.extend({
   type: z.literal("data-source-exploration"),
-  explorerAnalysisId: z.string(),
+  ...explorationBlockCommon,
   config: dataSourceExplorationConfigValidator,
 });
+
+/**
+ * The effective comparison for an exploration block. Today this is just the
+ * block's own setting (saved from the explorer). The `dashboard` arg is the
+ * forward-compat seam: a future dashboard-wide compare toggle
+ * (`dashboard.comparison`) takes precedence here, so refresh/render code that
+ * calls this never has to change. Returns null when comparison is off.
+ */
+export function resolveBlockComparison(
+  block: { comparison?: BlockComparison },
+  dashboard?: { comparison?: BlockComparison } | null,
+): BlockComparison | null {
+  if (dashboard?.comparison?.enabled) return dashboard.comparison;
+  if (block.comparison?.enabled) return block.comparison;
+  return null;
+}
 
 export type MetricExplorationBlockInterface = z.infer<
   typeof metricExplorationBlockInterface
@@ -423,6 +479,9 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
   apiMetricExplorerBlockInterface.omit(createOmits),
+  metricExplorationBlockInterface.omit(createOmits),
+  factTableExplorationBlockInterface.omit(createOmits),
+  dataSourceExplorationBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface

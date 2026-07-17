@@ -1,9 +1,13 @@
-import type { ApprovalFlowConfigurations } from "../../../types/organization";
+import type {
+  ApprovalFlowConfigurations,
+  OrganizationSettings,
+} from "../../../types/organization";
 import type { TeamInterface } from "../../../types/team";
 import {
   getRevisionKey,
   canUserReviewEntity,
   checkMergeConflicts,
+  getRevisionUpdatableFields,
   normalizeProposedChanges,
   applyTopLevelPatchOps,
   patchOpsToPartial,
@@ -11,6 +15,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
+  isConstantRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -141,6 +146,30 @@ describe("revisions helpers", () => {
     });
   });
 
+  describe("getRevisionUpdatableFields", () => {
+    it("excludes config scopedOverrides (the field that caused phantom conflicts)", () => {
+      const fields = getRevisionUpdatableFields("config");
+      expect(fields.has("value")).toBe(true);
+      expect(fields.has("schema")).toBe(true);
+      // Excluded from configUpdatableFieldsSchema -> must not gate conflicts.
+      expect(fields.has("scopedOverrides")).toBe(false);
+      // Non-updatable identity/metadata fields are also excluded.
+      expect(fields.has("id")).toBe(false);
+      expect(fields.has("key")).toBe(false);
+    });
+
+    it("returns the constant updatable fields", () => {
+      const fields = getRevisionUpdatableFields("constant");
+      expect(fields.has("value")).toBe(true);
+      expect(fields.has("environmentValues")).toBe(true);
+      expect(fields.has("id")).toBe(false);
+    });
+
+    it("returns a non-empty set for saved-group", () => {
+      expect(getRevisionUpdatableFields("saved-group").size).toBeGreaterThan(0);
+    });
+  });
+
   describe("checkMergeConflicts", () => {
     it("returns success when there are no conflicts", () => {
       const base = { name: "old", value: 1 };
@@ -166,6 +195,84 @@ describe("revisions helpers", () => {
       expect(result.conflicts).toHaveLength(1);
       expect(result.conflicts[0].field).toBe("name");
       expect(result.canAutoMerge).toBe(false);
+    });
+
+    it("ignores ops for fields outside the updatable allowlist", () => {
+      // A field the merge can't write can't truly conflict. Mirrors the config
+      // `scopedOverrides` shape: excluded from the snapshot (so base reads
+      // undefined) and not revision-updatable, yet a draft's proposedChanges can
+      // still carry an op for it — which without the allowlist renders a phantom
+      // `undefined -> [...]` conflict on every rebase.
+      const base = {}; // snapshot excludes scopedOverrides -> undefined
+      const live = { scopedOverrides: [{ config: "flavor_dev_live" }] };
+      const proposed: JsonPatchOperation[] = [
+        {
+          op: "replace",
+          path: "/scopedOverrides",
+          value: [{ config: "flavor_dev_draft" }],
+        },
+      ];
+      // No allowlist -> every field considered (back-compat): phantom conflict.
+      expect(checkMergeConflicts(base, live, proposed).success).toBe(false);
+      // With the allowlist (scopedOverrides not updatable) -> no conflict.
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value", "name"]),
+      );
+      expect(result.success).toBe(true);
+      expect(result.conflicts).toHaveLength(0);
+    });
+
+    it("still detects a conflict on an allowlisted field", () => {
+      const base = { value: "old" };
+      const live = { value: "live-change" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/value", value: "proposed-change" },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      expect(result.success).toBe(false);
+      expect(result.conflicts[0].field).toBe("value");
+    });
+
+    it("surfaces only allowlisted fields when ops are mixed", () => {
+      const base = { value: "old" };
+      const live = { value: "live", scopedOverrides: [{ config: "a" }] };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/value", value: "draft" },
+        { op: "replace", path: "/scopedOverrides", value: [{ config: "b" }] },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      // The non-updatable scopedOverrides op is dropped; only value conflicts.
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].field).toBe("value");
+    });
+
+    it("ignores a remove op for a non-updatable field", () => {
+      const base = { scopedOverrides: [{ config: "a" }] };
+      const live = { scopedOverrides: [{ config: "b" }] };
+      const proposed: JsonPatchOperation[] = [
+        { op: "remove", path: "/scopedOverrides" },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      expect(result.success).toBe(true);
+      expect(result.fieldsChanged).not.toContain("scopedOverrides");
     });
 
     it("no conflict when live and proposed changed to the same value", () => {
@@ -591,6 +698,15 @@ describe("revisions helpers", () => {
   });
 
   describe("isUserBlockedFromApproving", () => {
+    const sgSettings = (blockSelfApproval: boolean) =>
+      ({
+        approvalFlows: {
+          savedGroups: [
+            { required: true, requireMetadataReview: false, blockSelfApproval },
+          ],
+        },
+      }) as OrganizationSettings;
+
     const baseRevision = createRevision({
       authorId: "author-1",
       contributors: ["author-1", "user-2"],
@@ -599,9 +715,7 @@ describe("revisions helpers", () => {
     it("returns false when blockSelfApproval is not enabled", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [{ required: true, requireMetadataReview: false }],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(false),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-2",
@@ -612,15 +726,7 @@ describe("revisions helpers", () => {
     it("returns true when user is in contributors and blockSelfApproval is on", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-2",
@@ -631,15 +737,7 @@ describe("revisions helpers", () => {
     it("returns true for the author when blockSelfApproval is on", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "author-1",
@@ -650,15 +748,7 @@ describe("revisions helpers", () => {
     it("returns false for a non-contributor reviewer", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: baseRevision,
           userId: "user-3",
@@ -671,35 +761,17 @@ describe("revisions helpers", () => {
         authorId: "author-1",
         contributors: undefined,
       });
-      // Author falls back as contributor → blocked
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: legacy,
           userId: "author-1",
         }),
       ).toBe(true);
-      // Other users are not blocked, since legacy revisions only know about the author
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                blockSelfApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          settings: sgSettings(true),
           entityType: "saved-group",
           revision: legacy,
           userId: "user-2",
@@ -707,20 +779,73 @@ describe("revisions helpers", () => {
       ).toBe(false);
     });
 
-    it("returns false when approvalFlows is undefined", () => {
+    it("returns false when settings is undefined", () => {
       expect(
         isUserBlockedFromApproving({
-          approvalFlows: undefined,
+          settings: undefined,
           entityType: "saved-group",
           revision: baseRevision,
           userId: "author-1",
         }),
       ).toBe(false);
     });
+
+    it("reads blockSelfApproval from requireReviews for constants", () => {
+      const constantRevision = createRevision({
+        authorId: "author-1",
+        contributors: ["author-1", "user-2"],
+        target: {
+          type: "constant",
+          id: "const-1",
+          snapshot: { project: "prj_a" } as Record<string, unknown>,
+          proposedChanges: [],
+        },
+      });
+      const settings = (blockSelfApproval: boolean) =>
+        ({
+          requireReviews: [
+            {
+              requireReviewOn: true,
+              blockSelfApproval,
+              projects: [],
+              environments: [],
+            },
+          ],
+        }) as unknown as OrganizationSettings;
+      expect(
+        isUserBlockedFromApproving({
+          settings: settings(true),
+          entityType: "constant",
+          revision: constantRevision,
+          userId: "user-2",
+        }),
+      ).toBe(true);
+      expect(
+        isUserBlockedFromApproving({
+          settings: settings(false),
+          entityType: "constant",
+          revision: constantRevision,
+          userId: "user-2",
+        }),
+      ).toBe(false);
+    });
   });
 
   describe("isAutopublishOnApprovalEnabled", () => {
-    it("returns false when approvalFlows is undefined", () => {
+    const sgSettings = (autopublishOnApproval?: boolean) =>
+      ({
+        approvalFlows: {
+          savedGroups: [
+            {
+              required: true,
+              requireMetadataReview: false,
+              autopublishOnApproval,
+            },
+          ],
+        },
+      }) as OrganizationSettings;
+
+    it("returns false when settings is undefined", () => {
       expect(isAutopublishOnApprovalEnabled(undefined, "saved-group")).toBe(
         false,
       );
@@ -728,64 +853,45 @@ describe("revisions helpers", () => {
 
     it("returns true when autopublishOnApproval is enabled for the entity type", () => {
       expect(
-        isAutopublishOnApprovalEnabled(
-          {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                autopublishOnApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
-          "saved-group",
-        ),
+        isAutopublishOnApprovalEnabled(sgSettings(true), "saved-group"),
       ).toBe(true);
     });
 
     it("returns false when autopublishOnApproval is disabled", () => {
       expect(
-        isAutopublishOnApprovalEnabled(
-          {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                autopublishOnApproval: false,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
-          "saved-group",
-        ),
+        isAutopublishOnApprovalEnabled(sgSettings(false), "saved-group"),
       ).toBe(false);
     });
 
     it("returns false when the flag is absent from the config", () => {
       expect(
-        isAutopublishOnApprovalEnabled(
-          {
-            savedGroups: [{ required: true, requireMetadataReview: false }],
-          } as ApprovalFlowConfigurations,
-          "saved-group",
-        ),
+        isAutopublishOnApprovalEnabled(sgSettings(undefined), "saved-group"),
       ).toBe(false);
     });
 
     it("returns false for an entity type with no approval-flow config", () => {
       expect(
         isAutopublishOnApprovalEnabled(
-          {
-            savedGroups: [
-              {
-                required: true,
-                requireMetadataReview: false,
-                autopublishOnApproval: true,
-              },
-            ],
-          } as ApprovalFlowConfigurations,
+          sgSettings(true),
           "unknown" as RevisionTargetType,
         ),
       ).toBe(false);
+    });
+
+    it("reads autopublishOnApproval from requireReviews for constants", () => {
+      const settings = {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            autopublishOnApproval: true,
+            projects: [],
+            environments: [],
+          },
+        ],
+      } as unknown as OrganizationSettings;
+      expect(
+        isAutopublishOnApprovalEnabled(settings, "constant", "prj_a"),
+      ).toBe(true);
     });
   });
 
@@ -878,6 +984,51 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/projects/0", value: "p1" },
         ]),
       ).toBe(true);
+    });
+  });
+
+  describe("isConstantRevisionMetadataOnly", () => {
+    it("returns false for an empty proposed-changes list", () => {
+      expect(isConstantRevisionMetadataOnly([])).toBe(false);
+    });
+
+    it("returns false when proposedChanges is not an array (legacy format)", () => {
+      expect(isConstantRevisionMetadataOnly({ name: "v2" } as unknown)).toBe(
+        false,
+      );
+    });
+
+    it.each([
+      [{ op: "replace", path: "/name", value: "v2" }],
+      [{ op: "replace", path: "/owner", value: "user-2" }],
+      [{ op: "replace", path: "/description", value: "new desc" }],
+      [{ op: "replace", path: "/project", value: "p1" }],
+      [{ op: "replace", path: "/archived", value: true }],
+    ] as const)("returns true for a single metadata-field op (%j)", (op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(true);
+    });
+
+    it.each([
+      ["value", { op: "replace", path: "/value", value: "https://x" }],
+      [
+        "environmentValues",
+        {
+          op: "replace",
+          path: "/environmentValues",
+          value: { staging: "https://staging" },
+        },
+      ],
+    ] as const)("returns false for a content-field op (%s)", (_label, op) => {
+      expect(isConstantRevisionMetadataOnly([op])).toBe(false);
+    });
+
+    it("returns false when ops mix metadata and content fields", () => {
+      expect(
+        isConstantRevisionMetadataOnly([
+          { op: "replace", path: "/name", value: "v2" },
+          { op: "replace", path: "/value", value: "v" },
+        ]),
+      ).toBe(false);
     });
   });
 });

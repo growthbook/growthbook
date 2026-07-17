@@ -53,7 +53,7 @@ export default function FeatureSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Feature Settings
+            Feature Flag Settings
           </Heading>
         </Box>
 
@@ -74,7 +74,7 @@ export default function FeatureSettings() {
                       <p>
                         Feature targeting conditions referencing{" "}
                         <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
+                        via SHA-256 hashing. When evaluating Feature Flags in a
                         public or insecure environment (such as a browser),
                         hashing provides an additional layer of security through
                         obfuscation. This allows you to target users based on
@@ -113,7 +113,7 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Text as="label" htmlFor="featureKeyExample" mb="2">
               <Text size="3" className="font-weight-semibold">
-                Feature Key Example (Optional)
+                Feature key example
               </Text>
             </Text>
             <Text as="p" mb="2" size="2">
@@ -134,7 +134,7 @@ export default function FeatureSettings() {
               size="3"
               className="font-weight-semibold"
             >
-              Feature Key Regex Validator (Optional)
+              Feature key regex validator
             </Text>
             <Text as="p" mb="2" size="2">
               When using the create feature modal, this will validate the
@@ -154,8 +154,8 @@ export default function FeatureSettings() {
             <Box mb="6" width="100%">
               <Checkbox
                 id="toggle-requireProjectForFeatures"
-                label="Require Project for all new Features"
-                description="If enabled, users will be required to select a project when creating a feature flag."
+                label="Require Project for all new Feature Flags"
+                description="If enabled, users will be required to select a Project when creating a Feature Flag."
                 value={!!form.watch("requireProjectForFeatures")}
                 setValue={(value) =>
                   form.setValue("requireProjectForFeatures", value, {
@@ -181,11 +181,67 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-sparseJSONRulesByDefault"
+              label="Default JSON rules to sparse patch mode"
+              description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
+              value={!!form.watch("sparseJSONRulesByDefault")}
+              setValue={(value) =>
+                form.setValue("sparseJSONRulesByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configsExtensibleByDefault"
+              label="Allow configs to be extended by default"
+              description="New base configs permit child configs and feature rules to add keys beyond the declared schema. Each config can override this from its own settings."
+              value={!!form.watch("configsExtensibleByDefault")}
+              setValue={(value) =>
+                form.setValue("configsExtensibleByDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-configExperimentGuardDefault"
+              label="Guard configs used by running experiments by default"
+              description="New configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged. Each config can override this from its own settings."
+              value={!!form.watch("configExperimentGuardDefault")}
+              setValue={(value) =>
+                form.setValue("configExperimentGuardDefault", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
+              id="toggle-blockPublishOnSchemaError"
+              label="Block publishing on JSON schema errors"
+              description="When publishing a revision, re-check feature and config values against their JSON schema and block the publish if they don't match. Disable to surface a bypassable warning instead. Per-request edits are always validated unless ?skipSchemaValidation=true is passed."
+              value={form.watch("blockPublishOnSchemaError") ?? true}
+              setValue={(value) =>
+                form.setValue("blockPublishOnSchemaError", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
             {/* TODO(UI): move to a neutral org-level "Revisions" section once
                 saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox
               id="toggle-maxConcurrentDrafts"
-              label="Cap number of drafts allowed per feature"
+              label="Cap number of drafts allowed per Feature Flag"
               description="A soft limit to reduce clutter. Users are warned and asked to confirm before creating drafts past the cap; REST API calls can override it. Automated processes are exempt."
               value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
               setValue={(value) =>
@@ -212,7 +268,7 @@ export default function FeatureSettings() {
           <Box mb="5">
             <SelectField
               id="preferredEnvironment"
-              label="Preferred environment for feature pages:"
+              label="Preferred environment for Feature Flag pages"
               labelClassName="font-weight-semibold"
               value={form.watch("preferredEnvironment") || ""}
               isClearable
@@ -250,7 +306,7 @@ export default function FeatureSettings() {
               <Checkbox
                 id="toggle-codeReferences"
                 label="Enable code references"
-                description="Displays code references for feature flags in the GrowthBook UI"
+                description="Displays code references for Feature Flags in the GrowthBook UI."
                 value={!!form.watch("codeReferencesEnabled")}
                 setValue={(value) =>
                   form.setValue("codeReferencesEnabled", value)
@@ -342,7 +398,7 @@ export default function FeatureSettings() {
                   </Box>
                   <Box mb="5">
                     <Field
-                      label="Only show code refs from the following branches (comma-separated, optional):"
+                      label="Only show code refs from the following branches (comma-separated)"
                       type="text"
                       placeholder="main, qa, dev"
                       value={codeRefsBranchesToFilterStr}
@@ -354,7 +410,7 @@ export default function FeatureSettings() {
 
                   <Box mb="5">
                     <SelectField
-                      label="Platform (to allow direct linking, optional):"
+                      label="Platform (to allow direct linking)"
                       labelClassName="font-weight-semibold"
                       containerClassName="mb-0"
                       value={form.watch("codeRefsPlatformUrl") || ""}

@@ -167,7 +167,7 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
   if (error) {
-    return <div className="alert alert-error">{error?.message}</div>;
+    return <Callout status="error">{error?.message}</Callout>;
   }
   if (!data || !ready) {
     return <LoadingOverlay />;
@@ -254,6 +254,7 @@ const ImportExperimentList: FC<{
                 }}
               >
                 <RunQueriesButton
+                  useRadixButton={false}
                   cta={
                     data.experiments.latestData ? "Get New Data" : "Run Query"
                   }
@@ -626,14 +627,14 @@ const ImportExperimentList: FC<{
               {items.length <= 0 && totalRows > 0 && (
                 <tr>
                   <td colSpan={8}>
-                    <div className="alert alert-info">
+                    <Callout status="info">
                       <em>
                         No experiments match your current filters.{" "}
                         <Link onClick={() => clearFilters()}>
                           Clear all filters
                         </Link>
                       </em>
-                    </div>
+                    </Callout>
                   </td>
                 </tr>
               )}

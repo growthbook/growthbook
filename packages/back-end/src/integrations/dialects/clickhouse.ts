@@ -1,6 +1,7 @@
 import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
+import { eligibleTopValueExpr } from "back-end/src/integrations/sql/clauses/approx-top-values";
 import { baseDialect } from "./base";
 
 const clickHouseEscapeStringLiteral = (value: string) =>
@@ -108,4 +109,56 @@ if(
   // ClickHouse's LENGTH returns bytes (not characters); that's stricter
   // than JS .length but fine for the document-size guard.
   stringLength: (column: string) => `length(${column})`,
+
+  // topK(k)(expr) returns the k most frequent values in descending-frequency
+  // order with NO counts. Since the outer query sorts by `count DESC`, we
+  // synthesize a `count` from the inverse array position (`limit - i + 1`) to
+  // preserve topK's ordering; it's an internal sort key, never projected out.
+  //
+  // One aggregation row holds an array of (column_name, topK-array) tuples;
+  // aggregation and ARRAY JOIN live in separate query levels so the aggregate
+  // runs once before unnesting. topK skips NULLs.
+  approxTopValuesCTEBody: ({
+    pairs,
+    fromTable,
+    whereClause,
+    limit,
+    maxValueLength,
+  }) => {
+    const tuples = pairs
+      .map(
+        (p) =>
+          `('${p.keyLiteral}', topK(${limit})(${eligibleTopValueExpr(
+            clickHouseDialect,
+            p.valueSql,
+            maxValueLength,
+          )}))`,
+      )
+      .join(",\n        ");
+    return `
+  SELECT
+    column_name,
+    tupleElement(__valueCount, 1) AS value,
+    tupleElement(__valueCount, 2) AS count
+  FROM (
+    SELECT
+      tupleElement(__col, 1) AS column_name,
+      tupleElement(__col, 2) AS __values
+    FROM (
+      SELECT [
+        ${tuples}
+      ] AS __cols
+      FROM ${fromTable}
+      WHERE ${whereClause}
+    )
+    ARRAY JOIN __cols AS __col
+  )
+  ARRAY JOIN arrayMap(
+    -- (value, synthetic count): inverse array position, NOT a real frequency
+    (v, i) -> (v, toInt64(${limit}) - i + 1),
+    __values,
+    arrayEnumerate(__values)
+  ) AS __valueCount
+  WHERE value IS NOT NULL`;
+  },
 };

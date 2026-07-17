@@ -11,11 +11,18 @@ import { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByExperiment,
+  getReviewSetting,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+} from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -223,6 +230,16 @@ export default function FeatureFromExperimentModal({
   const existingFeature = existingFeatureData?.feature;
   const existingRevisionList = existingFeatureData?.revisions ?? [];
 
+  // Sparse patch mode for the experiment-ref rule. Only coherent when linking an
+  // EXISTING JSON feature with a plain-object default — a brand-new feature's
+  // default is derived from the control variation here, so there's no
+  // independent default to patch onto.
+  const sparseEligible =
+    !!existing &&
+    existingFeature?.valueType === "json" &&
+    parsePlainJSONObject(existingFeature.defaultValue ?? "") !== null;
+  const [sparse, setSparse] = useState(false);
+
   // Pessimistic default ("all") until the FF loads so publish-now stays gated.
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     if (!existing || !existingFeature) return "all";
@@ -376,6 +393,7 @@ export default function FeatureFromExperimentModal({
           scheduleRules: [],
           experimentId: experiment.id,
           variations,
+          ...(sparseEligible && sparse ? { sparse: true } : {}),
         };
 
         const newRule = validateFeatureRule(rule, featureToCreate);
@@ -513,7 +531,8 @@ export default function FeatureFromExperimentModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              updateValuesOnTypeChange(val);
+              // config authoring type isn't offered here yet (allowConfig off).
+              if (val !== "config") updateValuesOnTypeChange(val);
             }}
           />
 
@@ -572,9 +591,31 @@ export default function FeatureFromExperimentModal({
       )}
 
       <Flex direction="column" gap="3" pt="2">
-        <Text as="label" weight="semibold">
-          Variation Values
-        </Text>
+        <Flex align="center" gap="3">
+          <Text as="label" weight="semibold" mb="0">
+            Variation Values
+          </Text>
+          {sparseEligible && (
+            <SparsePatchToggle
+              checked={sparse}
+              onChange={(checked) => {
+                // Rewrite every variation value so the editor isn't left with a
+                // default-laden patch (on) or a bare patch shown as the full
+                // value (off).
+                const def = existingFeature?.defaultValue ?? "";
+                (form.getValues("variations") || []).forEach((v, i) => {
+                  form.setValue(
+                    `variations.${i}.value`,
+                    checked
+                      ? stripDefaultsForSparse(v.value ?? "", def)
+                      : expandSparseToFull(v.value ?? "", def),
+                  );
+                });
+                setSparse(checked);
+              }}
+            />
+          )}
+        </Flex>
         {variations.map((v, i) => (
           <Box key={v.id}>
             <Flex align="center" direction="row" gap="1" mb="3">
@@ -598,6 +639,8 @@ export default function FeatureFromExperimentModal({
               value={form.watch(`variations.${i}.value`) || ""}
               setValue={(val) => form.setValue(`variations.${i}.value`, val)}
               valueType={valueType}
+              feature={existing ? existingFeature : undefined}
+              sparse={sparse}
               useCodeInput={true}
               showFullscreenButton={true}
             />

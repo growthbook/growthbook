@@ -17,6 +17,16 @@ const REVIEW_DECISIONS: ReviewDecision[] = [
   "Approved",
 ];
 
+// Wire-format decisions for the generic revision system
+// (POST /revision/:id/review).
+export type GenericReviewDecision = "comment" | "request-changes" | "approve";
+
+const GENERIC_DECISIONS: Record<ReviewDecision, GenericReviewDecision> = {
+  Comment: "comment",
+  "Requested Changes": "request-changes",
+  Approved: "approve",
+};
+
 type PersistedReviewDraft = { comment: string; decision: ReviewDecision };
 
 // In-progress review drafts persist in sessionStorage (keyed by feature +
@@ -49,7 +59,15 @@ function clearReviewDraft(key: string): void {
 }
 
 interface Props {
-  submitUrl: string;
+  // Feature-revision endpoint; posts `{ comment, review }`. Either this or
+  // `onSubmit` must be provided.
+  submitUrl?: string;
+  // Generic submission handler (e.g. the RevisionModel-backed
+  // POST /revision/:id/review). Takes precedence over `submitUrl`.
+  onSubmit?: (
+    decision: GenericReviewDecision,
+    comment: string,
+  ) => Promise<void>;
   // When true, a "Submit and Publish" option appears when "Approve" is
   // selected. If `autoPublishArmed` is also true the primary CTA becomes
   // "Submit and Publish"; otherwise a secondary outline button appears.
@@ -85,6 +103,7 @@ interface Props {
 
 export default function ReviewCommentPopover({
   submitUrl,
+  onSubmit,
   allowPublishOnApprove = false,
   autoPublishArmed = false,
   autoPublishScheduled = false,
@@ -168,10 +187,14 @@ export default function ReviewCommentPopover({
     setLoading(true);
     setError(null);
     try {
-      await apiCall(submitUrl, {
-        method: "POST",
-        body: JSON.stringify({ comment, review: decision }),
-      });
+      if (onSubmit) {
+        await onSubmit(GENERIC_DECISIONS[decision], comment);
+      } else if (submitUrl) {
+        await apiCall(submitUrl, {
+          method: "POST",
+          body: JSON.stringify({ comment, review: decision }),
+        });
+      }
       clearDraft();
       setOpen(false);
       onSuccess({ publish });

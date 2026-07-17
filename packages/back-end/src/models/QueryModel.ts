@@ -333,7 +333,7 @@ export async function createNewQuery({
   displayTitle,
   dependencies = [],
   running = false,
-  queryType = "",
+  queryType = "unknown",
   runAtEnd = false,
 }: {
   organization: string;

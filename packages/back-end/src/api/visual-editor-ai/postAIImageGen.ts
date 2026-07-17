@@ -166,7 +166,11 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   let unoptimizedCount = 0;
   for (let i = 0; i < generated.length; i++) {
     const img = generated[i];
-    const optimized = await optimizeAIImage(img);
+    // When replacing an existing <img>, the extension sends its exact natural
+    // dimensions as `aspectRatio` ("W:H"). Crop the generated image to that
+    // aspect so it slots in cleanly instead of being center-cropped/zoomed by
+    // the page. Undefined for inserts / background-image targets → plain fit.
+    const optimized = await optimizeAIImage(img, { cropToAspect: aspectRatio });
     if (!optimized.optimized) unoptimizedCount++;
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;

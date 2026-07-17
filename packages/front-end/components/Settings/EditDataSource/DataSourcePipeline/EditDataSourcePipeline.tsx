@@ -181,7 +181,6 @@ export const EditDataSourcePipeline = ({
       submit={handleSubmit}
       autoCloseOnSubmit={false}
       borderlessHeader={true}
-      useRadixButton={true}
       cta={validateBeforeSaving ? "Validate & Save" : "Save"}
       size="lg"
       includeCloseCta={true}

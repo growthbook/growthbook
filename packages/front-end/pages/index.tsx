@@ -64,5 +64,5 @@ export default function Home(): React.ReactElement {
     );
   }
   if (!data || willRedirect) return <LoadingOverlay />;
-  return <GetStartedAndHomePage />;
+  return <GetStartedAndHomePage showMarketingBanner />;
 }

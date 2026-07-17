@@ -175,7 +175,7 @@ const MetricGroupsList: FC = () => {
                     e.stopPropagation();
                   }}
                 >
-                  <MoreMenu>
+                  <MoreMenu useRadix={false}>
                     {canEdit ? (
                       <>
                         {mg.archived ? (
@@ -204,6 +204,7 @@ const MetricGroupsList: FC = () => {
                     ) : null}
                     {canDelete ? (
                       <DeleteButton
+                        useRadix={false}
                         className="dropdown-item text-danger"
                         displayName="project"
                         text="Delete"

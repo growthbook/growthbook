@@ -80,6 +80,7 @@ export const apiSettingsValidator = namedSchema(
       maxConcurrentDrafts: z.coerce.number().optional(),
       featureKeyExample: z.string(),
       featureRegexValidator: z.string(),
+      sparseJSONRulesByDefault: z.boolean().optional(),
       banditScheduleValue: z.coerce.number(),
       banditScheduleUnit: z.enum(["hours", "days"]),
       banditBurnInValue: z.coerce.number(),
@@ -88,6 +89,8 @@ export const apiSettingsValidator = namedSchema(
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),
       maxMetricSliceLevels: z.coerce.number().optional(),
+      topValuesLookbackValue: z.coerce.number().optional(),
+      topValuesLookbackUnit: z.enum(["days"]).optional(),
     })
     .strict(),
 );

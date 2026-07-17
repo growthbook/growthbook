@@ -17,7 +17,6 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
-import Button from "@/ui/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -138,17 +137,6 @@ export default function AnalysisSettings({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
-  const collapseAnalysisSettings =
-    !isBandit &&
-    !datasource &&
-    !assignmentQuery &&
-    !goalsWithTargetMDE.length &&
-    !secondary.length &&
-    !guardrails.length &&
-    !experiment.activationMetric &&
-    !experiment.segment &&
-    !isPublic;
-
   return (
     <>
       {analysisModal && mutate ? (
@@ -166,184 +154,186 @@ export default function AnalysisSettings({
       ) : null}
 
       <Frame>
-        <div
-          className={`d-flex flex-row align-items-center justify-content-between text-dark${
-            collapseAnalysisSettings ? "" : " mb-4"
-          }`}
-        >
+        <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
           <Heading color="text-high" as="h4" size="small" mb="0">
             Analysis Settings
           </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
-            <Button variant="ghost" onClick={() => setAnalysisModal(true)}>
-              Edit
-            </Button>
+            <Link onClick={() => setAnalysisModal(true)}>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           ) : null}
         </div>
 
-        {!collapseAnalysisSettings && (
-          <>
-            {!isPublic && (
-              <div className="row">
-                <div className="col-4 mb-4">
-                  <div className="h5">Data Source</div>
-                  <div>
-                    <Text color="text-mid">
-                      {datasource ? datasource.name : "--"}
-                    </Text>
-                  </div>
-                </div>
+        {!isPublic && (
+          <div className="row">
+            <div className="col-4 mb-4">
+              <Text color="text-high" weight="semibold">
+                Data Source
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  {datasource ? datasource.name : "--"}
+                </Text>
+              </div>
+            </div>
 
-                <div className="col-4 mb-4">
-                  <div className="h5">Experiment Assignment Table</div>
-                  <div>
-                    <Text color="text-mid">
-                      {assignmentQuery ? assignmentQuery.name : "--"}
-                    </Text>
-                  </div>
-                </div>
+            <div className="col-4 mb-4">
+              <Text color="text-high" weight="semibold">
+                Experiment Assignment Table
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  {assignmentQuery ? assignmentQuery.name : "--"}
+                </Text>
+              </div>
+            </div>
 
-                {experiment.activationMetric && (
-                  <div className="col-4 mb-4">
-                    <div className="h5">Activation Metric</div>
-                    <div>
-                      <Text color="text-mid">
-                        {
-                          getExperimentMetricById(experiment.activationMetric)
-                            ?.name
-                        }
-                      </Text>
-                    </div>
-                  </div>
-                )}
-                {!isHoldout && (segments.length > 0 || experiment.segment) && (
-                  <div className="col-4 mb-4">
-                    <div className="h5">Segment</div>
-                    <div>
-                      <Text color="text-mid">
-                        {experiment.segment
-                          ? getSegmentById(experiment.segment)?.name
-                          : "all users"}
-                      </Text>
-                    </div>
-                  </div>
-                )}
+            {experiment.activationMetric && (
+              <div className="col-4 mb-4">
+                <Text color="text-high" weight="semibold">
+                  Activation Metric
+                </Text>
+                <div>
+                  <Text color="text-mid">
+                    {getExperimentMetricById(experiment.activationMetric)?.name}
+                  </Text>
+                </div>
               </div>
             )}
-
-            <div className="row mt-4">
+            {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
-                <div className="h5">
-                  {!isBandit ? "Goal Metrics" : "Decision Metric"}
-                </div>
+                <Text color="text-high" weight="semibold">
+                  Segment
+                </Text>
                 <div>
-                  {goalsWithTargetMDE.length ? (
-                    <ul className="list-unstyled mb-0">
-                      {goalsWithTargetMDE.map((metric, i) => {
-                        if (isBandit && i > 0) return null;
-                        return (
-                          <Fragment key={metric.id}>
-                            <li>
-                              <Link href={getMetricLink(metric.id)}>
-                                {metric.name}
-                              </Link>
-                            </li>
-                            <li>
-                              {isBandit &&
-                                experiment.banditConversionWindowValue &&
-                                experiment.banditConversionWindowUnit && (
-                                  <Text size="small" color="text-mid">
-                                    Conversion Window:{" "}
-                                    {experiment.banditConversionWindowValue}{" "}
-                                    {experiment.banditConversionWindowValue ===
-                                    1
-                                      ? experiment.banditConversionWindowUnit.slice(
-                                          0,
-                                          -1,
-                                        )
-                                      : experiment.banditConversionWindowUnit}
-                                  </Text>
-                                )}
-                            </li>
-                          </Fragment>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <Text color="text-mid">--</Text>
-                  )}
+                  <Text color="text-mid">
+                    {experiment.segment
+                      ? getSegmentById(experiment.segment)?.name
+                      : "all users"}
+                  </Text>
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="col-4">
-                <div className="h5">Secondary Metrics</div>
-                <div>
-                  {secondary.length ? (
-                    <ul className="list-unstyled mb-0">
-                      {secondary.map((metric, i) => (
-                        <li key={`secondary-${i}`}>
+        <div className="row mt-4">
+          <div className="col-4 mb-4">
+            <Text color="text-high" weight="semibold">
+              {!isBandit ? "Goal Metrics" : "Decision Metric"}
+            </Text>
+            <div>
+              {goalsWithTargetMDE.length ? (
+                <ul className="list-unstyled mb-0">
+                  {goalsWithTargetMDE.map((metric, i) => {
+                    if (isBandit && i > 0) return null;
+                    return (
+                      <Fragment key={metric.id}>
+                        <li>
                           <Link href={getMetricLink(metric.id)}>
                             {metric.name}
                           </Link>
                         </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <Text color="text-mid">--</Text>
-                  )}
-                </div>
-              </div>
-              {!isHoldout && (
-                <div className="col-4">
-                  <div className="h5">Guardrail Metrics</div>
-                  <div>
-                    {guardrails.length ? (
-                      <ul className="list-unstyled mb-0">
-                        {guardrails.map((metric, i) => (
-                          <li key={`guardrail-${i}`}>
-                            <Link href={getMetricLink(metric.id)}>
-                              {metric.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <Text color="text-mid">--</Text>
-                    )}
-                  </div>
-                </div>
+                        <li>
+                          {isBandit &&
+                            experiment.banditConversionWindowValue &&
+                            experiment.banditConversionWindowUnit && (
+                              <Text size="small" color="text-mid">
+                                Conversion Window:{" "}
+                                {experiment.banditConversionWindowValue}{" "}
+                                {experiment.banditConversionWindowValue === 1
+                                  ? experiment.banditConversionWindowUnit.slice(
+                                      0,
+                                      -1,
+                                    )
+                                  : experiment.banditConversionWindowUnit}
+                              </Text>
+                            )}
+                        </li>
+                      </Fragment>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <Text color="text-mid">--</Text>
               )}
             </div>
-            {isBandit && (
-              <div className="row mt-4">
-                <div className="col-4">
-                  <div className="h5">Exploratory Stage</div>
-                  <div>
-                    <Text color="text-mid">
-                      {experiment.banditBurnInValue ?? 1}{" "}
-                      {(experiment.banditBurnInUnit ?? "days") === "days"
-                        ? "day"
-                        : "hour"}
-                      {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
-                    </Text>
-                  </div>
-                </div>
+          </div>
 
-                <div className="col-4">
-                  <div className="h5">Update Cadence</div>
-                  <div>
-                    <Text color="text-mid">
-                      Every {experiment.banditScheduleValue ?? 1}{" "}
-                      {(experiment.banditScheduleUnit ?? "days") === "days"
-                        ? "days"
-                        : "hours"}
-                    </Text>
-                  </div>
-                </div>
+          <div className="col-4">
+            <Text color="text-high" weight="semibold">
+              Secondary Metrics
+            </Text>
+            <div>
+              {secondary.length ? (
+                <ul className="list-unstyled mb-0">
+                  {secondary.map((metric, i) => (
+                    <li key={`secondary-${i}`}>
+                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Text color="text-mid">--</Text>
+              )}
+            </div>
+          </div>
+          {!isHoldout && (
+            <div className="col-4">
+              <Text color="text-high" weight="semibold">
+                Guardrail Metrics
+              </Text>
+              <div>
+                {guardrails.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {guardrails.map((metric, i) => (
+                      <li key={`guardrail-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Text color="text-mid">--</Text>
+                )}
               </div>
-            )}
-          </>
+            </div>
+          )}
+        </div>
+        {isBandit && (
+          <div className="row mt-4">
+            <div className="col-4">
+              <Text color="text-high" weight="semibold">
+                Exploratory Stage
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  {experiment.banditBurnInValue ?? 1}{" "}
+                  {(experiment.banditBurnInUnit ?? "days") === "days"
+                    ? "day"
+                    : "hour"}
+                  {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                </Text>
+              </div>
+            </div>
+
+            <div className="col-4">
+              <Text color="text-high" weight="semibold">
+                Update Cadence
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  Every {experiment.banditScheduleValue ?? 1}{" "}
+                  {(experiment.banditScheduleUnit ?? "days") === "days"
+                    ? "days"
+                    : "hours"}
+                </Text>
+              </div>
+            </div>
+          </div>
         )}
       </Frame>
     </>

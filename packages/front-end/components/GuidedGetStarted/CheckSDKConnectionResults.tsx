@@ -4,6 +4,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { FaCheck } from "react-icons/fa";
 import Button from "@/components/Button";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import styles from "./CheckSDKConnectionResults.module.scss";
 
 type Props = {
@@ -19,10 +20,10 @@ export default function TestConnectionResults({
 }: Props) {
   if (!connection)
     return (
-      <p className="alert alert-danger">
+      <Callout status="error">
         To test your connection, you&apos;ll first need to create an SDK
         Connection.
-      </p>
+      </Callout>
     );
 
   return (

@@ -490,6 +490,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     }}
                   >
                     <RunQueriesButton
+                      useRadixButton={false}
                       icon="refresh"
                       cta={"Run Analysis"}
                       mutate={mutate}

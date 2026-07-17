@@ -15,6 +15,13 @@ export type ExperimentMetadata = {
 // FeatureRule extended with optional metadata for experiment-ref rules
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
+  isContextualBandit?: boolean;
+  attributesRequired?: string[];
+  contexts?: {
+    leafId: number;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
 };
 
 export type AutoExperimentWithMetadata = AutoExperiment & {

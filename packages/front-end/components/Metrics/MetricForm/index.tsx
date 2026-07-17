@@ -636,6 +636,7 @@ const MetricForm: FC<MetricFormProps> = ({
         />
       )}
       <PagedModal
+        useRadixButton={false}
         trackingEventModalType={trackingEventModalType}
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
@@ -722,7 +723,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     />
                   </>
                 }
-                placeholder="All projects"
+                placeholder="All Projects"
                 value={value.projects || []}
                 options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}

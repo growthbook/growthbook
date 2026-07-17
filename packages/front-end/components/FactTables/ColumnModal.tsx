@@ -39,6 +39,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -249,6 +250,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       close={close}
@@ -315,10 +317,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       })}
     >
       {!existing && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           This should only be used if we did not auto-detect your Fact Table
           columns. Please double check your SQL first before using this form.
-        </div>
+        </Callout>
       )}
       <Field
         label="Column"
@@ -586,7 +588,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   <>
                     Column may be used to automatically slice metrics during
                     experiment analysis.{" "}
-                    <DocLink docSection="autoSlices">
+                    <DocLink useRadix={false} docSection="autoSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
                   </>

@@ -128,7 +128,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
               </Button>
             )}
             {featureUsageQuery && !isManagedQuery && (
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 <button
                   className="dropdown-item py-2"
                   onClick={() => setUiMode("edit")}
@@ -138,6 +138,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
 
                 <hr className="dropdown-divider" />
                 <DeleteButton
+                  useRadix={false}
                   onClick={handleActionDeleteClicked()}
                   className="dropdown-item text-danger py-2"
                   iconClassName="mr-2"
@@ -175,7 +176,11 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
                 {featureUsageQuery.error}
               </Box>
               <Box mt="3">
-                <Button onClick={handleValidate()} loading={validatingQuery}>
+                <Button
+                  color="inherit"
+                  onClick={handleValidate()}
+                  loading={validatingQuery}
+                >
                   Check it again.
                 </Button>
               </Box>

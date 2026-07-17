@@ -42,6 +42,11 @@ import {
   getRevertValueValidationWarnings,
   pruneOrphanedRampActions,
   toV2FeatureSnapshot,
+  parsePlainJSONObject,
+  resolveSparseJSONValue,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+  draftHasChangesOutsideTargetRef,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
@@ -1267,6 +1272,40 @@ describe("simpleToJSONSchema", () => {
       type: "object",
       properties: expectedProperties,
       required: ["a_string", "a_float"],
+      additionalProperties: false,
+    });
+  });
+  it("honors a field's raw jsonSchema, superseding the simple type", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        {
+          key: "kv",
+          type: "string",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: "object" }),
+        },
+        {
+          key: "ship",
+          type: "string",
+          description: "how it ships",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: ["string", "null"] }),
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(schema))).toEqual({
+      type: "object",
+      properties: {
+        kv: { type: "object" },
+        ship: { type: ["string", "null"], description: "how it ships" },
+      },
+      required: ["kv", "ship"],
       additionalProperties: false,
     });
   });
@@ -4041,5 +4080,294 @@ describe("pruneOrphanedRampActions", () => {
     const { kept, pruned } = pruneOrphanedRampActions(undefined, [rule("a")]);
     expect(kept).toEqual([]);
     expect(pruned).toEqual([]);
+  });
+});
+
+describe("sparse JSON rule helpers", () => {
+  describe("parsePlainJSONObject", () => {
+    it("returns the object for a plain key/val object", () => {
+      expect(parsePlainJSONObject('{"a":1,"b":"x"}')).toEqual({ a: 1, b: "x" });
+    });
+    it("returns null for arrays", () => {
+      expect(parsePlainJSONObject("[1,2,3]")).toBeNull();
+    });
+    it("returns null for null", () => {
+      expect(parsePlainJSONObject("null")).toBeNull();
+    });
+    it("returns null for primitives", () => {
+      expect(parsePlainJSONObject("42")).toBeNull();
+      expect(parsePlainJSONObject('"hi"')).toBeNull();
+    });
+    it("returns null for unparseable input", () => {
+      expect(parsePlainJSONObject("not json")).toBeNull();
+    });
+  });
+
+  describe("resolveSparseJSONValue", () => {
+    const defaultObj = { a: "default", b: 1, c: true };
+
+    it("merges the sparse value onto the default object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', defaultObj)).toEqual({
+        a: "over",
+        b: 1,
+        c: true,
+      });
+    });
+
+    it("adds keys not present in the default (no schema filtering for json)", () => {
+      expect(resolveSparseJSONValue('{"d":"new"}', defaultObj)).toEqual({
+        a: "default",
+        b: 1,
+        c: true,
+        d: "new",
+      });
+    });
+
+    it("replaces nested objects wholesale (top-level merge, not deep merge)", () => {
+      // A nested object in the patch overwrites the default's entire object for
+      // that key — keys only present in the default's nested object are dropped.
+      expect(
+        resolveSparseJSONValue('{"theme":{"primary":"green"}}', {
+          theme: { primary: "blue", secondary: "red" },
+          other: 1,
+        }),
+      ).toEqual({
+        theme: { primary: "green" },
+        other: 1,
+      });
+    });
+
+    it("returns the parsed value as-is when the default isn't an object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', null)).toEqual({
+        a: "over",
+      });
+    });
+
+    it("returns the parsed value as-is when the rule value isn't an object", () => {
+      // Misconfigured sparse flag degrades to full-value behavior.
+      expect(resolveSparseJSONValue("[1,2]", defaultObj)).toEqual([1, 2]);
+      expect(resolveSparseJSONValue("42", defaultObj)).toEqual(42);
+    });
+
+    it("returns null when the rule value is unparseable and there's no object default", () => {
+      expect(resolveSparseJSONValue("not json", null)).toBeNull();
+    });
+  });
+
+  describe("stripDefaultsForSparse", () => {
+    const def = JSON.stringify({ a: "x", b: { n: 1 }, c: [1, 2] });
+
+    it("drops keys equal to the default (full default → clean slate)", () => {
+      expect(JSON.parse(stripDefaultsForSparse(def, def))).toEqual({});
+    });
+
+    it("keeps changed and added keys, order-insensitive on nested values", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            // b is deep-equal (key order flipped), so it's dropped; a changed, d added
+            JSON.stringify({ a: "y", b: { n: 1 }, d: true }),
+            def,
+          ),
+        ),
+      ).toEqual({ a: "y", d: true });
+    });
+
+    it("treats a nested object as changed when it differs", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(JSON.stringify({ b: { n: 2 } }), def),
+        ),
+      ).toEqual({ b: { n: 2 } });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
+      expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
+    });
+
+    it("keeps only $extends refs not already in the default", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo", "@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:bar"], b: 2 });
+    });
+
+    it("drops $extends entirely when identical to the default's", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({});
+    });
+  });
+
+  describe("expandSparseToFull", () => {
+    const def = JSON.stringify({ a: "x", b: 1 });
+
+    it("merges the patch onto the default (top-level)", () => {
+      expect(
+        JSON.parse(expandSparseToFull(JSON.stringify({ a: "y" }), def)),
+      ).toEqual({ a: "y", b: 1 });
+    });
+
+    it("round-trips with stripDefaultsForSparse", () => {
+      const full = JSON.stringify({ a: "y", b: 1 });
+      const patch = stripDefaultsForSparse(full, def);
+      expect(JSON.parse(patch)).toEqual({ a: "y" });
+      expect(JSON.parse(expandSparseToFull(patch, def))).toEqual({
+        a: "y",
+        b: 1,
+      });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
+    });
+
+    it("unions $extends refs instead of clobbering the default's", () => {
+      expect(
+        JSON.parse(
+          expandSparseToFull(
+            JSON.stringify({ $extends: ["@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:foo", "@const:bar"], a: 1, b: 2 });
+    });
+
+    it("round-trips $extends with stripDefaultsForSparse", () => {
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      expect(JSON.parse(patch)).toEqual({ $extends: ["@const:bar"], b: 2 });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+    });
+
+    it("preserves an inline-object $extends entry through a round-trip", () => {
+      // Inline objects are positional, so the toggle keeps the $extends array
+      // verbatim rather than ref-diffing it.
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", { b: 2 }],
+        a: 1,
+        c: 3,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      // $extends kept verbatim; own keys still diffed (a stripped, c kept)
+      expect(JSON.parse(patch)).toEqual({
+        $extends: ["@const:foo", { b: 2 }],
+        c: 3,
+      });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual(
+        JSON.parse(full),
+      );
+    });
+  });
+});
+
+describe("draftHasChangesOutsideTargetRef", () => {
+  const makeRev = (overrides: Partial<RevisionFields>): RevisionFields => ({
+    defaultValue: "control",
+    rules: {},
+    version: 1,
+    environmentsEnabled: { production: true },
+    prerequisites: [],
+    archived: false,
+    metadata: {},
+    holdout: null,
+    rampActions: [],
+    ...overrides,
+  });
+
+  const targetRule = {
+    id: "tr_1",
+    type: "contextual-bandit-ref",
+    contextualBanditId: "cb_1",
+    description: "",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  const isTarget = (rule: FeatureRule): boolean =>
+    rule.type === "contextual-bandit-ref" &&
+    (rule as unknown as { contextualBanditId?: string }).contextualBanditId ===
+      "cb_1";
+
+  it("returns false when the draft only adds the target ref rule", () => {
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns false when live and draft are identical", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when defaultValue changes alongside the target ref", () => {
+    const live = makeRev({
+      defaultValue: "control",
+      rules: { production: [] },
+    });
+    const draft = makeRev({
+      defaultValue: "treatment",
+      rules: { production: [targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("returns true when a non-target rule is added", () => {
+    const otherRule = {
+      id: "fr_1",
+      type: "force",
+      description: "",
+      enabled: true,
+      value: "treatment",
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({
+      rules: { production: [targetRule, otherRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("ignores a different ref id (only the matched target is stripped)", () => {
+    const otherCbRule = {
+      id: "tr_2",
+      type: "contextual-bandit-ref",
+      contextualBanditId: "cb_2",
+      description: "",
+      enabled: true,
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [otherCbRule] } });
+    const draft = makeRev({
+      rules: { production: [otherCbRule, targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when prerequisites change", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({
+      rules: { production: [targetRule] },
+      prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
   });
 });

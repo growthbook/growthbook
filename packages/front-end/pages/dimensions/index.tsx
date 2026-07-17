@@ -147,7 +147,9 @@ const DimensionsPage: FC = () => {
       <Box className="container-fluid pagecontents" p="3">
         <Flex align="center" gap="2" mb="3">
           <h1 style={{ margin: 0 }}>User Dimensions</h1>
-          <DocLink docSection="dimensions">View Documentation</DocLink>
+          <DocLink useRadix={false} docSection="dimensions">
+            View Documentation
+          </DocLink>
         </Flex>
         <Callout status="info">
           Dimensions are only available if you connect GrowthBook to a
@@ -226,7 +228,7 @@ const DimensionsPage: FC = () => {
                     {item.identifierTypes.join(", ")}
                   </TableCell>
                   <TableCell style={{ width: 30 }} className="text-right">
-                    <MoreMenu useRadix={true}>
+                    <MoreMenu>
                       <Link
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
@@ -362,6 +364,7 @@ const DimensionsPage: FC = () => {
                         ) : null}
                         {hasDeleteDimensionPermissions ? (
                           <DeleteButton
+                            useRadix={false}
                             link={true}
                             className="tr-hover text-primary"
                             displayName={s.name}
@@ -397,7 +400,9 @@ const DimensionsPage: FC = () => {
         <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
-          <DocLink docSection="config_yml">View Documentation</DocLink>
+          <DocLink useRadix={false} docSection="config_yml">
+            View Documentation
+          </DocLink>
         </Callout>
       )}
     </Box>

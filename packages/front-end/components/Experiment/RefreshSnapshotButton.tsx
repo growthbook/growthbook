@@ -6,7 +6,11 @@ import { PiArrowClockwise } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
-import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
+import {
+  type SnapshotRefreshBlocker,
+  useExperimentSnapshotUpdate,
+} from "@/hooks/useExperimentSnapshotUpdate";
+import FullRefreshRequiredDialog from "@/components/Experiment/FullRefreshRequiredDialog";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
@@ -19,21 +23,29 @@ const RefreshSnapshotButton: FC<{
   // Return false to abort the refresh
   customValidation?: () => boolean | Promise<boolean>;
   onSuccess?: () => void;
+  onSnapshotRefreshBlocked?: (blocker: SnapshotRefreshBlocker) => void;
   experimentSnapshotTrackingProps?: {
     trackingSource: string;
     datasourceType: string | null;
   };
+  fullRefreshRequired?: boolean;
+  fullRefreshReasons?: string[];
+  disabled?: boolean;
 }> = ({
   mutate,
   experiment,
   phase,
   dimension,
-  useRadixButton = false,
+  useRadixButton = true,
   radixVariant = "outline",
   setError,
   customValidation,
   onSuccess,
+  onSnapshotRefreshBlocked,
   experimentSnapshotTrackingProps,
+  fullRefreshRequired = false,
+  fullRefreshReasons = [],
+  disabled = false,
 }) => {
   const { getDatasourceById } = useDefinitions();
 
@@ -42,50 +54,65 @@ const RefreshSnapshotButton: FC<{
     datasourceType: getDatasourceById(experiment.datasource)?.type || null,
   };
 
-  const { submitUpdate, loading, longResult } = useExperimentSnapshotUpdate({
-    experiment,
-    phase,
-    dimension,
-    mutate,
-    setRefreshError: (error) => setError(error),
-    onSuccess,
-    customValidation,
-    experimentSnapshotTrackingProps: trackingProps,
-  });
+  const { submitUpdate, loading, longResult, fullRefreshConfirm } =
+    useExperimentSnapshotUpdate({
+      experiment,
+      phase,
+      dimension,
+      mutate,
+      setRefreshError: (error) => setError(error),
+      onSuccess,
+      customValidation,
+      onSnapshotRefreshBlocked,
+      experimentSnapshotTrackingProps: trackingProps,
+    });
 
-  return useRadixButton ? (
+  const label = fullRefreshRequired ? "Full Refresh" : "Update";
+  const handleClick = fullRefreshRequired
+    ? () => submitUpdate({ force: true, fullRefreshReasons })
+    : () => submitUpdate();
+
+  return (
     <>
-      {loading && longResult && (
-        <Text size="1" color="gray" mr="3">
-          this may take several minutes
-        </Text>
+      <FullRefreshRequiredDialog controller={fullRefreshConfirm} />
+      {useRadixButton ? (
+        <>
+          {loading && longResult && (
+            <Text size="1" color="gray" mr="3">
+              this may take several minutes
+            </Text>
+          )}
+          <RadixButton
+            variant={radixVariant}
+            size="sm"
+            disabled={loading || disabled}
+            setError={(error) => setError(error ?? undefined)}
+            onClick={handleClick}
+            style={{
+              minWidth: 110,
+            }}
+            icon={<PiArrowClockwise />}
+          >
+            {label}
+          </RadixButton>
+        </>
+      ) : (
+        <>
+          {loading && longResult && (
+            <small className="text-muted mr-3">
+              this may take several minutes
+            </small>
+          )}
+          <Button
+            color="outline-primary"
+            setErrorText={setError}
+            onClick={handleClick}
+            disabled={loading || disabled}
+          >
+            <BsArrowRepeat /> {label}
+          </Button>
+        </>
       )}
-      <RadixButton
-        variant={radixVariant}
-        size="sm"
-        disabled={loading}
-        setError={(error) => setError(error ?? undefined)}
-        onClick={submitUpdate}
-        style={{
-          minWidth: 110,
-        }}
-        icon={<PiArrowClockwise />}
-      >
-        Update
-      </RadixButton>
-    </>
-  ) : (
-    <>
-      {loading && longResult && (
-        <small className="text-muted mr-3">this may take several minutes</small>
-      )}
-      <Button
-        color="outline-primary"
-        setErrorText={setError}
-        onClick={submitUpdate}
-      >
-        <BsArrowRepeat /> Update
-      </Button>
     </>
   );
 };

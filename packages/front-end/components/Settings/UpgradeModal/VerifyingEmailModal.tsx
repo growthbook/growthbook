@@ -4,6 +4,7 @@ import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import UpgradeModal from ".";
 
@@ -70,6 +71,7 @@ export default function VerifyingEmailModal() {
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       cta="Invite Members"
@@ -90,7 +92,7 @@ export default function VerifyingEmailModal() {
               try again.
             </Link>
           </span>
-          <div className="alert alert-danger">{verifyEmailError}</div>
+          <Callout status="error">{verifyEmailError}</Callout>
         </div>
       ) : (
         <div>Please be patient while we verify your account.</div>

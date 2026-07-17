@@ -476,7 +476,7 @@ const NewDataSourceForm: FC<{
             <Callout status="info" mt="3">
               Don&apos;t have a data warehouse yet? We recommend using BigQuery
               with Google Analytics.{" "}
-              <DocLink docSection="ga4BigQuery">
+              <DocLink useRadix={false} docSection="ga4BigQuery">
                 Learn more <FaExternalLinkAlt />
               </DocLink>
             </Callout>
@@ -574,7 +574,7 @@ const NewDataSourceForm: FC<{
                 or{" "}
               </>
             ) : null}
-            <DocLink docSection={datasourceInfo.docs}>
+            <DocLink useRadix={false} docSection={datasourceInfo.docs}>
               {datasourceInfo.display} to GrowthBook <FaExternalLinkAlt />
             </DocLink>{" "}
           </Callout>
@@ -613,7 +613,7 @@ const NewDataSourceForm: FC<{
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="All Projects"
               value={connectionInfo.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
@@ -732,6 +732,7 @@ const NewDataSourceForm: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       open={true}
       header={"Add Data Source"}

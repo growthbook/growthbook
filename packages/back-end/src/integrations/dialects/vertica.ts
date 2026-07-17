@@ -34,4 +34,6 @@ export const verticaDialect: SqlDialect = {
   // Vertica's FROM clause rejects bare VALUES, and LATERAL derived tables are
   // restricted to a single SELECT (no UNION).
   unpivotLabeledPairs: indicesTableUnpivot,
+
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
 };

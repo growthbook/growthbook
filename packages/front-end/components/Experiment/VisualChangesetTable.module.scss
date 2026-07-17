@@ -223,7 +223,7 @@
 .variationHead {
   display: flex;
   align-items: center;
-  gap: 64px;
+  gap: 48px;
   padding-top: 14px;
   padding-bottom: 14px;
 }
@@ -356,7 +356,7 @@
 
 // Expanded change list under a variation row.
 .changeList {
-  padding: 2px 0px 18px 35px;
+  padding: 2px 0px 18px 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;

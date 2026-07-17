@@ -45,6 +45,7 @@ const AddOrphanedUserModal: FC<{
   ) {
     return (
       <Modal
+        useRadixButton={false}
         trackingEventModalType=""
         open={true}
         close={close}
@@ -69,6 +70,7 @@ const AddOrphanedUserModal: FC<{
 
   return (
     <Modal
+      useRadixButton={false}
       trackingEventModalType=""
       close={close}
       header="Add User"

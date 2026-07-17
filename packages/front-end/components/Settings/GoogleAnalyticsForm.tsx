@@ -4,6 +4,7 @@ import { FaKey, FaCheck } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const GoogleAnalyticsForm: FC<{
   params: Partial<GoogleAnalyticsParams>;
@@ -34,7 +35,7 @@ const GoogleAnalyticsForm: FC<{
     return (
       <div className="position-relative mb-5">
         {loading && <LoadingOverlay />}
-        <div className="alert alert-info">
+        <Callout status="info">
           If you are using <strong>Google Analytics 4</strong>, you must use a{" "}
           <strong>BigQuery</strong> data source instead (
           <Link
@@ -45,7 +46,7 @@ const GoogleAnalyticsForm: FC<{
             instructions
           </Link>
           ). Universal Analytics properties can connect below.
-        </div>
+        </Callout>
         <button
           className="btn btn-success"
           onClick={(e) => {

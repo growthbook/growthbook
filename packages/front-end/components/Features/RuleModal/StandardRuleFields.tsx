@@ -1,11 +1,12 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
+import { ensureConfigBacking } from "shared/util";
 import { PiLockSimple } from "react-icons/pi";
+import { useConfigBacking } from "@/hooks/useConfigBacking";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -64,7 +65,6 @@ export default function StandardRuleFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  scheduleToggleEnabled: _scheduleToggleEnabled,
   setScheduleToggleEnabled,
   ruleRampSchedule,
   rampSectionState,
@@ -97,6 +97,27 @@ export default function StandardRuleFields({
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
+
+  // A config-backed feature default makes every rule an implicit sparse patch on
+  // that config. The rule may override with the default's config or a descendant,
+  // and the sparse toggle is dropped (rules are always sparse here).
+  const { defaultConfigKey, isConfigBacked, configBackingOptionKeys } =
+    useConfigBacking(feature);
+
+  // Config-backed rules are always sparse and always serve a config. Seed the
+  // value with the default's config (the user can switch to a compatible child)
+  // when it isn't already backed.
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    if (!form.watch("sparse")) form.setValue("sparse", true);
+    const v = form.watch("value");
+    const normalized = ensureConfigBacking(v, defaultConfigKey);
+    if (normalized !== v) form.setValue("value", normalized);
+    // Re-run if the default re-points to a different config (else the rule keeps
+    // a stale backing key); `form` is stable (react-hook-form).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigBacked, defaultConfigKey]);
+
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
     !!form.watch("seed") ||
       (!isNew &&
@@ -224,7 +245,9 @@ export default function StandardRuleFields({
 
     setScheduleToggleEnabled(false);
     if (saved) {
-      setRampSectionState(saved.ramp);
+      // Start-approval is a ramp-only concept; never carry it into a non-ramp
+      // mode, or the rule publishes disabled with no way to clear it here.
+      setRampSectionState({ ...saved.ramp, requiresStartApproval: false });
       form.setValue("coverage", saved.coverage);
     } else {
       setRampSectionState({
@@ -233,6 +256,7 @@ export default function StandardRuleFields({
         steps: [],
         startDate: "",
         endScheduleAt: "",
+        requiresStartApproval: false,
       });
       if (leavingRamp) form.setValue("coverage", 1);
     }
@@ -251,17 +275,29 @@ export default function StandardRuleFields({
 
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
-      <FeatureValueField
-        label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-        id="value"
-        value={form.watch("value")}
-        setValue={(v) => form.setValue("value", v)}
-        valueType={feature.valueType}
-        feature={feature}
-        renderJSONInline={true}
-        useCodeInput={true}
-        showFullscreenButton={true}
-      />
+      <Box mb="5">
+        <FeatureValueField
+          label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
+          id="value"
+          value={form.watch("value")}
+          setValue={(v) => form.setValue("value", v)}
+          valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          useCodeInput={true}
+          showFullscreenButton={true}
+          sparse={!!form.watch("sparse")}
+          // Config-backed rules are always sparse, so the toggle is dropped and a
+          // config picker (restricted to the default's subtree) is offered instead.
+          setSparse={
+            isConfigBacked ? undefined : (v) => form.setValue("sparse", v)
+          }
+          allowConfigBacking={isConfigBacked}
+          configBackingOptionKeys={configBackingOptionKeys}
+          configBackingShowPatch={isConfigBacked}
+          lockConfigBacking={isConfigBacked}
+        />
+      </Box>
 
       <div className="mb-3">
         <Heading as="h3" size="small" mb="2">
@@ -377,18 +413,29 @@ export default function StandardRuleFields({
                       ruleRampSchedule.status,
                     );
                   const isPendingRemoval = rampSectionState.mode === "off";
+                  // A running simple schedule's start has already passed, so the
+                  // back-end ignores startDate edits — lock the Start row while
+                  // still allowing the end date to be changed.
+                  const isRunningSimple =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ruleRampSchedule.status === "running";
                   return (
                     <>
                       <ScheduleInputs
                         state={rampSectionState}
                         setState={setRampSectionState}
                         disabled={isTerminal || isPendingRemoval}
+                        disableStart={isRunningSimple}
                       />
                       {isTerminal && !isPendingRemoval && (
-                        <Callout status="info" mt="3" size="sm">
-                          <Flex align="center" justify="between" gap="3">
-                            <Text>This schedule has finished.</Text>
+                        <Callout
+                          status="info"
+                          mt="3"
+                          size="sm"
+                          action={
                             <Button
+                              color="inherit"
                               size="xs"
                               variant="outline"
                               onClick={() =>
@@ -400,7 +447,9 @@ export default function StandardRuleFields({
                             >
                               Remove schedule
                             </Button>
-                          </Flex>
+                          }
+                        >
+                          This schedule has finished.
                         </Callout>
                       )}
                       {isPendingRemoval && (
@@ -502,11 +551,10 @@ export default function StandardRuleFields({
         </Flex>
       )}
       {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
+        <Callout status="error">
+          A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+          dependency. Remove this prerequisite to continue.
+        </Callout>
       )}
     </>
   );

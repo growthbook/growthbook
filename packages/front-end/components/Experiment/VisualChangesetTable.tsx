@@ -34,6 +34,8 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Metadata from "@/ui/Metadata";
+import VariationLabel from "@/ui/VariationLabel";
 import { ICON_PROPERTIES } from "./LinkedChanges/constants";
 import {
   ChangeType,
@@ -458,23 +460,15 @@ function VariationRow({
   return (
     <Box className={styles.variationRow}>
       <Flex className={styles.variationHead}>
-        <Flex
-          gap="1"
-          flexBasis="15%"
-          flexShrink="0"
-          className={`variation with-variation-label variation${variationIndex}`}
-        >
-          <Box as="span" className="label">
-            {variationIndex}
-          </Box>
-          <Box as="span" className="text-ellipsis" title={variationName}>
-            <Text color="text-high" weight="medium">
-              {variationName}
-            </Text>
-          </Box>
-        </Flex>
+        <Box flexBasis="25%" flexShrink="0" minWidth="0">
+          <VariationLabel
+            number={variationIndex}
+            name={variationName}
+            size="medium"
+          />
+        </Box>
         <Flex flexBasis="90px" flexShrink="0" justify="end">
-          <Text>{splitPct}% Split</Text>
+          <Metadata label="Split" value={splitPct + "%"} />
         </Flex>
         <Box className={styles.changesArea}>
           {count === 0 ? (
@@ -508,8 +502,7 @@ function VariationRow({
             </Link>
           )}
           {canEdit && change && (
-            <Button
-              variant="ghost"
+            <Link
               onClick={() =>
                 setEditingVisualChange({
                   visualChange: change,
@@ -518,8 +511,8 @@ function VariationRow({
                 })
               }
             >
-              Edit
-            </Button>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           )}
           {canDeleteVariation && (
             <button
@@ -590,13 +583,9 @@ function TargetingRows({
           <RuleChip key={`inc-${i}-${p.type}-${p.pattern}`} rule={p} />
         ))}
         {canEdit && (
-          <button
-            type="button"
-            className={styles.editTargetingBtn}
-            onClick={onEdit}
-          >
-            Edit
-          </button>
+          <Link onClick={onEdit}>
+            <Text weight="semibold">Edit</Text>
+          </Link>
         )}
       </Flex>
       {exc.length > 0 && (
@@ -711,7 +700,6 @@ function UrlCard({
           {canEdit && (
             <DeleteButton
               className="btn-sm ml-4"
-              useRadix={true}
               text="Remove"
               stopPropagation={true}
               onClick={() => onDeleteChangeset()}
@@ -720,6 +708,7 @@ function UrlCard({
           )}
           {canEdit && experiment.status === "draft" && (
             <OpenVisualEditorLink
+              useRadix={false}
               visualChangeset={vc}
               useLink
               button={<Button variant="ghost">Launch visual editor</Button>}

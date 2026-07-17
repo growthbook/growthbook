@@ -90,6 +90,7 @@ const WebhooksPage: FC = () => {
                         Edit
                       </DropdownLink>
                       <DeleteButton
+                        useRadix={false}
                         onClick={async () => {
                           await apiCall<void>(`/webhook-secrets/${secret.id}`, {
                             method: "DELETE",
