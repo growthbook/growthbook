@@ -103,18 +103,26 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   "metric-experiments": {
     name: "Experiments with Lift",
     icon: <PiTableDuotone />,
+    description:
+      "Shows experiments with lift for selected goal, secondary, and guardrail metrics.",
   },
   "experiments-scaled-impact": {
     name: "Scaled Impact",
     icon: <PiChartLineDuotone />,
+    description:
+      "Shows experiments with scaled impact for selected goal, secondary, and guardrail metrics.",
   },
   "experiments-win-rate": {
     name: "Win Percentage",
     icon: <PiGaugeDuotone />,
+    description:
+      "Shows the win percentage for selected goal, secondary, and guardrail metrics.",
   },
   "experiments-status": {
     name: "Team Velocity",
     icon: <PiChartBarDuotone />,
+    description:
+      "Shows the status of experiments for selected goal, secondary, and guardrail metrics.",
   },
   "experiment-dimension": {
     name: "Dimension Results",

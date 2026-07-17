@@ -19,7 +19,6 @@ import TextDivider from "@/components/TextDivider/TextDivider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -85,7 +84,6 @@ export default function EmptyState() {
         <Heading as="h1" size="x-large" weight="medium">
           Product Analytics
         </Heading>
-        <Badge color="indigo" label="Beta" ml="2" variant="solid" />
         <Flex align="center" gap="2" ml="3">
           <DataSourceDropdown />
         </Flex>
@@ -304,10 +302,9 @@ export default function EmptyState() {
                     }}
                   >
                     <Text color="text-low" align="left">
-                      Explore your existing metrics, fact tables, and other
-                      data. View trends, build custom funnels, and more.
-                      {!chatDisabledReason &&
-                        " Not sure where to start? Ask AI above."}
+                      Visualize metrics, view trends, build custom funnels, and
+                      more.
+                      {!chatDisabledReason && " Or, use Ask AI to get started."}
                     </Text>
                     <Flex
                       gap="3"
@@ -340,7 +337,7 @@ export default function EmptyState() {
                         Data Source explorer
                       </LinkButton>
                       <LinkButton
-                        href="/product-analytics/funnel-builder"
+                        href="/product-analytics/funnel"
                         variant="outline"
                         icon={<PiFunnel size={16} />}
                         disabled={!canRunFactQueries}
