@@ -59,8 +59,10 @@ async function setArchivedState(
   // Deferred-publish guards (direct publish → armed:false): archived refs are
   // stripped at resolution, so either transition rewrites the value served to
   // anything referencing this constant — warn (bypassably) when that reaches a
-  // running experiment or a locked dependent config. The constant's own values
-  // are unchanged, so the proposed values are the current ones.
+  // running experiment or a locked dependent config, or when scrubbing
+  // (archive) / restoring (unarchive) the values breaks a dependent config or
+  // config-backed feature value's schema. The constant's own values are
+  // unchanged; the transition is the proposed archived flip.
   await assertConstantPublishGuards(
     context,
     constant,
@@ -68,6 +70,7 @@ async function setArchivedState(
     { armed: false },
     constant.value,
     constant.environmentValues,
+    archived,
   );
 
   // For the review model this transition is metadata-only. Respect the

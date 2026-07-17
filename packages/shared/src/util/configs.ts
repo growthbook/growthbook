@@ -917,6 +917,11 @@ export function collectResolvedConfigValueViolations({
     value,
     fields: effectiveSchema,
     additionalProperties,
+    // The value is fully resolved (nothing left to inherit or substitute), so
+    // completeness is checkable: a required field missing HERE is missing from
+    // what ships — e.g. resolution scrubbed an archived reference that supplied
+    // it. Sparse own values are validated elsewhere without requireAll.
+    requireAll: true,
   });
   if (!res.valid) errors.push(...res.errors);
 

@@ -10,6 +10,7 @@ import { assertConfigLockGuard } from "back-end/src/services/configLockGuard";
 import {
   assertConstantSchemaBreakGuard,
   assertConfigSchemaBreakGuard,
+  assertConfigArchiveSchemaBreakGuard,
 } from "back-end/src/services/schemaBreakGuard";
 
 // Every deferred-publish guard for a config/constant publish, orchestrated in one
@@ -32,6 +33,12 @@ export async function assertConfigPublishGuards(
     ConfigInterface,
     "value" | "schema" | "parent" | "extends" | "extensible"
   >,
+  // The proposed archived state when this publish is an archive/unarchive
+  // transition. Resolution scrubs archived entries, so the flip rewrites
+  // dependents' resolved values even though the config's own value is unchanged
+  // — the schema-break guard models the transition against them. Omit for a
+  // value publish.
+  proposedArchived?: boolean,
 ): Promise<void> {
   await assertConfigExperimentGuard(context, config, revision, opts);
   await assertConfigLockGuard(
@@ -40,6 +47,18 @@ export async function assertConfigPublishGuards(
     revision,
     opts,
   );
+  if (
+    proposedArchived !== undefined &&
+    !!config.archived !== proposedArchived
+  ) {
+    await assertConfigArchiveSchemaBreakGuard(
+      context,
+      config,
+      proposedArchived,
+      opts,
+      revision,
+    );
+  }
   if (proposedConfig) {
     await assertConfigSchemaBreakGuard(
       context,
@@ -69,6 +88,11 @@ export async function assertConstantPublishGuards(
   // then skips (fail-open, soft warning).
   proposedValue?: string,
   proposedEnvironmentValues?: Record<string, string>,
+  // The proposed archived state for an archive/unarchive transition — archived
+  // references are scrubbed at resolution, so the flip rewrites dependents'
+  // resolved values even with the constant's own values unchanged. Omit for a
+  // value publish.
+  proposedArchived?: boolean,
 ): Promise<void> {
   await assertConstantExperimentGuard(context, constant, revision, opts);
   await assertConfigLockGuard(
@@ -84,5 +108,6 @@ export async function assertConstantPublishGuards(
     opts,
     revision,
     proposedEnvironmentValues,
+    proposedArchived,
   );
 }

@@ -58,14 +58,17 @@ async function setArchivedState(
   }
   // Deferred-publish guards (direct publish → armed:false): warn (bypassably)
   // when the transition rewrites a value served to a running experiment or
-  // feeding a locked dependent. The config's own value/schema are unchanged,
-  // so the proposed state is the config as-is.
+  // feeding a locked dependent. The config's own value/schema are unchanged
+  // (no proposedConfig — nothing for the own-value check to diff), but archived
+  // references are scrubbed at resolution, so the schema-break guard models the
+  // archived flip against dependent configs and config-backed feature values.
   await assertConfigPublishGuards(
     context,
     config,
     { armAcknowledgments: undefined },
     { armed: false },
-    config,
+    undefined,
+    archived,
   );
 
   // Metadata-only, but still respect the approval gate so it can't bypass

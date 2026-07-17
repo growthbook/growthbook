@@ -2,8 +2,8 @@ import { ConfigInterface } from "shared/types/config";
 import { FeatureInterface } from "shared/types/feature";
 import {
   collectConfigOwnBreaks,
-  collectConstantConfigBreaks,
-  collectConstantFeatureBreaks,
+  collectDependentConfigBreaks,
+  collectDependentFeatureBreaks,
   unacknowledgedSchemaBreakViolations,
 } from "back-end/src/services/schemaBreakGuard";
 import { ResolvableValue } from "back-end/src/services/resolvableValues";
@@ -161,7 +161,7 @@ describe("collectConfigOwnBreaks", () => {
   });
 });
 
-describe("collectConstantConfigBreaks", () => {
+describe("collectDependentConfigBreaks", () => {
   // Config `c` pulls its port from constant `t`; schema requires integer.
   const configResolvable = {
     key: "c",
@@ -179,12 +179,12 @@ describe("collectConstantConfigBreaks", () => {
   } as unknown as ConfigInterface;
 
   it("flags a base-value change that breaks a dependent config", () => {
-    const out = collectConstantConfigBreaks({
+    const out = collectDependentConfigBreaks({
       resolvables: [configResolvable, constant("t", '{"port":8080}')],
       allConfigs: [configNode],
       environments: ["prod"],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":"bad"}',
     });
     expect(out).toEqual([expect.stringContaining('config "c"')]);
@@ -193,7 +193,7 @@ describe("collectConstantConfigBreaks", () => {
 
   it("flags a PER-ENVIRONMENT value change (env-tagged) — the F1 gap", () => {
     // t is valid at base and in prod today; the change sets prod to a bad type.
-    const out = collectConstantConfigBreaks({
+    const out = collectDependentConfigBreaks({
       resolvables: [
         configResolvable,
         constant("t", '{"port":8080}', { prod: '{"port":8080}' }),
@@ -201,7 +201,7 @@ describe("collectConstantConfigBreaks", () => {
       allConfigs: [configNode],
       environments: ["prod", "staging"],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":8080}', // base unchanged
       proposedEnvironmentValues: { prod: '{"port":"bad"}' },
     });
@@ -209,7 +209,7 @@ describe("collectConstantConfigBreaks", () => {
   });
 
   it("does not flag when the per-env change stays schema-valid", () => {
-    const out = collectConstantConfigBreaks({
+    const out = collectDependentConfigBreaks({
       resolvables: [
         configResolvable,
         constant("t", '{"port":8080}', { prod: '{"port":8080}' }),
@@ -217,7 +217,7 @@ describe("collectConstantConfigBreaks", () => {
       allConfigs: [configNode],
       environments: ["prod"],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":8080}',
       proposedEnvironmentValues: { prod: '{"port":9090}' },
     });
@@ -228,7 +228,7 @@ describe("collectConstantConfigBreaks", () => {
     // The proposed BASE value breaks, but prod keeps a valid per-env override —
     // only staging (which inherits the base) actually serves the break. The
     // report must tag staging, not claim every environment.
-    const out = collectConstantConfigBreaks({
+    const out = collectDependentConfigBreaks({
       resolvables: [
         configResolvable,
         constant("t", '{"port":8080}', { prod: '{"port":9090}' }),
@@ -236,7 +236,7 @@ describe("collectConstantConfigBreaks", () => {
       allConfigs: [configNode],
       environments: ["prod", "staging"],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":"bad"}',
       proposedEnvironmentValues: { prod: '{"port":9090}' },
     });
@@ -247,7 +247,7 @@ describe("collectConstantConfigBreaks", () => {
   it("drops a base-only break every live environment avoids via overrides", () => {
     // Every environment overrides the constant with a valid value, so the
     // broken base value serves nowhere — nothing to warn about.
-    const out = collectConstantConfigBreaks({
+    const out = collectDependentConfigBreaks({
       resolvables: [
         configResolvable,
         constant("t", '{"port":8080}', {
@@ -258,7 +258,7 @@ describe("collectConstantConfigBreaks", () => {
       allConfigs: [configNode],
       environments: ["prod", "staging"],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":"bad"}',
       proposedEnvironmentValues: {
         prod: '{"port":9090}',
@@ -269,7 +269,7 @@ describe("collectConstantConfigBreaks", () => {
   });
 });
 
-describe("collectConstantFeatureBreaks", () => {
+describe("collectDependentFeatureBreaks", () => {
   it("keeps identical breaks in two same-type rules distinguishable (fingerprint identity)", () => {
     // Two force rules whose shipped values break the same way once the constant
     // changes. The violation strings double as the arm-time acknowledgment
@@ -324,19 +324,185 @@ describe("collectConstantFeatureBreaks", () => {
       ],
     } as unknown as FeatureInterface;
 
-    const out = collectConstantFeatureBreaks({
+    const out = collectDependentFeatureBreaks({
       resolvables: [configResolvable, constant("t", '{"port":8080}')],
       features: [feature],
       allConfigs: [configNode],
       environments: [],
       extensibleDefault: false,
-      constantKey: "t",
+      key: "t",
       proposedValue: '{"port":"bad"}',
     });
     expect(out).toEqual([
       expect.stringContaining('feature "f" Rule fr_1 value'),
       expect.stringContaining('feature "f" Rule fr_2 value'),
     ]);
+  });
+});
+
+describe("archive/unarchive transition breaks (proposedArchived)", () => {
+  const requiredPortSchema = {
+    type: "object" as const,
+    fields: [
+      {
+        key: "port",
+        type: "integer" as const,
+        required: true,
+        default: "",
+        description: "",
+        enum: [],
+      },
+    ],
+  };
+  const configResolvable = (key: string, value: string): ResolvableValue =>
+    ({
+      key,
+      type: "json",
+      value,
+      project: "",
+      source: "config",
+    }) as unknown as ResolvableValue;
+
+  it("flags archiving a config that supplies a dependent's required field", () => {
+    // child inherits its required `port` from base; archiving base scrubs the
+    // inherited layer, so child's resolved value loses the field.
+    const resolvables = [
+      configResolvable("base", '{"port":8080}'),
+      configResolvable("child", '{"$extends":["@config:base"]}'),
+    ];
+    const allConfigs = [
+      {
+        key: "base",
+        project: "",
+        value: '{"port":8080}',
+        schema: requiredPortSchema,
+        extensible: false,
+      },
+      { key: "child", project: "", parent: "base", value: "{}" },
+    ] as unknown as ConfigInterface[];
+    const out = collectDependentConfigBreaks({
+      resolvables,
+      allConfigs,
+      environments: ["prod"],
+      extensibleDefault: false,
+      source: "config",
+      key: "base",
+      proposedValue: undefined,
+      proposedArchived: true,
+    });
+    expect(out).toEqual([expect.stringContaining('config "child"')]);
+    expect(out[0]).toContain("port");
+  });
+
+  it("flags unarchiving a constant whose restored value violates a dependent's schema", () => {
+    // While t was archived its refs were scrubbed (config resolves without a
+    // port — fine, port isn't required here). Unarchiving restores the stored
+    // string value into the integer field.
+    const t = {
+      ...constant("t", '{"port":"bad"}'),
+      archived: true,
+    } as ResolvableValue;
+    const resolvables = [configResolvable("c", '{"$extends":["@const:t"]}'), t];
+    const allConfigs = [
+      {
+        key: "c",
+        project: "",
+        value: '{"$extends":["@const:t"]}',
+        schema: portIntegerSchema,
+        extensible: false,
+      },
+    ] as unknown as ConfigInterface[];
+    const out = collectDependentConfigBreaks({
+      resolvables,
+      allConfigs,
+      environments: ["prod"],
+      extensibleDefault: false,
+      key: "t",
+      proposedValue: '{"port":"bad"}', // unchanged — the transition is the flip
+      proposedArchived: false,
+    });
+    expect(out).toEqual([expect.stringContaining('config "c"')]);
+    expect(out[0]).toContain("port");
+  });
+
+  it("flags archiving a config that a feature ships directly (empty patch)", () => {
+    // An empty-patch value resolves identically to the backing config, which is
+    // normally covered by the dependent-config check — but the transitioning
+    // config itself is excluded there, so the feature check must catch it.
+    const feature = {
+      id: "f",
+      project: "",
+      valueType: "json",
+      baseConfig: "c",
+      defaultValue: '{"$extends":["@config:c"]}',
+      rules: [],
+    } as unknown as FeatureInterface;
+    const out = collectDependentFeatureBreaks({
+      resolvables: [configResolvable("c", '{"port":8080}')],
+      features: [feature],
+      allConfigs: [
+        {
+          key: "c",
+          project: "",
+          value: '{"port":8080}',
+          schema: requiredPortSchema,
+          extensible: false,
+        } as unknown as ConfigInterface,
+      ],
+      environments: [],
+      extensibleDefault: false,
+      source: "config",
+      key: "c",
+      proposedValue: undefined,
+      proposedArchived: true,
+    });
+    expect(out).toEqual([expect.stringContaining('feature "f" Default value')]);
+    expect(out[0]).toContain("port");
+  });
+
+  it("is silent when the archived entity has no dependents", () => {
+    const resolvables = [
+      configResolvable("lone", '{"port":8080}'),
+      configResolvable("other", '{"port":1}'),
+    ];
+    const allConfigs = [
+      {
+        key: "lone",
+        project: "",
+        value: '{"port":8080}',
+        schema: requiredPortSchema,
+        extensible: false,
+      },
+      {
+        key: "other",
+        project: "",
+        value: '{"port":1}',
+        schema: requiredPortSchema,
+        extensible: false,
+      },
+    ] as unknown as ConfigInterface[];
+    const feature = {
+      id: "f",
+      project: "",
+      valueType: "json",
+      baseConfig: "other",
+      defaultValue: '{"$extends":["@config:other"]}',
+      rules: [],
+    } as unknown as FeatureInterface;
+    const shared = {
+      resolvables,
+      allConfigs,
+      environments: ["prod"],
+      extensibleDefault: false,
+      source: "config" as const,
+      key: "lone",
+      proposedValue: undefined,
+      proposedArchived: true,
+    };
+    expect(collectDependentConfigBreaks(shared)).toEqual([]);
+    expect(
+      collectDependentFeatureBreaks({ ...shared, features: [feature] }),
+    ).toEqual([]);
   });
 });
 

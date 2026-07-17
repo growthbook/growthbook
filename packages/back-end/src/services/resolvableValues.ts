@@ -29,7 +29,7 @@ export type ResolvableValue = ConstantInterface & {
 // parse + stringify of the full value) runs once per config. A write reloads
 // the snapshot with fresh objects, invalidating naturally. Sharing the result
 // is safe — resolvables are never mutated in place (writers like
-// swapConstantValue copy).
+// swapProposedResolvable copy).
 const resolvableByDoc = new WeakMap<ConfigInterface, ResolvableValue>();
 export function configToResolvable(config: ConfigInterface): ResolvableValue {
   const cached = resolvableByDoc.get(config);
