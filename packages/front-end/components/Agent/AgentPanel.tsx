@@ -410,7 +410,7 @@ export default function AgentPanel({
 
   const handleSend = useCallback(() => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || loading) return;
     if (askPrompt && !askPrompt.resolved) {
       // Typing a free-text reply also resolves the active question.
       setAskPrompt({ ...askPrompt, resolved: true });
@@ -421,7 +421,7 @@ export default function AgentPanel({
     }
     trackMessageSent();
     sendMessage();
-  }, [input, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
+  }, [input, loading, sendMessage, askPrompt, confirmPrompt, trackMessageSent]);
 
   const handleAskOption = useCallback(
     (option: AskUserOption) => {
