@@ -7,6 +7,8 @@ import {
   dashboardBlockHasIds,
 } from "shared/enterprise";
 import React, { useMemo, useState } from "react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "shared/types/app-features";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
@@ -33,8 +35,13 @@ import EditSingleBlock from "./EditSingleBlock";
 const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "metric-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "fact-table-exploration",
   "data-source-exploration",
+  "funnel-exploration",
   "sql-explorer",
   "metric-explorer",
 ];
@@ -97,6 +104,8 @@ export default function DashboardEditorSidebar({
   duplicateBlock,
   deleteBlock,
 }: Props) {
+  const gb = useGrowthBook<AppFeatures>();
+  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
   const [draggingBlockIndex, setDraggingBlockIndex] = useState<
     number | undefined
   >(undefined);
@@ -132,7 +141,7 @@ export default function DashboardEditorSidebar({
       {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
         // Filter block types based on dashboard type
         const allowedBlockTypes = blockTypes.filter((bType) =>
-          isBlockTypeAllowed(bType, isGeneralDashboard),
+          isBlockTypeAllowed(bType, isGeneralDashboard, funnelExplorerEnabled),
         );
 
         // Don't render the subgroup if no block types are allowed
