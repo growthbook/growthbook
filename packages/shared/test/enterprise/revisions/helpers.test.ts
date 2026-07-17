@@ -7,6 +7,7 @@ import {
   getRevisionKey,
   canUserReviewEntity,
   checkMergeConflicts,
+  getRevisionUpdatableFields,
   normalizeProposedChanges,
   applyTopLevelPatchOps,
   patchOpsToPartial,
@@ -142,6 +143,30 @@ describe("revisions helpers", () => {
           canEditEntity: true,
         }),
       ).toBe(true);
+    });
+  });
+
+  describe("getRevisionUpdatableFields", () => {
+    it("excludes config scopedOverrides (the field that caused phantom conflicts)", () => {
+      const fields = getRevisionUpdatableFields("config");
+      expect(fields.has("value")).toBe(true);
+      expect(fields.has("schema")).toBe(true);
+      // Excluded from configUpdatableFieldsSchema -> must not gate conflicts.
+      expect(fields.has("scopedOverrides")).toBe(false);
+      // Non-updatable identity/metadata fields are also excluded.
+      expect(fields.has("id")).toBe(false);
+      expect(fields.has("key")).toBe(false);
+    });
+
+    it("returns the constant updatable fields", () => {
+      const fields = getRevisionUpdatableFields("constant");
+      expect(fields.has("value")).toBe(true);
+      expect(fields.has("environmentValues")).toBe(true);
+      expect(fields.has("id")).toBe(false);
+    });
+
+    it("returns a non-empty set for saved-group", () => {
+      expect(getRevisionUpdatableFields("saved-group").size).toBeGreaterThan(0);
     });
   });
 

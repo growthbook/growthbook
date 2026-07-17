@@ -9,6 +9,7 @@ import {
   Conflict,
   normalizeProposedChanges,
   patchOpsToPartial,
+  getRevisionUpdatableFields,
 } from "shared/enterprise";
 import { isEqual } from "lodash";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -195,8 +196,18 @@ export default function FixRevisionConflictsModal({
   // the optimistic-lock payload to /rebase, because the server recomputes the
   // same shape and compares via JSON.stringify — the two must match byte-for-byte.
   const rawConflictCheck = useMemo(
-    () => checkMergeConflicts(baseSnapshot, liveSnapshot, proposedChanges),
-    [baseSnapshot, liveSnapshot, proposedChanges],
+    () =>
+      checkMergeConflicts(
+        baseSnapshot,
+        liveSnapshot,
+        proposedChanges,
+        // Scope to mergeable fields so a non-updatable field (e.g. a config's
+        // scopedOverrides, excluded from the snapshot) can't render a phantom
+        // conflict. Must match the server's rebase recompute (same allowlist) so
+        // the optimistic-lock payload below still matches byte-for-byte.
+        getRevisionUpdatableFields(revision.target.type),
+      ),
+    [baseSnapshot, liveSnapshot, proposedChanges, revision.target.type],
   );
 
   const mergeResult = useMemo(() => {

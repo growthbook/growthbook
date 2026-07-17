@@ -22,6 +22,10 @@ import {
   constantBlockSelfApproval,
   constantAutopublishOnApproval,
 } from "../util/features";
+// Specific files (not the barrel) to avoid a runtime import cycle.
+import { configUpdatableFieldsSchema } from "../validators/config";
+import { constantUpdatableFieldsSchema } from "../validators/constant";
+import { savedGroupUpdatableFieldsSchema } from "../validators/saved-group";
 
 /**
  * Resolve the approval-flow configuration for a given entity type.
@@ -416,6 +420,26 @@ export function patchOpsToPartial<T extends Record<string, unknown>>(
  * If the proposed value equals the base value, it's not considered a change
  * and won't trigger a conflict even if live has changed.
  */
+// The top-level fields a revision merge may write for each entity type — the
+// keys of the entity's `*UpdatableFieldsSchema`. Pass to `checkMergeConflicts`
+// so only mergeable fields participate in conflict detection, on the client
+// (conflict UI computes it in the browser) as well as the server. Mirrors each
+// back-end adapter's getUpdatableFields(); both read the same pick schema, so
+// they can't drift. Exhaustive over RevisionTargetType (no default) so a new
+// entity type fails type-check until it's handled here.
+export function getRevisionUpdatableFields(
+  entityType: RevisionTargetType,
+): ReadonlySet<string> {
+  switch (entityType) {
+    case "config":
+      return new Set(Object.keys(configUpdatableFieldsSchema.shape));
+    case "constant":
+      return new Set(Object.keys(constantUpdatableFieldsSchema.shape));
+    case "saved-group":
+      return new Set(Object.keys(savedGroupUpdatableFieldsSchema.shape));
+  }
+}
+
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,

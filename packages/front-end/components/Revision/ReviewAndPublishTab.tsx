@@ -3,6 +3,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
   checkMergeConflicts,
+  getRevisionUpdatableFields,
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -308,11 +309,13 @@ function ReviewAndPublishRevision<T>({
       revision.target.snapshot as unknown as Record<string, unknown>,
       currentState as unknown as Record<string, unknown>,
       revision.target.proposedChanges,
+      getRevisionUpdatableFields(revision.target.type),
     );
   }, [
     isActiveDraft,
     revision.target.snapshot,
     revision.target.proposedChanges,
+    revision.target.type,
     currentState,
   ]);
   const mergeSuccess = !mergeResult || mergeResult.success;
