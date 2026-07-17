@@ -10,7 +10,6 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -353,16 +352,7 @@ export function PreLaunchChecklistDrawer() {
     setShowScheduleModal,
   } = usePreLaunchChecklist();
 
-  const [open, setOpen] = useLocalStorage<boolean>(
-    `prelaunchChecklistOpen__${experiment.id}`,
-    true,
-  );
-
-  useEffect(() => {
-    if (checklistItemsRemaining === 0) {
-      setOpen(false);
-    }
-  }, [checklistItemsRemaining, setOpen]);
+  const [open, setOpen] = useState(false);
 
   return (
     <>
