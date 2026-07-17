@@ -87,42 +87,39 @@ export default function DashboardGlobalControlsBar({
   // Persist a change to one of the experiment-block filters (projects / metric /
   // experiment search). Unlike the date control, these never trigger a snapshot
   // refresh — the affected experiment blocks re-render client-side (or re-key
-  // their own query) from the new global controls.
+  // their own query) from the new global controls. We intentionally do NOT flip
+  // `saving` here: the local state updates optimistically, and disabling the
+  // controls on every checkbox toggle makes the pills flicker.
   const persistExperimentFilter = async (
     patch: Partial<NonNullable<DashboardInterface["globalControls"]>>,
   ) => {
-    setSaving(true);
-    try {
-      const nextGlobalControls: NonNullable<
-        DashboardInterface["globalControls"]
-      > = { ...(globalControls ?? {}), ...patch };
-      // Normalize "empty" values back to absent so the filter reads as inactive.
-      if (
-        !nextGlobalControls.projects ||
-        nextGlobalControls.projects.length === 0
-      ) {
-        delete nextGlobalControls.projects;
-      }
-      if (!nextGlobalControls.metricId) delete nextGlobalControls.metricId;
-      if (!nextGlobalControls.experimentSearchString) {
-        delete nextGlobalControls.experimentSearchString;
-      }
-
-      // Auto-enroll supported blocks the first time a filter is enabled.
-      let nextBlocks = blocks;
-      DASHBOARD_GLOBAL_FILTER_KEYS.forEach((key) => {
-        if (isEnablingGlobalFilter(globalControls, nextGlobalControls, key)) {
-          nextBlocks = autoEnrollDashboardBlocksInGlobalFilter(nextBlocks, key);
-        }
-      });
-      const blocksChanged = nextBlocks !== blocks;
-      await onGlobalControlsChange(
-        nextGlobalControls,
-        blocksChanged ? nextBlocks : undefined,
-      );
-    } finally {
-      setSaving(false);
+    const nextGlobalControls: NonNullable<
+      DashboardInterface["globalControls"]
+    > = { ...(globalControls ?? {}), ...patch };
+    // Normalize "empty" values back to absent so the filter reads as inactive.
+    if (
+      !nextGlobalControls.projects ||
+      nextGlobalControls.projects.length === 0
+    ) {
+      delete nextGlobalControls.projects;
     }
+    if (!nextGlobalControls.metricId) delete nextGlobalControls.metricId;
+    if (!nextGlobalControls.experimentSearchString) {
+      delete nextGlobalControls.experimentSearchString;
+    }
+
+    // Auto-enroll supported blocks the first time a filter is enabled.
+    let nextBlocks = blocks;
+    DASHBOARD_GLOBAL_FILTER_KEYS.forEach((key) => {
+      if (isEnablingGlobalFilter(globalControls, nextGlobalControls, key)) {
+        nextBlocks = autoEnrollDashboardBlocksInGlobalFilter(nextBlocks, key);
+      }
+    });
+    const blocksChanged = nextBlocks !== blocks;
+    await onGlobalControlsChange(
+      nextGlobalControls,
+      blocksChanged ? nextBlocks : undefined,
+    );
   };
 
   const persistGlobalControls = async (
@@ -205,11 +202,6 @@ export default function DashboardGlobalControlsBar({
             value={globalControls?.dateRange ?? null}
             granularity={globalControls?.dateGranularity ?? "auto"}
             disabled={!canModifyControls || saving}
-            excludedNote={
-              experimentApplicability.hasDateExcludedBlock
-                ? "The date filter does not apply to Experiments with Lift, which keeps its own start/end date filters."
-                : undefined
-            }
             onChange={(dateRange) => {
               const nextGlobalControls = { ...(globalControls ?? {}) };
               if (dateRange) {

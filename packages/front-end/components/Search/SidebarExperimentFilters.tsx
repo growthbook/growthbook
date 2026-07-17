@@ -29,7 +29,7 @@ function activateOnKey(e: React.KeyboardEvent, fn: () => void) {
 // Filter keys this component understands, kept in sync with the syntax filters
 // useExperimentSearch recognizes. Mirrors ExperimentSearchFilters so the parsed
 // tokens map back onto the same categories.
-const EXPERIMENT_FILTER_KEYS = [
+export const EXPERIMENT_FILTER_KEYS = [
   "project",
   "metric",
   "owner",
@@ -82,6 +82,13 @@ interface Props {
   showProjectFilter?: boolean;
   // Additional non-search-string pill filters (e.g. date ranges).
   extraFilters?: ExtraFilter[];
+  // Render the category list inline (no "Add filter" button) for wide surfaces
+  // like the dashboard filter bar. Clicking a category still creates its pill
+  // in place and opens the value panel.
+  categoriesInline?: boolean;
+  // Hide the built-in "Clear filters" link (the caller renders its own, e.g. in
+  // a popover header).
+  hideClearFilters?: boolean;
 }
 
 /**
@@ -100,6 +107,8 @@ const SidebarExperimentFilters: FC<Props> = ({
   showStatusFilter = true,
   showProjectFilter = true,
   extraFilters = [],
+  categoriesInline = false,
+  hideClearFilters = false,
 }) => {
   const { searchTerm, syntaxFilters } = useMemo(
     () => transformQuery(searchValue, EXPERIMENT_FILTER_KEYS),
@@ -334,6 +343,160 @@ const SidebarExperimentFilters: FC<Props> = ({
     if (activeField === field) setActiveField("");
   };
 
+  // Renders a removable filter chip. In the default (popover) layout this is a
+  // soft violet Badge; in the inline layout each chip is its own full-width
+  // bordered row (matching the category rows) with a grayish background, violet
+  // label, and a gray remove "X" aligned right like the category chevron.
+  const renderChip = ({
+    label,
+    ariaLabel,
+    onRemove,
+    isTrigger,
+  }: {
+    label: React.ReactNode;
+    ariaLabel: string;
+    onRemove: () => void;
+    isTrigger: boolean;
+  }) => {
+    if (categoriesInline) {
+      return (
+        <Flex
+          align="center"
+          justify="between"
+          gap="2"
+          px="2"
+          py="2"
+          className={isTrigger ? "cursor-pointer" : undefined}
+          style={{
+            width: "100%",
+            borderBottom: "1px solid var(--gray-a5)",
+          }}
+        >
+          <span style={{ color: "var(--violet-11)", minWidth: 0 }}>
+            <Text
+              size="small"
+              weight="medium"
+              whiteSpace="normal"
+              overflowWrap="anywhere"
+            >
+              {label}
+            </Text>
+          </span>
+          <Flex
+            align="center"
+            role="button"
+            tabIndex={0}
+            aria-label={ariaLabel}
+            className="cursor-pointer"
+            style={{ flexShrink: 0 }}
+            onPointerDown={isTrigger ? (e) => e.stopPropagation() : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            onKeyDown={(e) => activateOnKey(e, onRemove)}
+          >
+            <PiX size={12} color="var(--slate-9)" />
+          </Flex>
+        </Flex>
+      );
+    }
+
+    const removeButton = (
+      <IconButton
+        size="1"
+        variant="ghost"
+        color="violet"
+        radius="full"
+        aria-label={ariaLabel}
+        onPointerDown={isTrigger ? (e) => e.stopPropagation() : undefined}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+      >
+        <PiX size={12} />
+      </IconButton>
+    );
+
+    return (
+      <Badge
+        color="violet"
+        variant="soft"
+        radius="small"
+        className={isTrigger ? "cursor-pointer" : undefined}
+        style={{ maxWidth: "100%", whiteSpace: "normal" }}
+        label={
+          <Flex align="center" gap="1">
+            <Text
+              size="small"
+              whiteSpace="normal"
+              weight="medium"
+              overflowWrap="anywhere"
+            >
+              {label}
+            </Text>
+            {removeButton}
+          </Flex>
+        }
+      />
+    );
+  };
+
+  // The addable-category rows, shared by the "Add filter" popover and the inline
+  // list. Categories that already have a pill are hidden (each field maps to a
+  // single chip); a field with only a negated/operator filter has no category
+  // pill, so it stays addable.
+  const categoryRows = (
+    <>
+      {categories
+        .filter(
+          (c) =>
+            !plainFilters.some((f) => f.field === c.key) &&
+            c.key !== draftField,
+        )
+        .map((c) => (
+          <Flex
+            key={c.key}
+            align="center"
+            justify="between"
+            px="2"
+            py="2"
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer hover-highlight"
+            style={{ borderRadius: 6 }}
+            onClick={() => openCategory(c.key)}
+            onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
+          >
+            <Text size="small">{c.heading}</Text>
+            <PiCaretRight size={12} color="var(--slate-9)" />
+          </Flex>
+        ))}
+      {/* Extra (non-search-string) filters that aren't already active. */}
+      {extraFilters
+        .filter((f) => !f.isActive)
+        .map((f) => (
+          <Flex
+            key={f.key}
+            align="center"
+            justify="between"
+            px="2"
+            py="2"
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer hover-highlight"
+            style={{ borderRadius: 6 }}
+            onClick={() => openCategory(f.key)}
+            onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
+          >
+            <Text size="small">{f.heading}</Text>
+            <PiCaretRight size={12} color="var(--slate-9)" />
+          </Flex>
+        ))}
+    </>
+  );
+
   // Category list ("Add filter" view): a flat list of categories that drills
   // into the selected category's pill panel.
   const categoryListView = (
@@ -341,53 +504,7 @@ const SidebarExperimentFilters: FC<Props> = ({
     // against the popover edge. Inner box holds the padding, keeping the gap
     // between the scrollbar and the content instead.
     <Box style={{ width: 248, maxHeight: 360, overflowY: "auto" }}>
-      <Box style={{ padding: "6px 8px" }}>
-        {categories
-          // Hide categories that already have a pill; each field maps to a
-          // single chip, so it shouldn't be addable again. (A field with only
-          // a negated/operator filter has no category pill, so it stays
-          // addable.)
-          .filter((c) => !plainFilters.some((f) => f.field === c.key))
-          .map((c) => (
-            <Flex
-              key={c.key}
-              align="center"
-              justify="between"
-              px="2"
-              py="2"
-              role="button"
-              tabIndex={0}
-              className="cursor-pointer hover-highlight"
-              style={{ borderRadius: 6 }}
-              onClick={() => openCategory(c.key)}
-              onKeyDown={(e) => activateOnKey(e, () => openCategory(c.key))}
-            >
-              <Text size="small">{c.heading}</Text>
-              <PiCaretRight size={12} color="var(--slate-9)" />
-            </Flex>
-          ))}
-        {/* Extra (non-search-string) filters that aren't already active. */}
-        {extraFilters
-          .filter((f) => !f.isActive)
-          .map((f) => (
-            <Flex
-              key={f.key}
-              align="center"
-              justify="between"
-              px="2"
-              py="2"
-              role="button"
-              tabIndex={0}
-              className="cursor-pointer hover-highlight"
-              style={{ borderRadius: 6 }}
-              onClick={() => openCategory(f.key)}
-              onKeyDown={(e) => activateOnKey(e, () => openCategory(f.key))}
-            >
-              <Text size="small">{f.heading}</Text>
-              <PiCaretRight size={12} color="var(--slate-9)" />
-            </Flex>
-          ))}
-      </Box>
+      <Box style={{ padding: "6px 8px" }}>{categoryRows}</Box>
     </Box>
   );
 
@@ -559,7 +676,12 @@ const SidebarExperimentFilters: FC<Props> = ({
         onChange={handleFreeTextChange}
       />
 
-      <Flex align="center" gap="2" wrap="wrap">
+      <Flex
+        direction={categoriesInline ? "column" : "row"}
+        align={categoriesInline ? "stretch" : "center"}
+        gap={categoriesInline ? "0" : "2"}
+        wrap={categoriesInline ? "nowrap" : "wrap"}
+      >
         {chipFields.map((field) => {
           const category = categoryByKey.get(field);
           if (!category) return null;
@@ -589,44 +711,12 @@ const SidebarExperimentFilters: FC<Props> = ({
               // changes so users can select multiple items; a real outside
               // pointer-down still closes it.
               onFocusOutside={(e) => e.preventDefault()}
-              trigger={
-                <Badge
-                  color="violet"
-                  variant="soft"
-                  radius="small"
-                  className="cursor-pointer"
-                  // Let the pill grow up to the container width and wrap its
-                  // text instead of overflowing on long value lists.
-                  style={{ maxWidth: "100%", whiteSpace: "normal" }}
-                  label={
-                    <Flex align="center" gap="1">
-                      <Text
-                        size="small"
-                        whiteSpace="normal"
-                        weight="medium"
-                        overflowWrap="anywhere"
-                      >
-                        {category.heading}
-                        {valueText ? `: ${valueText}` : ""}
-                      </Text>
-                      <IconButton
-                        size="1"
-                        variant="ghost"
-                        color="violet"
-                        radius="full"
-                        aria-label={`Remove ${category.heading} filter`}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeChip(field);
-                        }}
-                      >
-                        <PiX size={12} />
-                      </IconButton>
-                    </Flex>
-                  }
-                />
-              }
+              trigger={renderChip({
+                label: `${category.heading}${valueText ? `: ${valueText}` : ""}`,
+                ariaLabel: `Remove ${category.heading} filter`,
+                onRemove: () => removeChip(field),
+                isTrigger: true,
+              })}
               content={renderFilterPanel(category)}
             />
           );
@@ -645,35 +735,14 @@ const SidebarExperimentFilters: FC<Props> = ({
                   .join(", ")}`
               : filterToString(filter);
           return (
-            <Badge
-              key={`advanced-${filter.field}-${i}`}
-              color="violet"
-              variant="soft"
-              radius="small"
-              style={{ maxWidth: "100%", whiteSpace: "normal" }}
-              label={
-                <Flex align="center" gap="1">
-                  <Text
-                    size="small"
-                    whiteSpace="normal"
-                    weight="medium"
-                    overflowWrap="anywhere"
-                  >
-                    {label}
-                  </Text>
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="violet"
-                    radius="full"
-                    aria-label={`Remove ${label} filter`}
-                    onClick={() => removeFilter(filter)}
-                  >
-                    <PiX size={12} />
-                  </IconButton>
-                </Flex>
-              }
-            />
+            <React.Fragment key={`advanced-${filter.field}-${i}`}>
+              {renderChip({
+                label,
+                ariaLabel: `Remove ${label} filter`,
+                onRemove: () => removeFilter(filter),
+                isTrigger: false,
+              })}
+            </React.Fragment>
           );
         })}
 
@@ -741,38 +810,45 @@ const SidebarExperimentFilters: FC<Props> = ({
             />
           ))}
 
-        <Popover
-          open={addOpen}
-          onOpenChange={(o) => {
-            setAddOpen(o);
-            if (!o) setFilterSearch("");
-          }}
-          showArrow={false}
-          align="start"
-          contentStyle={{ padding: 0 }}
-          trigger={
-            <Button variant="outline" size="xs">
-              <Flex align="center" gap="1">
-                <PiPlus size={12} />
-                Add filter
-              </Flex>
-            </Button>
-          }
-          content={categoryListView}
-        />
-
-        {(chipFields.length > 0 ||
-          advancedFilters.length > 0 ||
-          extraFilters.some((f) => f.isActive)) && (
-          <Link
-            size="1"
-            onClick={clearFilters}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            Clear filters
-          </Link>
+        {!categoriesInline && (
+          <Popover
+            open={addOpen}
+            onOpenChange={(o) => {
+              setAddOpen(o);
+              if (!o) setFilterSearch("");
+            }}
+            showArrow={false}
+            align="start"
+            contentStyle={{ padding: 0 }}
+            trigger={
+              <Button variant="outline" size="xs">
+                <Flex align="center" gap="1">
+                  <PiPlus size={12} />
+                  Add filter
+                </Flex>
+              </Button>
+            }
+            content={categoryListView}
+          />
         )}
+
+        {!hideClearFilters &&
+          (chipFields.length > 0 ||
+            advancedFilters.length > 0 ||
+            extraFilters.some((f) => f.isActive)) && (
+            <Link
+              size="1"
+              onClick={clearFilters}
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Clear filters
+            </Link>
+          )}
       </Flex>
+
+      {categoriesInline && (
+        <Box style={{ maxHeight: 260, overflowY: "auto" }}>{categoryRows}</Box>
+      )}
     </Flex>
   );
 };

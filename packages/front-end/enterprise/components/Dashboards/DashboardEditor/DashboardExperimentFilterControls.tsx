@@ -1,60 +1,23 @@
-import { ReactNode, useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiFunnel, PiFlask, PiChartLineUp } from "react-icons/pi";
+import { PiCaretDown, PiFlask, PiChartLineUp, PiFunnel } from "react-icons/pi";
 import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
-import MetricSelector from "@/components/Experiment/MetricSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
+import SidebarExperimentFilters, {
+  EXPERIMENT_FILTER_KEYS,
+} from "@/components/Search/SidebarExperimentFilters";
+import { transformQuery } from "@/services/search";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
+import DashboardChecklistFilter, {
+  ChecklistOption,
+} from "./DashboardChecklistFilter";
+import FilterCountBadge from "./FilterCountBadge";
 
 type GlobalControls = DashboardInterface["globalControls"];
-
-// A single dropdown control in the dashboard filter bar. Mirrors the styling of
-// DashboardDateControlsDropdown so the whole bar reads as one control group.
-function FilterControl({
-  label,
-  icon,
-  disabled,
-  width = 300,
-  children,
-}: {
-  label: string;
-  icon: ReactNode;
-  disabled?: boolean;
-  width?: number;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      trigger={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          icon={icon}
-          iconPosition="left"
-          style={{ justifyContent: "space-between" }}
-        >
-          <Flex align="center" gap="2" justify="between" width="100%">
-            <span>{label}</span>
-            <PiCaretDown aria-hidden />
-          </Flex>
-        </Button>
-      }
-      align="end"
-      showArrow={false}
-      contentStyle={{ padding: "16px 20px", width }}
-      content={children}
-    />
-  );
-}
 
 interface Props {
   globalControls: GlobalControls;
@@ -76,104 +39,157 @@ export default function DashboardExperimentFilterControls({
   projects,
   onChange,
 }: Props) {
-  const { projects: allProjects, getExperimentMetricById } = useDefinitions();
+  const {
+    projects: allProjects,
+    metrics,
+    factMetrics,
+    getExperimentMetricById,
+  } = useDefinitions();
   const { experiments } = useExperiments();
+  const [experimentsOpen, setExperimentsOpen] = useState(false);
 
-  const projectOptions = (
-    projects.length > 0
-      ? allProjects.filter((p) => projects.includes(p.id))
-      : allProjects
-  ).map((p) => ({ label: p.name, value: p.id }));
-
+  // Projects ------------------------------------------------------------------
+  const projectOptions: ChecklistOption[] = useMemo(
+    () =>
+      (projects.length > 0
+        ? allProjects.filter((p) => projects.includes(p.id))
+        : allProjects
+      ).map((p) => ({ label: p.name, value: p.id })),
+    [allProjects, projects],
+  );
   const selectedProjects = globalControls?.projects ?? [];
-  const projectsLabel =
-    selectedProjects.length === 0
-      ? "All projects"
-      : selectedProjects.length === 1
-        ? (projectOptions.find((p) => p.value === selectedProjects[0])?.label ??
-          "1 project")
-        : `${selectedProjects.length} projects`;
 
+  // Metric --------------------------------------------------------------------
+  const metricOptions: ChecklistOption[] = useMemo(() => {
+    const inScope = (m: { projects?: string[] }) =>
+      projects.length === 0 ||
+      !m.projects?.length ||
+      projects.some((p) => m.projects?.includes(p));
+    const seen = new Set<string>();
+    return [...metrics, ...factMetrics]
+      .filter(inScope)
+      .map((m) => ({ label: m.name, value: m.id }))
+      .filter((o) => (seen.has(o.value) ? false : (seen.add(o.value), true)))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [metrics, factMetrics, projects]);
   const metricId = globalControls?.metricId ?? "";
-  const metricLabel = metricId
-    ? (getExperimentMetricById(metricId)?.name ?? "Metric")
-    : "Chart Default";
 
+  // Experiments filter --------------------------------------------------------
   const searchValue = globalControls?.experimentSearchString ?? "";
-  const experimentLabel = searchValue ? "Filtered" : "All experiments";
+  // Count of distinct filter categories applied (e.g. status + tag = 2). The
+  // free-text search term counts as one filter too.
+  const experimentFilterCount = useMemo(() => {
+    if (!searchValue.trim()) return 0;
+    const { searchTerm, syntaxFilters } = transformQuery(
+      searchValue,
+      EXPERIMENT_FILTER_KEYS,
+    );
+    const categories = new Set(syntaxFilters.map((f) => f.field)).size;
+    return categories + (searchTerm.trim() ? 1 : 0);
+  }, [searchValue]);
+
+  // Keep the popover open when interacting with a nested Radix popper (the
+  // "Add filter" menu and each category panel render in their own portals).
+  const keepOpenOnNestedPopper = (e: { target: EventTarget | null }) => {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("[data-radix-popper-content-wrapper]")) {
+      (e as unknown as Event).preventDefault();
+    }
+  };
 
   return (
     <>
       {showProjects ? (
-        <FilterControl
-          label={projectsLabel}
+        <DashboardChecklistFilter
+          label="Exp Projects"
           icon={<PiFunnel aria-hidden />}
+          options={projectOptions}
+          value={selectedProjects}
+          onChange={(v) => onChange({ projects: v })}
           disabled={disabled}
-        >
-          <Box>
-            <Box mb="2">
-              <Text weight="medium" size="medium">
-                Projects Filter
-              </Text>
-            </Box>
-            <MultiSelectField
-              value={selectedProjects}
-              options={projectOptions}
-              onChange={(v) => onChange({ projects: v })}
-              placeholder="All projects"
-              disabled={disabled}
-            />
-          </Box>
-        </FilterControl>
+          searchPlaceholder="Search projects..."
+          emptyText="No projects found"
+        />
       ) : null}
 
       {showMetric ? (
-        <FilterControl
-          label={metricLabel}
+        <DashboardChecklistFilter
+          label="Metrics"
+          selectedLabel={
+            metricId
+              ? (getExperimentMetricById(metricId)?.name ?? "Metric")
+              : undefined
+          }
+          maxLabelWidth={200}
           icon={<PiChartLineUp aria-hidden />}
+          options={metricOptions}
+          value={metricId ? [metricId] : []}
+          onChange={(v) => onChange({ metricId: v[0] })}
+          singleSelect
+          variant="list"
+          showCount={false}
           disabled={disabled}
-        >
-          <Box>
-            <Box mb="2">
-              <Text weight="medium" size="medium">
-                Metric Filter
-              </Text>
-            </Box>
-            <MetricSelector
-              value={metricId}
-              onChange={(value) => onChange({ metricId: value || undefined })}
-              includeFacts={true}
-              projects={projects}
-              placeholder="Chart default"
-              disabled={disabled}
-            />
-          </Box>
-        </FilterControl>
+          searchPlaceholder="Search metrics..."
+          emptyText="No metrics found"
+        />
       ) : null}
 
       {showExperimentSearch ? (
-        <FilterControl
-          label={experimentLabel}
-          icon={<PiFlask aria-hidden />}
-          disabled={disabled}
-          width={320}
-        >
-          <Box>
-            <Box mb="2">
-              <Text weight="medium" size="medium">
-                Filter Experiments
-              </Text>
+        <Popover
+          open={experimentsOpen}
+          onOpenChange={setExperimentsOpen}
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              icon={<PiFlask aria-hidden />}
+              iconPosition="left"
+              style={{ justifyContent: "space-between" }}
+            >
+              <Flex align="center" gap="2">
+                <span>Exp Filters</span>
+                {experimentFilterCount > 0 ? (
+                  <FilterCountBadge count={experimentFilterCount} />
+                ) : null}
+                <PiCaretDown aria-hidden />
+              </Flex>
+            </Button>
+          }
+          align="end"
+          showArrow={false}
+          onInteractOutside={keepOpenOnNestedPopper}
+          contentStyle={{ padding: "16px 20px", width: 340 }}
+          content={
+            <Box>
+              <Flex align="center" justify="between" mb="2">
+                <Text weight="medium" size="medium">
+                  Experiments filter
+                </Text>
+                {experimentFilterCount > 0 ? (
+                  <Link
+                    size="1"
+                    onClick={() =>
+                      onChange({ experimentSearchString: undefined })
+                    }
+                  >
+                    Clear
+                  </Link>
+                ) : null}
+              </Flex>
+              <SidebarExperimentFilters
+                searchValue={searchValue}
+                setSearchValue={(value) =>
+                  onChange({ experimentSearchString: value || undefined })
+                }
+                experiments={experiments}
+                showProjectFilter={false}
+                categoriesInline
+                hideClearFilters
+              />
             </Box>
-            <SidebarExperimentFilters
-              searchValue={searchValue}
-              setSearchValue={(value) =>
-                onChange({ experimentSearchString: value || undefined })
-              }
-              experiments={experiments}
-              showProjectFilter={false}
-            />
-          </Box>
-        </FilterControl>
+          }
+        />
       ) : null}
     </>
   );
