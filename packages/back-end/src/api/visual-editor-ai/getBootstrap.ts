@@ -1,6 +1,14 @@
 import { z } from "zod";
-import { findVisualChangesets } from "back-end/src/models/VisualChangesetModel";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import type { ExperimentInterface } from "shared/types/experiment";
+import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  findVisualChangesets,
+  findVisualChangesetsByExperimentIds,
+} from "back-end/src/models/VisualChangesetModel";
+import {
+  findExperimentsByName,
+  getExperimentsByIds,
+} from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
@@ -9,7 +17,14 @@ import { requireUserAuth } from "./requireUserAuth";
 // projects plus a capped recent-visual-experiments list.
 const validation = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      // Optional case-insensitive experiment-name search. When present we
+      // query experiments by name directly (bypassing the newest-N changeset
+      // window) so experiments outside the recent set are still findable.
+      search: z.string().max(100).optional(),
+    })
+    .strict(),
   paramsSchema: z.never(),
   responseSchema: z.any(),
   method: "get" as const,
@@ -31,6 +46,10 @@ const MAX_RECENT = 30;
 // the candidate window.
 const CANDIDATE_CHANGESET_CAP = 200;
 
+// Max experiments a name search resolves (most-recently-updated first). The
+// final list is still ranked + trimmed to MAX_RECENT afterward.
+const SEARCH_EXPERIMENT_CAP = 100;
+
 export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   const context = req.context;
   requireUserAuth(context);
@@ -47,15 +66,32 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       ...(a.description ? { description: a.description } : {}),
     }));
 
-  // `findVisualChangesets` returns newest-`_id`-first; we rely on that
-  // as the tiebreaker after the dateUpdated sort below.
-  const changesets = await findVisualChangesets(
-    req.organization.id,
-    CANDIDATE_CHANGESET_CAP,
-  );
-
-  const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
-  const experiments = await getExperimentsByIds(context, expIds);
+  // Search mode queries experiments by name directly, then fetches THEIR
+  // changesets — so a target outside the newest-changeset window is still
+  // reachable. Default mode keeps the fast "newest changesets" path.
+  const search = (req.query.search ?? "").trim();
+  let changesets: VisualChangesetInterface[];
+  let experiments: ExperimentInterface[];
+  if (search) {
+    experiments = await findExperimentsByName(
+      context,
+      search,
+      SEARCH_EXPERIMENT_CAP,
+    );
+    changesets = await findVisualChangesetsByExperimentIds(
+      experiments.map((e) => e.id),
+      req.organization.id,
+    );
+  } else {
+    // `findVisualChangesets` returns newest-`_id`-first; we rely on that
+    // as the tiebreaker after the dateUpdated sort below.
+    changesets = await findVisualChangesets(
+      req.organization.id,
+      CANDIDATE_CHANGESET_CAP,
+    );
+    const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
+    experiments = await getExperimentsByIds(context, expIds);
+  }
   const experimentById = new Map(experiments.map((e) => [e.id, e]));
 
   // dateUpdated / dateCreated arrive as Date from Mongoose but may be
@@ -120,7 +156,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       orgId: req.organization.id,
       projectsCount: projects.length,
       changesetCount: changesets.length,
-      expIdsCount: expIds.length,
+      searchMode: search.length > 0,
       experimentsFetched: experiments.length,
       returnedRecent: trimmed.length,
     },

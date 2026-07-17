@@ -164,6 +164,18 @@ export async function findVisualChangesetsByExperiment(
   return visualChangesets.map(toInterface);
 }
 
+export async function findVisualChangesetsByExperimentIds(
+  experimentIds: string[],
+  organization: string,
+): Promise<VisualChangesetInterface[]> {
+  if (!experimentIds.length) return [];
+  const visualChangesets = await VisualChangesetModel.find({
+    organization,
+    experiment: { $in: experimentIds },
+  });
+  return visualChangesets.map(toInterface);
+}
+
 export async function findVisualChangesets(
   organization: string,
   // When set, returns the newest `limit` changesets (sorted by `_id`,

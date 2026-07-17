@@ -430,6 +430,29 @@ async function findExperiments(
   );
 }
 
+// Case-insensitive experiment-name search, org-scoped and permission-filtered
+// (via findExperiments), newest-first, capped by `limit`. Used by the visual
+// editor's experiment picker so experiments outside the recent window are
+// still findable.
+export async function findExperimentsByName(
+  context: ReqContext | ApiReqContext,
+  name: string,
+  limit: number,
+): Promise<ExperimentInterface[]> {
+  // Escape regex metacharacters so a user's literal text isn't treated as a
+  // pattern (and can't inject an expensive/malformed regex).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      name: { $regex: escaped, $options: "i" },
+    },
+    limit,
+    { dateUpdated: -1 },
+  );
+}
+
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
