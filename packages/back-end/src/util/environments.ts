@@ -24,7 +24,7 @@ export const addEnvironmentToOrganizationEnvironments = (
       context.permissions.throwPermissionError();
     }
     if (!context.limits.isEnvironmentIdAllowed(env.id)) {
-      context.throwBadRequestError(
+      context.throwPaymentRequiredError(
         `Your plan does not support custom environments. Upgrade your plan to create environments other than the defaults.`,
       );
     }

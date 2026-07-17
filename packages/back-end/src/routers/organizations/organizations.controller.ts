@@ -474,8 +474,8 @@ export async function putMemberRole(
     // Only gate a role change so existing assignments keep working
     assertRoleChangeAllowed(org, existingMember.role, role);
   } catch (e) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
       message: e.message,
     });
   }
@@ -827,8 +827,8 @@ export async function putInviteRole(
     // Only gate a role change so existing invites keep working
     assertRoleChangeAllowed(org, existingInvite.role, role);
   } catch (e) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
       message: e.message,
     });
   }
@@ -2303,8 +2303,8 @@ export async function addOrphanedUser(
   try {
     assertRoleAssignmentAllowed(org, role);
   } catch (e) {
-    return res.status(400).json({
-      status: 400,
+    return res.status(e.status || 400).json({
+      status: e.status || 400,
       message: e.message,
     });
   }

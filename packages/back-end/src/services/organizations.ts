@@ -80,6 +80,7 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { PaymentRequiredError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -505,7 +506,7 @@ export function assertRoleAssignmentAllowed(
   if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return;
   if (role === "admin") return;
 
-  throw new Error(
+  throw new PaymentRequiredError(
     "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
   );
 }

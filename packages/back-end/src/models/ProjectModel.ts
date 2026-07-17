@@ -83,7 +83,7 @@ export class ProjectModel extends BaseClass {
           }),
       ).length;
       if (nonDemoProjectCount >= maxProjects) {
-        this.context.throwBadRequestError(
+        this.context.throwPaymentRequiredError(
           `Your plan only supports ${maxProjects} project${
             maxProjects === 1 ? "" : "s"
           }. Upgrade your plan to create more.`,

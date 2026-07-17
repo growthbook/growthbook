@@ -62,7 +62,7 @@ export default function EnvironmentModal({
 
   const { refreshOrganization } = useUser();
 
-  const { isEnvironmentIdAllowed, supportsCustomEnvironments } = useOrgLimits();
+  const { supportsCustomEnvironments } = useOrgLimits();
   const customEnvironmentsAllowed = supportsCustomEnvironments();
 
   const { projects } = useDefinitions();
@@ -130,11 +130,6 @@ export default function EnvironmentModal({
           }
           if (newEnvs.find((e) => e.id === value.id)) {
             throw new Error("Environment id is already in use");
-          }
-          if (!isEnvironmentIdAllowed(value.id)) {
-            throw new Error(
-              "Your plan only supports the default environments. Upgrade your plan to create custom environments.",
-            );
           }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",

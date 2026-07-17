@@ -22,6 +22,7 @@ import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -363,6 +364,10 @@ export class ReqContextClass {
 
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {

@@ -21,7 +21,7 @@ export const postEnvironment = createApiRequestHandler(
   }
 
   if (!req.context.limits.isEnvironmentIdAllowed(environment.id)) {
-    throw new Error(
+    req.context.throwPaymentRequiredError(
       "Your plan does not support custom environments. Upgrade your plan to create environments other than the defaults.",
     );
   }

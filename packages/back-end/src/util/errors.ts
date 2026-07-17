@@ -113,6 +113,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// A plan limit was hit and paying (upgrading) is the way past it.
+export class PaymentRequiredError extends Error {
+  status = 402;
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentRequiredError";
+  }
+}
+
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {
