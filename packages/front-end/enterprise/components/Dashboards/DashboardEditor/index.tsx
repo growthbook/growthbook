@@ -18,6 +18,8 @@ import {
   PiDatabase,
   PiTable,
   PiChartBar,
+  PiChartBarDuotone,
+  PiGaugeDuotone,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -89,6 +91,22 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Metric Results",
     icon: <PiTableDuotone />,
   },
+  "metric-experiments": {
+    name: "Experiments with Lift",
+    icon: <PiTableDuotone />,
+  },
+  "experiments-scaled-impact": {
+    name: "Scaled Impact",
+    icon: <PiChartLineDuotone />,
+  },
+  "experiments-win-rate": {
+    name: "Win Percentage",
+    icon: <PiGaugeDuotone />,
+  },
+  "experiments-status": {
+    name: "Team Velocity",
+    icon: <PiChartBarDuotone />,
+  },
   "experiment-dimension": {
     name: "Dimension Results",
     icon: <PiTableDuotone />,
@@ -134,6 +152,15 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     "Product Analytics",
     ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
   ],
+  [
+    "Experimentation",
+    [
+      "experiments-status",
+      "experiments-win-rate",
+      "metric-experiments",
+      "experiments-scaled-impact",
+    ],
+  ],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
 
@@ -144,6 +171,10 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "markdown",
 ];
 
