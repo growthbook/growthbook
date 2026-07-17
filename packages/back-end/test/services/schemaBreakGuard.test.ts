@@ -224,7 +224,7 @@ describe("collectDependentConfigBreaks", () => {
     expect(out).toEqual([]);
   });
 
-  it("scopes a base-value break to the envs that inherit it — not all-env (the F4 tag)", () => {
+  it("scopes a base-value break to the envs that inherit it — not all-env", () => {
     // The proposed BASE value breaks, but prod keeps a valid per-env override —
     // only staging (which inherits the base) actually serves the break. The
     // report must tag staging, not claim every environment.

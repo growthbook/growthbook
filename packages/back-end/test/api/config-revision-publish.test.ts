@@ -8,8 +8,7 @@ import { setupApp } from "./api.setup";
 // Coverage for the publish-gate collector on the config revision-publish
 // endpoint (POST /api/v1/configs-revisions/:key/:version/publish):
 //  1. Body-canonical `ignoreWarnings` (and the deprecated `?ignoreWarnings=true`
-//     query alias) are accepted by the strict schema — the Phase-1 body-field
-//     wiring regression guard.
+//     query alias) are accepted by the strict schema.
 //  2. A locked config surfaces a structured 422 `config-locked` gate that names
 //     the lock, has no override, and is NOT cleared by `ignoreWarnings: true`.
 //  3. The beta `mergeNow` flag was removed from the config publish surface and

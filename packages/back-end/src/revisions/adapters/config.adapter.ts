@@ -356,11 +356,10 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
   // Publish-guard evaluation for the REST publish handler's aggregated 422
   // (see EntityRevisionAdapter.collectPublishGates). Runs the same evaluators
   // assertConfigPublishGuards uses; on the REST publish path this plus
-  // assertPublishGates IS the guard enforcement (the handler no longer runs
-  // the sequential asserts). A synchronous override (a live ignoreWarnings or
-  // bypass-approval permission — the asserts' semantics) clears every guard
-  // but the overridden conflicts are still recorded in the logs, matching the
-  // asserts' override logging.
+  // assertPublishGates IS the guard enforcement (the handler runs no sequential
+  // asserts). A synchronous override (a live ignoreWarnings or bypass-approval
+  // permission) clears every guard, but the overridden conflicts are still
+  // logged, matching the asserts' override logging.
   async collectPublishGates(
     context: Context,
     entity: ConfigInterface,

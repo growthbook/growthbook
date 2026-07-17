@@ -659,10 +659,6 @@ export default function ConfigJsonEditor({
                             Differs from the published version
                           </Text>
                         }
-                        // position/zIndex lift the dot above react-select's
-                        // transparent input overlay so the closed control's dot
-                        // is hoverable too; padding + negative margin enlarge
-                        // the hit area without moving the layout.
                         style={{
                           position: "relative",
                           zIndex: 1000,
