@@ -876,7 +876,7 @@ export default function ConfigJsonEditor({
         <HelperText status="error">{parsedProjection.error}</HelperText>
       )}
       {!!parsedProjection?.warnings.length && (
-        <HelperText status="warning">
+        <HelperText status="warning" mt="2">
           {parsedProjection.warnings.map((w) => w.message).join("; ")}
         </HelperText>
       )}
@@ -964,7 +964,7 @@ export default function ConfigJsonEditor({
                 <HelperText status="error">{schemaError}</HelperText>
               )}
               {schemaWarnings.length > 0 && (
-                <HelperText status="warning">
+                <HelperText status="warning" mt="2">
                   {schemaWarnings.map((w) => w.message).join("; ")}
                 </HelperText>
               )}

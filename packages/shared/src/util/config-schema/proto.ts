@@ -166,6 +166,21 @@ function fieldNode(
       path,
       warnings,
     );
+    // `map<string, google.protobuf.Value/Struct>` is the permissive
+    // open-object construct — `{type:"object"}` captures it losslessly, so no
+    // warning. A TYPED value that can't be resolved genuinely loses its
+    // constraint.
+    if (
+      !valueNode &&
+      mapMatch[1] !== "google.protobuf.Value" &&
+      mapMatch[1] !== "google.protobuf.Struct"
+    ) {
+      warnings.push({
+        code: "unresolved-type",
+        path,
+        message: `${path}: map value type "${mapMatch[1]}" couldn't be resolved; values left untyped.`,
+      });
+    }
     return {
       type: "object",
       ...(valueNode ? { additionalProperties: valueNode } : {}),
