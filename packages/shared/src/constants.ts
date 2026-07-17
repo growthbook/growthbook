@@ -257,6 +257,8 @@ export const entityEvents = {
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete", "disable", "enable"],
   apiKey: ["create", "update", "delete", "disable", "enable"],
+  oauthAuthCode: ["create", "update", "delete"],
+  oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
   savedGroup: ["created", "deleted", "updated"],
   constant: ["created", "updated", "deleted"],

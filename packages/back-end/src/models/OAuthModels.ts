@@ -1,12 +1,16 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import {
-  OAuthAuthCodeInterface,
-  OAuthClientInterface,
-  OAuthRefreshTokenInterface,
-} from "shared/validators";
+import { OAuthClientInterface } from "shared/validators";
 
-// --- OAuth clients (DCR) ----------------------------------------------------
+/**
+ * Public OAuth clients registered via DCR (RFC 7591).
+ *
+ * Clients are globally scoped (no `organization`) — they are not a fit for
+ * BaseModel. Auth codes and refresh tokens live in BaseModel classes
+ * (`OAuthAuthCodeModel`, `OAuthRefreshTokenModel`).
+ *
+ * Mongoose models stay file-private; only helpers are exported.
+ */
 
 const oauthClientSchema = new mongoose.Schema({
   clientId: { type: String, unique: true, required: true },
@@ -20,7 +24,7 @@ const oauthClientSchema = new mongoose.Schema({
   dateCreated: { type: Date, default: Date.now },
 });
 
-export const OAuthClientModel = mongoose.model<OAuthClientInterface>(
+const OAuthClientModel = mongoose.model<OAuthClientInterface>(
   "OAuthClient",
   oauthClientSchema,
 );
@@ -52,102 +56,4 @@ export async function getOAuthClientById(
 ): Promise<OAuthClientInterface | null> {
   const doc = await OAuthClientModel.findOne({ clientId }).lean();
   return doc as OAuthClientInterface | null;
-}
-
-// --- Authorization codes ----------------------------------------------------
-
-const oauthAuthCodeSchema = new mongoose.Schema({
-  codeHash: { type: String, unique: true, required: true },
-  clientId: { type: String, required: true },
-  userId: { type: String, required: true },
-  organization: { type: String, required: true },
-  redirectUri: { type: String, required: true },
-  codeChallenge: { type: String, required: true },
-  codeChallengeMethod: { type: String, default: "S256" },
-  scope: String,
-  resource: String,
-  used: { type: Boolean, default: false },
-  expiresAt: {
-    type: Date,
-    required: true,
-    // Mongo TTL: delete shortly after expiry (auth codes are ~10 min)
-    expires: 0,
-  },
-  dateCreated: { type: Date, default: Date.now },
-});
-
-export const OAuthAuthCodeModel = mongoose.model<OAuthAuthCodeInterface>(
-  "OAuthAuthCode",
-  oauthAuthCodeSchema,
-);
-
-export async function insertAuthCode(
-  doc: OAuthAuthCodeInterface,
-): Promise<void> {
-  await OAuthAuthCodeModel.create(doc);
-}
-
-/**
- * Atomically mark a code as used and return it. Returns null if missing,
- * already used, or expired.
- */
-export async function consumeAuthCode(
-  codeHash: string,
-): Promise<OAuthAuthCodeInterface | null> {
-  const now = new Date();
-  const doc = await OAuthAuthCodeModel.findOneAndUpdate(
-    { codeHash, used: false, expiresAt: { $gt: now } },
-    { $set: { used: true } },
-    { new: false },
-  ).lean();
-  return doc as OAuthAuthCodeInterface | null;
-}
-
-// --- Refresh tokens ---------------------------------------------------------
-
-const oauthRefreshTokenSchema = new mongoose.Schema({
-  tokenHash: { type: String, unique: true, required: true },
-  clientId: { type: String, required: true },
-  userId: { type: String, required: true },
-  organization: { type: String, required: true },
-  scope: String,
-  resource: String,
-  expiresAt: {
-    type: Date,
-    required: true,
-    expires: 0,
-  },
-  dateCreated: { type: Date, default: Date.now },
-});
-
-export const OAuthRefreshTokenModel =
-  mongoose.model<OAuthRefreshTokenInterface>(
-    "OAuthRefreshToken",
-    oauthRefreshTokenSchema,
-  );
-
-export async function insertRefreshToken(
-  doc: OAuthRefreshTokenInterface,
-): Promise<void> {
-  await OAuthRefreshTokenModel.create(doc);
-}
-
-export async function findRefreshToken(
-  tokenHash: string,
-): Promise<OAuthRefreshTokenInterface | null> {
-  const doc = await OAuthRefreshTokenModel.findOne({ tokenHash }).lean();
-  return doc as OAuthRefreshTokenInterface | null;
-}
-
-export async function deleteRefreshToken(tokenHash: string): Promise<void> {
-  await OAuthRefreshTokenModel.deleteOne({ tokenHash });
-}
-
-/** Tear down every refresh token for one client/user/org grant. */
-export async function deleteRefreshTokensForGrant(
-  clientId: string,
-  userId: string,
-  organization: string,
-): Promise<void> {
-  await OAuthRefreshTokenModel.deleteMany({ clientId, userId, organization });
 }

@@ -193,12 +193,15 @@ export async function postAuthorize(
       });
     }
 
-    // Verify the user is a member of the chosen org
+    // Verify the user is a member of the chosen org. No superadmin bypass:
+    // the whole grant lifecycle (issuance, refresh) requires membership —
+    // refresh tears down grants for non-members, so a non-member grant would
+    // die on first rotation anyway.
     const orgs = await findOrganizationsByMemberId(req.userId);
-    if (!orgs.some((o) => o.id === organization) && !req.superAdmin) {
+    if (!orgs.some((o) => o.id === organization)) {
       return res.status(403).json({
         status: 403,
-        message: "You do not have access to that organization",
+        message: "You must be a member of that organization",
       });
     }
 

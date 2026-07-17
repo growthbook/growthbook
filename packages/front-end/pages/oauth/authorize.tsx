@@ -1,7 +1,8 @@
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -17,6 +18,15 @@ type AuthorizeInfoResponse = {
   organizations?: { id: string; name: string }[];
   user?: { id: string; email: string; name: string };
 };
+
+// Shared narrow-page wrapper so the consent and success screens can't drift.
+function ConsentPageWrapper({ children }: { children: ReactNode }) {
+  return (
+    <Box maxWidth="480px" mx="auto" my="9" px="4">
+      {children}
+    </Box>
+  );
+}
 
 /**
  * OAuth consent page. MCP (and future CLI) clients redirect here with
@@ -46,66 +56,55 @@ export default function OAuthAuthorizePage() {
     };
   }, [router.query]);
 
-  const [info, setInfo] = useState<AuthorizeInfoResponse | null>(null);
   const [orgId, setOrgId] = useState("");
-  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [loadingInfo, setLoadingInfo] = useState(true);
   const [completedRedirectTo, setCompletedRedirectTo] = useState<string | null>(
     null,
   );
 
+  const hasRequiredParams = !!query.client_id && !!query.redirect_uri;
+
+  const infoQueryString = new URLSearchParams({
+    client_id: query.client_id,
+    redirect_uri: query.redirect_uri,
+  }).toString();
+  const {
+    data: info,
+    error: infoFetchError,
+    isLoading: loadingInfo,
+  } = useApi<AuthorizeInfoResponse>(
+    `/oauth/authorize/info?${infoQueryString}`,
+    {
+      // This page is `noOrganization` — the user picks the org here.
+      orgScoped: false,
+      autoRevalidate: false,
+      shouldRun: () =>
+        router.isReady && !authLoading && isAuthenticated && hasRequiredParams,
+    },
+  );
+
+  // Pre-select when there is only one org to choose from
   useEffect(() => {
-    if (!router.isReady || authLoading || !isAuthenticated) return;
-    if (!query.client_id || !query.redirect_uri) {
-      setError("Missing required parameters: client_id and redirect_uri");
-      setLoadingInfo(false);
-      return;
+    if (info?.organizations?.length === 1) {
+      setOrgId(info.organizations[0].id);
     }
+  }, [info]);
 
-    let cancelled = false;
-    (async () => {
-      try {
-        const qs = new URLSearchParams({
-          client_id: query.client_id,
-          redirect_uri: query.redirect_uri,
-        });
-        const res = await apiCall<AuthorizeInfoResponse>(
-          `/oauth/authorize/info?${qs.toString()}`,
-        );
-        if (cancelled) return;
-        if (res.status !== 200 || !res.client) {
-          setError(res.message || "Failed to load authorization request");
-        } else {
-          setInfo(res);
-          if (res.organizations?.length === 1) {
-            setOrgId(res.organizations[0].id);
-          }
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      } finally {
-        if (!cancelled) setLoadingInfo(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    router.isReady,
-    authLoading,
-    isAuthenticated,
-    query.client_id,
-    query.redirect_uri,
-    apiCall,
-  ]);
+  const missingParamsError =
+    router.isReady && !hasRequiredParams
+      ? "Missing required parameters: client_id and redirect_uri"
+      : "";
+  const infoError =
+    infoFetchError?.message ||
+    (info && (info.status !== 200 || !info.client)
+      ? info.message || "Failed to load authorization request"
+      : "");
+  const error = actionError || missingParamsError || infoError;
 
   const deny = useCallback(() => {
     if (!query.redirect_uri) {
-      setError("Cannot deny: missing redirect_uri");
+      setActionError("Cannot deny: missing redirect_uri");
       return;
     }
     try {
@@ -118,17 +117,17 @@ export default function OAuthAuthorizePage() {
       if (query.state) url.searchParams.set("state", query.state);
       window.location.assign(url.toString());
     } catch {
-      setError("Invalid redirect_uri");
+      setActionError("Invalid redirect_uri");
     }
   }, [query.redirect_uri, query.state]);
 
   const approve = useCallback(async () => {
     if (!orgId) {
-      setError("Please select an organization");
+      setActionError("Please select an organization");
       return;
     }
     setSubmitting(true);
-    setError("");
+    setActionError("");
     try {
       const res = await apiCall<{
         status: number;
@@ -148,7 +147,7 @@ export default function OAuthAuthorizePage() {
         }),
       });
       if (res.status !== 200 || !res.redirectTo) {
-        setError(res.message || "Authorization failed");
+        setActionError(res.message || "Authorization failed");
         setSubmitting(false);
         return;
       }
@@ -158,24 +157,20 @@ export default function OAuthAuthorizePage() {
       setSubmitting(false);
       window.location.assign(res.redirectTo);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setActionError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
   }, [apiCall, orgId, query]);
 
-  if (authLoading || !router.isReady || loadingInfo) {
+  // Unauthenticated users are redirected to login by AuthProvider; keep the
+  // overlay up during that transient state instead of flashing the page.
+  if (authLoading || !isAuthenticated || !router.isReady || loadingInfo) {
     return <LoadingOverlay />;
   }
 
   if (completedRedirectTo) {
     return (
-      <Box
-        style={{
-          maxWidth: 480,
-          margin: "4rem auto",
-          padding: "0 1rem",
-        }}
-      >
+      <ConsentPageWrapper>
         <Heading as="h1" size="x-large" mb="2">
           Authorization Complete
         </Heading>
@@ -192,22 +187,16 @@ export default function OAuthAuthorizePage() {
         >
           Open application
         </Button>
-      </Box>
+      </ConsentPageWrapper>
     );
   }
 
   return (
-    <Box
-      style={{
-        maxWidth: 480,
-        margin: "4rem auto",
-        padding: "0 1rem",
-      }}
-    >
+    <ConsentPageWrapper>
       <Heading as="h1" size="x-large" mb="2">
         Authorize Application
       </Heading>
-      <Text as="p" color="text-mid" mb="4">
+      <Text as="p" size="medium" color="text-mid" mb="4">
         {info?.client
           ? `${info.client.clientName} wants to access your GrowthBook account.`
           : "An application wants to access your GrowthBook account."}
@@ -221,7 +210,10 @@ export default function OAuthAuthorizePage() {
 
       {info?.user ? (
         <Text as="p" size="medium" color="text-mid" mb="3">
-          Signed in as <strong>{info.user.email}</strong>
+          Signed in as{" "}
+          <Text as="span" size="inherit" weight="semibold">
+            {info.user.email}
+          </Text>
         </Text>
       ) : null}
 
@@ -268,7 +260,7 @@ export default function OAuthAuthorizePage() {
           Authorize
         </Button>
       </Flex>
-    </Box>
+    </ConsentPageWrapper>
   );
 }
 

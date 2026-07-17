@@ -333,6 +333,43 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // OAuth token endpoint has no ReqContext. These static helpers keep apikey
+  // writes in the model layer (same pattern as dangerousRecordUsageByKey).
+
+  public static async dangerousFindByKeyHash(
+    keyHash: string,
+  ): Promise<ApiKeyInterface | null> {
+    return getCollection<ApiKeyInterface>(COLLECTION_NAME).findOne({
+      key: keyHash,
+    });
+  }
+
+  public static async dangerousDisableByKeyHash(
+    keyHash: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { key: keyHash },
+      { $set: { disabled: true } },
+    );
+  }
+
+  /** Disable every non-disabled OAuth access token for one client/user/org grant. */
+  public static async dangerousDisableOAuthGrant(
+    clientId: string,
+    userId: string,
+    organization: string,
+  ): Promise<void> {
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateMany(
+      {
+        oauthClientId: clientId,
+        userId,
+        organization,
+        disabled: { $ne: true },
+      },
+      { $set: { disabled: true } },
+    );
+  }
+
   public async getVisualEditorApiKey(
     userId: string,
   ): Promise<ApiKeyInterface | null> {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createBaseSchemaWithPrimaryKey } from "./base-model";
 
 /** Public OAuth clients registered via DCR (RFC 7591). No org scoping. */
 export const oauthClientValidator = z
@@ -17,37 +18,42 @@ export const oauthClientValidator = z
 
 export type OAuthClientInterface = z.infer<typeof oauthClientValidator>;
 
-export const oauthAuthCodeValidator = z
-  .object({
-    codeHash: z.string(),
-    clientId: z.string(),
-    userId: z.string(),
-    organization: z.string(),
-    redirectUri: z.string(),
-    codeChallenge: z.string(),
-    codeChallengeMethod: z.literal("S256"),
-    scope: z.string().optional(),
-    resource: z.string().optional(),
-    used: z.boolean(),
-    expiresAt: z.date(),
-    dateCreated: z.date(),
-  })
-  .strict();
+/**
+ * Short-lived authorization codes. Primary key is the hashed code
+ * (`codeHash`); globally unique so the public token endpoint can look up a
+ * code before it knows the organization.
+ */
+export const oauthAuthCodeValidator = createBaseSchemaWithPrimaryKey({
+  codeHash: z.string(),
+}).safeExtend({
+  id: z.string().optional(),
+  clientId: z.string(),
+  userId: z.string(),
+  redirectUri: z.string(),
+  codeChallenge: z.string(),
+  codeChallengeMethod: z.literal("S256"),
+  scope: z.string().optional(),
+  resource: z.string().optional(),
+  used: z.boolean(),
+  expiresAt: z.date(),
+});
 
 export type OAuthAuthCodeInterface = z.infer<typeof oauthAuthCodeValidator>;
 
-export const oauthRefreshTokenValidator = z
-  .object({
-    tokenHash: z.string(),
-    clientId: z.string(),
-    userId: z.string(),
-    organization: z.string(),
-    scope: z.string().optional(),
-    resource: z.string().optional(),
-    expiresAt: z.date(),
-    dateCreated: z.date(),
-  })
-  .strict();
+/**
+ * Rotating refresh tokens. Primary key is the hashed token (`tokenHash`);
+ * globally unique for the same bootstrap-before-org reason as auth codes.
+ */
+export const oauthRefreshTokenValidator = createBaseSchemaWithPrimaryKey({
+  tokenHash: z.string(),
+}).safeExtend({
+  id: z.string().optional(),
+  clientId: z.string(),
+  userId: z.string(),
+  scope: z.string().optional(),
+  resource: z.string().optional(),
+  expiresAt: z.date(),
+});
 
 export type OAuthRefreshTokenInterface = z.infer<
   typeof oauthRefreshTokenValidator

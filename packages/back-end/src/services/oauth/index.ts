@@ -1,32 +1,32 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { ApiKeyInterface } from "shared/types/apikey";
 import { OAuthDcrRequest } from "shared/validators";
+import { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
   OAUTH_ISSUER,
   OAUTH_REFRESH_TOKEN_TTL_SECONDS,
 } from "back-end/src/util/secrets";
-import { getCollection } from "back-end/src/util/mongo.util";
-import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
-import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import {
+  createOAuthClient,
+  getOAuthClientById,
+} from "back-end/src/models/OAuthModels";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
+import { findOrganizationById } from "back-end/src/models/OrganizationModel";
+import {
+  getContextForAgendaJobByOrgObject,
+  getContextForUserIdInOrg,
+} from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
 import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
   OAUTH_REFRESH_TOKEN_PREFIX,
   verifyPkceS256,
 } from "back-end/src/util/oauth-token.util";
-import {
-  consumeAuthCode,
-  createOAuthClient,
-  deleteRefreshToken,
-  deleteRefreshTokensForGrant,
-  findRefreshToken,
-  getOAuthClientById,
-  insertAuthCode,
-  insertRefreshToken,
-} from "back-end/src/models/OAuthModels";
 
 export {
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -39,6 +39,48 @@ const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 function randomUrlSafe(bytes = 32): string {
   return crypto.randomBytes(bytes).toString("base64url");
+}
+
+async function getOrgForGrant(
+  organizationId: string,
+): Promise<OrganizationInterface> {
+  const org = await findOrganizationById(organizationId);
+  if (!org) {
+    throw new OAuthError("invalid_grant", "Organization no longer exists");
+  }
+  return org;
+}
+
+/**
+ * Build a ReqContext for grant teardown (revoke / cleanup). Prefers a
+ * user-attributed context for the audit trail, but falls back to a system
+ * agenda context so revocation still works after the user leaves the org.
+ *
+ * Token issuance intentionally has no such fallback: it requires a
+ * user-attributed context from `getContextForUserIdInOrg`, which doubles as
+ * the membership check (returns null when the user no longer exists or was
+ * removed from the org).
+ */
+async function getTeardownContext(
+  org: OrganizationInterface,
+  userId: string,
+): Promise<ApiReqContext> {
+  const userContext = await getContextForUserIdInOrg(org, userId);
+  if (userContext) return userContext;
+  return getContextForAgendaJobByOrgObject(org);
+}
+
+async function tearDownGrant(
+  context: ApiReqContext,
+  clientId: string,
+  userId: string,
+): Promise<void> {
+  await context.models.oauthRefreshTokens.deleteForGrant(clientId, userId);
+  await ApiKeyModel.dangerousDisableOAuthGrant(
+    clientId,
+    userId,
+    context.org.id,
+  );
 }
 
 export function getIssuer(req?: Request): string {
@@ -154,13 +196,20 @@ export async function mintAuthorizationCode(params: {
     redirectUri: params.redirectUri,
   });
 
+  const org = await getOrgForGrant(params.organization);
+  const context = await getContextForUserIdInOrg(org, params.userId);
+  if (!context) {
+    throw new OAuthError(
+      "access_denied",
+      "User is not a member of this organization",
+    );
+  }
   const code = randomUrlSafe(32);
   const now = new Date();
-  await insertAuthCode({
+  await context.models.oauthAuthCodes.create({
     codeHash: hashToken(code),
     clientId: info.clientId,
     userId: params.userId,
-    organization: params.organization,
     redirectUri: params.redirectUri,
     codeChallenge: params.codeChallenge,
     codeChallengeMethod: "S256",
@@ -168,7 +217,6 @@ export async function mintAuthorizationCode(params: {
     resource: params.resource,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
-    dateCreated: now,
   });
 
   const url = new URL(params.redirectUri);
@@ -190,7 +238,10 @@ export async function exchangeAuthorizationCode(params: {
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
 
-  const authCode = await consumeAuthCode(hashToken(params.code));
+  // Bootstrap: hash lookup before org is known.
+  const authCode = await OAuthAuthCodeModel.dangerousConsumeByHash(
+    hashToken(params.code),
+  );
   if (!authCode) {
     throw new OAuthError(
       "invalid_grant",
@@ -207,10 +258,18 @@ export async function exchangeAuthorizationCode(params: {
     throw new OAuthError("invalid_grant", "PKCE verification failed");
   }
 
-  return issueTokenPair({
+  const org = await getOrgForGrant(authCode.organization);
+  const context = await getContextForUserIdInOrg(org, authCode.userId);
+  if (!context) {
+    throw new OAuthError(
+      "invalid_grant",
+      "User is no longer a member of this organization",
+    );
+  }
+
+  return issueTokenPair(context, {
     clientId: authCode.clientId,
     userId: authCode.userId,
-    organization: authCode.organization,
     scope: authCode.scope,
     resource: authCode.resource,
   });
@@ -225,31 +284,31 @@ export async function exchangeRefreshToken(params: {
     throw new OAuthError("invalid_client", "Unknown client_id");
   }
 
+  // Bootstrap: hash lookup before org is known.
   const tokenHash = hashToken(params.refreshToken);
-  const existing = await findRefreshToken(tokenHash);
+  const existing = await OAuthRefreshTokenModel.dangerousFindByHash(tokenHash);
   if (!existing) {
     throw new OAuthError("invalid_grant", "Refresh token is invalid");
-  }
-  if (existing.expiresAt.getTime() <= Date.now()) {
-    await deleteRefreshToken(tokenHash);
-    throw new OAuthError("invalid_grant", "Refresh token has expired");
   }
   if (existing.clientId !== params.clientId) {
     throw new OAuthError("invalid_grant", "client_id mismatch");
   }
+  // Check expiry before building an org context so a deleted org can't mask
+  // the real error. The TTL index cleans up the expired doc.
+  if (existing.expiresAt.getTime() <= Date.now()) {
+    throw new OAuthError("invalid_grant", "Refresh token has expired");
+  }
 
-  // End the grant if the user was removed from the org after consent.
-  const orgs = await findOrganizationsByMemberId(existing.userId);
-  if (!orgs.some((o) => o.id === existing.organization)) {
-    await deleteRefreshTokensForGrant(
+  const org = await getOrgForGrant(existing.organization);
+
+  // The member context doubles as the membership check: null means the user
+  // was removed from the org after consent, so end the grant.
+  const context = await getContextForUserIdInOrg(org, existing.userId);
+  if (!context) {
+    await tearDownGrant(
+      getContextForAgendaJobByOrgObject(org),
       existing.clientId,
       existing.userId,
-      existing.organization,
-    );
-    await disableAccessTokensForGrant(
-      existing.clientId,
-      existing.userId,
-      existing.organization,
     );
     throw new OAuthError(
       "invalid_grant",
@@ -257,13 +316,14 @@ export async function exchangeRefreshToken(params: {
     );
   }
 
-  // Rotate: delete old refresh token before issuing a new pair
-  await deleteRefreshToken(tokenHash);
+  // Rotate: delete old refresh token (re-read org-scoped) before issuing a
+  // new pair.
+  const doc = await context.models.oauthRefreshTokens.getByTokenHash(tokenHash);
+  if (doc) await context.models.oauthRefreshTokens.delete(doc);
 
-  return issueTokenPair({
+  return issueTokenPair(context, {
     clientId: existing.clientId,
     userId: existing.userId,
-    organization: existing.organization,
     scope: existing.scope,
     resource: existing.resource,
   });
@@ -273,28 +333,20 @@ export async function revokeToken(params: {
   token: string;
   clientId?: string;
 }): Promise<void> {
-  // Try as refresh token first, then access token (apikeys)
   const tokenHash = hashToken(params.token);
-  const refresh = await findRefreshToken(tokenHash);
+
+  // Try as refresh token first, then access token (apikeys)
+  const refresh = await OAuthRefreshTokenModel.dangerousFindByHash(tokenHash);
   if (refresh) {
     if (params.clientId && refresh.clientId !== params.clientId) return;
-    await deleteRefreshTokensForGrant(
-      refresh.clientId,
-      refresh.userId,
-      refresh.organization,
-    );
-    await disableAccessTokensForGrant(
-      refresh.clientId,
-      refresh.userId,
-      refresh.organization,
-    );
+    const org = await getOrgForGrant(refresh.organization);
+    const context = await getTeardownContext(org, refresh.userId);
+    await tearDownGrant(context, refresh.clientId, refresh.userId);
     return;
   }
 
   if (params.token.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)) {
-    const apiKey = await getCollection<ApiKeyInterface>(
-      API_KEY_COLLECTION,
-    ).findOne({ key: tokenHash });
+    const apiKey = await ApiKeyModel.dangerousFindByKeyHash(tokenHash);
     if (!apiKey) return;
     if (
       params.clientId &&
@@ -305,46 +357,19 @@ export async function revokeToken(params: {
     }
 
     if (apiKey.oauthClientId && apiKey.userId && apiKey.organization) {
-      await deleteRefreshTokensForGrant(
-        apiKey.oauthClientId,
-        apiKey.userId,
-        apiKey.organization,
-      );
-      await disableAccessTokensForGrant(
-        apiKey.oauthClientId,
-        apiKey.userId,
-        apiKey.organization,
-      );
+      const org = await getOrgForGrant(apiKey.organization);
+      const context = await getTeardownContext(org, apiKey.userId);
+      await tearDownGrant(context, apiKey.oauthClientId, apiKey.userId);
       return;
     }
 
-    await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).updateOne(
-      { key: tokenHash },
-      { $set: { disabled: true } },
-    );
+    await ApiKeyModel.dangerousDisableByKeyHash(tokenHash);
   }
-}
-
-async function disableAccessTokensForGrant(
-  clientId: string,
-  userId: string,
-  organization: string,
-): Promise<void> {
-  await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).updateMany(
-    {
-      oauthClientId: clientId,
-      userId,
-      organization,
-      disabled: { $ne: true },
-    },
-    { $set: { disabled: true } },
-  );
 }
 
 interface IssueParams {
   clientId: string;
   userId: string;
-  organization: string;
   scope?: string;
   resource?: string;
 }
@@ -357,7 +382,10 @@ export interface TokenResponse {
   scope?: string;
 }
 
-async function issueTokenPair(params: IssueParams): Promise<TokenResponse> {
+async function issueTokenPair(
+  context: ApiReqContext,
+  params: IssueParams,
+): Promise<TokenResponse> {
   const accessToken = OAUTH_ACCESS_TOKEN_PREFIX + randomUrlSafe(32);
   const refreshToken = OAUTH_REFRESH_TOKEN_PREFIX + randomUrlSafe(32);
   const now = new Date();
@@ -368,12 +396,11 @@ async function issueTokenPair(params: IssueParams): Promise<TokenResponse> {
     now.getTime() + OAUTH_REFRESH_TOKEN_TTL_SECONDS * 1000,
   );
 
-  const apiKeyDoc: ApiKeyInterface = {
-    id: `key_${crypto.randomBytes(12).toString("hex")}`,
+  // The context is always user-attributed (issuance requires a member
+  // context), so this passes the PAT canCreate rule
+  // (`doc.userId === context.userId`) and gets full validation + audit log.
+  await context.models.apiKeys.create({
     key: hashToken(accessToken),
-    organization: params.organization,
-    dateCreated: now,
-    dateUpdated: now,
     secret: true,
     userId: params.userId,
     role: "user",
@@ -387,22 +414,15 @@ async function issueTokenPair(params: IssueParams): Promise<TokenResponse> {
     oauthClientId: params.clientId,
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],
     lastUsed: null,
-  };
+  });
 
-  // Raw insert: token endpoint has no ReqContext / ApiKeyModel instance.
-  await getCollection(API_KEY_COLLECTION).insertOne(
-    apiKeyDoc as unknown as Record<string, unknown>,
-  );
-
-  await insertRefreshToken({
+  await context.models.oauthRefreshTokens.create({
     tokenHash: hashToken(refreshToken),
     clientId: params.clientId,
     userId: params.userId,
-    organization: params.organization,
     scope: params.scope,
     resource: params.resource,
     expiresAt: refreshExpires,
-    dateCreated: now,
   });
 
   return {

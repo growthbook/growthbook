@@ -86,6 +86,8 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -136,6 +138,8 @@ export type ModelName =
   | "watch"
   | "figmaConnections"
   | "apiKeys"
+  | "oauthAuthCodes"
+  | "oauthRefreshTokens"
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
@@ -186,6 +190,8 @@ export const modelClasses = {
   watch: WatchModel,
   figmaConnections: FigmaConnectionModel,
   apiKeys: ApiKeyModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
@@ -254,6 +260,8 @@ export class ReqContextClass {
       watch: new WatchModel(this),
       figmaConnections: new FigmaConnectionModel(this),
       apiKeys: new ApiKeyModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
