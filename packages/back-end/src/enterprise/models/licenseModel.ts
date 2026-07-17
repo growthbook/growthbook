@@ -51,6 +51,7 @@ const licenseSchema = new mongoose.Schema({
   dateCreated: Date, // Date the license was issued
   dateExpires: Date, // Date the license expires
   dateUpdated: Date, // Date the license was last updated
+  limits: {}, // Not part of the signed checksum
 });
 
 export type LicenseDocument = mongoose.Document & LicenseInterface;
