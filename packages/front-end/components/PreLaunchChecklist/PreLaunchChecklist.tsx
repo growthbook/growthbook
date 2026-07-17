@@ -51,11 +51,7 @@ function PreLaunchChecklistUI({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(
-    () =>
-      checklist.length > 0 &&
-      checklist.every((item) => item.status === "complete"),
-  );
+  const [showCompleted, setShowCompleted] = useState(false);
   const showEditChecklistLink =
     allowEditChecklist &&
     hasCommercialFeature("custom-launch-checklist") &&
