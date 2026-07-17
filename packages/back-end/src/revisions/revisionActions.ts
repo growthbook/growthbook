@@ -128,6 +128,7 @@ export async function publishRevision(
     revision.target.snapshot as Record<string, unknown>,
     entity,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(

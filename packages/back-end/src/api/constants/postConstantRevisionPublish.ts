@@ -98,6 +98,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     constant as unknown as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(

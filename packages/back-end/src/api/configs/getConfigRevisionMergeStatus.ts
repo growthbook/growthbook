@@ -33,6 +33,7 @@ export const getConfigRevisionMergeStatus = createApiRequestHandler(
     baseSnapshot,
     liveSnapshot,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
 
   return {

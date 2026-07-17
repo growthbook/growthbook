@@ -420,6 +420,14 @@ export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,
   proposedChanges: JsonPatchOperation[] | unknown,
+  // The fields the entity's merge can actually write. Only these participate in
+  // conflict detection — mirroring `buildMergeDesiredState`, which drops ops for
+  // non-updatable fields. Without it, a stale op for a field that isn't
+  // revision-controlled (e.g. a legacy config draft carrying `scopedOverrides`,
+  // which now writes immediately and is excluded from the snapshot) surfaces a
+  // phantom conflict the merge would never apply. Omit to consider every field
+  // (back-compat).
+  updatableFields?: ReadonlySet<string>,
 ): MergeResult {
   // Normalise: old DB documents may have a plain object instead of an array
   const ops = normalizeProposedChanges(proposedChanges);
@@ -448,6 +456,9 @@ export function checkMergeConflicts(
   for (const op of ops) {
     const field = fieldFromPath(op.path);
     if (!field) continue;
+    // A non-updatable field can't be merged, so it can't truly conflict —
+    // ignore its ops (see `updatableFields` above).
+    if (updatableFields && !updatableFields.has(field)) continue;
     if (op.op === "replace" || op.op === "add") {
       proposedByField.set(field, op.value);
     } else if (op.op === "remove") {

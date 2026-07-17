@@ -48,6 +48,7 @@ export const postConfigRevisionRebase = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     liveSnapshot,
     existingOps,
+    adapter.getUpdatableFields(),
   );
 
   const conflicts = mergeResult.conflicts || [];

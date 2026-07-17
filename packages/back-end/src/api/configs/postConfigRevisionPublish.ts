@@ -102,6 +102,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     revision.target.snapshot as Record<string, unknown>,
     config as unknown as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(

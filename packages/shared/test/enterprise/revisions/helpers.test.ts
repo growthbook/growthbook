@@ -172,6 +172,50 @@ describe("revisions helpers", () => {
       expect(result.canAutoMerge).toBe(false);
     });
 
+    it("ignores ops for fields outside the updatable allowlist", () => {
+      // A field the merge can't write can't truly conflict. This is exactly the
+      // legacy-config `scopedOverrides` case: the field is no longer
+      // revision-controlled (excluded from the snapshot, so base is undefined)
+      // but an old draft still carries a stale op for it. Without the allowlist
+      // it renders a phantom `undefined -> [...]` conflict on every rebase.
+      const base = {}; // snapshot excludes scopedOverrides -> undefined
+      const live = { scopedOverrides: [{ config: "flavor_dev_live" }] };
+      const proposed: JsonPatchOperation[] = [
+        {
+          op: "replace",
+          path: "/scopedOverrides",
+          value: [{ config: "flavor_dev_draft" }],
+        },
+      ];
+      // No allowlist -> the pre-fix behavior: phantom conflict.
+      expect(checkMergeConflicts(base, live, proposed).success).toBe(false);
+      // With the allowlist (scopedOverrides not updatable) -> no conflict.
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value", "name"]),
+      );
+      expect(result.success).toBe(true);
+      expect(result.conflicts).toHaveLength(0);
+    });
+
+    it("still detects a conflict on an allowlisted field", () => {
+      const base = { value: "old" };
+      const live = { value: "live-change" };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/value", value: "proposed-change" },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      expect(result.success).toBe(false);
+      expect(result.conflicts[0].field).toBe("value");
+    });
+
     it("no conflict when live and proposed changed to the same value", () => {
       const base = { name: "old" };
       const live = { name: "same-new" };

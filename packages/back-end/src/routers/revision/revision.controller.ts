@@ -902,6 +902,7 @@ export const postRebase = async (
     baseSnapshot,
     liveSnapshot,
     existingOps,
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   // Optimistic-lock: verify the client's view of the conflict set still
@@ -1153,6 +1154,7 @@ export const postApproveAndPublish = async (
     revision.target.snapshot as Record<string, unknown>,
     entity as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    adapter.getUpdatableFields(),
   );
   if (!conflictResult.success) {
     throw new MergeConflictError(
@@ -1897,6 +1899,7 @@ export const getConflicts = async (
     revision.target.snapshot as unknown as Record<string, unknown>,
     liveEntity as Record<string, unknown>,
     normalizeProposedChanges(revision.target.proposedChanges),
+    getAdapter(revision.target.type).getUpdatableFields(),
   );
 
   res.status(200).json({
