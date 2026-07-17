@@ -1952,7 +1952,7 @@ export const getExperimentAllAnalysesValidator = {
   description: [
     "Returns every snapshot for an experiment generated within a date window, as a flat list of result items that reuse the `ExperimentResults` shape.",
     "",
-    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each difference type (relative, absolute, scaled) computed for the run is folded into each variation's `analyses` array.",
+    "Each snapshot expands into one item per dimension. Items from the same snapshot share `snapshotId`, and each difference type (relative, absolute, scaled) computed for the run is folded into each variation's `analyses` array. Only the snapshot's default analysis and its difference-type variants are returned; ad-hoc analyses with other settings (e.g. a different baseline or stats engine) are excluded.",
     "",
     "Snapshot type and dimension breakdown are independent, explicit signals:",
     "- `type` is one of `standard`, `exploratory`, or `report`; report snapshots also include `reportId`.",

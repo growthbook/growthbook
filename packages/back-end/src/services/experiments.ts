@@ -2976,6 +2976,67 @@ function buildResultMetricNameResolver(
   };
 }
 
+const API_RESULT_DIFFERENCE_TYPES: DifferenceType[] = [
+  "relative",
+  "absolute",
+  "scaled",
+];
+
+// Returns the base analysis followed by the variants that differ from it only
+// by difference type, when they exist and succeeded. Ad-hoc setting variants
+// (different baseline, engine, etc.) never match the settings equality check.
+function getDifferenceTypeVariants(
+  analyses: ExperimentSnapshotAnalysis[],
+  baseAnalysis: ExperimentSnapshotAnalysis,
+): ExperimentSnapshotAnalysis[] {
+  const variants = API_RESULT_DIFFERENCE_TYPES.filter(
+    (differenceType) => differenceType !== baseAnalysis.settings.differenceType,
+  )
+    .map((differenceType) =>
+      analyses.find(
+        (a) =>
+          a.status === "success" &&
+          isEqual(a.settings, { ...baseAnalysis.settings, differenceType }),
+      ),
+    )
+    .filter(isDefined);
+  return [baseAnalysis, ...variants];
+}
+
+// Settings for difference-type variants of the base analysis that don't exist
+// on the snapshot yet (in any status), used to compute them on demand. Existing
+// error-status analyses are not recomputed to avoid re-running persistent
+// failures on every request.
+export function getMissingDifferenceTypeVariantSettings(
+  analyses: ExperimentSnapshotAnalysis[],
+  baseAnalysis: ExperimentSnapshotAnalysis,
+): ExperimentSnapshotAnalysisSettings[] {
+  return API_RESULT_DIFFERENCE_TYPES.filter(
+    (differenceType) => differenceType !== baseAnalysis.settings.differenceType,
+  )
+    .map((differenceType) => ({ ...baseAnalysis.settings, differenceType }))
+    .filter((settings) => !analyses.some((a) => isEqual(a.settings, settings)));
+}
+
+// Precomputed dimension ids that have at least one analysis on the snapshot.
+export function getPrecomputedDimensionIdsInAnalyses(
+  snapshot: ExperimentSnapshotInterface,
+): string[] {
+  const precomputedUnitDimensionIds =
+    snapshot.settings.precomputedUnitDimensionIds ?? [];
+  const ids = new Set<string>();
+  for (const analysis of snapshot.analyses) {
+    const dimensionId = analysis.settings.dimensions[0];
+    if (
+      dimensionId &&
+      isDimensionPrecomputed(dimensionId, precomputedUnitDimensionIds)
+    ) {
+      ids.add(dimensionId);
+    }
+  }
+  return Array.from(ids);
+}
+
 // Maps a single per-variation SnapshotMetric into an API analysis entry for a
 // given stats engine + difference type.
 function toApiResultAnalysis(
@@ -3123,15 +3184,20 @@ export function toSnapshotApiInterface(
 }
 
 // Serializes a single snapshot into one ExperimentResults-shaped item per
-// dimension. Every difference-type / engine variant stored on the snapshot is
-// folded into each variation's `analyses` array so callers see them side by
-// side. The special hardcoded frequentist covariate-as-response analysis is an
-// internal helper (not a user-facing difference type) and is skipped.
+// dimension, using a curated selection of analyses: the default (0th)
+// analysis plus the variants differing from it only by difference type
+// (absolute/scaled), folded into each variation's `analyses` array. Precomputed
+// dimensions that have analyses on the snapshot become additional items using
+// the same selection rule. Ad-hoc setting variants (different baseline,
+// engine, the internal covariate-as-response helper, etc.) are never included.
 export function toExperimentSnapshotResultsApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
 ): ApiExperimentResults[] {
+  const defaultAnalysis = snapshot.analyses[0];
+  if (!defaultAnalysis || defaultAnalysis.status !== "success") return [];
+
   const phase = experiment.phases[snapshot.phase];
   const phaseVariations = getPhaseVariations(experiment, snapshot.phase);
   const variationIds = phaseVariations.map((v) => v.id);
@@ -3143,18 +3209,29 @@ export function toExperimentSnapshotResultsApiInterface(
   const precomputedUnitDimensionIds =
     snapshot.settings.precomputedUnitDimensionIds ?? [];
 
-  // Group successful analyses by dimension (analysis.settings.dimensions[0]).
+  // One analysis group per dimension: the default analysis's dimension first,
+  // then precomputed dimensions that have a matching base analysis.
+  const defaultDimensionId = defaultAnalysis.settings.dimensions[0] || "";
   const analysesByDimension = new Map<string, ExperimentSnapshotAnalysis[]>();
-  for (const analysis of snapshot.analyses) {
-    if (analysis.settings.useCovariateAsResponse) continue;
-    if (analysis.status !== "success") continue;
-    const dimensionId = analysis.settings.dimensions[0] || "";
-    const existing = analysesByDimension.get(dimensionId);
-    if (existing) {
-      existing.push(analysis);
-    } else {
-      analysesByDimension.set(dimensionId, [analysis]);
-    }
+  analysesByDimension.set(
+    defaultDimensionId,
+    getDifferenceTypeVariants(snapshot.analyses, defaultAnalysis),
+  );
+  for (const dimensionId of getPrecomputedDimensionIdsInAnalyses(snapshot)) {
+    if (dimensionId === defaultDimensionId) continue;
+    const dimensionBaseAnalysis = snapshot.analyses.find(
+      (a) =>
+        a.status === "success" &&
+        isEqual(a.settings, {
+          ...defaultAnalysis.settings,
+          dimensions: [dimensionId],
+        }),
+    );
+    if (!dimensionBaseAnalysis) continue;
+    analysesByDimension.set(
+      dimensionId,
+      getDifferenceTypeVariants(snapshot.analyses, dimensionBaseAnalysis),
+    );
   }
 
   const dateStart = phase?.dateStarted?.toISOString() || "";
