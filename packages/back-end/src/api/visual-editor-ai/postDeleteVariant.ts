@@ -14,6 +14,7 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
 
 const bodySchema = z
@@ -123,20 +124,44 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
   };
   await validateExperimentChange({ context, experiment, changes });
 
-  // Remove the visual change FIRST, then the variation. If the second write
-  // fails we're left with a variation that has no visual change (a benign
-  // blank variant) rather than a visual change orphaned onto a variation the
-  // experiment no longer has.
   const nextVisualChanges = changeset.visualChanges.filter(
     (vc) => vc.variation !== variationId,
   );
-  await updateVisualChangeset({
-    visualChangeset: changeset,
-    experiment,
-    context,
-    updates: { visualChanges: nextVisualChanges },
-  });
+
+  // Two documents, two writes, and no cross-collection transaction is
+  // available here. Do the REVERSIBLE write (remove the variation) first and
+  // the DESTRUCTIVE one (drop the user-authored visual change) second. If the
+  // visual-change write fails, roll the experiment back — so we never (a) lose
+  // the variant's authored css/js/domMutations while the variant survives, nor
+  // (b) orphan a visual change onto a variation that no longer exists. The
+  // snapshot below (copies, taken before the first write) drives the rollback.
+  const rollback: Changeset = {
+    variations: experiment.variations.map((v) => ({ ...v })),
+    ...(experiment.phases
+      ? { phases: experiment.phases.map((p) => ({ ...p })) }
+      : {}),
+  };
   await updateExperiment({ context, experiment, changes });
+  try {
+    await updateVisualChangeset({
+      visualChangeset: changeset,
+      experiment,
+      context,
+      updates: { visualChanges: nextVisualChanges },
+    });
+  } catch (e) {
+    try {
+      await updateExperiment({ context, experiment, changes: rollback });
+    } catch (rollbackErr) {
+      // Rollback also failed: the variation is gone but its visual change is
+      // still stored (orphaned). Content isn't lost — log for cleanup.
+      logger.error(
+        { err: rollbackErr, variationId, visualChangesetId },
+        "[visual-editor/delete-variant] rollback failed after visual-change write error; variation removed but its visual change remains",
+      );
+    }
+    throw e;
+  }
 
   // Re-read so the response matches the initial-load shape.
   const refreshedChangeset = await findVisualChangesetById(
