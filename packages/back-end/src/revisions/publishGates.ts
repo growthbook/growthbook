@@ -1,15 +1,12 @@
-import type { Context } from "back-end/src/models/BaseModel";
-
 // Aggregated publish-gate reporting for the REST revision-publish endpoints.
-// The sequential asserts in the handlers/adapters remain the enforcement layer;
-// this module is the aggregation/UX layer that lets a blocked publish return
-// ONE structured 422 naming every gate and the body flag that clears it, so a
-// caller discovers all required override flags in a single round trip.
+// A blocked publish returns ONE structured 422 naming every gate and (when one
+// exists) the body flag that clears it, so a caller discovers all required
+// override flags in a single round trip. For the config and constant publish
+// handlers the collected guard gates plus assertPublishGates ARE the
+// enforcement; the approval/stale-base/value-validation asserts in the
+// handlers remain as backstops behind their gates.
 
-export type PublishGateOverride =
-  | "bypassApproval"
-  | "ignoreWarnings"
-  | "skipSchemaValidation";
+export type PublishGateOverride = "ignoreWarnings" | "skipSchemaValidation";
 
 export type PublishGate = {
   /** Stable identifier for the gate, e.g. "approval-required", "stale-base". */
@@ -17,22 +14,26 @@ export type PublishGate = {
   severity: "blocker" | "warning";
   /** Human-readable detail; the first entry is the gate's one-line summary. */
   messages: string[];
-  /** The request-body flag that clears this gate on a retry. */
-  override: PublishGateOverride;
+  /**
+   * The request-body flag that clears this gate on a retry. Absent when no
+   * flag clears it (e.g. approval-required, which needs the revision approved
+   * or a caller whose permission bypasses approval implicitly).
+   */
+  override?: PublishGateOverride;
   /** Permission the caller must hold for the override flag to take effect. */
   requiresPermission?: string;
 };
 
 export type PublishOverrideFlags = {
-  bypassApproval?: boolean;
   ignoreWarnings?: boolean;
   skipSchemaValidation?: boolean;
 };
 
 /**
- * The gates a request does NOT clear: a gate is cleared only when its override
- * flag was passed AND (when the gate names a required permission) the caller
- * holds that permission. Pure — exported for unit tests.
+ * The gates a request does NOT clear: a gate is cleared only when it has an
+ * override flag, that flag was passed, AND (when the gate names a required
+ * permission) the caller holds that permission. A gate without an override is
+ * never cleared here. Pure — exported for unit tests.
  */
 export function unclearedGates(
   gates: PublishGate[],
@@ -40,6 +41,7 @@ export function unclearedGates(
   hasPermission: (permission: string) => boolean,
 ): PublishGate[] {
   return gates.filter((gate) => {
+    if (!gate.override) return true;
     if (flags[gate.override] !== true) return true;
     if (gate.requiresPermission && !hasPermission(gate.requiresPermission)) {
       return true;
@@ -49,17 +51,21 @@ export function unclearedGates(
 }
 
 function formatGateLine(gate: PublishGate): string {
+  const summary = gate.messages[0] ?? "";
+  if (!gate.override) return `- [${gate.type}] ${summary}`;
   const permissionNote = gate.requiresPermission
     ? `, requires the ${gate.requiresPermission} permission`
     : "";
-  return `- [${gate.type}] ${gate.messages[0] ?? ""} (retry with "${gate.override}": true${permissionNote})`;
+  return `- [${gate.type}] ${summary} (retry with "${gate.override}": true${permissionNote})`;
 }
 
 export class PublishBlockedError extends Error {
   status = 422;
   gates: PublishGate[];
-  // Flattened gate messages, mirroring SoftWarningError's `warnings` so
-  // existing "save anyway" retry flows keep working against this error too.
+  // Flattened messages of the gates that `ignoreWarnings` clears, mirroring
+  // SoftWarningError's `warnings` so existing ack-and-retry flows only see
+  // warnings an ignoreWarnings retry can actually acknowledge. `gates` keeps
+  // every gate, clearable or not.
   warnings: string[];
 
   constructor(gates: PublishGate[]) {
@@ -71,7 +77,9 @@ export class PublishBlockedError extends Error {
     );
     this.name = "PublishBlockedError";
     this.gates = gates;
-    this.warnings = gates.flatMap((gate) => gate.messages);
+    this.warnings = gates
+      .filter((gate) => gate.override === "ignoreWarnings")
+      .flatMap((gate) => gate.messages);
   }
 }
 
@@ -79,21 +87,17 @@ export class PublishBlockedError extends Error {
  * Throw a PublishBlockedError (422) listing every gate the request's override
  * flags don't clear. Callers assemble gates only for conditions that would
  * actually block them (a caller whose authority implicitly bypasses a check
- * gets no gate for it), so the permission lookup here is a conservative
- * backstop for the flag-plus-permission overrides.
+ * gets no gate for it) and pass `hasPermission` bound to the target entity's
+ * project scope, so a flag-plus-permission override is honored exactly where
+ * the equivalent assert would honor it.
  */
-export async function assertPublishGates(
-  context: Context,
+export function assertPublishGates(
   gates: PublishGate[],
   flags: PublishOverrideFlags,
-): Promise<void> {
+  hasPermission: (permission: string) => boolean,
+): void {
   if (!gates.length) return;
-  const remaining = unclearedGates(gates, flags, (permission) => {
-    if (permission === "bypassApprovalChecks") {
-      return context.permissions.canBypassApprovalChecks({ project: "" });
-    }
-    return false;
-  });
+  const remaining = unclearedGates(gates, flags, hasPermission);
   if (remaining.length) {
     throw new PublishBlockedError(remaining);
   }

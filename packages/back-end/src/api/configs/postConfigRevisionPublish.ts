@@ -24,8 +24,6 @@ import {
 } from "back-end/src/revisions/util";
 import { assertConfigValueValidForPublish } from "back-end/src/services/configValidation";
 import { assertConfigNotLocked } from "back-end/src/services/configLock";
-import { configChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
-import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConfigRevision } from "./toApiConfigRevision";
@@ -81,17 +79,17 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate and the body flag that clears it. The
-  // sequential checks below stay in place as the enforcement backstop.
+  // approval, stale-base, and value-validation checks below stay in place as
+  // the enforcement backstop; the adapter-collected guard gates are enforced
+  // solely here.
   const gates: PublishGate[] = [];
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     gates.push({
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `This revision requires approval before publishing (status: "${revision.status}").`,
+        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
       ],
-      override: "bypassApproval",
-      requiresPermission: "bypassApprovalChecks",
     });
   }
   if (
@@ -121,11 +119,16 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
-  await assertPublishGates(req.context, gates, {
-    bypassApproval: req.body.bypassApproval === true,
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-  });
+  assertPublishGates(
+    gates,
+    {
+      ignoreWarnings: req.context.ignoreWarnings,
+      skipSchemaValidation: req.context.skipSchemaValidation,
+    },
+    (permission) =>
+      permission === "bypassApprovalChecks" &&
+      adapter.canBypassApproval(req.context, config as Record<string, unknown>),
+  );
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
@@ -219,28 +222,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
     return { revision: await toApiConfigRevision(merged, req.context) };
   }
 
-  // Experiment guard (direct publish → armed:false). Skipped for a metadata-only
-  // publish, which can't rewrite any served value.
-  if (configChangeAffectsServedValue(changedFields)) {
-    await assertConfigPublishGuards(
-      req.context,
-      config,
-      revision,
-      { armed: false },
-      {
-        value: (desiredState.value as string | undefined) ?? config.value,
-        // Use desiredState.schema directly (it's a full post-merge snapshot, so
-        // this is the authoritative value): `?? config.schema` would resurrect
-        // the live schema on a `null` clear (revert to a schema-less revision).
-        schema: desiredState.schema as SimpleSchema | null | undefined,
-        parent: (desiredState.parent as string | undefined) ?? config.parent,
-        extends:
-          (desiredState.extends as string[] | undefined) ?? config.extends,
-        extensible:
-          (desiredState.extensible as boolean | undefined) ?? config.extensible,
-      },
-    );
-  }
+  // Experiment/lock/schema-break guards were enforced above via the adapter's
+  // collectPublishGates + assertPublishGates (the collector also records any
+  // synchronous override in the logs), so no separate assert runs here.
 
   // Publish-time safety net: the post-publish value must still conform to its
   // effective schema (catches ancestor-schema changes and skip-flag stages).
@@ -251,8 +235,9 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       key: config.key,
       name: config.name,
       value: postValue,
-      // See the guard call above: direct, not `?? config.schema`, so a `null`
-      // clear isn't resurrected into the live schema.
+      // Use desiredState.schema directly (a full post-merge snapshot, so it's
+      // authoritative): `?? config.schema` would resurrect the live schema on
+      // a `null` clear (revert to a schema-less revision).
       schema: desiredState.schema as SimpleSchema | null | undefined,
       parent: (desiredState.parent as string | undefined) ?? config.parent,
       extends: (desiredState.extends as string[] | undefined) ?? config.extends,

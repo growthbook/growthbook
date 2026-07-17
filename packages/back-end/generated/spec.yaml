@@ -95,9 +95,12 @@ info:
 
     - **422** - Soft Warning - The request failed, but can be re-submitted with
     `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
-    publishes also include a `gates` array naming every blocking gate and the
-    body flag that clears it (`bypassApproval`, `ignoreWarnings`, or
-    `skipSchemaValidation`), so one response lists all required overrides.
+    publishes also include a `gates` array naming every blocking gate and, when
+    one exists, the body flag that clears it (`ignoreWarnings` or
+    `skipSchemaValidation`), so one response lists all required overrides. A
+    gate without an override flag (approval required) clears by getting the
+    revision approved, or implicitly for callers with the `bypassApprovalChecks`
+    permission.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -2874,6 +2877,17 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -3168,6 +3182,17 @@ paths:
                     - date
                     - enabled
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -3333,6 +3358,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - prerequisites
               additionalProperties: false
@@ -3412,6 +3448,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - holdout
               additionalProperties: false
@@ -3479,6 +3526,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -3548,6 +3606,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - enabled
@@ -5061,6 +5130,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - environment
               additionalProperties: false
@@ -5134,6 +5214,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - ruleIds
@@ -5609,6 +5700,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5676,6 +5778,17 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5940,6 +6053,17 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -6000,11 +6124,11 @@ paths:
                   type: boolean
                 bypassApproval:
                   description: >-
-                    Publish a revision that has not been approved when the org
-                    requires approvals. Requires the `bypassApprovalChecks`
-                    permission (or the org-level REST bypass setting, either of
-                    which bypasses automatically). When approvals aren't
-                    required, this flag has no effect.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -7929,6 +8053,17 @@ paths:
                   type: string
                 title:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -8372,6 +8507,17 @@ paths:
                     - date
                     - enabled
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -8551,6 +8697,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - prerequisites
               additionalProperties: false
@@ -8626,6 +8783,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - holdout
               additionalProperties: false
@@ -8690,6 +8858,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -8756,6 +8935,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - environment
                 - enabled
@@ -10000,6 +10190,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10068,6 +10269,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - ruleIds
               additionalProperties: false
@@ -10633,6 +10845,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10705,6 +10928,17 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11358,6 +11592,17 @@ paths:
                     by a co-author), the request fails with `409` instead of
                     applying resolutions against changed draft content.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11512,6 +11757,17 @@ paths:
                     by a co-author), the request fails with `409` instead of
                     applying resolutions against changed draft content.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -11568,11 +11824,11 @@ paths:
                   type: boolean
                 bypassApproval:
                   description: >-
-                    Publish a revision that has not been approved when the org
-                    requires approvals. Requires the `bypassApprovalChecks`
-                    permission (or the org-level REST bypass setting, either of
-                    which bypasses automatically). When approvals aren't
-                    required, this flag has no effect.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -12517,6 +12773,17 @@ paths:
                   required:
                     - startAt
                   additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - trackingKey
                 - name
@@ -13162,6 +13429,17 @@ paths:
                   type: array
                   items:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -13292,6 +13570,17 @@ paths:
                   description: >-
                     If true, skips validating the experiment satisifies all
                     pre-launch checklist items
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
                   type: boolean
               additionalProperties: false
       responses:
@@ -13485,6 +13774,17 @@ paths:
                     Optional ISO datetime for ending the latest phase. Defaults
                     to the current date and time.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - results
               additionalProperties: false
@@ -13556,6 +13856,17 @@ paths:
                     eligible for this experiment. Required if
                     enableTemporaryRollout is true.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
               required:
                 - enableTemporaryRollout
               additionalProperties: false
@@ -18595,11 +18906,11 @@ paths:
                   type: boolean
                 bypassApproval:
                   description: >-
-                    Publish a revision that has not been approved when the org
-                    requires approvals. Requires the `bypassApprovalChecks`
-                    permission (or the org-level REST bypass setting, either of
-                    which bypasses automatically). When approvals aren't
-                    required, this flag has no effect.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -18611,13 +18922,6 @@ paths:
                     acknowledge in `warnings`. On publish endpoints this also
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
-                  type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19097,13 +19401,6 @@ paths:
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
                   type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19190,13 +19487,6 @@ paths:
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
                   type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19249,13 +19539,6 @@ paths:
                     acknowledge in `warnings`. On publish endpoints this also
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
-                  type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19759,13 +20042,6 @@ paths:
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
                   type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19998,11 +20274,11 @@ paths:
               properties:
                 bypassApproval:
                   description: >-
-                    Publish a revision that has not been approved when the org
-                    requires approvals. Requires the `bypassApprovalChecks`
-                    permission (or the org-level REST bypass setting, either of
-                    which bypasses automatically). When approvals aren't
-                    required, this flag has no effect.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -20014,13 +20290,6 @@ paths:
                     acknowledge in `warnings`. On publish endpoints this also
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
-                  type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -20135,13 +20404,6 @@ paths:
                     acknowledge in `warnings`. On publish endpoints this also
                     force-merges a draft whose base is stale, when you hold the
                     bypass-approval permission.
-                  type: boolean
-                skipSchemaValidation:
-                  description: >-
-                    Skip JSON-schema validation of the value(s) being written.
-                    Only honored for callers with org-wide bypass authority (the
-                    `bypassApprovalChecks` permission on all projects); ignored
-                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22547,11 +22809,11 @@ paths:
               properties:
                 bypassApproval:
                   description: >-
-                    Publish a revision that has not been approved when the org
-                    requires approvals. Requires the `bypassApprovalChecks`
-                    permission (or the org-level REST bypass setting, either of
-                    which bypasses automatically). When approvals aren't
-                    required, this flag has no effect.
+                    Has no effect and is accepted only for backwards
+                    compatibility. Callers with the `bypassApprovalChecks`
+                    permission (or under the org-level REST bypass setting)
+                    bypass approval requirements automatically; all other
+                    callers must have the revision approved before publishing.
                   type: boolean
                 ignoreWarnings:
                   description: >-

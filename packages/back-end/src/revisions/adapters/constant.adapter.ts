@@ -40,6 +40,7 @@ import {
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { logger } from "back-end/src/util/logger";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the schema
 // so the two can't drift. The snapshot validator runs in `.strict()` mode, so
@@ -256,10 +257,12 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     });
   },
 
-  // Non-throwing publish-guard survey for the REST publish handler's aggregated
-  // 422 (see EntityRevisionAdapter.collectPublishGates). Mirrors the config
-  // adapter: same evaluators as assertConstantPublishGuards, skipped entirely
-  // when the caller's disposition/authority would clear every guard anyway.
+  // Publish-guard evaluation for the REST publish handler's aggregated 422
+  // (see EntityRevisionAdapter.collectPublishGates). Mirrors the config
+  // adapter: same evaluators as assertConstantPublishGuards, and on the REST
+  // publish path this plus assertPublishGates IS the guard enforcement. A
+  // synchronous override (a live ignoreWarnings or bypass-approval permission)
+  // clears every guard but the overridden conflicts are still logged.
   async collectPublishGates(
     context: Context,
     entity: ConstantInterface,
@@ -267,12 +270,6 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     desiredState: Record<string, unknown>,
   ): Promise<PublishGate[]> {
     void revision;
-    if (
-      context.ignoreWarnings ||
-      canBypassApprovalForConstant(context, entity)
-    ) {
-      return [];
-    }
     const filteredChanges = filterUpdatableChanges(
       desiredState,
       entity as Record<string, unknown>,
@@ -283,22 +280,35 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       return [];
     }
 
+    const override =
+      context.ignoreWarnings || canBypassApprovalForConstant(context, entity);
     const gates: PublishGate[] = [];
 
     const experimentConflicts = [
       ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
     ].sort();
     if (experimentConflicts.length) {
-      gates.push({
-        type: "experiment-guard",
-        severity: "warning",
-        messages: [
-          `Publishing this constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
-        override: "ignoreWarnings",
-      });
+      if (override) {
+        logger.info(
+          {
+            constantKey: entity.key,
+            userId: context.userId,
+            conflictKeys: experimentConflicts,
+          },
+          "Constant experiment guard overridden on a direct publish",
+        );
+      } else {
+        gates.push({
+          type: "experiment-guard",
+          severity: "warning",
+          messages: [
+            `Publishing this constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
+              experimentConflicts,
+            )}).`,
+          ],
+          override: "ignoreWarnings",
+        });
+      }
     }
 
     const lockConflicts = [
@@ -309,16 +319,28 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       })),
     ].sort();
     if (lockConflicts.length) {
-      gates.push({
-        type: "config-lock",
-        severity: "warning",
-        messages: [
-          `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
-        override: "ignoreWarnings",
-      });
+      if (override) {
+        logger.info(
+          {
+            source: "constant",
+            key: entity.key,
+            userId: context.userId,
+            conflictKeys: lockConflicts,
+          },
+          "Config-lock guard overridden on a direct publish",
+        );
+      } else {
+        gates.push({
+          type: "config-lock",
+          severity: "warning",
+          messages: [
+            `Publishing this constant changes the resolved value of locked config(s): ${lockConflicts.join(
+              ", ",
+            )}.`,
+          ],
+          override: "ignoreWarnings",
+        });
+      }
     }
 
     // Without a proposed base value there's nothing to resolve-and-check; fail
@@ -339,15 +361,26 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
               : entity.environmentValues,
           );
     if (schemaBreaks.length) {
-      gates.push({
-        type: "schema-break",
-        severity: "warning",
-        messages: [
-          "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
-          ...schemaBreaks,
-        ],
-        override: "ignoreWarnings",
-      });
+      if (override) {
+        logger.info(
+          {
+            constantKey: entity.key,
+            userId: context.userId,
+            violations: schemaBreaks,
+          },
+          "Schema-break guard overridden on a direct publish",
+        );
+      } else {
+        gates.push({
+          type: "schema-break",
+          severity: "warning",
+          messages: [
+            "Publishing this constant would make dependent config or feature value(s) violate their schema or validation rules:",
+            ...schemaBreaks,
+          ],
+          override: "ignoreWarnings",
+        });
+      }
     }
 
     return gates;

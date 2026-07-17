@@ -80,10 +80,8 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `This revision requires approval before publishing (status: "${revision.status}").`,
+        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
       ],
-      override: "bypassApproval",
-      requiresPermission: "bypassApprovalChecks",
     });
   }
   if (
@@ -105,11 +103,16 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       requiresPermission: "bypassApprovalChecks",
     });
   }
-  await assertPublishGates(req.context, gates, {
-    bypassApproval: req.body.bypassApproval === true,
-    ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-  });
+  assertPublishGates(
+    gates,
+    { ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings },
+    (permission) =>
+      permission === "bypassApprovalChecks" &&
+      adapter.canBypassApproval(
+        req.context,
+        savedGroup as Record<string, unknown>,
+      ),
+  );
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

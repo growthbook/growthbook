@@ -152,14 +152,13 @@ export const publishOverrideBodyFields = {
   skipSchemaValidation: skipSchemaValidationBodyField,
 };
 
-// Publish-endpoint form of `bypassApproval`: publish an unapproved revision
-// when the org requires approvals. Callers with the permission (or under the
-// org-level REST bypass setting) already bypass automatically; the flag exists
-// so a blocked publish's `gates` response can name a concrete flag to retry
-// with once the caller has bypass authority.
+// Publish-endpoint `bypassApproval` flag. Accepted for compatibility but has
+// no effect: approval bypass is implicit for callers with the permission (or
+// under the org-level REST bypass setting), so gate messages no longer
+// advertise this flag as a retry override.
 export const bypassApprovalPublishBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Publish a revision that has not been approved when the org requires approvals. Requires the `bypassApprovalChecks` permission (or the org-level REST bypass setting, either of which bypasses automatically). When approvals aren't required, this flag has no effect.",
+    "Has no effect and is accepted only for backwards compatibility. Callers with the `bypassApprovalChecks` permission (or under the org-level REST bypass setting) bypass approval requirements automatically; all other callers must have the revision approved before publishing.",
   );

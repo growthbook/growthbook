@@ -142,8 +142,10 @@ export interface EntityRevisionAdapter<
    * live conflict set, so a blocked publish reports every gate — and the flag
    * that clears it — in one response. Gates the caller's authority or request
    * disposition already clears implicitly (bypass-approval permission, a live
-   * ignoreWarnings) are omitted, matching the asserts' synchronous override.
-   * Purely advisory: the downstream asserts remain the enforcement backstop.
+   * ignoreWarnings) are omitted, matching the asserts' synchronous override —
+   * but the overridden conflicts must still be logged, matching the asserts'
+   * override logging. On the REST publish path this plus assertPublishGates
+   * IS the guard enforcement; deferred/internal paths keep their asserts.
    */
   collectPublishGates?(
     context: Context,

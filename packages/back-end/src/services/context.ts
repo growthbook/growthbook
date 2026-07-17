@@ -360,8 +360,9 @@ export class ReqContextClass {
   // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
   // kept as a deprecated alias — the flag is request disposition, but callers
   // (agents especially) discover and retry flags far more reliably in the body
-  // schema. Strict zod body schemas mean only endpoints that declare the field
-  // can carry it.
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
     if (this.bodyFlag("ignoreWarnings")) return true;
@@ -380,7 +381,8 @@ export class ReqContextClass {
   }
 
   // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
-  // write paths (`?skipSchemaValidation=true`). Validation is enforced by
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
   // default; this only relaxes it when a caller explicitly asks. Background jobs
   // (no req) never skip — they must produce conforming data.
   //

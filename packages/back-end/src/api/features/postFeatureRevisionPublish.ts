@@ -46,7 +46,6 @@ export async function publishFeatureRevision(
       comment?: string;
       mergeNow?: boolean;
       ignoreWarnings?: boolean;
-      bypassApproval?: boolean;
     };
   },
   canUseRestApiBypass: boolean,
@@ -219,17 +218,20 @@ export async function publishFeatureRevision(
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `This revision requires approval before publishing (status: "${revision.status}").`,
+        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
       ],
-      override: "bypassApproval",
-      requiresPermission: "bypassApprovalChecks",
     });
   }
-  await assertPublishGates(req.context, gates, {
-    bypassApproval: req.body.bypassApproval === true,
-    ignoreWarnings: forceMergeRequested,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-  });
+  assertPublishGates(
+    gates,
+    {
+      ignoreWarnings: forceMergeRequested,
+      skipSchemaValidation: req.context.skipSchemaValidation,
+    },
+    (permission) =>
+      permission === "bypassApprovalChecks" &&
+      req.context.permissions.canBypassApprovalChecks(feature),
+  );
 
   if (rebaseGovernance?.rebaseRequired) {
     if (forceMergeRequested && !canBypassGovernance) {

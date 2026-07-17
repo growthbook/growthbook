@@ -22,8 +22,6 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
-import { constantRevisionAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -76,17 +74,16 @@ export const postConstantRevisionPublish = createApiRequestHandler(
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate and the body flag that clears it. The
-  // sequential checks below stay in place as the enforcement backstop.
+  // approval and stale-base checks below stay in place as the enforcement
+  // backstop; the adapter-collected guard gates are enforced solely here.
   const gates: PublishGate[] = [];
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     gates.push({
       type: "approval-required",
       severity: "blocker",
       messages: [
-        `This revision requires approval before publishing (status: "${revision.status}").`,
+        `Requires approval — submit the revision for review, or a caller with the bypassApprovalChecks permission can publish directly (status: "${revision.status}").`,
       ],
-      override: "bypassApproval",
-      requiresPermission: "bypassApprovalChecks",
     });
   }
   if (
@@ -116,11 +113,16 @@ export const postConstantRevisionPublish = createApiRequestHandler(
       desiredState,
     )) ?? []),
   );
-  await assertPublishGates(req.context, gates, {
-    bypassApproval: req.body.bypassApproval === true,
-    ignoreWarnings: req.context.ignoreWarnings,
-    skipSchemaValidation: req.context.skipSchemaValidation,
-  });
+  assertPublishGates(
+    gates,
+    { ignoreWarnings: req.context.ignoreWarnings },
+    (permission) =>
+      permission === "bypassApprovalChecks" &&
+      adapter.canBypassApproval(
+        req.context,
+        constant as Record<string, unknown>,
+      ),
+  );
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(
@@ -185,21 +187,9 @@ export const postConstantRevisionPublish = createApiRequestHandler(
     }
   }
 
-  // A constant change isn't config-scoped, but it rewrites the resolved value of
-  // every config referencing it — so warn (bypassably) when a running experiment
-  // reads one. Value-affecting changes only; metadata edits can't shift a value.
-  if (constantRevisionAffectsServedValue(revision.target.proposedChanges)) {
-    await assertConstantPublishGuards(
-      req.context,
-      constant,
-      revision,
-      { armed: false },
-      (desiredState.value as string | undefined) ?? constant.value,
-      "environmentValues" in desiredState
-        ? (desiredState.environmentValues as Record<string, string> | undefined)
-        : constant.environmentValues,
-    );
-  }
+  // Experiment/lock/schema-break guards were enforced above via the adapter's
+  // collectPublishGates + assertPublishGates (the collector also records any
+  // synchronous override in the logs), so no separate assert runs here.
 
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;

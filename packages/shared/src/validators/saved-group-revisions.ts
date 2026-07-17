@@ -3,7 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  publishOverrideBodyFields,
+  ignoreWarningsBodyField,
   bypassApprovalPublishBodyField,
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
@@ -346,7 +346,7 @@ export const postSavedGroupRevisionPublishValidator = {
         .describe("Deprecated — pass `ignoreWarnings: true` instead.")
         .meta({ deprecated: true }),
       bypassApproval: bypassApprovalPublishBodyField,
-      ...publishOverrideBodyFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),

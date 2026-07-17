@@ -7,6 +7,7 @@ import {
   apiPaginationFieldsValidator,
   publishOverrideBodyFields,
   bypassApprovalPublishBodyField,
+  ignoreWarningsBodyField,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -165,6 +166,7 @@ export const postFeatureRevisionValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z
@@ -290,6 +292,7 @@ export const postFeatureRevisionRebaseValidator = {
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -479,6 +482,7 @@ export const postFeatureRevisionRulesReorderValidator = {
       environment: z.string(),
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -554,6 +558,7 @@ export const deleteFeatureRevisionRuleValidator = {
     .object({
       environment: z.string(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -571,7 +576,10 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: standaloneRampScheduleInput.extend({
+    ...newDraftMetadataFields,
+    ignoreWarnings: ignoreWarningsBodyField,
+  }),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -591,6 +599,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
     .object({
       environment: z.string().optional().meta({ deprecated: true }),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -615,6 +624,7 @@ export const postFeatureRevisionToggleValidator = {
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -658,6 +668,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
     .object({
       prerequisites: z.array(featurePrerequisite),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -686,6 +697,7 @@ export const putFeatureRevisionMetadataValidator = {
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
       jsonSchema: JSONSchemaDef.optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -704,7 +716,11 @@ export const putFeatureRevisionArchiveValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .object({
+      archived: z.boolean(),
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -728,6 +744,7 @@ export const putFeatureRevisionHoldoutValidator = {
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),

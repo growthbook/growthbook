@@ -3,7 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
-  publishOverrideBodyFields,
+  ignoreWarningsBodyField,
   bypassApprovalPublishBodyField,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
@@ -314,7 +314,7 @@ export const postConstantRevisionPublishValidator = {
   bodySchema: z
     .object({
       bypassApproval: bypassApprovalPublishBodyField,
-      ...publishOverrideBodyFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -335,7 +335,7 @@ export const postConstantRevisionRevertValidator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       title: z.string().optional(),
       comment: z.string().optional(),
-      ...publishOverrideBodyFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -378,7 +378,7 @@ export const postConstantRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       autoPublishOnApproval: z.boolean().optional(),
-      ...publishOverrideBodyFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
