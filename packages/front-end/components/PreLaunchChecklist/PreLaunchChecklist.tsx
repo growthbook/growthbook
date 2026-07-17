@@ -5,12 +5,7 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
-import {
-  PiCaretDown,
-  PiCaretDownFill,
-  PiCaretRightFill,
-  PiCaretUp,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import clsx from "clsx";
@@ -28,6 +23,7 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
+import Switch from "@/ui/Switch";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
 import styles from "./PreLaunchChecklist.module.scss";
@@ -164,34 +160,21 @@ function PreLaunchChecklistUI({
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <Box>
-      {incompleteItems.map((item, i) => renderItem(item, i))}
+    <Box className={styles.drawerBodyInner}>
       {completeItems.length > 0 && (
-        <Box mt="4">
-          <Link
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowCompleted((prev) => !prev);
-            }}
-          >
-            <Flex as="span" align="center" gap="1">
-              View completed items
-              {showCompleted ? (
-                <PiCaretDownFill size={13} />
-              ) : (
-                <PiCaretRightFill size={13} />
-              )}
-            </Flex>
-          </Link>
-          {showCompleted && (
-            <Box mt="2">
-              {completeItems.map((item, i) =>
-                renderItem(item, `complete-${i}`),
-              )}
-            </Box>
-          )}
+        <Box style={{ marginBottom: 19 }}>
+          <Switch
+            value={showCompleted}
+            onChange={setShowCompleted}
+            label="Show completed"
+          />
         </Box>
       )}
+      <Box className={styles.itemsScroll}>
+        {incompleteItems.map((item, i) => renderItem(item, i))}
+        {showCompleted &&
+          completeItems.map((item, i) => renderItem(item, `complete-${i}`))}
+      </Box>
     </Box>
   );
 
