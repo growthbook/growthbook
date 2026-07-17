@@ -22,7 +22,11 @@ import {
   ArmAcknowledgments,
   buildArmAcknowledgments,
 } from "back-end/src/services/armGuards";
-import { captureConstantExperimentGuardAcknowledgment } from "back-end/src/services/experimentGuard";
+import {
+  captureConstantExperimentGuardAcknowledgment,
+  constantChangeAffectsServedValue,
+  constantRevisionAffectsServedValue,
+} from "back-end/src/services/experimentGuard";
 import { captureConfigLockAcknowledgment } from "back-end/src/services/configLockGuard";
 import { captureConstantSchemaBreakAcknowledgment } from "back-end/src/services/schemaBreakGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
@@ -209,9 +213,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
     entity: ConstantInterface,
     proposedChanges: unknown,
   ): Promise<ArmAcknowledgments | undefined> {
-    const change = getConstantRevisionChange(entity, proposedChanges);
-    const valueAffecting =
-      change.valueChanged || change.changedEnvironments.length > 0;
+    const valueAffecting = constantRevisionAffectsServedValue(proposedChanges);
     // The base + per-environment values this schedule would publish, for the
     // schema-break fingerprint (must match what the deferred fire re-checks).
     const proposedSnapshot = applyPatchToSnapshot(
@@ -261,7 +263,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       entity as Record<string, unknown>,
       UPDATABLE_FIELDS,
     );
-    if ("value" in filteredChanges || "environmentValues" in filteredChanges) {
+    if (constantChangeAffectsServedValue(Object.keys(filteredChanges))) {
       await assertConstantPublishGuards(
         context,
         entity,

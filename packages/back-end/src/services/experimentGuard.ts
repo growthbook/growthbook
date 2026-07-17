@@ -1,10 +1,6 @@
 import { ConfigInterface } from "shared/types/config";
 import { ConstantInterface } from "shared/types/constant";
-import {
-  Revision,
-  getConstantRevisionChange,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import {
   getConfigSubtree,
   parsePlainJSONObject,
@@ -96,6 +92,11 @@ export const VALUE_AFFECTING_CONFIG_FIELDS = [
   "extensible",
   // Which env/project flavors apply (and their order) changes served values.
   "scopedOverrides",
+  // Resolution SCRUBS cross-project and archived refs, so moving a config to a
+  // different project or archiving/unarchiving it rewrites the value served to
+  // every consumer the ref stops (or starts) resolving for.
+  "project",
+  "archived",
 ] as const;
 const VALUE_AFFECTING_CONFIG_FIELD_SET = new Set<string>(
   VALUE_AFFECTING_CONFIG_FIELDS,
@@ -110,17 +111,49 @@ export function configChangeAffectsServedValue(
   return false;
 }
 
-// Same check from a revision's proposed JSON-Patch ops (top-level field per op) —
-// used at arm time, where callers hold the revision's proposedChanges rather than
-// a merged desired-state diff.
+// Constant analog of VALUE_AFFECTING_CONFIG_FIELDS: `project`/`archived` are
+// value-affecting for the same scrubbing reason. Note this classifies GUARD
+// applicability only — the review/approval model keeps its own field scoping
+// (CONSTANT_METADATA_FIELDS), which still treats project/archived as metadata.
+export const VALUE_AFFECTING_CONSTANT_FIELDS = [
+  "value",
+  "environmentValues",
+  "project",
+  "archived",
+] as const;
+const VALUE_AFFECTING_CONSTANT_FIELD_SET = new Set<string>(
+  VALUE_AFFECTING_CONSTANT_FIELDS,
+);
+
+// Whether a set of changed constant field names includes any value-affecting one.
+export function constantChangeAffectsServedValue(
+  changedFields: Iterable<string>,
+): boolean {
+  for (const f of changedFields)
+    if (VALUE_AFFECTING_CONSTANT_FIELD_SET.has(f)) return true;
+  return false;
+}
+
+// Top-level field per JSON-Patch op — how the revision-side checks derive
+// changed field names when callers hold proposedChanges rather than a merged
+// desired-state diff.
+function topLevelPatchFields(proposedChanges: unknown): string[] {
+  return normalizeProposedChanges(proposedChanges)
+    .map((op) => op.path.split("/")[1])
+    .filter(Boolean);
+}
+
+// Same checks from a revision's proposed JSON-Patch ops — used at arm time.
 export function configRevisionAffectsServedValue(
   proposedChanges: unknown,
 ): boolean {
-  return configChangeAffectsServedValue(
-    normalizeProposedChanges(proposedChanges)
-      .map((op) => op.path.split("/")[1])
-      .filter(Boolean),
-  );
+  return configChangeAffectsServedValue(topLevelPatchFields(proposedChanges));
+}
+
+export function constantRevisionAffectsServedValue(
+  proposedChanges: unknown,
+): boolean {
+  return constantChangeAffectsServedValue(topLevelPatchFields(proposedChanges));
 }
 
 export type ExperimentGuardDecision =
@@ -543,11 +576,11 @@ export async function captureConstantExperimentGuardAcknowledgment(
   proposedChanges?: unknown,
 ): Promise<string[] | undefined> {
   // A metadata-only revision can't rewrite a served value — nothing to ack.
-  if (proposedChanges !== undefined) {
-    const change = getConstantRevisionChange(constant, proposedChanges);
-    if (!change.valueChanged && change.changedEnvironments.length === 0) {
-      return undefined;
-    }
+  if (
+    proposedChanges !== undefined &&
+    !constantRevisionAffectsServedValue(proposedChanges)
+  ) {
+    return undefined;
   }
 
   const conflictKeys = await evaluateConstantExperimentGuardConflicts(

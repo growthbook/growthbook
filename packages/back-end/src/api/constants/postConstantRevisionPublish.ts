@@ -1,7 +1,6 @@
 import { isEqual } from "lodash";
 import {
   checkMergeConflicts,
-  getConstantRevisionChange,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { postConstantRevisionPublishValidator } from "shared/validators";
@@ -20,6 +19,7 @@ import {
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantRevisionAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -132,14 +132,7 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   // A constant change isn't config-scoped, but it rewrites the resolved value of
   // every config referencing it — so warn (bypassably) when a running experiment
   // reads one. Value-affecting changes only; metadata edits can't shift a value.
-  const constantChange = getConstantRevisionChange(
-    constant,
-    revision.target.proposedChanges,
-  );
-  if (
-    constantChange.valueChanged ||
-    constantChange.changedEnvironments.length
-  ) {
+  if (constantRevisionAffectsServedValue(revision.target.proposedChanges)) {
     await assertConstantPublishGuards(
       req.context,
       constant,

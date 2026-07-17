@@ -17,6 +17,7 @@ import {
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantArchivable } from "back-end/src/services/constants";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiConstantRevision } from "./toApiConstantRevision";
 
@@ -152,7 +153,7 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   // calls applyChanges directly (which doesn't), so enforce them here —
   // mirroring the config revert handler. Skipped for a metadata-only revert
   // (can't rewrite a served value).
-  if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+  if (constantChangeAffectsServedValue(Object.keys(fieldsToUpdate))) {
     await assertConstantPublishGuards(
       req.context,
       constant,

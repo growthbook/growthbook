@@ -3,6 +3,10 @@ import {
   experimentGuardConflictsAcknowledged,
   decideExperimentGuard,
   configPublishAffectedRoots,
+  configChangeAffectsServedValue,
+  configRevisionAffectsServedValue,
+  constantChangeAffectsServedValue,
+  constantRevisionAffectsServedValue,
 } from "back-end/src/services/experimentGuard";
 
 type Impl = Parameters<typeof computeExperimentGuardConflictKeys>[0][number];
@@ -13,6 +17,38 @@ const impl = (over: Partial<Impl>): Impl => ({
   experimentStatus: "running",
   state: "live",
   ...over,
+});
+
+describe("served-value change classification", () => {
+  it("treats project and archived changes as value-affecting (refs are scrubbed)", () => {
+    expect(configChangeAffectsServedValue(["project"])).toBe(true);
+    expect(configChangeAffectsServedValue(["archived"])).toBe(true);
+    expect(constantChangeAffectsServedValue(["project"])).toBe(true);
+    expect(constantChangeAffectsServedValue(["archived"])).toBe(true);
+  });
+
+  it("still skips metadata-only changes", () => {
+    expect(configChangeAffectsServedValue(["name", "description"])).toBe(false);
+    expect(constantChangeAffectsServedValue(["name", "owner"])).toBe(false);
+  });
+
+  it("classifies revision patch ops by their top-level field", () => {
+    expect(
+      configRevisionAffectsServedValue([
+        { op: "replace", path: "/archived", value: true },
+      ]),
+    ).toBe(true);
+    expect(
+      constantRevisionAffectsServedValue([
+        { op: "replace", path: "/project", value: "prj_a" },
+      ]),
+    ).toBe(true);
+    expect(
+      constantRevisionAffectsServedValue([
+        { op: "replace", path: "/name", value: "renamed" },
+      ]),
+    ).toBe(false);
+  });
 });
 
 describe("computeExperimentGuardConflictKeys", () => {
