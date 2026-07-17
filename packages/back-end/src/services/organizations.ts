@@ -40,6 +40,7 @@ import {
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
+import { UserInterface } from "shared/types/user";
 import { MetricInterface } from "shared/types/metric";
 import { DimensionInterface } from "shared/types/dimension";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -52,6 +53,7 @@ import {
   findOrganizationById,
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
+  findOrganizationsByMemberId,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
@@ -1173,6 +1175,41 @@ export function isEnterpriseSSO(connection?: SSOConnectionInterface) {
   if (connection.id.startsWith("vercel:")) return false;
 
   return true;
+}
+
+// On Cloud, an Enterprise SSO connection is scoped to a single organization and
+// has no legitimate authority over an existing account that org has never
+// interacted with. Otherwise, a permissive IdP on org A could assert org B's
+// user's email and authenticate as them. This mirrors the relationships
+// `addMemberFromSSOConnection` itself is willing to create (member, invite,
+// pending member, or domain-based auto-join for a brand-new-to-GrowthBook user)
+// so it doesn't break legitimate invite/auto-join flows that haven't completed yet.
+export async function isUserAuthorizedForSSOConnection(
+  user: Pick<UserInterface, "id" | "email">,
+  ssoConnection: SSOConnectionInterface,
+): Promise<boolean> {
+  if (!ssoConnection.organization) return true;
+
+  const org = await getOrganizationById(ssoConnection.organization);
+  if (!org) return false;
+
+  if (org.members.some((m) => m.id === user.id)) return true;
+  if (org.pendingMembers?.some((m) => m.id === user.id)) return true;
+  if (
+    org.invites.some((i) => i.email.toLowerCase() === user.email.toLowerCase())
+  ) {
+    return true;
+  }
+
+  if (ssoConnection.emailDomains?.length) {
+    const emailDomain = user.email.split("@").pop()?.toLowerCase() || "";
+    if (ssoConnection.emailDomains.includes(emailDomain)) {
+      const existingOrgs = await findOrganizationsByMemberId(user.id);
+      if (!existingOrgs.length) return true;
+    }
+  }
+
+  return false;
 }
 
 // Auto-add user to an organization if using Enterprise SSO
