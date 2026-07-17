@@ -236,7 +236,6 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-      await removeProjectFromFeatures(context, id);
     } else {
       await removeProjectFromFeatures(context, id);
     }
@@ -254,7 +253,6 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-      await removeProjectFromExperiments(context, id);
     } else {
       await removeProjectFromExperiments(context, id);
     }

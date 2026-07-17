@@ -288,7 +288,7 @@ export const postDemoDatasourceProject = async (
       owner: context.userId,
       tags: DEMO_TAGS,
       userIdTypes: ["user_id"],
-      sql: "SELECT\nuserid AS user_id,\ntimestamp,\nbrowser,\ncountry,\npath\nFROM pages",
+      sql: "SELECT\nuserId AS user_id,\ntimestamp,\nbrowser,\ncountry,\npath\nFROM pages",
       eventName: "page_views",
       datasource: datasource.id,
       projects: [project.id],
