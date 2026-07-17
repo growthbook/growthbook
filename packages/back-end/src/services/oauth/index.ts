@@ -10,6 +10,7 @@ import {
 } from "back-end/src/util/secrets";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import {
   hashToken,
   OAUTH_ACCESS_TOKEN_PREFIX,
@@ -20,6 +21,7 @@ import {
   consumeAuthCode,
   createOAuthClient,
   deleteRefreshToken,
+  deleteRefreshTokensForGrant,
   findRefreshToken,
   getOAuthClientById,
   insertAuthCode,
@@ -236,6 +238,25 @@ export async function exchangeRefreshToken(params: {
     throw new OAuthError("invalid_grant", "client_id mismatch");
   }
 
+  // End the grant if the user was removed from the org after consent.
+  const orgs = await findOrganizationsByMemberId(existing.userId);
+  if (!orgs.some((o) => o.id === existing.organization)) {
+    await deleteRefreshTokensForGrant(
+      existing.clientId,
+      existing.userId,
+      existing.organization,
+    );
+    await disableAccessTokensForGrant(
+      existing.clientId,
+      existing.userId,
+      existing.organization,
+    );
+    throw new OAuthError(
+      "invalid_grant",
+      "User is no longer a member of this organization",
+    );
+  }
+
   // Rotate: delete old refresh token before issuing a new pair
   await deleteRefreshToken(tokenHash);
 
@@ -257,16 +278,67 @@ export async function revokeToken(params: {
   const refresh = await findRefreshToken(tokenHash);
   if (refresh) {
     if (params.clientId && refresh.clientId !== params.clientId) return;
-    await deleteRefreshToken(tokenHash);
+    await deleteRefreshTokensForGrant(
+      refresh.clientId,
+      refresh.userId,
+      refresh.organization,
+    );
+    await disableAccessTokensForGrant(
+      refresh.clientId,
+      refresh.userId,
+      refresh.organization,
+    );
     return;
   }
 
   if (params.token.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)) {
+    const apiKey = await getCollection<ApiKeyInterface>(
+      API_KEY_COLLECTION,
+    ).findOne({ key: tokenHash });
+    if (!apiKey) return;
+    if (
+      params.clientId &&
+      apiKey.oauthClientId &&
+      apiKey.oauthClientId !== params.clientId
+    ) {
+      return;
+    }
+
+    if (apiKey.oauthClientId && apiKey.userId && apiKey.organization) {
+      await deleteRefreshTokensForGrant(
+        apiKey.oauthClientId,
+        apiKey.userId,
+        apiKey.organization,
+      );
+      await disableAccessTokensForGrant(
+        apiKey.oauthClientId,
+        apiKey.userId,
+        apiKey.organization,
+      );
+      return;
+    }
+
     await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).updateOne(
       { key: tokenHash },
       { $set: { disabled: true } },
     );
   }
+}
+
+async function disableAccessTokensForGrant(
+  clientId: string,
+  userId: string,
+  organization: string,
+): Promise<void> {
+  await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).updateMany(
+    {
+      oauthClientId: clientId,
+      userId,
+      organization,
+      disabled: { $ne: true },
+    },
+    { $set: { disabled: true } },
+  );
 }
 
 interface IssueParams {

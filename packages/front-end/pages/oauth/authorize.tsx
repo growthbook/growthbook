@@ -177,7 +177,7 @@ export default function OAuthAuthorizePage() {
         }}
       >
         <Heading as="h1" size="x-large" mb="2">
-          Authorization complete
+          Authorization Complete
         </Heading>
         <Callout status="success" mb="4">
           You can return to the application. This tab can stay open.
@@ -205,7 +205,7 @@ export default function OAuthAuthorizePage() {
       }}
     >
       <Heading as="h1" size="x-large" mb="2">
-        Authorize application
+        Authorize Application
       </Heading>
       <Text as="p" color="text-mid" mb="4">
         {info?.client

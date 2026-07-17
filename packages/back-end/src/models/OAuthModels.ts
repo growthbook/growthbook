@@ -143,9 +143,11 @@ export async function deleteRefreshToken(tokenHash: string): Promise<void> {
   await OAuthRefreshTokenModel.deleteOne({ tokenHash });
 }
 
-export async function deleteRefreshTokensForClientUser(
+/** Tear down every refresh token for one client/user/org grant. */
+export async function deleteRefreshTokensForGrant(
   clientId: string,
   userId: string,
+  organization: string,
 ): Promise<void> {
-  await OAuthRefreshTokenModel.deleteMany({ clientId, userId });
+  await OAuthRefreshTokenModel.deleteMany({ clientId, userId, organization });
 }
