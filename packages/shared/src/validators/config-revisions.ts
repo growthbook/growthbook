@@ -348,14 +348,20 @@ export const postConfigRevisionRebaseValidator = {
   operationId: "postConfigRevisionRebase",
   summary: "Rebase a draft revision onto the current live config",
   description:
-    "Updates the draft's base snapshot to the current live state, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields. Strategies are `overwrite` (use the draft's value) or `discard` (keep the live value).",
+    "Updates the draft's base snapshot to the current live state, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields. Strategies are `overwrite` (use the draft's value), `discard` (keep the live value), or `union` (merge arrays without duplicates — for array fields like `extends`; pass a `customValues` entry to supply the resolved array yourself).",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       conflictResolutions: z
-        .record(z.string(), z.enum(["overwrite", "discard"]))
+        .record(z.string(), z.enum(["overwrite", "discard", "union"]))
         .optional(),
+      customValues: z
+        .record(z.string(), z.array(z.unknown()))
+        .optional()
+        .describe(
+          "Custom values to use for `union` strategy fields. Keyed by field name.",
+        ),
     })
     .strict(),
   querySchema: z.never(),

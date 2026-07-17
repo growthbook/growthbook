@@ -21856,8 +21856,10 @@ paths:
       description: >-
         Updates the draft's base snapshot to the current live state, applying
         the draft's changes on top. Supply `conflictResolutions` to resolve any
-        conflicting fields. Strategies are `overwrite` (use the draft's value)
-        or `discard` (keep the live value).
+        conflicting fields. Strategies are `overwrite` (use the draft's value),
+        `discard` (keep the live value), or `union` (merge arrays without
+        duplicates — for array fields like `extends`; pass a `customValues`
+        entry to supply the resolved array yourself).
       tags:
         - config-revisions
       parameters:
@@ -21884,6 +21886,17 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                      - union
+                customValues:
+                  description: >-
+                    Custom values to use for `union` strategy fields. Keyed by
+                    field name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: array
+                    items: {}
               additionalProperties: false
       responses:
         '200':
