@@ -436,7 +436,12 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
         ...normalizedChanges,
       } as ConfigInterface;
       await assertConfigDescendantsReconcilable(context, proposedRoot);
-      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot);
+      // On a deferred merge a tripped descendant warning is terminal (parks the
+      // revision + fires publishFailed) instead of silently skipped — the
+      // request-less context's forced ignoreWarnings isn't user intent.
+      await assertConfigSchemaChangeSafeForDescendants(context, proposedRoot, {
+        deferred: !!options?.deferred,
+      });
     }
 
     const postValue =
@@ -463,6 +468,7 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
       },
       { value: postValue },
       revision,
+      { deferred: !!options?.deferred },
     );
   },
 };

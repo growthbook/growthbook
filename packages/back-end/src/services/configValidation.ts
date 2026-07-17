@@ -28,7 +28,11 @@ import { Revision } from "shared/enterprise";
 import { Context } from "back-end/src/models/BaseModel";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { runValidateConfigRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
-import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  SoftWarningError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 
 // The leaf config we're validating, with optional draft overrides for the
@@ -314,6 +318,11 @@ export async function assertConfigValueValidForPublish(
   // The revision being published, when available — lets a hook gate the publish
   // on approval policy (reviews/status). Absent for direct (non-revision) writes.
   revision?: Revision,
+  // `deferred` = this invocation is a scheduled/auto-publish merge. A staged
+  // value that violates the effective schema won't heal by retrying, so the
+  // block-mode rejection is terminal there: the publish parks and the failure
+  // webhook fires immediately instead of after the retry cap.
+  opts?: { deferred?: boolean },
 ): Promise<void> {
   // Customer-defined publish-time checks (sandboxed, self-host + enterprise).
   // A separate gate from schema validation — runs on every publish path
@@ -381,6 +390,9 @@ export async function assertConfigValueValidForPublish(
         errors.join("\n"),
       errors,
     );
+  }
+  if (opts?.deferred) {
+    throw new TerminalPublishError(errors.join("; "));
   }
   throw new BadRequestError(errors.join("; "));
 }
