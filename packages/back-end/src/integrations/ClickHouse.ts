@@ -8,6 +8,7 @@ import {
 } from "shared/types/integrations";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import {
+  isManagedWarehouse,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseMigrating,
   ManagedWarehousePendingError,
@@ -72,6 +73,17 @@ export default class ClickHouse extends SqlIntegration {
           this.params.maxExecutionTime ?? 1800,
           3600,
         ),
+        // Managed warehouse only: allow bare Dynamic JSON paths
+        // (`attributes.x` / `properties.x`) in GROUP BY / ORDER BY. Generated
+        // SQL always casts, so this only affects hand-written queries; gated to
+        // managed warehouses because customer ClickHouse versions may not know
+        // these settings.
+        ...(isManagedWarehouse(this.datasource)
+          ? {
+              allow_suspicious_types_in_group_by: 1,
+              allow_suspicious_types_in_order_by: 1,
+            }
+          : {}),
       },
     });
     const results = await client.query({ query: sql, format: "JSON" });
