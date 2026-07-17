@@ -207,21 +207,28 @@ export function validateConfigValue({
   if (!requireAll) stripRequiredDeep(schemaObj);
 
   try {
-    const ajv = new Ajv({ strictSchema: false });
+    // allErrors: report every violation, not just the first — callers surface
+    // the full list (and the schema-break guard fingerprints it, so a masked
+    // second violation would otherwise only appear once the first is fixed).
+    const ajv = new Ajv({ strictSchema: false, allErrors: true });
     const validate = ajv.compile(schemaObj);
     const valid = validate(data);
     return {
       valid: !!valid,
-      errors:
-        validate.errors?.map((v) => {
-          const field =
-            v.instancePath?.replace(/^\//, "") ||
-            (v.params as { missingProperty?: string })?.missingProperty ||
-            (v.params as { additionalProperty?: string })?.additionalProperty ||
-            "";
-          const where = field ? `"${field}" ` : "";
-          return `${where}${v.message ?? "is invalid"}`;
-        }) ?? [],
+      errors: [
+        ...new Set(
+          validate.errors?.map((v) => {
+            const field =
+              v.instancePath?.replace(/^\//, "") ||
+              (v.params as { missingProperty?: string })?.missingProperty ||
+              (v.params as { additionalProperty?: string })
+                ?.additionalProperty ||
+              "";
+            const where = field ? `"${field}" ` : "";
+            return `${where}${v.message ?? "is invalid"}`;
+          }) ?? [],
+        ),
+      ],
     };
   } catch (e) {
     return {
