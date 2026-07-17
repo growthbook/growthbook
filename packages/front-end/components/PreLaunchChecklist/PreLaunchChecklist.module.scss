@@ -116,13 +116,14 @@
   }
 }
 
-// Auto items aren't user-toggleable; the label cursor and the inner
-// checkbox button both need their pointer reset.
+// Auto items aren't user-toggleable: the label reads as plain (default cursor)
+// while the checkbox itself reads as not-allowed.
 .readonly {
-  &,
-  & :global(.rt-CheckboxRoot) {
-    cursor: not-allowed;
-  }
+  cursor: default;
+}
+
+.readonly :global(.rt-CheckboxRoot) {
+  cursor: not-allowed;
 }
 
 // Mute the checkbox itself (not the label text) so the box reads as
