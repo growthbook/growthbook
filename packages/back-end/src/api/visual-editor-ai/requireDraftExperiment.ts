@@ -11,9 +11,9 @@ export function requireDraftExperiment(
 ): void {
   if (experiment.archived || experiment.status !== "draft") {
     context.throwBadRequestError(
-      `Only draft experiments can be edited in the visual editor (this experiment is ${
+      `Only draft experiments can have their visual changes edited (this experiment is ${
         experiment.archived ? "archived" : experiment.status
-      }).`,
+      }). Set it back to draft in GrowthBook to make changes.`,
     );
   }
 }
