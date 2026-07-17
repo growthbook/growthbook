@@ -35,6 +35,10 @@ import EditSingleBlock from "./EditSingleBlock";
 const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "metric-exploration",
+  "metric-experiments",
+  "experiments-scaled-impact",
+  "experiments-win-rate",
+  "experiments-status",
   "fact-table-exploration",
   "data-source-exploration",
   "sql-explorer",

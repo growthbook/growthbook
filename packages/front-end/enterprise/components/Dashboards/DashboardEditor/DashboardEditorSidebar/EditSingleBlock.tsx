@@ -7,6 +7,7 @@ import {
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
+  DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -75,6 +76,10 @@ import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEdi
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
+import MetricExperimentsSettings from "./MetricExperimentsSettings";
+import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
+import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
+import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
 
 type RequiredField = {
   field: string;
@@ -87,6 +92,20 @@ const REQUIRED_FIELDS: {
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
+    },
+  ],
+  "metric-experiments": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
+    },
+  ],
+  "experiments-scaled-impact": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
     },
   ],
   "sql-explorer": [
@@ -145,7 +164,11 @@ function shouldShowEditorField(
   const SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE = {
     sortBy: ["experiment-metric", "experiment-dimension"],
     sortDirection: ["experiment-metric", "experiment-dimension"],
-    differenceType: ["experiment-metric", "experiment-dimension"],
+    differenceType: [
+      "experiment-metric",
+      "experiment-dimension",
+      "metric-experiments",
+    ],
     baselineRow: ["experiment-metric", "experiment-dimension"],
     variationIds: ["experiment-metric", "experiment-dimension"],
   };
@@ -1317,11 +1340,7 @@ export default function EditSingleBlock({
                         : "absolute",
                     })
                   }
-                  options={[
-                    { label: "Relative", value: "relative" },
-                    { label: "Absolute", value: "absolute" },
-                    { label: "Scaled", value: "scaled" },
-                  ]}
+                  options={DIFFERENCE_TYPE_OPTIONS}
                   sort={false}
                 />
               )}
@@ -1674,6 +1693,34 @@ export default function EditSingleBlock({
             )}
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
+            {block.type === "metric-experiments" && (
+              <MetricExperimentsSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-scaled-impact" && (
+              <ExperimentsScaledImpactSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-win-rate" && (
+              <ExperimentsWinRateSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-status" && (
+              <ExperimentsStatusSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
             )}
             {block.type === "metric-exploration" && (
               <ProductAnalyticsExplorerSettings
