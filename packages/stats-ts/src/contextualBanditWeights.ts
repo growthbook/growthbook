@@ -11,6 +11,7 @@ import type {
 import {
   attributeConditionFromMetricRow,
   contextualBanditAttrCol,
+  leafClausesFromContexts,
 } from "shared/experiments";
 import {
   updateVariationWeights,
@@ -26,6 +27,12 @@ const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
  * (`approximateBinaryKMeans`).
  */
 const MAX_EXHAUSTIVE_CATEGORIES = 15;
+
+/**
+ * Maximum number of contextual attributes included in a single analysis run.
+ * Only the first `MAX_ATTRIBUTES` attributes are used each time the bandit runs.
+ */
+const MAX_ATTRIBUTES = 10;
 
 /**
  * Result of a two-group category split: the group id (0/1) for each category,
@@ -609,34 +616,81 @@ function approximateBinaryKMeans(
   return { labels, initIdx, sse, converged };
 }
 
+/** `{ alias: value }` attribute map for a context (values include "Combined"). */
+function contextAttrMap(
+  ctx: ContextEntry,
+  attributes: string[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  attributes.forEach((alias, i) => {
+    map[alias] = ctx.tuple[i];
+  });
+  return map;
+}
+
 /**
- * Per-context leaf assignment enriched with each context's attribute values
- * (parallel to `contexts`): `leafMap[c]` is the leaf and `{alias: value}` map
- * for `contexts[c]`.
+ * Build the per-leaf targeting conditions (one entry per tree leaf). Each leaf's
+ * `context` is the AND of per-attribute clauses describing the contexts routed to
+ * it; a leaf that owns the "Combined" catch-all bucket for an attribute is
+ * expressed as the complement of the levels its sibling leaves claim.
+ *
+ * Only attributes the tree actually split on along a leaf's path
+ * (`pathAttrsByLeaf`) produce clauses, so the condition mirrors the tree's split
+ * logic rather than the leaf's observed context groupings. An attribute the tree
+ * never split on is omitted.
  */
-function buildLeafMap(
+function buildLeafConditionMap(
   contexts: ContextEntry[],
   attributes: string[],
   leafByContext: number[],
+  pathAttrsByLeaf: Map<number, Set<number>>,
 ): ContextualLeafMapEntry[] {
-  return contexts.map((ctx, c) => {
-    const context: Record<string, string> = {};
-    attributes.forEach((alias, i) => {
-      context[alias] = ctx.tuple[i];
-    });
-    return { context, leafId: leafByContext[c] };
+  const indicesByLeaf = new Map<number, number[]>();
+  leafByContext.forEach((leafId, c) => {
+    const existing = indicesByLeaf.get(leafId);
+    if (existing) existing.push(c);
+    else indicesByLeaf.set(leafId, [c]);
   });
+
+  const attrMaps = contexts.map((ctx) => contextAttrMap(ctx, attributes));
+
+  return [...indicesByLeaf.keys()]
+    .sort((a, b) => a - b)
+    .map((leafId) => {
+      const own = indicesByLeaf.get(leafId) ?? [];
+      const ownSet = new Set(own);
+      // Attributes the tree split on along this leaf's path, in canonical
+      // (attribute-declaration) order.
+      const pathAttributes = [
+        ...(pathAttrsByLeaf.get(leafId) ?? new Set<number>()),
+      ]
+        .sort((a, b) => a - b)
+        .map((attrIndex) => attributes[attrIndex]);
+      return {
+        leafId,
+        context: leafClausesFromContexts(
+          own.map((c) => attrMaps[c]),
+          pathAttributes,
+          attrMaps.filter((_, c) => !ownSet.has(c)),
+        ),
+      };
+    });
 }
 
 type BuildTreeResult = {
-  /** Per-context leaf assignment with attribute values (parallel to `contexts`). */
-  leafMap: ContextualLeafMapEntry[];
+  /** Per-context leaf assignment (parallel to `contexts`): `leafByContext[c]`. */
+  leafByContext: number[];
   /**
    * Total within-tree SSE at each stage of greedy growth, in order:
    * index 0 is the root (before the first split), index 1 is after the first
-   * split, index 2 after the second split, etc. Length = (splits applied) + 1.
-   */
+   * split, etc. 
   sseTrajectory: number[];
+  /**
+   * Per-leaf set of attribute indices the tree split on along that leaf's
+   * root→leaf path. Used to build leaf conditions that reflect the tree's split
+   * logic.
+   */
+  pathAttrsByLeaf: Map<number, Set<number>>;
 };
 
 /** A leaf's best candidate split, cached across growth iterations. */
@@ -670,8 +724,13 @@ function buildTreeKMeans(
   maxLeaves: number,
 ): BuildTreeResult {
   const currentLeaf = new Array<number>(contexts.length).fill(0);
+  // Attribute indices split on along each leaf's root→leaf path. The root leaf
+  // (id 0) starts with no path constraints.
+  const pathAttrsByLeaf = new Map<number, Set<number>>([
+    [0, new Set<number>()],
+  ]);
   if (contexts.length === 0) {
-    return { leafMap: [], sseTrajectory: [] };
+    return { leafByContext: [], sseTrajectory: [], pathAttrsByLeaf };
   }
 
   const isBinomial = metric.main_metric_type === "binomial";
@@ -810,6 +869,17 @@ function buildTreeKMeans(
     if (bestAttr < 0 || bestGain <= 0) break;
 
     const newLeaf = iteration + 1;
+    // Both sides of the split now constrain `bestAttr` along their paths: the
+    // new child inherits the parent's path attrs plus this split's attribute,
+    // and the retained parent leaf gains it too.
+    const parentPathAttrs = pathAttrsByLeaf.get(bestLeaf) ?? new Set<number>();
+    pathAttrsByLeaf.set(
+      newLeaf,
+      new Set<number>([...parentPathAttrs, bestAttr]),
+    );
+    parentPathAttrs.add(bestAttr);
+    pathAttrsByLeaf.set(bestLeaf, parentPathAttrs);
+
     for (let c = 0; c < contexts.length; c++) {
       if (
         currentLeaf[c] === bestLeaf &&
@@ -826,8 +896,9 @@ function buildTreeKMeans(
   }
 
   return {
-    leafMap: buildLeafMap(contexts, attributes, currentLeaf),
+    leafByContext: currentLeaf,
     sseTrajectory,
+    pathAttrsByLeaf,
   };
 }
 
@@ -836,12 +907,15 @@ export function computeContextualBanditWeights(
 ): ContextualBanditSnapshot {
   const {
     varIds,
-    attributes,
+    attributes: attributesInput,
     maxLeaves,
     metricSettings: metricSettingsInput,
     analysisWeights,
     rows,
   } = input;
+
+  // Only the first MAX_ATTRIBUTES attributes are included in the analysis.
+  const attributes = attributesInput.slice(0, MAX_ATTRIBUTES);
 
   const metricSettings: MetricSettingsForStatsEngine = {
     ...metricSettingsInput,
@@ -864,7 +938,7 @@ export function computeContextualBanditWeights(
     return { attributes, responses: [], leaf_map: [] };
   }
 
-  const { leafMap, sseTrajectory } = buildTreeKMeans(
+  const { leafByContext, sseTrajectory, pathAttrsByLeaf } = buildTreeKMeans(
     contexts,
     attributes,
     metricSettings,
@@ -874,7 +948,7 @@ export function computeContextualBanditWeights(
 
   const leafArms = new Map<number, ArmColumns[]>();
   for (let c = 0; c < contexts.length; c++) {
-    const leafId = leafMap[c].leafId;
+    const leafId = leafByContext[c];
     let arms = leafArms.get(leafId);
     if (!arms) {
       arms = Array.from({ length: numVariations }, emptyArm);
@@ -917,7 +991,7 @@ export function computeContextualBanditWeights(
 
   for (let c = 0; c < contexts.length; c++) {
     const ctx = contexts[c];
-    const leafId = leafMap[c].leafId;
+    const leafId = leafByContext[c];
     const leaf = leafWeights.get(leafId);
 
     const contextStats = ctx.arms.map((arm) =>
@@ -926,6 +1000,7 @@ export function computeContextualBanditWeights(
 
     responses.push({
       context: ctx.condition,
+      leafId,
       sampleSizePerVariation: contextStats.map((s) => s.n),
       sampleMeans: contextStats.map((s) => s.unadjustedMean),
       sampleVariances: contextStats.map((s) => s.unadjustedVariance),
@@ -939,7 +1014,12 @@ export function computeContextualBanditWeights(
   return {
     attributes,
     responses,
-    leaf_map: leafMap,
+    leaf_map: buildLeafConditionMap(
+      contexts,
+      attributes,
+      leafByContext,
+      pathAttrsByLeaf,
+    ),
     leaf_stats,
     sse_trajectory,
   };

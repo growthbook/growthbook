@@ -172,6 +172,63 @@ describe("computeContextualBanditWeights", () => {
     expect(caW[0]).toBeGreaterThan(caW[1]);
   });
 
+  it("omits attributes the tree never split on from leaf conditions", () => {
+    const DEVICE_COL = contextualBanditAttrCol("device");
+    // country is strongly predictive (US favors v1, CA favors v0); device is
+    // uninformative (identical means), so the tree splits on country only.
+    const twoAttrRow = (
+      country: string,
+      device: string,
+      variation: string,
+      n: number,
+      mean: number,
+      sigma2 = 1,
+    ): Record<string, string | number> => {
+      const sum = mean * n;
+      const sumSquares = mean * mean * n + (n - 1) * sigma2;
+      return {
+        [ATTR_COL]: country,
+        [DEVICE_COL]: device,
+        variation,
+        count: n,
+        main_sum: sum,
+        main_sum_squares: sumSquares,
+      };
+    };
+    const data = rows([
+      twoAttrRow("US", "mobile", "v0", 200, 1),
+      twoAttrRow("US", "mobile", "v1", 200, 3),
+      twoAttrRow("US", "desktop", "v0", 200, 1),
+      twoAttrRow("US", "desktop", "v1", 200, 3),
+      twoAttrRow("CA", "mobile", "v0", 200, 3),
+      twoAttrRow("CA", "mobile", "v1", 200, 1),
+      twoAttrRow("CA", "desktop", "v0", 200, 3),
+      twoAttrRow("CA", "desktop", "v1", 200, 1),
+    ]);
+
+    const result = computeContextualBanditWeights({
+      varIds: ["v0", "v1"],
+      attributes: ["country", "device"],
+      maxLeaves: 8,
+      minUsersPerLeaf: 1,
+      metricSettings: meanMetric(),
+      analysisWeights: [0.5, 0.5],
+      rows: data,
+    });
+
+    const leafMap = result.leaf_map!;
+    // One leaf per country; device was never split, so no device clause anywhere.
+    expect(leafMap).toHaveLength(2);
+    for (const entry of leafMap) {
+      expect(entry.context.map((c) => c.attribute)).toEqual(["country"]);
+    }
+    const countryLevels = leafMap
+      .flatMap((e) => e.context)
+      .flatMap((c) => c.levels)
+      .sort();
+    expect(countryLevels).toEqual(["CA", "US"]);
+  });
+
   it("records the total-SSE trajectory across splits (root then after each split)", () => {
     const data = rows([
       countRow("US", "v0", 200, 1),

@@ -11,7 +11,7 @@ import {
   ContextualBanditSnapshotSettings,
   LeafWeight,
 } from "shared/validators";
-import { leafConditionFromContexts } from "shared/experiments";
+import { conditionFromLeafClauses } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -234,11 +234,12 @@ export async function runContextualBanditSnapshot(
 }
 
 /**
- * Collapses a run's per-context responses into one `LeafWeight` per tree leaf:
+ * Collapses a run's per-leaf `leaf_map` into one `LeafWeight` per tree leaf:
  * `{ leafId, condition, weights }`. `condition` is the targeting predicate that
- * routes a context to the leaf (built from the leaf's member contexts), so the
- * persisted weights are self-contained for the SDK payload without re-joining the
- * event's `leaf_map`. Leaves whose responses carry no updated weights are skipped.
+ * routes a context to the leaf (derived from the leaf's structured clauses), so
+ * the persisted weights are self-contained for the SDK payload without re-joining
+ * the event's `leaf_map`. Leaves whose responses carry no updated weights are
+ * skipped.
  */
 export function leafWeightsFromContextualBanditResult(
   result: ContextualBanditResult,
@@ -246,34 +247,27 @@ export function leafWeightsFromContextualBanditResult(
 ): LeafWeight[] {
   const responses = result.responses ?? [];
   const leafMap = result.leaf_map ?? [];
-  const attributeOrder = result.attributes ?? [];
 
-  const indicesByLeaf = new Map<number, number[]>();
-  const leafOrder: number[] = [];
-  responses.forEach((_, i) => {
-    const leafId = leafMap[i]?.leafId ?? 0;
-    const existing = indicesByLeaf.get(leafId);
-    if (existing) {
-      existing.push(i);
-    } else {
-      indicesByLeaf.set(leafId, [i]);
-      leafOrder.push(leafId);
+  const updatedWeightsByLeaf = new Map<number, number[]>();
+  responses.forEach((response) => {
+    const leafId = response.leafId ?? 0;
+    const updatedWeights = response.updatedWeights;
+    if (updatedWeights && updatedWeights.length > 0) {
+      if (!updatedWeightsByLeaf.has(leafId)) {
+        updatedWeightsByLeaf.set(leafId, updatedWeights);
+      }
     }
   });
 
   const leafWeights: LeafWeight[] = [];
-  for (const leafId of [...leafOrder].sort((a, b) => a - b)) {
-    const indices = indicesByLeaf.get(leafId) ?? [];
-    const updatedWeights = responses[indices[0]]?.updatedWeights;
+  for (const entry of [...leafMap].sort((a, b) => a.leafId - b.leafId)) {
+    const updatedWeights = updatedWeightsByLeaf.get(entry.leafId);
     if (!updatedWeights || updatedWeights.length === 0) {
       continue;
     }
     leafWeights.push({
-      leafId,
-      condition: leafConditionFromContexts(
-        indices.map((i) => leafMap[i]?.context ?? {}),
-        attributeOrder,
-      ),
+      leafId: entry.leafId,
+      condition: conditionFromLeafClauses(entry.context),
       weights: updatedWeights.map((weight, i) => ({
         variationId: variations[i]?.id ?? String(i),
         weight,
