@@ -75,12 +75,66 @@ export interface SqlDialect {
     granularity: "hour" | "day" | "week" | "month" | "year",
   ) => string;
   dateDiff: (startCol: string, endCol: string) => string;
+  /**
+   * Millisecond difference `endCol - startCol`. Used by funnel SQL for
+   * per-step time-from-previous stats. Default implementation works in
+   * Postgres-flavored dialects; ClickHouse and friends override it.
+   */
+  dateDiffMs: (startCol: string, endCol: string) => string;
+  /**
+   * Shift a timestamp expression by `amount` seconds. `sign` is "+" or "-".
+   * Used by funnel SQL to apply concurrency tolerance / conversion-window
+   * bounds. Default implementation uses ANSI `INTERVAL '<n> seconds'`
+   * arithmetic; dialects without that syntax should override.
+   */
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) => string;
   percentileApprox: (column: string, percentile: number | string) => string;
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
   castToDate: (column: string) => string;
+  /**
+   * Cast `column` to the dialect's TIMESTAMP type. Used by funnel SQL when
+   * UNION-ing per-fact-table events: a fact table that doesn't source a
+   * given step emits `NULL` for that step's timestamp column, and Postgres
+   * (along with some other engines) infers untyped `NULL` as `text` —
+   * which then mismatches the actual timestamp values from the other side
+   * of the UNION. Wrapping the NULL with this gives it a concrete type.
+   * Dialects whose nullable type system requires a different form (e.g.
+   * ClickHouse's `Nullable(DateTime)`) should override.
+   */
+  castToTimestamp: (column: string) => string;
   castUserDateCol: (column: string) => string;
+  /**
+   * Aggregate `col` across the group into an array sorted ascending, with
+   * NULL values filtered out. Used by funnel SQL to materialize one
+   * sorted timestamp array per user per step in a single GROUP BY pass —
+   * the chained step-resolution CTEs then look up matching timestamps via
+   * `arrayMinInRange` instead of self-joining the full event log.
+   */
+  arrayAggSorted: (col: string) => string;
+  /**
+   * Aggregate value: returns `valueCol` from the row where `tsCol` is the
+   * minimum non-null timestamp in the group. Used by funnel SQL to capture
+   * the first-touch dimension alongside step 1's resolved timestamp without
+   * a separate ROW_NUMBER pass over the events.
+   */
+  argMinByTimestamp: (valueCol: string, tsCol: string) => string;
+  /**
+   * Scalar expression: returns the smallest element of `arrayExpr` that
+   * lies in `[lowerBound, upperBound]`, or NULL if no element matches.
+   * Either bound may be `null` for "no constraint on that side". Used by
+   * funnel SQL to resolve follow-on steps within the conversion window
+   * after the prior step's resolved timestamp. NULL-typed bounds
+   * (e.g. when the previous step wasn't resolved for this user) must
+   * propagate through to a NULL result — `t >= NULL` is NULL/FALSE for
+   * every `t`, so the natural filter semantics short-circuit correctly.
+   */
+  arrayMinInRange: (
+    arrayExpr: string,
+    lowerBound: string | null,
+    upperBound: string | null,
+  ) => string;
   getCurrentTimestamp: () => string;
   ifElse: (condition: string, ifTrue: string, ifFalse: string) => string;
   getDataType: (dataType: DataType) => string;
