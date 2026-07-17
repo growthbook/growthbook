@@ -38,7 +38,7 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string; mergeNow?: boolean };
+    body: { comment?: string; mergeNow?: boolean; ignoreWarnings?: boolean };
   },
   canUseRestApiBypass: boolean,
 ) {
@@ -108,14 +108,19 @@ export async function publishFeatureRevision(
 
   // Governance friction: when the org enforces same-base merges, a stale or
   // diverged draft can't be force-merged on publish without bypass authority.
-  // `mergeNow` is the explicit "merge anyway" opt-in but — like the dashboard's
-  // adminOverride — only takes effect for callers with bypass-approval
-  // permission; otherwise it's ignored and the draft must be rebased. Bypass
-  // callers remain exempt either way.
+  // `ignoreWarnings` (or the deprecated `mergeNow` alias) is the explicit
+  // "merge anyway" opt-in but — like the dashboard's adminOverride — only takes
+  // effect for callers with bypass-approval permission; asking without it fails
+  // loudly rather than silently re-blocking. Read off the body, NOT
+  // `req.context.ignoreWarnings`: armed publishes re-enter this function with a
+  // background context whose ignoreWarnings is always true, and force-merge for
+  // those must stay gated on the schedule's persisted bypass intent (mergeNow).
   if (req.organization.settings?.requireRebaseBeforePublish) {
     const canBypassGovernance =
       req.context.permissions.canBypassApprovalChecks(feature);
-    const forceMerge = !!req.body.mergeNow && canBypassGovernance;
+    const forceMergeRequested =
+      !!req.body.mergeNow || req.body.ignoreWarnings === true;
+    const forceMerge = forceMergeRequested && canBypassGovernance;
     if (!forceMerge) {
       const governance = evaluatePublishGovernance({
         revisionStatus: revision.status,
@@ -130,9 +135,16 @@ export async function publishFeatureRevision(
         approvedBaseVersion: revision.approvedBaseVersion ?? null,
         requireRebaseBeforePublish: true,
       });
+      if (
+        governance.rebaseRequired &&
+        forceMergeRequested &&
+        !canBypassGovernance
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       if (governance.rebaseRequired && !canBypassGovernance) {
         throw new ConflictError(
-          `${governance.blockReason} Rebase the revision (POST .../rebase) first. ("mergeNow": true bypasses this only with bypass-approval permission.)`,
+          `${governance.blockReason} Rebase the revision (POST .../rebase) first, or pass \`"ignoreWarnings": true\` to force-merge (requires the bypass-approval permission).`,
         );
       }
     }

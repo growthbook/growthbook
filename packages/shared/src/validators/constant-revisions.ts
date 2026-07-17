@@ -3,6 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
 } from "./shared";
 import { apiConstantValidator } from "./constant";
 import {
@@ -309,16 +310,7 @@ export const postConstantRevisionPublishValidator = {
     "Publishes a draft revision, making it the live state of the constant. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z
-    .object({
-      mergeNow: z
-        .boolean()
-        .optional()
-        .describe(
-          "When the org enforces same-base merges and the constant changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
-    })
-    .strict(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -337,6 +329,7 @@ export const postConstantRevisionRevertValidator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       title: z.string().optional(),
       comment: z.string().optional(),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -377,7 +370,10 @@ export const postConstantRevisionRequestReviewValidator = {
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
-    .object({ autoPublishOnApproval: z.boolean().optional() })
+    .object({
+      autoPublishOnApproval: z.boolean().optional(),
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,

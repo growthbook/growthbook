@@ -118,21 +118,27 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
 
   // Governance friction (parity with features): when the org enforces same-base
   // merges, a revision created against a snapshot that no longer matches the
-  // live saved group must be rebased first. `mergeNow` is the explicit "merge
-  // anyway" opt-in but only takes effect for bypass-approval callers; otherwise
-  // it's ignored and the revision must be rebased. Bypass callers stay exempt.
+  // live saved group must be rebased first. `ignoreWarnings` (or the deprecated
+  // `mergeNow` alias) force-merges the stale revision — but only for
+  // bypass-approval callers, and asking without the permission fails loudly
+  // rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMergeRequested =
+      !!req.body.mergeNow || req.context.ignoreWarnings;
+    const forceMerge = forceMergeRequested && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         savedGroup as unknown as Record<string, unknown>,
       );
+      if (diverged && forceMergeRequested && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
           "This revision was created against an older version of the saved group. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }

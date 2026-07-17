@@ -94,7 +94,7 @@ info:
     - **404** - Not Found - Unknown API route or requested resource
 
     - **422** - Soft Warning - The request failed, but can be re-submitted with
-    `?ignoreWarnings=true` to proceed anyway.
+    `"ignoreWarnings": true` in the request body to proceed anyway.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -281,9 +281,9 @@ tags:
       import (JSON Schema / TypeScript / inferred), approvals, and lifecycle
       (publish, discard, revert). Publishing a schema change cascades the "base
       wins" normalization to descendant configs; a publish that removes or
-      retypes fields descendants still use soft-blocks with a 422 unless
-      `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to
-      auto-create a draft.
+      retypes fields descendants still use soft-blocks with a 422 unless the
+      request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit
+      endpoints to auto-create a draft.
   - name: custom-hooks
     x-displayName: Custom Hooks
     description: >-
@@ -1532,6 +1532,24 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -2401,6 +2419,24 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -2561,7 +2597,8 @@ paths:
 
         Returns 422 with a list of `warnings` if the restored values no longer
         validate against the feature's current value type or JSON schema.
-        Re-submit with `?ignoreWarnings=true` to revert anyway.
+        Re-submit with `"ignoreWarnings": true` in the request body to revert
+        anyway.
       deprecated: true
       tags:
         - features
@@ -2578,6 +2615,24 @@ paths:
                   type: number
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - revision
               additionalProperties: false
@@ -3177,6 +3232,24 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - defaultValue
               additionalProperties: false
@@ -4278,6 +4351,24 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - environment
                 - rule
@@ -4880,6 +4971,24 @@ paths:
                   type: string
                 revisionComment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - environment
                 - rule
@@ -5760,7 +5869,7 @@ paths:
                       behind live (or its approval went stale) while the
                       organization enforces rebase-before-publish. When true
                       with no conflicts, callers with bypass-approval permission
-                      can still publish with `mergeNow: true`; others must
+                      can still publish with `ignoreWarnings: true`; others must
                       rebase first.
                     type: boolean
                   result:
@@ -5883,12 +5992,26 @@ paths:
                 comment:
                   type: string
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                ignoreWarnings:
                   description: >-
-                    When the org enforces same-base merges and the revision is
-                    behind the live version, set to true to force-merge the
-                    stale draft instead of rebasing first. This only takes
-                    effect for callers with bypass-approval permission;
-                    otherwise it is ignored and the revision must be rebased.
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -6659,6 +6782,24 @@ paths:
                     type: string
                   additionalProperties:
                     type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -7273,6 +7414,24 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -7411,7 +7570,7 @@ paths:
         Returns 422 with a list of `warnings` if the restored values no longer
         validate against the feature's current value type or JSON schema (e.g.
         reverting to a config the current schema can no longer read). Re-submit
-        with `?ignoreWarnings=true` to revert anyway.
+        with `"ignoreWarnings": true` in the request body to revert anyway.
       tags:
         - features-v2
       parameters:
@@ -7427,6 +7586,24 @@ paths:
                   type: number
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - revision
               additionalProperties: false
@@ -8263,6 +8440,24 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - defaultValue
               additionalProperties: false
@@ -9069,6 +9264,24 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -9693,6 +9906,24 @@ paths:
                     Comment for a newly created draft. Only used when version is
                     "new"; ignored for existing revisions.
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -11039,7 +11270,7 @@ paths:
                       behind live (or its approval went stale) while the
                       organization enforces rebase-before-publish. When true
                       with no conflicts, callers with bypass-approval permission
-                      can still publish with `mergeNow: true`; others must
+                      can still publish with `ignoreWarnings: true`; others must
                       rebase first.
                     type: boolean
                 required:
@@ -11321,12 +11552,26 @@ paths:
                 comment:
                   type: string
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                ignoreWarnings:
                   description: >-
-                    When the org enforces same-base merges and the revision is
-                    behind the live version, set to true to force-merge the
-                    stale draft instead of rebasing first. This only takes
-                    effect for callers with bypass-approval permission;
-                    otherwise it is ignored and the revision must be rebased.
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -18326,13 +18571,26 @@ paths:
               type: object
               properties:
                 mergeNow:
+                  description: 'Deprecated — pass `ignoreWarnings: true` instead.'
+                  deprecated: true
+                  type: boolean
+                ignoreWarnings:
                   description: >-
-                    When the org enforces same-base merges and the saved group
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -18801,6 +19059,24 @@ paths:
                     bypass setting). When approvals aren't required, this flag
                     has no effect.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -18869,6 +19145,32 @@ paths:
           schema:
             description: The key of the constant
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -18903,6 +19205,32 @@ paths:
           schema:
             description: The key of the constant
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -19393,6 +19721,24 @@ paths:
               properties:
                 autoPublishOnApproval:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19623,14 +19969,23 @@ paths:
             schema:
               type: object
               properties:
-                mergeNow:
+                ignoreWarnings:
                   description: >-
-                    When the org enforces same-base merges and the constant
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19735,6 +20090,24 @@ paths:
                   type: string
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -19941,6 +20314,24 @@ paths:
                       - name
                       - rule
                     additionalProperties: false
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - key
                 - name
@@ -20567,6 +20958,24 @@ paths:
                     bypass setting). When approvals aren't required, this flag
                     has no effect.
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -20633,9 +21042,9 @@ paths:
         Archives a config. A child config (including an environment/project
         override) is archived outright when its live value is an empty patch or
         nothing serves it; when it IS actively serving a value, this returns a
-        422 soft warning — re-submit with `?ignoreWarnings=true` to proceed. A
-        root config that is still referenced by a feature or another config
-        cannot be archived (400).
+        422 soft warning — re-submit with `"ignoreWarnings": true` in the
+        request body to proceed. A root config that is still referenced by a
+        feature or another config cannot be archived (400).
       tags:
         - configs
       parameters:
@@ -20646,31 +21055,33 @@ paths:
           schema:
             description: The key of the config
             type: string
-        - name: ignoreWarnings
-          in: query
-          description: >-
-            Proceed despite the soft warning raised when archiving a config that
-            is actively serving a value — archiving reverts anything resolving
-            it (features, or the environments an override applies to) back to
-            the base. Not needed when the config's live value is an empty patch
-            or nothing uses it.
-          schema:
-            description: >-
-              Proceed despite the soft warning raised when archiving a config
-              that is actively serving a value — archiving reverts anything
-              resolving it (features, or the environments an override applies
-              to) back to the base. Not needed when the config's live value is
-              an empty patch or nothing uses it.
-            anyOf:
-              - type: string
-                const: 'true'
-              - type: string
-                const: 'false'
-              - type: string
-                const: '0'
-              - type: string
-                const: '1'
-              - type: boolean
+        - $ref: '#/components/parameters/ignoreWarnings'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -20704,6 +21115,32 @@ paths:
           schema:
             description: The key of the config
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -21112,6 +21549,24 @@ paths:
                     type: string
                 extensible:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -21201,6 +21656,24 @@ paths:
                   description: >-
                     When the config has no schema yet, infer one from the
                     supplied `value` and stage it on the same draft.
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21292,6 +21765,24 @@ paths:
                     Whether the resulting object schema permits extra keys
                     (family extensibility).
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -21373,6 +21864,24 @@ paths:
                   description: >-
                     Whether the resulting object schema permits extra keys
                     (family extensibility).
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               required:
                 - source
@@ -21493,6 +22002,24 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - archived
               additionalProperties: false
@@ -21547,6 +22074,24 @@ paths:
               type: object
               properties:
                 autoPublishOnApproval:
+                  type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21765,6 +22310,24 @@ paths:
                   type: boolean
                 bypassApproval:
                   type: boolean
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               required:
                 - scheduledPublishAt
               additionalProperties: false
@@ -21947,14 +22510,23 @@ paths:
             schema:
               type: object
               properties:
-                mergeNow:
+                ignoreWarnings:
                   description: >-
-                    When the org enforces same-base merges and the config
-                    changed since this revision was created, set to true to
-                    force-merge the stale revision instead of rebasing first.
-                    This only takes effect for callers with bypass-approval
-                    permission; otherwise it is ignored and the revision must be
-                    rebased.
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22061,6 +22633,24 @@ paths:
                   type: string
                 comment:
                   type: string
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+                skipSchemaValidation:
+                  description: >-
+                    Skip JSON-schema validation of the value(s) being written.
+                    Only honored for callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise. Validation is enforced by default.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -41039,17 +41629,10 @@ components:
     skipSchemaValidation:
       name: skipSchemaValidation
       in: query
-      description: >-
-        Skip JSON-schema validation of the value(s) being written. Only honored
-        for callers with org-wide bypass authority (the `bypassApprovalChecks`
-        permission on all projects); ignored otherwise. Validation is enforced
-        by default.
+      description: Deprecated — pass `skipSchemaValidation` in the request body instead.
       schema:
-        description: >-
-          Skip JSON-schema validation of the value(s) being written. Only
-          honored for callers with org-wide bypass authority (the
-          `bypassApprovalChecks` permission on all projects); ignored otherwise.
-          Validation is enforced by default.
+        description: Deprecated — pass `skipSchemaValidation` in the request body instead.
+        deprecated: true
         anyOf:
           - type: string
             const: 'true'
@@ -41063,15 +41646,10 @@ components:
     ignoreWarnings:
       name: ignoreWarnings
       in: query
-      description: >-
-        Proceed despite soft validation warnings — e.g. publishing values that
-        don't match the schema when the org has `blockPublishOnSchemaError`
-        disabled (warn mode).
+      description: Deprecated — pass `ignoreWarnings` in the request body instead.
       schema:
-        description: >-
-          Proceed despite soft validation warnings — e.g. publishing values that
-          don't match the schema when the org has `blockPublishOnSchemaError`
-          disabled (warn mode).
+        description: Deprecated — pass `ignoreWarnings` in the request body instead.
+        deprecated: true
         anyOf:
           - type: string
             const: 'true'
@@ -48158,8 +48736,9 @@ components:
           description: >-
             Whether the experiment guard is enabled: publishing a change served
             to a running experiment soft-blocks (unless overridden with
-            `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off
-            requires `bypassApprovalChecks`.
+            `ignoreWarnings: true` in the request body or
+            `bypassApprovalChecks`). Turning it off requires
+            `bypassApprovalChecks`.
           type: boolean
         lockedRevision:
           description: >-

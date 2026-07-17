@@ -3,6 +3,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
 } from "./shared";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -341,9 +342,9 @@ export const postSavedGroupRevisionPublishValidator = {
       mergeNow: z
         .boolean()
         .optional()
-        .describe(
-          "When the org enforces same-base merges and the saved group changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
+        .meta({ deprecated: true }),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),

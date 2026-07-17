@@ -6,7 +6,11 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  publishOverrideBodyFields,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
 // A raw `string` (interpolated as `{{ @const:key }}`) or a `json` object (merged
@@ -484,6 +488,7 @@ const updateConstantApiBody = z
     project: z.string().optional(),
     owner: ownerInputField.optional(),
     bypassApproval: bypassApprovalField,
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -588,7 +593,7 @@ export const updateConstantValidator = {
 };
 
 export const archiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,
@@ -601,7 +606,7 @@ export const archiveConstantValidator = {
 };
 
 export const unarchiveConstantValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
   responseSchema: apiConstantResponse,

@@ -56,7 +56,7 @@ Use `console.log` statements liberally while developing hooks to inspect variabl
 
 ### Warnings
 
-Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `?ignoreWarnings=true`. A `throw` always blocks and cannot be bypassed.
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `"ignoreWarnings": true` in the body. A `throw` always blocks and cannot be bypassed.
 
 ```js
 if (feature.tags.length === 0) {

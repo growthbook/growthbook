@@ -185,15 +185,15 @@ export async function runApiHandler(
         body.conflicts = e.details.conflicts;
       }
     }
-    // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+    // Surface soft warnings so clients can re-submit with ignoreWarnings
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
-      // Front-end shows a "Save anyway" dialog and doesn't need a querystring hint
+      // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
       const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {
         body.message =
           e.message +
-          "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
+          '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
     return { status: e.status || 400, body };

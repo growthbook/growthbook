@@ -169,7 +169,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "config-revisions": {
     display: "Config Revisions",
     description:
-      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   "custom-hooks": {
     display: "Custom Hooks",
@@ -516,7 +516,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
-- **422** - Soft Warning - The request failed, but can be re-submitted with \`?ignoreWarnings=true\` to proceed anyway.
+- **422** - Soft Warning - The request failed, but can be re-submitted with \`"ignoreWarnings": true\` in the request body to proceed anyway.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 

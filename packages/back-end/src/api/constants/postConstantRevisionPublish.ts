@@ -110,20 +110,24 @@ export const postConstantRevisionPublish = createApiRequestHandler(
   const updatableFields = adapter.getUpdatableFields();
 
   // Same-base governance: when the org enforces rebase-before-publish, a stale
-  // revision must be rebased first. `mergeNow` only takes effect for bypass
-  // callers; otherwise it's ignored.
+  // revision must be rebased first. `ignoreWarnings` force-merges the stale
+  // draft — but only for bypass-approval callers, and asking without the
+  // permission fails loudly rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         constant as unknown as Record<string, unknown>,
       );
+      if (diverged && req.context.ignoreWarnings && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
           "This revision was created against an older version of the constant. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }

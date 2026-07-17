@@ -69,8 +69,9 @@ async function setArchivedState(
   );
 
   // Metadata-only, but still respect the approval gate so it can't bypass
-  // required metadata reviews. No body, so bypass is only via the org's
-  // `restApiBypassesReviews` setting or the caller's bypass permission.
+  // required metadata reviews. The body carries only warning-acknowledgment
+  // flags, so approval bypass is only via the org's `restApiBypassesReviews`
+  // setting or the caller's bypass permission.
   const adapter = getAdapter("config");
   const patchOps = buildPatchOps({ archived });
   const approvalRequired = adapter.isApprovalRequiredForRevision

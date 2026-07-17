@@ -113,21 +113,25 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   const updatableFields = adapter.getUpdatableFields();
 
-  // When the org enforces rebase-before-publish, a diverged revision must rebase
-  // first. `mergeNow` has no observable effect (non-bypass callers are always
-  // blocked when diverged; bypass callers always pass) — kept as an intent signal.
+  // When the org enforces rebase-before-publish, a diverged revision must
+  // rebase first. `ignoreWarnings` force-merges the stale draft — but only for
+  // bypass-approval callers, and asking without the permission fails loudly
+  // rather than silently re-blocking.
   if (req.organization.settings?.requireRebaseBeforePublish) {
-    const forceMerge = !!req.body.mergeNow && canBypass;
+    const forceMerge = req.context.ignoreWarnings && canBypass;
     if (!forceMerge) {
       const diverged = isRevisionDiverged(
         adapter,
         revision.target.snapshot as Record<string, unknown>,
         config as unknown as Record<string, unknown>,
       );
+      if (diverged && req.context.ignoreWarnings && !canBypass) {
+        req.context.permissions.throwPermissionError();
+      }
       if (diverged && !canBypass) {
         throw new ConflictError(
           "This revision was created against an older version of the config. " +
-            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+            'Rebase the revision first, or pass `"ignoreWarnings": true` to force-merge (requires the bypass-approval permission).',
         );
       }
     }

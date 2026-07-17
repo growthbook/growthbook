@@ -7,6 +7,7 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   schemaValidationQueryFields,
+  publishOverrideBodyFields,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -459,9 +460,9 @@ export const postFeatureRevisionPublishV2Validator = {
       mergeNow: z
         .boolean()
         .optional()
-        .describe(
-          "When the org enforces same-base merges and the revision is behind the live version, set to true to force-merge the stale draft instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
+        .meta({ deprecated: true }),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
@@ -548,7 +549,7 @@ export const getFeatureRevisionMergeStatusV2Validator = {
     rebaseRequired: z
       .boolean()
       .describe(
-        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `mergeNow: true`; others must rebase first.",
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `ignoreWarnings: true`; others must rebase first.",
       ),
   }),
   version: "v2" as const,
@@ -908,6 +909,7 @@ export const putFeatureRevisionDefaultValueV2Validator = {
         )
         .optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
@@ -1031,6 +1033,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
           "Simple start/end date window. For force/rollout rules this creates a standalone ramp action; for experiment-ref/safe-rollout rules this sets legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
@@ -1081,6 +1084,7 @@ export const putFeatureRevisionRuleV2Validator = {
           "Simple start/end date window. For force/rollout rules this manages a standalone ramp action; for experiment-ref/safe-rollout rules this updates legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),

@@ -11,6 +11,7 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
+  publishOverrideBodyFields,
   schemaValidationQueryFields,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
@@ -444,7 +445,7 @@ export const apiConfigValidator = namedSchema(
       experimentGuard: z
         .boolean()
         .describe(
-          "Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `?ignoreWarnings=true` or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`.",
+          "Whether the experiment guard is enabled: publishing a change served to a running experiment soft-blocks (unless overridden with `ignoreWarnings: true` in the request body or `bypassApprovalChecks`). Turning it off requires `bypassApprovalChecks`.",
         )
         .optional(),
       lockedRevision: z
@@ -529,6 +530,7 @@ const postConfigApiBody = z
         "Cross-field validation rules. Each rule's expression is a mongo condition (mongrule). Stored on the config schema and enforced at publish.",
       )
       .optional(),
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -562,7 +564,7 @@ const updateConfigApiBody = z
     owner: ownerInputField.optional(),
     schema: configSchemaSourceValidator
       .describe(
-        'Replace this config\'s field definitions, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`). Fields whose key a published ancestor already owns follow "base wins": an identical re-declaration is stripped with a `redundant-declaration` warning; one with a differing definition is rejected. A schema change cascades the \'base wins\' normalization to descendants when published; a change that removes or retypes fields descendants still use soft-blocks with a 422 unless `?ignoreWarnings=true`. Conversion warnings are returned in `warnings`.',
+        'Replace this config\'s field definitions, as a JSON Schema document (`{ type: "json-schema", value }`) or typed-code source (`{ type: "typescript" | "protobuf" | "python" | "go" | "rust", value }`). Fields whose key a published ancestor already owns follow "base wins": an identical re-declaration is stripped with a `redundant-declaration` warning; one with a differing definition is rejected. A schema change cascades the \'base wins\' normalization to descendants when published; a change that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Conversion warnings are returned in `warnings`.',
       )
       .optional(),
     source: z
@@ -585,6 +587,7 @@ const updateConfigApiBody = z
       )
       .optional(),
     bypassApproval: bypassApprovalField,
+    ...publishOverrideBodyFields,
   })
   .strict();
 
@@ -909,19 +912,21 @@ export const updateConfigValidator = {
 };
 
 export const archiveConfigValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z
     .object({
-      ignoreWarnings: booleanQueryField.describe(
-        "Proceed despite the soft warning raised when archiving a config that is actively serving a value — archiving reverts anything resolving it (features, or the environments an override applies to) back to the base. Not needed when the config's live value is an empty patch or nothing uses it.",
-      ),
+      ignoreWarnings: booleanQueryField
+        .describe(
+          "Deprecated — pass `ignoreWarnings` in the request body instead.",
+        )
+        .meta({ deprecated: true }),
     })
     .strict(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponse,
   summary: "Archive a single config",
   description:
-    "Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it; when it IS actively serving a value, this returns a 422 soft warning — re-submit with `?ignoreWarnings=true` to proceed. A root config that is still referenced by a feature or another config cannot be archived (400).",
+    'Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it; when it IS actively serving a value, this returns a 422 soft warning — re-submit with `"ignoreWarnings": true` in the request body to proceed. A root config that is still referenced by a feature or another config cannot be archived (400).',
   operationId: "archiveConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -930,7 +935,7 @@ export const archiveConfigValidator = {
 };
 
 export const unarchiveConfigValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: configKeyParams,
   responseSchema: apiConfigResponse,

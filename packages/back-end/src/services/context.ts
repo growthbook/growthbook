@@ -357,11 +357,26 @@ export class ReqContextClass {
   }
 
   // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mean only endpoints that declare the field
+  // can carry it.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
     const v = this.req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
+  }
+
+  private bodyFlag(field: string): boolean {
+    const body = this.req?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
   }
 
   // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
@@ -376,8 +391,11 @@ export class ReqContextClass {
   // so nothing depends on an ungated bypass.
   public get skipSchemaValidation(): boolean {
     if (!this.req) return false;
-    const v = this.req.query?.skipSchemaValidation;
-    if (typeof v !== "string" || !stringToBoolean(v)) return false;
+    const queryValue = this.req.query?.skipSchemaValidation;
+    const requested =
+      this.bodyFlag("skipSchemaValidation") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
     return this.permissions.canBypassApprovalChecks({ project: undefined });
   }
 

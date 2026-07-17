@@ -73,8 +73,9 @@ async function setArchivedState(
   // For the review model this transition is metadata-only. Respect the
   // same approval gate as the dashboard archive flow and the REST update
   // endpoint — otherwise these endpoints would be a way to bypass required
-  // (metadata) reviews. These endpoints take no body, so bypass is only via the
-  // org's `restApiBypassesReviews` setting or the caller's bypass permission.
+  // (metadata) reviews. The body carries only warning-acknowledgment flags, so
+  // approval bypass is only via the org's `restApiBypassesReviews` setting or
+  // the caller's bypass permission.
   const adapter = getAdapter("constant");
   const patchOps = buildPatchOps({ archived });
   const approvalRequired = adapter.isApprovalRequiredForRevision

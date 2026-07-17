@@ -5,6 +5,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -208,9 +209,9 @@ export const postFeatureRevisionPublishValidator = {
       mergeNow: z
         .boolean()
         .optional()
-        .describe(
-          "When the org enforces same-base merges and the revision is behind the live version, set to true to force-merge the stale draft instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
-        ),
+        .describe("Deprecated — pass `ignoreWarnings: true` instead.")
+        .meta({ deprecated: true }),
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -265,7 +266,7 @@ export const getFeatureRevisionMergeStatusValidator = {
     rebaseRequired: z
       .boolean()
       .describe(
-        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `mergeNow: true`; others must rebase first.",
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `ignoreWarnings: true`; others must rebase first.",
       ),
     result: mergeResultChangesSchema.optional(),
   }),
@@ -453,6 +454,7 @@ export const postFeatureRevisionRuleAddValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -528,6 +530,7 @@ export const putFeatureRevisionRuleValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -628,7 +631,11 @@ export const putFeatureRevisionDefaultValueValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z.string(),
+      ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,

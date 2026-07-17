@@ -109,9 +109,9 @@ Because publishing a config changes every descendant's resolved value, the publi
 Violations share the enforcement gate with schema errors — the **Block publishing on JSON schema errors** organization setting (on by default):
 
 - **On** — a publish that violates a rule fails (HTTP 400 on the API), listing the failed rules' messages.
-- **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds with `?ignoreWarnings=true`.
+- **Off (warn mode)** — violations surface as a bypassable warning; the API proceeds when the request body sets `"ignoreWarnings": true`.
 
-`?skipSchemaValidation=true` skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
+Setting `"skipSchemaValidation": true` in the request body skips validation rules together with schema validation; it is only honored for callers with org-wide bypass authority.
 
 ## Custom validation hooks
 
@@ -139,7 +139,7 @@ Every config tracks where its keys are consumed. On the config's page — and ov
 
 Changing a config value that a **running experiment** depends on can distort that experiment's results. You can opt a config into a guard — an organization-wide default, overridable per config — that **blocks publishing** a change to any key currently used by a running experiment or contextual bandit. The guard is computed live, so it clears on its own once the experiment stops; there's nothing to unlock.
 
-When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `?ignoreWarnings=true` on the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
+When you genuinely need to publish anyway, acknowledge the block: in the app, confirm the warning; over the REST API, pass `"ignoreWarnings": true` in the body of the publish request. Turning the guard _off_ for a config requires the **bypass-approvals** permission.
 
 ## Import and export
 
