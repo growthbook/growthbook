@@ -3,6 +3,7 @@ import {
   checkMergeConflicts,
   normalizeProposedChanges,
 } from "shared/enterprise";
+import { isConfigLocked } from "shared/util";
 import { postConfigRevisionPublishValidator } from "shared/validators";
 import { SimpleSchema } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -35,9 +36,6 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   if (!config) {
     throw new NotFoundError("Could not find config");
   }
-
-  // Locked config: block before any merge is claimed. Unlock to publish.
-  assertConfigNotLocked(config);
 
   const revision = await loadRevisionByVersion(
     req.context,
@@ -79,10 +77,23 @@ export const postConfigRevisionPublish = createApiRequestHandler(
 
   // Aggregate every publish gate up front so a blocked publish returns ONE
   // structured 422 naming each gate and the body flag that clears it. The
-  // approval, stale-base, and value-validation checks below stay in place as
-  // the enforcement backstop; the adapter-collected guard gates are enforced
-  // solely here.
+  // lock, approval, stale-base, and value-validation checks below stay in
+  // place as the enforcement backstop; the adapter-collected guard gates are
+  // enforced solely here.
   const gates: PublishGate[] = [];
+  // Hard lock (the entity's own revision pin): no inline bypass exists — the
+  // only escape is an explicit unlock — so the gate carries no override flag.
+  // Emitted here (instead of throwing up front) so a locked publish reports
+  // alongside every other gate; assertConfigNotLocked below is the backstop.
+  if (isConfigLocked(config)) {
+    gates.push({
+      type: "config-locked",
+      severity: "blocker",
+      messages: [
+        `Locked at revision v${config.lock?.version} — unlock first via POST /configs/${config.key}/unlock (requires the bypassApprovalChecks permission).`,
+      ],
+    });
+  }
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     gates.push({
       type: "approval-required",
@@ -129,6 +140,10 @@ export const postConfigRevisionPublish = createApiRequestHandler(
       permission === "bypassApprovalChecks" &&
       adapter.canBypassApproval(req.context, config as Record<string, unknown>),
   );
+
+  // Locked-config backstop behind the config-locked gate above — still well
+  // before the merge is claimed, so a blocked publish leaves the draft open.
+  assertConfigNotLocked(config);
 
   if (approvalRequired && revision.status !== "approved" && !canBypass) {
     throw new BadRequestError(

@@ -16,6 +16,15 @@ const approvalGate: PublishGate = {
   ],
 };
 
+// No override flag: a hard lock's only escape is an explicit unlock.
+const configLockedGate: PublishGate = {
+  type: "config-locked",
+  severity: "blocker",
+  messages: [
+    "Locked at revision v3 — unlock first via POST /configs/pricing/unlock (requires the bypassApprovalChecks permission).",
+  ],
+};
+
 const staleBaseGate: PublishGate = {
   type: "stale-base",
   severity: "blocker",
@@ -72,11 +81,17 @@ describe("unclearedGates", () => {
   it("never clears a gate without an override flag", () => {
     expect(
       unclearedGates(
-        [approvalGate, staleBaseGate, experimentGuardGate, schemaBreakGate],
+        [
+          approvalGate,
+          configLockedGate,
+          staleBaseGate,
+          experimentGuardGate,
+          schemaBreakGate,
+        ],
         { ignoreWarnings: true, skipSchemaValidation: true },
         allPermissions,
       ),
-    ).toEqual([approvalGate]);
+    ).toEqual([approvalGate, configLockedGate]);
   });
 
   it("keeps a gate when its flag is passed but the required permission is missing", () => {
@@ -183,5 +198,14 @@ describe("PublishBlockedError", () => {
     expect(err.message).toContain("[approval-required]");
     expect(err.message).toContain(approvalGate.messages[0]);
     expect(err.message).not.toContain("retry with");
+  });
+
+  it("reports a hard-lock gate alongside clearable gates, outside warnings", () => {
+    const err = new PublishBlockedError([configLockedGate, schemaBreakGate]);
+    expect(err.message).toContain("Publish blocked by 2 gate(s):");
+    expect(err.message).toContain("[config-locked]");
+    expect(err.message).toContain(configLockedGate.messages[0]);
+    expect(err.gates).toEqual([configLockedGate, schemaBreakGate]);
+    expect(err.warnings).toEqual(schemaBreakGate.messages);
   });
 });
