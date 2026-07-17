@@ -213,10 +213,10 @@ describe("buildFunnelSql", () => {
     // Per-step counts and time-from-previous stats are emitted at the end.
     expect(sql).toContain("AS step1_count");
     expect(sql).toContain("AS step2_count");
-    expect(sql).toContain("AS step2_tfp_sum_ms");
-    expect(sql).toContain("AS step2_tfp_sum_sq_ms");
+    expect(sql).toContain("AS step2_tfp_sum_hrs");
+    expect(sql).toContain("AS step2_tfp_sum_sq_hrs");
     // No step1 timing column — first step has nothing to measure from.
-    expect(sql).not.toContain("step1_tfp_sum_ms");
+    expect(sql).not.toContain("step1_tfp_sum_hrs");
   });
 
   it("aggregates the event log exactly once and looks step 2+ up in arrays", () => {
@@ -347,23 +347,27 @@ describe("transformFunnelRowsToResult", () => {
       {
         step1_count: 100,
         step2_count: 70,
-        step2_tfp_sum_ms: 7000,
-        step2_tfp_sum_sq_ms: 490_000,
+        step2_tfp_sum_hrs: 7000,
+        step2_tfp_sum_sq_hrs: 490_000,
         step3_count: 35,
-        step3_tfp_sum_ms: 17500,
-        step3_tfp_sum_sq_ms: 8_750_000,
+        step3_tfp_sum_hrs: 17500,
+        step3_tfp_sum_sq_hrs: 8_750_000,
       },
     ];
     const result = transformFunnelRowsToResult(config, rows);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].dimensions).toEqual([]);
     expect(result.rows[0].steps).toEqual([
-      { count: 100, timeFromPrevSumMs: null, timeFromPrevSumSquaresMs: null },
-      { count: 70, timeFromPrevSumMs: 7000, timeFromPrevSumSquaresMs: 490_000 },
+      { count: 100, timeFromPrevSumHrs: null, timeFromPrevSumSquaresHrs: null },
+      {
+        count: 70,
+        timeFromPrevSumHrs: 7000,
+        timeFromPrevSumSquaresHrs: 490_000,
+      },
       {
         count: 35,
-        timeFromPrevSumMs: 17500,
-        timeFromPrevSumSquaresMs: 8_750_000,
+        timeFromPrevSumHrs: 17500,
+        timeFromPrevSumSquaresHrs: 8_750_000,
       },
     ]);
   });
@@ -389,8 +393,8 @@ describe("transformFunnelRowsToResult", () => {
         dimension_1: "US",
         step1_count: 50,
         step2_count: 20,
-        step2_tfp_sum_ms: 4000,
-        step2_tfp_sum_sq_ms: 800_000,
+        step2_tfp_sum_hrs: 4000,
+        step2_tfp_sum_sq_hrs: 800_000,
       },
     ];
     const result = transformFunnelRowsToResult(config, rows);

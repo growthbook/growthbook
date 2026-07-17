@@ -266,11 +266,11 @@ export const sqlDatasetColumnResponseValidator = z.object({
 // (funnel); they're never both populated.
 export const productAnalyticsFunnelStepResultValidator = z.object({
   count: z.number(),
-  // Sum and sum-of-squares over time-from-previous-step (in milliseconds),
+  // Sum and sum-of-squares over time-from-previous-step (in hours),
   // restricted to users who completed both this step and its predecessor.
   // null when the step is the first or when no users converted.
-  timeFromPrevSumMs: z.number().nullable(),
-  timeFromPrevSumSquaresMs: z.number().nullable(),
+  timeFromPrevSumHrs: z.number().nullable(),
+  timeFromPrevSumSquaresHrs: z.number().nullable(),
 });
 
 // The shape of the final result data from the warehouse / API

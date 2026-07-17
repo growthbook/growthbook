@@ -214,8 +214,8 @@ function buildFunnelTableData(
           : null;
       const fromStart = firstStepCount > 0 ? count / firstStepCount : null;
       const avgMs =
-        result && result.timeFromPrevSumMs != null && result.count
-          ? result.timeFromPrevSumMs / result.count
+        result && result.timeFromPrevSumHrs != null && result.count
+          ? (result.timeFromPrevSumHrs / result.count) * 3_600_000
           : null;
 
       const out: Record<string, unknown> = {
@@ -327,8 +327,8 @@ function buildFunnelTableData(
           : null;
       const fromStart = firstStepCount > 0 ? count / firstStepCount : null;
       const avgMs =
-        result && result.timeFromPrevSumMs != null && result.count
-          ? result.timeFromPrevSumMs / result.count
+        result && result.timeFromPrevSumHrs != null && result.count
+          ? (result.timeFromPrevSumHrs / result.count) * 3_600_000
           : null;
 
       if (compareActive) {

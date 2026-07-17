@@ -1505,19 +1505,15 @@ export function buildFunnelSql(
     );
     if (i > 0) {
       const prevExpr = buildPrevResolvedExpr(steps, i);
-      // Cast the ms diff to float BEFORE squaring/summing so the whole
-      // aggregation runs in floating point. Casting only the outer SUM leaves
-      // the diff, the square, and the accumulator in the dialect's integer type
-      // — BigQuery INT64 overflows on the sum-of-squares for large windows
-      // ("Error in SUM aggregation: integer overflow").
-      const diffExpr = dialect.castToFloat(
-        dialect.dateDiffMs(prevExpr, `step${stepN}_resolved_ts`),
+      // Express the diff in hours so the sum-of-squares stays well below
+      // MAX_SAFE_INTEGER at scale. Millisecond-precision squares overflow
+      // JS numbers with only a few thousand users.
+      const diffExpr = `(${dialect.castToFloat(dialect.dateDiffMs(prevExpr, `step${stepN}_resolved_ts`))} / 3600000)`;
+      finalSelects.push(
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} END) AS step${stepN}_tfp_sum_hrs`,
       );
       finalSelects.push(
-        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} END) AS step${stepN}_tfp_sum_ms`,
-      );
-      finalSelects.push(
-        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} * ${diffExpr} END) AS step${stepN}_tfp_sum_sq_ms`,
+        `SUM(CASE WHEN step${stepN}_resolved_ts IS NOT NULL THEN ${diffExpr} * ${diffExpr} END) AS step${stepN}_tfp_sum_sq_hrs`,
       );
     }
   });
@@ -1526,6 +1522,7 @@ export function buildFunnelSql(
     SELECT
       ${finalSelects.join(",\n      ")}
     FROM ${prevCte.name}
+    WHERE step1_resolved_ts IS NOT NULL
     ${finalGroupBys.length ? `GROUP BY ${finalGroupBys.join(", ")}` : ""}
   `;
 
@@ -1544,7 +1541,7 @@ export function buildFunnelSql(
 /**
  * Parse warehouse rows produced by `buildFunnelSql` into the funnel result
  * shape. Each input row carries `dimension_1` (if a dimension was set) plus
- * `step{N}_count`, `step{N}_tfp_sum_ms`, `step{N}_tfp_sum_sq_ms` columns.
+ * `step{N}_count`, `step{N}_tfp_sum_hrs`, `step{N}_tfp_sum_sq_hrs` columns.
  */
 export function transformFunnelRowsToResult(
   config: ExplorationConfig,
@@ -1566,12 +1563,12 @@ export function transformFunnelRowsToResult(
         const stepN = i + 1;
         return {
           count: parseNumberValue(row[`step${stepN}_count`]) ?? 0,
-          timeFromPrevSumMs:
-            i === 0 ? null : parseNumberValue(row[`step${stepN}_tfp_sum_ms`]),
-          timeFromPrevSumSquaresMs:
+          timeFromPrevSumHrs:
+            i === 0 ? null : parseNumberValue(row[`step${stepN}_tfp_sum_hrs`]),
+          timeFromPrevSumSquaresHrs:
             i === 0
               ? null
-              : parseNumberValue(row[`step${stepN}_tfp_sum_sq_ms`]),
+              : parseNumberValue(row[`step${stepN}_tfp_sum_sq_hrs`]),
         };
       }),
     };

@@ -35266,18 +35266,18 @@ paths:
                                         properties:
                                           count:
                                             type: number
-                                          timeFromPrevSumMs:
+                                          timeFromPrevSumHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          timeFromPrevSumSquaresMs:
+                                          timeFromPrevSumSquaresHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
                                         required:
                                           - count
-                                          - timeFromPrevSumMs
-                                          - timeFromPrevSumSquaresMs
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
                                   required:
                                     - dimensions
@@ -35934,18 +35934,18 @@ paths:
                                         properties:
                                           count:
                                             type: number
-                                          timeFromPrevSumMs:
+                                          timeFromPrevSumHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          timeFromPrevSumSquaresMs:
+                                          timeFromPrevSumSquaresHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
                                         required:
                                           - count
-                                          - timeFromPrevSumMs
-                                          - timeFromPrevSumSquaresMs
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
                                   required:
                                     - dimensions
@@ -36628,18 +36628,18 @@ paths:
                                         properties:
                                           count:
                                             type: number
-                                          timeFromPrevSumMs:
+                                          timeFromPrevSumHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          timeFromPrevSumSquaresMs:
+                                          timeFromPrevSumSquaresHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
                                         required:
                                           - count
-                                          - timeFromPrevSumMs
-                                          - timeFromPrevSumSquaresMs
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
                                   required:
                                     - dimensions
@@ -37334,18 +37334,18 @@ paths:
                                         properties:
                                           count:
                                             type: number
-                                          timeFromPrevSumMs:
+                                          timeFromPrevSumHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          timeFromPrevSumSquaresMs:
+                                          timeFromPrevSumSquaresHrs:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
                                         required:
                                           - count
-                                          - timeFromPrevSumMs
-                                          - timeFromPrevSumSquaresMs
+                                          - timeFromPrevSumHrs
+                                          - timeFromPrevSumSquaresHrs
                                         additionalProperties: false
                                   required:
                                     - dimensions
@@ -51927,18 +51927,18 @@ components:
                       properties:
                         count:
                           type: number
-                        timeFromPrevSumMs:
+                        timeFromPrevSumHrs:
                           anyOf:
                             - type: number
                             - type: 'null'
-                        timeFromPrevSumSquaresMs:
+                        timeFromPrevSumSquaresHrs:
                           anyOf:
                             - type: number
                             - type: 'null'
                       required:
                         - count
-                        - timeFromPrevSumMs
-                        - timeFromPrevSumSquaresMs
+                        - timeFromPrevSumHrs
+                        - timeFromPrevSumSquaresHrs
                       additionalProperties: false
                 required:
                   - dimensions

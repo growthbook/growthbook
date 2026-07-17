@@ -98,8 +98,8 @@ export default function FunnelChart({
       const counts = stepNames.map((_, i) => steps[i]?.count ?? 0);
       const avgTimes = stepNames.map((_, i) => {
         const s = steps[i];
-        if (!s || !s.timeFromPrevSumMs || !s.count) return null;
-        return s.timeFromPrevSumMs / s.count;
+        if (!s || !s.timeFromPrevSumHrs || !s.count) return null;
+        return (s.timeFromPrevSumHrs / s.count) * 3_600_000;
       });
       series.push({
         key,
