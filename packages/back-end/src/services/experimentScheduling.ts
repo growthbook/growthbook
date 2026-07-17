@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
+  getDecisionFrameworkStatus,
   getExperimentResultStatus,
   getHealthSettings,
   resolveScheduledShipDecision,
@@ -104,22 +105,44 @@ async function computeScheduledVerdict(
 ): Promise<ScheduledVerdict | null> {
   if (!canAutoShip(context)) return null;
 
-  const healthSettings = getHealthSettings(context.org.settings, true);
   const decisionCriteria = await getExperimentDecisionCriteria(
     context,
     experiment,
   );
-  const resultStatus = getExperimentResultStatus({
-    experimentData: experiment,
-    healthSettings,
-    decisionCriteria,
-  });
 
   const inconclusive: ScheduledVerdict = {
     results: "inconclusive",
     winnerIndex: -1,
     winnerVariationId: null,
   };
+
+  const resultsStatus = experiment.analysisSummary?.resultsStatus;
+  if (!experiment.goalMetrics.length || !resultsStatus) return inconclusive;
+
+  const overallStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings: getHealthSettings(context.org.settings, true),
+    decisionCriteria,
+  });
+  if (
+    overallStatus?.status === "unhealthy" &&
+    (overallStatus.unhealthyData.srm ||
+      overallStatus.unhealthyData.multipleExposures ||
+      overallStatus.unhealthyData.covariateImbalance)
+  ) {
+    return inconclusive;
+  }
+
+  // The experiment is ending regardless, so evaluate the decision criteria on
+  // the results as they stand — pass daysNeeded: 0 to skip the target-power
+  // (MDE) gate that getExperimentResultStatus would apply mid-experiment.
+  const resultStatus = getDecisionFrameworkStatus({
+    resultsStatus,
+    decisionCriteria,
+    goalMetrics: experiment.goalMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    daysNeeded: 0,
+  });
   if (!resultStatus) return inconclusive;
 
   if (resultStatus.status === "ship-now") {

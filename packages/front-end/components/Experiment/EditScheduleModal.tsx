@@ -677,7 +677,7 @@ export default function EditScheduleModal({
 
                   <Box>
                     <Text as="label" color="text-high" mb="1">
-                      If there&apos;s no clear winner
+                      If there&apos;s no clear winner or failing health checks
                     </Text>
                     <SelectField
                       label=""
