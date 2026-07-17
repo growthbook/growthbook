@@ -305,9 +305,29 @@ export function validateResolvableValue({
   label?: string;
   refSource?: RefSource;
 }): void {
-  if (type !== "json") return;
-  if (value === "") return; // empty permitted
   const prefix = label ? `${label}: ` : "";
+  if (type !== "json") {
+    // Constants can't reference configs. The JSON path enforces this on
+    // `$extends` entries below, but a STRING value could smuggle the same edge
+    // in through a `{{ @config:key }}` interpolation the resolver would
+    // happily resolve — inverting the constants ← configs dependency direction
+    // with no cycle check, and invisibly to reference tracking (payload
+    // refresh and publish guards never see the edge). Backtick-escaped
+    // literals are exempt, matching the resolver.
+    if (refSource === "constant" && value) {
+      const configRefs = new Set<string>();
+      collectStringInterpRefs(value, configRefs, "config");
+      if (configRefs.size) {
+        throw new Error(
+          `${prefix}Constants cannot reference configs — remove the "{{ @config:${
+            [...configRefs][0]
+          } }}" interpolation. To keep it as literal text, escape it with backticks.`,
+        );
+      }
+    }
+    return;
+  }
+  if (value === "") return; // empty permitted
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
