@@ -39,8 +39,13 @@ function parseSlackResponse<T extends SlackApiResponse>(
   }
   const parsed = JSON.parse(stringBody) as T;
   if (!parsed.ok) {
+    // `needed`/`provided` accompany scope errors (e.g. missing_scope) and show
+    // exactly which scope the token lacks vs. what it carries — invaluable for
+    // diagnosing stale tokens issued before a scope was added.
+    const p = parsed as { error?: string; needed?: string; provided?: string };
     logger.warn(
-      `Slack API ${method} failed: ${parsed.error || "unknown error"}`,
+      { needed: p.needed, provided: p.provided },
+      `Slack API ${method} failed: ${p.error || "unknown error"}`,
     );
   }
   return parsed;

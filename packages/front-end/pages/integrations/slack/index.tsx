@@ -299,6 +299,7 @@ oauth_config:
       - im:history
       - mpim:history
       - links:read
+      - links:write
 settings:
   event_subscriptions:
     request_url: ${apiUrl}/integrations/slack/events

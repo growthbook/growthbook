@@ -42,10 +42,11 @@ const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
 // app_mentions:read: receive @-mentions. *:history: receive plain thread
 // follow-ups without a mention. channels:read/groups:read: list channels and
 // resolve renames (conversations.list/info). channels:join: the bot joins
-// public channels picked in the UI. Rest cover slash commands, chat:write
-// delivery, file uploads, and users:read*.
+// public channels picked in the UI. links:read: receive link_shared events;
+// links:write: post the unfurl via chat.unfurl. Rest cover slash commands,
+// chat:write delivery, file uploads, and users:read*.
 const SLACK_OAUTH_SCOPE =
-  "commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:join,channels:history,groups:history,im:history,mpim:history,links:read";
+  "commands,chat:write,files:write,users:read,users:read.email,app_mentions:read,channels:read,groups:read,channels:join,channels:history,groups:history,im:history,mpim:history,links:read,links:write";
 const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 // Fresh installs subscribe to the curated default set (explicit event names,
 // no wildcards) so the low-signal suppression gate is bypassed. Editable on the
