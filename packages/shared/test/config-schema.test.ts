@@ -901,18 +901,16 @@ describe("validateConfigValue", () => {
               required: ["host"],
             },
           },
-          dependentSchemas: {
-            mode: {
-              properties: { region: { type: "string" } },
-              required: ["region"],
-            },
+          // Draft-07 spelling (what the Ajv instance enforces): array form =
+          // conditional required, schema form = dependentSchemas.
+          dependencies: {
+            mode: ["region"],
           },
-          dependentRequired: { mode: ["region"] },
         }),
       }),
     ];
-    // Sparse: `then`/`dependentSchemas`/`dependentRequired`/`patternProperties`
-    // required keys are inherited elsewhere — must not reject.
+    // Sparse: `then`/`dependencies`/`patternProperties` required keys are
+    // inherited elsewhere — must not reject.
     expect(
       validateConfigValue({
         value: { conn: { mode: "tls", replica_a: {} } },
@@ -935,6 +933,53 @@ describe("validateConfigValue", () => {
         fields: nested,
         additionalProperties: false,
         requireAll: true,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("preserves required under `not` (prohibition) and `if` (trigger) on sparse patches", () => {
+    const nested: SchemaField[] = [
+      field({
+        key: "conn",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: {
+            mode: { type: "string" },
+            tier: { type: "string" },
+            legacy: { type: "boolean" },
+          },
+          // "legacy must be absent" — stripping this required would turn it
+          // into not:{} and reject every value.
+          not: { required: ["legacy"] },
+          // "when mode is present, tier must be pro" — stripping the trigger's
+          // required would apply the branch to every value.
+          if: { required: ["mode"] },
+          then: { properties: { tier: { const: "pro" } } },
+        }),
+      }),
+    ];
+    // No legacy, no mode: both constructs inert — valid.
+    expect(
+      validateConfigValue({
+        value: { conn: { tier: "free" } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // The prohibition still enforces.
+    expect(
+      validateConfigValue({
+        value: { conn: { legacy: true } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+    // The trigger still gates the branch: mode present + wrong tier rejects.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "x", tier: "free" } },
+        fields: nested,
+        additionalProperties: false,
       }).valid,
     ).toBe(false);
   });

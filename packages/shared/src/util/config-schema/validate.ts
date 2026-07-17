@@ -76,7 +76,10 @@ export function collectInvalidConfigValueKeys({
     // schema itself is surfaced as invalid elsewhere.
     return [];
   }
-  schemaObj.required = [];
+  // At every depth, not just top-level — a nested `required` (or conditional
+  // form) would flag sparse deep-merge patches as incompatible here while
+  // `validateConfigValue` accepts them.
+  stripRequiredDeep(schemaObj);
 
   let validate: ReturnType<Ajv["compile"]>;
   try {
@@ -129,8 +132,17 @@ function stripRequiredDeep(schema: unknown): void {
   }
   const s = schema as Record<string, unknown>;
   delete s.required;
-  // `dependentRequired` is the same completeness constraint in conditional form.
+  // `dependentRequired` (2019-09) and draft-07's array-form `dependencies` are
+  // the same completeness constraint in conditional form. (The Ajv instance
+  // below is draft-07, so `dependencies` is the spelling it actually enforces.)
   delete s.dependentRequired;
+  if (s.dependencies && typeof s.dependencies === "object") {
+    const deps = s.dependencies as Record<string, unknown>;
+    for (const [k, dep] of Object.entries(deps)) {
+      if (Array.isArray(dep)) delete deps[k];
+      else stripRequiredDeep(dep);
+    }
+  }
   for (const k of ["properties", "patternProperties", "dependentSchemas"]) {
     if (s[k] && typeof s[k] === "object") {
       for (const sub of Object.values(s[k] as Record<string, unknown>)) {
@@ -142,7 +154,14 @@ function stripRequiredDeep(schema: unknown): void {
   if (s.additionalProperties && typeof s.additionalProperties === "object") {
     stripRequiredDeep(s.additionalProperties);
   }
-  for (const k of ["if", "then", "else", "not", "contains", "propertyNames"]) {
+  // `then`/`else` demand completeness once triggered, so strip inside them. Do
+  // NOT descend `if` (its `required` is the condition's trigger — stripping it
+  // makes the branch fire for every value) or `not` (a `required` under
+  // negation is a PROHIBITION — stripping turns `not:{required:[...]}` into
+  // `not:{}`, which rejects everything). `contains`/`items` element schemas
+  // apply to arrays, which replace wholesale (never merged sparsely), but
+  // `items` descent predates this and is kept as-is.
+  for (const k of ["then", "else"]) {
     if (s[k]) stripRequiredDeep(s[k]);
   }
   for (const k of ["allOf", "anyOf", "oneOf"]) {

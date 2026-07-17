@@ -846,6 +846,18 @@ export class RevisionModel extends BaseClass {
         : {}),
     } as UpdateProps<Revision>);
 
+    // A fresh arm supersedes a prior schedule's parked failure — clear it so
+    // the "Could not publish" notice doesn't persist next to a healthy arm
+    // (the dated-schedule arm and disarm paths already do this).
+    if (enabled && (existing.scheduledPublishGaveUpAt ?? null) !== null) {
+      await this._dangerousGetCollection().updateOne(
+        { organization: this.context.org.id, id },
+        { $unset: { ...SCHEDULED_PUBLISH_FAILURE_UNSET } },
+      );
+      const refreshed = await this.getById(id);
+      if (refreshed) return refreshed;
+    }
+
     // Disabling: this.update can only flip the flag, leaving scheduledPublishAt
     // and the locks set on the document. Scrub the whole schedule so a later
     // re-arm can't resurrect a stale dated schedule and fire it (or re-block
