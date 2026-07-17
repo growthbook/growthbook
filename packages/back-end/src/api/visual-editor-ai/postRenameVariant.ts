@@ -15,7 +15,9 @@ const bodySchema = z
     // Internal variation `id` — matches experiment.variations[].id and
     // visualChange.variation.
     variationId: z.string(),
-    name: z.string().min(1).max(120),
+    // Trim before length-checking so an all-whitespace name is rejected
+    // rather than stored as a blank display name.
+    name: z.string().trim().min(1).max(120),
   })
   .strict();
 

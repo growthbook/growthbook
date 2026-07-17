@@ -90,12 +90,13 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     (v) => v.id !== variationId,
   );
 
-  // Drop the variation from every phase's variations list, and equal-
-  // redistribute weights in any phase that carries them (matching the
-  // equal-split behavior of add-variant). Done across all phases so no phase
-  // is left referencing a variation the experiment no longer has.
-  const n = nextVariations.length;
-  const equal = Number((1 / n).toFixed(4));
+  // Drop the variation from every phase. variationWeights is positionally
+  // aligned with experiment.variations (see toExperimentApiInterface), so we
+  // remove the weight at the deleted variation's index `idx` and renormalize
+  // the REMAINING weights so they still sum to 1 — preserving each phase's
+  // original allocation ratios instead of flattening historical phases to an
+  // equal split. Also remove the variation from the phase's own variations
+  // list so no phase references a variation the experiment no longer has.
   const phases = (experiment.phases || []).map((p) => {
     const next = { ...p };
     if (next.variations !== undefined) {
@@ -103,13 +104,11 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     }
     if (
       next.variationWeights !== undefined &&
-      next.variationWeights.length > 0
+      next.variationWeights.length > idx
     ) {
-      const weights = new Array(n).fill(equal);
-      const sum = weights.reduce((a, b) => a + b, 0);
-      // Absorb rounding into the first weight so they sum to 1.
-      weights[0] = Number((weights[0] + (1 - sum)).toFixed(4));
-      next.variationWeights = weights;
+      next.variationWeights = renormalizeWeights(
+        next.variationWeights.filter((_, i) => i !== idx),
+      );
     }
     return next;
   });
@@ -119,8 +118,11 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     ...(phases.length > 0 ? { phases } : {}),
   };
   await validateExperimentChange({ context, experiment, changes });
-  await updateExperiment({ context, experiment, changes });
 
+  // Remove the visual change FIRST, then the variation. If the second write
+  // fails we're left with a variation that has no visual change (a benign
+  // blank variant) rather than a visual change orphaned onto a variation the
+  // experiment no longer has.
   const nextVisualChanges = changeset.visualChanges.filter(
     (vc) => vc.variation !== variationId,
   );
@@ -130,6 +132,7 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     context,
     updates: { visualChanges: nextVisualChanges },
   });
+  await updateExperiment({ context, experiment, changes });
 
   // Re-read so the response matches the initial-load shape.
   const refreshedChangeset = await findVisualChangesetById(
@@ -161,3 +164,19 @@ export const postDeleteVariant = createApiRequestHandler(validation)(async (
     experiment: apiExperiment,
   };
 });
+
+// Rescale weights so they sum to 1 while preserving their ratios. Falls back
+// to an equal split only when every remaining weight is zero. Rounds to 4 dp
+// and absorbs the rounding drift into the first entry (matching the weight
+// convention used by postAddVariant).
+function renormalizeWeights(weights: number[]): number[] {
+  if (weights.length === 0) return weights;
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const base =
+    sum > 0
+      ? weights.map((w) => Number((w / sum).toFixed(4)))
+      : new Array(weights.length).fill(Number((1 / weights.length).toFixed(4)));
+  const drift = Number((1 - base.reduce((a, b) => a + b, 0)).toFixed(4));
+  base[0] = Number((base[0] + drift).toFixed(4));
+  return base;
+}
