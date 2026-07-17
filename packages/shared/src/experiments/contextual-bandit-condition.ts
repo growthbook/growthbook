@@ -1,16 +1,26 @@
-import { ATTR_CB_PREFIX } from "shared/constants";
+import {
+  ATTR_CB_PREFIX,
+  CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
+} from "shared/constants";
+
+/** `in` lists the attribute's allowed levels; `not in` lists excluded levels. */
+export type LeafConditionOperator = "in" | "not in";
+
+/**
+ * A single per-attribute targeting clause for a contextual-bandit tree leaf,
+ * e.g. `{ attribute: "country", levels: ["US", "UK"], operator: "in" }`. A leaf
+ * condition is the AND of its clauses.
+ */
+export type ContextualLeafClause = {
+  attribute: string;
+  levels: string[];
+  operator: LeafConditionOperator;
+};
 
 function displayAttributeName(attr: string): string {
   return attr.startsWith(ATTR_CB_PREFIX)
     ? attr.slice(ATTR_CB_PREFIX.length)
     : attr;
-}
-
-function orderAttributes(keys: string[], attributeOrder: string[]): string[] {
-  return [
-    ...attributeOrder.filter((attr) => keys.includes(attr)),
-    ...keys.filter((attr) => !attributeOrder.includes(attr)),
-  ];
 }
 
 function sortClauseValues(values: string[]): string[] {
@@ -20,95 +30,98 @@ function sortClauseValues(values: string[]): string[] {
   );
 }
 
-type LeafClause = { attr: string; values: string[] };
-
-function factorLeafContexts(
-  contexts: Record<string, string>[],
-): LeafClause[] | null {
-  if (!contexts.length) return [];
-
-  const keysOf = (ctx: Record<string, string>) =>
-    Object.keys(ctx)
-      .filter((k) => ctx[k] != null)
-      .sort();
-
-  const firstKeys = keysOf(contexts[0]);
-  const sameKeys = contexts.every((ctx) => {
-    const ks = keysOf(ctx);
-    return (
-      ks.length === firstKeys.length && ks.every((k, i) => k === firstKeys[i])
-    );
+/**
+ * Union of each attribute's explicitly-claimed values across the sibling leaves,
+ * excluding the "Combined" catch-all bucket. Used to negate a leaf that owns the
+ * catch-all bucket (see `leafClausesFromContexts`).
+ */
+function siblingValuesByAttr(
+  otherLeafContexts: Record<string, string>[],
+): Map<string, Set<string>> {
+  const byAttr = new Map<string, Set<string>>();
+  otherLeafContexts.forEach((ctx) => {
+    Object.keys(ctx).forEach((attr) => {
+      if ((ctx[attr] ?? null) === null) return;
+      const value = String(ctx[attr]);
+      if (value === CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE) return;
+      const set = byAttr.get(attr) ?? new Set<string>();
+      set.add(value);
+      byAttr.set(attr, set);
+    });
   });
-  if (!sameKeys) return null;
-
-  const valuesByKey = new Map<string, Set<string>>(
-    firstKeys.map((k) => [k, new Set<string>()]),
-  );
-  contexts.forEach((ctx) =>
-    firstKeys.forEach((k) => valuesByKey.get(k)?.add(String(ctx[k]))),
-  );
-
-  const varyingKeys = firstKeys.filter(
-    (k) => (valuesByKey.get(k)?.size ?? 0) > 1,
-  );
-  if (varyingKeys.length > 1) return null;
-
-  return firstKeys.map((k) => ({
-    attr: k,
-    values: sortClauseValues(Array.from(valuesByKey.get(k) ?? [])),
-  }));
-}
-
-function contextToEqualityObject(
-  attributes: Record<string, string>,
-  attributeOrder: string[],
-): Record<string, string> {
-  const keys = orderAttributes(
-    Object.keys(attributes).filter((attr) => attributes[attr] != null),
-    attributeOrder,
-  );
-  const obj: Record<string, string> = {};
-  keys.forEach((attr) => {
-    obj[displayAttributeName(attr)] = String(attributes[attr]);
-  });
-  return obj;
+  return byAttr;
 }
 
 /**
- * Convert a leaf's member contexts into a deterministic MongoDB-style targeting
- * condition object (attribute aliases de-prefixed). When the contexts factor
- * cleanly (shared keys, ≤1 varying attribute) we emit a single AND object —
- * collapsing the varying attribute into `$in` so it reads as `attr is any of
- * [...]`. Otherwise we emit an `$or` of explicit per-context equality objects so
- * we never over-claim the covered combinations.
- *
- * Output ordering is deterministic for a given set of contexts, so callers can
- * compare two conditions with a plain structural / `JSON.stringify` equality
- * check.
+ * Factor a contextual-bandit tree leaf's member contexts into one structured
+ * clause per attribute.
+ * `attributes` is the ordered list of attributes the leaf's condition may
+ * constrain — for a tree leaf, exactly the attributes the tree split on along
+ * its root→leaf path, in canonical order.
  */
-export function leafConditionFromContexts(
+export function leafClausesFromContexts(
   contexts: Record<string, string>[],
-  attributeOrder: string[],
-): Record<string, unknown> {
-  const clauses = factorLeafContexts(contexts);
+  attributes: string[],
+  otherLeafContexts: Record<string, string>[] = [],
+): ContextualLeafClause[] {
+  if (!contexts.length) return [];
 
-  if (clauses) {
-    const ordered = orderAttributes(
-      clauses.map((clause) => clause.attr),
-      attributeOrder,
-    );
-    const byAttr = new Map(clauses.map((clause) => [clause.attr, clause]));
-    const obj: Record<string, unknown> = {};
-    ordered.forEach((attr) => {
-      const clause = byAttr.get(attr);
-      if (!clause) return;
-      obj[displayAttributeName(attr)] =
-        clause.values.length === 1 ? clause.values[0] : { $in: clause.values };
+  const valuesByAttr = new Map<string, Set<string>>();
+  contexts.forEach((ctx) => {
+    Object.keys(ctx).forEach((attr) => {
+      if ((ctx[attr] ?? null) === null) return;
+      const set = valuesByAttr.get(attr) ?? new Set<string>();
+      set.add(String(ctx[attr]));
+      valuesByAttr.set(attr, set);
     });
-    return obj;
-  }
+  });
 
-  return {
-    $or: contexts.map((ctx) => contextToEqualityObject(ctx, attributeOrder)),
-  };
+  const siblingValues = siblingValuesByAttr(otherLeafContexts);
+
+  const clauses: ContextualLeafClause[] = [];
+  attributes.forEach((attr) => {
+    const values = valuesByAttr.get(attr);
+    if (!values) return;
+
+    if (values.has(CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE)) {
+      const complement = sortClauseValues(
+        Array.from(siblingValues.get(attr) ?? []).filter((v) => !values.has(v)),
+      );
+      if (complement.length === 0) return;
+      clauses.push({
+        attribute: displayAttributeName(attr),
+        levels: complement,
+        operator: "not in",
+      });
+      return;
+    }
+
+    clauses.push({
+      attribute: displayAttributeName(attr),
+      levels: sortClauseValues(Array.from(values)),
+      operator: "in",
+    });
+  });
+
+  return clauses;
+}
+
+/**
+ * Convert structured leaf clauses into a MongoDB-style targeting condition
+ * object (the shape the SDK payload and `ConditionDisplay` consume). Single-level
+ * clauses collapse to a bare value / `$ne`; multi-level clauses use `$in` / `$nin`.
+ */
+export function conditionFromLeafClauses(
+  clauses: ContextualLeafClause[],
+): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  clauses.forEach(({ attribute, levels, operator }) => {
+    if (operator === "not in") {
+      obj[attribute] =
+        levels.length === 1 ? { $ne: levels[0] } : { $nin: levels };
+    } else {
+      obj[attribute] = levels.length === 1 ? levels[0] : { $in: levels };
+    }
+  });
+  return obj;
 }
