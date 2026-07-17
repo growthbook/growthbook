@@ -12,6 +12,7 @@ import {
   getManagedWarehouseEventsFactTableColumns,
   getManagedWarehouseExposureQueryIdForAttribute,
   getManagedWarehouseIdentifierForAttribute,
+  getManagedWarehouseTypedAttributeColumns,
   getManagedWarehouseUserIdTypes,
   getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
@@ -498,6 +499,51 @@ describe("getManagedWarehouseAttributesJsonFields", () => {
 
   it("returns an empty object when there are no JSON attributes", () => {
     expect(getManagedWarehouseAttributesJsonFields(undefined)).toEqual({});
+  });
+});
+
+describe("getManagedWarehouseTypedAttributeColumns", () => {
+  it("includes every attribute stored in the attributes JSON, typed and sorted", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "enum", enum: "free,pro" },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+      { property: "age", datatype: "number" },
+      { property: "is_admin", datatype: "boolean" },
+      { property: "team_ids", datatype: "string[]" },
+      // Extracted by the SDK to a top-level column; never inside `attributes`.
+      { property: "user_id", datatype: "string" },
+      { property: "archived", datatype: "string", archived: true },
+      // Reserved column-name collisions don't matter for dotted names.
+      { property: "geo_country", datatype: "string" },
+    ];
+    expect(getManagedWarehouseTypedAttributeColumns(schema)).toEqual([
+      { property: "age", datatype: "number" },
+      { property: "company_id", datatype: "string" },
+      { property: "geo_country", datatype: "string" },
+      { property: "is_admin", datatype: "string" },
+      { property: "plan", datatype: "string" },
+      { property: "team_ids", datatype: "string" },
+    ]);
+  });
+
+  it("includes preserved legacy identifiers without duplicating schema entries", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(
+      getManagedWarehouseTypedAttributeColumns(schema, [
+        "legacy_id",
+        "company_id",
+        "user_id", // SDK-extracted; excluded
+      ]),
+    ).toEqual([
+      { property: "company_id", datatype: "string" },
+      { property: "legacy_id", datatype: "string" },
+    ]);
+  });
+
+  it("returns an empty list for an empty schema", () => {
+    expect(getManagedWarehouseTypedAttributeColumns(undefined)).toEqual([]);
   });
 });
 
