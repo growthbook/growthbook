@@ -422,11 +422,11 @@ export function checkMergeConflicts(
   proposedChanges: JsonPatchOperation[] | unknown,
   // The fields the entity's merge can actually write. Only these participate in
   // conflict detection — mirroring `buildMergeDesiredState`, which drops ops for
-  // non-updatable fields. Without it, a stale op for a field that isn't
-  // revision-controlled (e.g. a legacy config draft carrying `scopedOverrides`,
-  // which now writes immediately and is excluded from the snapshot) surfaces a
-  // phantom conflict the merge would never apply. Omit to consider every field
-  // (back-compat).
+  // non-updatable fields before merging. If a draft's proposedChanges carry an op
+  // for a field that isn't revision-updatable (e.g. one excluded from the
+  // snapshot, like a config's `scopedOverrides`, which writes directly to the
+  // entity rather than through a revision), without this filter that op reads as
+  // a phantom conflict the merge would never apply. Omit to consider every field.
   updatableFields?: ReadonlySet<string>,
 ): MergeResult {
   // Normalise: old DB documents may have a plain object instead of an array

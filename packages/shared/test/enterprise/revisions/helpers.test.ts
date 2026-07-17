@@ -173,11 +173,11 @@ describe("revisions helpers", () => {
     });
 
     it("ignores ops for fields outside the updatable allowlist", () => {
-      // A field the merge can't write can't truly conflict. This is exactly the
-      // legacy-config `scopedOverrides` case: the field is no longer
-      // revision-controlled (excluded from the snapshot, so base is undefined)
-      // but an old draft still carries a stale op for it. Without the allowlist
-      // it renders a phantom `undefined -> [...]` conflict on every rebase.
+      // A field the merge can't write can't truly conflict. Mirrors the config
+      // `scopedOverrides` shape: excluded from the snapshot (so base reads
+      // undefined) and not revision-updatable, yet a draft's proposedChanges can
+      // still carry an op for it — which without the allowlist renders a phantom
+      // `undefined -> [...]` conflict on every rebase.
       const base = {}; // snapshot excludes scopedOverrides -> undefined
       const live = { scopedOverrides: [{ config: "flavor_dev_live" }] };
       const proposed: JsonPatchOperation[] = [
@@ -187,7 +187,7 @@ describe("revisions helpers", () => {
           value: [{ config: "flavor_dev_draft" }],
         },
       ];
-      // No allowlist -> the pre-fix behavior: phantom conflict.
+      // No allowlist -> every field considered (back-compat): phantom conflict.
       expect(checkMergeConflicts(base, live, proposed).success).toBe(false);
       // With the allowlist (scopedOverrides not updatable) -> no conflict.
       const result = checkMergeConflicts(
@@ -214,6 +214,40 @@ describe("revisions helpers", () => {
       );
       expect(result.success).toBe(false);
       expect(result.conflicts[0].field).toBe("value");
+    });
+
+    it("surfaces only allowlisted fields when ops are mixed", () => {
+      const base = { value: "old" };
+      const live = { value: "live", scopedOverrides: [{ config: "a" }] };
+      const proposed: JsonPatchOperation[] = [
+        { op: "replace", path: "/value", value: "draft" },
+        { op: "replace", path: "/scopedOverrides", value: [{ config: "b" }] },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      // The non-updatable scopedOverrides op is dropped; only value conflicts.
+      expect(result.conflicts).toHaveLength(1);
+      expect(result.conflicts[0].field).toBe("value");
+    });
+
+    it("ignores a remove op for a non-updatable field", () => {
+      const base = { scopedOverrides: [{ config: "a" }] };
+      const live = { scopedOverrides: [{ config: "b" }] };
+      const proposed: JsonPatchOperation[] = [
+        { op: "remove", path: "/scopedOverrides" },
+      ];
+      const result = checkMergeConflicts(
+        base,
+        live,
+        proposed,
+        new Set(["value"]),
+      );
+      expect(result.success).toBe(true);
+      expect(result.fieldsChanged).not.toContain("scopedOverrides");
     });
 
     it("no conflict when live and proposed changed to the same value", () => {
