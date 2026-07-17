@@ -23,7 +23,7 @@ import {
   getSlackBotAccessTokenForWebhook,
   propagateSlackTeamCredentials,
   reconnectSlackEventWebhook,
-  setSlackAssistantEnabled,
+  setSlackWorkspaceFlag,
   updateSlackChannelName,
 } from "back-end/src/models/EventWebhookModel";
 import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
@@ -643,18 +643,21 @@ export const disconnectSlackWorkspace = async ({
   return { deleted };
 };
 
-// Toggle the workspace-wide conversational assistant on/off. Resolves the
-// target team (defaulting to the only connected one) and writes the flag to
-// every same-team doc so it reads consistently. Notifications are unaffected.
-export const setSlackWorkspaceAssistantEnabled = async ({
+// Toggle a workspace-wide Slack option (assistant, link unfurling) on/off.
+// Resolves the target team (defaulting to the only connected one) and writes the
+// flag to every same-team doc so it reads consistently. Notifications are
+// unaffected.
+export const setSlackWorkspaceOption = async ({
   context,
   teamId,
+  field,
   enabled,
 }: {
   context: ReqContext;
   teamId?: string;
+  field: "assistantEnabled" | "unfurlEnabled";
   enabled: boolean;
-}): Promise<{ assistantEnabled: boolean }> => {
+}): Promise<{ enabled: boolean }> => {
   const slackDocs = (await getAllEventWebHooks(context.org.id)).filter(
     (w) => w.payloadType === "slack",
   );
@@ -669,12 +672,13 @@ export const setSlackWorkspaceAssistantEnabled = async ({
         : "No Slack workspace connection found.",
     );
   }
-  await setSlackAssistantEnabled({
+  await setSlackWorkspaceFlag({
     organizationId: context.org.id,
     teamId: target,
+    field,
     enabled,
   });
-  return { assistantEnabled: enabled };
+  return { enabled };
 };
 
 // Resolve the org's workspace connection (channel-less doc) and its bot token.

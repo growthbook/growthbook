@@ -57,6 +57,15 @@ export async function handleSlackLinkShared(
     return;
   }
 
+  // Workspace turned link previews off — leave shared links as-is.
+  if (!target.unfurlEnabled) {
+    logger.info(
+      { organizationId: target.organizationId },
+      "Slack unfurl: disabled for workspace, skipping",
+    );
+    return;
+  }
+
   const unfurls: Record<string, { blocks: Record<string, unknown>[] }> = {};
   for (const { url, experimentId } of experimentLinks) {
     try {

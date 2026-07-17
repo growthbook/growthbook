@@ -18,7 +18,7 @@ import {
   getSlackOAuthIntegrations,
   isSlackOAuthConfigured,
   listSlackWorkspaceChannels,
-  setSlackWorkspaceAssistantEnabled,
+  setSlackWorkspaceOption,
   type SlackChannelOption,
 } from "back-end/src/services/slackIntegration";
 import { verifySlackLinkState } from "back-end/src/services/slack/slackLink";
@@ -293,7 +293,7 @@ export const postSlackDisconnect = async (
 
 // region POST /integrations/slack/assistant
 
-type PostSlackAssistantRequest = AuthRequest<{
+type PostSlackWorkspaceOptionRequest = AuthRequest<{
   teamId?: string;
   enabled: boolean;
 }>;
@@ -301,8 +301,8 @@ type PostSlackAssistantRequest = AuthRequest<{
 // Toggle the workspace-wide conversational AI assistant (notifications-only
 // when off). Does not touch AI availability at the org level.
 export const postSlackAssistant = async (
-  req: PostSlackAssistantRequest,
-  res: Response<{ assistantEnabled: boolean } | ApiErrorResponse>,
+  req: PostSlackWorkspaceOptionRequest,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -310,9 +310,10 @@ export const postSlackAssistant = async (
     context.permissions.throwPermissionError();
   }
 
-  const result = await setSlackWorkspaceAssistantEnabled({
+  const result = await setSlackWorkspaceOption({
     context,
     teamId: req.body.teamId,
+    field: "assistantEnabled",
     enabled: req.body.enabled,
   });
 
@@ -320,6 +321,31 @@ export const postSlackAssistant = async (
 };
 
 // endregion POST /integrations/slack/assistant
+
+// region POST /integrations/slack/unfurl
+
+// Toggle workspace-wide unfurling of shared GrowthBook experiment links.
+export const postSlackUnfurl = async (
+  req: PostSlackWorkspaceOptionRequest,
+  res: Response<{ enabled: boolean } | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const result = await setSlackWorkspaceOption({
+    context,
+    teamId: req.body.teamId,
+    field: "unfurlEnabled",
+    enabled: req.body.enabled,
+  });
+
+  return res.json(result);
+};
+
+// endregion POST /integrations/slack/unfurl
 
 // region GET /integrations/slack/:id
 

@@ -116,6 +116,10 @@ export const slackEventWebHookOptions = z
     // for installs predating this setting). Kept in sync across a workspace's
     // docs so any of them can be read for the answer.
     assistantEnabled: z.boolean().optional(),
+    // Workspace-wide: whether the bot unfurls shared GrowthBook experiment links
+    // into a summary. Off => links posted in Slack are left as-is. Absent =>
+    // enabled (default). Same cross-doc sync as assistantEnabled.
+    unfurlEnabled: z.boolean().optional(),
     // Which results card (if any) to attach to per-event notifications.
     experimentCardFormat: z.enum(experimentCardFormats).optional(),
     // Two independent digest schedules, each off unless configured.
@@ -195,6 +199,11 @@ export const resolveFeatureDigest = (
 export const resolveSlackAssistantEnabled = (
   options: SlackEventWebHookOptions | undefined,
 ): boolean => options?.assistantEnabled !== false;
+
+// Whether shared experiment links get unfurled. Defaults to true (opt-out).
+export const resolveSlackUnfurlEnabled = (
+  options: SlackEventWebHookOptions | undefined,
+): boolean => options?.unfurlEnabled !== false;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Quarters begin in these UTC months (Jan, Apr, Jul, Oct).

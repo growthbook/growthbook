@@ -15,6 +15,7 @@ import {
   resolveExperimentDigest,
   resolveFeatureDigest,
   resolveSlackAssistantEnabled,
+  resolveSlackUnfurlEnabled,
 } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { FaSlack } from "react-icons/fa";
@@ -451,6 +452,9 @@ const SlackIntegrationsPage: NextPage = () => {
     null,
   );
   const [assistantError, setAssistantError] = useState<string | null>(null);
+  // Workspace-wide link-unfurl toggle (same optimistic pattern).
+  const [pendingUnfurl, setPendingUnfurl] = useState<boolean | null>(null);
+  const [unfurlError, setUnfurlError] = useState<string | null>(null);
 
   // Slot at the bottom of the page card that the detail pane portals its
   // sticky save bar into (so the bar spans the full card width).
@@ -597,6 +601,28 @@ const SlackIntegrationsPage: NextPage = () => {
         );
       } finally {
         setPendingAssistant(null);
+      }
+    },
+    [apiCall, mutate],
+  );
+
+  // Flip workspace-wide link unfurling on/off (same optimistic pattern).
+  const toggleUnfurl = useCallback(
+    async (enabled: boolean, teamId: string | null) => {
+      setUnfurlError(null);
+      setPendingUnfurl(enabled);
+      try {
+        await apiCall("/integrations/slack/unfurl", {
+          method: "POST",
+          body: JSON.stringify({ enabled, ...(teamId ? { teamId } : {}) }),
+        });
+        await mutate();
+      } catch (e) {
+        setUnfurlError(
+          e instanceof Error ? e.message : "Failed to update link previews.",
+        );
+      } finally {
+        setPendingUnfurl(null);
       }
     },
     [apiCall, mutate],
@@ -793,6 +819,8 @@ const SlackIntegrationsPage: NextPage = () => {
   // settle.
   const assistantEnabled =
     pendingAssistant ?? resolveSlackAssistantEnabled(teamDocs[0]?.slackOptions);
+  const unfurlEnabled =
+    pendingUnfurl ?? resolveSlackUnfurlEnabled(teamDocs[0]?.slackOptions);
 
   return (
     <div className="container-fluid pagecontents">
@@ -949,6 +977,39 @@ const SlackIntegrationsPage: NextPage = () => {
             {assistantError && (
               <Callout status="error" mt="3">
                 {assistantError}
+              </Callout>
+            )}
+
+            <Flex
+              justify="between"
+              align="center"
+              gap="4"
+              wrap="wrap"
+              mt="4"
+              pt="4"
+              style={{ borderTop: "1px solid var(--gray-a4)" }}
+            >
+              <Box style={{ maxWidth: 640 }}>
+                <Text as="p" weight="medium" mb="1">
+                  Link previews
+                </Text>
+                <Text as="p" size="small" color="text-mid" mb="0">
+                  When someone shares a GrowthBook experiment link in Slack,
+                  unfurl it into a short summary (name, goal metric, lift). Turn
+                  off to leave shared links untouched. Only shown to people who
+                  can view the experiment.
+                </Text>
+              </Box>
+              <Switch
+                value={unfurlEnabled}
+                onChange={(v) => toggleUnfurl(v, addChannelTarget)}
+                disabled={pendingUnfurl !== null}
+                label={unfurlEnabled ? "On" : "Off"}
+              />
+            </Flex>
+            {unfurlError && (
+              <Callout status="error" mt="3">
+                {unfurlError}
               </Callout>
             )}
           </Box>

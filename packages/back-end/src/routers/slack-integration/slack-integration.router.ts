@@ -104,6 +104,17 @@ router.post(
   slackIntegrationController.postSlackAssistant,
 );
 
+// Toggle workspace-wide unfurling of shared experiment links.
+router.post(
+  "/unfurl",
+  validateRequestMiddleware({
+    body: z
+      .object({ teamId: z.string().optional(), enabled: z.boolean() })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackUnfurl,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

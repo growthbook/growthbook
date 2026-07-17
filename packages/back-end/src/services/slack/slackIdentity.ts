@@ -1,5 +1,6 @@
 import {
   resolveSlackAssistantEnabled,
+  resolveSlackUnfurlEnabled,
   type SlackEventWebHookOptions,
 } from "shared/validators";
 import type { ApiReqContext } from "back-end/types/api";
@@ -96,6 +97,8 @@ export type SlackAssistantTarget =
        * the setting.
        */
       assistantEnabled: boolean;
+      /** Workspace-wide: whether shared experiment links get unfurled. */
+      unfurlEnabled: boolean;
     }
   | {
       ok: false;
@@ -235,8 +238,9 @@ export async function resolveSlackAssistantTarget({
     organizationId: target.webhook.organizationId,
     eventWebHookId: target.webhook.id,
     botToken: readBotToken(target.webhook) || botToken,
-    // The flag is kept in sync across a team's docs, so the resolved org's doc
-    // reflects the workspace-wide setting.
+    // The flags are kept in sync across a team's docs, so the resolved org's
+    // doc reflects the workspace-wide settings.
     assistantEnabled: resolveSlackAssistantEnabled(target.webhook.slackOptions),
+    unfurlEnabled: resolveSlackUnfurlEnabled(target.webhook.slackOptions),
   };
 }

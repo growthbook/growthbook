@@ -561,22 +561,24 @@ export const propagateSlackTeamCredentials = async ({
   );
 };
 
-// Toggle the workspace-wide conversational assistant. Written to every same-
-// team doc so the flag reads consistently no matter which doc resolves a
-// mention (workspace connection or a legacy channel doc). Dotted $set leaves
-// the bot token and all other slackOptions untouched.
-export const setSlackAssistantEnabled = async ({
+// Toggle a workspace-wide Slack option (conversational assistant, link
+// unfurling). Written to every same-team doc so the flag reads consistently no
+// matter which doc resolves an event (workspace connection or a legacy channel
+// doc). Dotted $set leaves the bot token and all other slackOptions untouched.
+export const setSlackWorkspaceFlag = async ({
   organizationId,
   teamId,
+  field,
   enabled,
 }: {
   organizationId: string;
   teamId: string;
+  field: "assistantEnabled" | "unfurlEnabled";
   enabled: boolean;
 }): Promise<void> => {
   await EventWebHookModel.updateMany(
     { organizationId, payloadType: "slack", "slack.teamId": teamId },
-    { $set: { "slackOptions.assistantEnabled": enabled } },
+    { $set: { [`slackOptions.${field}`]: enabled } },
   );
 };
 
