@@ -78,12 +78,15 @@ Merge precedence, lowest to highest:
 
 So the position of `$extends` in the object doesn't matter — own keys always win — but the order of references _within_ the array does.
 
-**Own keys are a deep (targeted) patch.** When an own key and the merged base are both objects, they merge **recursively, key by key** — you restate only the leaves you want to change and inherit the rest. For example, extending a base of `{ "retry": { "timeouts": { "connect": 1000, "read": 5000 } } }` with own keys `{ "retry": { "timeouts": { "read": 8000 } } }` resolves to `{ "retry": { "timeouts": { "connect": 1000, "read": 8000 } } }` — `connect` is inherited, not dropped. Two things replace wholesale rather than merging:
+**Own keys replace wholesale.** A constant is an atomic building block: whatever an own key states is exactly what it resolves to. When an own key and the merged base are both objects, the own value **replaces** the inherited one outright — it is not merged into it. For example, extending a base of `{ "retry": { "connect": 1000, "read": 5000 } }` with own keys `{ "retry": { "read": 8000 } }` resolves to `{ "retry": { "read": 8000 } }` — `connect` is dropped, not inherited. Restate any inherited fields you want to keep. (Writing `null` sets the value to `null`; it does not delete the key.)
 
-- **Arrays and scalars** — a patched array or scalar replaces the inherited value outright (arrays are never merged element-by-element).
-- **`null`** — writing `null` sets the value to `null`; it does **not** delete the inherited key.
+:::info Constants replace; configs and feature values patch
 
-A referenced chunk is always applied **whole**: an `$extends` reference (or a nested object that itself uses `$extends`) drops in as a complete unit — the deep patch never reaches inside it. A constant's value can itself reference other constants; they're resolved recursively.
+This is deliberately the opposite of how [configs](/features/configs) and feature values compose. A child config — or a config-backed feature value — is a **deep, targeted patch**: it merges recursively, key by key, restating only the leaves it changes. A constant's own keys are authoritative wholesale. The same `$extends` syntax written directly in a feature or config value follows the deep-patch rule, not this one — the mode depends on which entity's keys they are, not on what is being extended.
+
+:::
+
+A referenced chunk is always applied **whole**: an `$extends` reference (or a nested object that itself uses `$extends`) drops in as a complete unit. A constant's value can itself reference other constants; they're resolved recursively.
 
 :::note Advanced: control merge order with inline objects
 
