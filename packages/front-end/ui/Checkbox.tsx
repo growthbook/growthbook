@@ -5,6 +5,7 @@ import { forwardRef, ReactElement } from "react";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import HelperText, { getRadixColor } from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadixTooltip from "@/ui/Tooltip";
 
 export type Size = "sm" | "md" | "lg";
 
@@ -90,13 +91,9 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     >
       <Flex gap="2">
         {checkboxTooltip ? (
-          <Tooltip
-            body={checkboxTooltip}
-            tipPosition="top"
-            popperStyle={{ maxWidth: "300px" }}
-          >
+          <RadixTooltip content={checkboxTooltip} side="top" maxWidth="240px">
             {checkboxEl}
-          </Tooltip>
+          </RadixTooltip>
         ) : (
           checkboxEl
         )}

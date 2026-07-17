@@ -60,7 +60,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 24px 32px 32px;
+  padding: 24px 0 32px 32px;
   background-color: var(--color-landmark, #0c1225);
   color: #fff;
   border: 1px solid var(--slate-a3);
@@ -88,12 +88,14 @@
 
 .showCompletedToggle {
   margin-bottom: 19px;
+  margin-right: 32px;
 }
 
 .itemsScroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-right: 32px;
 }
 
 // Below this breakpoint, global.scss drops `.main { padding-left: 0 }` so
