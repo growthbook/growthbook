@@ -142,6 +142,42 @@ function memoizedEnvMaps(resolvables: ResolvableValue[]): EnvMapGetter {
   };
 }
 
+// Scope introduced violations to the environments where they actually occur:
+// present in EVERY environment → reported once untagged; a strict subset →
+// tagged per environment. A violation present only under base values (every
+// live environment avoids it via a per-env override) serves nowhere, so it is
+// dropped rather than reported as if it broke everywhere — the base value only
+// matters where an environment inherits it. With no environments the base
+// pass is authoritative.
+function collectEnvScopedViolations(
+  environments: string[],
+  introducedFor: (env: string) => string[],
+  format: (violation: string, env: string | null) => string,
+): string[] {
+  if (!environments.length) {
+    return introducedFor("").map((v) => format(v, null));
+  }
+  const perEnv = environments.map((env) => ({
+    env,
+    violations: new Set(introducedFor(env)),
+  }));
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const { violations } of perEnv) {
+    for (const v of violations) {
+      if (seen.has(v)) continue;
+      seen.add(v);
+      const envs = perEnv.filter((p) => p.violations.has(v)).map((p) => p.env);
+      if (envs.length === environments.length) {
+        out.push(format(v, null));
+      } else {
+        for (const env of envs) out.push(format(v, env));
+      }
+    }
+  }
+  return out;
+}
+
 // The resolvable universe with one constant's value + per-env values swapped to
 // the proposed ones — the "after this publish" world the diff compares against.
 function swapConstantValue(
@@ -271,19 +307,16 @@ export function collectConstantConfigBreaks({
     );
     const project = cfg.project || "";
 
-    // Base (env-agnostic) first: anything it flags holds in every environment,
-    // so per-env passes suppress the duplicate and only add env-specific breaks.
-    const baseViolations = new Set(
-      introducedFor(key, "", project, additionalProperties),
+    introduced.push(
+      ...collectEnvScopedViolations(
+        environments,
+        (env) => introducedFor(key, env, project, additionalProperties),
+        (v, env) =>
+          env === null
+            ? `config "${key}": ${v}`
+            : `config "${key}" [${env}]: ${v}`,
+      ),
     );
-    for (const v of baseViolations) introduced.push(`config "${key}": ${v}`);
-    for (const env of environments) {
-      for (const v of introducedFor(key, env, project, additionalProperties)) {
-        if (!baseViolations.has(v)) {
-          introduced.push(`config "${key}" [${env}]: ${v}`);
-        }
-      }
-    }
   }
   return [...new Set(introduced)];
 }
@@ -412,17 +445,13 @@ export function collectConstantFeatureBreaks({
           additionalProperties,
         }).filter((v) => !currentViolations.has(v));
       };
-      const baseViolations = new Set(introducedFor(""));
-      for (const v of baseViolations) {
-        introduced.push(`feature "${feature.id}" ${label}: ${v}`);
-      }
-      for (const env of environments) {
-        for (const v of introducedFor(env)) {
-          if (!baseViolations.has(v)) {
-            introduced.push(`feature "${feature.id}" ${label} [${env}]: ${v}`);
-          }
-        }
-      }
+      introduced.push(
+        ...collectEnvScopedViolations(environments, introducedFor, (v, env) =>
+          env === null
+            ? `feature "${feature.id}" ${label}: ${v}`
+            : `feature "${feature.id}" ${label} [${env}]: ${v}`,
+        ),
+      );
     }
   }
   return [...new Set(introduced)];
@@ -665,14 +694,11 @@ export function collectConfigOwnBreaks({
     }).filter((v) => !currentViolations.has(v));
   };
 
-  const introduced: string[] = [];
-  const baseViolations = new Set(introducedFor(""));
-  for (const v of baseViolations) introduced.push(v);
-  for (const env of environments) {
-    for (const v of introducedFor(env)) {
-      if (!baseViolations.has(v)) introduced.push(`[${env}] ${v}`);
-    }
-  }
+  const introduced = collectEnvScopedViolations(
+    environments,
+    introducedFor,
+    (v, env) => (env === null ? v : `[${env}] ${v}`),
+  );
   return [...new Set(introduced)];
 }
 

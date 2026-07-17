@@ -223,6 +223,50 @@ describe("collectConstantConfigBreaks", () => {
     });
     expect(out).toEqual([]);
   });
+
+  it("scopes a base-value break to the envs that inherit it — not all-env (the F4 tag)", () => {
+    // The proposed BASE value breaks, but prod keeps a valid per-env override —
+    // only staging (which inherits the base) actually serves the break. The
+    // report must tag staging, not claim every environment.
+    const out = collectConstantConfigBreaks({
+      resolvables: [
+        configResolvable,
+        constant("t", '{"port":8080}', { prod: '{"port":9090}' }),
+      ],
+      allConfigs: [configNode],
+      environments: ["prod", "staging"],
+      extensibleDefault: false,
+      constantKey: "t",
+      proposedValue: '{"port":"bad"}',
+      proposedEnvironmentValues: { prod: '{"port":9090}' },
+    });
+    expect(out).toEqual([expect.stringContaining("[staging]")]);
+    expect(out[0]).toContain('config "c"');
+  });
+
+  it("drops a base-only break every live environment avoids via overrides", () => {
+    // Every environment overrides the constant with a valid value, so the
+    // broken base value serves nowhere — nothing to warn about.
+    const out = collectConstantConfigBreaks({
+      resolvables: [
+        configResolvable,
+        constant("t", '{"port":8080}', {
+          prod: '{"port":9090}',
+          staging: '{"port":9091}',
+        }),
+      ],
+      allConfigs: [configNode],
+      environments: ["prod", "staging"],
+      extensibleDefault: false,
+      constantKey: "t",
+      proposedValue: '{"port":"bad"}',
+      proposedEnvironmentValues: {
+        prod: '{"port":9090}',
+        staging: '{"port":9091}',
+      },
+    });
+    expect(out).toEqual([]);
+  });
 });
 
 describe("collectConstantFeatureBreaks", () => {
