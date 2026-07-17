@@ -7,6 +7,7 @@ import {
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
+  DIFFERENCE_TYPE_OPTIONS,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -15,6 +16,7 @@ import {
   FactTableExplorationConfig,
   DataSourceExplorationConfig,
   MetricExplorationConfig,
+  FunnelExplorationConfig,
   SavedQuery,
 } from "shared/validators";
 import {
@@ -75,6 +77,10 @@ import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEdi
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
+import MetricExperimentsSettings from "./MetricExperimentsSettings";
+import ExperimentsScaledImpactSettings from "./ExperimentsScaledImpactSettings";
+import ExperimentsWinRateSettings from "./ExperimentsWinRateSettings";
+import ExperimentsStatusSettings from "./ExperimentsStatusSettings";
 
 type RequiredField = {
   field: string;
@@ -87,6 +93,20 @@ const REQUIRED_FIELDS: {
     {
       field: "dimensionId",
       validation: (dimId) => typeof dimId === "string" && dimId.length > 0,
+    },
+  ],
+  "metric-experiments": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
+    },
+  ],
+  "experiments-scaled-impact": [
+    {
+      field: "metricId",
+      validation: (metricId) =>
+        typeof metricId === "string" && metricId.length > 0,
     },
   ],
   "sql-explorer": [
@@ -114,6 +134,13 @@ const REQUIRED_FIELDS: {
       field: "config",
       validation: (config) =>
         isSubmittableConfig(config as DataSourceExplorationConfig),
+    },
+  ],
+  "funnel-exploration": [
+    {
+      field: "config",
+      validation: (config) =>
+        isSubmittableConfig(config as FunnelExplorationConfig),
     },
   ],
 };
@@ -145,7 +172,11 @@ function shouldShowEditorField(
   const SKIPPED_EDITOR_FIELDS_BY_BLOCK_TYPE = {
     sortBy: ["experiment-metric", "experiment-dimension"],
     sortDirection: ["experiment-metric", "experiment-dimension"],
-    differenceType: ["experiment-metric", "experiment-dimension"],
+    differenceType: [
+      "experiment-metric",
+      "experiment-dimension",
+      "metric-experiments",
+    ],
     baselineRow: ["experiment-metric", "experiment-dimension"],
     variationIds: ["experiment-metric", "experiment-dimension"],
   };
@@ -272,7 +303,8 @@ export default function EditSingleBlock({
   const isExplorationBlock =
     block?.type === "metric-exploration" ||
     block?.type === "fact-table-exploration" ||
-    block?.type === "data-source-exploration";
+    block?.type === "data-source-exploration" ||
+    block?.type === "funnel-exploration";
   const prevMetricTagFilterRef = useRef(
     blockHasFieldOfType(block, "metricTagFilter", isStringArray)
       ? block.metricTagFilter?.length || 0
@@ -1317,11 +1349,7 @@ export default function EditSingleBlock({
                         : "absolute",
                     })
                   }
-                  options={[
-                    { label: "Relative", value: "relative" },
-                    { label: "Absolute", value: "absolute" },
-                    { label: "Scaled", value: "scaled" },
-                  ]}
+                  options={DIFFERENCE_TYPE_OPTIONS}
                   sort={false}
                 />
               )}
@@ -1675,6 +1703,34 @@ export default function EditSingleBlock({
             {block.type === "metric-explorer" && (
               <MetricExplorerSettings block={block} setBlock={setBlock} />
             )}
+            {block.type === "metric-experiments" && (
+              <MetricExperimentsSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-scaled-impact" && (
+              <ExperimentsScaledImpactSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-win-rate" && (
+              <ExperimentsWinRateSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
+            {block.type === "experiments-status" && (
+              <ExperimentsStatusSettings
+                block={block}
+                setBlock={setBlock}
+                projects={projects}
+              />
+            )}
             {block.type === "metric-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
@@ -1694,6 +1750,15 @@ export default function EditSingleBlock({
               />
             )}
             {block.type === "data-source-exploration" && (
+              <ProductAnalyticsExplorerSettings
+                block={block}
+                setBlock={setBlock}
+                dashboardGlobalControls={dashboardGlobalControls}
+                saveAndCloseTrigger={saveAndCloseTrigger}
+                onSaveAndClose={submit}
+              />
+            )}
+            {block.type === "funnel-exploration" && (
               <ProductAnalyticsExplorerSettings
                 block={block}
                 setBlock={setBlock}

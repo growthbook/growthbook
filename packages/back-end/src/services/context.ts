@@ -3,7 +3,7 @@ import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -22,6 +22,7 @@ import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -29,6 +30,7 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
@@ -405,6 +407,10 @@ export class ReqContextClass {
     throw new BadRequestError(message);
   }
 
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
+  }
+
   public throwUnauthorizedError(message: string): never {
     throw new UnauthorizedError(message);
   }
@@ -448,6 +454,14 @@ export class ReqContextClass {
 
   public hasPremiumFeature(feature: CommercialFeature) {
     return orgHasPremiumFeature(this.org, feature);
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
   }
 
   // Record an audit log entry

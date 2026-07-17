@@ -80,6 +80,7 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { PaymentRequiredError } from "back-end/src/util/errors";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -88,6 +89,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
@@ -495,6 +497,31 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+// Free (role-restricted) plans can only assign the admin global role. Only the
+// global role is checked here.
+export function assertRoleAssignmentAllowed(
+  organization: OrganizationInterface,
+  role: string,
+) {
+  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return;
+  if (role === "admin") return;
+
+  throw new PaymentRequiredError(
+    "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+  );
+}
+
+// Gate a human role selection but only when the role actually changes, so
+// existing assignments keep working.
+export function assertRoleChangeAllowed(
+  organization: OrganizationInterface,
+  existingRole: string,
+  newRole: string,
+) {
+  if (existingRole === newRole) return;
+  assertRoleAssignmentAllowed(organization, newRole);
+}
+
 export async function addMemberToOrg({
   organization,
   userId,
@@ -531,6 +558,8 @@ export async function addMemberToOrg({
   ) {
     throw new Error("Invalid role");
   }
+  // Role limits are gated where a human picks a role; automated joins keep
+  // the configured default so they never throw or escalate to admin.
 
   const members: Member[] = [
     ...organization.members,
@@ -787,6 +816,7 @@ export async function inviteUser({
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
