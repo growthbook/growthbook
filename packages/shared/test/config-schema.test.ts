@@ -882,6 +882,63 @@ describe("validateConfigValue", () => {
     ).toBe(false);
   });
 
+  it("does not enforce required nested under conditional/pattern subschemas for a sparse patch", () => {
+    const nested: SchemaField[] = [
+      field({
+        key: "conn",
+        jsonSchema: JSON.stringify({
+          type: "object",
+          properties: { mode: { type: "string" } },
+          if: { properties: { mode: { const: "tls" } } },
+          then: {
+            properties: { cert: { type: "string" } },
+            required: ["cert"],
+          },
+          patternProperties: {
+            "^replica_": {
+              type: "object",
+              properties: { host: { type: "string" } },
+              required: ["host"],
+            },
+          },
+          dependentSchemas: {
+            mode: {
+              properties: { region: { type: "string" } },
+              required: ["region"],
+            },
+          },
+          dependentRequired: { mode: ["region"] },
+        }),
+      }),
+    ];
+    // Sparse: `then`/`dependentSchemas`/`dependentRequired`/`patternProperties`
+    // required keys are inherited elsewhere — must not reject.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls", replica_a: {} } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(true);
+    // A present value with a wrong type under those positions is still rejected.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls", cert: 123 } },
+        fields: nested,
+        additionalProperties: false,
+      }).valid,
+    ).toBe(false);
+    // requireAll enforces the conditional requireds.
+    expect(
+      validateConfigValue({
+        value: { conn: { mode: "tls" } },
+        fields: nested,
+        additionalProperties: false,
+        requireAll: true,
+      }).valid,
+    ).toBe(false);
+  });
+
   it("rejects extra keys when not extensible", () => {
     expect(
       validateConfigValue({

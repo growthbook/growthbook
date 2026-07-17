@@ -129,14 +129,21 @@ function stripRequiredDeep(schema: unknown): void {
   }
   const s = schema as Record<string, unknown>;
   delete s.required;
-  if (s.properties && typeof s.properties === "object") {
-    for (const sub of Object.values(s.properties as Record<string, unknown>)) {
-      stripRequiredDeep(sub);
+  // `dependentRequired` is the same completeness constraint in conditional form.
+  delete s.dependentRequired;
+  for (const k of ["properties", "patternProperties", "dependentSchemas"]) {
+    if (s[k] && typeof s[k] === "object") {
+      for (const sub of Object.values(s[k] as Record<string, unknown>)) {
+        stripRequiredDeep(sub);
+      }
     }
   }
   if (s.items) stripRequiredDeep(s.items);
   if (s.additionalProperties && typeof s.additionalProperties === "object") {
     stripRequiredDeep(s.additionalProperties);
+  }
+  for (const k of ["if", "then", "else", "not", "contains", "propertyNames"]) {
+    if (s[k]) stripRequiredDeep(s[k]);
   }
   for (const k of ["allOf", "anyOf", "oneOf"]) {
     if (Array.isArray(s[k])) (s[k] as unknown[]).forEach(stripRequiredDeep);
