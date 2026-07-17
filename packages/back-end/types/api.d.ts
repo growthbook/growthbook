@@ -46,7 +46,7 @@ type ApiErrorResponseBase = {
   code?: undefined;
   details?: undefined;
   conflicts?: unknown[];
-  // Populated on 422 soft-warning responses; re-submit with ?ignoreWarnings=true to proceed.
+  // Populated on 422 soft-warning responses; re-submit with `"ignoreWarnings": true` in the body to proceed.
   warnings?: string[];
   // Populated on 422 blocked-publish responses: every blocking gate and the body flag that clears it.
   gates?: PublishGate[];
