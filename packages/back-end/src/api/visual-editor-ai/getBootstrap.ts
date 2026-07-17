@@ -104,10 +104,15 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
     });
   }
-  // Stable sort keeps changesets of the same experiment adjacent — the
-  // side panel switcher relies on this to group multi-changeset
-  // experiments under one name.
-  recentExperiments.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // Draft experiments first (they're the ones you can edit), then by most-
+  // recently-updated within each group. Sorting drafts ahead of the trim
+  // means they win the MAX_RECENT slots over older running/stopped ones.
+  const statusRank = (s: string) => (s === "draft" ? 0 : 1);
+  recentExperiments.sort((a, b) => {
+    const byStatus = statusRank(a.status) - statusRank(b.status);
+    if (byStatus !== 0) return byStatus;
+    return b.updatedAt.localeCompare(a.updatedAt);
+  });
   const trimmed = recentExperiments.slice(0, MAX_RECENT);
 
   logger.debug(

@@ -26,6 +26,7 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
+import Callout from "@/ui/Callout";
 import CoAuthorsList from "@/components/Reviews/CoAuthorsList";
 import InlineRevisionDescription from "@/components/Reviews/InlineRevisionDescription";
 import RevisionLabel, {
@@ -61,6 +62,9 @@ export interface RevisionSummaryCardProps {
   onNewDraft?: () => void;
   onReviewPublish?: () => void;
   onEditDescription?: () => void;
+  // Render the banner inline (scrolls with the page) instead of pinning it to
+  // the top on scroll. The sticky banner doesn't suit denser pages like Configs.
+  disablePinning?: boolean;
 }
 
 // Shared revision header used by every revisioned entity's detail page: the
@@ -81,6 +85,7 @@ export default function RevisionSummaryCard({
   onNewDraft,
   onReviewPublish,
   onEditDescription,
+  disablePinning = false,
 }: RevisionSummaryCardProps) {
   const { getOwnerDisplay } = useUser();
   const [bannerPinned, setBannerPinned] = useState(false);
@@ -88,24 +93,27 @@ export default function RevisionSummaryCard({
   // (more reliable than getBoundingClientRect). Ref callback so the observer
   // re-attaches if the sentinel mounts later (e.g. a draft created on a bare page).
   const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
-  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
-    if (bannerSentinelObserver.current) {
-      bannerSentinelObserver.current.disconnect();
-      bannerSentinelObserver.current = null;
-    }
-    if (!el) {
-      setBannerPinned(false);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => setBannerPinned(!entry.isIntersecting),
-      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(el);
-    bannerSentinelObserver.current = observer;
-  }, []);
+  const bannerSentinelRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (bannerSentinelObserver.current) {
+        bannerSentinelObserver.current.disconnect();
+        bannerSentinelObserver.current = null;
+      }
+      if (!el || disablePinning) {
+        setBannerPinned(false);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        ([entry]) => setBannerPinned(!entry.isIntersecting),
+        { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+      );
+      observer.observe(el);
+      bannerSentinelObserver.current = observer;
+    },
+    [disablePinning],
+  );
 
-  // The "Review and Publish" CTA portals between the card slot and the banner
+  // The "Review & Publish" CTA portals between the card slot and the banner
   // slot so it stays reachable when pinned (mirrors the feature flow).
   const ctaSlotRef = useRef<HTMLDivElement>(null);
   const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
@@ -157,9 +165,11 @@ export default function RevisionSummaryCard({
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(selectedRevision?.title || "");
+  const [actionError, setActionError] = useState<string | null>(null);
   useEffect(() => {
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
+    setActionError(null);
   }, [selectedRevision?.id, selectedRevision?.title]);
 
   const commitTitleEdit = async () => {
@@ -167,7 +177,12 @@ export default function RevisionSummaryCard({
     setEditingTitle(false);
     const next = titleDraft.trim();
     if (next !== (selectedRevision.title ?? "")) {
-      await onTitleCommit(selectedRevision.id, next);
+      try {
+        setActionError(null);
+        await onTitleCommit(selectedRevision.id, next);
+      } catch (e) {
+        setActionError(e.message);
+      }
     }
   };
 
@@ -301,7 +316,7 @@ export default function RevisionSummaryCard({
           onClick={onReviewPublish}
           style={{ whiteSpace: "nowrap" }}
         >
-          Review and Publish
+          Review &amp; Publish
         </Button>
       </Box>
     ) : null;
@@ -313,7 +328,7 @@ export default function RevisionSummaryCard({
           <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
           <div
             style={{
-              position: "sticky",
+              position: disablePinning ? "static" : "sticky",
               top: 110,
               zIndex: 920,
               marginBottom: 12,
@@ -465,7 +480,12 @@ export default function RevisionSummaryCard({
           </Flex>
           <Flex align="center" justify="end" gap="4" flexGrow="1">
             {isLive && onNewDraft && (
-              <Button onClick={onNewDraft} size="sm" variant="soft">
+              <Button
+                onClick={onNewDraft}
+                setError={setActionError}
+                size="sm"
+                variant="soft"
+              >
                 New Draft
               </Button>
             )}
@@ -473,6 +493,11 @@ export default function RevisionSummaryCard({
             {isDraft && <div ref={ctaSlotRef} />}
           </Flex>
         </Flex>
+        {actionError && (
+          <Callout status="error" mt="2">
+            {actionError}
+          </Callout>
+        )}
         <Separator size="4" my="3" />
         <Flex direction="column">
           <Flex

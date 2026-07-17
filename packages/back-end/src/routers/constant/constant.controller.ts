@@ -4,7 +4,7 @@ import { z } from "zod";
 import {
   postConstantBodyValidator,
   putConstantBodyValidator,
-  validateConstantValue,
+  validateResolvableValue,
   getConstantReferenceKeys,
   getReferencingConstantKeys,
 } from "shared/validators";
@@ -29,8 +29,15 @@ import {
   ConstantReferences,
   loadConstantReferences,
   assertConstantArchivable,
+  assertKeyAvailable,
 } from "back-end/src/services/constants";
+import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
+import {
+  isValidRevertBypass,
+  revertRestoresTargetSnapshot,
+} from "back-end/src/services/configRevertBypass";
 
 type PostConstantBody = z.infer<typeof postConstantBodyValidator>;
 type PutConstantBody = z.infer<typeof putConstantBodyValidator>;
@@ -100,11 +107,15 @@ export const getConstantCyclicKeys = async (
   if (!constant) {
     return context.throwNotFoundError("Constant not found");
   }
-  const all = await context.models.constants.getAll();
+  // Constant cycles live entirely in the constant namespace, so scope the graph
+  // to constants and count only `@const:` references.
+  const all = (await getResolvableValues(context)).filter(
+    (c) => c.source === "constant",
+  );
   const referencesByKey = new Map(
     all.map((c) => [
       c.key,
-      getConstantReferenceKeys(c.value, c.environmentValues),
+      getConstantReferenceKeys(c.value, c.environmentValues, "constant"),
     ]),
   );
   const cyclicKeys = [
@@ -139,18 +150,25 @@ export const postConstant = async (
   }
 
   // JSON constants must hold parseable JSON (empty is allowed).
-  validateConstantValue(body.type, body.value ?? "");
+  validateResolvableValue({
+    type: body.type,
+    value: body.value ?? "",
+    refSource: "constant",
+  });
   for (const [envId, v] of Object.entries(body.environmentValues ?? {})) {
-    validateConstantValue(body.type, v, envId);
+    validateResolvableValue({
+      type: body.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path).
 
-  // Keys are unique per org; pre-check for a friendly error rather than a raw
-  // duplicate-key failure from the unique index.
-  if (await context.models.constants.getByKey(body.key)) {
-    throw new Error(`A constant with key "${body.key}" already exists.`);
-  }
+  // Constant keys are unique within the constant namespace (a config may share
+  // the key — `@const:foo` and `@config:foo` are distinct).
+  await assertKeyAvailable(context, body.key, "constant");
 
   // Permission is enforced by the model's canCreate.
   const constant = await context.models.constants.create({
@@ -230,10 +248,19 @@ export const putConstant = async (
   // JSON constants must hold parseable JSON (empty is allowed). Type is
   // immutable, so validate incoming values against the existing type.
   if (typeof value !== "undefined") {
-    validateConstantValue(existing.type, value);
+    validateResolvableValue({
+      type: existing.type,
+      value,
+      refSource: "constant",
+    });
   }
   for (const [envId, v] of Object.entries(environmentValues ?? {})) {
-    validateConstantValue(existing.type, v, envId);
+    validateResolvableValue({
+      type: existing.type,
+      value: v,
+      label: envId,
+      refSource: "constant",
+    });
   }
 
   // Cycle rejection is enforced in ConstantModel (covers every write path,
@@ -370,9 +397,44 @@ export const putConstant = async (
     // means real review is needed: only an admin bypass (or revert bypass) may
     // publish immediately.
     if (autoPublish && approvalRequired && !canBypass) {
-      const isRevertBypass =
-        !!revertedFrom && !!org.settings?.revertsBypassApproval;
-      if (!isRevertBypass) {
+      // A revert may auto-publish past review only when `revertedFrom` names a
+      // genuine merged revision of THIS constant AND the proposed changes restore
+      // that revision's state — validating the id alone would let a valid id front
+      // arbitrary body changes past review. Per changed field (partial reverts
+      // still work), normalized via the adapter snapshot. Mirrors config.
+      const revertSource = revertedFrom
+        ? await context.models.revisions.getById(revertedFrom)
+        : null;
+      let genuineRevert = false;
+      if (
+        isValidRevertBypass({
+          revision: revertSource,
+          entityType: "constant",
+          entityId: existing.id,
+          revertsBypassApproval: !!org.settings?.revertsBypassApproval,
+        }) &&
+        revertSource
+      ) {
+        const revertAdapter = getAdapter("constant");
+        const targetSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            revertSource.target.snapshot as Record<string, unknown>,
+            revertSource.target.proposedChanges,
+          ),
+        ) as Record<string, unknown>;
+        const proposedSnap = revertAdapter.buildSnapshot(
+          applyPatchToSnapshot(
+            existing as unknown as Record<string, unknown>,
+            patchOps,
+          ),
+        ) as Record<string, unknown>;
+        genuineRevert = revertRestoresTargetSnapshot({
+          changedFields: Object.keys(fieldsToUpdate),
+          proposedSnapshot: proposedSnap,
+          targetSnapshot: targetSnap,
+        });
+      }
+      if (!genuineRevert) {
         context.permissions.throwPermissionError();
       }
     }
@@ -383,6 +445,23 @@ export const putConstant = async (
     if (canImmediatelyMerge) {
       // Only record a bypass when the caller used the explicit admin override.
       const isBypass = approvalRequired && bypassApproval;
+
+      // Warn (bypassably) when this value change would reach a running experiment
+      // through a guarded config. Metadata-only edits can't shift a served value.
+      if ("value" in fieldsToUpdate || "environmentValues" in fieldsToUpdate) {
+        await assertConstantPublishGuards(
+          context,
+          existing,
+          revision,
+          { armed: false },
+          (fieldsToUpdate.value as string | undefined) ?? existing.value,
+          "environmentValues" in fieldsToUpdate
+            ? (fieldsToUpdate.environmentValues as
+                | Record<string, string>
+                | undefined)
+            : existing.environmentValues,
+        );
+      }
 
       // Claim the merge first (CAS-guarded) so a concurrent discard can't orphan
       // a half-applied change; reopen if the live write then fails.
