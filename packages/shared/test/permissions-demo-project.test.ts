@@ -42,6 +42,7 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
           permissions: {
             ...roleToPermissionMap("readonly", testOrg),
             runQueries: true,
+            runSqlExplorerQueries: true,
             manageFeatures: true,
             manageFeatureDrafts: true,
             canReview: true,
@@ -104,6 +105,19 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
       permissions.canCreateFactMetric,
     );
 
+    permissions.canCreateSqlExplorerQueries = wrapByProjects(
+      permissions.canCreateSqlExplorerQueries,
+    );
+    permissions.canDeleteSqlExplorerQueries = wrapByProjects(
+      permissions.canDeleteSqlExplorerQueries,
+    );
+    const canUpdateSqlExplorerQueries =
+      permissions.canUpdateSqlExplorerQueries.bind(permissions);
+    permissions.canUpdateSqlExplorerQueries = (existing, updates) =>
+      projectsTargetDemoOnly(existing.projects)
+        ? false
+        : canUpdateSqlExplorerQueries(existing, updates);
+
     return permissions;
   }
 
@@ -157,5 +171,149 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
   it("Add Saved Group stays enabled", () => {
     const p = getAdminPermissionsForDemoOnlyOrg();
     expect(p.canViewSavedGroupModal("", allProjects)).toBe(true);
+  });
+
+  it("allows ad-hoc SQL Explorer runs on sample data but blocks saving", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    const sampleDatasource = { projects: [demoProjectId] };
+
+    expect(p.canRunSqlExplorerQueries(sampleDatasource)).toBe(true);
+    expect(p.canCreateSqlExplorerQueries(sampleDatasource)).toBe(false);
+    expect(p.canUpdateSqlExplorerQueries(sampleDatasource, {})).toBe(false);
+    expect(p.canDeleteSqlExplorerQueries(sampleDatasource)).toBe(false);
+  });
+});
+
+describe("demo project tag does not permanently lock non-demo resources", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_contaminated",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  const demoProjectId = "prj_org_contaminated_demo-datasource-project";
+  const realProjectId = "prj_real";
+
+  function getAdminPermissionsWithDemoOverride(): Permissions {
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        [demoProjectId]: {
+          permissions: {
+            ...roleToPermissionMap("readonly", testOrg),
+            runQueries: true,
+            runSqlExplorerQueries: true,
+            manageFeatures: true,
+            manageFeatureDrafts: true,
+            canReview: true,
+            createAnalyses: true,
+            manageFactMetrics: true,
+            publishFeatures: true,
+            runExperiments: true,
+          },
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      },
+    });
+
+    const withoutDemoProject = (projects?: string[]) =>
+      (projects || []).filter((p) => p !== demoProjectId);
+
+    const wrapIgnoreDemoUpdateBlocker =
+      <
+        TExisting extends { projects?: string[] },
+        TUpdates extends { projects?: string[] },
+      >(
+        original: (existing: TExisting, updates: TUpdates) => boolean,
+      ) =>
+      (existing: TExisting, updates: TUpdates) => {
+        if (original(existing, updates)) return true;
+        if (!existing.projects?.includes(demoProjectId)) return false;
+        return original(
+          { ...existing, projects: withoutDemoProject(existing.projects) },
+          updates && "projects" in updates && updates.projects
+            ? {
+                ...updates,
+                projects: withoutDemoProject(updates.projects),
+              }
+            : updates,
+        );
+      };
+
+    const wrapIgnoreDemoPermissionBlocker =
+      <T extends { projects?: string[] }>(original: (arg: T) => boolean) =>
+      (arg: T) => {
+        if (original(arg)) return true;
+        if (!arg.projects?.includes(demoProjectId)) return false;
+        return original({
+          ...arg,
+          projects: withoutDemoProject(arg.projects),
+        });
+      };
+
+    const wrapIgnoreDemoDeleteBlocker =
+      <T extends { projects?: string[] }>(original: (arg: T) => boolean) =>
+      (arg: T) => {
+        if (original(arg)) return true;
+        const projects = arg.projects || [];
+        if (!projects.includes(demoProjectId) || projects.length < 2) {
+          return false;
+        }
+        return original({
+          ...arg,
+          projects: withoutDemoProject(projects),
+        });
+      };
+
+    permissions.canUpdateDataSourceSettings = wrapIgnoreDemoPermissionBlocker(
+      permissions.canUpdateDataSourceSettings,
+    );
+    permissions.canDeleteDataSource = wrapIgnoreDemoDeleteBlocker(
+      permissions.canDeleteDataSource,
+    );
+    permissions.canUpdateMetric = wrapIgnoreDemoUpdateBlocker(
+      permissions.canUpdateMetric,
+    );
+    permissions.canDeleteMetric = wrapIgnoreDemoDeleteBlocker(
+      permissions.canDeleteMetric,
+    );
+
+    return permissions;
+  }
+
+  it("allows updating a resource tagged with Sample Data so the tag can be removed", () => {
+    const p = getAdminPermissionsWithDemoOverride();
+    const exclusive = { projects: [demoProjectId] };
+    const mixed = { projects: [realProjectId, demoProjectId] };
+
+    expect(p.canUpdateDataSourceSettings(exclusive)).toBe(true);
+    expect(p.canUpdateDataSourceSettings(mixed)).toBe(true);
+    expect(p.canUpdateMetric(exclusive, {})).toBe(true);
+    expect(p.canUpdateMetric(mixed, { projects: [realProjectId] })).toBe(true);
+  });
+
+  it("keeps exclusive Sample Data resources non-deletable via normal delete UI", () => {
+    const p = getAdminPermissionsWithDemoOverride();
+    expect(p.canDeleteDataSource({ projects: [demoProjectId] })).toBe(false);
+    expect(p.canDeleteMetric({ projects: [demoProjectId] })).toBe(false);
+  });
+
+  it("allows deleting mixed-project contaminated resources", () => {
+    const p = getAdminPermissionsWithDemoOverride();
+    const mixed = { projects: [realProjectId, demoProjectId] };
+    expect(p.canDeleteDataSource(mixed)).toBe(true);
+    expect(p.canDeleteMetric(mixed)).toBe(true);
   });
 });

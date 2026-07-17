@@ -7,7 +7,7 @@ import {
 } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { DEMO_DATASOURCE_HOST } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -23,7 +23,6 @@ import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import EditSchemaOptions from "./EditSchemaOptions";
 
@@ -51,7 +50,6 @@ const DataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const { projects } = useDefinitions();
-  const { organization } = useUser();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams> | undefined
@@ -59,10 +57,13 @@ const DataSourceForm: FC<{
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
+  // Lock the real Sample Data connection only — not user datasources that were
+  // mistakenly tagged with the Sample Data project.
   const isSampleData =
-    data.projects?.includes(
-      getDemoDatasourceProjectIdForOrganization(organization.id),
-    ) ?? false;
+    data.type === "postgres" &&
+    !!data.params &&
+    "host" in data.params &&
+    data.params.host === DEMO_DATASOURCE_HOST;
 
   const permissionRequired = (project: string) => {
     return existing

@@ -477,6 +477,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
             permissions: {
               ...roleToPermissionMap("readonly", org),
               runQueries: true,
+              runSqlExplorerQueries: true,
               // Allow editing existing features/experiments/fact metrics.
               manageFeatures: true,
               manageFeatureDrafts: true,
@@ -569,6 +570,129 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       );
       permissions.canViewHoldoutModal = wrapByProjectString(
         permissions.canViewHoldoutModal,
+      );
+
+      // Allow ad-hoc SQL Explorer runs on the sample datasource, but block
+      // create/update/delete of saved queries (same permission gates all four).
+      permissions.canCreateSqlExplorerQueries = wrapByProjects(
+        permissions.canCreateSqlExplorerQueries,
+      );
+      permissions.canDeleteSqlExplorerQueries = wrapByProjects(
+        permissions.canDeleteSqlExplorerQueries,
+      );
+      const canUpdateSqlExplorerQueries =
+        permissions.canUpdateSqlExplorerQueries.bind(permissions);
+      permissions.canUpdateSqlExplorerQueries = (existing, updates) =>
+        projectsTargetDemoOnly(existing.projects)
+          ? false
+          : canUpdateSqlExplorerQueries(existing, updates);
+
+      // If a non-demo resource was mistakenly tagged with Sample Data, the
+      // injected readonly role blocks updates (projects.every). Re-check without
+      // the demo project so users can edit and remove the tag. Deletes stay
+      // locked for exclusive demo resources so the real sample data can't be
+      // removed outside "Delete Sample Data".
+      const withoutDemoProject = (projects?: string[]) =>
+        (projects || []).filter((p) => p !== demoProjectId);
+
+      const wrapIgnoreDemoUpdateBlocker =
+        <
+          TExisting extends { projects?: string[] },
+          TUpdates extends { projects?: string[] },
+        >(
+          original: (existing: TExisting, updates: TUpdates) => boolean,
+        ) =>
+        (existing: TExisting, updates: TUpdates) => {
+          if (original(existing, updates)) return true;
+          if (!existing.projects?.includes(demoProjectId)) return false;
+          return original(
+            { ...existing, projects: withoutDemoProject(existing.projects) },
+            updates && "projects" in updates && updates.projects
+              ? {
+                  ...updates,
+                  projects: withoutDemoProject(updates.projects),
+                }
+              : updates,
+          );
+        };
+
+      const wrapIgnoreDemoPermissionBlocker =
+        <T extends { projects?: string[] }>(original: (arg: T) => boolean) =>
+        (arg: T) => {
+          if (original(arg)) return true;
+          if (!arg.projects?.includes(demoProjectId)) return false;
+          return original({
+            ...arg,
+            projects: withoutDemoProject(arg.projects),
+          });
+        };
+
+      const wrapIgnoreDemoDeleteBlocker =
+        <T extends { projects?: string[] }>(original: (arg: T) => boolean) =>
+        (arg: T) => {
+          if (original(arg)) return true;
+          const projects = arg.projects || [];
+          // Only mixed-project contamination — exclusive sample resources stay
+          // non-deletable via normal UI.
+          if (!projects.includes(demoProjectId) || projects.length < 2) {
+            return false;
+          }
+          return original({
+            ...arg,
+            projects: withoutDemoProject(projects),
+          });
+        };
+
+      permissions.canUpdateDataSourceSettings = wrapIgnoreDemoPermissionBlocker(
+        permissions.canUpdateDataSourceSettings,
+      );
+      permissions.canUpdateDataSourceParams = wrapIgnoreDemoPermissionBlocker(
+        permissions.canUpdateDataSourceParams,
+      );
+      permissions.canDeleteDataSource = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteDataSource,
+      );
+
+      permissions.canUpdateMetric = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateMetric,
+      );
+      permissions.canDeleteMetric = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteMetric,
+      );
+
+      permissions.canUpdateFactTable = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateFactTable,
+      );
+      permissions.canDeleteFactTable = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteFactTable,
+      );
+
+      permissions.canUpdateSegment = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateSegment,
+      );
+      permissions.canDeleteSegment = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteSegment,
+      );
+
+      permissions.canUpdateAttribute = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateAttribute,
+      );
+      permissions.canDeleteAttribute = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteAttribute,
+      );
+
+      permissions.canUpdateArchetype = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateArchetype,
+      );
+      permissions.canDeleteArchetype = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteArchetype,
+      );
+
+      permissions.canUpdateSavedGroup = wrapIgnoreDemoUpdateBlocker(
+        permissions.canUpdateSavedGroup,
+      );
+      permissions.canDeleteSavedGroup = wrapIgnoreDemoDeleteBlocker(
+        permissions.canDeleteSavedGroup,
       );
 
       return permissions;

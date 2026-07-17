@@ -185,6 +185,8 @@ export const deleteProject = async (
         projectId: id,
         organizationId: org.id,
       });
+      // Also untag multi-project resources that still reference this project.
+      await removeProjectFromDatasources(id, org.id);
     } else {
       await removeProjectFromDatasources(id, org.id);
     }
@@ -202,6 +204,7 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
+      await removeProjectFromMetrics(id, org.id);
     } else {
       await removeProjectFromMetrics(id, org.id);
     }
@@ -233,6 +236,7 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
+      await removeProjectFromFeatures(context, id);
     } else {
       await removeProjectFromFeatures(context, id);
     }
@@ -250,6 +254,7 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
+      await removeProjectFromExperiments(context, id);
     } else {
       await removeProjectFromExperiments(context, id);
     }

@@ -1,5 +1,6 @@
 import { ProjectInterface } from "shared/types/project";
 import {
+  DEMO_DATASOURCE_HOST,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
@@ -46,14 +47,23 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const demoFeatureId = getDemoDataSourceFeatureId();
 
-  // We assume the demo datasource is the one that has only one project and it's the demo datasource project
+  // Prefer the known sample-data host so a user resource mistakenly tagged
+  // with only the Sample Data project is not treated as the demo datasource.
   const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
     if (!demoProjectId) return null;
 
     return (
       datasources.find(
+        (d) =>
+          d.type === "postgres" &&
+          d.params &&
+          "host" in d.params &&
+          d.params.host === DEMO_DATASOURCE_HOST,
+      ) ||
+      datasources.find(
         (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId,
-      ) || null
+      ) ||
+      null
     );
   }, [datasources, demoProjectId]);
   const demoDataSourceId = demoDataSource?.id || null;

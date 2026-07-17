@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import {
   getDemoDatasourceFactTableIdForOrganization,
+  getDemoDatasourcePageViewsFactTableIdForOrganization,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
@@ -191,6 +192,8 @@ export const postDemoDatasourceProject = async (
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(org.id);
+  const demoPageViewsFactTableId =
+    getDemoDatasourcePageViewsFactTableIdForOrganization(org.id);
 
   if (
     !context.permissions.canCreateFactMetric({ projects: [demoProjId] }) ||
@@ -277,6 +280,45 @@ export const postDemoDatasourceProject = async (
     // Kick off a column refresh so string columns get topValues populated
     // for autocomplete dropdowns in filters and Group By.
     await queueFactTableColumnsRefresh(demoFactTable);
+
+    const demoPageViewsFactTable = await createFactTable(context, {
+      id: demoPageViewsFactTableId,
+      name: "page_views",
+      description: "",
+      owner: context.userId,
+      tags: DEMO_TAGS,
+      userIdTypes: ["user_id"],
+      sql: "SELECT\nuserid AS user_id,\ntimestamp,\nbrowser,\ncountry,\npath\nFROM pages",
+      eventName: "page_views",
+      datasource: datasource.id,
+      projects: [project.id],
+      columns: [
+        {
+          column: "user_id",
+          datatype: "string",
+        },
+        {
+          column: "timestamp",
+          datatype: "date",
+        },
+        {
+          column: "browser",
+          datatype: "string",
+        },
+        {
+          column: "country",
+          datatype: "string",
+        },
+        {
+          column: "path",
+          datatype: "string",
+          alwaysInlineFilter: true,
+        },
+      ],
+      columnRefreshPending: true,
+    });
+
+    await queueFactTableColumnsRefresh(demoPageViewsFactTable);
 
     // Create metrics
     const metrics = await Promise.all(
