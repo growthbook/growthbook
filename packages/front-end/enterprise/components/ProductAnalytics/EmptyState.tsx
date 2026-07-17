@@ -75,6 +75,8 @@ export default function EmptyState() {
       ? "Your current plan does not include AI Chat."
       : null;
 
+  const toolsExpanded = !!chatDisabledReason || showAdvancedOptions;
+
   return (
     <Box style={{ display: "flex", flex: 1, flexDirection: "column" }}>
       <Flex align="center">
@@ -102,11 +104,16 @@ export default function EmptyState() {
           padding: "40px 80px",
         }}
       >
-        {!isDataSourceEmpty && !chatDisabledReason ? (
+        {!isDataSourceEmpty ? (
           <Box style={{ position: "absolute", top: 24, right: 24 }}>
-            <Link href="/product-analytics/explore/ai-chat">
+            <LinkButton
+              href="/product-analytics/explore/ai-chat"
+              variant="ghost"
+              size="sm"
+              disabled={!!chatDisabledReason}
+            >
               View chat history
-            </Link>
+            </LinkButton>
           </Box>
         ) : null}
         <Flex
@@ -248,15 +255,21 @@ export default function EmptyState() {
                 style={{ position: "relative" }}
               >
                 <TextDivider width={435}>
-                  Want to explore manually?{" "}
-                  <Link
-                    onClick={() => setShowAdvancedOptions((open) => !open)}
-                    aria-expanded={showAdvancedOptions}
-                  >
-                    {showAdvancedOptions ? "Hide tools" : "Show tools"}
-                  </Link>
+                  {chatDisabledReason ? (
+                    "Explore manually"
+                  ) : (
+                    <>
+                      Want to explore manually?{" "}
+                      <Link
+                        onClick={() => setShowAdvancedOptions((open) => !open)}
+                        aria-expanded={showAdvancedOptions}
+                      >
+                        {showAdvancedOptions ? "Hide tools" : "Show tools"}
+                      </Link>
+                    </>
+                  )}
                 </TextDivider>
-                {showAdvancedOptions ? (
+                {toolsExpanded ? (
                   <Flex
                     direction="column"
                     gap="3"
@@ -271,8 +284,9 @@ export default function EmptyState() {
                   >
                     <Text color="text-low" align="center">
                       Choose one of our exploration tools to manually explore
-                      your data. If you&apos;re unsure where to start, we
-                      suggest starting with the AI Analyst.
+                      your data.
+                      {!chatDisabledReason &&
+                        " If you're unsure where to start, we suggest starting with the AI Analyst."}
                     </Text>
                     <Flex
                       gap="3"
