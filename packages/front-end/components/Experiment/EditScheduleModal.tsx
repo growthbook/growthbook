@@ -130,8 +130,6 @@ export default function EditScheduleModal({
       stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
       mode: (experiment.shippingCriteria?.mode ?? "notify") as ShippingMode,
       tiebreakerMetricId: experiment.shippingCriteria?.tiebreakerMetricId ?? "",
-      // Default the no-clear-winner fallback to shipping a variation (control)
-      // so auto-ship is a hard cutoff by default — it always ends at the date.
       fallback: (experiment.shippingCriteria?.fallback ??
         DEFAULT_SHIPPING_FALLBACK) as ShippingFallback,
       // Default the fallback target to control (the first variation) so the
@@ -387,12 +385,10 @@ export default function EditScheduleModal({
                   stopAfter,
                 }
               : null;
-          // Shipping automation only ever fires at a scheduled end. Without an
-          // end date, force "notify" so we never persist automation that a
-          // manual stop wouldn't honor.
-          // Normalize on save: only persist fields relevant to the chosen mode;
-          // reset the rest to defaults so a stale value can't resurface when the
-          // user later switches modes.
+          // Shipping automation only fires at a scheduled end, so force
+          // "notify" without an end date. Otherwise persist just the fields
+          // relevant to the chosen mode so a stale value can't resurface when
+          // the user later switches modes.
           const hasEndDate = !!(stopAt || stopAfter);
           const shippingCriteria = hasEndDate
             ? {

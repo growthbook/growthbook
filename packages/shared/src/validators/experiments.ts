@@ -828,8 +828,6 @@ const apiCustomMetricSlices = z
 
 const apiScheduleStopAfter = z
   .object({
-    // Whole units only — the offset is resolved with date-fns addDays/addHours,
-    // which floor fractional amounts.
     value: z.number().int().positive(),
     unit: z.enum(SCHEDULE_STOP_AFTER_UNITS),
   })
