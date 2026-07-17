@@ -18,6 +18,7 @@ import {
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -498,22 +499,9 @@ export default function LinkFeatureToContextualBanditModal({
         </Text>
         {variations.map((v, i) => (
           <Box key={v.id}>
-            <Flex align="center" direction="row" gap="1" mb="3">
-              <Box className={`variation with-variation-label variation${i}`}>
-                <span
-                  className="label"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    fontSize: 11,
-                    lineHeight: "18px",
-                  }}
-                >
-                  {i}
-                </span>
-              </Box>
-              <Text weight="semibold">{v.name}</Text>
-            </Flex>
+            <Box mb="3">
+              <VariationLabel number={i} name={v.name} />
+            </Box>
             <FeatureValueField
               id={v.id}
               value={form.watch(`variations.${i}.value`) || ""}
