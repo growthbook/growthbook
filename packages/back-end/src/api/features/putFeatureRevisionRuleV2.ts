@@ -97,6 +97,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       [patch.config, ...(patch.variations?.map((v) => v.config) ?? [])],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
+      feature.project,
     );
 
     // Config backing comes only through the dedicated `config` field; a raw

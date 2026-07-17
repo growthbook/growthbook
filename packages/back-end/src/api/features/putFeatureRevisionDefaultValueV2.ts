@@ -30,6 +30,7 @@ export const putFeatureRevisionDefaultValueV2 = createApiRequestHandler(
       req.context,
       feature.baseConfig,
       defaultValueConfig,
+      feature.project,
     );
     composedDefaultValue = setConfigBacking(defaultValueConfig, defaultValue);
   }

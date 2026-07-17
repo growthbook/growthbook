@@ -39,6 +39,7 @@ const CONFIG_KEY_RE = /^[a-z0-9][a-z0-9_-]*$/;
 async function requireLiveConfig(
   context: ApiReqContext,
   key: string,
+  featureProject: string | undefined,
 ): Promise<void> {
   if (!CONFIG_KEY_RE.test(key)) {
     throw new BadRequestError(
@@ -54,6 +55,15 @@ async function requireLiveConfig(
       `Config "${key}" is archived and cannot back a feature value.`,
     );
   }
+  // Resolution scrubs a ref whose config is scoped to a different project than
+  // the resolving feature, so a cross-project attach would serve a bare patch
+  // while its values are validated against a schema that never applies. Global
+  // configs (no project) are usable everywhere. Matches the UI's config picker.
+  if (config.project && config.project !== (featureProject || "")) {
+    throw new BadRequestError(
+      `Config "${key}" is scoped to a different project than this feature and cannot back its values. Use a global config or one in the feature's project.`,
+    );
+  }
   // Flavors are selected implicitly per environment via the base's
   // scopedOverrides — referencing one directly would serve its patch in EVERY
   // environment and dodge its env-scoped review.
@@ -62,15 +72,6 @@ async function requireLiveConfig(
       `Config "${key}" is an environment/project override of "${config.scopedConfig?.parent}" and can't back a feature value directly — reference its base config instead.`,
     );
   }
-}
-
-// A request-supplied config key backing the DEFAULT value may be any live
-// config; it defines the feature's config family.
-export async function assertValidDefaultValueConfigKey(
-  context: ApiReqContext,
-  key: string,
-): Promise<void> {
-  await requireLiveConfig(context, key);
 }
 
 // Config backing is set only through dedicated fields (`baseConfig`,
@@ -92,12 +93,13 @@ export async function assertValidBaseConfig(
   context: ApiReqContext,
   baseConfig: string | null | undefined,
   valueType: string | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   if ((baseConfig ?? null) === null) return;
   if (valueType !== "json") {
     throw new BadRequestError('`baseConfig` requires `valueType: "json"`.');
   }
-  await requireLiveConfig(context, baseConfig as string);
+  await requireLiveConfig(context, baseConfig as string, featureProject);
 }
 
 // The default's optional extension must be a live config within `baseConfig`'s
@@ -106,6 +108,7 @@ export async function assertValidDefaultValueConfig(
   context: ApiReqContext,
   baseConfig: string | null | undefined,
   defaultValueConfig: string | null | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   if ((defaultValueConfig ?? null) === null) return;
   if ((baseConfig ?? null) === null) {
@@ -113,7 +116,11 @@ export async function assertValidDefaultValueConfig(
       "`defaultValueConfig` requires `baseConfig` to be set.",
     );
   }
-  await requireLiveConfig(context, defaultValueConfig as string);
+  await requireLiveConfig(
+    context,
+    defaultValueConfig as string,
+    featureProject,
+  );
   const allConfigs = await context.models.configs.getAll();
   const family = new Set(getConfigSubtree(baseConfig as string, allConfigs));
   if (!family.has(defaultValueConfig as string)) {
@@ -131,7 +138,8 @@ export async function assertValidRuleConfigKeys(
   context: ApiReqContext,
   configKeys: (string | null | undefined)[],
   effectiveDefaultValue: string | undefined,
-  baseConfig?: string | null,
+  baseConfig: string | null | undefined,
+  featureProject: string | undefined,
 ): Promise<void> {
   const keys = [
     ...new Set(configKeys.filter((k): k is string => typeof k === "string")),
@@ -139,7 +147,7 @@ export async function assertValidRuleConfigKeys(
   if (!keys.length) return;
 
   for (const key of keys) {
-    await requireLiveConfig(context, key);
+    await requireLiveConfig(context, key, featureProject);
   }
 
   const defaultConfigKey =

@@ -116,6 +116,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       [ruleLevelConfig, ...variationConfigs],
       revision.defaultValue ?? feature.defaultValue,
       feature.baseConfig,
+      feature.project,
     );
 
     if (ruleInput.type === "experiment-ref") {

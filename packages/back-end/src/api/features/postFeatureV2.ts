@@ -133,11 +133,13 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       req.context,
       feature.baseConfig,
       feature.valueType,
+      feature.project,
     );
     await assertValidDefaultValueConfig(
       req.context,
       feature.baseConfig,
       req.body.defaultValueConfig,
+      feature.project,
     );
     if ((req.body.defaultValueConfig ?? null) !== null) {
       feature.defaultValue = setConfigBacking(
@@ -158,6 +160,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       ]),
       feature.defaultValue,
       feature.baseConfig,
+      feature.project,
     );
 
     const jsonSchema = parseApiJsonSchema(

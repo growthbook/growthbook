@@ -182,11 +182,13 @@ export const updateFeatureV2 = createApiRequestHandler(
     req.context,
     effectiveBaseConfig,
     feature.valueType,
+    effectiveProject,
   );
   await assertValidDefaultValueConfig(
     req.context,
     effectiveBaseConfig,
     req.body.defaultValueConfig,
+    effectiveProject,
   );
 
   // Recompose the stored default when its value or its extension changes: a
@@ -249,6 +251,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       ]),
       defaultValue ?? feature.defaultValue,
       effectiveBaseConfig,
+      effectiveProject,
     );
     addIdsToFlatRules(inboundFlatRules, feature.id);
     // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
