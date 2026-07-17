@@ -157,12 +157,19 @@ function PreLaunchChecklistUI({
     );
   };
 
+  const itemsBelowToggle = showCompleted
+    ? incompleteItems.length > 0 || completeItems.length > 0
+    : incompleteItems.length > 0;
+
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
     <Box className={styles.drawerBodyInner}>
       {completeItems.length > 0 && (
-        <Box className={styles.showCompletedToggle}>
+        <Box
+          className={styles.showCompletedToggle}
+          style={{ marginBottom: itemsBelowToggle ? "19px" : "var(--space-2)" }}
+        >
           <Switch
             value={showCompleted}
             onChange={setShowCompleted}
