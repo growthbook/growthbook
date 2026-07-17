@@ -8,6 +8,7 @@ import {
   getConfigSubtree,
   isScopedConfig,
   valueHasConfigExtends,
+  parsePlainJSONObject,
 } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -86,6 +87,29 @@ export function assertNoRawConfigExtends(
       `${label} must not embed a config via a raw "$extends" "@config:" directive. Use the config field instead (baseConfig / defaultValueConfig / a rule's config).`,
     );
   }
+}
+
+// Compose a stored config-backed value from a config key + an override patch,
+// rejecting a patch that isn't a JSON object. A config backing is a deep-merge
+// of the patch onto the config's object, so a scalar/array patch has nothing to
+// merge onto — setConfigBacking would silently drop the backing ref and store
+// the bare value unbacked. Reject the contradictory input instead. An empty
+// patch ("" / whitespace) is fine: it means "pure backing, no override".
+export function composeConfigBacking(
+  configKey: string | null | undefined,
+  value: string | undefined,
+  label: string,
+): string {
+  if (
+    (configKey ?? null) !== null &&
+    (value ?? "").trim() !== "" &&
+    !parsePlainJSONObject(value ?? "")
+  ) {
+    throw new BadRequestError(
+      `${label} must be a JSON object when backed by a config — a scalar or array value can't extend a config.`,
+    );
+  }
+  return setConfigBacking(configKey ?? null, value);
 }
 
 // `baseConfig` puts a flag in Config mode: JSON-typed and backed by a live config.
@@ -237,7 +261,7 @@ export function mapV2ApiRuleToFeatureRule(
           variationId: v.variationId,
           value:
             v.config !== undefined
-              ? setConfigBacking(v.config, v.value)
+              ? composeConfigBacking(v.config, v.value, "Variation value")
               : v.value,
         };
       }),
@@ -251,7 +275,11 @@ export function mapV2ApiRuleToFeatureRule(
       type: "rollout" as const,
       value:
         ruleInput.config !== undefined
-          ? setConfigBacking(ruleInput.config, ruleInput.value)
+          ? composeConfigBacking(
+              ruleInput.config,
+              ruleInput.value,
+              "Rule value",
+            )
           : ruleInput.value,
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
@@ -291,7 +319,7 @@ export function mapV2ApiRuleToFeatureRule(
     type: "force" as const,
     value:
       ruleInput.config !== undefined
-        ? setConfigBacking(ruleInput.config, ruleInput.value)
+        ? composeConfigBacking(ruleInput.config, ruleInput.value, "Rule value")
         : ruleInput.value,
     ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
   };

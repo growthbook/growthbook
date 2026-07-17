@@ -1,6 +1,5 @@
 import {
   validateFeatureValue,
-  setConfigBacking,
   getConfigBackingPatch,
   getConfigBackingKey,
 } from "shared/util";
@@ -49,6 +48,7 @@ import {
   assertValidBaseConfig,
   assertValidDefaultValueConfig,
   assertNoRawConfigExtends,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
@@ -203,7 +203,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     const dvc = dvcProvided
       ? (req.body.defaultValueConfig ?? null)
       : getConfigBackingKey(feature.defaultValue);
-    storedDefault = dvc !== null ? setConfigBacking(dvc, patch) : patch;
+    storedDefault =
+      dvc !== null ? composeConfigBacking(dvc, patch, "Default value") : patch;
   }
 
   const prerequisites =

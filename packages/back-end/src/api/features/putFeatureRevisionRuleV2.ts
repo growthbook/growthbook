@@ -3,7 +3,6 @@ import {
   resetReviewOnChange,
   getConfigBackingKey,
   getConfigBackingPatch,
-  setConfigBacking,
 } from "shared/util";
 import {
   RevisionRampCreateAction,
@@ -42,6 +41,7 @@ import { applyPatch } from "./putFeatureRevisionRule";
 import {
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
+  composeConfigBacking,
   resolveScopeFromInput,
 } from "./v2Shared";
 
@@ -201,7 +201,11 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
           patch.config !== undefined ? patch.config : existingConfig;
         const newPatch =
           patch.value !== undefined ? patch.value : existingPatch;
-        updatedRule.value = setConfigBacking(newConfig, newPatch);
+        updatedRule.value = composeConfigBacking(
+          newConfig,
+          newPatch,
+          "Rule value",
+        );
       }
     }
     if (
@@ -212,7 +216,7 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         variationId: v.variationId,
         value:
           v.config !== undefined
-            ? setConfigBacking(v.config, v.value)
+            ? composeConfigBacking(v.config, v.value, "Variation value")
             : v.value,
       }));
     }

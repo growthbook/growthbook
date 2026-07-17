@@ -9,7 +9,7 @@ import {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
-import { resetReviewOnChange, setConfigBacking } from "shared/util";
+import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
 import { CreateProps } from "shared/types/base-model";
@@ -53,6 +53,7 @@ import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
   assertNoRawConfigExtends,
   assertValidRuleConfigKeys,
+  composeConfigBacking,
   resolveScopeFromInput,
 } from "./v2Shared";
 
@@ -211,13 +212,20 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       (rule.type === "force" || rule.type === "rollout") &&
       ruleLevelConfig !== undefined
     ) {
-      rule.value = setConfigBacking(ruleLevelConfig, rule.value);
+      rule.value = composeConfigBacking(
+        ruleLevelConfig,
+        rule.value,
+        "Rule value",
+      );
     }
     if (rule.type === "experiment-ref") {
       rule.variations = rule.variations.map((rv, i) => {
         const c = variationConfigs[i];
         return c !== undefined
-          ? { ...rv, value: setConfigBacking(c, rv.value) }
+          ? {
+              ...rv,
+              value: composeConfigBacking(c, rv.value, "Variation value"),
+            }
           : rv;
       });
     }
