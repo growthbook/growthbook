@@ -309,7 +309,7 @@ export const postConstantRevisionPublishValidator = {
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the constant. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
+    "Publishes a draft revision, making it the live state of the constant. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Under `requireRebaseBeforePublish`, a draft whose base has moved since it was created is blocked until rebased — a caller with the bypass-approval permission can force-merge instead by passing `ignoreWarnings: true` (the permission alone does not silently skip the rebase). When blocked, the 422 lists every applicable gate and how to clear each (see the response docs).",
   tags: ["constant-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z

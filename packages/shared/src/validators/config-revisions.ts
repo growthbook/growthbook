@@ -308,7 +308,7 @@ export const postConfigRevisionPublishValidator = {
   operationId: "postConfigRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "Publishes a draft revision, making it the live state of the config. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Publishing a schema change cascades the 'base wins' normalization to descendant configs.",
+    "Publishes a draft revision, making it the live state of the config. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish). Under `requireRebaseBeforePublish`, a draft whose base has moved since it was created is blocked until rebased — a caller with the bypass-approval permission can force-merge instead by passing `ignoreWarnings: true` (the permission alone does not silently skip the rebase). A locked config is blocked until unlocked. When blocked, the 422 lists every applicable gate and how to clear each (see the response docs). Publishing a schema change cascades the 'base wins' normalization to descendant configs.",
   tags: ["config-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z

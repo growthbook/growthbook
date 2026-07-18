@@ -97,18 +97,18 @@ info:
     `"ignoreWarnings": true` in the request body to proceed anyway. Blocked
     publishes include a `gates` array, one entry per blocking gate, each
     carrying a uniform set of fields: `type`, `severity`, `messages`, `override`
-    (the body flag that clears it — `ignoreWarnings` or `skipSchemaValidation` —
-    or `null` when no flag applies), `requiresPermission` (a permission the
-    override needs, or `null`), and `resolution` (the non-flag way out as a
-    callable `{ action, method, path }` route, or `null`). So one response lists
-    every way past every gate. A gate with `override: null` (approval required)
-    clears by getting the revision approved, or implicitly for callers with the
-    `bypassApprovalChecks` permission; a locked config clears by calling its
-    `resolution` unlock route. On a SUCCESSFUL publish (200), if a gate that
-    would have blocked was bypassed by the caller's authority, the response
-    includes a `bypassedGates` array (`{ type, outcome: "bypassed", via }`,
-    where `via` is `ignoreWarnings`, `bypassApprovalChecks`, or
-    `restApiBypassesReviews`); the key is omitted when nothing was bypassed.
+    (the body flag that clears it — `ignoreWarnings` — or `null` when no flag
+    applies), `requiresPermission` (a permission the override needs, or `null`),
+    and `resolution` (the non-flag way out as a callable `{ action, method, path
+    }` route, or `null`). So one response lists every way past every gate. A
+    gate with `override: null` (approval required) clears by getting the
+    revision approved, or implicitly for callers with the `bypassApprovalChecks`
+    permission; a locked config clears by calling its `resolution` unlock route.
+    On a SUCCESSFUL publish (200), if a gate that would have blocked was
+    bypassed by the caller's authority, the response includes a `bypassedGates`
+    array (`{ type, outcome: "bypassed", via }`, where `via` is
+    `ignoreWarnings`, `bypassApprovalChecks`, or `restApiBypassesReviews`); the
+    key is omitted when nothing was bypassed.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
@@ -18967,7 +18967,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the saved group.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). When blocked,
+        the 422 lists every applicable gate and how to clear each (see the
+        response docs).
       tags:
         - saved-group-revisions
       parameters:
@@ -20347,7 +20353,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the constant.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). When blocked,
+        the 422 lists every applicable gate and how to clear each (see the
+        response docs).
       tags:
         - constant-revisions
       parameters:
@@ -22886,7 +22898,13 @@ paths:
       description: >-
         Publishes a draft revision, making it the live state of the config.
         Blocked if the org requires approvals and the revision is not approved
-        (callers with the bypass-approval permission may still publish).
+        (callers with the bypass-approval permission may still publish). Under
+        `requireRebaseBeforePublish`, a draft whose base has moved since it was
+        created is blocked until rebased — a caller with the bypass-approval
+        permission can force-merge instead by passing `ignoreWarnings: true`
+        (the permission alone does not silently skip the rebase). A locked
+        config is blocked until unlocked. When blocked, the 422 lists every
+        applicable gate and how to clear each (see the response docs).
         Publishing a schema change cascades the 'base wins' normalization to
         descendant configs.
       tags:
