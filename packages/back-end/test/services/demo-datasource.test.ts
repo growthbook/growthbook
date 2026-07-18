@@ -1,4 +1,5 @@
 import {
+  DEMO_DATASOURCE_HOST,
   DEMO_DATASOURCE_ID,
   DEMO_EXPERIMENT_ID,
   DEMO_EXPERIMENT_TRACKING_KEY,
@@ -27,11 +28,13 @@ import * as FactTableModel from "back-end/src/models/FactTableModel";
 import * as DimensionModel from "back-end/src/models/DimensionModel";
 import * as ExperimentSnapshotModel from "back-end/src/models/ExperimentSnapshotModel";
 import * as MetricModel from "back-end/src/models/MetricModel";
+import * as DatasourceService from "back-end/src/services/datasource";
 import * as ExperimentsService from "back-end/src/services/experiments";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
+  getDataSourcesByOrganization: jest.fn(),
   createDataSource: jest.fn(),
   deleteDatasource: jest.fn(),
 }));
@@ -63,6 +66,11 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
 }));
 jest.mock("back-end/src/models/MetricModel", () => ({
   getMetricMap: jest.fn(),
+  getMetricsByDatasource: jest.fn(),
+  deleteMetricById: jest.fn(),
+}));
+jest.mock("back-end/src/services/datasource", () => ({
+  decryptDataSourceParams: jest.fn(),
 }));
 jest.mock("back-end/src/services/experiments", () => ({
   createSnapshot: jest.fn(),
@@ -78,6 +86,10 @@ const mocked = {
   getDataSourceById: DataSourceModel.getDataSourceById as jest.MockedFunction<
     typeof DataSourceModel.getDataSourceById
   >,
+  getDataSourcesByOrganization:
+    DataSourceModel.getDataSourcesByOrganization as jest.MockedFunction<
+      typeof DataSourceModel.getDataSourcesByOrganization
+    >,
   createDataSource: DataSourceModel.createDataSource as jest.MockedFunction<
     typeof DataSourceModel.createDataSource
   >,
@@ -141,6 +153,17 @@ const mocked = {
   getMetricMap: MetricModel.getMetricMap as jest.MockedFunction<
     typeof MetricModel.getMetricMap
   >,
+  getMetricsByDatasource:
+    MetricModel.getMetricsByDatasource as jest.MockedFunction<
+      typeof MetricModel.getMetricsByDatasource
+    >,
+  deleteMetricById: MetricModel.deleteMetricById as jest.MockedFunction<
+    typeof MetricModel.deleteMetricById
+  >,
+  decryptDataSourceParams:
+    DatasourceService.decryptDataSourceParams as jest.MockedFunction<
+      typeof DatasourceService.decryptDataSourceParams
+    >,
   createSnapshot: ExperimentsService.createSnapshot as jest.MockedFunction<
     typeof ExperimentsService.createSnapshot
   >,
@@ -161,7 +184,7 @@ let datasources: Map<string, DataSourceInterface>;
 let experiments: Map<string, ExperimentInterface>;
 let features: Map<string, FeatureInterface>;
 let factTables: Map<string, FactTableInterface>;
-let factMetrics: Map<string, { id: string }>;
+let factMetrics: Map<string, { id: string; datasource?: string }>;
 let projects: Map<string, ProjectInterface>;
 
 function makeContext(): ReqContext {
@@ -223,6 +246,9 @@ beforeEach(() => {
   mocked.getDataSourceById.mockImplementation(
     async (_ctx, id) => datasources.get(id) || null,
   );
+  mocked.getDataSourcesByOrganization.mockImplementation(async () => [
+    ...datasources.values(),
+  ]);
   mocked.createDataSource.mockImplementation(
     async (_ctx, name, type, _params, _settings, id) => {
       const doc = { id: id || "ds_random", name, type } as DataSourceInterface;
@@ -233,13 +259,32 @@ beforeEach(() => {
   mocked.deleteDatasource.mockImplementation(async (_ctx, ds) => {
     datasources.delete(ds.id);
   });
+  mocked.decryptDataSourceParams.mockImplementation((params) => {
+    if (typeof params === "string") {
+      return JSON.parse(params);
+    }
+    return params;
+  });
+  mocked.getMetricsByDatasource.mockResolvedValue([]);
+  mocked.deleteMetricById.mockResolvedValue(undefined);
 
   mocked.getExperimentById.mockImplementation(
     async (_ctx, id) => experiments.get(id) || null,
   );
-  mocked.getAllExperiments.mockImplementation(async () => [
-    ...experiments.values(),
-  ]);
+  mocked.getAllExperiments.mockImplementation(async (_ctx, options = {}) => {
+    return [...experiments.values()].filter((exp) => {
+      if (options.datasourceId && exp.datasource !== options.datasourceId) {
+        return false;
+      }
+      if (options.project && exp.project !== options.project) {
+        return false;
+      }
+      if (options.trackingKey && exp.trackingKey !== options.trackingKey) {
+        return false;
+      }
+      return true;
+    });
+  });
   mocked.createExperiment.mockImplementation(async ({ data }) => {
     const doc = { id: "exp_random", ...data } as ExperimentInterface;
     experiments.set(doc.id, doc);
@@ -585,6 +630,90 @@ describe("deleteDemoDatasourceAndDependents", () => {
     expect(mocked.deleteFeature).not.toHaveBeenCalled();
     expect(mocked.deleteExperimentByIdForOrganization).not.toHaveBeenCalled();
     expect(mocked.deleteFactTable).not.toHaveBeenCalled();
+    expect(mocked.deleteDatasource).not.toHaveBeenCalled();
+  });
+
+  it("deletes legacy sample resources with random IDs via the sample host", async () => {
+    const demoProjectId = getDemoDatasourceProjectIdForOrganization(ORG_ID);
+    const legacyDatasourceId = "ds_legacy_random";
+    const legacyExperimentId = "exp_legacy_random";
+    const legacyFactMetricId = "fact__legacy_random";
+    const legacyMetricId = "met_legacy_random";
+    const featureId = getDemoDataSourceFeatureId();
+    const factTableIds = [
+      getDemoDatasourceFactTableIdForOrganization(ORG_ID),
+      getDemoDatasourcePageViewsFactTableIdForOrganization(ORG_ID),
+    ];
+
+    projects.set(demoProjectId, {
+      id: demoProjectId,
+      name: "Sample Data",
+    } as ProjectInterface);
+    datasources.set(legacyDatasourceId, {
+      id: legacyDatasourceId,
+      type: "postgres",
+      projects: [demoProjectId],
+      params: JSON.stringify({ host: DEMO_DATASOURCE_HOST }),
+    } as DataSourceInterface);
+    experiments.set(legacyExperimentId, {
+      id: legacyExperimentId,
+      datasource: legacyDatasourceId,
+      project: demoProjectId,
+      trackingKey: DEMO_EXPERIMENT_TRACKING_KEY,
+    } as ExperimentInterface);
+    factTableIds.forEach((id) =>
+      factTables.set(id, {
+        id,
+        datasource: legacyDatasourceId,
+      } as FactTableInterface),
+    );
+    factMetrics.set(legacyFactMetricId, {
+      id: legacyFactMetricId,
+      datasource: legacyDatasourceId,
+    });
+    features.set(featureId, { id: featureId } as FeatureInterface);
+
+    const legacyMetric = {
+      id: legacyMetricId,
+      datasource: legacyDatasourceId,
+    };
+    mocked.getMetricsByDatasource.mockImplementation(async (_ctx, dsId) =>
+      dsId === legacyDatasourceId ? [legacyMetric as never] : [],
+    );
+    mocked.getFactTablesForDatasource.mockImplementation(async (_ctx, dsId) =>
+      [...factTables.values()].filter((ft) => ft.datasource === dsId),
+    );
+    const context = makeContext();
+    (context.models.factMetrics.getAllSorted as jest.Mock).mockImplementation(
+      async ({ datasourceId }: { datasourceId?: string } = {}) =>
+        [...factMetrics.values()].filter(
+          (m) => !datasourceId || m.datasource === datasourceId,
+        ),
+    );
+
+    await deleteDemoDatasourceAndDependents(context);
+
+    expect(features.has(featureId)).toBe(false);
+    expect(experiments.has(legacyExperimentId)).toBe(false);
+    expect(datasources.has(legacyDatasourceId)).toBe(false);
+    factTableIds.forEach((id) => expect(factTables.has(id)).toBe(false));
+    expect(factMetrics.has(legacyFactMetricId)).toBe(false);
+    expect(mocked.deleteMetricById).toHaveBeenCalledWith(context, legacyMetric);
+  });
+
+  it("does not treat a sample-host Data Source outside the Sample Data project as sample data", async () => {
+    const otherDatasourceId = "ds_other_sample_host";
+    datasources.set(otherDatasourceId, {
+      id: otherDatasourceId,
+      type: "postgres",
+      projects: ["prj_other"],
+      params: JSON.stringify({ host: DEMO_DATASOURCE_HOST }),
+    } as DataSourceInterface);
+
+    const context = makeContext();
+    await deleteDemoDatasourceAndDependents(context);
+
+    expect(datasources.has(otherDatasourceId)).toBe(true);
     expect(mocked.deleteDatasource).not.toHaveBeenCalled();
   });
 });

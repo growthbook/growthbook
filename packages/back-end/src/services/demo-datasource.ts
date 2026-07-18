@@ -1,4 +1,5 @@
 import {
+  DEMO_DATASOURCE_HOST,
   DEMO_DATASOURCE_ID,
   DEMO_EXPERIMENT_ID,
   DEMO_EXPERIMENT_TRACKING_KEY,
@@ -29,6 +30,7 @@ import {
   createDataSource,
   deleteDatasource,
   getDataSourceById,
+  getDataSourcesByOrganization,
 } from "back-end/src/models/DataSourceModel";
 import {
   createExperiment,
@@ -40,7 +42,12 @@ import {
   createSnapshot,
   getDefaultExperimentAnalysisSettings,
 } from "back-end/src/services/experiments";
-import { getMetricMap } from "back-end/src/models/MetricModel";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import {
+  deleteMetricById,
+  getMetricMap,
+  getMetricsByDatasource,
+} from "back-end/src/models/MetricModel";
 import {
   createFeature,
   deleteFeature,
@@ -692,21 +699,43 @@ export async function deleteDemoResources(context: ReqContext): Promise<void> {
 }
 
 /**
- * Fully remove sample data: the seeded Feature Flag, the sample Data Source,
- * and every resource built on that Data Source (seeded or user-created).
- * Resources that only reference the Sample Data project (and not the Data
- * Source) are left for project-reference cleanup.
+ * Sample Data Sources are identified by the constant ID, or — for orgs seeded
+ * before constant IDs — by the shared sample-data postgres host restricted to
+ * the Sample Data project.
  */
-export async function deleteDemoDatasourceAndDependents(
-  context: ReqContext,
-): Promise<void> {
-  const datasourceId = DEMO_DATASOURCE_ID;
+async function getSampleDatasourceIds(context: ReqContext): Promise<string[]> {
+  const ids = new Set<string>();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
 
-  const feature = await getFeature(context, getDemoDataSourceFeatureId());
-  if (feature) {
-    await deleteFeature(context, feature);
+  if (await getDataSourceById(context, DEMO_DATASOURCE_ID)) {
+    ids.add(DEMO_DATASOURCE_ID);
   }
 
+  const datasources = await getDataSourcesByOrganization(context);
+  for (const datasource of datasources) {
+    if (datasource.type !== "postgres") continue;
+    if (!datasource.projects?.includes(demoProjectId)) continue;
+    try {
+      const params = decryptDataSourceParams<PostgresConnectionParams>(
+        datasource.params,
+      );
+      if (params.host === DEMO_DATASOURCE_HOST) {
+        ids.add(datasource.id);
+      }
+    } catch {
+      // Ignore datasources whose credentials can't be decrypted.
+    }
+  }
+
+  return [...ids];
+}
+
+async function deleteResourcesForDatasource(
+  context: ReqContext,
+  datasourceId: string,
+): Promise<void> {
   const experiments = await getAllExperiments(context, {
     datasourceId,
     includeArchived: true,
@@ -728,6 +757,12 @@ export async function deleteDemoDatasourceAndDependents(
   });
   for (const factMetric of factMetrics) {
     await context.models.factMetrics.delete(factMetric);
+  }
+
+  // Pre-fact-metric sample seeds created legacy SQL metrics on the same DS.
+  const legacyMetrics = await getMetricsByDatasource(context, datasourceId);
+  for (const metric of legacyMetrics) {
+    await deleteMetricById(context, metric);
   }
 
   const segments = await context.models.segments.getByDataSource(datasourceId);
@@ -758,5 +793,71 @@ export async function deleteDemoDatasourceAndDependents(
   const datasource = await getDataSourceById(context, datasourceId);
   if (datasource) {
     await deleteDatasource(context, datasource);
+  }
+}
+
+/**
+ * Fully remove sample data: the seeded Feature Flag, every sample Data Source
+ * (constant-ID or legacy host-matched), and resources built on those Data
+ * Sources. Also removes known seed leftovers (org-derived fact tables, constant
+ * fact metrics, and the demo experiment by constant ID or tracking key).
+ * Resources that only reference the Sample Data project are left for
+ * project-reference cleanup.
+ */
+export async function deleteDemoDatasourceAndDependents(
+  context: ReqContext,
+): Promise<void> {
+  const feature = await getFeature(context, getDemoDataSourceFeatureId());
+  if (feature) {
+    await deleteFeature(context, feature);
+  }
+
+  const sampleDatasourceIds = await getSampleDatasourceIds(context);
+  for (const datasourceId of sampleDatasourceIds) {
+    await deleteResourcesForDatasource(context, datasourceId);
+  }
+
+  // Known seed IDs that may remain if a datasource was already removed, or for
+  // legacy seeds whose experiment ID was random but tracking key was fixed.
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    context.org.id,
+  );
+  const leftoverExperiments = new Map<string, ExperimentInterface>();
+
+  const constantExperiment = await getExperimentById(
+    context,
+    DEMO_EXPERIMENT_ID,
+  );
+  if (constantExperiment) {
+    leftoverExperiments.set(constantExperiment.id, constantExperiment);
+  }
+
+  for (const experiment of await getAllExperiments(context, {
+    project: demoProjectId,
+    trackingKey: DEMO_EXPERIMENT_TRACKING_KEY,
+    includeArchived: true,
+  })) {
+    leftoverExperiments.set(experiment.id, experiment);
+  }
+
+  for (const experiment of leftoverExperiments.values()) {
+    await deleteAllSnapshotsForExperiment(context, experiment.id);
+    await deleteExperimentByIdForOrganization(context, experiment);
+  }
+
+  for (const factMetricId of Object.values(DEMO_FACT_METRIC_IDS)) {
+    if (await context.models.factMetrics.getById(factMetricId)) {
+      await context.models.factMetrics.deleteById(factMetricId);
+    }
+  }
+
+  for (const factTableId of [
+    getDemoDatasourceFactTableIdForOrganization(context.org.id),
+    getDemoDatasourcePageViewsFactTableIdForOrganization(context.org.id),
+  ]) {
+    const factTable = await getFactTable(context, factTableId);
+    if (factTable) {
+      await deleteFactTable(context, factTable);
+    }
   }
 }
