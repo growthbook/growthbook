@@ -699,9 +699,7 @@ export function getAffectedEnvs(
   return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
-export function getDefaultValue(
-  valueType: FeatureValueType | "custom",
-): string {
+export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
     return "false";
   }
@@ -711,7 +709,7 @@ export function getDefaultValue(
   if (valueType === "string") {
     return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
-  if (valueType === "json" || valueType === "custom") {
+  if (valueType === "json") {
     return "{}";
   }
   return "";

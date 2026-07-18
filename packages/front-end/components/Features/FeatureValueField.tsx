@@ -41,8 +41,6 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
-  initialSimpleSchema?: SimpleSchema;
-  initialValidationEnabled?: boolean;
 }
 
 export default function FeatureValueField({
@@ -60,17 +58,12 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
-  initialSimpleSchema,
-  initialValidationEnabled,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
-    : {
-        simpleSchema: initialSimpleSchema ?? null,
-        validationEnabled: initialValidationEnabled ?? null,
-      };
+    : { simpleSchema: null, validationEnabled: null };
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,

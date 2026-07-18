@@ -3,21 +3,11 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureValueType,
-  SimpleSchema,
 } from "shared/types/feature";
-import React, { ReactElement, useState } from "react";
-import {
-  getJSONValidator,
-  inferSimpleSchemaFromValue,
-  simpleToJSONSchema,
-  validateFeatureValue,
-} from "shared/util";
+import React, { ReactElement } from "react";
+import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
 import { Box } from "@radix-ui/themes";
-import { EditSimpleSchema } from "@/components/Features/EditSchemaModal";
-import Heading from "@/ui/Heading";
-import Frame from "@/ui/Frame";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -158,8 +148,6 @@ const genFormDefaultValues = ({
       };
 };
 
-type ExtendedFeatureValueType = FeatureValueType | "custom";
-
 export default function FeatureModal({
   close,
   onSuccess,
@@ -174,11 +162,6 @@ export default function FeatureModal({
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
   const { requireProjectForFeatures } = useOrgSettings();
-  const hasJsonValidator = hasCommercialFeature("json-validation");
-  const [useSchemaCreator, setUseSchemaCreator] = useState(false);
-  const [simpleSchema, setSimpleSchema] = useState<SimpleSchema>(() =>
-    inferSimpleSchemaFromValue("{}"),
-  );
 
   const allCustomFields = useCustomFields();
   const initialCustomFields = filterCustomFieldsForSectionAndProject(
@@ -217,12 +200,7 @@ export default function FeatureModal({
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
-  const flagValueType = form.watch("valueType") as ExtendedFeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
-
-  const usingJsonSchema =
-    flagValueType === "custom" ||
-    (flagValueType === "json" && useSchemaCreator);
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -260,40 +238,11 @@ export default function FeatureModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
-        let valueType = feature.valueType as ExtendedFeatureValueType;
+        const valueType = feature.valueType;
         const { holdout } = feature;
 
         if (!valueType) {
           throw new Error("Please select a value type");
-        }
-
-        const hasSchema =
-          valueType === "custom" || (valueType === "json" && useSchemaCreator);
-
-        // "custom" is a UI-only value type; persist as "json".
-        if (valueType === "custom") {
-          valueType = "json";
-          feature.valueType = "json";
-        }
-
-        if (hasSchema && hasJsonValidator) {
-          const schemaString = simpleToJSONSchema(simpleSchema);
-          try {
-            const parsedSchema = JSON.parse(schemaString);
-            const ajv = getJSONValidator();
-            ajv.compile(parsedSchema);
-          } catch (e) {
-            throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
-            );
-          }
-          feature.jsonSchema = {
-            date: new Date(),
-            schemaType: "simple",
-            schema: schemaString,
-            simple: simpleSchema,
-            enabled: true,
-          };
         }
 
         // When duplicating, skip JSON schema validation since the value is
@@ -392,63 +341,14 @@ export default function FeatureModal({
         />
 
         {!featureToDuplicate && (
-          <>
-            <ValueTypeField
-              value={valueType}
-              onChange={(val) => {
-                const defaultValue = getDefaultValue(val);
-                form.setValue("valueType", val);
-                form.setValue("defaultValue", defaultValue);
-              }}
-              useCustom={true}
-            />
-            {flagValueType === "json" && (
-              <Box
-                style={{
-                  position: "relative",
-                  top: "-15px",
-                  textAlign: "right",
-                }}
-              >
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!hasJsonValidator) return;
-                    setUseSchemaCreator(!useSchemaCreator);
-                  }}
-                >
-                  <span style={{ fontSize: "12px" }}>
-                    {!useSchemaCreator || !hasJsonValidator
-                      ? "Add validation"
-                      : "Remove validation"}
-                  </span>
-                  <PaidFeatureBadge commercialFeature={"json-validation"} />
-                </a>
-              </Box>
-            )}
-          </>
-        )}
-
-        {!featureToDuplicate && hasJsonValidator && usingJsonSchema && (
-          <Box mb="3">
-            <Heading as="h4" size="x-small">
-              Describe the values allowed in this feature flag.{" "}
-              <Tooltip
-                body={
-                  "Custom feature flag types let you describe the values that are allowed to be passed to your code. Feature types of this type will use a JSON object with custom JSON validation. This can be edited at any time after creation."
-                }
-              >
-                <PiInfo style={{ color: "var(--violet-11)" }} />
-              </Tooltip>
-            </Heading>
-            <Frame>
-              <EditSimpleSchema
-                schema={simpleSchema}
-                setSchema={(v) => setSimpleSchema(v)}
-              />
-            </Frame>
-          </Box>
+          <ValueTypeField
+            value={valueType}
+            onChange={(val) => {
+              const defaultValue = getDefaultValue(val);
+              form.setValue("valueType", val);
+              form.setValue("defaultValue", defaultValue);
+            }}
+          />
         )}
 
         {/*
@@ -478,14 +378,9 @@ export default function FeatureModal({
             id="defaultValue"
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
-            valueType={flagValueType === "custom" ? "json" : valueType}
+            valueType={valueType}
             useCodeInput={true}
             showFullscreenButton={true}
-            renderJSONInline={usingJsonSchema && hasJsonValidator}
-            initialSimpleSchema={
-              usingJsonSchema && hasJsonValidator ? simpleSchema : undefined
-            }
-            initialValidationEnabled={usingJsonSchema && hasJsonValidator}
           />
         )}
 
