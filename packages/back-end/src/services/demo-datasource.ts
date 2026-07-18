@@ -33,6 +33,7 @@ import {
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
+  getAllExperiments,
   getExperimentById,
 } from "back-end/src/models/ExperimentModel";
 import {
@@ -52,7 +53,12 @@ import {
   deleteFactTable,
   getFactTable,
   getFactTableMap,
+  getFactTablesForDatasource,
 } from "back-end/src/models/FactTableModel";
+import {
+  deleteDimensionById,
+  findDimensionsByDataSource,
+} from "back-end/src/models/DimensionModel";
 import {
   deleteAllSnapshotsForExperiment,
   getLatestSuccessfulSnapshot,
@@ -649,8 +655,8 @@ export async function isLegacyDemoSeed(context: ReqContext): Promise<boolean> {
 
 /**
  * Delete exactly the seeded sample resources, identified by their constant
- * IDs. Resources the user created — even inside the Sample Data project — are
- * never touched. Missing resources are skipped.
+ * IDs. Used by reset so user-created resources on the sample Data Source are
+ * left alone. Missing resources are skipped.
  */
 export async function deleteDemoResources(context: ReqContext): Promise<void> {
   const ids = getDemoResourceIds(context.org.id);
@@ -680,6 +686,76 @@ export async function deleteDemoResources(context: ReqContext): Promise<void> {
   }
 
   const datasource = await getDataSourceById(context, ids.datasourceId);
+  if (datasource) {
+    await deleteDatasource(context, datasource);
+  }
+}
+
+/**
+ * Fully remove sample data: the seeded Feature Flag, the sample Data Source,
+ * and every resource built on that Data Source (seeded or user-created).
+ * Resources that only reference the Sample Data project (and not the Data
+ * Source) are left for project-reference cleanup.
+ */
+export async function deleteDemoDatasourceAndDependents(
+  context: ReqContext,
+): Promise<void> {
+  const datasourceId = DEMO_DATASOURCE_ID;
+
+  const feature = await getFeature(context, getDemoDataSourceFeatureId());
+  if (feature) {
+    await deleteFeature(context, feature);
+  }
+
+  const experiments = await getAllExperiments(context, {
+    datasourceId,
+    includeArchived: true,
+  });
+  for (const experiment of experiments) {
+    await deleteAllSnapshotsForExperiment(context, experiment.id);
+    await deleteExperimentByIdForOrganization(context, experiment);
+  }
+
+  const metricGroups = (await context.models.metricGroups.getAll()).filter(
+    (metricGroup) => metricGroup.datasource === datasourceId,
+  );
+  for (const metricGroup of metricGroups) {
+    await context.models.metricGroups.delete(metricGroup);
+  }
+
+  const factMetrics = await context.models.factMetrics.getAllSorted({
+    datasourceId,
+  });
+  for (const factMetric of factMetrics) {
+    await context.models.factMetrics.delete(factMetric);
+  }
+
+  const segments = await context.models.segments.getByDataSource(datasourceId);
+  for (const segment of segments) {
+    await context.models.segments.delete(segment);
+  }
+
+  const dimensions = await findDimensionsByDataSource(
+    datasourceId,
+    context.org.id,
+  );
+  for (const dimension of dimensions) {
+    await deleteDimensionById(context, dimension);
+  }
+
+  const savedQueries = (await context.models.savedQueries.getAll()).filter(
+    (savedQuery) => savedQuery.datasourceId === datasourceId,
+  );
+  for (const savedQuery of savedQueries) {
+    await context.models.savedQueries.delete(savedQuery);
+  }
+
+  const factTables = await getFactTablesForDatasource(context, datasourceId);
+  for (const factTable of factTables) {
+    await deleteFactTable(context, factTable);
+  }
+
+  const datasource = await getDataSourceById(context, datasourceId);
   if (datasource) {
     await deleteDatasource(context, datasource);
   }

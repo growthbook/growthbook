@@ -15,6 +15,7 @@ import { FactTableInterface } from "shared/types/fact-table";
 import { ProjectInterface } from "shared/types/project";
 import { ReqContext } from "back-end/types/request";
 import {
+  deleteDemoDatasourceAndDependents,
   deleteDemoResources,
   isLegacyDemoSeed,
   seedDemoResources,
@@ -23,6 +24,7 @@ import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as ExperimentModel from "back-end/src/models/ExperimentModel";
 import * as FeatureModel from "back-end/src/models/FeatureModel";
 import * as FactTableModel from "back-end/src/models/FactTableModel";
+import * as DimensionModel from "back-end/src/models/DimensionModel";
 import * as ExperimentSnapshotModel from "back-end/src/models/ExperimentSnapshotModel";
 import * as MetricModel from "back-end/src/models/MetricModel";
 import * as ExperimentsService from "back-end/src/services/experiments";
@@ -35,6 +37,7 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
+  getAllExperiments: jest.fn(),
   createExperiment: jest.fn(),
   deleteExperimentByIdForOrganization: jest.fn(),
 }));
@@ -48,6 +51,11 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   createFactTable: jest.fn(),
   deleteFactTable: jest.fn(),
   getFactTableMap: jest.fn(),
+  getFactTablesForDatasource: jest.fn(),
+}));
+jest.mock("back-end/src/models/DimensionModel", () => ({
+  findDimensionsByDataSource: jest.fn(),
+  deleteDimensionById: jest.fn(),
 }));
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   getLatestSuccessfulSnapshot: jest.fn(),
@@ -79,6 +87,9 @@ const mocked = {
   getExperimentById: ExperimentModel.getExperimentById as jest.MockedFunction<
     typeof ExperimentModel.getExperimentById
   >,
+  getAllExperiments: ExperimentModel.getAllExperiments as jest.MockedFunction<
+    typeof ExperimentModel.getAllExperiments
+  >,
   createExperiment: ExperimentModel.createExperiment as jest.MockedFunction<
     typeof ExperimentModel.createExperiment
   >,
@@ -107,6 +118,18 @@ const mocked = {
   getFactTableMap: FactTableModel.getFactTableMap as jest.MockedFunction<
     typeof FactTableModel.getFactTableMap
   >,
+  getFactTablesForDatasource:
+    FactTableModel.getFactTablesForDatasource as jest.MockedFunction<
+      typeof FactTableModel.getFactTablesForDatasource
+    >,
+  findDimensionsByDataSource:
+    DimensionModel.findDimensionsByDataSource as jest.MockedFunction<
+      typeof DimensionModel.findDimensionsByDataSource
+    >,
+  deleteDimensionById:
+    DimensionModel.deleteDimensionById as jest.MockedFunction<
+      typeof DimensionModel.deleteDimensionById
+    >,
   getLatestSuccessfulSnapshot:
     ExperimentSnapshotModel.getLatestSuccessfulSnapshot as jest.MockedFunction<
       typeof ExperimentSnapshotModel.getLatestSuccessfulSnapshot
@@ -166,6 +189,22 @@ function makeContext(): ReqContext {
         deleteById: jest.fn(async (id: string) => {
           factMetrics.delete(id);
         }),
+        getAllSorted: jest.fn(async () => [...factMetrics.values()]),
+        delete: jest.fn(async (doc: { id: string }) => {
+          factMetrics.delete(doc.id);
+        }),
+      },
+      metricGroups: {
+        getAll: jest.fn(async () => []),
+        delete: jest.fn(async () => undefined),
+      },
+      segments: {
+        getByDataSource: jest.fn(async () => []),
+        delete: jest.fn(async () => undefined),
+      },
+      savedQueries: {
+        getAll: jest.fn(async () => []),
+        delete: jest.fn(async () => undefined),
       },
     },
   } as unknown as ReqContext;
@@ -198,6 +237,9 @@ beforeEach(() => {
   mocked.getExperimentById.mockImplementation(
     async (_ctx, id) => experiments.get(id) || null,
   );
+  mocked.getAllExperiments.mockImplementation(async () => [
+    ...experiments.values(),
+  ]);
   mocked.createExperiment.mockImplementation(async ({ data }) => {
     const doc = { id: "exp_random", ...data } as ExperimentInterface;
     experiments.set(doc.id, doc);
@@ -231,6 +273,11 @@ beforeEach(() => {
     factTables.delete(factTable.id);
   });
   mocked.getFactTableMap.mockResolvedValue(new Map());
+  mocked.getFactTablesForDatasource.mockImplementation(async () => [
+    ...factTables.values(),
+  ]);
+  mocked.findDimensionsByDataSource.mockResolvedValue([]);
+  mocked.deleteDimensionById.mockResolvedValue(undefined);
 
   mocked.getLatestSuccessfulSnapshot.mockResolvedValue(null);
   mocked.deleteAllSnapshotsForExperiment.mockResolvedValue(undefined);
@@ -421,5 +468,123 @@ describe("deleteDemoResources", () => {
     expect(datasources.has(ids.datasourceId)).toBe(false);
     ids.factTableIds.forEach((id) => expect(factTables.has(id)).toBe(false));
     ids.factMetricIds.forEach((id) => expect(factMetrics.has(id)).toBe(false));
+  });
+});
+
+describe("deleteDemoDatasourceAndDependents", () => {
+  it("deletes seeded and user-created resources on the sample Data Source", async () => {
+    seedAllStores();
+    const userExperiment = {
+      id: "exp_mine",
+      datasource: DEMO_DATASOURCE_ID,
+    } as ExperimentInterface;
+    const userFactTable = {
+      id: "ftb_mine",
+      datasource: DEMO_DATASOURCE_ID,
+    } as FactTableInterface;
+    const userFactMetric = {
+      id: "fact__mine",
+      datasource: DEMO_DATASOURCE_ID,
+    };
+    const userMetricGroup = {
+      id: "mg_mine",
+      datasource: DEMO_DATASOURCE_ID,
+    };
+    const userSegment = {
+      id: "seg_mine",
+      datasource: DEMO_DATASOURCE_ID,
+    };
+    const userDimension = {
+      id: "dim_mine",
+      datasource: DEMO_DATASOURCE_ID,
+    };
+    const userSavedQuery = {
+      id: "sq_mine",
+      datasourceId: DEMO_DATASOURCE_ID,
+    };
+    const otherDatasourceResource = {
+      id: "ftb_other",
+      datasource: "ds_other",
+    } as FactTableInterface;
+
+    experiments.set(userExperiment.id, userExperiment);
+    factTables.set(userFactTable.id, userFactTable);
+    factTables.set(otherDatasourceResource.id, otherDatasourceResource);
+    factMetrics.set(userFactMetric.id, userFactMetric);
+    features.set("my-feature", { id: "my-feature" } as FeatureInterface);
+
+    const context = makeContext();
+    (context.models.metricGroups.getAll as jest.Mock).mockResolvedValue([
+      userMetricGroup,
+      { id: "mg_other", datasource: "ds_other" },
+    ]);
+    (context.models.segments.getByDataSource as jest.Mock).mockResolvedValue([
+      userSegment,
+    ]);
+    (context.models.savedQueries.getAll as jest.Mock).mockResolvedValue([
+      userSavedQuery,
+      { id: "sq_other", datasourceId: "ds_other" },
+    ]);
+    mocked.findDimensionsByDataSource.mockResolvedValue([
+      userDimension,
+    ] as never);
+    mocked.getFactTablesForDatasource.mockImplementation(async () =>
+      [...factTables.values()].filter(
+        (ft) => !ft.datasource || ft.datasource === DEMO_DATASOURCE_ID,
+      ),
+    );
+    mocked.getAllExperiments.mockImplementation(async () =>
+      [...experiments.values()].filter(
+        (exp) => !exp.datasource || exp.datasource === DEMO_DATASOURCE_ID,
+      ),
+    );
+    (context.models.factMetrics.getAllSorted as jest.Mock).mockImplementation(
+      async () => [...factMetrics.values()],
+    );
+
+    await deleteDemoDatasourceAndDependents(context);
+
+    const ids = getDemoResourceIds(ORG_ID);
+    expect(features.has(ids.featureId)).toBe(false);
+    expect(experiments.has(ids.experimentId)).toBe(false);
+    expect(experiments.has("exp_mine")).toBe(false);
+    expect(datasources.has(ids.datasourceId)).toBe(false);
+    ids.factTableIds.forEach((id) => expect(factTables.has(id)).toBe(false));
+    expect(factTables.has("ftb_mine")).toBe(false);
+    expect(factTables.has("ftb_other")).toBe(true);
+    ids.factMetricIds.forEach((id) => expect(factMetrics.has(id)).toBe(false));
+    expect(factMetrics.has("fact__mine")).toBe(false);
+    expect(features.has("my-feature")).toBe(true);
+
+    expect(context.models.metricGroups.delete).toHaveBeenCalledWith(
+      userMetricGroup,
+    );
+    expect(context.models.segments.delete).toHaveBeenCalledWith(userSegment);
+    expect(context.models.savedQueries.delete).toHaveBeenCalledWith(
+      userSavedQuery,
+    );
+    expect(mocked.deleteDimensionById).toHaveBeenCalledWith(
+      context,
+      userDimension,
+    );
+    expect(mocked.deleteAllSnapshotsForExperiment).toHaveBeenCalledWith(
+      context,
+      "exp_mine",
+    );
+  });
+
+  it("tolerates an empty org", async () => {
+    const context = makeContext();
+    mocked.getAllExperiments.mockResolvedValue([]);
+    mocked.getFactTablesForDatasource.mockResolvedValue([]);
+
+    await expect(
+      deleteDemoDatasourceAndDependents(context),
+    ).resolves.toBeUndefined();
+
+    expect(mocked.deleteFeature).not.toHaveBeenCalled();
+    expect(mocked.deleteExperimentByIdForOrganization).not.toHaveBeenCalled();
+    expect(mocked.deleteFactTable).not.toHaveBeenCalled();
+    expect(mocked.deleteDatasource).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
+  deleteDemoDatasourceAndDependents,
   deleteDemoResources,
   isLegacyDemoSeed,
   seedDemoResources,
@@ -48,7 +49,13 @@ function checkCanDeleteDemoResources(
     !context.permissions.canDeleteFactMetric({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFactTable({ projects: [demoProjId] }) ||
     !context.permissions.canDeleteFeature({ project: demoProjId }) ||
-    !context.permissions.canDeleteExperiment({ project: demoProjId })
+    !context.permissions.canDeleteExperiment({ project: demoProjId }) ||
+    !context.permissions.canDeleteSegment({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteDimension() ||
+    !context.permissions.canDeleteMetricGroup() ||
+    !context.permissions.canDeleteSqlExplorerQueries({
+      projects: [demoProjId],
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -133,9 +140,10 @@ type DeleteDemoDatasourceProjectResponse = {
 
 /**
  * DELETE /demo-datasource-project
- * Delete the seeded sample resources and the Sample Data project. Resources
- * the user created are kept: any reference to the project is removed and they
- * fall back to "All Projects".
+ * Delete the sample Data Source, everything built on it (seeded or
+ * user-created), the seeded Feature Flag, and the Sample Data project.
+ * Resources that only reference the project (not the Data Source) are kept:
+ * any project reference is removed and they fall back to "All Projects".
  * @param req
  * @param res
  */
@@ -154,7 +162,7 @@ export const deleteDemoDatasourceProject = async (
   }
   checkCanDeleteDemoResources(context, demoProjId);
 
-  await deleteDemoResources(context);
+  await deleteDemoDatasourceAndDependents(context);
 
   const failedToCleanUp = await cleanupProjectReferences(context, demoProjId);
 

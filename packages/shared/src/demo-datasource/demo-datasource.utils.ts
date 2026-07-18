@@ -117,8 +117,8 @@ export const getDemoDataSourceFeatureId = (): string =>
 
 /**
  * The complete set of IDs the sample data seeder creates for an organization.
- * Deleting or resetting sample data targets exactly this set — resources with
- * other IDs are never touched, even if they belong to the Sample Data project.
+ * Reset targets exactly this set. Full delete also removes any other resources
+ * built on the sample Data Source.
  */
 export function getDemoResourceIds(organizationId: string): {
   projectId: string;

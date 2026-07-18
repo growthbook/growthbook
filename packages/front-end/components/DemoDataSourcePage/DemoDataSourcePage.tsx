@@ -37,13 +37,15 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 
       <div className="card p-4">
         <p>
-          When you are done exploring, delete the sample data here. Only the
-          sample resources GrowthBook created are removed — anything you created
-          yourself is kept and moved to All Projects.
+          When you are done exploring, delete the sample data here. This removes
+          the sample Data Source and everything built on it — including Fact
+          Tables, Fact Metrics, experiments, segments, dimensions, metric
+          groups, and saved queries you created. Other resources that only live
+          in the Sample Data Project are kept and moved to All Projects.
         </p>
         <p>
-          You can also reset the sample resources back to their original state
-          at any time.
+          You can also reset the seeded sample resources back to their original
+          state without removing anything you created.
         </p>
 
         {/* Loading */}
@@ -148,9 +150,11 @@ export function DeleteDemoDatasourceButton({
       deleteMessage={
         <>
           <p>
-            This deletes the sample Data Source, metrics, experiment, and
-            Feature Flag that GrowthBook created. Anything you created yourself
-            is kept and moved to All Projects.
+            This deletes the sample Data Source and everything built on it —
+            including Fact Tables, Fact Metrics, experiments, segments,
+            dimensions, metric groups, and saved queries — plus the sample
+            Feature Flag. Other resources that only live in the Sample Data
+            Project are kept and moved to All Projects.
           </p>
           <p>You can re-create the sample data at any time.</p>
         </>

@@ -859,8 +859,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {currentProjectIsDemo && (
               <Callout status="warning">
                 You are creating an experiment in the Sample Data Project. When
-                the sample data is deleted, this experiment is kept and moved to
-                All Projects.
+                the sample data is deleted, experiments that use the sample Data
+                Source are deleted with it.
               </Callout>
             )}
             {hasCommercialFeature("templates") &&
