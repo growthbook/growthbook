@@ -255,17 +255,17 @@ export default function ArchiveModal({
             </Text>
           </Callout>
           {referencesList}
-          <div style={{ marginTop: 16 }}>
-            <Checkbox
-              value={acknowledged}
-              setValue={setAcknowledged}
-              label={
-                elevatedWarning
-                  ? "I understand this will break live Feature Flags and want to archive anyway."
-                  : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
-              }
-            />
-          </div>
+          <Checkbox
+            mt="4"
+            weight="regular"
+            value={acknowledged}
+            setValue={setAcknowledged}
+            label={
+              elevatedWarning
+                ? "I understand this will break live Feature Flags and want to archive anyway."
+                : `I acknowledge these references and want to archive this ${lowerNoun} anyway.`
+            }
+          />
         </>
       ) : (
         <p>

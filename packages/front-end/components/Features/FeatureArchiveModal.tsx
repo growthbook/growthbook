@@ -162,6 +162,7 @@ export default function FeatureArchiveModal({
               <Checkbox
                 mt="4"
                 mb="4"
+                weight="regular"
                 value={confirmDependents}
                 setValue={setConfirmDependents}
                 label="I understand these dependents will be affected and want to archive anyway."
@@ -179,6 +180,7 @@ export default function FeatureArchiveModal({
                 <strong>{enabledEnvs.join(", ")}</strong>.
               </Callout>
               <Checkbox
+                weight="regular"
                 value={confirmEnvBypass}
                 setValue={setConfirmEnvBypass}
                 label="I understand that all environments will be immediately disabled after archiving."
