@@ -179,7 +179,7 @@ export default function FeatureArchiveModal({
 
           {/* Acknowledgments stacked together at the bottom. */}
           {(needsDependentsAck || hasActiveEnvs) && (
-            <Flex direction="column" gap="3" mt="4">
+            <Flex direction="column" gap="3" mt="5">
               {needsDependentsAck && (
                 <Checkbox
                   weight="regular"
