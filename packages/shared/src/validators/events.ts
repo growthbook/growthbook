@@ -623,9 +623,16 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-// Only use this for zod validations!
-export const zodNotificationEventNamesEnum =
-  notificationEventNames as UnionToTuple<NotificationEventName>;
+// Only use this for zod validations! Asserted to a non-empty tuple of the union
+// element type rather than `UnionToTuple<NotificationEventName>` — that maps a
+// union to an exact ordered tuple by recursing once per member, and the event
+// union has grown large enough to blow tsc's instantiation-depth limit (TS2589).
+// z.enum only needs `[string, ...string[]]`, and infers the same
+// `NotificationEventName` value type either way, so runtime behavior is identical.
+export const zodNotificationEventNamesEnum = notificationEventNames as [
+  NotificationEventName,
+  ...NotificationEventName[],
+];
 
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,
