@@ -37,6 +37,11 @@ import {
   captureConstantSchemaBreakAcknowledgment,
   constantSchemaBreakViolations,
 } from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConstantArchiveDependentsAcknowledgment,
+  collectConstantArchiveDependents,
+  archiveDependentsGateMessage,
+} from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
@@ -269,6 +274,16 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
             proposedArchived,
           )
         : undefined,
+      // Archive-dependents fingerprint — only for the archive direction (an
+      // unarchive restores values and never breaks a dependent).
+      "archive-dependents":
+        proposedArchived === true
+          ? await captureConstantArchiveDependentsAcknowledgment(context, {
+              id: entity.id,
+              key: entity.key,
+              project: entity.project,
+            })
+          : undefined,
     });
   },
 
@@ -405,6 +420,36 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
         requiresPermission: null,
         resolution: null,
       });
+    }
+
+    // Archiving a constant still referenced by features or constants/configs is a
+    // soft, acknowledgeable warning (bypassable by ignoreWarnings alone). Only the
+    // archive direction is guarded.
+    if (proposedArchived === true && !entity.archived) {
+      const dependents = await collectConstantArchiveDependents(
+        context,
+        entity.id,
+      );
+      if (dependents.ids.length) {
+        if (override) {
+          logger.info(
+            {
+              constantKey: entity.key,
+              userId: context.userId,
+              dependents: dependents.ids,
+            },
+            "Archive-dependents guard overridden on a direct publish",
+          );
+        }
+        gates.push({
+          type: "archive-dependents",
+          severity: "warning",
+          messages: [archiveDependentsGateMessage("constant", dependents)],
+          override: "ignoreWarnings",
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
     }
 
     return gates;

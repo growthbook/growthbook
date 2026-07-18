@@ -5,29 +5,40 @@ import {
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import {
-  loadSavedGroupReferences,
-  totalSavedGroupReferences,
-} from "back-end/src/services/savedGroups";
-import { ApiReqContext } from "back-end/types/api";
+  collectSavedGroupArchiveDependents,
+  archiveDependentsGateMessage,
+} from "back-end/src/services/archiveDependentsGuard";
+import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import { getAdapter } from "back-end/src/revisions";
+import {
+  evaluatePublishGates,
+  PublishBlockedError,
+  PublishGate,
+  BypassedGate,
+} from "back-end/src/revisions/publishGates";
 
 async function buildResponse(
   context: ApiReqContext,
   savedGroup: SavedGroupInterface,
+  bypassed: BypassedGate[],
 ) {
   return {
     savedGroup: await resolveOwnerEmail(
       context.models.savedGroups.toApiInterface(savedGroup),
       context,
     ),
+    ...(bypassed.length ? { bypassedGates: bypassed } : {}),
   };
 }
 
 async function setArchivedState(
-  context: ApiReqContext,
+  req: Pick<ApiRequestLocals, "context" | "isJwtAuth">,
   id: string,
   archived: boolean,
 ) {
+  const { context } = req;
   const savedGroup = await context.models.savedGroups.getById(id);
 
   if (!savedGroup) {
@@ -40,46 +51,50 @@ async function setArchivedState(
 
   // Idempotent: if already in the desired state, return without an extra write.
   if (!!savedGroup.archived === archived) {
-    return buildResponse(context, savedGroup);
+    return buildResponse(context, savedGroup, []);
   }
 
-  // When archiving, refuse if the saved group is still referenced. Same gate as
-  // the internal PUT controller and the front-end SavedGroupArchiveModal — it
-  // keeps the invariant that archived groups have no references, so they're
-  // naturally excluded from the SDK payload's `filterUsedSavedGroups`. Only
-  // the archive transition is blocked; unarchiving is always allowed.
+  const adapter = getAdapter("saved-group");
+
+  // Aggregate publish gates into one structured 422 (same contract as the
+  // revision-publish endpoints). Only the archive transition is guarded;
+  // unarchiving never breaks a dependent.
+  const gates: PublishGate[] = [];
   if (archived) {
-    const refs = await loadSavedGroupReferences(context, id);
-    if (refs && totalSavedGroupReferences(refs) > 0) {
-      const parts: string[] = [];
-      if (refs.features.length) {
-        parts.push(`${refs.features.length} feature(s)`);
-      }
-      if (refs.experiments.length) {
-        parts.push(`${refs.experiments.length} experiment(s)`);
-      }
-      if (refs.savedGroups.length) {
-        parts.push(`${refs.savedGroups.length} other saved group(s)`);
-      }
-      throw new Error(
-        `Cannot archive saved group: it is still referenced by ${parts.join(
-          ", ",
-        )}. Remove these references first.`,
-      );
+    const dependents = await collectSavedGroupArchiveDependents(context, id);
+    if (dependents.ids.length) {
+      gates.push({
+        type: "archive-dependents",
+        severity: "warning",
+        messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
     }
+  }
+
+  const { blocking, bypassed } = evaluatePublishGates(gates, {
+    ignoreWarnings: context.ignoreWarnings,
+    bypassApprovalPermission: adapter.canBypassApproval(context, savedGroup),
+    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    canForceMergeStaleBase: adapter.canBypassApproval(context, savedGroup),
+  });
+  if (blocking.length) {
+    throw new PublishBlockedError(blocking);
   }
 
   const updated = await context.models.savedGroups.update(savedGroup, {
     archived,
   });
 
-  return buildResponse(context, { ...savedGroup, ...updated });
+  return buildResponse(context, { ...savedGroup, ...updated }, bypassed);
 }
 
 export const archiveSavedGroup = createApiRequestHandler(
   archiveSavedGroupValidator,
-)(async (req) => setArchivedState(req.context, req.params.id, true));
+)(async (req) => setArchivedState(req, req.params.id, true));
 
 export const unarchiveSavedGroup = createApiRequestHandler(
   unarchiveSavedGroupValidator,
-)(async (req) => setArchivedState(req.context, req.params.id, false));
+)(async (req) => setArchivedState(req, req.params.id, false));

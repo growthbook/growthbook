@@ -10,6 +10,7 @@ import {
   apiPaginationFieldsValidator,
   paginationQueryFields,
   ignoreWarningsBodyField,
+  publishBypassedGatesField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
 
@@ -501,6 +502,12 @@ const apiConstantResponse = z
   .object({ constant: apiConstantValidator })
   .strict();
 
+// Archive/unarchive publish through the standard gate contract, so a successful
+// call can report gates that were bypassed by the caller's authority.
+const apiConstantArchiveResponse = apiConstantResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 export const apiConstantReferencesValidator = namedSchema(
   "ConstantReferences",
   z
@@ -596,7 +603,7 @@ export const archiveConstantValidator = {
   bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Archive a single constant",
   operationId: "archiveConstant",
   tags: ["constants"],
@@ -609,7 +616,7 @@ export const unarchiveConstantValidator = {
   bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
   querySchema: z.never(),
   paramsSchema: constantKeyParams,
-  responseSchema: apiConstantResponse,
+  responseSchema: apiConstantArchiveResponse,
   summary: "Unarchive a single constant",
   operationId: "unarchiveConstant",
   tags: ["constants"],

@@ -28,9 +28,9 @@ import { getAdapter } from "back-end/src/revisions";
 import {
   ConstantReferences,
   loadConstantReferences,
-  assertConstantArchivable,
   assertKeyAvailable,
 } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
@@ -316,11 +316,15 @@ export const putConstant = async (
     fieldsToUpdate.archived = archived;
   }
 
-  // Block the archive transition when the constant is still referenced (same
-  // gate as the REST archive endpoints and the front-end ConstantArchiveModal).
-  // Mirrors saved groups; only archiving is blocked, never unarchiving.
+  // Soft-warn (bypassably) on the archive transition when the constant is still
+  // referenced (same gate as the REST archive endpoints and the front-end
+  // ConstantArchiveModal). Only archiving is guarded, never unarchiving.
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConstantArchivable(context, existing.id);
+    await assertConstantArchiveDependentsGuard(
+      context,
+      { id: existing.id, key: existing.key, project: existing.project },
+      { armed: false },
+    );
   }
 
   const forceCreateRevision = req.query.forceCreateRevision === "1";

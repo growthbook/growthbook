@@ -48,13 +48,13 @@ import {
   loadConstantReferences,
   loadConfigFamilyFeatureReferences,
   getConfigKeyImplementations,
-  assertConfigArchivable,
   assertConfigDeletable,
   assertKeyAvailable,
   assertScopedOverridesValid,
   assertScopedOverridesChangeAllowed,
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
+import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   reconcileConfigDescendants,
@@ -795,10 +795,21 @@ export const putConfig = async (
     }
   }
 
-  // Block the archive transition when the config is still referenced or has
-  // live child configs inheriting from it.
+  // Soft-warn (bypassably) on the archive transition when the config still has
+  // live dependents (references or lineage children inheriting from it).
   if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
-    await assertConfigArchivable(context, existing);
+    await assertConfigArchiveDependentsGuard(
+      context,
+      {
+        id: existing.id,
+        key: existing.key,
+        project: existing.project,
+        value: existing.value,
+        parent: existing.parent,
+        extends: existing.extends,
+      },
+      { armed: false },
+    );
   }
 
   // The proposed (merged) config state, used to validate the staged value(s)

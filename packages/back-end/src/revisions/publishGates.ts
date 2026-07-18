@@ -67,6 +67,7 @@ const SOFT_GUARD_GATE_TYPES: ReadonlySet<string> = new Set([
   "experiment-guard",
   "config-lock",
   "schema-break",
+  "archive-dependents",
 ]);
 
 /**

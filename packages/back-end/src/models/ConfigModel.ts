@@ -23,10 +23,10 @@ import { BadRequestError } from "back-end/src/util/errors";
 import {
   resolvableValueChanged,
   assertConfigDeletable,
-  assertConfigArchivable,
   pruneScopedOverridesReferencing,
   syncScopedConfigMarkers,
 } from "back-end/src/services/constants";
+import { assertConfigArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { configToResolvable } from "back-end/src/services/resolvableValues";
 import {
   logConfigCreatedEvent,
@@ -125,10 +125,28 @@ export class ConfigModel extends BaseClass {
     newDoc: ConfigInterface,
   ) {
     // Model-level backstop (handlers also check, for earlier/friendlier errors):
-    // block archiving a config that's still referenced or has live descendants,
-    // so no write path — including a future cascade — can orphan lineage.
+    // archiving a config with live dependents (references or lineage children) is
+    // a uniform SOFT warning, bypassable by ignoreWarnings — background jobs (the
+    // deferred fire) always ignore warnings, so an armed archive publish already
+    // re-checked its fingerprint at assertPublishable passes here. A direct write
+    // without ignoreWarnings still surfaces the warning on any write path.
     if (updates.archived === true && !existing.archived) {
-      await assertConfigArchivable(this.context, existing);
+      await assertConfigArchiveDependentsGuard(
+        this.context,
+        {
+          id: existing.id,
+          key: existing.key,
+          project: existing.project,
+          // Fingerprint the POST-update value/lineage (newDoc), matching the
+          // handler-layer guard — a revision that archives AND reparents/empties
+          // in one write would otherwise collect dependents against the stale
+          // live state and spuriously over-block.
+          value: newDoc.value,
+          parent: newDoc.parent,
+          extends: newDoc.extends,
+        },
+        { armed: false },
+      );
     }
     if (
       updates.parent !== undefined ||

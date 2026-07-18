@@ -15,7 +15,7 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
-import { assertConstantArchivable } from "back-end/src/services/constants";
+import { assertConstantArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { assertConstantPublishGuards } from "back-end/src/services/publishGuards";
 import { constantChangeAffectsServedValue } from "back-end/src/services/experimentGuard";
 import { loadRevisionByVersion } from "./validations";
@@ -82,10 +82,14 @@ export const postConstantRevisionRevert = createApiRequestHandler(
   const isPublish = strategy === "publish";
 
   // Reverting to a historically-archived state re-archives the constant; enforce
-  // the same referenced-constant guard as the archive endpoint (an archived-only
-  // change doesn't otherwise trip a dependency check). Mirrors the config twin.
-  if (isPublish && fieldsToUpdate.archived === true) {
-    await assertConstantArchivable(req.context, constant.id);
+  // the same soft referenced-constant warning as the archive endpoint (bypassable
+  // by ignoreWarnings). Only the archive transition is guarded. Mirrors the config twin.
+  if (isPublish && fieldsToUpdate.archived === true && !constant.archived) {
+    await assertConstantArchiveDependentsGuard(
+      req.context,
+      { id: constant.id, key: constant.key, project: constant.project },
+      { armed: false },
+    );
   }
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(

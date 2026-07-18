@@ -6,7 +6,12 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
+} from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -264,12 +269,13 @@ export const updateSavedGroupValidator = {
 };
 
 export const archiveSavedGroupValidator = {
-  bodySchema: z.never(),
+  bodySchema: z.object({ ignoreWarnings: ignoreWarningsBodyField }).strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Archive a single saved group",
@@ -287,6 +293,7 @@ export const unarchiveSavedGroupValidator = {
   responseSchema: z
     .object({
       savedGroup: apiSavedGroupValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Unarchive a single saved group",

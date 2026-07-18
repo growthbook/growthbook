@@ -11,6 +11,7 @@ import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
+  publishBypassedGatesField,
   publishOverrideBodyFields,
   schemaValidationQueryFields,
 } from "./shared";
@@ -598,6 +599,12 @@ const configKeyParams = z
 
 const apiConfigResponse = z.object({ config: apiConfigValidator }).strict();
 
+// Archive/unarchive publish through the standard gate contract, so a successful
+// call can report gates that were bypassed by the caller's authority.
+const apiConfigArchiveResponse = apiConfigResponse.extend({
+  bypassedGates: publishBypassedGatesField,
+});
+
 // Create/update convert a schema source inline, so they surface importer warnings.
 const apiConfigResponseWithWarnings = z
   .object({
@@ -923,10 +930,10 @@ export const archiveConfigValidator = {
     })
     .strict(),
   paramsSchema: configKeyParams,
-  responseSchema: apiConfigResponse,
+  responseSchema: apiConfigArchiveResponse,
   summary: "Archive a single config",
   description:
-    'Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it; when it IS actively serving a value, this returns a 422 soft warning — re-submit with `"ignoreWarnings": true` in the request body to proceed. A root config that is still referenced by a feature or another config cannot be archived (400).',
+    'Archives a config. A child config (including an environment/project override) is archived outright when its live value is an empty patch or nothing serves it. When archiving would strip a value that live features or other configs still consume, the request returns a 422 listing the blocking gates — re-submit with `"ignoreWarnings": true` in the request body to acknowledge and proceed. A locked config, or one whose org requires approval, returns its own gate (unlock or route the change through a draft revision).',
   operationId: "archiveConfig",
   tags: ["configs"],
   method: "post" as const,
@@ -938,7 +945,7 @@ export const unarchiveConfigValidator = {
   bodySchema: z.object({ ...publishOverrideBodyFields }).strict(),
   querySchema: z.never(),
   paramsSchema: configKeyParams,
-  responseSchema: apiConfigResponse,
+  responseSchema: apiConfigArchiveResponse,
   summary: "Unarchive a single config",
   operationId: "unarchiveConfig",
   tags: ["configs"],

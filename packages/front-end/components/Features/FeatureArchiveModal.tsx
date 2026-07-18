@@ -50,6 +50,10 @@ export default function FeatureArchiveModal({
   const hasActiveEnvs = enabledEnvs.length > 0;
 
   const [confirmEnvBypass, setConfirmEnvBypass] = useState(!hasActiveEnvs);
+  const [confirmDependents, setConfirmDependents] = useState(false);
+
+  // Only archiving is gated on dependents; unarchiving is always allowed.
+  const needsDependentsAck = !isArchived && totalDependents > 0;
 
   const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
 
@@ -75,7 +79,10 @@ export default function FeatureArchiveModal({
   );
 
   const canSubmit =
-    !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
+    !loading &&
+    (isArchived ||
+      ((!needsDependentsAck || confirmDependents) &&
+        (confirmEnvBypass || !hasActiveEnvs)));
 
   return (
     <ModalStandard
@@ -101,6 +108,9 @@ export default function FeatureArchiveModal({
             method: "POST",
             body: JSON.stringify({
               archived: desiredArchived,
+              // The user acknowledged the live-dependents warning inline, so
+              // bypass the server's soft archive-dependents guard on submit.
+              ...(needsDependentsAck ? { ignoreWarnings: true } : {}),
               ...(mode === "publish"
                 ? { autoPublish: true }
                 : mode === "existing"
@@ -131,51 +141,59 @@ export default function FeatureArchiveModal({
         <Text color="text-disabled">
           <LoadingSpinner /> Checking feature dependencies...
         </Text>
-      ) : totalDependents > 0 ? (
-        <>
-          <Callout status="error" mb="4">
-            <Text as="p" weight="semibold" mb="2">
-              Cannot {isArchived ? "unarchive" : "archive"} feature
-            </Text>
-            <Text as="p" mb="0">
-              Before you can {isArchived ? "unarchive" : "archive"} this
-              feature, you will need to remove any references to it. Check the
-              following item
-              {totalDependents > 1 && "s"} below:
-            </Text>
-          </Callout>
-          <FeatureReferencesList
-            features={dependents?.features}
-            experiments={dependents?.experiments}
-          />
-        </>
-      ) : hasActiveEnvs ? (
-        <>
-          <Text as="p" mb="4">
-            Are you sure you want to continue? This will completely remove the
-            feature from all SDKs and webhooks.
-          </Text>
-          <Callout status="warning" mb="4">
-            This feature is still active in the following environments:{" "}
-            <strong>{enabledEnvs.join(", ")}</strong>.
-          </Callout>
-          <Checkbox
-            value={confirmEnvBypass}
-            setValue={setConfirmEnvBypass}
-            label="I understand that all environments will be immediately disabled after archiving."
-          />
-        </>
       ) : isArchived ? (
         <p>
           Are you sure you want to continue? This will make the current feature
           active again.
         </p>
       ) : (
-        <p>
-          Are you sure you want to continue? This will make the current feature
-          inactive. It will not be included in API responses or Webhook
-          payloads.
-        </p>
+        <>
+          {needsDependentsAck && (
+            <>
+              <Callout status="warning" mb="4">
+                Archiving this Feature Flag will affect {totalDependents}{" "}
+                dependent item{totalDependents > 1 ? "s" : ""} that reference it
+                as a prerequisite. Acknowledge to proceed.
+              </Callout>
+              <FeatureReferencesList
+                features={dependents?.features}
+                experiments={dependents?.experiments}
+              />
+              <Checkbox
+                mt="4"
+                mb="4"
+                value={confirmDependents}
+                setValue={setConfirmDependents}
+                label="I understand these dependents will be affected and want to archive anyway."
+              />
+            </>
+          )}
+          {hasActiveEnvs ? (
+            <>
+              <Text as="p" mb="4">
+                Are you sure you want to continue? This will completely remove
+                the feature from all SDKs and webhooks.
+              </Text>
+              <Callout status="warning" mb="4">
+                This feature is still active in the following environments:{" "}
+                <strong>{enabledEnvs.join(", ")}</strong>.
+              </Callout>
+              <Checkbox
+                value={confirmEnvBypass}
+                setValue={setConfirmEnvBypass}
+                label="I understand that all environments will be immediately disabled after archiving."
+              />
+            </>
+          ) : (
+            !needsDependentsAck && (
+              <p>
+                Are you sure you want to continue? This will make the current
+                feature inactive. It will not be included in API responses or
+                Webhook payloads.
+              </p>
+            )
+          )}
+        </>
       )}
     </ModalStandard>
   );

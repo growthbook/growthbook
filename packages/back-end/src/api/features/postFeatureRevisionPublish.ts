@@ -26,6 +26,7 @@ import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
+import { assertFeatureArchiveDependentsGuard } from "back-end/src/services/archiveDependentsGuard";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -290,6 +291,17 @@ export async function publishFeatureRevision(
     defaultValue: mergeResult.result.defaultValue,
     rules: mergeResult.result.rules,
   });
+
+  // Archiving a feature that live features gate on as a prerequisite (or that
+  // running experiments list as a prerequisite) drops those dependents from the
+  // SDK payload — a soft, acknowledgeable warning, bypassable by ignoreWarnings
+  // alone. Only the archive transition is guarded. Features have no arm-time
+  // acknowledgment machinery, so a deferred (armed) fire re-enters with a
+  // background context whose ignoreWarnings is always true and proceeds
+  // (best-effort — see archiveDependentsGuard).
+  if (mergeResult.result.archived === true && !feature.archived) {
+    await assertFeatureArchiveDependentsGuard(req.context, feature);
+  }
 
   const updatedFeature = await publishRevision({
     context: req.context,

@@ -17972,6 +17972,25 @@ paths:
         - saved-groups
       parameters:
         - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ignoreWarnings:
+                  description: >-
+                    Acknowledge and proceed despite soft warnings: guard
+                    conflicts (running experiments reading the value, locked
+                    dependents, schema breaks introduced downstream),
+                    descendant-schema warnings, and warn-mode value errors. A
+                    blocked request returns the full list of warnings this would
+                    acknowledge in `warnings`. On publish endpoints this also
+                    force-merges a draft whose base is stale, when you hold the
+                    bypass-approval permission.
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           description: Resource created
@@ -17982,6 +18001,14 @@ paths:
                 properties:
                   savedGroup:
                     $ref: '#/components/schemas/SavedGroup'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - savedGroup
                 additionalProperties: false
@@ -18009,6 +18036,14 @@ paths:
                 properties:
                   savedGroup:
                     $ref: '#/components/schemas/SavedGroup'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - savedGroup
                 additionalProperties: false
@@ -19597,6 +19632,14 @@ paths:
                 properties:
                   constant:
                     $ref: '#/components/schemas/Constant'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - constant
                 additionalProperties: false
@@ -19650,6 +19693,14 @@ paths:
                 properties:
                   constant:
                     $ref: '#/components/schemas/Constant'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - constant
                 additionalProperties: false
@@ -21451,10 +21502,12 @@ paths:
       description: >-
         Archives a config. A child config (including an environment/project
         override) is archived outright when its live value is an empty patch or
-        nothing serves it; when it IS actively serving a value, this returns a
-        422 soft warning — re-submit with `"ignoreWarnings": true` in the
-        request body to proceed. A root config that is still referenced by a
-        feature or another config cannot be archived (400).
+        nothing serves it. When archiving would strip a value that live features
+        or other configs still consume, the request returns a 422 listing the
+        blocking gates — re-submit with `"ignoreWarnings": true` in the request
+        body to acknowledge and proceed. A locked config, or one whose org
+        requires approval, returns its own gate (unlock or route the change
+        through a draft revision).
       tags:
         - configs
       parameters:
@@ -21502,6 +21555,14 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - config
                 additionalProperties: false
@@ -21561,6 +21622,14 @@ paths:
                 properties:
                   config:
                     $ref: '#/components/schemas/Config'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - config
                 additionalProperties: false

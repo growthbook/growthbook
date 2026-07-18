@@ -22,6 +22,10 @@ import {
   isRevisionDiverged,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import {
+  archiveDependentsGateMessage,
+  collectSavedGroupArchiveDependents,
+} from "back-end/src/services/archiveDependentsGuard";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -79,6 +83,18 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   // that were bypassed. The sequential checks below stay in place as the
   // enforcement backstop.
   const version = req.params.version;
+
+  // Build the desired final state by layering proposed changes on top of LIVE,
+  // not the snapshot — this preserves any out-of-band writes to fields the
+  // revision didn't propose to change. See `buildMergeDesiredState`. Built up
+  // front so the archive transition is known before gate assembly.
+  const desiredState = buildMergeDesiredState(
+    savedGroup as unknown as Record<string, unknown>,
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+    adapter.getUpdatableFields(),
+  );
+
   const gates: PublishGate[] = [];
   if (approvalRequired && revision.status !== "approved") {
     gates.push({
@@ -117,6 +133,26 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       },
     });
   }
+  // Archiving a saved group that live features/experiments/other groups still
+  // reference is a soft, acknowledgeable warning (bypassable by ignoreWarnings
+  // alone). Only the archive transition is guarded.
+  if (desiredState.archived === true && !savedGroup.archived) {
+    const dependents = await collectSavedGroupArchiveDependents(
+      req.context,
+      savedGroup.id,
+    );
+    if (dependents.ids.length) {
+      gates.push({
+        type: "archive-dependents",
+        severity: "warning",
+        messages: [archiveDependentsGateMessage("Saved Group", dependents)],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+  }
+
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: !!req.body.mergeNow || req.context.ignoreWarnings,
     bypassApprovalPermission: adapter.canBypassApproval(
@@ -139,16 +175,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   const isBypass = approvalRequired && revision.status !== "approved";
-
-  // Build the desired final state by layering proposed changes on top of LIVE,
-  // not the snapshot — this preserves any out-of-band writes to fields the
-  // revision didn't propose to change. See `buildMergeDesiredState`.
-  const desiredState = buildMergeDesiredState(
-    savedGroup as unknown as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
 
   // The live check above covers the source projects. If the revision moves the
   // group to different projects, also require update permission on the

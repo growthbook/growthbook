@@ -49,6 +49,11 @@ import {
   configArchiveSchemaBreakViolations,
   evaluateConfigOwnSchemaBreakConflicts,
 } from "back-end/src/services/schemaBreakGuard";
+import {
+  captureConfigArchiveDependentsAcknowledgment,
+  collectConfigArchiveDependents,
+  archiveDependentsGateMessage,
+} from "back-end/src/services/archiveDependentsGuard";
 import { assertConfigPublishGuards } from "back-end/src/services/publishGuards";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
@@ -363,6 +368,21 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             proposedArchived,
           )
         : undefined,
+      // Archive-dependents fingerprint — captured only for the archive direction
+      // (an unarchive restores values and never breaks a dependent). Independent
+      // of valueAffecting: a metadata-only revision that flips `archived` still
+      // scrubs the config from every dependent's resolved value.
+      "archive-dependents":
+        proposedArchived === true
+          ? await captureConfigArchiveDependentsAcknowledgment(context, {
+              id: entity.id,
+              key: entity.key,
+              project: entity.project,
+              value: proposedConfig.value,
+              parent: proposedConfig.parent,
+              extends: proposedConfig.extends,
+            })
+          : undefined,
     });
   },
 
@@ -540,6 +560,52 @@ export const configAdapter: EntityRevisionAdapter<ConfigInterface> = {
             } this config would make dependent config or feature value(s) violate their schema or validation rules:`,
             ...archiveBreaks,
           ],
+          override: "ignoreWarnings",
+          requiresPermission: null,
+          resolution: null,
+        });
+      }
+    }
+
+    // Archiving a config with live dependents (lineage children, or features/
+    // configs referencing it) is a soft, acknowledgeable warning — bypassable by
+    // ignoreWarnings alone (no elevated permission). Emitted only for the archive
+    // direction; the message is elevated when live feature flags consume it.
+    if (proposedArchived === true && !entity.archived) {
+      const dependents = await collectConfigArchiveDependents(context, {
+        id: entity.id,
+        key: entity.key,
+        // Presence-aware proposed value/lineage — a combined archive + value/
+        // lineage change must fingerprint the state being published, matching the
+        // arm/fire path in assertConfigPublishGuards.
+        value:
+          "value" in filteredChanges
+            ? (filteredChanges.value as string | undefined)
+            : entity.value,
+        parent:
+          "parent" in filteredChanges
+            ? (filteredChanges.parent as string | undefined)
+            : entity.parent,
+        extends:
+          "extends" in filteredChanges
+            ? (filteredChanges.extends as string[] | undefined)
+            : entity.extends,
+      });
+      if (dependents.ids.length) {
+        if (override) {
+          logger.info(
+            {
+              configKey: entity.key,
+              userId: context.userId,
+              dependents: dependents.ids,
+            },
+            "Archive-dependents guard overridden on a direct publish",
+          );
+        }
+        gates.push({
+          type: "archive-dependents",
+          severity: "warning",
+          messages: [archiveDependentsGateMessage("config", dependents)],
           override: "ignoreWarnings",
           requiresPermission: null,
           resolution: null,
