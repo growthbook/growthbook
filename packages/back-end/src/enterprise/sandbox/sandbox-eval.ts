@@ -74,6 +74,53 @@ export async function runValidateFeatureRevisionHooks({
   );
 }
 
+// Non-throwing variants for the REST publish handler, which surfaces hook
+// outcomes as publish gates instead of exceptions (mirrors
+// collectValidateConfigRevisionHookResults). Same arg prep as the throwing
+// runValidate* wrappers above, but returns the collected results.
+export async function collectValidateFeatureHookResults({
+  context,
+  feature,
+  original,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  original: FeatureInterface | null;
+}): Promise<CustomHookResults> {
+  return collectCustomHookResults(
+    context,
+    "validateFeature",
+    { feature },
+    feature.project,
+    feature.id,
+    original ? { feature: original } : undefined,
+  );
+}
+
+export async function collectValidateFeatureRevisionHookResults({
+  context,
+  feature,
+  revision,
+  original,
+}: {
+  context: Context;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  original: FeatureRevisionInterface;
+}): Promise<CustomHookResults> {
+  return collectCustomHookResults(
+    context,
+    "validateFeatureRevision",
+    { feature, revision },
+    feature.project,
+    feature.id,
+    {
+      feature,
+      revision: original,
+    },
+  );
+}
+
 // The config being validated, positioned in its lineage — exposed to config
 // hooks so they can reason about where "self" sits (root vs leaf, whether it has
 // a parent or children, and the full ancestor/descendant key lists).

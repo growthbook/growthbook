@@ -10,6 +10,7 @@ export const postFeatureRevisionPublishV2 = createApiRequestHandler(
   const { revision, bypassedGates } = await publishFeatureRevision(
     req,
     canUseRestApiBypassSetting(req),
+    true,
   );
   return {
     revision: toApiRevisionV2(revision),

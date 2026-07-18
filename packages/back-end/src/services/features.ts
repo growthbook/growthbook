@@ -2933,13 +2933,14 @@ export function assertFeatureValuesValid(
 // before a schema change). When the org's `blockPublishOnSchemaError` is true
 // (default) a mismatch blocks the publish; when false it's a bypassable soft
 // warning.
-export function assertFeatureValuesValidForPublish(
-  context: ReqContext | ApiReqContext,
+// Collect the feature's own JSON-schema value errors WITHOUT throwing and
+// WITHOUT the skipSchemaValidation early return — the caller decides how to
+// weigh them (throw, or emit a publish gate). Shared by the throwing assert and
+// the REST publish handler's gate collector.
+export function collectFeatureValueErrorsForPublish(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
-): void {
-  if (context.skipSchemaValidation) return;
-
+): string[] {
   const errors: string[] = [];
   const collect = (fn: () => void) => {
     try {
@@ -2956,6 +2957,17 @@ export function assertFeatureValuesValidForPublish(
   for (const rule of values.rules ?? []) {
     collect(() => validateFeatureRuleValues(feature, rule));
   }
+  return errors;
+}
+
+export function assertFeatureValuesValidForPublish(
+  context: ReqContext | ApiReqContext,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): void {
+  if (context.skipSchemaValidation) return;
+
+  const errors = collectFeatureValueErrorsForPublish(feature, values);
   if (!errors.length) return;
 
   // Default to blocking when the setting is absent.

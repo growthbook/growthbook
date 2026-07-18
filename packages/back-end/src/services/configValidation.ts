@@ -554,18 +554,21 @@ export function configCheckedRuleValues(
   }
 }
 
-export async function assertConfigBackedFeatureValuesValid(
+// The config-backed schema + cross-field-invariant errors for a feature's
+// values, collected without throwing and WITHOUT the skipSchemaValidation early
+// return (the caller decides how to weigh them). The `no-overrides` check on the
+// default is handled separately by the callers, so this covers only the
+// schema/invariant net. Shared by the throwing assert and the non-throwing
+// collector below.
+async function collectConfigBackedSchemaInvariantErrors(
   context: Context,
   feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
   values: { defaultValue?: string; rules?: FeatureRule[] },
-): Promise<void> {
-  assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
-
-  if (context.skipSchemaValidation) return;
-  if (feature.valueType !== "json") return;
+): Promise<string[]> {
+  if (feature.valueType !== "json") return [];
 
   const backed = collectFeatureConfigBackedValues(feature, values);
-  if (!backed.length) return;
+  if (!backed.length) return [];
 
   const all = await context.models.configs.getAllForReconcile();
   const byKey = new Map<string, ConfigInterface>(all.map((c) => [c.key, c]));
@@ -681,6 +684,23 @@ export async function assertConfigBackedFeatureValuesValid(
       errors.push(`${label} [${environment}]: ${message}`);
     }
   }
+  return errors;
+}
+
+export async function assertConfigBackedFeatureValuesValid(
+  context: Context,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): Promise<void> {
+  assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
+
+  if (context.skipSchemaValidation) return;
+
+  const errors = await collectConfigBackedSchemaInvariantErrors(
+    context,
+    feature,
+    values,
+  );
   if (!errors.length) return;
 
   if (context.org.settings?.blockPublishOnSchemaError === false) {
@@ -692,4 +712,30 @@ export async function assertConfigBackedFeatureValuesValid(
     );
   }
   throw new BadRequestError(errors.join("; "));
+}
+
+// Non-throwing variant for the REST publish handler, which surfaces validation
+// failures as publish gates. Returns every config-backed error (the default's
+// no-overrides invariant plus schema/invariant violations) WITHOUT the
+// skipSchemaValidation early return — the caller weighs the org's
+// blockPublishOnSchemaError setting when shaping the gate.
+export async function collectConfigBackedFeatureValueErrors(
+  context: Context,
+  feature: Pick<FeatureInterface, "valueType" | "baseConfig" | "project">,
+  values: { defaultValue?: string; rules?: FeatureRule[] },
+): Promise<string[]> {
+  const errors: string[] = [];
+  try {
+    assertConfigBackedDefaultHasNoOverrides(feature, values.defaultValue);
+  } catch (e) {
+    errors.push(e instanceof Error ? e.message : String(e));
+  }
+  errors.push(
+    ...(await collectConfigBackedSchemaInvariantErrors(
+      context,
+      feature,
+      values,
+    )),
+  );
+  return errors;
 }

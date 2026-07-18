@@ -13,15 +13,28 @@ import {
 import type { ApiRequestLocals } from "back-end/types/api";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  computeProposedFeatureForValidation,
+  getFeature,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
+import {
+  computeRevisionPublishChanges,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   assertFeatureValuesValidForPublish,
+  collectFeatureValueErrorsForPublish,
   getLiveAndBaseRevisionsForFeature,
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
+import { collectConfigBackedFeatureValueErrors } from "back-end/src/services/configValidation";
+import {
+  collectValidateFeatureHookResults,
+  collectValidateFeatureRevisionHookResults,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   dispatchFeatureRevisionEvent,
   getPublishedRevisionForEvents,
@@ -38,6 +51,7 @@ import {
   evaluatePublishGates,
   PublishBlockedError,
   PublishGate,
+  schemaFailureGateOverride,
 } from "back-end/src/revisions/publishGates";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -51,6 +65,13 @@ export async function publishFeatureRevision(
     };
   },
   canUseRestApiBypass: boolean,
+  // Interactive REST publishes surface publish-time value + custom-hook failures
+  // as structured publish gates (and skip the throwing re-run inside
+  // publishRevision). Armed/scheduled publishes (no interactive request
+  // disposition) leave this false and keep the original throwing checks so their
+  // block-vs-suppress behavior — which relies on the background context's
+  // always-true ignoreWarnings — is preserved exactly.
+  inlineValidationGates: boolean = false,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -238,6 +259,115 @@ export async function publishFeatureRevision(
       },
     });
   }
+  // Publish-time value + custom-hook validation, surfaced as gates instead of
+  // thrown (mirrors the config publish handler) — but only for interactive REST
+  // publishes. Armed/scheduled publishes keep the throwing checks below (their
+  // suppress-vs-block behavior depends on the background context's always-true
+  // ignoreWarnings, which the gate model — keyed on the body's mergeNow — would
+  // not reproduce). When gated here, publishRevision is told to skip its
+  // prevalidatePublishRevision re-run so the nets (and the sandboxed hooks) don't
+  // double-execute.
+  if (inlineValidationGates) {
+    const { proposedFeature, defaultToCheck, rulesToCheck } =
+      computeProposedFeatureForValidation(
+        req.context,
+        feature,
+        revision,
+        mergeResult.result,
+      );
+
+    // Schema-family failures: the feature's own JSON-schema value errors (checked
+    // against the full merged values) plus the config-backed schema/invariant net
+    // (only the changed subset, matching prevalidatePublishRevision). One gate,
+    // override chosen by the org's blockPublishOnSchemaError setting: block ->
+    // validation-class (skipSchemaValidation); warn -> acknowledge-class.
+    const schemaErrors = [
+      ...collectFeatureValueErrorsForPublish(feature, {
+        defaultValue: mergeResult.result.defaultValue,
+        rules: mergeResult.result.rules,
+      }),
+      ...(defaultToCheck !== undefined || rulesToCheck.length
+        ? await collectConfigBackedFeatureValueErrors(
+            req.context,
+            proposedFeature,
+            { defaultValue: defaultToCheck, rules: rulesToCheck },
+          )
+        : []),
+    ];
+    if (schemaErrors.length) {
+      gates.push({
+        type: "schema-break",
+        severity: "warning",
+        messages: ["Invalid feature value:", ...schemaErrors],
+        ...schemaFailureGateOverride(
+          req.context.org.settings?.blockPublishOnSchemaError !== false,
+        ),
+        resolution: null,
+      });
+    }
+
+    // Custom validation hooks: a hard error (a hook threw) is validation-class
+    // (skipSchemaValidation); a warning is acknowledge-class (ignoreWarnings). Run
+    // both feature hook types here so prevalidatePublishRevision (skipped below)
+    // doesn't re-execute the sandboxed hooks. `original` is the live feature/
+    // revision so incrementalChangesOnly hooks can suppress pre-existing outcomes,
+    // mirroring prevalidatePublishRevision.
+    const featureHookResults = await collectValidateFeatureHookResults({
+      context: req.context,
+      feature: proposedFeature,
+      original: feature,
+    });
+    const revisionHookResults = await collectValidateFeatureRevisionHookResults(
+      {
+        context: req.context,
+        feature,
+        revision: {
+          ...revision,
+          ...computeRevisionPublishChanges(
+            revision,
+            req.context.auditUser,
+            req.body.comment ?? "",
+          ),
+        },
+        original: revision,
+      },
+    );
+    const hookHardErrors = [
+      ...featureHookResults.hardErrors,
+      ...revisionHookResults.hardErrors,
+    ];
+    const hookWarnings = [
+      ...featureHookResults.warnings,
+      ...revisionHookResults.warnings,
+    ];
+    if (hookHardErrors.length) {
+      gates.push({
+        type: "custom-hook",
+        severity: "blocker",
+        messages: [
+          "A custom validation hook rejected this publish:",
+          ...hookHardErrors,
+        ],
+        override: "skipSchemaValidation",
+        requiresPermission: "bypassApprovalChecks",
+        resolution: null,
+      });
+    }
+    if (hookWarnings.length) {
+      gates.push({
+        type: "custom-hook",
+        severity: "warning",
+        messages: [
+          "A custom validation hook raised a warning:",
+          ...hookWarnings,
+        ],
+        override: "ignoreWarnings",
+        requiresPermission: null,
+        resolution: null,
+      });
+    }
+  }
+
   // Feature governance gates rebase on the bypass-approval permission alone (not
   // the org REST setting), so `canForceMergeStaleBase` is the permission — matching
   // the sequential backstop below. Approval, however, is also bypassed by the REST
@@ -284,14 +414,15 @@ export async function publishFeatureRevision(
     req.context.permissions.throwPermissionError();
   }
 
-  // Publish-time safety net (org-configurable strictness): re-validate the
-  // values going live against the feature's JSON schema. The config-backed
-  // schema/invariant net (assertConfigBackedFeatureValuesValid) runs inside
-  // publishRevision's shared prevalidatePublishRevision choke point below.
-  assertFeatureValuesValidForPublish(req.context, feature, {
-    defaultValue: mergeResult.result.defaultValue,
-    rules: mergeResult.result.rules,
-  });
+  // Armed/scheduled path only: the feature's own-schema value net still throws
+  // here (interactive publishes ran it above as a gate). The config-backed net +
+  // custom hooks run in publishRevision -> prevalidatePublishRevision below.
+  if (!inlineValidationGates) {
+    assertFeatureValuesValidForPublish(req.context, feature, {
+      defaultValue: mergeResult.result.defaultValue,
+      rules: mergeResult.result.rules,
+    });
+  }
 
   // Archiving a feature that live features gate on as a prerequisite (or that
   // running experiments list as a prerequisite) drops those dependents from the
@@ -318,6 +449,11 @@ export async function publishFeatureRevision(
     // push through a lockdown. If you need a stricter separation in the future,
     // introduce a dedicated canBypassRampLockdown() permission method here.
     bypassLockdown: canBypass,
+    // Interactive publishes already ran the config-backed net + hooks above as
+    // publish gates; skip the prevalidatePublishRevision re-run so hooks don't
+    // double-execute and gated failures aren't re-thrown outside the structured
+    // 422. Armed/scheduled publishes keep the throwing re-run.
+    skipPrevalidateValidation: inlineValidationGates,
   });
 
   if (
@@ -372,6 +508,7 @@ export const postFeatureRevisionPublish = createApiRequestHandler(
   const { feature, revision, bypassedGates } = await publishFeatureRevision(
     req,
     canUseRestApiBypassSetting(req),
+    true,
   );
   return {
     revision: toApiRevision(revision, req.context, feature),
