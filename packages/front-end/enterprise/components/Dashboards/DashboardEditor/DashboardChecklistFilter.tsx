@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCheck } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
@@ -16,7 +16,7 @@ interface Props {
   selectedLabel?: string;
   // Truncate the button label to this width (px) with an ellipsis.
   maxLabelWidth?: number;
-  icon: ReactNode;
+  icon?: ReactNode;
   options: ChecklistOption[];
   // Selected ids. Single-select callers pass [] or [id].
   value: string[];
@@ -31,6 +31,9 @@ interface Props {
   disabled?: boolean;
   searchPlaceholder?: string;
   emptyText?: string;
+  // Extra styles merged into the trigger button (e.g. to strip its border and
+  // radius when rendered as a segment of a joined control group).
+  buttonStyle?: CSSProperties;
 }
 
 // A filter pill that opens a popover with a search box and an option list.
@@ -51,6 +54,7 @@ export default function DashboardChecklistFilter({
   disabled,
   searchPlaceholder = "Search...",
   emptyText = "No results",
+  buttonStyle,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -85,7 +89,7 @@ export default function DashboardChecklistFilter({
           disabled={disabled}
           icon={icon}
           iconPosition="left"
-          style={{ justifyContent: "space-between" }}
+          style={{ justifyContent: "space-between", ...buttonStyle }}
         >
           <Flex align="center" gap="2">
             <span

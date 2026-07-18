@@ -4,10 +4,13 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsWinRateBlockInterface,
-  DashboardGlobalFilterKey,
+  experimentBlockFollowsGlobalFilters,
+  experimentBlockHasActiveGlobalFilters,
+  setExperimentBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import Switch from "@/ui/Switch";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
+import DashboardExperimentFilterToggle from "./DashboardExperimentFilterToggle";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsWinRateBlockInterface>;
@@ -24,24 +27,39 @@ export default function ExperimentsWinRateSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const onGlobalControlSettingChange = (
-    key: DashboardGlobalFilterKey,
-    enabled: boolean,
-  ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
-    });
+  const hasActiveFilters = experimentBlockHasActiveGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
+  const following = experimentBlockFollowsGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
 
   return (
     <Flex direction="column" gap="4">
+      {hasActiveFilters ? (
+        <DashboardExperimentFilterToggle
+          value={following}
+          onChange={(enabled) =>
+            setBlock({
+              ...block,
+              globalControlSettings: setExperimentBlockGlobalFilterFollowing(
+                block,
+                dashboardGlobalControls,
+                enabled,
+              ),
+            })
+          }
+        />
+      ) : null}
+
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
-        globalControlSettings={block.globalControlSettings}
-        onGlobalControlSettingChange={onGlobalControlSettingChange}
+        following={following}
         comparisonEnabled={!!block.comparison?.enabled}
         previousTimeFrame={block.comparison?.previousTimeFrame}
         onPreviousTimeFrameChange={(previousTimeFrame) =>

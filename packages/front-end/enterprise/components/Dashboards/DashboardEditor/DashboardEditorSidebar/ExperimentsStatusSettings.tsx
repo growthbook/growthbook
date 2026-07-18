@@ -4,11 +4,13 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsStatusBlockInterface,
-  DashboardGlobalFilterKey,
   getDateGranularity,
   getEffectiveExperimentBlock,
   globalFilterIsSet,
   resolveCompletedExperimentsFilters,
+  experimentBlockFollowsGlobalFilters,
+  experimentBlockHasActiveGlobalFilters,
+  setExperimentBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import { dateGranularity } from "shared/validators";
 import { Select, SelectItem } from "@/ui/Select";
@@ -16,6 +18,7 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { getValidDateGranularities } from "@/enterprise/components/ProductAnalytics/util";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
+import DashboardExperimentFilterToggle from "./DashboardExperimentFilterToggle";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsStatusBlockInterface>;
@@ -42,20 +45,19 @@ export default function ExperimentsStatusSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const onGlobalControlSettingChange = (
-    key: DashboardGlobalFilterKey,
-    enabled: boolean,
-  ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
-    });
+  const hasActiveFilters = experimentBlockHasActiveGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
+  const following = experimentBlockFollowsGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
 
   // When the block follows the dashboard date filter, its granularity is driven
   // by the dashboard too, so reflect the effective values and lock the control.
   const dateControlled =
-    globalFilterIsSet(dashboardGlobalControls, "dateRange") &&
-    block.globalControlSettings?.dateRange === true;
+    following && globalFilterIsSet(dashboardGlobalControls, "dateRange");
   const effectiveBlock = getEffectiveExperimentBlock(block, {
     globalControls: dashboardGlobalControls,
   });
@@ -69,6 +71,22 @@ export default function ExperimentsStatusSettings({
 
   return (
     <Flex direction="column" gap="4">
+      {hasActiveFilters ? (
+        <DashboardExperimentFilterToggle
+          value={following}
+          onChange={(enabled) =>
+            setBlock({
+              ...block,
+              globalControlSettings: setExperimentBlockGlobalFilterFollowing(
+                block,
+                dashboardGlobalControls,
+                enabled,
+              ),
+            })
+          }
+        />
+      ) : null}
+
       {/* Team Velocity does not support period comparison, so no Compare
           toggle is offered here. */}
       <CompletedExperimentsFilterFields
@@ -76,8 +94,7 @@ export default function ExperimentsStatusSettings({
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
-        globalControlSettings={block.globalControlSettings}
-        onGlobalControlSettingChange={onGlobalControlSettingChange}
+        following={following}
         afterDateRange={
           <Box>
             <Box mb="2">
@@ -87,7 +104,7 @@ export default function ExperimentsStatusSettings({
               size="2"
               value={granularity}
               placeholder="Granularity"
-              disabled={dateControlled}
+              disabled={following}
               setValue={(v) =>
                 setBlock({
                   ...block,

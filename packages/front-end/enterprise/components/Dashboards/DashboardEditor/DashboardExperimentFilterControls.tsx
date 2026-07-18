@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+import { CSSProperties, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiFlask, PiChartLineUp, PiFunnel } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretDoubleLeft,
+  PiCaretDoubleRight,
+} from "react-icons/pi";
 import { DashboardInterface } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -11,7 +15,6 @@ import { transformQuery } from "@/services/search";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
 import DashboardChecklistFilter, {
   ChecklistOption,
 } from "./DashboardChecklistFilter";
@@ -47,6 +50,8 @@ export default function DashboardExperimentFilterControls({
   } = useDefinitions();
   const { experiments } = useExperiments();
   const [experimentsOpen, setExperimentsOpen] = useState(false);
+  // The three experiment controls are collapsed into a single pill by default.
+  const [expanded, setExpanded] = useState(false);
 
   // Projects ------------------------------------------------------------------
   const projectOptions: ChecklistOption[] = useMemo(
@@ -97,18 +102,69 @@ export default function DashboardExperimentFilterControls({
     }
   };
 
+  if (!showProjects && !showMetric && !showExperimentSearch) return null;
+
+  // Total number of active experiment filters, shown on the collapsed pill so
+  // applied filters aren't hidden.
+  const totalActiveCount =
+    (showProjects ? selectedProjects.length : 0) +
+    (showMetric && metricId ? 1 : 0) +
+    (showExperimentSearch ? experimentFilterCount : 0);
+
+  if (!expanded) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setExpanded(true)}
+        aria-label="Expand experiment filters"
+      >
+        <Flex align="center" gap="2">
+          <PiCaretDoubleRight aria-hidden />
+          <span>Experiment Filters</span>
+          {totalActiveCount > 0 ? (
+            <FilterCountBadge count={totalActiveCount} />
+          ) : null}
+        </Flex>
+      </Button>
+    );
+  }
+
+  // The expanded controls render as one joined "segmented" control: a single
+  // outer border/radius (from the container) with hairline dividers between
+  // segments. Each inner button drops its own border (box-shadow) and radius so
+  // only the container's outline shows.
+  const SEG_BORDER = "1px solid var(--violet-a8)";
+  const controlSegStyle: CSSProperties = {
+    boxShadow: "none",
+    borderRadius: 0,
+    borderRight: SEG_BORDER,
+  };
+  const collapseSegStyle: CSSProperties = {
+    boxShadow: "none",
+    borderRadius: 0,
+  };
+
   return (
-    <>
+    <Flex
+      display="inline-flex"
+      align="center"
+      style={{
+        border: SEG_BORDER,
+        borderRadius: "var(--radius-3)",
+        overflow: "hidden",
+      }}
+    >
       {showProjects ? (
         <DashboardChecklistFilter
           label="Exp Projects"
-          icon={<PiFunnel aria-hidden />}
           options={projectOptions}
           value={selectedProjects}
           onChange={(v) => onChange({ projects: v })}
           disabled={disabled}
           searchPlaceholder="Search projects..."
           emptyText="No projects found"
+          buttonStyle={controlSegStyle}
         />
       ) : null}
 
@@ -121,7 +177,6 @@ export default function DashboardExperimentFilterControls({
               : undefined
           }
           maxLabelWidth={200}
-          icon={<PiChartLineUp aria-hidden />}
           options={metricOptions}
           value={metricId ? [metricId] : []}
           onChange={(v) => onChange({ metricId: v[0] })}
@@ -131,6 +186,7 @@ export default function DashboardExperimentFilterControls({
           disabled={disabled}
           searchPlaceholder="Search metrics..."
           emptyText="No metrics found"
+          buttonStyle={controlSegStyle}
         />
       ) : null}
 
@@ -143,9 +199,7 @@ export default function DashboardExperimentFilterControls({
               variant="outline"
               size="sm"
               disabled={disabled}
-              icon={<PiFlask aria-hidden />}
-              iconPosition="left"
-              style={{ justifyContent: "space-between" }}
+              style={{ ...controlSegStyle, justifyContent: "space-between" }}
             >
               <Flex align="center" gap="2">
                 <span>Exp Filters</span>
@@ -162,21 +216,16 @@ export default function DashboardExperimentFilterControls({
           contentStyle={{ padding: "16px 20px", width: 340 }}
           content={
             <Box>
-              <Flex align="center" justify="between" mb="2">
-                <Text weight="medium" size="medium">
-                  Experiments filter
+              <Box mb="1">
+                <Text weight="semibold" size="medium">
+                  Experiment Filters
                 </Text>
-                {experimentFilterCount > 0 ? (
-                  <Link
-                    size="1"
-                    onClick={() =>
-                      onChange({ experimentSearchString: undefined })
-                    }
-                  >
-                    Clear
-                  </Link>
-                ) : null}
-              </Flex>
+              </Box>
+              <Box mb="3">
+                <Text size="small" color="text-low">
+                  Applies to all blocks containing Experiments
+                </Text>
+              </Box>
               <SidebarExperimentFilters
                 searchValue={searchValue}
                 setSearchValue={(value) =>
@@ -184,13 +233,21 @@ export default function DashboardExperimentFilterControls({
                 }
                 experiments={experiments}
                 showProjectFilter={false}
-                categoriesInline
-                hideClearFilters
               />
             </Box>
           }
         />
       ) : null}
-    </>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setExpanded(false)}
+        aria-label="Collapse experiment filters"
+        style={collapseSegStyle}
+      >
+        <PiCaretDoubleLeft aria-hidden />
+      </Button>
+    </Flex>
   );
 }

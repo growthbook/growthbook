@@ -4,13 +4,15 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardInterface,
   ExperimentsScaledImpactBlockInterface,
-  DashboardGlobalFilterKey,
+  experimentBlockFollowsGlobalFilters,
+  experimentBlockHasActiveGlobalFilters,
   globalFilterIsSet,
+  setExperimentBlockGlobalFilterFollowing,
 } from "shared/enterprise";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import CompletedExperimentsFilterFields from "./CompletedExperimentsFilterFields";
-import GlobalControlField from "./GlobalControlField";
+import SidebarSettingField from "./SidebarSettingField";
+import DashboardExperimentFilterToggle from "./DashboardExperimentFilterToggle";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<ExperimentsScaledImpactBlockInterface>;
@@ -27,53 +29,56 @@ export default function ExperimentsScaledImpactSettings({
   projects,
   dashboardGlobalControls,
 }: Props) {
-  const { getExperimentMetricById } = useDefinitions();
-
-  const onGlobalControlSettingChange = (
-    key: DashboardGlobalFilterKey,
-    enabled: boolean,
-  ) =>
-    setBlock({
-      ...block,
-      globalControlSettings: { ...block.globalControlSettings, [key]: enabled },
-    });
+  const hasActiveFilters = experimentBlockHasActiveGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
+  const following = experimentBlockFollowsGlobalFilters(
+    block,
+    dashboardGlobalControls,
+  );
 
   const metricControlled =
-    globalFilterIsSet(dashboardGlobalControls, "metricId") &&
-    block.globalControlSettings?.metricId === true;
+    following && globalFilterIsSet(dashboardGlobalControls, "metricId");
   const dashboardMetricId = dashboardGlobalControls?.metricId;
+  const metricValue =
+    metricControlled && dashboardMetricId ? dashboardMetricId : block.metricId;
 
   return (
     <Flex direction="column" gap="5">
-      <GlobalControlField
-        label="Metric"
-        globalActive={globalFilterIsSet(dashboardGlobalControls, "metricId")}
-        controlled={metricControlled}
-        onToggle={(enabled) =>
-          onGlobalControlSettingChange("metricId", enabled)
-        }
-        controlledSummary={
-          dashboardMetricId
-            ? (getExperimentMetricById(dashboardMetricId)?.name ?? "Metric")
-            : ""
-        }
-      >
+      {hasActiveFilters ? (
+        <DashboardExperimentFilterToggle
+          value={following}
+          onChange={(enabled) =>
+            setBlock({
+              ...block,
+              globalControlSettings: setExperimentBlockGlobalFilterFollowing(
+                block,
+                dashboardGlobalControls,
+                enabled,
+              ),
+            })
+          }
+        />
+      ) : null}
+
+      <SidebarSettingField label="Metric">
         <MetricSelector
-          value={block.metricId}
+          value={metricValue}
           onChange={(metricId) => setBlock({ ...block, metricId })}
           includeFacts={true}
           projects={projects}
           placeholder="Select a metric..."
+          disabled={following}
         />
-      </GlobalControlField>
+      </SidebarSettingField>
 
       <CompletedExperimentsFilterFields
         value={block}
         onChange={(patch) => setBlock({ ...block, ...patch })}
         availableProjects={projects}
         dashboardGlobalControls={dashboardGlobalControls}
-        globalControlSettings={block.globalControlSettings}
-        onGlobalControlSettingChange={onGlobalControlSettingChange}
+        following={following}
       />
     </Flex>
   );

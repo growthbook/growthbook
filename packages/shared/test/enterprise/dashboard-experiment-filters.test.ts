@@ -7,6 +7,11 @@ import {
   getDashboardExperimentFilterApplicability,
   resolveGlobalControlsBlockEnrollment,
   isEnablingGlobalFilter,
+  getActiveExperimentGlobalFilterKeys,
+  experimentBlockHasActiveGlobalFilters,
+  experimentBlockFollowsGlobalFilters,
+  experimentBlockOptedOutOfGlobalFilters,
+  setExperimentBlockGlobalFilterFollowing,
 } from "../../src/enterprise/dashboards/utils";
 import {
   DashboardBlockInterface,
@@ -202,5 +207,186 @@ describe("resolveGlobalControlsBlockEnrollment", () => {
     expect(
       isEnablingGlobalFilter({ metricId: "a" }, { metricId: "b" }, "metricId"),
     ).toBe(false);
+  });
+});
+
+describe("getActiveExperimentGlobalFilterKeys", () => {
+  it("returns only supported filters that are active on the dashboard", () => {
+    // Scaled impact supports all four; only projects/metric are active here.
+    expect(
+      getActiveExperimentGlobalFilterKeys(scaledImpactBlock(), {
+        projects: ["prj_dashboard"],
+        metricId: "met_dashboard",
+      }),
+    ).toEqual(["projects", "metricId"]);
+  });
+
+  it("excludes date range for Experiments with Lift", () => {
+    expect(
+      getActiveExperimentGlobalFilterKeys(
+        metricExperimentsBlock(),
+        globalControls,
+      ),
+    ).toEqual(["projects", "metricId", "experimentSearchString"]);
+  });
+
+  it("is empty for a non-experiment block", () => {
+    const markdown = {
+      type: "markdown",
+      title: "",
+      description: "",
+      content: "",
+    } as AnyBlock;
+    expect(
+      getActiveExperimentGlobalFilterKeys(markdown, globalControls),
+    ).toEqual([]);
+  });
+});
+
+describe("experimentBlockHasActiveGlobalFilters", () => {
+  it("is true when the dashboard exposes a supported filter", () => {
+    expect(
+      experimentBlockHasActiveGlobalFilters(
+        scaledImpactBlock(),
+        globalControls,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when no supported filter is active", () => {
+    expect(experimentBlockHasActiveGlobalFilters(scaledImpactBlock(), {})).toBe(
+      false,
+    );
+  });
+});
+
+describe("experimentBlockFollowsGlobalFilters", () => {
+  it("is true only when every active supported filter is opted in", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: {
+        dateRange: true,
+        projects: true,
+        metricId: true,
+        experimentSearchString: true,
+      },
+    });
+    expect(experimentBlockFollowsGlobalFilters(block, globalControls)).toBe(
+      true,
+    );
+  });
+
+  it("is false when any active supported filter is opted out", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: {
+        dateRange: true,
+        projects: true,
+        metricId: false,
+        experimentSearchString: true,
+      },
+    });
+    expect(experimentBlockFollowsGlobalFilters(block, globalControls)).toBe(
+      false,
+    );
+  });
+
+  it("ignores opt-in for filters the dashboard does not expose", () => {
+    // Only projects is active; metric opt-in is irrelevant.
+    const block = scaledImpactBlock({
+      globalControlSettings: { projects: true, metricId: false },
+    });
+    expect(
+      experimentBlockFollowsGlobalFilters(block, {
+        projects: ["prj_dashboard"],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when the dashboard has no active filters", () => {
+    expect(
+      experimentBlockFollowsGlobalFilters(
+        scaledImpactBlock({ globalControlSettings: { projects: true } }),
+        {},
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("experimentBlockOptedOutOfGlobalFilters", () => {
+  it("is true when active filters exist but the block does not follow them", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: { projects: false },
+    });
+    expect(
+      experimentBlockOptedOutOfGlobalFilters(block, {
+        projects: ["prj_dashboard"],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when the block follows all active filters", () => {
+    const block = scaledImpactBlock({
+      globalControlSettings: {
+        dateRange: true,
+        projects: true,
+        metricId: true,
+        experimentSearchString: true,
+      },
+    });
+    expect(experimentBlockOptedOutOfGlobalFilters(block, globalControls)).toBe(
+      false,
+    );
+  });
+
+  it("is false when the dashboard exposes no supported filters", () => {
+    expect(
+      experimentBlockOptedOutOfGlobalFilters(scaledImpactBlock(), {}),
+    ).toBe(false);
+  });
+});
+
+describe("setExperimentBlockGlobalFilterFollowing", () => {
+  it("opts in to every active supported filter", () => {
+    const settings = setExperimentBlockGlobalFilterFollowing(
+      scaledImpactBlock(),
+      globalControls,
+      true,
+    );
+    expect(settings).toEqual({
+      dateRange: true,
+      projects: true,
+      metricId: true,
+      experimentSearchString: true,
+    });
+  });
+
+  it("opts out of every active supported filter", () => {
+    const settings = setExperimentBlockGlobalFilterFollowing(
+      scaledImpactBlock({
+        globalControlSettings: {
+          dateRange: true,
+          projects: true,
+          metricId: true,
+          experimentSearchString: true,
+        },
+      }),
+      globalControls,
+      false,
+    );
+    expect(settings).toEqual({
+      dateRange: false,
+      projects: false,
+      metricId: false,
+      experimentSearchString: false,
+    });
+  });
+
+  it("only touches active filters and never adds date range to Experiments with Lift", () => {
+    const settings = setExperimentBlockGlobalFilterFollowing(
+      metricExperimentsBlock(),
+      // Only projects is active on the dashboard.
+      { projects: ["prj_dashboard"], dateRange: { predefined: "last7Days" } },
+      true,
+    );
+    expect(settings).toEqual({ projects: true });
   });
 });

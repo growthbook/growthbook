@@ -1,17 +1,12 @@
 import { ReactNode } from "react";
 import { ExplorationDateRange } from "shared/validators";
-import {
-  DashboardInterface,
-  globalFilterIsSet,
-  DashboardGlobalFilterKey,
-} from "shared/enterprise";
+import { DashboardInterface, globalFilterIsSet } from "shared/enterprise";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperiments } from "@/hooks/useExperiments";
 import SidebarExperimentFilters from "@/components/Search/SidebarExperimentFilters";
-import { formatExplorationDateRange } from "@/enterprise/components/ProductAnalytics/dateRangeLabels";
 import BlockDateRangePicker from "./BlockDateRangePicker";
-import GlobalControlField from "./GlobalControlField";
+import SidebarSettingField from "./SidebarSettingField";
 
 export interface CompletedExperimentsFilterValue {
   dateRange: ExplorationDateRange;
@@ -20,14 +15,6 @@ export interface CompletedExperimentsFilterValue {
   // date/project scope.
   experimentSearchString?: string;
 }
-
-type GlobalControlSettings =
-  | {
-      dateRange?: boolean;
-      projects?: boolean;
-      experimentSearchString?: boolean;
-    }
-  | undefined;
 
 interface Props {
   value: CompletedExperimentsFilterValue;
@@ -46,15 +33,14 @@ interface Props {
   comparisonEnabled?: boolean;
   previousTimeFrame?: ExplorationDateRange;
   onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
-  // Dashboard-wide global filters. When one is active for a field the block
-  // supports, an opt-in toggle is shown and (when opted in) the local control is
-  // replaced by the effective dashboard value.
+  // Dashboard-wide global filters, used to populate the fields read-only when
+  // the block follows them.
   dashboardGlobalControls?: DashboardInterface["globalControls"];
-  globalControlSettings?: GlobalControlSettings;
-  onGlobalControlSettingChange?: (
-    key: DashboardGlobalFilterKey,
-    enabled: boolean,
-  ) => void;
+  // Whether the block is following the dashboard's experiment filters (driven by
+  // the single toggle at the top of the block's settings form). When true, each
+  // field the dashboard has an active value for is shown populated with that
+  // value and disabled.
+  following?: boolean;
 }
 
 // Shared date-range + project scoping controls for the "Completed Experiments"
@@ -69,8 +55,7 @@ export default function CompletedExperimentsFilterFields({
   previousTimeFrame,
   onPreviousTimeFrameChange,
   dashboardGlobalControls,
-  globalControlSettings,
-  onGlobalControlSettingChange,
+  following = false,
 }: Props) {
   const { projects } = useDefinitions();
   const { experiments } = useExperiments();
@@ -81,89 +66,61 @@ export default function CompletedExperimentsFilterFields({
       : projects
   ).map((p) => ({ label: p.name, value: p.id }));
 
-  const projectName = (id: string) =>
-    projectOptions.find((p) => p.value === id)?.label ?? id;
-
+  // When the block follows the dashboard filters, every filter field is locked —
+  // the block delegates its experiment filtering to the dashboard. Fields the
+  // dashboard actually sets a value for also display that value (below); the
+  // rest stay locked on the block's own value.
   const dateControlled =
-    globalFilterIsSet(dashboardGlobalControls, "dateRange") &&
-    globalControlSettings?.dateRange === true;
+    following && globalFilterIsSet(dashboardGlobalControls, "dateRange");
   const projectsControlled =
-    globalFilterIsSet(dashboardGlobalControls, "projects") &&
-    globalControlSettings?.projects === true;
+    following && globalFilterIsSet(dashboardGlobalControls, "projects");
   const experimentControlled =
-    globalFilterIsSet(dashboardGlobalControls, "experimentSearchString") &&
-    globalControlSettings?.experimentSearchString === true;
+    following &&
+    globalFilterIsSet(dashboardGlobalControls, "experimentSearchString");
 
-  const dashboardProjects = dashboardGlobalControls?.projects ?? [];
-  const projectsSummary =
-    dashboardProjects.length === 0
-      ? "All projects"
-      : dashboardProjects.map(projectName).join(", ");
+  const dateRangeValue =
+    dateControlled && dashboardGlobalControls?.dateRange
+      ? dashboardGlobalControls.dateRange
+      : value.dateRange;
+  const projectsValue = projectsControlled
+    ? (dashboardGlobalControls?.projects ?? [])
+    : value.projects;
+  const searchValue = experimentControlled
+    ? (dashboardGlobalControls?.experimentSearchString ?? "")
+    : (value.experimentSearchString ?? "");
 
   return (
     <>
-      <GlobalControlField
-        label="Date Range"
-        globalActive={globalFilterIsSet(dashboardGlobalControls, "dateRange")}
-        controlled={dateControlled}
-        onToggle={(enabled) =>
-          onGlobalControlSettingChange?.("dateRange", enabled)
-        }
-        controlledSummary={
-          dashboardGlobalControls?.dateRange
-            ? formatExplorationDateRange(dashboardGlobalControls.dateRange, {
-                customDateRangeFallback: "Date Range",
-              })
-            : ""
-        }
-        accessory={dateRangeAccessory}
-      >
+      <SidebarSettingField label="Date Range" accessory={dateRangeAccessory}>
         <BlockDateRangePicker
-          value={value.dateRange}
+          value={dateRangeValue}
           onChange={(dateRange) => onChange({ dateRange })}
           comparisonEnabled={comparisonEnabled}
           previousTimeFrame={previousTimeFrame}
           onPreviousTimeFrameChange={onPreviousTimeFrameChange}
+          disabled={following}
         />
-      </GlobalControlField>
+      </SidebarSettingField>
 
       {afterDateRange}
 
-      <GlobalControlField
-        label="Projects Filter"
-        globalActive={globalFilterIsSet(dashboardGlobalControls, "projects")}
-        controlled={projectsControlled}
-        onToggle={(enabled) =>
-          onGlobalControlSettingChange?.("projects", enabled)
-        }
-        controlledSummary={projectsSummary}
-      >
+      <SidebarSettingField label="Projects Filter">
         <MultiSelectField
-          value={value.projects}
+          value={projectsValue}
           options={projectOptions}
           onChange={(v) => onChange({ projects: v })}
           placeholder="All projects"
+          disabled={following}
         />
-      </GlobalControlField>
+      </SidebarSettingField>
 
-      <GlobalControlField
-        label="Filter Experiments"
-        globalActive={globalFilterIsSet(
-          dashboardGlobalControls,
-          "experimentSearchString",
-        )}
-        controlled={experimentControlled}
-        onToggle={(enabled) =>
-          onGlobalControlSettingChange?.("experimentSearchString", enabled)
-        }
-        controlledSummary={
-          dashboardGlobalControls?.experimentSearchString || "All experiments"
-        }
-      >
+      <SidebarSettingField label="Filter Experiments">
         <SidebarExperimentFilters
-          searchValue={value.experimentSearchString ?? ""}
-          setSearchValue={(experimentSearchString) =>
-            onChange({ experimentSearchString })
+          searchValue={searchValue}
+          setSearchValue={
+            following
+              ? () => {}
+              : (experimentSearchString) => onChange({ experimentSearchString })
           }
           experiments={experiments}
           // These blocks only ever include completed (stopped) experiments, so
@@ -172,8 +129,9 @@ export default function CompletedExperimentsFilterFields({
           showStatusFilter={false}
           // The "Projects" field above already scopes by project.
           showProjectFilter={false}
+          searchDisabled={following}
         />
-      </GlobalControlField>
+      </SidebarSettingField>
     </>
   );
 }

@@ -184,6 +184,72 @@ export function experimentBlockSupportsGlobalFilter(
   return (EXPERIMENT_BLOCK_FILTER_SUPPORT[block.type] ?? []).includes(key);
 }
 
+// The dashboard-wide filters this block supports AND that the dashboard
+// currently has an active value for. These are the filters a single
+// "Use dashboard experiment filters" toggle governs for the block.
+export function getActiveExperimentGlobalFilterKeys(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): DashboardGlobalFilterKey[] {
+  return DASHBOARD_GLOBAL_FILTER_KEYS.filter(
+    (key) =>
+      experimentBlockSupportsGlobalFilter(block, key) &&
+      globalFilterIsSet(globalControls, key),
+  );
+}
+
+// Whether the single "Use dashboard experiment filters" toggle should be shown:
+// the dashboard exposes at least one active filter this block supports.
+export function experimentBlockHasActiveGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return getActiveExperimentGlobalFilterKeys(block, globalControls).length > 0;
+}
+
+// The single-toggle state: the block follows the dashboard when it has opted in
+// to every active dashboard filter it supports. Returns false when the dashboard
+// has no active filters for this block (nothing to follow).
+export function experimentBlockFollowsGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  const keys = getActiveExperimentGlobalFilterKeys(block, globalControls);
+  if (keys.length === 0) return false;
+  const settings = getBlockGlobalControlSettings(block);
+  return keys.every((key) => settings?.[key] === true);
+}
+
+// Badge condition: the dashboard exposes filters this block supports, but the
+// block has opted out of following them (so it uses its own local filters).
+export function experimentBlockOptedOutOfGlobalFilters(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+): boolean {
+  return (
+    experimentBlockHasActiveGlobalFilters(block, globalControls) &&
+    !experimentBlockFollowsGlobalFilters(block, globalControls)
+  );
+}
+
+// Compute the block's next per-filter opt-in settings when the single
+// "Use dashboard experiment filters" toggle is flipped: every active supported
+// filter is set to `enabled`, leaving any unrelated stored flags untouched.
+export function setExperimentBlockGlobalFilterFollowing(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  globalControls: DashboardInterface["globalControls"] | undefined,
+  enabled: boolean,
+): GlobalControlSettings {
+  const keys = getActiveExperimentGlobalFilterKeys(block, globalControls);
+  const settings: GlobalControlSettings = {
+    ...(getBlockGlobalControlSettings(block) ?? {}),
+  };
+  keys.forEach((key) => {
+    settings[key] = enabled;
+  });
+  return settings;
+}
+
 // Any block (exploration or experiment) that can follow the given global filter.
 // Exploration blocks only support the date range control.
 export function blockSupportsGlobalFilter(

@@ -57,14 +57,17 @@ function defaultPriorRange(
 function CustomRangeField({
   value,
   onChange,
+  disabled,
 }: {
   value: ExplorationDateRange;
   onChange: (dr: ExplorationDateRange) => void;
+  disabled?: boolean;
 }) {
   return (
     <DatePicker
       containerClassName="mb-0"
       compact
+      disabled={disabled}
       date={
         value.startDate ? getValidDateOffsetByUTC(value.startDate) : undefined
       }
@@ -121,12 +124,15 @@ export default function BlockDateRangePicker({
   comparisonEnabled = false,
   previousTimeFrame,
   onPreviousTimeFrameChange,
+  disabled = false,
 }: {
   value: ExplorationDateRange;
   onChange: (dateRange: ExplorationDateRange) => void;
   comparisonEnabled?: boolean;
   previousTimeFrame?: ExplorationDateRange;
   onPreviousTimeFrameChange?: (dr: ExplorationDateRange) => void;
+  // Lock all inputs (used when the block follows the dashboard date filter).
+  disabled?: boolean;
 }) {
   const setPredefined = (predefined: (typeof dateRangePredefined)[number]) => {
     if (predefined === "customDateRange") {
@@ -154,6 +160,7 @@ export default function BlockDateRangePicker({
       size="2"
       value={value.predefined}
       placeholder="Select range"
+      disabled={disabled}
       setValue={(v) => setPredefined(v as (typeof dateRangePredefined)[number])}
     >
       {dateRangePredefined.map((option) => (
@@ -192,6 +199,7 @@ export default function BlockDateRangePicker({
           <Field
             type="number"
             min="1"
+            disabled={disabled}
             style={{ width: "70px", height: "32px" }}
             value={value.lookbackValue ?? ""}
             onChange={(e) => {
@@ -206,6 +214,7 @@ export default function BlockDateRangePicker({
             <Select
               size="2"
               value={value.lookbackUnit ?? "day"}
+              disabled={disabled}
               setValue={(v) =>
                 onChange({
                   ...value,
@@ -230,6 +239,7 @@ export default function BlockDateRangePicker({
               <CustomRangeField
                 value={previousTimeFrame ?? defaultPriorRange(value)}
                 onChange={(dr) => onPreviousTimeFrameChange?.(dr)}
+                disabled={disabled}
               />
             </LabeledRow>
             <LabeledRow label="">
@@ -238,11 +248,19 @@ export default function BlockDateRangePicker({
               </Text>
             </LabeledRow>
             <LabeledRow label="Current">
-              <CustomRangeField value={value} onChange={onChange} />
+              <CustomRangeField
+                value={value}
+                onChange={onChange}
+                disabled={disabled}
+              />
             </LabeledRow>
           </Flex>
         ) : (
-          <CustomRangeField value={value} onChange={onChange} />
+          <CustomRangeField
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+          />
         ))}
     </Flex>
   );
