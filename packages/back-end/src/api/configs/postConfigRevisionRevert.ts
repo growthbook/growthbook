@@ -224,6 +224,10 @@ export const postConfigRevisionRevert = createApiRequestHandler(
         extends: revertLeaf.extends,
         extensible: revertLeaf.extensible,
       },
+      // A revert that flips archived scrubs (or restores) refs — model the
+      // transition so dependents' schema breaks are checked, like every other
+      // publish path.
+      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
     );
   }
 

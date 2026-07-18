@@ -163,6 +163,10 @@ export const postConstantRevisionRevert = createApiRequestHandler(
       "environmentValues" in fieldsToUpdate
         ? (fieldsToUpdate.environmentValues as Record<string, string>)
         : constant.environmentValues,
+      // A revert that flips archived scrubs (or restores) refs — model the
+      // transition so dependents' schema breaks are checked, like every other
+      // publish path.
+      "archived" in fieldsToUpdate ? !!fieldsToUpdate.archived : undefined,
     );
   }
 
