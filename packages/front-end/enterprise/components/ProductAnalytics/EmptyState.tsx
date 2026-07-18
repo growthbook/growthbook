@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import React, { useCallback, useRef, useState } from "react";
 import { BsStars } from "react-icons/bs";
@@ -12,6 +13,7 @@ import {
   PiFunnel,
   PiTable,
 } from "react-icons/pi";
+import { AppFeatures } from "shared/types/app-features";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Field from "@/components/Forms/Field";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
@@ -33,6 +35,7 @@ import DataSourceDropdown from "./MainSection/Toolbar/DataSourceDropdown";
 
 export default function EmptyState() {
   const router = useRouter();
+  const gb = useGrowthBook<AppFeatures>();
   const { permissionsUtil, hasCommercialFeature } = useUser();
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -69,6 +72,7 @@ export default function EmptyState() {
   const canRunFactQueries =
     permissionsUtil.canRunFactQueries({ projects: [project] }) ||
     permissionsUtil.canRunFactQueries({ projects: [] });
+  const funnelExplorerEnabled = !!gb?.isOn("product-analytics-funnels");
 
   const chatDisabledReason = !aiEnabled
     ? "Enable AI for your organization to use AI Chat here and across GrowthBook."
@@ -131,7 +135,7 @@ export default function EmptyState() {
                 style={{ color: "var(--violet-a11)", flexShrink: 0 }}
               />
               <Heading as="h2" size="x-large" weight="medium">
-                Ask AI about your data
+                Ask AI About Your Data
               </Heading>
             </Flex>
             <Text color="text-low" align="center" size="large" mt="1">
@@ -261,7 +265,13 @@ export default function EmptyState() {
                   {chatDisabledReason ? (
                     "Explore manually"
                   ) : (
-                    <span
+                    <Link
+                      onClick={() => setShowAdvancedOptions((open) => !open)}
+                      underline="none"
+                      aria-expanded={showAdvancedOptions}
+                      aria-label={
+                        showAdvancedOptions ? "Hide tools" : "Show tools"
+                      }
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
@@ -271,21 +281,12 @@ export default function EmptyState() {
                       <Text color="text-mid" size="medium">
                         Build visualizations manually
                       </Text>
-                      <Link
-                        onClick={() => setShowAdvancedOptions((open) => !open)}
-                        aria-expanded={showAdvancedOptions}
-                        aria-label={
-                          showAdvancedOptions ? "Hide tools" : "Show tools"
-                        }
-                        style={{ display: "inline-flex", alignItems: "center" }}
-                      >
-                        {showAdvancedOptions ? (
-                          <PiCaretDown size={14} aria-hidden />
-                        ) : (
-                          <PiCaretRight size={14} aria-hidden />
-                        )}
-                      </Link>
-                    </span>
+                      {showAdvancedOptions ? (
+                        <PiCaretDown size={14} aria-hidden />
+                      ) : (
+                        <PiCaretRight size={14} aria-hidden />
+                      )}
+                    </Link>
                   )}
                 </Box>
                 {toolsExpanded ? (
@@ -326,7 +327,7 @@ export default function EmptyState() {
                         icon={<PiTable size={16} />}
                         disabled={!canRunFactQueries}
                       >
-                        Fact table explorer
+                        Fact Table explorer
                       </LinkButton>
                       <LinkButton
                         href="/product-analytics/explore/data-source"
@@ -336,14 +337,16 @@ export default function EmptyState() {
                       >
                         Data Source explorer
                       </LinkButton>
-                      <LinkButton
-                        href="/product-analytics/funnel"
-                        variant="outline"
-                        icon={<PiFunnel size={16} />}
-                        disabled={!canRunFactQueries}
-                      >
-                        Funnel explorer
-                      </LinkButton>
+                      {funnelExplorerEnabled && (
+                        <LinkButton
+                          href="/product-analytics/explore/funnel"
+                          variant="outline"
+                          icon={<PiFunnel size={16} />}
+                          disabled={!canRunFactQueries}
+                        >
+                          Funnel explorer
+                        </LinkButton>
+                      )}
                       <LinkButton
                         href="/sql-explorer"
                         variant="outline"

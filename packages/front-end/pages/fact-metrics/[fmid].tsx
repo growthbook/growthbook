@@ -25,7 +25,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -62,6 +61,7 @@ import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSli
 import { useCurrency } from "@/hooks/useCurrency";
 import HistoryTable from "@/components/HistoryTable";
 import Modal from "@/components/Modal";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -539,19 +539,13 @@ export default function FactMetricPage() {
           </Heading>
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          {canOpenInExplorer && (
-            <Tooltip content="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric.">
-              <LinkButton
-                href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
-                  factMetric.id,
-                )}`}
-                variant="outline"
-                size="sm"
-              >
-                Open in Explorer
-              </LinkButton>
-            </Tooltip>
-          )}
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/metrics?metricId=${encodeURIComponent(
+              factMetric.id,
+            )}`}
+            tooltip="Open this Fact Metric in the Product Analytics Explorer to view trends, compare time periods, and slice/dice a metric."
+          />
           <DropdownMenu
             trigger={
               <IconButton

@@ -12,7 +12,6 @@ import { datetime } from "shared/dates";
 import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
-import LinkButton from "@/ui/LinkButton";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -48,7 +47,7 @@ import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
-import Tooltip from "@/ui/Tooltip";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -179,7 +178,7 @@ const DataSourcePage: FC = () => {
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
   const canOpenInExplorer =
     supportsSQL &&
-    d.properties?.supportsInformationSchema &&
+    !!d.properties?.supportsInformationSchema &&
     permissionsUtil.canRunFactQueries(d);
 
   return (
@@ -222,19 +221,13 @@ const DataSourcePage: FC = () => {
           />
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          {canOpenInExplorer && (
-            <Tooltip content="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data.">
-              <LinkButton
-                href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
-                  d.id,
-                )}`}
-                variant="outline"
-                size="sm"
-              >
-                Open in Explorer
-              </LinkButton>
-            </Tooltip>
-          )}
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/data-source?datasourceId=${encodeURIComponent(
+              d.id,
+            )}`}
+            tooltip="Open this Data Source in Product Analytics to choose a table and visualize its data. Chart trends, compare time periods, and slice/dice your data."
+          />
           {(canUpdateConnectionParams ||
             canUpdateDataSourceSettings ||
             canDelete) && (

@@ -81,7 +81,7 @@ export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 type BlockTypeInfo = {
   name: string;
   icon: ReactElement;
-  description: string;
+  description?: string;
   deprecated?: boolean;
 };
 
@@ -94,56 +94,45 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   "experiment-metadata": {
     name: "Experiment Metadata",
     icon: <PiListDashesDuotone />,
-    description:
-      "Shows the experiment description, hypothesis, and variation details.",
   },
   "experiment-metric": {
     name: "Metric Results",
     icon: <PiTableDuotone />,
-    description:
-      "Shows experiment results for selected goal, secondary, and guardrail metrics.",
   },
   "metric-experiments": {
     name: "Experiments with Lift",
     icon: <PiTableDuotone />,
-    description:
-      "Shows experiments with lift for selected goal, secondary, and guardrail metrics.",
+    description: "Shows experiments with lift for a selected metric.",
   },
   "experiments-scaled-impact": {
     name: "Scaled Impact",
     icon: <PiChartLineDuotone />,
     description:
-      "Shows experiments with scaled impact for selected goal, secondary, and guardrail metrics.",
+      "Shows the scaled impact of a metric across multiple experiments.",
   },
   "experiments-win-rate": {
     name: "Win Percentage",
     icon: <PiGaugeDuotone />,
     description:
-      "Shows the win percentage for selected goal, secondary, and guardrail metrics.",
+      "Shows the win percentage for selected experiments, optionally filtered by project.",
   },
   "experiments-status": {
     name: "Team Velocity",
     icon: <PiChartBarDuotone />,
     description:
-      "Shows the status of experiments for selected goal, secondary, and guardrail metrics.",
+      "Shows number of experiments in each status (won, lost, inconclusive, and dnf) over a selected date range.",
   },
   "experiment-dimension": {
     name: "Dimension Results",
     icon: <PiTableDuotone />,
-    description:
-      "Breaks down experiment metric results by values from a selected dimension.",
   },
   "experiment-time-series": {
     name: "Time Series",
     icon: <PiChartLineDuotone />,
-    description:
-      "Plots experiment metric performance over the course of the experiment.",
   },
   "experiment-traffic": {
     name: "Experiment Traffic",
     icon: <PiChartLineDuotone />,
-    description:
-      "Shows traffic allocation and participant counts for each variation.",
   },
   "sql-explorer": {
     name: "Custom SQL Query",
@@ -178,6 +167,8 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
   "funnel-exploration": {
     name: "Funnel Explorer",
     icon: <PiFunnel />,
+    description:
+      "Builds a custom funnel from events and columns from one of your connected Fact Tables.",
   },
 };
 

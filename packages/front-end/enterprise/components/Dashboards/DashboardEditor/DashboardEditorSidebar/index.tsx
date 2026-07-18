@@ -78,9 +78,11 @@ function BlockTypePopoverContent({
           {blockInfo.name}
         </Text>
       </Flex>
-      <Text as="div" size="medium" color="text-mid">
-        {blockInfo.description}
-      </Text>
+      {blockInfo.description && (
+        <Text as="div" size="medium" color="text-mid">
+          {blockInfo.description}
+        </Text>
+      )}
     </Flex>
   );
 }
@@ -372,11 +374,12 @@ export default function DashboardEditorSidebar({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
+                        color="red"
                         onClick={() => {
                           deleteBlock(i);
                         }}
                       >
-                        <span style={{ color: "var(--red-11)" }}>Delete</span>
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenu>
                   </Flex>

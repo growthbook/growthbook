@@ -8,7 +8,6 @@ import {
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import LinkButton from "@/ui/LinkButton";
 import Callout from "@/ui/Callout";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -47,7 +46,7 @@ import {
 import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
-import ButtonTooltip from "@/ui/Tooltip";
+import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -283,19 +282,13 @@ export default function FactTablePage() {
           </Heading>
         </Flex>
         <Flex align="center" gap="2" pr="2">
-          {canOpenInExplorer && (
-            <ButtonTooltip content="Open this Fact Table in the Product Analytics Explorer and view trends, compare time periods, and slice/dice your data.">
-              <LinkButton
-                href={`/product-analytics/explore/fact-table?factTableId=${encodeURIComponent(
-                  factTable.id,
-                )}`}
-                variant="outline"
-                size="sm"
-              >
-                Open in Explorer
-              </LinkButton>
-            </ButtonTooltip>
-          )}
+          <OpenInExplorerButton
+            enabled={canOpenInExplorer}
+            href={`/product-analytics/explore/fact-table?factTableId=${encodeURIComponent(
+              factTable.id,
+            )}`}
+            tooltip="Open this Fact Table in the Product Analytics Explorer and view trends, compare time periods, and slice/dice your data."
+          />
           <DropdownMenu
             trigger={
               <IconButton

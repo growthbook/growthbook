@@ -14,8 +14,12 @@ type TextWhiteSpace =
   | "pre-line"
   | "break-spaces";
 type TextFontStyle = "normal" | "italic" | "oblique";
-// NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
-type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
+type TextColors =
+  | "text-high"
+  | "text-mid"
+  | "text-low"
+  | "text-disabled"
+  | NonNullable<RadixTextProps["color"]>;
 
 const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
   small: "1",
@@ -93,6 +97,7 @@ export default forwardRef<
     // Radix's .rt-truncate class apply `white-space: nowrap`.
     ...(truncate ? {} : { whiteSpace }),
   };
+  let radixColor: RadixTextProps["color"];
   if (textTransform) style.textTransform = textTransform;
 
   if (color === "text-high") {
@@ -103,6 +108,8 @@ export default forwardRef<
     style.color = "var(--color-text-low)";
   } else if (color === "text-disabled") {
     style.color = "var(--color-text-disabled)";
+  } else {
+    radixColor = color;
   }
 
   return (
@@ -110,6 +117,7 @@ export default forwardRef<
       ref={ref}
       size={radixSizeMap[size]}
       weight={radixWeightMap[weight]}
+      color={radixColor}
       align={align}
       as={as}
       title={title}
