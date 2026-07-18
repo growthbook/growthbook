@@ -430,16 +430,6 @@ async function findExperiments(
   );
 }
 
-// Case-insensitive experiment-name search, org-scoped and permission-filtered
-// (via findExperiments), newest-first, capped by `limit`. Used by the visual
-// editor's experiment picker so experiments outside the recent window are
-// still findable.
-// Find VISUAL experiments (those with at least one visual changeset) whose
-// name matches `name`, most-recently-updated first. Scoping to visual
-// experiments via the maintained `hasVisualChangesets` flag means the visual
-// editor's name search never surfaces non-visual experiments — and the `limit`
-// is spent on visual matches instead of being crowded out by non-visual
-// experiments that merely share the search term.
 export async function findVisualExperimentsByName(
   context: ReqContext | ApiReqContext,
   name: string,

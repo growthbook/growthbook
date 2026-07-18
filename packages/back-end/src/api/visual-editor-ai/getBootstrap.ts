@@ -19,9 +19,6 @@ const validation = {
   bodySchema: z.never(),
   querySchema: z
     .object({
-      // Optional case-insensitive experiment-name search. When present we
-      // query experiments by name directly (bypassing the newest-N changeset
-      // window) so experiments outside the recent set are still findable.
       search: z.string().max(100).optional(),
     })
     .strict(),
@@ -30,8 +27,7 @@ const validation = {
   method: "get" as const,
   path: "/visual-editor/bootstrap",
   operationId: "getVisualEditorBootstrap",
-  // Internal Visual Editor extension endpoint — not part of the
-  // public OpenAPI spec.
+  // Internal Visual Editor extension endpoint
   excludeFromSpec: true,
 };
 
@@ -68,10 +64,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
 
   // Search mode queries VISUAL experiments by name directly, then fetches
   // THEIR changesets — so a target outside the newest-changeset window is
-  // still reachable. Scoping the name query to visual experiments keeps
-  // non-visual experiments (feature flags, redirects) out of the results and
-  // spends the cap on visual matches. Default mode keeps the fast "newest
-  // changesets" path.
+  // still reachable.
   const search = (req.query.search ?? "").trim();
   let changesets: VisualChangesetInterface[];
   let experiments: ExperimentInterface[];
@@ -81,10 +74,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       search,
       SEARCH_EXPERIMENT_CAP,
     );
-    // Bound + order the fetch (newest-`_id`-first) to the same window as the
-    // default path — a search can match many experiments, each with several
-    // changesets, so an uncapped fetch could deserialize far more than needed
-    // before the rank + trim to MAX_RECENT below.
+
     changesets = await findVisualChangesetsByExperimentIds(
       experiments.map((e) => e.id),
       req.organization.id,
@@ -152,11 +142,6 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   // can edit), then by most-recently-updated within each group. Sorting drafts
   // ahead of the trim means they win the MAX_RECENT slots over older
   // running/stopped ones.
-  //
-  // Search mode: rank by recency only. The user is looking for a SPECIFIC
-  // experiment by name regardless of status, so a draft-first bias here would
-  // push running/stopped name-matches out of the MAX_RECENT trim window and
-  // make them unfindable.
   const statusRank = (s: string) => (s === "draft" ? 0 : 1);
   recentExperiments.sort((a, b) => {
     if (!search) {
