@@ -22,6 +22,17 @@ import { SampleMeanStatistic } from "./statistics";
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
 
 /**
+ * Pin a binary (0/1) labeling to a canonical orientation where the first
+ * category is always in cluster 0.
+ */
+function canonicalizeBinaryLabels(labels: number[]): number[] {
+  if (labels.length > 0 && labels[0] !== 0) {
+    for (let i = 0; i < labels.length; i++) labels[i] = labels[i] === 0 ? 1 : 0;
+  }
+  return labels;
+}
+
+/**
  * Most categories the exact binary splitter (`bestExhaustiveBinarySplit`) will
  * enumerate. Above this the split falls back to the approximate k-means search
  * (`approximateBinaryKMeans`).
@@ -452,6 +463,10 @@ function bestExhaustiveBinarySplit(
     compactGroupSse(bestSubset, numVariations) +
     compactGroupSse(bestComplement, numVariations);
 
+  // Category 0 is already fixed to group 0 here, but canonicalize for parity
+  // with the approximate splitter and to stay robust if that ever changes.
+  canonicalizeBinaryLabels(labels);
+
   return { labels, initIdx: [], sse, converged: true };
 }
 
@@ -613,6 +628,9 @@ function approximateBinaryKMeans(
   let sse = 0;
   for (let c = 0; c < k; c++) sse += pooledSse(finalStats[c], null, 0);
 
+  // Pin the first category to cluster 0 for deterministic, comparable output.
+  canonicalizeBinaryLabels(labels);
+
   return { labels, initIdx, sse, converged };
 }
 
@@ -683,7 +701,8 @@ type BuildTreeResult = {
   /**
    * Total within-tree SSE at each stage of greedy growth, in order:
    * index 0 is the root (before the first split), index 1 is after the first
-   * split, etc. 
+   * split, etc.
+   */
   sseTrajectory: number[];
   /**
    * Per-leaf set of attribute indices the tree split on along that leaf's
@@ -723,6 +742,24 @@ function buildTreeKMeans(
   numVariations: number,
   maxLeaves: number,
 ): BuildTreeResult {
+  // Sort contexts by their attribute tuple, using the first attribute in
+  // `attributes` as the primary key and the remaining attributes as
+  // tiebreakers.  Not strictly needed, but helpful for understanding the model.
+  const compareContextValues = (a: string, b: string): number => {
+    const na = Number(a);
+    const nb = Number(b);
+    return Number.isNaN(na) || Number.isNaN(nb)
+      ? String(a).localeCompare(String(b))
+      : na - nb;
+  };
+  contexts.sort((x, y) => {
+    for (let i = 0; i < attributes.length; i++) {
+      const cmp = compareContextValues(x.tuple[i], y.tuple[i]);
+      if (cmp !== 0) return cmp;
+    }
+    return 0;
+  });
+
   const currentLeaf = new Array<number>(contexts.length).fill(0);
   // Attribute indices split on along each leaf's root→leaf path. The root leaf
   // (id 0) starts with no path constraints.
