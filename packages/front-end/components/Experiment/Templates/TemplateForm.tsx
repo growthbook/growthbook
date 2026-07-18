@@ -265,9 +265,9 @@ const TemplateForm: FC<Props> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a template under the demo datasource project.
-                This template will be deleted when the demo datasource project
-                is deleted.
+                You are creating a template in the Sample Data Project. When the
+                sample data is deleted, this template is kept and moved to All
+                Projects.
               </Callout>
             )}
 

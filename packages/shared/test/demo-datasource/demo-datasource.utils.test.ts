@@ -2,6 +2,7 @@ import {
   getDefaultProjectsForNewResource,
   getDemoDatasourcePageViewsFactTableIdForOrganization,
   getDemoDatasourceProjectIdForOrganization,
+  getDemoResourceIds,
   isDemoDatasourceProject,
 } from "../../src/demo-datasource/demo-datasource.utils";
 
@@ -54,6 +55,27 @@ describe("demo datasource utils", () => {
           organizationId: "org-abc123",
         }),
       ).toEqual([]);
+    });
+  });
+
+  describe("getDemoResourceIds", () => {
+    it("should return the full seeded-ID set", () => {
+      expect(getDemoResourceIds("org-abc123")).toEqual({
+        projectId: "prj_org-abc123_demo-datasource-project",
+        datasourceId: "ds_demo-datasource-project",
+        factTableIds: [
+          "ftb_org-abc123_demo-datasource-project",
+          "ftb_org-abc123_demo-datasource-page-views",
+        ],
+        factMetricIds: [
+          "fact__demo-revenue-per-user",
+          "fact__demo-any-purchases",
+          "fact__demo-d7-purchase-retention",
+          "fact__demo-average-order-value",
+        ],
+        experimentId: "exp_demo-datasource-project",
+        featureId: "gbdemo-checkout-layout",
+      });
     });
   });
 

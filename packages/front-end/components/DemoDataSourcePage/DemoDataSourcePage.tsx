@@ -19,11 +19,13 @@ type DemoDataSourcePageProps = {
   exists: boolean;
   onCreate: () => Promise<void>;
   onDelete: () => void | Promise<void>;
+  onReset: () => void | Promise<void>;
 };
 
 export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   onCreate,
   onDelete,
+  onReset,
   success,
   error,
   ready,
@@ -35,9 +37,13 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 
       <div className="card p-4">
         <p>
-          If you are done with this sample data, you can delete it here and all
-          of the associated features, metrics, data sources, and experiments
-          will be deleted as well.
+          When you are done exploring, delete the sample data here. Only the
+          sample resources GrowthBook created are removed — anything you created
+          yourself is kept and moved to All Projects.
+        </p>
+        <p>
+          You can also reset the sample resources back to their original state
+          at any time.
         </p>
 
         {/* Loading */}
@@ -59,15 +65,20 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
             {/* Create button */}
             {!exists && (
               <Button color="primary" onClick={onCreate}>
-                Create Demo Project
+                Create Sample Data
               </Button>
             )}
 
-            {/* Delete button */}
+            {/* Reset and delete buttons */}
             {exists && (
-              <UIButton color="red" onClick={onDelete}>
-                Delete Sample Data
-              </UIButton>
+              <div className="d-flex">
+                <UIButton variant="outline" onClick={onReset} mr="3">
+                  Reset Sample Data
+                </UIButton>
+                <UIButton color="red" onClick={onDelete}>
+                  Delete Sample Data
+                </UIButton>
+              </div>
             )}
           </div>
         )}
@@ -77,14 +88,18 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 };
 
 export async function deleteDemoDatasource(
-  orgId: string | undefined,
   apiCall: AuthContextValue["apiCall"],
 ) {
-  if (!orgId) throw new Error("Missing organization id");
-  const demoDataSourceProjectId =
-    getDemoDatasourceProjectIdForOrganization(orgId);
-  await apiCall(`/projects/${demoDataSourceProjectId}?deleteResources=true`, {
+  await apiCall(`/demo-datasource-project`, {
     method: "DELETE",
+  });
+}
+
+export async function resetDemoDatasource(
+  apiCall: AuthContextValue["apiCall"],
+) {
+  await apiCall(`/demo-datasource-project/reset`, {
+    method: "POST",
   });
 }
 
@@ -121,7 +136,7 @@ export function DeleteDemoDatasourceButton({
         track("Delete Sample Project", {
           source,
         });
-        await deleteDemoDatasource(organization.id, apiCall);
+        await deleteDemoDatasource(apiCall);
         mutateDefinitions();
 
         if (project === demoProjectId) {
@@ -133,13 +148,11 @@ export function DeleteDemoDatasourceButton({
       deleteMessage={
         <>
           <p>
-            This will delete all sample data sources, metrics, experiments, and
-            features.
+            This deletes the sample Data Source, metrics, experiment, and
+            Feature Flag that GrowthBook created. Anything you created yourself
+            is kept and moved to All Projects.
           </p>
-          <p>
-            You can re-create this sample data at any time, but any changes you
-            have made will be reverted back to the defaults.
-          </p>
+          <p>You can re-create the sample data at any time.</p>
         </>
       }
     />
@@ -158,8 +171,6 @@ export const DemoDataSourcePageContainer = () => {
   const { apiCall } = useAuth();
   const { ready, mutateDefinitions, setProject } = useDefinitions();
 
-  const { organization } = useUser();
-
   const onCreate = useCallback(async () => {
     setError(null);
     setSuccess(null);
@@ -171,7 +182,7 @@ export const DemoDataSourcePageContainer = () => {
       track("Create Sample Project", {
         source: "sample-project-page",
       });
-      setSuccess("The demo data source project was created successfully.");
+      setSuccess("The sample data was created successfully.");
     } catch (e: unknown) {
       console.error(e);
 
@@ -180,9 +191,7 @@ export const DemoDataSourcePageContainer = () => {
       } else if (e instanceof Error) {
         setError(e.message);
       } else {
-        setError(
-          "An unknown error occurred when creating the demo datasource project",
-        );
+        setError("An unknown error occurred when creating the sample data");
       }
     }
     mutateDefinitions();
@@ -198,8 +207,8 @@ export const DemoDataSourcePageContainer = () => {
       track("Delete Sample Project", {
         source: "sample-project-page",
       });
-      await deleteDemoDatasource(organization.id, apiCall);
-      setSuccess("Demo datasource project was successfully deleted.");
+      await deleteDemoDatasource(apiCall);
+      setSuccess("The sample data was successfully deleted.");
     } catch (e: unknown) {
       console.error(e);
 
@@ -208,9 +217,7 @@ export const DemoDataSourcePageContainer = () => {
       } else if (e instanceof Error) {
         setError(e.message);
       } else {
-        setError(
-          "An unknown error occurred when deleting the demo datasource project",
-        );
+        setError("An unknown error occurred when deleting the sample data");
       }
     }
     mutateDefinitions();
@@ -221,10 +228,35 @@ export const DemoDataSourcePageContainer = () => {
     apiCall,
     demoDataSourceProjectId,
     mutateDefinitions,
-    organization.id,
     currentProjectIsDemo,
     setProject,
   ]);
+
+  const onReset = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+
+    if (!demoDataSourceProjectId) return;
+
+    try {
+      track("Reset Sample Project", {
+        source: "sample-project-page",
+      });
+      await resetDemoDatasource(apiCall);
+      setSuccess("The sample data was reset to its original state.");
+    } catch (e: unknown) {
+      console.error(e);
+
+      if (typeof e === "string") {
+        setError(e);
+      } else if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("An unknown error occurred when resetting the sample data");
+      }
+    }
+    mutateDefinitions();
+  }, [apiCall, demoDataSourceProjectId, mutateDefinitions]);
 
   return (
     <DemoDataSourcePage
@@ -234,6 +266,7 @@ export const DemoDataSourcePageContainer = () => {
       exists={exists}
       onDelete={onDelete}
       onCreate={onCreate}
+      onReset={onReset}
     />
   );
 };

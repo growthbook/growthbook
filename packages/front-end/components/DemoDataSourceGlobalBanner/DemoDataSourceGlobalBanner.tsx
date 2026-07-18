@@ -20,7 +20,7 @@ type DemoDataSourceGlobalBannerProps = {
 export const DemoDataSourceGlobalBanner: FC<
   DemoDataSourceGlobalBannerProps
 > = ({ ready, currentProjectIsDemo, demoProjectId, onDeleted }) => {
-  const { apiCall, orgId } = useAuth();
+  const { apiCall } = useAuth();
   const { mutateDefinitions, project, projects, setProject } = useDefinitions();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export const DemoDataSourceGlobalBanner: FC<
     setError(null);
     try {
       track("Delete Sample Project", { source: "global-banner" });
-      await deleteDemoDatasource(orgId ?? undefined, apiCall);
+      await deleteDemoDatasource(apiCall);
       mutateDefinitions();
       if (project === demoProjectId) {
         const nextProject =
@@ -52,7 +52,6 @@ export const DemoDataSourceGlobalBanner: FC<
     demoProjectId,
     mutateDefinitions,
     onDeleted,
-    orgId,
     project,
     projects,
     router,
@@ -85,11 +84,7 @@ export const DemoDataSourceGlobalBanner: FC<
             }
             content={
               <div style={{ maxWidth: 360 }}>
-                <p>
-                  If you are done with this sample data, you can delete it here
-                  and all of the associated features, metrics, data sources, and
-                  experiments will be deleted as well.
-                </p>
+                <p>If you are done with this sample data, delete it here.</p>
                 {error && (
                   <Callout status="error" mb="2">
                     {error}

@@ -378,7 +378,7 @@ export default function FeatureModal({
       <FormProvider {...form}>
         {currentProjectIsDemo && (
           <Callout status="warning" mb="3">
-            You are creating a feature under the demo datasource project.
+            You are creating a feature in the Sample Data Project.
           </Callout>
         )}
 
@@ -388,7 +388,7 @@ export default function FeatureModal({
           <>
             {selectedProject === demoProjectId && (
               <Callout status="warning" mb="3">
-                You are creating a feature under the demo datasource project.
+                You are creating a feature in the Sample Data Project.
               </Callout>
             )}
             <SelectField

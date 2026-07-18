@@ -5,28 +5,13 @@ import { stringToBoolean } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  deleteAllDataSourcesForAProject,
-  removeProjectFromDatasources,
-} from "back-end/src/models/DataSourceModel";
-import {
-  deleteAllMetricsForAProject,
-  removeProjectFromMetrics,
-} from "back-end/src/models/MetricModel";
-import {
-  deleteAllFeaturesForAProject,
-  removeProjectFromFeatures,
-} from "back-end/src/models/FeatureModel";
-import { removeProjectFromProjectRoles } from "back-end/src/models/OrganizationModel";
-import {
-  deleteAllExperimentsForAProject,
-  removeProjectFromExperiments,
-} from "back-end/src/models/ExperimentModel";
-import {
-  deleteAllSlackIntegrationsForAProject,
-  removeProjectFromSlackIntegration,
-} from "back-end/src/models/SlackIntegrationModel";
+import { deleteAllDataSourcesForAProject } from "back-end/src/models/DataSourceModel";
+import { deleteAllMetricsForAProject } from "back-end/src/models/MetricModel";
+import { deleteAllFeaturesForAProject } from "back-end/src/models/FeatureModel";
+import { deleteAllExperimentsForAProject } from "back-end/src/models/ExperimentModel";
+import { deleteAllSlackIntegrationsForAProject } from "back-end/src/models/SlackIntegrationModel";
 import { deleteAllFactTablesForAProject } from "back-end/src/models/FactTableModel";
+import { cleanupProjectReferences } from "back-end/src/services/projects";
 
 // region POST /projects
 
@@ -172,10 +157,9 @@ export const deleteProject = async (
 
   const failedToDeleteResources: string[] = [];
 
-  // Cleanup functions from other models
-  // Clean up data sources
-  try {
-    if (deleteResources) {
+  if (deleteResources) {
+    // Clean up data sources
+    try {
       if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -185,18 +169,12 @@ export const deleteProject = async (
         projectId: id,
         organizationId: org.id,
       });
-      // Also untag multi-project resources that still reference this project.
-      await removeProjectFromDatasources(id, org.id);
-    } else {
-      await removeProjectFromDatasources(id, org.id);
+    } catch (e) {
+      failedToDeleteResources.push("data sources");
     }
-  } catch (e) {
-    failedToDeleteResources.push("data sources");
-  }
 
-  // Clean up metrics
-  try {
-    if (deleteResources) {
+    // Clean up metrics
+    try {
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
@@ -204,30 +182,23 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-      await removeProjectFromMetrics(id, org.id);
-    } else {
-      await removeProjectFromMetrics(id, org.id);
+    } catch (e) {
+      failedToDeleteResources.push("metrics");
     }
-  } catch (e) {
-    failedToDeleteResources.push("metrics");
-  }
 
-  // Clean up fact tables and metrics
-  try {
-    if (deleteResources) {
+    // Clean up fact tables and metrics
+    try {
       await deleteAllFactTablesForAProject({
         projectId: id,
         context,
       });
       await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
+    } catch (e) {
+      failedToDeleteResources.push("fact tables and metrics");
     }
-  } catch (e) {
-    failedToDeleteResources.push("fact tables and metrics");
-  }
 
-  // Clean up features
-  try {
-    if (deleteResources) {
+    // Clean up features
+    try {
       if (!context.permissions.canDeleteFeature({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -236,16 +207,12 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } else {
-      await removeProjectFromFeatures(context, id);
+    } catch (e) {
+      failedToDeleteResources.push("features");
     }
-  } catch (e) {
-    failedToDeleteResources.push("features");
-  }
 
-  // Clean up experiments
-  try {
-    if (deleteResources) {
+    // Clean up experiments
+    try {
       if (!context.permissions.canDeleteExperiment({ project: id })) {
         context.permissions.throwPermissionError();
       }
@@ -253,16 +220,12 @@ export const deleteProject = async (
         projectId: id,
         context,
       });
-    } else {
-      await removeProjectFromExperiments(context, id);
+    } catch (e) {
+      failedToDeleteResources.push("experiments");
     }
-  } catch (e) {
-    failedToDeleteResources.push("experiments");
-  }
 
-  // Clean up Slack integrations
-  try {
-    if (deleteResources) {
+    // Clean up Slack integrations
+    try {
       if (!context.permissions.canManageIntegrations()) {
         context.permissions.throwPermissionError();
       }
@@ -271,43 +234,16 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
       });
-    } else {
-      await removeProjectFromSlackIntegration({
-        organizationId: org.id,
-        projectId: id,
-      });
+    } catch (e) {
+      failedToDeleteResources.push("Slack integrations");
     }
-  } catch (e) {
-    failedToDeleteResources.push("Slack integrations");
   }
 
-  // Clean up project roles
-  try {
-    await removeProjectFromProjectRoles(id, org);
-  } catch (e) {
-    failedToDeleteResources.push("project roles");
-  }
-
-  // Clean up saved groups
-  try {
-    await context.models.savedGroups.removeProjectIdFromAllGroups(id);
-  } catch (e) {
-    failedToDeleteResources.push("saved groups");
-  }
-
-  // Clean up constants
-  try {
-    await context.models.constants.removeProjectIdFromAll(id);
-  } catch (e) {
-    failedToDeleteResources.push("constants");
-  }
-
-  // Clean up configs
-  try {
-    await context.models.configs.removeProjectIdFromAll(id);
-  } catch (e) {
-    failedToDeleteResources.push("configs");
-  }
+  // Remove references to the project from surviving multi-project resources
+  // and org-level settings.
+  failedToDeleteResources.push(
+    ...(await cleanupProjectReferences(context, id)),
+  );
 
   // TODO: other resources to clean up
   // ideas?

@@ -1,162 +1,60 @@
 import type { Response } from "express";
-import {
-  getDemoDatasourceFactTableIdForOrganization,
-  getDemoDatasourcePageViewsFactTableIdForOrganization,
-  getDemoDataSourceFeatureId,
-  getDemoDatasourceProjectIdForOrganization,
-} from "shared/demo-datasource";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { getScopedSettings } from "shared/settings";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
-import { PostgresConnectionParams } from "shared/types/integrations/postgres";
-import { DataSourceSettings } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
-import {
-  FactMetricInterface,
-  MetricWindowSettings,
-} from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { createDataSource } from "back-end/src/models/DataSourceModel";
-import {
-  createExperiment,
-  getAllExperiments,
-} from "back-end/src/models/ExperimentModel";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { SoftWarningError } from "back-end/src/util/errors";
-import {
-  createSnapshot,
-  getDefaultExperimentAnalysisSettings,
-} from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { createFeature } from "back-end/src/models/FeatureModel";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
-import { getEnvironments } from "back-end/src/util/organization.util";
 import {
-  createFactTable,
-  getFactTableMap,
-} from "back-end/src/models/FactTableModel";
-import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+  deleteDemoResources,
+  isLegacyDemoSeed,
+  seedDemoResources,
+} from "back-end/src/services/demo-datasource";
+import { cleanupProjectReferences } from "back-end/src/services/projects";
 
-// region Constants for Demo Datasource
+// region Permission checks
 
-// Datasource constants
-const DATASOURCE_TYPE = "postgres";
-const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
-  userIdTypes: [{ userIdType: "user_id", description: "Logged-in user id" }],
-  queries: {
-    exposure: [
-      {
-        id: "user_id",
-        name: "Logged-in User Experiments",
-        userIdType: "user_id",
-        query:
-          "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
-        dimensions: ["browser"],
-        dimensionMetadata: [
-          {
-            dimension: "browser",
-            specifiedSlices: ["Chrome", "Firefox", "Safari", "Edge"],
-            customSlices: true,
-          },
-        ],
-      },
-    ],
-  },
-};
+function checkCanCreateDemoResources(
+  req: AuthRequest,
+  context: ReqContext,
+  demoProjId: string,
+): void {
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
+  req.checkPermissions("createAnalyses", "");
 
-const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
-  user: "gbdemoreader",
-  host: "sample-data.growthbook.io",
-  database: "growthbook",
-  password: "WnGeRgTPwEu4",
-  port: 5432,
-  ssl: true,
-  defaultSchema: "sample",
-};
+  if (
+    !context.permissions.canCreateFactMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateFactTable({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateDataSource({
+      projects: [demoProjId],
+      type: "postgres",
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
 
-const DEMO_TAGS = ["growthbook-demo"];
+function checkCanDeleteDemoResources(
+  context: ReqContext,
+  demoProjId: string,
+): void {
+  if (
+    !context.permissions.canDeleteDataSource({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFactMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFactTable({ projects: [demoProjId] }) ||
+    !context.permissions.canDeleteFeature({ project: demoProjId }) ||
+    !context.permissions.canDeleteExperiment({ project: demoProjId })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+}
 
-// Metric constants
-const RETENTION_WINDOW_SETTINGS: MetricWindowSettings = {
-  type: "",
-  windowUnit: "days",
-  windowValue: 7,
-  delayUnit: "days",
-  delayValue: 7,
-};
-const EMPTY_WINDOW_SETTINGS: MetricWindowSettings = {
-  type: "",
-  windowUnit: "days",
-  windowValue: 3,
-  delayUnit: "hours",
-  delayValue: 0,
-};
-const DEMO_METRICS: Pick<
-  FactMetricInterface,
-  "name" | "description" | "metricType" | "numerator" | "windowSettings"
->[] = [
-  {
-    name: "Revenue per User",
-    description: "The total amount of USD spent aggregated at the user level",
-    metricType: "mean",
-    numerator: {
-      factTableId: "",
-      column: "value",
-    },
-    windowSettings: EMPTY_WINDOW_SETTINGS,
-  },
-  {
-    name: "Any Purchases",
-    description: "Whether the user places any order or not (0/1)",
-    metricType: "proportion",
-    numerator: {
-      factTableId: "",
-      column: "$$distinctUsers",
-    },
-    windowSettings: EMPTY_WINDOW_SETTINGS,
-  },
-  {
-    name: "D7 Purchase Retention",
-    description: "",
-    metricType: "retention",
-    numerator: {
-      factTableId: "",
-      column: "$$distinctUsers",
-    },
-    windowSettings: RETENTION_WINDOW_SETTINGS,
-  },
-];
-
-const DEMO_RATIO_METRIC: Pick<
-  FactMetricInterface,
-  | "name"
-  | "description"
-  | "metricType"
-  | "numerator"
-  | "denominator"
-  | "windowSettings"
-> = {
-  name: "Average Order Value",
-  description: "The average value of purchases",
-  metricType: "ratio",
-  numerator: {
-    factTableId: "",
-    column: "value",
-  },
-  denominator: {
-    factTableId: "",
-    column: "$$count",
-  },
-  windowSettings: EMPTY_WINDOW_SETTINGS,
-};
-
-const DEMO_DATA_EXPERIMENT_ID = "gbdemo-add-to-cart-cta";
-
-// endregion Constants for Demo Datasource
+// endregion Permission checks
 
 // region POST /demo-datasource-project
 
@@ -170,7 +68,9 @@ type CreateDemoDatasourceProjectResponse = {
 
 /**
  * POST /demo-datasource-project
- * Create a demo-datasource-project resource
+ * Create the sample data project and its seeded resources. Idempotent: any
+ * seeded resource that already exists is left alone, so re-posting heals a
+ * partial seed.
  * @param req
  * @param res
  */
@@ -182,34 +82,14 @@ export const postDemoDatasourceProject = async (
   >,
 ) => {
   const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
 
-  if (!context.permissions.canCreateProjects()) {
-    context.permissions.throwPermissionError();
-  }
-  req.checkPermissions("createAnalyses", "");
-
-  const { org } = context;
-
-  const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
-  const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(org.id);
-  const demoPageViewsFactTableId =
-    getDemoDatasourcePageViewsFactTableIdForOrganization(org.id);
-
-  if (
-    !context.permissions.canCreateFactMetric({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateFactTable({ projects: [demoProjId] }) ||
-    !context.permissions.canCreateDataSource({
-      projects: [demoProjId],
-      type: "postgres",
-    })
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  checkCanCreateDemoResources(req, context, demoProjId);
 
   const existingDemoProject: ProjectInterface | null =
     await context.models.projects.getById(demoProjId);
 
-  if (existingDemoProject) {
+  if (existingDemoProject && (await isLegacyDemoSeed(context))) {
     const existingExperiments = await getAllExperiments(context, {
       project: existingDemoProject.id,
       includeArchived: true,
@@ -224,374 +104,12 @@ export const postDemoDatasourceProject = async (
   }
 
   try {
-    const project = await context.models.projects.create({
-      id: demoProjId,
-      name: "Sample Data",
-    });
-    const datasource = await createDataSource(
-      context,
-      "Sample Data Source",
-      DATASOURCE_TYPE,
-      DEMO_DATASOURCE_PARAMS,
-      DEMO_DATASOURCE_SETTINGS,
-      undefined,
-      "",
-      [project.id],
-    );
-
-    // Create fact table
-    const demoFactTable = await createFactTable(context, {
-      id: demoFactTableId,
-      name: "purchases",
-      description: "",
-      owner: context.userId,
-      tags: DEMO_TAGS,
-      userIdTypes: ["user_id"],
-      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value,\nbrowser,\ncountry\nFROM purchases",
-      eventName: "purchases",
-      datasource: datasource.id,
-      projects: [project.id],
-      columns: [
-        {
-          column: "user_id",
-          datatype: "string",
-        },
-        {
-          column: "timestamp",
-          datatype: "date",
-        },
-        {
-          column: "value",
-          datatype: "number",
-          numberFormat: "currency",
-        },
-        {
-          column: "browser",
-          datatype: "string",
-        },
-        {
-          column: "country",
-          datatype: "string",
-        },
-      ],
-      columnRefreshPending: true,
-    });
-
-    // Kick off a column refresh so string columns get topValues populated
-    // for autocomplete dropdowns in filters and Group By.
-    await queueFactTableColumnsRefresh(demoFactTable);
-
-    const demoPageViewsFactTable = await createFactTable(context, {
-      id: demoPageViewsFactTableId,
-      name: "page_views",
-      description: "",
-      owner: context.userId,
-      tags: DEMO_TAGS,
-      userIdTypes: ["user_id"],
-      sql: "SELECT\nuserId AS user_id,\ntimestamp,\nbrowser,\ncountry,\npath\nFROM pages",
-      eventName: "page_views",
-      datasource: datasource.id,
-      projects: [project.id],
-      columns: [
-        {
-          column: "user_id",
-          datatype: "string",
-        },
-        {
-          column: "timestamp",
-          datatype: "date",
-        },
-        {
-          column: "browser",
-          datatype: "string",
-        },
-        {
-          column: "country",
-          datatype: "string",
-        },
-        {
-          column: "path",
-          datatype: "string",
-          alwaysInlineFilter: true,
-        },
-      ],
-      columnRefreshPending: true,
-    });
-
-    await queueFactTableColumnsRefresh(demoPageViewsFactTable);
-
-    // Create metrics
-    const metrics = await Promise.all(
-      DEMO_METRICS.map(async (m) => {
-        return context.models.factMetrics.create({
-          ...m,
-          ...(m.metricType === "retention"
-            ? { id: `fact__demo-d7-purchase-retention` }
-            : {}),
-          owner: context.userId,
-          datasource: datasource.id,
-          projects: [project.id],
-          tags: DEMO_TAGS,
-          inverse: false,
-          numerator: {
-            ...m.numerator,
-            factTableId: demoFactTableId,
-          },
-          denominator: null,
-          winRisk: 0.0025,
-          loseRisk: 0.0125,
-          regressionAdjustmentOverride: false,
-          regressionAdjustmentEnabled: false,
-          metricAutoSlices: [],
-          cappingSettings: {
-            type: "",
-            value: 0,
-          },
-          priorSettings: {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: 0.3,
-          },
-          maxPercentChange: 0.5,
-          minPercentChange: 0.005,
-          minSampleSize: 150,
-          targetMDE: 0.1,
-          regressionAdjustmentDays: 14,
-          quantileSettings: null,
-        });
-      }),
-    );
-
-    const ratioMetric = await context.models.factMetrics.create({
-      ...DEMO_RATIO_METRIC,
-      owner: context.userId,
-      datasource: datasource.id,
-      projects: [project.id],
-      tags: DEMO_TAGS,
-      inverse: false,
-      numerator: {
-        ...DEMO_RATIO_METRIC.numerator,
-        factTableId: demoFactTableId,
-      },
-      denominator: {
-        ...DEMO_RATIO_METRIC.denominator!,
-        factTableId: demoFactTableId,
-      },
-      winRisk: 0.0025,
-      loseRisk: 0.0125,
-      regressionAdjustmentOverride: false,
-      regressionAdjustmentEnabled: false,
-      metricAutoSlices: [],
-      cappingSettings: {
-        type: "",
-        value: 0,
-      },
-      priorSettings: {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: 0.3,
-      },
-      maxPercentChange: 0.5,
-      minPercentChange: 0.005,
-      minSampleSize: 150,
-      targetMDE: 0.1,
-      regressionAdjustmentDays: 14,
-      quantileSettings: null,
-    });
-
-    const goalMetrics = metrics.slice(0, 1).map((m) => m.id);
-
-    const secondaryMetrics = metrics
-      .slice(1, undefined)
-      .map((m) => m.id)
-      .concat(ratioMetric ? ratioMetric?.id : []);
-
-    // Create experiment
-    const experimentStartDate = new Date();
-    experimentStartDate.setDate(experimentStartDate.getDate() - 30);
-    const experimentToCreate: Pick<
-      ExperimentInterface,
-      | "name"
-      | "owner"
-      | "description"
-      | "datasource"
-      | "goalMetrics"
-      | "secondaryMetrics"
-      | "project"
-      | "hypothesis"
-      | "exposureQueryId"
-      | "status"
-      | "tags"
-      | "trackingKey"
-      | "variations"
-      | "phases"
-      | "regressionAdjustmentEnabled"
-    > = {
-      name: DEMO_DATA_EXPERIMENT_ID,
-      trackingKey: DEMO_DATA_EXPERIMENT_ID,
-      description: `Experiment to test impact of a different 'Add to Cart' CTA design.
-Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
-      hypothesis: `We predict the treatment will increase Purchase metrics and have uncertain effects on Retention.`,
-      owner: context.userId,
-      datasource: datasource.id,
-      project: project.id,
-      goalMetrics,
-      secondaryMetrics,
-      exposureQueryId: "user_id",
-      status: "running",
-      tags: DEMO_TAGS,
-      regressionAdjustmentEnabled: true,
-      variations: [
-        {
-          id: "var_0",
-          key: "0",
-          name: "Control",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/add-to-cart-control.png",
-            },
-          ],
-        },
-        {
-          id: "var_1",
-          key: "1",
-          name: "Treatment",
-          screenshots: [
-            {
-              path: "/images/demo-datasource/add-to-cart-treatment.png",
-            },
-          ],
-        },
-      ],
-      phases: [
-        {
-          dateStarted: experimentStartDate,
-          name: "",
-          reason: "",
-          coverage: 1,
-          condition: "",
-          namespace: { enabled: false, name: "", range: [0, 1] },
-          variationWeights: [0.5, 0.5],
-          variations: [
-            { id: "var_0", status: "active" as const },
-            { id: "var_1", status: "active" as const },
-          ],
-        },
-      ],
-    };
-
-    const createdExperiment = await createExperiment({
-      data: experimentToCreate,
-      context,
-    });
-
-    // Create feature
-    const featureToCreate: FeatureInterface = {
-      id: getDemoDataSourceFeatureId(),
-      version: 1,
-      project: project.id,
-      organization: org.id,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      description:
-        "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
-      owner: context.userId,
-      valueType: "boolean",
-      defaultValue: "false",
-      tags: DEMO_TAGS,
-      environmentSettings: {},
-      rules: [],
-    };
-
-    // Skip envs scoped to other projects — they'd leave unreachable rules.
-    const applicableEnvs = getApplicableEnvIds(
-      getEnvironments(org),
-      project.id,
-    );
-    applicableEnvs.forEach((env) => {
-      featureToCreate.environmentSettings[env] = {
-        enabled: true,
-      };
-    });
-    // Single rules array tagged for all environments — avoids per-env duplicates.
-    featureToCreate.rules.push(
-      {
-        type: "force",
-        description: "",
-        id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-        allEnvironments: true,
-        environments: [],
-        value: "true",
-        condition: `{"is_employee":true}`,
-        enabled: true,
-      },
-      {
-        type: "experiment-ref",
-        description: "",
-        id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-        allEnvironments: true,
-        environments: [],
-        enabled: true,
-        experimentId: createdExperiment.id,
-        variations: [
-          {
-            variationId: "v0",
-            value: "false",
-          },
-          {
-            variationId: "v1",
-            value: "true",
-          },
-        ],
-      },
-    );
-
-    await createFeature(context, featureToCreate);
-
-    // Use the same helper the runtime uses so the snapshot's analysis
-    // settings line up with what the front-end will compute when checking
-    // for stale results — otherwise the experiment shows as "Outdated"
-    // immediately after creation.
-    const { settings: scopedSettings } = getScopedSettings({
-      organization: org,
-      project,
-      experiment: createdExperiment,
-    });
-    const analysisSettings: ExperimentSnapshotAnalysisSettings =
-      getDefaultExperimentAnalysisSettings({
-        statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-        experiment: createdExperiment,
-        organization: org,
-        regressionAdjustmentEnabled:
-          createdExperiment.regressionAdjustmentEnabled,
-        postStratificationEnabled:
-          scopedSettings.postStratificationEnabled.value,
-        pValueThreshold: scopedSettings.pValueThreshold.value,
-      });
-
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    await createSnapshot({
-      experiment: createdExperiment,
-      context,
-      phaseIndex: 0,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: [],
-      settingsForSnapshotMetrics: [],
-      metricMap: metricMap,
-      factTableMap,
-      useCache: true,
-      type: "standard",
-      triggeredBy: "manual",
-    });
+    const { project, experiment } = await seedDemoResources(context);
 
     res.status(200).json({
       status: 200,
-      project: project,
-      experimentId: createdExperiment.id,
+      project,
+      experimentId: experiment.id,
     });
   } catch (e) {
     if (e instanceof SoftWarningError) throw e;
@@ -604,3 +122,111 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 };
 
 // endregion POST /demo-datasource-project
+
+// region DELETE /demo-datasource-project
+
+type DeleteDemoDatasourceProjectRequest = AuthRequest;
+
+type DeleteDemoDatasourceProjectResponse = {
+  status: 200;
+};
+
+/**
+ * DELETE /demo-datasource-project
+ * Delete the seeded sample resources and the Sample Data project. Resources
+ * the user created are kept: any reference to the project is removed and they
+ * fall back to "All Projects".
+ * @param req
+ * @param res
+ */
+export const deleteDemoDatasourceProject = async (
+  req: DeleteDemoDatasourceProjectRequest,
+  res: Response<
+    DeleteDemoDatasourceProjectResponse | PrivateApiErrorResponse,
+    EventUserForResponseLocals
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
+
+  if (!context.permissions.canDeleteProject(demoProjId)) {
+    context.permissions.throwPermissionError();
+  }
+  checkCanDeleteDemoResources(context, demoProjId);
+
+  await deleteDemoResources(context);
+
+  const failedToCleanUp = await cleanupProjectReferences(context, demoProjId);
+
+  if (await context.models.projects.getById(demoProjId)) {
+    await context.models.projects.deleteById(demoProjId);
+  }
+
+  if (failedToCleanUp.length > 0) {
+    res.status(400).json({
+      status: 400,
+      message:
+        `Sample data deleted, but failed to remove the Project from the following resources: ` +
+        failedToCleanUp.join(", "),
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion DELETE /demo-datasource-project
+
+// region POST /demo-datasource-project/reset
+
+type ResetDemoDatasourceProjectRequest = AuthRequest;
+
+type ResetDemoDatasourceProjectResponse = {
+  status: 200;
+  project: ProjectInterface;
+  experimentId: string;
+};
+
+/**
+ * POST /demo-datasource-project/reset
+ * Restore the seeded sample resources to their original state by deleting
+ * whichever still exist and re-seeding. User-created resources are not
+ * touched and the project is kept.
+ * @param req
+ * @param res
+ */
+export const postResetDemoDatasourceProject = async (
+  req: ResetDemoDatasourceProjectRequest,
+  res: Response<
+    ResetDemoDatasourceProjectResponse | PrivateApiErrorResponse,
+    EventUserForResponseLocals
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(context.org.id);
+
+  checkCanCreateDemoResources(req, context, demoProjId);
+  checkCanDeleteDemoResources(context, demoProjId);
+
+  try {
+    await deleteDemoResources(context);
+    const { project, experiment } = await seedDemoResources(context);
+
+    res.status(200).json({
+      status: 200,
+      project,
+      experimentId: experiment.id,
+    });
+  } catch (e) {
+    if (e instanceof SoftWarningError) throw e;
+    res.status(500).json({
+      status: 500,
+      message: `Failed to reset sample data with message: ${e.message}`,
+    });
+  }
+  return;
+};
+
+// endregion POST /demo-datasource-project/reset

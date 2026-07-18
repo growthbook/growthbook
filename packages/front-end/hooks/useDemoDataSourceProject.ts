@@ -1,6 +1,8 @@
 import { ProjectInterface } from "shared/types/project";
 import {
   DEMO_DATASOURCE_HOST,
+  DEMO_DATASOURCE_ID,
+  DEMO_EXPERIMENT_ID,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
@@ -47,12 +49,13 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const demoFeatureId = getDemoDataSourceFeatureId();
 
-  // Prefer the known sample-data host so a user resource mistakenly tagged
-  // with only the Sample Data project is not treated as the demo datasource.
+  // Seeded resources have constant IDs. Fall back to the known sample-data
+  // host for orgs seeded before constant IDs existed.
   const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
     if (!demoProjectId) return null;
 
     return (
+      datasources.find((d) => d.id === DEMO_DATASOURCE_ID) ||
       datasources.find(
         (d) =>
           d.type === "postgres" &&
@@ -60,19 +63,21 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
           "host" in d.params &&
           d.params.host === DEMO_DATASOURCE_HOST,
       ) ||
-      datasources.find(
-        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId,
-      ) ||
       null
     );
   }, [datasources, demoProjectId]);
   const demoDataSourceId = demoDataSource?.id || null;
 
-  // We assume the demo experiment is the one under the demo project
   const demoExperiment: ExperimentInterfaceStringDates | null = useMemo(() => {
     if (!demoProjectId) return null;
 
-    return experiments.find((d) => d.project === demoProjectId) || null;
+    return (
+      experiments.find((e) => e.id === DEMO_EXPERIMENT_ID) ||
+      // Legacy seeds used random experiment IDs — assume the demo experiment
+      // is the one under the demo project.
+      experiments.find((d) => d.project === demoProjectId) ||
+      null
+    );
   }, [experiments, demoProjectId]);
   const demoExperimentId = demoExperiment?.id || null;
 

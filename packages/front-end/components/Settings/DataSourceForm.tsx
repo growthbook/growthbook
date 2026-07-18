@@ -7,7 +7,7 @@ import {
 } from "react";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { DEMO_DATASOURCE_HOST } from "shared/demo-datasource";
+import { DEMO_DATASOURCE_ID } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Button from "@/ui/Button";
 import SelectField from "@/components/Forms/SelectField";
@@ -57,13 +57,11 @@ const DataSourceForm: FC<{
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  // Lock the real Sample Data connection only — not user datasources that were
-  // mistakenly tagged with the Sample Data project.
-  const isSampleData =
-    data.type === "postgres" &&
-    !!data.params &&
-    "host" in data.params &&
-    data.params.host === DEMO_DATASOURCE_HOST;
+  // Lock the seeded Sample Data connection only — not user datasources that
+  // were tagged with the Sample Data project. If its connection were
+  // repurposed to point at a real database, "Delete Sample Data" would still
+  // remove it, so editing it is never safe.
+  const isSampleData = data.id === DEMO_DATASOURCE_ID;
 
   const permissionRequired = (project: string) => {
     return existing

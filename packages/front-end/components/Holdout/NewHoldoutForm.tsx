@@ -406,9 +406,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
             {currentProjectIsDemo && (
               <Callout status="warning">
-                You are creating a holdout under the demo datasource project.
-                This experiment will be deleted when the demo datasource project
-                is deleted.
+                You are creating a holdout in the Sample Data Project. When the
+                sample data is deleted, this holdout is kept and moved to All
+                Projects.
               </Callout>
             )}
 

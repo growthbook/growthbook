@@ -5,6 +5,7 @@ import {
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
+import { DEMO_DATASOURCE_ID } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
@@ -116,9 +117,15 @@ const DataSourcePage: FC = () => {
 
   const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
 
+  // The sample Data Source connects to a shared, GrowthBook-operated database.
+  // Its connection info is never editable — repointing it would break the
+  // sample data and it would still be removed by "Delete Sample Data".
+  const isSampleDataSource = d?.id === DEMO_DATASOURCE_ID;
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
+      !isSampleDataSource &&
       permissionsUtil.canUpdateDataSourceParams(d) &&
       !hasFileConfig()) ||
     false;
