@@ -1564,14 +1564,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - id
@@ -2460,14 +2470,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -2665,14 +2685,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - revision
@@ -3323,14 +3353,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - defaultValue
@@ -4515,14 +4555,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - environment
@@ -5144,14 +5194,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - environment
@@ -6265,14 +6325,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -7069,14 +7139,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - id
@@ -7710,14 +7790,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -7891,14 +7981,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - revision
@@ -8786,14 +8886,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - defaultValue
@@ -9683,14 +9793,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - rule
@@ -10334,14 +10454,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - rule
@@ -12096,14 +12226,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19818,14 +19958,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19920,14 +20070,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -19997,14 +20157,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -20783,14 +20953,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -20921,14 +21101,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21154,14 +21344,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - key
@@ -21807,14 +22007,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21923,14 +22133,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -21999,14 +22219,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22443,14 +22673,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22560,14 +22800,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22677,14 +22927,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -22786,14 +23046,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - source
@@ -22932,14 +23202,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - archived
@@ -23014,14 +23294,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23258,14 +23548,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               required:
                 - scheduledPublishAt
@@ -23481,14 +23781,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:
@@ -23621,14 +23931,24 @@ paths:
                   type: boolean
                 skipSchemaValidation:
                   description: >-
-                    Force past VALIDATION-class failures: JSON-schema validation
-                    of the value(s) written, cross-field invariants, downstream
-                    schema breaks (a change that makes a dependent config or
-                    config-backed feature value violate its schema), and custom
-                    validation-hook rejections. Only honored for callers with
+                    Force past schema-validation failures: JSON-schema
+                    validation of the value(s) written, cross-field invariants,
+                    and downstream schema breaks (a change that makes a
+                    dependent config or config-backed feature value violate its
+                    schema). Does NOT clear a custom validation-hook rejection —
+                    use `skipHooks` for that. Only honored for callers with
                     org-wide bypass authority (the `bypassApprovalChecks`
                     permission on all projects); ignored otherwise. Validation
                     is enforced by default.
+                  type: boolean
+                skipHooks:
+                  description: >-
+                    Force past a custom validation hook that rejected the change
+                    (a hook that threw). Separate from `skipSchemaValidation` —
+                    a hook failure is not a schema error. Only honored for
+                    callers with org-wide bypass authority (the
+                    `bypassApprovalChecks` permission on all projects); ignored
+                    otherwise.
                   type: boolean
               additionalProperties: false
       responses:

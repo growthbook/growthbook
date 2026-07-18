@@ -22,13 +22,18 @@
 //    them, and they are kept OUT of the flattened `warnings` list so an
 //    ignoreWarnings ack-and-retry never loops on a gate it can't clear.
 
-// Two override kinds, one per gate class:
+// Override kinds, one per gate class:
 //  - "ignoreWarnings": acknowledge-class (experiment guard, stale-base,
-//    archive-dependents, downstream soft warnings) — anyone can clear it.
-//  - "skipSchemaValidation": validation-class (own-schema errors, cross-field
-//    invariants, schema-break, custom-hook failures) — clearable ONLY by a
-//    caller holding the bypassApprovalChecks permission.
-export type PublishGateOverride = "ignoreWarnings" | "skipSchemaValidation";
+//    archive-dependents, hook warnings) — anyone can clear it.
+//  - "skipSchemaValidation": schema-validation-class (own-schema errors,
+//    cross-field invariants, schema-break) — clearable ONLY by a caller holding
+//    the bypassApprovalChecks permission.
+//  - "skipHooks": custom validation-hook rejections — also bypassApprovalChecks
+//    only, but its own flag (a hook failure isn't a schema error).
+export type PublishGateOverride =
+  | "ignoreWarnings"
+  | "skipSchemaValidation"
+  | "skipHooks";
 
 /** The non-flag way past a gate, expressed as a callable REST route. */
 export type PublishGateResolution = {
@@ -67,6 +72,7 @@ export type PublishGate = {
 export type PublishOverrideFlags = {
   ignoreWarnings?: boolean;
   skipSchemaValidation?: boolean;
+  skipHooks?: boolean;
 };
 
 // The override class for a schema-family failure (JSON-schema conformance,
@@ -124,6 +130,12 @@ export type PublishGateClearance = {
    * gate is bypassed iff this is true — the org REST-bypass setting never grants it.
    */
   skipSchemaValidation: boolean;
+  /**
+   * The caller may skip a custom validation-hook rejection — passed `skipHooks`
+   * AND holds the bypassApprovalChecks permission. Resolves flag+permission
+   * together (mirrors `context.skipHooks`).
+   */
+  skipHooks: boolean;
   /** The caller holds the bypassApprovalChecks permission on the entity's scope. */
   bypassApprovalPermission: boolean;
   /** The org's REST-bypass setting clears approval for this caller. */
@@ -184,6 +196,11 @@ export function classifyPublishGate(
   if (gate.override === "skipSchemaValidation") {
     return clearance.skipSchemaValidation
       ? { outcome: "bypassed", via: "skipSchemaValidation" }
+      : { outcome: "blocking" };
+  }
+  if (gate.override === "skipHooks") {
+    return clearance.skipHooks
+      ? { outcome: "bypassed", via: "skipHooks" }
       : { outcome: "blocking" };
   }
 

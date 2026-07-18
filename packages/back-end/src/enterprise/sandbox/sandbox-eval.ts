@@ -570,11 +570,12 @@ async function _runCustomHooks(
     configBases,
   );
 
-  // A hard hook error (a hook threw) is validation-class: it blocks unless the
-  // caller passes the privileged skipSchemaValidation (which already requires
-  // the bypassApprovalChecks permission). This is the assert-path equivalent of
-  // the custom-hook gate the REST publish handlers emit.
-  if (hardErrors.length && !context.skipSchemaValidation) {
+  // A hard hook error (a hook threw) blocks unless the caller passes the
+  // privileged skipHooks (which already requires the bypassApprovalChecks
+  // permission). Its own flag, not skipSchemaValidation — a hook failure isn't a
+  // schema error. This is the assert-path equivalent of the custom-hook gate the
+  // REST publish handlers emit.
+  if (hardErrors.length && !context.skipHooks) {
     throw new Error(hardErrors.join("\n"));
   }
 

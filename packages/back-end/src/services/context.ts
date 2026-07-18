@@ -403,6 +403,20 @@ export class ReqContextClass {
     return this.permissions.canBypassApprovalChecks({ project: undefined });
   }
 
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority (the bypassApprovalChecks
+  // permission on all projects); ignored otherwise.
+  public get skipHooks(): boolean {
+    if (!this.req) return false;
+    const queryValue = this.req.query?.skipHooks;
+    const requested =
+      this.bodyFlag("skipHooks") ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue));
+    if (!requested) return false;
+    return this.permissions.canBypassApprovalChecks({ project: undefined });
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
   }

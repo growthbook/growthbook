@@ -348,7 +348,7 @@ export async function publishFeatureRevision(
           "A custom validation hook rejected this publish:",
           ...hookHardErrors,
         ],
-        override: "skipSchemaValidation",
+        override: "skipHooks",
         requiresPermission: "bypassApprovalChecks",
         resolution: null,
       });
@@ -375,6 +375,7 @@ export async function publishFeatureRevision(
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: forceMergeRequested,
     skipSchemaValidation: req.context.skipSchemaValidation,
+    skipHooks: req.context.skipHooks,
     bypassApprovalPermission:
       req.context.permissions.canBypassApprovalChecks(feature),
     restApiBypassesReviews: canUseRestApiBypass,

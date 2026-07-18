@@ -77,6 +77,7 @@ async function setArchivedState(
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: context.ignoreWarnings,
     skipSchemaValidation: context.skipSchemaValidation,
+    skipHooks: context.skipHooks,
     bypassApprovalPermission: adapter.canBypassApproval(context, savedGroup),
     restApiBypassesReviews: canUseRestApiBypassSetting(req),
     canForceMergeStaleBase: adapter.canBypassApproval(context, savedGroup),

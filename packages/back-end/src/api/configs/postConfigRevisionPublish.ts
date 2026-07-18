@@ -189,7 +189,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
         "A custom validation hook rejected this publish:",
         ...hookResults.hardErrors,
       ],
-      override: "skipSchemaValidation",
+      override: "skipHooks",
       requiresPermission: "bypassApprovalChecks",
       resolution: null,
     });
@@ -211,6 +211,7 @@ export const postConfigRevisionPublish = createApiRequestHandler(
   const { blocking, bypassed } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
     skipSchemaValidation: req.context.skipSchemaValidation,
+    skipHooks: req.context.skipHooks,
     bypassApprovalPermission: adapter.canBypassApproval(
       req.context,
       config as Record<string, unknown>,

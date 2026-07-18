@@ -115,7 +115,7 @@ Either way the editor surfaces these inline as you edit — the failing field ro
 
 ## Custom validation hooks
 
-Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message (validation-class — forced past only with `"skipSchemaValidation": true` by a bypass-approvals caller), or raise a soft warning that anyone can review and bypass with `"ignoreWarnings": true`.
+Beyond schema conformance and validation rules, you can run your own validation logic with **Custom Hooks** — sandboxed JavaScript that GrowthBook executes on config save and publish. The `validateConfig` hook runs when a config is created or updated, and `validateConfigRevision` runs on every publish path; either can hard-block the change with a custom error message (forced past only with `"skipHooks": true` by a bypass-approvals caller — a hook failure is not a schema error, so `"skipSchemaValidation"` does not clear it), or raise a soft warning that anyone can review and bypass with `"ignoreWarnings": true`.
 
 Hooks are scoped Global, Project, or Config; a config-scoped hook automatically covers the whole family (the scoped config and everything that inherits from it). Manage them from a config's **Validation** tab or under **Settings → Custom Hooks**.
 

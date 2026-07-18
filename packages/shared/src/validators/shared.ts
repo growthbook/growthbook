@@ -145,11 +145,18 @@ export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Force past VALIDATION-class failures: JSON-schema validation of the value(s) written, cross-field invariants, downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema), and custom validation-hook rejections. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
+    "Force past schema-validation failures: JSON-schema validation of the value(s) written, cross-field invariants, and downstream schema breaks (a change that makes a dependent config or config-backed feature value violate its schema). Does NOT clear a custom validation-hook rejection — use `skipHooks` for that. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise. Validation is enforced by default.",
+  );
+export const skipHooksBodyField = z
+  .boolean()
+  .optional()
+  .describe(
+    "Force past a custom validation hook that rejected the change (a hook that threw). Separate from `skipSchemaValidation` — a hook failure is not a schema error. Only honored for callers with org-wide bypass authority (the `bypassApprovalChecks` permission on all projects); ignored otherwise.",
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
   skipSchemaValidation: skipSchemaValidationBodyField,
+  skipHooks: skipHooksBodyField,
 };
 
 // Publish-endpoint `bypassApproval` flag. Accepted for compatibility but has

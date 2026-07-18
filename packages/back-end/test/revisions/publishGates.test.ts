@@ -95,9 +95,19 @@ const noPermissions = () => false;
 const noClearance: PublishGateClearance = {
   ignoreWarnings: false,
   skipSchemaValidation: false,
+  skipHooks: false,
   bypassApprovalPermission: false,
   restApiBypassesReviews: false,
   canForceMergeStaleBase: false,
+};
+
+const customHookGate: PublishGate = {
+  type: "custom-hook",
+  severity: "blocker",
+  messages: ["A custom validation hook rejected this publish:"],
+  override: "skipHooks",
+  requiresPermission: "bypassApprovalChecks",
+  resolution: null,
 };
 const clearance = (
   overrides: Partial<PublishGateClearance>,
@@ -357,6 +367,38 @@ describe("classifyPublishGate", () => {
           clearance({ skipSchemaValidation: true }),
         ),
       ).toEqual({ outcome: "bypassed", via: "skipSchemaValidation" });
+    });
+  });
+
+  describe("custom-hook gates (skipHooks, distinct from skipSchemaValidation)", () => {
+    it("blocks with no clearance", () => {
+      expect(classifyPublishGate(customHookGate, noClearance)).toEqual({
+        outcome: "blocking",
+      });
+    });
+
+    it("is NOT cleared by skipSchemaValidation (hooks aren't schema)", () => {
+      expect(
+        classifyPublishGate(
+          customHookGate,
+          clearance({ skipSchemaValidation: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is NOT cleared by ignoreWarnings", () => {
+      expect(
+        classifyPublishGate(
+          customHookGate,
+          clearance({ ignoreWarnings: true }),
+        ),
+      ).toEqual({ outcome: "blocking" });
+    });
+
+    it("is bypassed by skipHooks", () => {
+      expect(
+        classifyPublishGate(customHookGate, clearance({ skipHooks: true })),
+      ).toEqual({ outcome: "bypassed", via: "skipHooks" });
     });
   });
 });
