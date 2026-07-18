@@ -4,11 +4,11 @@ import {
   DEMO_EXPERIMENT_ID,
   DEMO_EXPERIMENT_TRACKING_KEY,
   DEMO_FACT_METRIC_IDS,
-  getDemoDatasourceFactTableIdForOrganization,
-  getDemoDatasourcePageViewsFactTableIdForOrganization,
+  DEMO_FACT_TABLE_IDS,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
   getDemoResourceIds,
+  getLegacyDemoFactTableIds,
 } from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
@@ -268,16 +268,13 @@ async function ensureDemoFactTables(
   project: ProjectInterface,
   datasource: DataSourceInterface,
 ): Promise<void> {
-  const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(
-    context.org.id,
-  );
-  const demoPageViewsFactTableId =
-    getDemoDatasourcePageViewsFactTableIdForOrganization(context.org.id);
+  const demoFactTableId = DEMO_FACT_TABLE_IDS.purchases;
+  const demoPageViewsFactTableId = DEMO_FACT_TABLE_IDS.pageViews;
 
   if (!(await getFactTable(context, demoFactTableId))) {
     const demoFactTable = await createFactTable(context, {
       id: demoFactTableId,
-      name: "purchases",
+      name: "Purchases",
       description: "",
       owner: context.userId,
       tags: DEMO_TAGS,
@@ -320,7 +317,7 @@ async function ensureDemoFactTables(
   if (!(await getFactTable(context, demoPageViewsFactTableId))) {
     const demoPageViewsFactTable = await createFactTable(context, {
       id: demoPageViewsFactTableId,
-      name: "page_views",
+      name: "Page Views",
       description: "",
       owner: context.userId,
       tags: DEMO_TAGS,
@@ -364,9 +361,7 @@ async function ensureDemoFactMetrics(
   project: ProjectInterface,
   datasource: DataSourceInterface,
 ): Promise<void> {
-  const demoFactTableId = getDemoDatasourceFactTableIdForOrganization(
-    context.org.id,
-  );
+  const demoFactTableId = DEMO_FACT_TABLE_IDS.purchases;
 
   for (const m of DEMO_METRICS) {
     if (await context.models.factMetrics.getById(m.id)) continue;
@@ -685,7 +680,10 @@ export async function deleteDemoResources(context: ReqContext): Promise<void> {
     }
   }
 
-  for (const factTableId of ids.factTableIds) {
+  for (const factTableId of [
+    ...ids.factTableIds,
+    ...getLegacyDemoFactTableIds(context.org.id),
+  ]) {
     const factTable = await getFactTable(context, factTableId);
     if (factTable) {
       await deleteFactTable(context, factTable);
@@ -852,8 +850,8 @@ export async function deleteDemoDatasourceAndDependents(
   }
 
   for (const factTableId of [
-    getDemoDatasourceFactTableIdForOrganization(context.org.id),
-    getDemoDatasourcePageViewsFactTableIdForOrganization(context.org.id),
+    ...Object.values(DEMO_FACT_TABLE_IDS),
+    ...getLegacyDemoFactTableIds(context.org.id),
   ]) {
     const factTable = await getFactTable(context, factTableId);
     if (factTable) {

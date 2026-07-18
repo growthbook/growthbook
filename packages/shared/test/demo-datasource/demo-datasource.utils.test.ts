@@ -1,8 +1,9 @@
 import {
+  DEMO_FACT_TABLE_IDS,
   getDefaultProjectsForNewResource,
-  getDemoDatasourcePageViewsFactTableIdForOrganization,
   getDemoDatasourceProjectIdForOrganization,
   getDemoResourceIds,
+  getLegacyDemoFactTableIds,
   isDemoDatasourceProject,
 } from "../../src/demo-datasource/demo-datasource.utils";
 
@@ -22,11 +23,21 @@ describe("demo datasource utils", () => {
     });
   });
 
-  describe("getDemoDatasourcePageViewsFactTableIdForOrganization", () => {
-    it("should return the page_views fact table ID", () => {
-      expect(
-        getDemoDatasourcePageViewsFactTableIdForOrganization("org-abc123"),
-      ).toEqual("ftb_org-abc123_demo-datasource-page-views");
+  describe("DEMO_FACT_TABLE_IDS", () => {
+    it("should use constant IDs without an org prefix", () => {
+      expect(DEMO_FACT_TABLE_IDS).toEqual({
+        purchases: "ftb_demo-purchases",
+        pageViews: "ftb_demo-page-views",
+      });
+    });
+  });
+
+  describe("getLegacyDemoFactTableIds", () => {
+    it("should return the previous org-prefixed fact table IDs", () => {
+      expect(getLegacyDemoFactTableIds("org-abc123")).toEqual([
+        "ftb_org-abc123_demo-datasource-project",
+        "ftb_org-abc123_demo-datasource-page-views",
+      ]);
     });
   });
 
@@ -63,10 +74,7 @@ describe("demo datasource utils", () => {
       expect(getDemoResourceIds("org-abc123")).toEqual({
         projectId: "prj_org-abc123_demo-datasource-project",
         datasourceId: "ds_demo-datasource-project",
-        factTableIds: [
-          "ftb_org-abc123_demo-datasource-project",
-          "ftb_org-abc123_demo-datasource-page-views",
-        ],
+        factTableIds: ["ftb_demo-purchases", "ftb_demo-page-views"],
         factMetricIds: [
           "fact__demo-revenue-per-user",
           "fact__demo-any-purchases",

@@ -11,6 +11,10 @@ export const DEMO_DATASOURCE_HOST = "sample-data.growthbook.io";
 export const DEMO_DATASOURCE_ID = "ds_demo-datasource-project";
 export const DEMO_EXPERIMENT_ID = "exp_demo-datasource-project";
 export const DEMO_EXPERIMENT_TRACKING_KEY = "gbdemo-add-to-cart-cta";
+export const DEMO_FACT_TABLE_IDS = {
+  purchases: "ftb_demo-purchases",
+  pageViews: "ftb_demo-page-views",
+} as const;
 export const DEMO_FACT_METRIC_IDS = {
   revenuePerUser: "fact__demo-revenue-per-user",
   anyPurchases: "fact__demo-any-purchases",
@@ -59,37 +63,22 @@ export function getDefaultProjectsForNewResource({
 }
 
 /**
- * Returns the demo fact table ID to support the demo datasource project.
- * e.g. ftb_org-abc123_demo-datasource-project
- * @param organizationId
+ * Fact table IDs used by sample data before they were constant (org-prefixed).
+ * Kept so delete/reset can still remove those leftovers.
  */
-export function getDemoDatasourceFactTableIdForOrganization(
-  organizationId?: string,
-): string {
-  return (
+export function getLegacyDemoFactTableIds(organizationId: string): string[] {
+  return [
     "ftb" +
-    DEMO_PROJECT_ID_SEPARATOR +
-    organizationId +
-    DEMO_PROJECT_ID_SEPARATOR +
-    DEMO_PROJECT_ID_SUFFIX
-  );
-}
-
-/**
- * Returns the demo page_views fact table ID.
- * e.g. ftb_org-abc123_demo-datasource-page-views
- * @param organizationId
- */
-export function getDemoDatasourcePageViewsFactTableIdForOrganization(
-  organizationId?: string,
-): string {
-  return (
+      DEMO_PROJECT_ID_SEPARATOR +
+      organizationId +
+      DEMO_PROJECT_ID_SEPARATOR +
+      DEMO_PROJECT_ID_SUFFIX,
     "ftb" +
-    DEMO_PROJECT_ID_SEPARATOR +
-    organizationId +
-    DEMO_PROJECT_ID_SEPARATOR +
-    "demo-datasource-page-views"
-  );
+      DEMO_PROJECT_ID_SEPARATOR +
+      organizationId +
+      DEMO_PROJECT_ID_SEPARATOR +
+      "demo-datasource-page-views",
+  ];
 }
 
 /**
@@ -131,10 +120,7 @@ export function getDemoResourceIds(organizationId: string): {
   return {
     projectId: getDemoDatasourceProjectIdForOrganization(organizationId),
     datasourceId: DEMO_DATASOURCE_ID,
-    factTableIds: [
-      getDemoDatasourceFactTableIdForOrganization(organizationId),
-      getDemoDatasourcePageViewsFactTableIdForOrganization(organizationId),
-    ],
+    factTableIds: Object.values(DEMO_FACT_TABLE_IDS),
     factMetricIds: Object.values(DEMO_FACT_METRIC_IDS),
     experimentId: DEMO_EXPERIMENT_ID,
     featureId: getDemoDataSourceFeatureId(),

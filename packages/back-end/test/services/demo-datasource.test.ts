@@ -3,11 +3,11 @@ import {
   DEMO_DATASOURCE_ID,
   DEMO_EXPERIMENT_ID,
   DEMO_EXPERIMENT_TRACKING_KEY,
-  getDemoDatasourceFactTableIdForOrganization,
-  getDemoDatasourcePageViewsFactTableIdForOrganization,
+  DEMO_FACT_TABLE_IDS,
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
   getDemoResourceIds,
+  getLegacyDemoFactTableIds,
 } from "shared/demo-datasource";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -358,7 +358,7 @@ function seedAllStores() {
 }
 
 describe("seedDemoResources", () => {
-  it("creates every seeded resource with its constant or org-derived ID", async () => {
+  it("creates every seeded resource with its constant ID", async () => {
     const context = makeContext();
     const { project, experiment } = await seedDemoResources(context);
 
@@ -369,10 +369,7 @@ describe("seedDemoResources", () => {
     const ids = getDemoResourceIds(ORG_ID);
     expect(datasources.has(DEMO_DATASOURCE_ID)).toBe(true);
     expect([...factTables.keys()].sort()).toEqual(
-      [
-        getDemoDatasourceFactTableIdForOrganization(ORG_ID),
-        getDemoDatasourcePageViewsFactTableIdForOrganization(ORG_ID),
-      ].sort(),
+      Object.values(DEMO_FACT_TABLE_IDS).sort(),
     );
     expect([...factMetrics.keys()].sort()).toEqual(
       [...ids.factMetricIds].sort(),
@@ -408,9 +405,7 @@ describe("seedDemoResources", () => {
     const ids = getDemoResourceIds(ORG_ID);
     // Simulate a partial seed: one fact metric and one fact table missing.
     factMetrics.delete(ids.factMetricIds[0]);
-    factTables.delete(
-      getDemoDatasourcePageViewsFactTableIdForOrganization(ORG_ID),
-    );
+    factTables.delete(DEMO_FACT_TABLE_IDS.pageViews);
     // The surviving experiment already has a snapshot.
     mocked.getLatestSuccessfulSnapshot.mockResolvedValue(
       {} as Awaited<
@@ -428,11 +423,7 @@ describe("seedDemoResources", () => {
     expect(mocked.createFactTable).toHaveBeenCalledTimes(1);
     expect(context.models.factMetrics.create).toHaveBeenCalledTimes(1);
     expect(factMetrics.has(ids.factMetricIds[0])).toBe(true);
-    expect(
-      factTables.has(
-        getDemoDatasourcePageViewsFactTableIdForOrganization(ORG_ID),
-      ),
-    ).toBe(true);
+    expect(factTables.has(DEMO_FACT_TABLE_IDS.pageViews)).toBe(true);
   });
 });
 
@@ -640,10 +631,7 @@ describe("deleteDemoDatasourceAndDependents", () => {
     const legacyFactMetricId = "fact__legacy_random";
     const legacyMetricId = "met_legacy_random";
     const featureId = getDemoDataSourceFeatureId();
-    const factTableIds = [
-      getDemoDatasourceFactTableIdForOrganization(ORG_ID),
-      getDemoDatasourcePageViewsFactTableIdForOrganization(ORG_ID),
-    ];
+    const factTableIds = getLegacyDemoFactTableIds(ORG_ID);
 
     projects.set(demoProjectId, {
       id: demoProjectId,
