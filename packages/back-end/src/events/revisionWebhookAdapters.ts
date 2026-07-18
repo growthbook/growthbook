@@ -6,6 +6,7 @@ import type {
 import type { Context } from "back-end/src/models/BaseModel";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { dispatchConstantRevisionEvent } from "back-end/src/services/constantRevisionEvents";
+import { dispatchConfigRevisionEvent } from "back-end/src/services/configRevisionEvents";
 
 // Webhook-event plugin layer for the generic revision system.
 //
@@ -35,8 +36,14 @@ export type RevisionLifecycleAction =
   | {
       type: "updated";
       // Union across entity types: saved groups use condition/values; constants
-      // use value. The dispatcher narrows to its entity's valid subset.
-      change?: "metadata" | "condition" | "values" | "value" | "archive";
+      // use value; configs add schema. The dispatcher narrows to its subset.
+      change?:
+        | "metadata"
+        | "condition"
+        | "values"
+        | "value"
+        | "schema"
+        | "archive";
     }
   | { type: "reviewRequested" }
   | {
@@ -47,6 +54,14 @@ export type RevisionLifecycleAction =
     }
   | { type: "rebased" }
   | { type: "published" }
+  // A deferred publish (scheduled / auto-on-approval) was given up on after
+  // failing. Carries the failure context for the `revision.publishFailed` event.
+  | {
+      type: "publishFailed";
+      reason: string;
+      terminal: boolean;
+      attempts: number;
+    }
   | { type: "discarded" }
   | { type: "reopened" }
   // Fires whenever a revert lands on the live entity — both the direct-publish
@@ -71,6 +86,7 @@ export interface RevisionWebhookAdapter {
 const registry: Partial<Record<RevisionTargetType, RevisionWebhookAdapter>> = {
   "saved-group": { dispatch: dispatchSavedGroupRevisionEvent },
   constant: { dispatch: dispatchConstantRevisionEvent },
+  config: { dispatch: dispatchConfigRevisionEvent },
 };
 
 /** Return the webhook adapter for the given entity type, if one is registered. */

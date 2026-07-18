@@ -21,6 +21,8 @@ import {
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleJumpedPayload,
+  rampScheduleAwaitingStartApprovalPayload,
+  rampScheduleStartApprovedPayload,
 } from "./ramp-schedule-notifications";
 import {
   featureRevisionCreatedPayload,
@@ -34,6 +36,7 @@ import {
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
+  featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
@@ -66,6 +69,7 @@ import {
   savedGroupRevisionPublishedPayload,
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
+  savedGroupRevisionPublishFailedPayload,
 } from "./saved-group-revision-notifications";
 import { apiConstantValidator } from "./constant";
 import {
@@ -80,7 +84,23 @@ import {
   constantRevisionPublishedPayload,
   constantRevisionRevertedPayload,
   constantRevisionReopenedPayload,
+  constantRevisionPublishFailedPayload,
 } from "./constant-revision-notifications";
+import { apiConfigValidator } from "./config";
+import {
+  configRevisionCreatedPayload,
+  configRevisionUpdatedPayload,
+  configRevisionReviewRequestedPayload,
+  configRevisionApprovedPayload,
+  configRevisionChangesRequestedPayload,
+  configRevisionCommentedPayload,
+  configRevisionDiscardedPayload,
+  configRevisionRebasedPayload,
+  configRevisionPublishedPayload,
+  configRevisionRevertedPayload,
+  configRevisionReopenedPayload,
+  configRevisionPublishFailedPayload,
+} from "./config-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
@@ -189,6 +209,16 @@ export const notificationEvents = {
       schema: rampScheduleStepApprovalRequiredPayload,
       description: "Triggered when a feature ramp step is waiting for approval",
     },
+    "rampSchedule.actions.awaitingStartApproval": {
+      schema: rampScheduleAwaitingStartApprovalPayload,
+      description:
+        "Triggered when a feature ramp schedule is published but held at the start, awaiting an explicit start approval",
+    },
+    "rampSchedule.actions.startApproved": {
+      schema: rampScheduleStartApprovedPayload,
+      description:
+        "Triggered when a held ramp schedule's start is approved by a user",
+    },
     "revision.created": {
       schema: featureRevisionCreatedPayload,
       description:
@@ -239,6 +269,11 @@ export const notificationEvents = {
       schema: featureRevisionRevertedPayload,
       description:
         "Triggered when a feature is reverted to a previous published revision",
+    },
+    "revision.publishFailed": {
+      schema: featureRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
     },
   },
   experiment: {
@@ -402,6 +437,11 @@ export const notificationEvents = {
       schema: savedGroupRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
     },
+    "revision.publishFailed": {
+      schema: savedGroupRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
   },
   constant: {
     created: {
@@ -466,6 +506,81 @@ export const notificationEvents = {
     "revision.reopened": {
       schema: constantRevisionReopenedPayload,
       description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: constantRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
+    },
+  },
+  config: {
+    created: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is created",
+    },
+    updated: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConfigValidator,
+      description: "Triggered when a config is deleted",
+    },
+    "revision.created": {
+      schema: configRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a config",
+    },
+    "revision.updated": {
+      schema: configRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (value, schema, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: configRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: configRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: configRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: configRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: configRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: configRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: configRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `config.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: configRevisionRevertedPayload,
+      description:
+        "Triggered when a config is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: configRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.publishFailed": {
+      schema: configRevisionPublishFailedPayload,
+      description:
+        "Triggered when a deferred publish (scheduled publish or auto-publish-on-approval) is given up on after failing — terminally, or after exhausting retries. The draft is left open for a human to resolve.",
     },
   },
   user: {

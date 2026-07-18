@@ -28,7 +28,7 @@ export default function ImportSettings({
             docSection="config_organization_settings"
             className="font-weight-bold"
           >
-            View Documentation
+            View docs
           </DocLink>
           .
         </Callout>
@@ -36,10 +36,10 @@ export default function ImportSettings({
 
       {!hasFileConfig && (
         <Callout status="info" my="3">
-          <h3>Import/Export config.yml</h3>
+          <h3>Import &amp; Export config.yml</h3>
           <p>
             {isCloud ? "GrowthBook Cloud stores" : "You are currently storing"}{" "}
-            all organization settings, data sources, metrics, and dimensions in
+            all organization settings, Data Sources, metrics, and dimensions in
             a database.
           </p>
           <p>
@@ -51,7 +51,7 @@ export default function ImportSettings({
               docSection="config_yml"
               className="font-weight-bold"
             >
-              Learn More
+              View docs
             </DocLink>
           </p>
           <div className="row mb-3">
@@ -67,14 +67,14 @@ export default function ImportSettings({
           </div>
           <div className="text-muted">
             <strong>Note:</strong> For security reasons, the exported file does
-            not include data source connection secrets such as passwords. You
+            not include Data Source connection secrets such as passwords. You
             must edit the file and add these yourself.
           </div>
         </Callout>
       )}
 
       <div className="bg-white p-3 border position-relative my-3">
-        <h3>Import from another service</h3>
+        <h3>Import from Another Service</h3>
         <p>
           Import your data from another feature flag and/or experimentation
           service.

@@ -38,7 +38,6 @@ import {
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
-import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
@@ -470,25 +469,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Text>
                   </Frame>
                   <Frame>
-                    {d.settings.useJsonColumns ? (
-                      <ClickhouseManagedWarehouseIdentifiers
-                        dataSource={d}
-                        canEdit={canUpdateDataSourceSettings}
-                        mutate={async () => {
-                          await Promise.all([
-                            mutateDefinitions({}),
-                            mutateCurrentDataSource(),
-                          ]);
-                        }}
-                      />
-                    ) : (
-                      <ClickhouseMaterializedColumns
-                        dataSource={d}
-                        onCancel={() => undefined}
-                        canEdit={canUpdateDataSourceSettings}
-                        mutate={mutateDefinitions}
-                      />
-                    )}
+                    <ClickhouseManagedWarehouseIdentifiers
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      mutate={async () => {
+                        await Promise.all([
+                          mutateDefinitions({}),
+                          mutateCurrentDataSource(),
+                        ]);
+                      }}
+                    />
                   </Frame>
                 </>
               )

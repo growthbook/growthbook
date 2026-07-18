@@ -113,6 +113,15 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// A plan limit was hit and paying (upgrading) is the way past it.
+export class PaymentRequiredError extends Error {
+  status = 402;
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentRequiredError";
+  }
+}
+
 export class PlanDoesNotAllowError extends Error {
   status = 403;
   constructor(message: string) {
@@ -156,6 +165,36 @@ export class SoftWarningError extends Error {
     this.name = "SoftWarningError";
     this.warnings = warnings;
   }
+}
+
+// A publish failure that cannot become publishable on a later tick — a stale
+// experiment-guard fingerprint (the acknowledged conflict set no longer matches)
+// or a missing arming user. Thrown from a publish path so the scheduled-publish
+// poller gives up on the FIRST occurrence — parks the draft and fires
+// `revision.publishFailed` — instead of retrying to the attempt cap. Failures a
+// later tick could still resolve (merge conflicts, an incomplete pre-launch
+// checklist, a schema/invariant violation the config's schema or value may yet
+// be edited to satisfy) stay ordinary errors and retry to the cap. The
+// `terminalPublishFailure` flag lets the classifier recognize it even across
+// module/re-throw boundaries where `instanceof` can be unreliable. Still a 400
+// for synchronous (manual) callers.
+export class TerminalPublishError extends Error {
+  status = 400;
+  readonly terminalPublishFailure = true;
+  constructor(message: string) {
+    super(message);
+    this.name = "TerminalPublishError";
+  }
+}
+
+export function isTerminalPublishError(error: unknown): boolean {
+  if (error instanceof TerminalPublishError) return true;
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as { terminalPublishFailure?: unknown }).terminalPublishFailure ===
+      true
+  );
 }
 
 export class InternalServerError extends Error {

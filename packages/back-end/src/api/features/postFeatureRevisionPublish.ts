@@ -17,11 +17,15 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
+  assertFeatureValuesValidForPublish,
   getLiveAndBaseRevisionsForFeature,
   getMergeResultPublishEnvs,
   toApiRevision,
 } from "back-end/src/services/features";
-import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
@@ -205,6 +209,15 @@ export async function publishFeatureRevision(
     req.context.permissions.throwPermissionError();
   }
 
+  // Publish-time safety net (org-configurable strictness): re-validate the
+  // values going live against the feature's JSON schema. The config-backed
+  // schema/invariant net (assertConfigBackedFeatureValuesValid) runs inside
+  // publishRevision's shared prevalidatePublishRevision choke point below.
+  assertFeatureValuesValidForPublish(req.context, feature, {
+    defaultValue: mergeResult.result.defaultValue,
+    rules: mergeResult.result.rules,
+  });
+
   const updatedFeature = await publishRevision({
     context: req.context,
     feature,
@@ -244,14 +257,13 @@ export async function publishFeatureRevision(
     }),
   });
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    feature,
-    version: req.params.version,
-  });
-  const finalRevision = updated ?? revision;
+  // Re-read so the event carries the published status; falls back to the
+  // in-memory revision instead of failing the already-committed publish.
+  const finalRevision = await getPublishedRevisionForEvents(
+    req.context,
+    updatedFeature,
+    revision,
+  );
 
   await dispatchFeatureRevisionEvent(
     req.context,

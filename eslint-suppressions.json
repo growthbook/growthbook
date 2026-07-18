@@ -24,6 +24,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/CustomHooks/CustomHookModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/DataViz/DataVizConfigPanel.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -319,11 +324,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/CustomHookModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -385,11 +385,6 @@
     }
   },
   "packages/front-end/components/Features/PrerequisiteStatusRow.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RolloutSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -789,16 +784,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/AddEditMaterializedColumnsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/EditDataSource/ClickhouseMaterializedColumns/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1030,16 +1015,6 @@
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardEditorSidebar/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardUpdateDisplay.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardViewQueriesButton.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

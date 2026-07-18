@@ -94,6 +94,7 @@ describe("experiments API", () => {
         canUpdateExperiment: () => true,
         canAddComment: () => true,
       },
+      hasPremiumFeature: () => false,
       getUsersByIds: jest.fn().mockResolvedValue([]),
     });
   });

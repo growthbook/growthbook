@@ -3,7 +3,6 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type { MaterializedColumn } from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
@@ -174,31 +173,6 @@ export async function migrateOverageEventsForOrgId(
   orgId: string,
 ): Promise<void> {
   await postManagedClickhouse("migrate-overage", { orgId });
-}
-
-export async function updateMaterializedColumnsInClickhouse({
-  orgId,
-  columnsToAdd,
-  columnsToDelete,
-  columnsToRename,
-  finalColumns,
-  originalColumns,
-}: {
-  orgId: string;
-  columnsToAdd: MaterializedColumn[];
-  columnsToDelete: string[];
-  columnsToRename: { from: string; to: string }[];
-  finalColumns: MaterializedColumn[];
-  originalColumns: MaterializedColumn[];
-}): Promise<void> {
-  await postManagedClickhouse("update-materialized-columns", {
-    orgId,
-    columnsToAdd,
-    columnsToDelete,
-    columnsToRename,
-    finalColumns,
-    originalColumns,
-  });
 }
 
 export async function logCloudAIUsage({

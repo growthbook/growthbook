@@ -34,6 +34,11 @@ const BaseClass = MakeModelClass({
     deleteEvent: "savedGroup.deleted",
   },
   globallyUniquePrimaryKeys: true,
+  // Org-scoped `getAll()` is on the SDK-payload build path. The default indexes
+  // are id-leading (`{id, organization}`, `{id}`), which can't serve a filter on
+  // `organization` alone — without this a payload rebuild full-scans the
+  // collection. Mirrors FeatureModel's org-leading index.
+  additionalIndexes: [{ fields: { organization: 1 } }],
 });
 
 export class SavedGroupModel extends BaseClass<WriteOptions> {

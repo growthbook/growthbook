@@ -64,6 +64,7 @@ export default {
             "features/ramp-schedules", // Ramp Schedules
             "features/prerequisites", // Prerequisite Features
             "features/constants", // Constants (reusable referenced values)
+            "features/configs", // Configs (typed, validated, composable shapes)
           ],
         },
         {

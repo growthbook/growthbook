@@ -13,6 +13,10 @@ export const verticaDialect: SqlDialect = {
   }),
   dateDiff: (startCol: string, endCol: string) =>
     `${endCol}::DATE - ${startCol}::DATE`,
+  dateDiffMs: (startCol: string, endCol: string) =>
+    `TIMESTAMPDIFF(millisecond, ${startCol}, ${endCol})`,
+  addIntervalSeconds: (col: string, sign: "+" | "-", amount: number) =>
+    `TIMESTAMPADD(second, ${sign === "-" ? "-" : ""}${amount}, ${col})`,
   castToFloat: (col: string) => `${col}::float`,
   formatDate: (col: string) => `to_char(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
